@@ -270,7 +270,8 @@ class EngineServices:
                 await shutdown_provider_clients(d.llm_gateway)
         except Exception as error:
             failed("providers", error)
-        await release(getattr(d.runtime_context, "outbound_webhook_dispatcher", None), "close")
+        await release(getattr(d, "outbound_webhook_dispatcher",
+                              getattr(d.runtime_context, "outbound_webhook_dispatcher", None)), "close")
         try:
             await asyncio.to_thread(d.sessions.save)
         except Exception as error:
@@ -441,10 +442,15 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     from ..tools.time_parser import set_default_timezone
     from ..trajectories.saver import TrajectorySaver
     from ..turn_state import TurnStateStore
+    from .integrations import ProfileOutboundWebhookDispatcher
 
     runtime = runtime_context or SimpleNamespace()
     get_config = (lambda: settings.config) if settings is not None else getattr(runtime, "get_config", lambda: config)
     cfg = get_config()
+    outbound = getattr(runtime, "outbound_webhook_dispatcher", None)
+    if outbound is None:
+        outbound = ProfileOutboundWebhookDispatcher(
+            get_config, secrets=settings.secrets if settings is not None else None)
     set_default_timezone(cfg.timezone)
     paths.create_private()
     state = channel_state or getattr(runtime, "channel_state", None) or ChannelStateRegistry()
@@ -506,7 +512,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         str(paths.data_dir / "skills"), tool_executor=executor,
         memory_path=str(paths.data_dir / "memory.json"), tool_timeouts=cfg.tools.tool_timeouts,
         allowed_urls=tuple(cfg.tools.skill_allowed_urls), config_store=skill_config_store)
-    scheduler = getattr(runtime, "scheduler", None) or Scheduler(str(paths.data_dir / "schedules.json"))
+    scheduler = getattr(runtime, "scheduler", None) or Scheduler(
+        str(paths.data_dir / "schedules.json"), desktop_recovery=True)
     skills.set_services(knowledge_store=knowledge, embedder=embedder, session_manager=sessions, scheduler=scheduler)
     audit = getattr(runtime, "audit", None) or AuditLogger(path=str(paths.data_dir / "audit.jsonl"),
         hmac_key=cfg.audit.hmac_key, classify_failures=cfg.observability.audit_failure_classification)
@@ -634,6 +641,11 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
                       "read_conversation": engine.requests is not None,
                       "generate_file": engine.requests is not None,
                       "post_file": engine.requests is not None})
+        for name in ("spawn_agent", "send_to_agent", "list_agents", "kill_agent", "get_agent_results",
+                     "wait_for_agents", "delegate_task", "list_tasks", "cancel_task", "start_loop",
+                     "stop_loop", "list_loops", "schedule_task", "list_schedules", "update_schedule",
+                     "delete_schedule"):
+            ready[name] = getattr(engine.deps, "background_work_ready", False)
         for name in ("search_knowledge", "ingest_document", "bulk_ingest_knowledge", "list_knowledge", "delete_knowledge"):
             ready[name] = knowledge is not None and bool(get_config().search.enabled)
         extra = getattr(runtime, "native_readiness", None)
@@ -659,7 +671,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     mcp = getattr(runtime, "mcp_manager", None)
     catalog = _ReadyCatalog(policy=policy, get_config=get_config, skill_manager=skills,
         get_mcp_definitions=mcp.get_tool_definitions if mcp else None,
-        computer_available=lambda: bool(getattr(owners.get("computer"), "enabled", False)),
+        computer_available=lambda: bool(getattr(owners.get("computer"),
+                                                "published_available", False)),
         get_email_config=lambda: executor._email_config)
     if settings is not None:
         gateway.tool_catalog, gateway.prompt_builder = catalog, prompt
@@ -667,7 +680,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     if mcp is not None:
         mcp.set_on_catalog_changed(catalog.invalidate)
     recorder = TurnRecorder(get_config=get_config, trajectory_saver=trajectories,
-        reflector=reflector, outbound_webhook_dispatcher=getattr(runtime, "outbound_webhook_dispatcher", None),
+        reflector=reflector, outbound_webhook_dispatcher=outbound,
         loop_reflection_gate=LoopReflectionGate(cooldown_hours=cfg.learning.loop_reflection_cooldown_hours,
             max_per_hour=cfg.learning.loop_reflection_max_per_hour))
     completion = CompletionClassifier(get_llm_client=lambda: gateway.active_client,
@@ -748,7 +761,9 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         skill_manager=skills, audit=audit, agent_manager=agents, loop_manager=loops,
         host_registry=hosts, host_access_manager=access, scheduler=scheduler, reflector=reflector,
         context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime,
-        knowledge_store=knowledge, embedder=embedder, compression_stats=compression_stats)
+        knowledge_store=knowledge, embedder=embedder, compression_stats=compression_stats,
+        outbound_webhook_dispatcher=outbound)
+    d.native_owners = owners
     engine = EngineServices(d, None)
     runner = ToolLoopRunner(ToolLoopDeps(get_config=get_config,
         get_default_system_prompt=lambda: prompt.default_prompt, get_context_compressor=lambda: compression,

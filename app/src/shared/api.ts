@@ -48,7 +48,41 @@ export interface UsageResult {
 }
 
 export type WorkKind = 'agent' | 'task' | 'loop' | 'process' | 'schedule' | 'workflow'
-export type WorkAction = 'stop' | 'cancel' | 'restart' | 'pause' | 'resume' | 'run_now'
+export type WorkAction = 'stop' | 'cancel' | 'restart' | 'pause' | 'resume' | 'run_now' | 'steer'
+
+/** Core projections are structured; the older fixture also supplies a text detail. */
+export interface WorkSettlement {
+  state: string
+  resource_release?: string
+  [key: string]: unknown
+}
+
+export interface WorkControlParams {
+  control_command_id: string
+  kind: WorkKind
+  /** Immutable public work ID, never a PID or scheduler manager ID. */
+  id: string
+  action: WorkAction
+  manager_generation?: string
+  run_id?: string
+  generation?: number
+  conversation_id?: string
+  revision?: number
+  text?: string
+}
+
+export interface WorkControlReceipt {
+  disposition: string
+  reason?: string
+  consumed?: boolean
+  sequence?: number
+  settlement?: WorkSettlement
+  run_id?: string
+  generation?: number
+  manager_generation?: string
+  schedule?: Record<string, unknown>
+  detail?: unknown
+}
 
 /** Background work Odin is running or keeps: an agent, task, loop, process, schedule or workflow. */
 export interface WorkItem {
@@ -57,9 +91,15 @@ export interface WorkItem {
   title: string
   state: string
   conversation_id?: string
-  request_id?: string
-  started_at?: string
-  detail: string
+  request_id?: string | null
+  /** Retained managers use epoch seconds; the legacy fixture uses ISO text. */
+  started_at?: string | number | null
+  manager_id?: string
+  manager_generation?: string
+  run_id?: string
+  generation?: number
+  detail: string | Record<string, unknown>
+  settlement?: WorkSettlement
   /** The controls Odin offers for this item now. */
   actions: WorkAction[]
 }
@@ -612,6 +652,20 @@ export interface ScheduleRow {
   last_error_at?: string | null
   /** Why the schedule can no longer fire, such as a one-time run whose time passed while paused. */
   inert_reason?: string | null
+  /** D12 missed effects wait for an explicit run; this is not a failed or automatically replayed check. */
+  recovery_required?: string | null
+  missed_run?: {
+    due_at: string
+    observed_at: string
+    lateness_seconds: number
+    missed_count: number
+    omitted_count: number
+    count_truncated: boolean
+    policy: 'coalesced' | 'manual'
+    workflow_catchup_limit: number
+  } | null
+  /** The scheduler's observation of its last execution, never inferred from paused/active. */
+  settlement?: string | null
 }
 
 /** Fields both creating and changing a schedule take. Changing sends only what changed. */
@@ -640,7 +694,7 @@ export interface ScheduleRun {
   schedule_id: string
   description: string
   action: ScheduleAction
-  status: 'success' | 'failure'
+  status: 'success' | 'failure' | 'skipped' | 'unknown'
   duration_ms: number
   error?: string
   retry_attempt?: number
@@ -1246,7 +1300,7 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   cancelAttachment(id: string): Promise<Result<{ cancelled: boolean }>>
   onAttachmentProgress(listener: (progress: AttachmentProgress) => void): () => void
   workList(params?: { kind?: WorkKind; conversation_id?: string }): Promise<Result<{ items: WorkItem[] }>>
-  workControl(params: { control_command_id: string; kind: WorkKind; id: string; action: WorkAction }): Promise<Result<{ disposition: string }>>
+  workControl(params: WorkControlParams): Promise<Result<WorkControlReceipt>>
   resumeRequest(params: {
     control_command_id: string
     conversation_id: string

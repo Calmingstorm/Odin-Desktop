@@ -1,14 +1,16 @@
 // Development-only assertions, invoked exclusively by the isolated smoke runner.
 // Exercise the named preload bridge and rendered app, not a second mock client.
 import { strict as assert } from 'node:assert'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import type { BrowserWindow } from 'electron'
 import type { Broker } from './broker'
 import type { ConversationSnapshot } from '../shared/api'
 
 const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
-// Reviewed conversation/request and Step 6A management surface; never derive expectations from welcome.
+// Reviewed conversation/request, management and background surface; never derive expectations from welcome.
 export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
   'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
   'artifacts.read', 'tool.detail', 'tool.output',
@@ -38,6 +40,9 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
   'models.main.set', 'models.agents.get', 'models.agents.set', 'models.discover', 'personality.get', 'personality.set', 'personality.presets.save', 'personality.presets.delete',
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
   'control.stop', 'control.steer', 'control.resume',
+  'work.list', 'work.control', 'reports.page',
+  'schedules.list', 'schedules.save', 'schedules.delete', 'schedules.run',
+  'schedules.reset_failures', 'schedules.history', 'schedules.validate_cron',
   'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete', 'webhooks.outbound.test', 'integrations.email.get',
   'skills.list', 'skills.get', 'skills.validate', 'skills.save', 'skills.delete', 'skills.test',
   'skills.set_enabled', 'skills.config.get', 'skills.config.set',
@@ -68,11 +73,26 @@ export function assertFreshManagementStatus(status: RealCoreStatus): void {
 }
 
 export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: string): Promise<void> {
+  const seededWorkProof = process.env.ODIN_SMOKE_WORK_PROOF === '1'
+  const phase = seededWorkProof ? 'seeded work proof' : 'production entry / fresh real profile'
   const deadline = Date.now() + 30_000
   while (broker.linkState !== 'ready' || win.webContents.isLoading()) {
     assert(Date.now() < deadline, 'real-core smoke timed out waiting for the app and handshake')
     await pause(100)
   }
+  const proofPath = join(process.env.HOME!, 'work-proof.json')
+  if (seededWorkProof) {
+    while (!existsSync(proofPath)) {
+      assert(Date.now() < deadline, 'seeded work proof bootstrap did not settle')
+      await pause(100)
+    }
+  } else {
+    assert(!existsSync(proofPath), 'production entry must not import the seeded work proof')
+  }
+  const proof = seededWorkProof ? JSON.parse(readFileSync(proofPath, 'utf8')) as { conversation_id: string; report_id: string; recovery_id: string } : undefined
+  const counts = (): unknown => Object.fromEntries(['background', 'report'].map(name =>
+    [name, readFileSync(join(process.env.HOME!, `${name}-effects`), 'utf8').trim().split('\n').length]))
+  const beforePaging = seededWorkProof ? counts() : undefined
   const result = await broker.request('status.get')
   assert(result.ok, 'real status.get must succeed')
   const status = result.result as RealCoreStatus
@@ -89,13 +109,14 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     'attachments.commit', 'attachments.cancel', 'audit.diffs', 'audit.failures', 'audit.tail', 'logs.stats',
     'logs.tail', 'knowledge.chunks', 'knowledge.duplicates', 'knowledge.version', 'knowledge.diff',
     'learned.list', 'observability.stats', 'observability.risk', 'openrouter.catalogue', 'trajectories.list',
-    'skills.list', 'skills.save', 'skills.validate', 'skills.test', 'mcp.status', 'mcp.save', 'mcp.tools', 'computer.status', 'computer.reconcile']) {
+    'skills.list', 'skills.save', 'skills.validate', 'skills.test', 'mcp.status', 'mcp.save', 'mcp.tools', 'computer.status', 'computer.reconcile',
+    'work.list', 'work.control', 'reports.page', 'schedules.list', 'schedules.run', 'schedules.history']) {
     assert(status.capabilities.includes(method), `${method} must be published by the real management core`)
   }
 
-  // Part B dispatch, work and schedules remain genuine refusals. The approved
-  // owner-only skill Test does not grant background dispatch or native input.
-  for (const method of ['work.list', 'schedules.list', 'turns.create',
+  // Raw dispatch aliases and foreground input remain genuine refusals. Served
+  // work management does not grant arbitrary RPC execution or native input.
+  for (const method of ['turns.create',
     'loops.list', 'agents.list', 'shell.execute', 'computer_act']) {
     assert(!status.capabilities.includes(method), `${method} must not be advertised as served`)
     const refused = await broker.request(method)
@@ -103,7 +124,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   }
 
   const reads: Record<string, unknown> = {}
-  for (const method of ['settings.schema', 'usage.get', 'personality.get', 'tools.list', 'tools.timeouts.get', 'hosts.list', 'memory.list', 'lists.list', 'knowledge.list', 'health.get', 'audit.query', 'logs.search', 'turn_state.list', 'skills.list', 'mcp.list', 'mcp.status', 'computer.status']) {
+  for (const method of ['settings.schema', 'usage.get', 'personality.get', 'tools.list', 'tools.timeouts.get', 'hosts.list', 'memory.list', 'lists.list', 'knowledge.list', 'health.get', 'audit.query', 'logs.search', 'turn_state.list', 'skills.list', 'mcp.list', 'mcp.status', 'computer.status', 'work.list', 'schedules.list', 'schedules.history']) {
     const answer = await broker.request(method)
     assert(answer.ok, `${method} management read must succeed`)
     reads[method] = answer.result
@@ -112,6 +133,12 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert(!accounts.ok && accounts.error.code === 'keyring_unavailable', 'isolated profile must honestly report missing system keyring, not invent accounts')
   reads['codex.accounts.list'] = accounts
   assert.deepEqual(reads['lists.list'], { items: [] })
+  if (!seededWorkProof) assert.deepEqual(reads['work.list'], { items: [] })
+  if (!seededWorkProof) {
+    // The seeded pass deliberately holds D12 schedules and their history.
+    assert.deepEqual(reads['schedules.list'], [])
+    assert.deepEqual(reads['schedules.history'], [])
+  }
   assert.deepEqual(reads['skills.list'], [], 'fresh skills list is a served array, not an items wrapper')
   for (const method of ['mcp.list', 'mcp.status']) {
     const mcp = reads[method] as { servers: unknown[]; server_count: number; configured_servers: string[];
@@ -134,9 +161,11 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(computer.readiness.input_supported, false)
   assert.equal(computer.readiness.dispatch, 'none')
   assert(!('input_dispatch' in computer), 'management status must not grant an input dispatch binding')
-  assert.deepEqual(reads['audit.query'], [])
-  assert.deepEqual(reads['logs.search'], { entries: [], count: 0 })
-  assert.equal((reads['turn_state.list'] as { availability: string }).availability, 'not_enabled')
+  if (!seededWorkProof) {
+    assert.deepEqual(reads['audit.query'], [])
+    assert.deepEqual(reads['logs.search'], { entries: [], count: 0 })
+  }
+  assert.equal((reads['turn_state.list'] as { availability: string }).availability, 'available')
   assert.deepEqual((reads['usage.get'] as { tokens: unknown }).tokens, { value: null, kind: 'unknown' })
   assert((reads['settings.schema'] as { fields: unknown[] }).fields.length > 0, 'real management schema must contain fields')
 
@@ -149,6 +178,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   }
   const text = (selector: string): Promise<string> => run(`document.querySelector(${JSON.stringify(selector)})?.innerText ?? ''`)
   const count = (selector: string): Promise<number> => run(`document.querySelectorAll(${JSON.stringify(selector)}).length`)
+  // Message bodies are committed DOM content. Off-screen messages use content-visibility,
+  // which innerText omits until rendered, so message checks read textContent.
+  const content = (selector: string): Promise<string> => run(`(document.querySelector(${JSON.stringify(selector)})?.textContent ?? '').replace(/\\s+/g, ' ').trim()`)
   const click = async (selector: string): Promise<void> => {
     assert(await run(`Boolean(document.querySelector(${JSON.stringify(selector)}))`), `missing UI control ${selector}`)
     await run(`document.querySelector(${JSON.stringify(selector)}).click()`)
@@ -164,6 +196,15 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     }
   }
   const screens: Array<{ screen: string; text: string }> = []
+  if (seededWorkProof) {
+    // Every captured screen carries its provenance, not just the console log.
+    await run(`(() => {
+      const label = document.createElement('div');
+      label.textContent = 'seeded work proof | agent/process rows: metadata seeds, not execution qualification';
+      label.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:2147483647;background:#221b00;color:#fff;padding:4px;font-size:12px;pointer-events:none';
+      document.body.append(label);
+    })()`)
+  }
   const unavailable = /not (?:yet )?available|unavailable|not served|later (?:step|slice)/i
   const recordUnavailable = async (screen: string, selector: string): Promise<void> => {
     await until(async () => unavailable.test(await text(selector)), screen)
@@ -177,11 +218,22 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   screens.push({ screen: 'Status', text: await text('.status') })
   // The renderer creates Chat only after a successful empty list, then loads
   // an authoritative snapshot. A missing provider does not unserve chat.
-  await until(async () => (await count('.conv-row')) === 1 && (await text('.message-scroll')).includes('Ask Odin anything.') &&
+  await until(async () => (await count('.conv-row')) === 1 && (await content('.message-scroll')).includes(seededWorkProof ? 'Harmless catch-up notice' : 'Ask Odin anything.') &&
     await run<boolean>('document.querySelector(".composer textarea")?.disabled === false'), 'real first conversation and snapshot')
   assert.equal(await text('.conv.active .conv-title'), 'Chat')
-  assert.equal(await count('.sidebar-notice'), 0, 'served conversations must not show an unavailable notice')
-  assert.equal(await count('.msg'), 0, 'fresh real conversation must not seed fixture messages')
+  assert.equal(await count('.sidebar-notice'), 0, 'served conversations must not claim unavailable')
+  if (seededWorkProof) {
+    assert((await count('.msg')) > 0, 'real background publication must appear in the transcript')
+    assert(/Due:.*late by.*Omitted slots:/s.test(await content('.message-scroll')), 'real D12 reminder must show catch-up provenance')
+    await until(async () => (await text('.report-body')).includes('produced once'), 'stored real report first page')
+    await click('.report-nav button:nth-of-type(2)')
+    await until(async () => (await text('.report-body')).includes('no rerun'), 'stored real report second page')
+    assert.deepEqual(counts(), beforePaging, 'report paging must not execute the external tool again')
+    screens.push({ screen: 'Stored report paging and D12 catch-up notice', text: await content('.message-scroll') })
+    writeFileSync(out.replace(/\.png$/i, '') + '-report.png', (await win.webContents.capturePage()).toPNG())
+  } else {
+    assert.equal(await count('.msg'), 0, 'fresh real conversation must not seed fixture messages')
+  }
   assert(await run('document.querySelector(".composer button[type=submit]")?.disabled === true'), 'empty composer must not send')
   assert(await run(`document.querySelector(${JSON.stringify('button[aria-label="Attach files"]')})?.disabled === false`), 'served chat must offer attachments')
   const initial = await broker.request('conversations.list')
@@ -246,8 +298,33 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal((searched.result as { next_cursor: string | null }).next_cursor, null)
   screens.push({ screen: 'Search', text: await text('.search-panel') })
   await click('.work-toggle')
-  await recordUnavailable('Work', '.work-panel')
-  assert.equal(await run('document.querySelectorAll(".work-item").length'), 0)
+  let receipt: unknown
+  if (seededWorkProof) {
+    await until(async () => (await text('.work-panel')).includes('Harmless completed task') &&
+      (await text('.work-panel')).includes('Resource release is not confirmed'), 'real Work detail and honest unknown release')
+    const work = await broker.request('work.list')
+    assert(work.ok)
+    const workItems = (work.result as { items: Array<Record<string, unknown>> }).items
+    assert.deepEqual(new Set(workItems.map(i => i.kind)), new Set(['agent', 'task', 'workflow', 'loop', 'process', 'schedule']))
+    const cancellable = workItems.find(i => i.title === 'Harmless cancellable task')!
+    const controlParams = Object.fromEntries(['kind', 'id', 'manager_generation', 'run_id', 'generation', 'conversation_id'].map(k => [k, cancellable[k]]))
+    Object.assign(controlParams, { action: 'cancel', control_command_id: randomUUID() })
+    const controlReceipt = await run<{ ok: boolean; result?: { disposition: string } }>(`window.odin.workControl(${JSON.stringify(controlParams)})`)
+    receipt = controlReceipt
+    assert(controlReceipt.ok)
+    assert.equal(controlReceipt.result!.disposition, 'done')
+    assert.deepEqual(await run(`window.odin.workControl(${JSON.stringify(controlParams)})`), controlReceipt, 'named bridge must return journaled receipt without repeating cancellation')
+    await click('button[aria-label="Refresh work"]')
+    await until(async () => (await text('.work-panel')).includes('cancelled'), 'settled actual task after journaled cancellation')
+    screens.push({ screen: 'Work all kinds (agent/process metadata seeds), settled task and journaled receipt', text: await text('.work-panel') })
+  } else {
+    const work = await broker.request('work.list')
+    assert(work.ok, 'fresh work list must be served')
+    assert.deepEqual((work.result as { items: unknown[] }).items, [], 'fresh profile must not invent work rows')
+    await until(async () => (await text('.work-panel')).includes('No work'), 'fresh empty Work')
+    assert.equal(await count('.work-item'), 0)
+    screens.push({ screen: 'Fresh empty Work', text: await text('.work-panel') })
+  }
   writeFileSync(out, (await win.webContents.capturePage()).toPNG())
 
   await click('button[title="Settings (Ctrl+,)"]')
@@ -257,7 +334,6 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.deepEqual(sections, ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and trust', 'Scheduled and running work', 'State', 'Records', 'Other'])
   // Check unserved work owners separately from the wired Step 6A read panels.
   const servicePanels: Record<string, string[]> = {
-    'Scheduled and running work': ['section[aria-label="Schedules"]', 'section[aria-label="Running work"]']
   }
   const servedPanels: Record<string, Array<[string, RegExp]>> = {
     'Models and providers': [['.codex-accounts', /keyring.*(?:locked|unavailable)/i]],
@@ -267,7 +343,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     'MCP servers': [['section[aria-label="MCP"]', /1 of 1 servers connected.*1 tools offered/s], ['section[aria-label="MCP servers"]', /Add server/]],
     'Hosts and trust': [['section[aria-label="Hosts"]', /localhost/]],
     State: [['section[aria-label="Memory"]', /0 entries/], ['section[aria-label="Named lists"]', /No lists\./], ['section[aria-label="Knowledge"]', /Knowledge/]],
-    Records: [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /not measured: Odin doesn't know this value/], ['section[aria-label="Audit"]', /Nothing recorded\./], ['section[aria-label="Logs"]', /No entries\./], ['section[aria-label="Turn state"]', /Turn state is off\./], ['section[aria-label="Computer use"]', /Refresh/]]
+    Records: [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /not measured: Odin doesn't know this value/], ['section[aria-label="Computer use"]', /Refresh/]]
   }
   const observations = await run<Record<string, { ok: boolean; result?: unknown; error?: { code: string; message: string } }>>(`(async () => ({
     settings: await window.odin.settingsSchema(), hosts: await window.odin.hostsList({}),
@@ -300,30 +376,37 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(hostData.hosts[0]!.alias, 'localhost')
   assert.equal(hostData.hosts[0]!.trust_state, 'local')
   assert.equal(hostData.default_host, 'localhost')
-  assert.deepEqual(observations.audit!.result, [], 'fresh audit must have no invented tool records')
+  if (seededWorkProof) {
+    assert(Array.isArray(observations.audit!.result), 'audit must report actual local schedule/task records')
+    assert(Array.isArray((observations.logs!.result as { entries: unknown[] }).entries), 'logs must read actual engine records')
+  } else {
+    assert.deepEqual(observations.audit!.result, [], 'fresh audit must have no invented tool records')
+    assert.deepEqual((observations.logs!.result as { entries: unknown[] }).entries, [], 'fresh logs must have no invented entries')
+  }
   assert.deepEqual(observations.skills!.result, reads['skills.list'])
   assert.deepEqual(observations.mcp!.result, reads['mcp.status'])
   assert.deepEqual(observations.computer!.result, reads['computer.status'])
-  assert.deepEqual((observations.logs!.result as { entries: unknown[] }).entries, [])
-  assert.equal((observations.turns!.result as { availability: string }).availability, 'not_enabled')
-  assert.deepEqual(observations.duplicates!.result, { exact: [], near: [] }, 'fresh knowledge must have no invented duplicates')
-  assert.deepEqual((observations.learned!.result as { entries: unknown[] }).entries, [])
-  assert.deepEqual((observations.diffs!.result as { entries: unknown[] }).entries, [])
-  assert.deepEqual((observations.trajectories!.result as { files: string[] }).files, [])
-  assert.deepEqual((observations.search!.result as { hits: unknown[] }).hits, [])
-  assert.equal((observations.conversations!.result as { items: unknown[] }).items.length, 2, 'only first Chat and explicitly created New chat may exist')
-  for (const key of ['auditTail', 'logTail']) {
-    const tail = observations[key]!.result as { lines: unknown[]; cursor: string; availability: string }
-    assert.deepEqual(tail.lines, [], 'fresh records tails must not invent activity')
-    assert.equal(typeof tail.cursor, 'string')
-    assert(['available', 'missing'].includes(tail.availability), 'tail must distinguish an empty source from a missing file')
+  assert.equal((observations.turns!.result as { availability: string }).availability, 'available')
+  if (!seededWorkProof) {
+    assert.deepEqual(observations.duplicates!.result, { exact: [], near: [] }, 'fresh knowledge must have no invented duplicates')
+    assert.deepEqual((observations.learned!.result as { entries: unknown[] }).entries, [])
+    assert.deepEqual((observations.diffs!.result as { entries: unknown[] }).entries, [])
+    assert.deepEqual((observations.trajectories!.result as { files: string[] }).files, [])
+    assert.deepEqual((observations.search!.result as { hits: unknown[] }).hits, [])
+    assert.equal((observations.conversations!.result as { items: unknown[] }).items.length, 2, 'only first Chat and explicitly created New chat may exist')
+    for (const key of ['auditTail', 'logTail']) {
+      const tail = observations[key]!.result as { lines: unknown[]; cursor: string; availability: string }
+      assert.deepEqual(tail.lines, [], 'fresh records tails must not invent activity')
+      assert.equal(typeof tail.cursor, 'string')
+      assert(['available', 'missing'].includes(tail.availability), 'tail must distinguish an empty source from a missing file')
+    }
+    const noSubmission = observations.snapshot!.result as { messages: { items: unknown[] }; running: unknown; queued: unknown[]; recent: unknown[]; unresolved: unknown[] }
+    assert.deepEqual(noSubmission.messages.items, [], 'local slash reports must not submit provider messages')
+    assert.equal(noSubmission.running, null)
+    assert.deepEqual(noSubmission.queued, [])
+    assert.deepEqual(noSubmission.recent, [])
+    assert.deepEqual(noSubmission.unresolved, [])
   }
-  const noSubmission = observations.snapshot!.result as { messages: { items: unknown[] }; running: unknown; queued: unknown[]; recent: unknown[]; unresolved: unknown[] }
-  assert.deepEqual(noSubmission.messages.items, [], 'local slash reports must not submit provider messages')
-  assert.equal(noSubmission.running, null)
-  assert.deepEqual(noSubmission.queued, [])
-  assert.deepEqual(noSubmission.recent, [])
-  assert.deepEqual(noSubmission.unresolved, [])
   // All operations cross the named preload bridge. The fixture is local stdio,
   // implements initialize/tools-list, and has no account or network listener.
   const invoke = <T = unknown>(name: string, params: unknown = {}): Promise<T> =>
@@ -418,6 +501,20 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       await click('button[aria-label="Tools for slice4_local"]')
       await until(async () => (await text('.mcp-tools')).includes('constant'), 'rendered real MCP tools disclosure')
     }
+    if (sections[i] === 'Scheduled and running work') {
+      if (seededWorkProof) {
+        await until(async () => (await text('section[aria-label="Schedules"]')).includes('D12 manual recovery check') &&
+          (await text('section[aria-label="Schedules"]')).includes('Recovery required'), 'real D12 recovery-required schedule')
+        assert((await text('section[aria-label="Schedules"]')).includes('No effects were replayed'), 'D12 must render actual recovery reason')
+      } else {
+        const schedules = await broker.request('schedules.list')
+        assert(schedules.ok, 'fresh schedules list must be served')
+        assert.deepEqual(schedules.result, [], 'fresh profile must not invent schedules')
+        await until(async () => (await text('section[aria-label="Schedules"]')).includes('No schedules yet.'), 'real empty schedules')
+        await until(async () => (await text('section[aria-label="Running work"]')).includes('Nothing is running.'), 'real empty running work')
+        assert.equal(await count('section[aria-label="Running work"] .work-item'), 0)
+      }
+    }
     if (sections[i] === 'Hosts and trust') {
       await until(async () => (await text('section[aria-label=Hosts]')).includes('localhost'), 'real localhost row')
       assert.equal(await run('document.querySelector("section[aria-label=Hosts] select").value'), 'localhost')
@@ -433,7 +530,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert(!/Service is not available yet|Loading…|Searching…/.test(await text(selector)), `${selector} must settle its served read`)
       if (selector === 'section[aria-label="Computer use"]') {
         // Served management and unqualified native input are separate claims.
-        assert.equal(await count(selector + ' .capability-unavailable'), 1)
+        await until(async () => (await count(selector + ' .capability-unavailable')) === 1, 'computer use foreground refusal')
         assert.match(await text(selector + ' .capability-unavailable'), /Foreground computer use is unavailable.*Native input is not qualified or supported.*Dispatch: none/s)
         assert.equal(await run(`document.querySelector(${JSON.stringify('button[aria-label="Refresh computer use"]')})?.disabled`), false)
       } else {
@@ -456,6 +553,15 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert.deepEqual(JSON.parse(await text('pre[aria-label="Knowledge duplicates JSON"]')), observations.duplicates!.result)
     }
     if (sections[i] === 'Records') {
+      if (seededWorkProof) {
+        await until(async () => !(await text('section[aria-label=Audit]')).includes('Loading'), 'seeded work proof audit')
+        await until(async () => !(await text('section[aria-label=Logs]')).includes('Loading'), 'seeded work proof logs')
+      } else {
+        await until(async () => (await text('section[aria-label=Audit]')).includes('Nothing recorded.'), 'real empty audit')
+        await until(async () => (await text('section[aria-label=Logs]')).includes('No entries.'), 'real empty logs')
+      }
+      await until(async () => (await text('section[aria-label="Turn state"]')).includes('Preserved work') &&
+        !(await text('section[aria-label="Turn state"]')).includes('Loading'), 'real turn-state availability')
       assert((await text('section[aria-label="Health"]')).includes('host(s) configured'), 'real health must observe profile hosts')
       for (const [label, key] of [['Audit diffs', 'diffs'], ['Audit failures', 'failures'], ['Log statistics', 'logStats']] as const) {
         const selector = `section[aria-label="${label}"]`
@@ -478,7 +584,10 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert.equal(await count('.settings-body .warn'), 0, 'served Step 6A reads must not present a renderer fault')
     }
     assert.equal(await run('document.querySelectorAll(".settings-body [role=alert]").length'), 0, `${sections[i]} must not present capability refusal as a fault`)
-    assert.equal(await run('document.querySelectorAll(".settings-body .work-item, .settings-body .account").length'), 0, `${sections[i]} must not display fixture accounts/work`)
+    // Seeded Work is real 6B work in its own section; accounts are never served in this isolated profile.
+    const fixtureRows = seededWorkProof && sections[i] === 'Scheduled and running work'
+      ? '.settings-body .account' : '.settings-body .work-item, .settings-body .account'
+    assert.equal(await run(`document.querySelectorAll(${JSON.stringify(fixtureRows)}).length`), 0, `${sections[i]} must not display fixture accounts/work`)
     const renderedPaths = await run<string[]>('Array.from(document.querySelectorAll(".settings-body .field-path"), e => e.textContent)')
     const fields = (reads['settings.schema'] as { fields: Array<{ path: string }> }).fields
     for (const path of renderedPaths) assert(fields.some((field) => field.path === path), `rendered field ${path} must belong to the served schema`)
@@ -515,10 +624,10 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   })()`)
   await until(async () => await run<boolean>('document.querySelector(".composer button[type=submit]")?.disabled === false'), 'served composer ready to submit')
   await click('.composer button[type=submit]')
-  await until(async () => (await text('.message-scroll .msg.notice .body')).includes('No LLM provider available. Please try again later.') &&
-    (await text('.message-scroll .outcome')).includes('The task failed.') && (await count('.working, .msg.pending')) === 0, 'actual unavailable-provider task outcome')
+  await until(async () => (await content('.message-scroll .msg.notice .body')).includes('No LLM provider available. Please try again later.') &&
+    (await content('.message-scroll .outcome')).includes('The task failed.') && (await count('.working, .msg.pending')) === 0, 'actual unavailable-provider task outcome')
   assert.equal(await count('.message-scroll .msg.user'), 1, 'submission must commit exactly one user message')
-  assert.equal(await text('.message-scroll .msg.user .body'), submissionText)
+  await until(async () => (await content('.message-scroll .msg.user .body')) === submissionText, 'committed user message text')
   assert.equal(await count('.message-scroll .msg.assistant'), 0, 'missing provider must not invent an assistant reply')
   assert(await run('document.querySelector(".composer textarea").value === ""'), 'accepted submission clears its draft')
   const failed = await broker.request('conversation.snapshot', { conversation_id: conversationId })
@@ -552,11 +661,14 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(await count('#conversation-search-error'), 0)
   assert((await text('.search-hits .hit-snippet')).includes(submissionText))
   await click('.search-hits .hit')
-  await until(async () => (await text('.message-scroll .msg.highlight .body')) === submissionText, 'real search hit navigation')
+  await until(async () => (await content('.message-scroll .msg.highlight .body')) === submissionText, 'real search hit navigation')
   screens.push({ screen: 'Search / committed transcript', text: await text('.search-panel') })
   writeFileSync(out.replace(/\.png$/i, '') + '-chat.png', (await win.webContents.capturePage()).toPNG())
   assert.equal(broker.linkState, 'ready')
-  writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify({ link: broker.linkState, status, reads, observations, screens }, null, 2) + '\n')
-  process.stdout.write(`real-core-smoke: evidence ${JSON.stringify({ link: broker.linkState, status, screens: screens.map(({ screen }) => screen), observations: Object.fromEntries(Object.entries(observations).map(([name, answer]) => [name, answer.ok ? 'observed' : answer.error?.code])) })}\n`)
-  process.stdout.write(`real-core-smoke: ok link=ready version=${status.version} screens=${screens.length}\n`)
+  if (seededWorkProof) assert.deepEqual(counts(), beforePaging, 'all report reads and UI navigation must not rerun a check')
+  const labelledScreens = screens.map(screen => ({ ...screen, screen: `${phase} / ${screen.screen}` }))
+  const evidence = { phase, qualification: seededWorkProof ? 'agent/process rows are metadata seeds, not execution qualification' : 'unmodified production entry on a fresh real profile', link: broker.linkState, status, reads, observations, proof, receipt, toolCounts: seededWorkProof ? counts() : undefined, screens: labelledScreens }
+  writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify(evidence, null, 2) + '\n')
+  process.stdout.write(`real-core-smoke: evidence ${JSON.stringify({ phase, link: broker.linkState, status, screens: labelledScreens.map(({ screen }) => screen), observations: Object.fromEntries(Object.entries(observations).map(([name, answer]) => [name, answer.ok ? 'observed' : answer.error?.code])) })}\n`)
+  process.stdout.write(`real-core-smoke: ok phase=${phase} link=ready version=${status.version} screens=${screens.length}\n`)
 }

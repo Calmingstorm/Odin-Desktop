@@ -8,12 +8,15 @@ import { ensureProfileDirs, ensureToken, profilePaths, type ProfilePaths } from 
 
 const repository = resolve(__dirname, '../..')
 
-// The published named contract, not an arbitrary renderer RPC surface. Step 6A
-// management is served; Part B dispatch and foreground input remain absent.
+// The published named contract, not an arbitrary renderer RPC surface. Retained
+// background work, reports and schedules are served; foreground input is absent.
 export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
   'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
   'artifacts.read', 'tool.detail', 'tool.output',
   'control.stop', 'control.steer', 'control.resume',
+  'work.list', 'work.control', 'reports.page',
+  'schedules.list', 'schedules.save', 'schedules.delete', 'schedules.run',
+  'schedules.reset_failures', 'schedules.history', 'schedules.validate_cron',
   'conversations.list', 'conversations.create', 'conversations.update', 'conversations.delete',
   'conversations.reset_context', 'conversations.mark_read', 'messages.list',
   'conversation.snapshot', 'search.query', 'messages.around',
@@ -55,7 +58,7 @@ export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.s
   'computer.operator_reconcile', 'computer.release_owned_input', 'computer.activation.set'
 ].sort()]
 
-type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string }
+type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string; workProof?: boolean }
 
 // Only the external secret/auth boundary is substituted. The entry point, management services,
 // transport, command journal, settings persistence and Broker remain the actual repository code.
@@ -189,7 +192,7 @@ export class RealCoreHarness {
     assertIsolated()
     if (this.running) throw new Error('Real core is already running.')
     this.output = ''
-    const entry = this.services.memoryKeyring || this.services.authBaseUrl
+    const entry = this.services.workProof ? [join(repository, 'app/test/services-b-core.py')] : this.services.memoryKeyring || this.services.authBaseUrl
       ? ['-c', isolatedServicesBootstrap, this.services.memoryKeyring ? 'memory' : 'missing', this.services.authBaseUrl ?? '']
       : ['-m', 'src']
     const child = spawn(this.python, ['-B', '-P', ...entry, '--socket', this.paths.socketPath,
@@ -213,6 +216,10 @@ export class RealCoreHarness {
     // Allow bounded startup on busy self-hosted runners, without retrying or
     // substituting a fixture after launch. Event wait defaults stay unchanged.
     }, 'real core socket creation', 25_000)
+    if (this.services.workProof) await waitFor(() => {
+      if (!this.running) throw new Error(`Work bootstrap failed: ${this.output}`)
+      return existsSync(join(this.root, 'work-proof.json'))
+    }, 'actual manager proof admission', 12_000)
   }
 
   broker(wrongToken = false): Broker {
@@ -237,7 +244,7 @@ export class RealCoreHarness {
     return { broker, welcome }
   }
 
-  async waitExit(timeoutMs = 8_000): Promise<{ code: number | null; signal: NodeJS.Signals | null }> {
+  async waitExit(timeoutMs = 15_000): Promise<{ code: number | null; signal: NodeJS.Signals | null }> {
     if (!this.exited) throw new Error('No real core process to wait for.')
     let timer: NodeJS.Timeout | undefined
     try {

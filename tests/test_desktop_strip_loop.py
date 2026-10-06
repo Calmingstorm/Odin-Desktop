@@ -32,6 +32,9 @@ def test_all_unadapted_loop_phase_bodies_are_byte_identical():
         "run", "run_resumed", "_prepare_chat_turn", "_scoped_tools_for_request",
         "_call_llm", "run_autonomous", "_finalize_loop", "__init__",
         "_run_one_tool_captured", "_audit_tool_outcome",
+        # Step 6B replaces only the proxy/removed prompt parameter and adds
+        # admitted owner checks. Real execution is exercised by background_core.
+        "_prepare_loop_turn", "dispatch_loop_tool_inner",
     }
     assert baseline.keys() == desktop.keys()
     for name in baseline.keys() - adapted:

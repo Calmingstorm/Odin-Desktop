@@ -46,7 +46,8 @@ async def test_service_readiness_and_integrated_delivery_are_honest(connected):
     assert {"skills.save", "skills.test", "mcp.save", "computer.status",
             "computer.activation.set"} <= capabilities
     assert "submission.send" in capabilities
-    assert not {"computer_act", "schedules.list"} & capabilities
+    assert "schedules.list" in capabilities
+    assert "computer_act" not in capabilities
     assert (await request(reader, writer, "skills.list"))["result"] == []
     mcp = await request(reader, writer, "mcp.status")
     assert mcp["ok"] and mcp["result"]["server_count"] == 0

@@ -62,6 +62,11 @@ def seed_neutral_callback_task(manager, **kwargs):
         **kwargs,
     )
     manager._loops[identifier] = info
+    async def local_algorithm_sink(_info, text):
+        await channel.send(text)
+    # This sink belongs only to the frozen algorithm fixture. It supplies no
+    # admission, requester, scope, or production conversation authority.
+    info._publish = local_algorithm_sink
     info._task = asyncio.create_task(manager._run_loop(info, channel, callback))
     return identifier
 

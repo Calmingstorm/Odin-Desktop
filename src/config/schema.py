@@ -1354,6 +1354,10 @@ class OutboundWebhookTarget(BaseModel):
     name: str = ""
     url: str = ""
     secret: str = ""  # HMAC-SHA256 signing key; empty = unsigned
+    # Presence metadata only. None preserves legacy rows whose vault entries
+    # predate these markers; False qualifies a credential-free target without I/O.
+    signing_key_stored: bool | None = None
+    private_url_stored: bool | None = None
     events: list[str] = Field(default_factory=list)  # empty = all events
     enabled: bool = True
     scrub_secrets: bool = True

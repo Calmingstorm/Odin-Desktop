@@ -110,7 +110,7 @@ class ManagementService:
         from .codex_accounts import CodexAccountsService
         from .computer_binding import ComputerBindingService
         from .hosts import HostsService
-        from .integrations import IntegrationsService
+        from .integrations import IntegrationsService, ProfileOutboundWebhookDispatcher
         from .knowledge import KnowledgeService
         from .learned_context import LearnedContextService
         from .mcp import MCPService
@@ -347,7 +347,11 @@ class ManagementService:
                                  skills=skills,
                                  usage=getattr(runtime_context, "usage_rollup", None))
         models = ModelSettingsService(settings, executor=executor, provider=providers)
-        integrations = IntegrationsService(settings)
+        outbound = (deps.outbound_webhook_dispatcher if deps is not None else
+                    ProfileOutboundWebhookDispatcher(lambda: settings.config,
+                                                     secrets=settings.secrets))
+        integrations = IntegrationsService(settings, dispatcher=outbound,
+                                           owns_dispatcher=deps is None)
         learned = LearnedContextService(
             core.paths, reflector_getter=lambda: getattr(providers, "reflector", None),
             learning_getter=lambda: settings.config.learning,
@@ -376,6 +380,7 @@ class ManagementService:
         manager.lifecycle_services = (*manager.services, browser)
         manager.settings, manager.executor, manager.providers = settings, executor, providers
         manager.runtime, manager.hosts, manager.codex = runtime, hosts, codex
+        manager.integrations = integrations
         manager.records, manager.knowledge = records, knowledge
         manager.learned, manager.trajectories = learned, trajectories
         manager.observations, manager.openrouter = observations, openrouter

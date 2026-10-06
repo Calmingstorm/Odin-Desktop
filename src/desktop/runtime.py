@@ -207,12 +207,15 @@ class RuntimeService:
         # Never call core.status here: the core delegates back to this service.
         from .core import VERSION
 
+        deps = getattr(getattr(self.core, "engine", None), "deps", None)
         observed = SimpleNamespace(
             config=self.config, llm_gateway=self.llm_gateway,
             start_time=getattr(self.core, "start_time", None),
             tool_catalog=self.tool_catalog,
-            agent_manager=getattr(self.core, "agent_manager", None),
-            loop_manager=getattr(self.core, "loop_manager", None),
+            agent_manager=getattr(deps, "agent_manager", None)
+                          or getattr(self.core, "agent_manager", None),
+            loop_manager=getattr(deps, "loop_manager", None)
+                         or getattr(self.core, "loop_manager", None),
         )
         facts = collect_status(observed)
         facts["version"] = VERSION

@@ -58,6 +58,63 @@ def test_pending_omnibus_caller_paths_are_explicit_and_individually_required(tmp
                for e in gate.validate(data, rows, moved, tmp_path)["errors"])
 
 
+def partial_inventory(tmp_path):
+    rows = parsed()
+    rows[0]["strings"].append("restored operation")
+    findings = gate.scan_source('value = "fence complete"', "src/example.py")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src/service.py").write_text("def admitted():\n return 'owned'\n")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/test_runtime.py").write_text("def test_admitted():\n assert True\n")
+    data = inventory(rows, findings)
+    data["rows"][0].update(
+        status="pending_restoration", owner="unassigned", pending_reference="unassigned",
+        restored_fragments={"restored operation": {
+            "source_targets": [{"path": "src/service.py", "selector": "admitted"}],
+            "evidence_tests": ["tests/test_runtime.py::test_admitted"],
+            "proof_limit": "Only the absent fragment; remainder is still pending.",
+        }},
+    )
+    return rows, findings, data
+
+
+def test_pending_mixed_row_accepts_only_evidenced_absent_fragment(tmp_path):
+    rows, findings, data = partial_inventory(tmp_path)
+    assert not gate.validate(data, rows, findings, tmp_path)["errors"]
+    assert data["rows"][0]["status"] == "pending_restoration"
+    data["rows"][0].pop("observations")
+    assert gate.validate(data, rows, [], tmp_path)["errors"]
+
+
+@pytest.mark.parametrize("field,value", [
+    ("evidence_tests", []), ("evidence_tests", ["tests/test_runtime.py::test_missing"]),
+    ("source_targets", []), ("source_targets", [{"path": "src/service.py", "selector": "missing"}]),
+    ("source_targets", [{"path": "/tmp/foreign.py", "selector": "admitted"}]),
+    ("proof_limit", ""),
+])
+def test_partial_restoration_requires_real_targets_and_named_evidence(tmp_path, field, value):
+    rows, findings, data = partial_inventory(tmp_path)
+    data["rows"][0]["restored_fragments"]["restored operation"][field] = value
+    assert gate.validate(data, rows, findings, tmp_path)["errors"]
+
+
+def test_partial_restoration_cannot_mask_active_or_inactive_literal(tmp_path):
+    rows, findings, data = partial_inventory(tmp_path)
+    for source in ('value = "restored operation"',
+                   'def legacy():\n return\n value = "restored operation"\n'):
+        changed = findings + gate.scan_source(source, "src/other.py")
+        data["rows"][0].pop("observations", None)
+        assert gate.validate(data, rows, changed, tmp_path)["errors"]
+
+
+@pytest.mark.parametrize("replacement", [None, [], {"foreign fragment": {}},
+    {"fence complete": {}, "restored operation": {}}])
+def test_partial_restoration_cannot_drop_or_replace_entire_row(tmp_path, replacement):
+    rows, findings, data = partial_inventory(tmp_path)
+    data["rows"][0]["restored_fragments"] = replacement
+    assert gate.validate(data, rows, findings, tmp_path)["errors"]
+
+
 @pytest.mark.parametrize("paths", [
     [], None, {"foreign fragment": ["src/caller.py"]}, {"fence complete": []},
     {"fence complete": [None]}, {"fence complete": ["/tmp/foreign.py"]},
