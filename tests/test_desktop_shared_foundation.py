@@ -275,9 +275,11 @@ async def test_skill_missing_delivery_and_destination_fail_explicitly():
     from src.tools.skill_context import SkillContext
 
     context = SkillContext(MagicMock(), "fixture")
-    for call in (lambda: context.post_message("hello"),
-                 lambda: context.post_file(b"x", "x.txt"),
-                 lambda: context.search_history("q"),
+    # Posting without a callback follows v4.13.0 (warning, nothing sent); the
+    # history and scheduling destinations stay explicitly unavailable.
+    assert await context.post_message("hello") is None
+    assert await context.post_file(b"x", "x.txt") is None
+    for call in (lambda: context.search_history("q"),
                  lambda: context.schedule_task("test", "reminder", "untrusted-id"),
                  lambda: context.update_schedule("S1"),
                  lambda: context.delete_schedule("S1")):
