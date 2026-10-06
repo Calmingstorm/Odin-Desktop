@@ -1,0 +1,477 @@
+{
+  "artifacts": [
+    {
+      "bytes": 445,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-env.log",
+      "sha256": "1f5edd920088632cb650bb694a86d6e35b703d247805536baeffd918af29dec9"
+    },
+    {
+      "bytes": 1170,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-fixture-smoke.log",
+      "sha256": "1f946fb18c08c8055a5fd4790c7c95a64127548bb4e0cd4849dd217830186f17"
+    },
+    {
+      "bytes": 50818,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-fixture-smoke.png",
+      "sha256": "6f2db86f4e4b09fd918fb4923dd16f646e74dadbe959ef6eb3afc7809b58a5a7"
+    },
+    {
+      "bytes": 93161,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-inventory.json",
+      "sha256": "ca9db2700dfe43d7b35bcfb16120530d72a247c6d19bffd7763b083f23476f88"
+    },
+    {
+      "bytes": 52,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-lint.log",
+      "sha256": "9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584"
+    },
+    {
+      "bytes": 4776,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-management-runtime-restored.log",
+      "sha256": "9a69cef039fa36679cafad62662541c9690497ac2983539ee43d818f5a7038a8"
+    },
+    {
+      "bytes": 209790,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-management-runtime-restored.xml",
+      "sha256": "79a671d06965a3b725c88dba15909322d07ceb2a703824628bd947fee4b5b1a8"
+    },
+    {
+      "bytes": 19503,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-npm-check.log",
+      "sha256": "7070f3b83177d3f0939ac9b989318fc205447218d68eeca90d8ffdc45d198b9d"
+    },
+    {
+      "bytes": 972,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-plan.log",
+      "sha256": "ee20850a561b355e8240ab57ec1ff604439ca4f5322807e31a00dbd9139f2a48"
+    },
+    {
+      "bytes": 90194,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-chat.png",
+      "sha256": "1053bc5597d72b906413ae2bc66415be8eeba1a65af9ed18ae484067700e6709"
+    },
+    {
+      "bytes": 1882179,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-evidence.json",
+      "sha256": "801870162f0965966bb655af0f7805d5c56c25b0c28e50be1508d3bcb8317243"
+    },
+    {
+      "bytes": 116250,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-settings-1.png",
+      "sha256": "5b4c06952714266f079e00b1026d80b434f44f7e7a853258e473a740796d9386"
+    },
+    {
+      "bytes": 85695,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-settings-10.png",
+      "sha256": "bf0611489af7f41ab560c3d20916e132acd7579904f0d65aee692a88f962331e"
+    },
+    {
+      "bytes": 101466,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-settings-11.png",
+      "sha256": "d1fbd68cd215d33f5e7c4c593f8fc1c9f484eedf0766da709ea5e6eb0a97f419"
+    },
+    {
+      "bytes": 104131,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-settings-2.png",
+      "sha256": "9f28b785b7305e0cb09dd18afd07da73599c948791c57a30238770f50d79a578"
+    },
+    {
+      "bytes": 146997,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-settings-3.png",
+      "sha256": "1757a230a3cc47ea10f1c656e8dd23894e23e0e05af784a01edcc57fa4a233ae"
+    },
+    {
+      "bytes": 155889,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-settings-4.png",
+      "sha256": "05f2fee759e92a201d2ee067697909aa33b2f611197cb6122570101f0d8bf9a3"
+    },
+    {
+      "bytes": 98189,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-settings-5.png",
+      "sha256": "5ddb1e61b55ac9783720ffca80d84279e9ae5e6ed76e8c474cc482340b6a3f2d"
+    },
+    {
+      "bytes": 122204,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-settings-6.png",
+      "sha256": "c079bfb862ac483eed0a1d260825e3df1986b4293e60138ecc273a7ba7ee258b"
+    },
+    {
+      "bytes": 111916,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-settings-7.png",
+      "sha256": "5b2ccb034a020e0fd652216e547605aca7e3d66f958dece70d6a30869a778892"
+    },
+    {
+      "bytes": 113449,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-settings-8.png",
+      "sha256": "955fe0925d6456fee915e1e54284f7517371e8cabde75079eba2dd3629fbe616"
+    },
+    {
+      "bytes": 94009,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-settings-9.png",
+      "sha256": "d846ae69b16e8d0eb7702495e632608cca13e475eafcf071e82523d5fd2e114e"
+    },
+    {
+      "bytes": 101466,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2-settings.png",
+      "sha256": "d1fbd68cd215d33f5e7c4c593f8fc1c9f484eedf0766da709ea5e6eb0a97f419"
+    },
+    {
+      "bytes": 73030,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-r2.png",
+      "sha256": "494a504d576f2a67b3683b602afb364c1797a76e31eb5760774f6f545e6bb790"
+    },
+    {
+      "bytes": 9625,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-smoke-r2.log",
+      "sha256": "8e5b87f26101aca0651b2980d02460aa6ed1568a8f0276322fb7d70ce111a2da"
+    },
+    {
+      "bytes": 1371,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core-smoke.log",
+      "sha256": "52d9bb190700d2da9a8845ca1e450767050bcd787dc532f133d6e059f5b382eb"
+    },
+    {
+      "bytes": 7780,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core.log",
+      "sha256": "2e2a1076cc8b1969802900a1c1e5282754521e8da02299d3ff8bf2bd6439ba33"
+    },
+    {
+      "bytes": 72581,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-real-core.png",
+      "sha256": "c5cdd57feed16b37f913bb1823db615937373f83f626e23bdac6d54cbb67bf9e"
+    },
+    {
+      "bytes": 654,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-short-and-main-additions.log",
+      "sha256": "2486708e576ed0e14d7b92364c724adb65a0de21125ce8c8a78171999653acf2"
+    },
+    {
+      "bytes": 72069,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-short-and-main-additions.xml",
+      "sha256": "08e934b737a759734eecd59e167835a85f9c42d481d96d41afb49079cc3bdc85"
+    },
+    {
+      "bytes": 1589,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-suite-map.log",
+      "sha256": "52d24bb08699af8383ecbddcc7aec4d95c4e6cbf87c3f79030852af3857edfa9"
+    },
+    {
+      "bytes": 111,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/final-typecheck-r2.log",
+      "sha256": "12cd1940d937dd2545333540e5164514b0ed1b4d69f4a14d5d9df6f8d29fce81"
+    },
+    {
+      "bytes": 1164,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/fixture-smoke.log",
+      "sha256": "0c84e49878740025ffc6401cb0f8d8e22ddd1f6b777fff2fd99cd6e0c2c53274"
+    },
+    {
+      "bytes": 50674,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/fixture-smoke.png",
+      "sha256": "e03af5d1b150ff56861c404147b7cbd101cb4b4afa843d0850bcd6b5c9fd2b48"
+    },
+    {
+      "bytes": 90977,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/inventory-final.json",
+      "sha256": "5c7af57b6e1032d42458b284f803fc7bdfcf135f14c223e2cfa291b1a9842cca"
+    },
+    {
+      "bytes": 90977,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/inventory.json",
+      "sha256": "5c7af57b6e1032d42458b284f803fc7bdfcf135f14c223e2cfa291b1a9842cca"
+    },
+    {
+      "bytes": 1171,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-fixture-smoke.log",
+      "sha256": "b6470a6f78e453a21fad7678a6f8fbb4ffcf9dc919a4c9a85843aa34d1f9eb90"
+    },
+    {
+      "bytes": 51049,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-fixture-smoke.png",
+      "sha256": "0a2bef99e6af0e913eee6ea12ae7c7f46fcbc9c3ffc17c0e7feb4cc007f2d071"
+    },
+    {
+      "bytes": 92531,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-inventory.json",
+      "sha256": "f60067256a28b811e65c0fe26ebea0fbaf41d8afad2c7a35579280dbfeb56ad8"
+    },
+    {
+      "bytes": 52,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-lint.log",
+      "sha256": "9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584"
+    },
+    {
+      "bytes": 4776,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-management-runtime-restored.log",
+      "sha256": "b46f3f85ffc5989d43c1efc51510f725a1c9da55f72e6b4a8d52f8657d2edd08"
+    },
+    {
+      "bytes": 209790,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-management-runtime-restored.xml",
+      "sha256": "613e6e9bcec2951c2210de7d11fee31ae7cbada67a5ec67551e68bfdf08585b6"
+    },
+    {
+      "bytes": 18674,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-npm-check.log",
+      "sha256": "6511de47eaa3d9bb060f8370054c0e0a2d563c631b3cd49349128609e0afefce"
+    },
+    {
+      "bytes": 972,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-plan.log",
+      "sha256": "ee20850a561b355e8240ab57ec1ff604439ca4f5322807e31a00dbd9139f2a48"
+    },
+    {
+      "bytes": 90339,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-chat.png",
+      "sha256": "37e235a137833e789ee124fc6072b1e5f45e935eeef6b609a0dcb1df764ea3da"
+    },
+    {
+      "bytes": 1879284,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-evidence.json",
+      "sha256": "a190a9aafed15aa2afb8a43c365e6fe1a9047d2152bdc57785cffeedf166d6b1"
+    },
+    {
+      "bytes": 116131,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-settings-1.png",
+      "sha256": "fd6c55d7875e6c5eccadb7901aba3ca3911628a068056bae05eee4651bde5102"
+    },
+    {
+      "bytes": 85578,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-settings-10.png",
+      "sha256": "ef3cd11d6cf0965739334fd0e18224d80894526554339fcd1af12b0f1f2d7f08"
+    },
+    {
+      "bytes": 101355,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-settings-11.png",
+      "sha256": "c30304f75beeeeb8edfd7634f0d4fe3c49e75602665248ce67683e8348702c45"
+    },
+    {
+      "bytes": 104020,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-settings-2.png",
+      "sha256": "b8b412eb33c80eab84119acbc92bc6b2e527e71e100cb28d9ebf7107addbbe25"
+    },
+    {
+      "bytes": 146876,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-settings-3.png",
+      "sha256": "b0f39ba4100817219f0f35306ee20d3388ecfee4f2e09d018e74f4f4aa95b8bf"
+    },
+    {
+      "bytes": 150461,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-settings-4.png",
+      "sha256": "5481fde409717e897a8077af4aed8e6dfc890b6c180c0abfbcecb7bca879348f"
+    },
+    {
+      "bytes": 98059,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-settings-5.png",
+      "sha256": "d2078c50e1b40ca1cd6c3811036c972080e3dcb46fcd5e533fee473a6e80a699"
+    },
+    {
+      "bytes": 122081,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-settings-6.png",
+      "sha256": "aebbb36194895ac96637257aadca63d286816814e18560fc4ade647560965555"
+    },
+    {
+      "bytes": 111637,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-settings-7.png",
+      "sha256": "4ca788c741c7f16d371198249d1eac7ae2eb99ad2c664ecdbeb2efabca59e31b"
+    },
+    {
+      "bytes": 113336,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-settings-8.png",
+      "sha256": "2752b3b32b571afdb85ea92b86b15bba896f48feed92ea8dd91c0ba8419c3a2b"
+    },
+    {
+      "bytes": 93889,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-settings-9.png",
+      "sha256": "3ef24b914b45a5df658adba50a0bb94dd7ae3d113de424e28c6ff4532c01bee4"
+    },
+    {
+      "bytes": 101355,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-settings.png",
+      "sha256": "c30304f75beeeeb8edfd7634f0d4fe3c49e75602665248ce67683e8348702c45"
+    },
+    {
+      "bytes": 8302,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core-smoke.log",
+      "sha256": "d6ed02cbfab6dd83abcae7c6068da2aa78585b8746028417bf502896c07de324"
+    },
+    {
+      "bytes": 7781,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core.log",
+      "sha256": "660af53d7b09faaeeff4be71712e035659f172b24265f4b809da9790c48ab6f2"
+    },
+    {
+      "bytes": 72909,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-real-core.png",
+      "sha256": "8ceaa2652c073c2d16a08e0f261811bd1e0a31151f9946d5e188cac62bf94137"
+    },
+    {
+      "bytes": 654,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-short-and-main-additions.log",
+      "sha256": "85ee0efb946c1f9f8d327e848b5f9980eb4d88c85a9408194fad8ccd2a2fa232"
+    },
+    {
+      "bytes": 66103,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-short-and-main-additions.xml",
+      "sha256": "0718399bcdec3ccd9abe2b0f316c945e10940660ab719c2fe1afce0b235a4315"
+    },
+    {
+      "bytes": 1589,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/latest-suite-map.log",
+      "sha256": "52d24bb08699af8383ecbddcc7aec4d95c4e6cbf87c3f79030852af3857edfa9"
+    },
+    {
+      "bytes": 52,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/lint-final.log",
+      "sha256": "9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584"
+    },
+    {
+      "bytes": 52,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/lint.log",
+      "sha256": "9d34ab5bc2efad4fadb7e30a2f0674d4426c54769eed8fb7fe58b6cfe61c4584"
+    },
+    {
+      "bytes": 4779,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/management-runtime-restored-final.log",
+      "sha256": "4e6c238a1691d9c299d1287387fd9a7b7a062e830a89d34561ed34bd5d933c66"
+    },
+    {
+      "bytes": 209790,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/management-runtime-restored-final.xml",
+      "sha256": "09795488305dc600bc63544bcac8bd63cf88884336cb5f17f45a9834ace02ca7"
+    },
+    {
+      "bytes": 11913,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/management-runtime-restored.log",
+      "sha256": "c42fd7d6e9720e566a4362a3566e5752f4cc435216d589c1338e8e98b956b2ce"
+    },
+    {
+      "bytes": 215387,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/management-runtime-restored.xml",
+      "sha256": "6dec2ac130aa57c3f65972cf43141ab8341b1782b3f564623560fe4198efbd1b"
+    },
+    {
+      "bytes": 19606,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/npm-check.log",
+      "sha256": "3dad6729f2b1f0b6d6a8ad1008cebc84e9862c700b2ef5304a7e3ee55a784d62"
+    },
+    {
+      "bytes": 1923,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/npm-setup.log",
+      "sha256": "0ec6316d829866551ebecf41c9ac7cf88ef92d6fed95df2015129ffb60efe3cc"
+    },
+    {
+      "bytes": 972,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/phase2-plan.log",
+      "sha256": "ee20850a561b355e8240ab57ec1ff604439ca4f5322807e31a00dbd9139f2a48"
+    },
+    {
+      "bytes": 2408,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/python-setup.log",
+      "sha256": "c60a7b75d0c66069ea0980530ce4ac5c681bc331f9b5ad019ab6429ff6b71613"
+    },
+    {
+      "bytes": 89862,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-chat.png",
+      "sha256": "b9a4f84e8bb9a895d40a2d5bbc20dd924b508b077e704c90f0789534a8d14a2d"
+    },
+    {
+      "bytes": 1879282,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-evidence.json",
+      "sha256": "eb52414a8871f9d65d8ed610105388b79cc4eb7ce31014ea1934a3eb21d608b6"
+    },
+    {
+      "bytes": 115736,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-settings-1.png",
+      "sha256": "457f337a4fb8251cbd56f3a459a2abc5101e7892ec82cdec82051d0eb95f2cf0"
+    },
+    {
+      "bytes": 85195,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-settings-10.png",
+      "sha256": "999b5013ceb69f92ea14fae00c70167c9c3892ea13735b643dd1e9471129de5d"
+    },
+    {
+      "bytes": 85195,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-settings-11.png",
+      "sha256": "999b5013ceb69f92ea14fae00c70167c9c3892ea13735b643dd1e9471129de5d"
+    },
+    {
+      "bytes": 103620,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-settings-2.png",
+      "sha256": "e4fa0c11cf7e39ffa89fa616240375cff579913dea5f35980cbed1eebc82fb54"
+    },
+    {
+      "bytes": 146485,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-settings-3.png",
+      "sha256": "13f11ee5e029406c3895ccbca4359f60255d2c36b830833dedb34968a385bc5a"
+    },
+    {
+      "bytes": 150027,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-settings-4.png",
+      "sha256": "0ddd59b6f072603d5d13547cd767f62efb305883687a719a5f7bb4d4e8c5c593"
+    },
+    {
+      "bytes": 97663,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-settings-5.png",
+      "sha256": "a91c4ee90bfc2745432bf694611072b3c4efd050c6e39f6b9b9d0fadd9223477"
+    },
+    {
+      "bytes": 121687,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-settings-6.png",
+      "sha256": "143d5c0344668b8454e9affe2880461f702425f869b3f32baa04395b3f303af7"
+    },
+    {
+      "bytes": 111428,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-settings-7.png",
+      "sha256": "ca54efaa91f758e88751edf5d3d062c0e6d708bf5a183f77b220e8291fbff50e"
+    },
+    {
+      "bytes": 112927,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-settings-8.png",
+      "sha256": "7b5ccabccecfee17073f096c801b9670e3b8cbb8c314b1e5a1d5c006796e2817"
+    },
+    {
+      "bytes": 93499,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-settings-9.png",
+      "sha256": "38ddf6aa16c28d2b9954cf2f03c1b2441e4487cb6a883554563db953b656336c"
+    },
+    {
+      "bytes": 100954,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-settings.png",
+      "sha256": "1209a37cd6caf345600e39455a0aafdf83ce8fa0d7cd22dac0a64e702ddca99a"
+    },
+    {
+      "bytes": 8295,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core-smoke.log",
+      "sha256": "3617e7daa0904fb75ff8045f58119aa32259e3fd1c365496da01754cccd92087"
+    },
+    {
+      "bytes": 7781,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core.log",
+      "sha256": "e0c50ae98b48e78d2595131310486c1aeae5d66e2533211deb75ad77ce966d4c"
+    },
+    {
+      "bytes": 58465,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/real-core.png",
+      "sha256": "8b6fe2019daf2b637cbb7a50c9dba087c79322086f0e95397a98685793e4f960"
+    },
+    {
+      "bytes": 323,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/short-fixtures.log",
+      "sha256": "046350f3e452deab753696a672a129b3fbdadc96a382d430e74cb80da375a1fb"
+    },
+    {
+      "bytes": 28431,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/short-fixtures.xml",
+      "sha256": "21be9860afd27f59a1e958fd5f0a6d4e13ab4e71b8277a8ef07e11686b89dbcc"
+    },
+    {
+      "bytes": 1326,
+      "path": "/mnt/storage/odin-desktop-evidence/pr40-main-reqf0481233/suite-map.log",
+      "sha256": "a022b3fea865d7aa5719da87f16a83709e0fac15a174c4ea90f2bd3f194a4098"
+    }
+  ],
+  "merged_main": "f14b773e238724f1e7ce253aac50d7a04865ad77",
+  "schema_version": 1,
+  "task": "pr40-main-reqf0481233"
+}

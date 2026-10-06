@@ -1,0 +1,6 @@
+libva error: /usr/lib/x86_64-linux-gnu/dri/virtio_gpu_drv_video.so init failed
+[1627:1006/064029.486829:ERROR:media/gpu/vaapi/vaapi_wrapper.cc:1801] vaInitialize failed: resource allocation failed
+[1627:1006/064029.491231:WARNING:sandbox/policy/linux/sandbox_linux.cc:405] InitializeSandbox() called with multiple threads in process gpu-process.
+[1588:1006/064029.589606:WARNING:components/dbus/xdg/portal.cc:126] Failed to register with org.freedesktop.host.portal.Registry
+Debugger ending on ws://127.0.0.1:41583/e438e454-4bd3-4bad-9b63-4fce131b0bfe
+For help, see: https://nodejs.org/learn/getting-started/debugging

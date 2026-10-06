@@ -1,21 +1,29 @@
-"""Native orchestration hooks, not platform/owner-authority qualification.
+"""Native orchestration hooks and owner-bound journal controls, no real effects.
 
-Real request sealing and ControlService authority are covered by the work/core
-integration suites. These narrow tests never manufacture a privileged envelope.
+The cross-conversation cases use the work suite's genuine local authority and
+exact-identity admission stub; real request sealing remains in the core suites.
 """
 import asyncio
+import json
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 
 import pytest
 
+from src.desktop.controls import ControlService
 from src.discord.background_task import (
     BackgroundTask,
     _send_conversational_followup,
     _send_progress,
     _send_summary,
 )
+from src.discord.channel_state import ChannelStateRegistry
 from src.discord.native_tools.agents_tasks import AgentTaskTools
-from src.tools.autonomous_loop import LoopManager
+from src.tools.autonomous_loop import LoopInfo, LoopManager
+from tests import test_desktop_work as work_suite
+from tests.test_desktop_work import agent as admitted_agent
+
+work = work_suite.work
 
 
 class Destination:
@@ -220,3 +228,152 @@ def test_missing_background_hooks_refuse_creation():
     handler._publish_background = None
     with pytest.raises(RuntimeError, match="No work was started"):
         handler._require_background()
+
+
+def native_controls(service, monkeypatch):
+    controls = ControlService(service.store, service.events, service.requests,
+        ChannelStateRegistry(), authority=service.authority, permissions=service.permissions)
+    controls.work = service
+    service.controls = controls
+    handler = AgentTaskTools.__new__(AgentTaskTools)
+    handler._work_service = service
+    handler._agent_manager = service.agents
+    handler._loop_manager = service.loops
+    handler._get_config = lambda: SimpleNamespace(agents=SimpleNamespace())
+    async def emit(*_args):
+        pass
+    handler._turn_recorder = SimpleNamespace(_emit_lifecycle_event=emit)
+    # No unrelated webhook task is needed to prove the actual control receipt.
+    monkeypatch.setattr("src.discord.native_tools.agents_tasks.fire_and_forget",
+                        lambda coroutine, **_kwargs: coroutine.close())
+    return handler
+
+
+def other_conversation(service, message):
+    cid = service.conversations.create()["conversation"]["id"]
+    return service.requests.issue(message.owner_id, cid, "controlling-run")
+
+
+def journal_receipt(service, record, action, response):
+    with service.store.transaction() as db:
+        rows = db.execute("SELECT * FROM desktop_controls").fetchall()
+    matches = [row for row in rows if json.loads(row["binding"])[2]["id"] == record["id"]]
+    assert len(matches) == 1
+    row = matches[0]
+    assert row["conversation_id"] == record["conversation_id"]
+    assert row["request_id"] == record["request_id"]
+    assert row["generation"] == record["generation"]
+    assert json.loads(row["response"]) == response
+    params = json.loads(row["binding"])[2]
+    assert params["action"] == action
+    for key in ("kind", "id", "manager_generation", "run_id", "generation", "conversation_id"):
+        assert params[key] == record[key]
+    return params
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["cancel_task", "kill_agent", "send_to_agent", "stop_loop"])
+async def test_native_cross_conversation_controls_journal_original_binding(work, monkeypatch,
+                                                                          operation):
+    service, message_a, _context = work
+    message_b = other_conversation(service, message_a)
+    handler = native_controls(service, monkeypatch)
+    if operation == "cancel_task":
+        item = BackgroundTask("task-a", "harmless", [], message_a.conversation_id, "Owner",
+                              requester_id=message_a.owner_id)
+        service.tasks[item.task_id] = item
+        kind, manager_id, action = "task", item.task_id, "cancel"
+        values = {"task_id": manager_id}
+    elif operation == "stop_loop":
+        item = LoopInfo("loop-a", "harmless", "silent", 60, None, 2,
+                        message_a.conversation_id, message_a.owner_id, "Owner")
+        service.loops._loops[item.id] = item
+        kind, manager_id, action = "loop", item.id, "stop"
+        values = {"loop_id": manager_id}
+    else:
+        item = admitted_agent(service, message_a, "agent-a")
+        kind, manager_id = "agent", item.id
+        action = "steer" if operation == "send_to_agent" else "cancel"
+        values = {"agent_id": manager_id, "message": "owner correction from B"}
+    record = service.register(kind, manager_id, message_a)
+    assert service.list({"conversation_id": message_b.conversation_id})["items"] == []
+    response = json.loads(await getattr(handler, f"_handle_{operation}")(message_b, values))
+    assert response["ok"], response
+    assert response["result"]["run_id"] == message_a.request_id
+    assert response["result"]["generation"] == message_a.generation
+    if operation == "send_to_agent":
+        assert response["result"]["disposition"] == "queued"
+        assert response["result"]["consumed"] is False
+        assert item.inbox_sequence == 1
+        assert item.last_consumed_sequence == 0
+    elif operation == "stop_loop":
+        assert item.status == "stopped"
+    else:
+        assert item._cancel_event.is_set()
+    params = journal_receipt(service, record, action, response)
+    # Retrying a receipt uses the original A binding, not B or a successor.
+    assert await service.controls.dispatch("work.control", params) == response
+    if operation == "send_to_agent":
+        assert item.inbox_sequence == 1
+
+
+@pytest.mark.asyncio
+async def test_native_stop_all_journals_owner_loops_across_conversations(work, monkeypatch):
+    service, message_a, _context = work
+    message_b = other_conversation(service, message_a)
+    handler = native_controls(service, monkeypatch)
+    records = []
+    for suffix, message in (("a", message_a), ("b", message_b)):
+        item = LoopInfo(f"loop-{suffix}", "harmless", "silent", 60, None, 2,
+                        message.conversation_id, message.owner_id, "Owner")
+        service.loops._loops[item.id] = item
+        records.append(service.register("loop", item.id, message))
+    foreign = LoopInfo("foreign-loop", "harmless", "silent", 60, None, 2,
+                       message_a.conversation_id, "other-owner", "Other")
+    terminal = LoopInfo("finished-loop", "harmless", "silent", 60, None, 2,
+                        message_a.conversation_id, message_a.owner_id, "Owner", status="completed")
+    service.loops._loops.update({foreign.id: foreign, terminal.id: terminal})
+    results = [json.loads(line) for line in
+               (await handler._handle_stop_loop(message_b, {"loop_id": "all"})).splitlines()]
+    assert len(results) == 2
+    for record, response in zip(records, results, strict=True):
+        assert response["ok"], response
+        assert response["result"]["disposition"] == "done"
+        assert service.loops._loops[record["manager_id"]].status == "stopped"
+        journal_receipt(service, record, "stop", response)
+    assert foreign.status == "running"
+    assert terminal.status == "completed"
+    result = await handler._handle_stop_loop(message_b, {"loop_id": "all"})
+    assert result == "No active loops to stop."
+    with service.store.transaction() as db:
+        assert db.execute("SELECT COUNT(*) FROM desktop_controls").fetchone()[0] == 2
+
+
+def test_native_list_agents_remains_conversation_scoped(work, monkeypatch):
+    service, message_a, _context = work
+    message_b = other_conversation(service, message_a)
+    handler = native_controls(service, monkeypatch)
+    admitted_agent(service, message_a, "agent-a")
+    assert handler._handle_list_agents(SimpleNamespace(
+        channel=SimpleNamespace(id=message_b.conversation_id))) == "No agents running."
+    admitted_agent(service, message_b, "agent-b")
+    result = handler._handle_list_agents(SimpleNamespace(
+        channel=SimpleNamespace(id=message_b.conversation_id)))
+    assert "`agent-b`" in result
+    assert "`agent-a`" not in result
+
+
+@pytest.mark.asyncio
+async def test_native_owner_global_control_rejects_foreign_or_unadmitted_request(work, monkeypatch):
+    service, message_a, _context = work
+    item = admitted_agent(service, message_a, "agent-a")
+    service.register("agent", item.id, message_a)
+    native_controls(service, monkeypatch)
+    cid = service.conversations.create()["conversation"]["id"]
+    foreign = service.requests.issue("other-owner", cid, "foreign-run")
+    assert (await service.control_native(foreign, "agent", item.id, "cancel")).startswith("Error:")
+    with pytest.raises(PermissionError, match="Unadmitted request"):
+        await service.control_native(object(), "agent", item.id, "cancel")
+    assert not item._cancel_event.is_set()
+    with service.store.transaction() as db:
+        assert db.execute("SELECT COUNT(*) FROM desktop_controls").fetchone()[0] == 0

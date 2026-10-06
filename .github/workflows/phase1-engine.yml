@@ -66,15 +66,18 @@ jobs:
         run: .venv/bin/python scripts/maintenance/lint_gate.py
       - name: Phase 2 planned ownership checker
         run: .venv/bin/python scripts/maintenance/phase2_plan.py
+      - name: D19 exact wording disposition inventory
+        run: .venv/bin/python scripts/maintenance/d19.py report
+      - name: Phase 2 closure inventory (report only)
+        run: .venv/bin/python scripts/maintenance/phase2_closure.py report
       - name: Hermetic Cinnamon and GNOME fixtures (no graphical session)
         run: .venv/bin/python scripts/run-phase1-tests.py tests/test_lab_cinnamon.py tests/test_lab_gnome.py -rs
   full-suites:
     if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: [self-hosted, odin-desktop-ci]
-    # The explicit default selection and classified qualification deliberately
-    # replay the broad boundary corpus. Bound the whole job without cancelling
-    # its last groups when this self-hosted machine is running parallel lanes.
-    timeout-minutes: 60
+    # Plan groups run once with their original JUnit receipts; the additional
+    # Desktop step covers only files outside that plan. Keep main's existing bound.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
@@ -111,8 +114,12 @@ jobs:
           python -m venv --copies .venv
           .venv/bin/python -m pip install uv==0.12.23 setuptools==84.0.0 wheel==0.48.0
           .venv/bin/uv sync --locked --extra dev --active --no-build-isolation-package odin-desktop-engine
-      - name: Phase 2 checker behaviour in a PID namespace
-        run: .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_phase2_plan.py
+      - name: Private tmpfs scratch for test I/O
+        run: |
+          scratch="/dev/shm/odin-ci-$RUNNER_NAME"
+          rm -rf "$scratch"
+          mkdir -m 700 "$scratch"
+          echo "ODIN_TEST_SCRATCH=$scratch" >> "$GITHUB_ENV"
       - name: App launcher unit and real-core contracts (no graphical session)
         working-directory: app
         run: |
@@ -120,16 +127,78 @@ jobs:
           npm run typecheck
           npm test -- test/isolation-launcher.test.ts
           npm run test:real-core
-      - name: Explicit pass-now suites in a PID namespace
+      - name: Additional Desktop boundaries in a PID namespace
         id: pass-now
-        run: .venv/bin/python scripts/run-phase1-tests.py
-      - name: Full classified qualification in PID namespaces
-        if: ${{ !cancelled() && steps.pass-now.outcome != 'skipped' }}
-        run: .venv/bin/python scripts/run-qualified-tests.py
+        run: .venv/bin/python scripts/run-phase1-tests.py --additional-desktop-boundaries
       - name: Qualification lab orchestration (offline, no host daemon)
         if: ${{ !cancelled() && steps.pass-now.outcome != 'skipped' }}
         run: |
-          .venv/bin/ruff check scripts/qualification/lab tests/test_desktop_qualification_lab.py tests/test_lab_*.py
-          # KDE's unchanged ownership emitter fixtures require root only inside
-          # a separate disposable container. Never relax the PID helper's NNP.
+          .venv/bin/ruff check scripts/qualification/lab scripts/run-lab-fixture-tests.py app/test/e2e/orca-guest.py tests/test_desktop_lab_fixture_runner.py tests/test_desktop_qualification_lab.py tests/test_lab_*.py tests/test_orca_guest_tasks.py tests/test_native_dialog_events.py tests/test_orca_native_input.py tests/test_kde_portal_preparation.py
+          .venv/bin/python scripts/run-phase1-tests.py tests/test_lab_orca.py tests/test_lab_orca_guest.py tests/test_lab_orca_cleanup.py tests/test_orca_guest_tasks.py tests/test_native_dialog_events.py tests/test_lab_focused_probe.py tests/test_orca_native_input.py tests/test_kde_portal_preparation.py tests/test_lab_orca_ci.py
+          # Fixed offline corpus uses fresh fixture user namespaces; unsupported
+          # mappings skip explicitly. Never relax the unchanged PID helper's NNP.
           .venv/bin/python scripts/run-lab-fixture-tests.py
+
+      - name: Remove tmpfs scratch
+        if: always()
+        run: rm -rf "/dev/shm/odin-ci-$RUNNER_NAME"
+  qualification:
+    name: qualification (${{ matrix.shard }}/5)
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    runs-on: [self-hosted, odin-desktop-ci]
+    # Whole qualification groups split by measured duration into parallel
+    # shards; together they run the plan exactly once, each group intact.
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require the runner's cached Python 3.12
+        id: cached-python
+        shell: bash
+        run: |
+          versions=()
+          for marker in "$RUNNER_TOOL_CACHE"/Python/3.12.*/x64.complete; do
+            version="$(basename "$(dirname "$marker")")"
+            if [[ "$version" =~ ^3\.12\.[0-9]+$ && -f "$marker" && -x "${marker%.complete}/bin/python" ]]; then
+              versions+=("$version")
+            fi
+          done
+          if [[ "${#versions[@]}" == 0 ]]; then
+            echo "::error::Provision Python 3.12 in this runner's tool cache; CI will not download it."
+            exit 1
+          fi
+          version="$(printf '%s\n' "${versions[@]}" | sort -V | tail -n 1)"
+          actual="$("$RUNNER_TOOL_CACHE/Python/$version/x64/bin/python" -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
+          [[ "$actual" == "$version" ]] || { echo "::error::Cached Python version mismatch"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ steps.cached-python.outputs.version }}
+          architecture: x64
+      - name: Repository-only locked environment
+        run: |
+          # Fake-peer identity tests pin the real test interpreter. Runner
+          # toolcache binaries can be group-writable, which the unchanged
+          # executable trust guard correctly refuses. A repository-owned 0755
+          # copy is an explicit trusted fixture, not a relaxed production check.
+          python -m venv --copies .venv
+          .venv/bin/python -m pip install uv==0.12.23 setuptools==84.0.0 wheel==0.48.0
+          .venv/bin/uv sync --locked --extra dev --active --no-build-isolation-package odin-desktop-engine
+      - name: Private tmpfs scratch for test I/O
+        run: |
+          scratch="/dev/shm/odin-ci-$RUNNER_NAME"
+          rm -rf "$scratch"
+          mkdir -m 700 "$scratch"
+          echo "ODIN_TEST_SCRATCH=$scratch" >> "$GITHUB_ENV"
+      - name: Classified qualification shard in PID namespaces
+        env:
+          QUALIFICATION_SHARD: ${{ matrix.shard }}
+        run: .venv/bin/python scripts/run-qualified-tests.py --shard "$QUALIFICATION_SHARD/5"
+      - name: Remove tmpfs scratch
+        if: always()
+        run: rm -rf "/dev/shm/odin-ci-$RUNNER_NAME"

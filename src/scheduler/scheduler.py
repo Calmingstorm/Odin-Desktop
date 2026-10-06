@@ -226,9 +226,12 @@ class Scheduler:
             schedule["settlement"] = "unknown"
             schedule["last_run_binding"] = schedule.pop("run_binding", None)
             schedule.pop("retry_at", None)
+            schedule["retry_count"] = 0
             pending = schedule.get("_interrupted_run_history", [])
             if isinstance(pending, dict):  # Compatibility with the scalar outbox.
                 pending = [pending]
+            # A durable outbox in the definition: publication records it in
+            # history and retires it, and keeps it if history storage fails.
             schedule["_interrupted_run_history"] = [*pending, {
                 "schedule_id": schedule["id"],
                 "description": schedule.get("description", ""),
@@ -239,15 +242,19 @@ class Scheduler:
                 "run_binding": copy.deepcopy(schedule["last_run_binding"]),
             }]
             if not schedule.get("one_time"):
-                # The interrupted effect is spent, not the definition. Keep a
-                # future cron slot intact; skip elapsed slots rather than
-                # turning this unknown run into D12 catch-up work.
-                if schedule.get("cron") and self._is_usable_cron(schedule["cron"]):
-                    due = self._parse_persisted_time(schedule.get("next_run"))
-                    if due is not None and due <= datetime.now(UTC).replace(tzinfo=None):
-                        schedule["next_run"] = _cron_next_run(
-                            schedule["cron"], schedule.get("timezone")
-                        )
+                # Never retry the interrupted attempt or catch up its effects.
+                # Keep a future slot unchanged; consume stale slots on the same
+                # cron cadence. Trigger definitions remain available as well.
+                schedule.pop("missed_run", None)
+                schedule.pop("recovery_required", None)
+                due = self._parse_persisted_time(schedule.get("next_run"))
+                if (self._is_usable_cron(schedule.get("cron")) and due is not None
+                        and due <= datetime.now(UTC).replace(tzinfo=None)):
+                    schedule["next_run"] = _cron_next_run(
+                        schedule["cron"], schedule.get("timezone"),
+                    )
+                return True
+            if schedule.get("action") in self.REPLAY_SAFE_ONE_TIME_ACTIONS:
                 return True
         self._quarantine_schedule(
             schedule,
@@ -1726,10 +1733,6 @@ class Scheduler:
             )
         except Exception as e:
             duration_ms = int((time.monotonic() - start) * 1000)
-            if self.desktop_recovery and isinstance(e, (aiohttp.ClientError, TimeoutError)):
-                e = NonRetryableScheduleError(
-                    "Webhook completion unknown; do not replay the request"
-                )
             retry_attempt = schedule.get("retry_count", 0) + 1
             await self._handle_failure(schedule, e)
             await self.history.record(
@@ -1835,6 +1838,10 @@ class Scheduler:
         to_fire: list[tuple[dict, str, int | None]] = []
 
         async with self._lock:
+            # Unknown-run evidence reaches history at the next tick even when no
+            # definition write is pending; publication retires it durably.
+            if any(s.get("_interrupted_run_history") for s in self._schedules):
+                await self._publish(self._schedules)
             availability = self._connection_availability()
             now = datetime.now(UTC)
             now_naive = now.replace(tzinfo=None)

@@ -1,0 +1,9 @@
+{
+  "source_sha": "587242b3960f14db69711dc5c16e2433394a00c8",
+  "source_dirty": true,
+  "manifest_sha256": "88fc373562c2d6c16925873390edfc955cd21a3cbd3d104ee6c36c1c79fe2b36",
+  "artifact_sha256": "53459f087a9d930e44c4af3d67b0c0d5da4fed184ce22661065468e3e9c10c28",
+  "files": 13928,
+  "source_files": 486,
+  "node_version": "v22.23.3"
+}

@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ask } from '../../dialog'
 import { unavailableText } from '../../capability'
 import { management } from '../../stores/management'
+import KnowledgeDetails from '../../components/KnowledgeDetails.vue'
 import {
   closeScope,
   deleteList,
@@ -240,6 +241,8 @@ async function removeSource(name: string): Promise<void> {
     <p v-if="management.notes.knowledge" class="manage-note" role="status">{{ management.notes.knowledge }}</p>
     </template>
   </section>
+
+  <KnowledgeDetails />
 
   <section class="panel" aria-label="Context">
     <header class="panel-head">

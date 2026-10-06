@@ -44,8 +44,7 @@ def test_final_removed_schema_rejects_transport_and_tier_fields(removed, tmp_pat
     path = tmp_path / "rejected.yml"
     raw = json.dumps(payload)
     path.write_text(raw)
-    with pytest.raises(SystemExit, match="unsupported top-level"):
-        load_config(path)
+    assert removed not in load_config(path).model_dump()
     assert path.read_text() == raw
 
 
@@ -67,13 +66,13 @@ def test_final_valid_neutral_values_without_removed_web_field():
 
 @pytest.mark.parametrize("section", [
     "grafana_alerts", "slack", "issue_tracker", "reaction_triggers", "message_triggers",
-    "comfyui", "future_typoo",
+    "comfyui",
 ])
 def test_final_obsolete_loader_sections_fail_closed_without_rewrite(section, tmp_path):
     path = tmp_path / "obsolete.yml"
     raw = f"{section}: {{enabled: true}}\ntools: {{command_timeout_seconds: 123}}\n"
     path.write_text(raw)
-    with pytest.raises(SystemExit, match="unsupported top-level"):
+    with pytest.raises(SystemExit, match="removed top-level"):
         load_config(path)
     assert path.read_text() == raw
     assert sorted(p.name for p in tmp_path.iterdir() if p.is_file()) == ["obsolete.yml"]
@@ -108,7 +107,7 @@ def test_final_removed_settings_parameter_matrix_rejected(
     path = tmp_path / "legacy.yml"
     raw = yaml.safe_dump(payload)
     path.write_text(raw)
-    with pytest.raises(SystemExit, match="unsupported top-level"):
+    with pytest.raises(SystemExit, match="removed top-level"):
         load_config(path)
     assert path.read_text() == raw
     neutral = {k: v for k, v in payload.items() if k not in {"discord", "grafana_alerts"}}

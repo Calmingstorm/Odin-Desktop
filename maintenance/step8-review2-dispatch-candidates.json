@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "artifact": "PR35 round2 restored dispatcher corpus",
+  "review": "Claude, review of #35, round 2",
+  "source_path": "tests/characterization/test_executor_dispatch_parity.py",
+  "source_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29",
+  "original_case_definitions": 22,
+  "retained_original_executions": 19,
+  "new_retired_executions": 2,
+  "unchanged_prior_retired_executions": 1,
+  "case_retirement_metadata": "tests/desktop_adapters/step8_review_dispatch.py:CORPUS_EXCLUSIONS",
+  "all_original_bytes_and_assertion_asts_preserved": true,
+  "normalization": null,
+  "actual_admission": "Real RequestService callback worker and canonical profile-owner executor; no foreign-caller translation",
+  "targeted_validation": {
+    "dispatch": "23 passed:19 inherited +4 supplemental",
+    "dispatch_and_accounting": "241 passed,zero failures/skips",
+    "boundary": "nonroot isolated PID/mount env-i throwaway HOME",
+    "logs": [
+      "/home/odin/desktop-pr35-round2-20261006/dispatch.log",
+      "/home/odin/desktop-pr35-round2-20261006/dispatch-accounting.log"
+    ]
+  }
+}

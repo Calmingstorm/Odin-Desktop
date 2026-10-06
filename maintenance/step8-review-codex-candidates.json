@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "artifact": "PR35 complete frozen Codex documentation-catalog experiment",
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+  "review_authority": "Claude, review of #35, line 38: full documentation catalog if it keeps matrix meaning; otherwise explain why",
+  "candidate_status": "blocked",
+  "qualification_claim": false,
+  "safety": {
+    "original_bytes_modified": false,
+    "production_or_shared_maps_modified": false,
+    "services_modified": false,
+    "desktop_used": false,
+    "tools_executed_by_inherited_suite": false,
+    "test_selection": "explicit new adapter path only",
+    "isolation": "USER=odin; required mount/PID namespace; env-i HOME/XDG; no display, DBus, credentials or live config",
+    "git_operations": false,
+    "dependencies_installed": false
+  },
+  "validation": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_codex.py -s --tb=short --junitxml=.test-state/step8-review-codex.xml",
+    "log": ".test-state/step8-review-codex.log",
+    "log_sha256": "b5271cc13d438a47cdde046d9977c2d07e6b7686d3209db743c406eeb9cf29c1",
+    "junit": ".test-state/step8-review-codex.xml",
+    "junit_sha256": "8fbe51fcbe3ba3ece0b4a69174a242a623c35e43b5ab4127f210bd71c0202f96",
+    "exit_code": 1,
+    "collected": 308,
+    "passed": 297,
+    "failed": 11,
+    "errors": 0,
+    "skipped": 0,
+    "elapsed_seconds": 5.22,
+    "inherited_collected": 297,
+    "inherited_passed": 286,
+    "inherited_failed": 11,
+    "loader_safeguards_passed": 11,
+    "ruff": "All checks passed"
+  },
+  "entries": [
+    {
+      "path": "tests/test_codex_replay_matrix.py",
+      "inherited_sha256": "eed93185f30efd619bafbfb1fd0f2d7bcac1eda96879b50214cfc1f8f5585256",
+      "candidate_status": "blocked",
+      "mode": "frozen-adapter-diagnostic-only",
+      "selector": "tests/test_desktop_step8_review_codex.py",
+      "declaration_path": "tests/desktop_adapters/step8_review_codex.py",
+      "adapter_hashes": [
+        {
+          "path": "tests/desktop_adapters/step8_review_codex.py",
+          "sha256": "708c509db505e382c37a7eaadea031a747edd6178e70af789686f1ee4518a73d"
+        },
+        {
+          "path": "tests/test_desktop_step8_review_codex.py",
+          "sha256": "3ce821b31a1170aca80dbe36699239eca7ce1433602e3264227f94373c334f0e"
+        }
+      ],
+      "transformations": [
+        {
+          "symbol": "<module>",
+          "line": 22,
+          "column": 0,
+          "kind": "statement",
+          "operation": "documentation_catalog_import",
+          "before_sha256": "42e493c48ee7f8eadebcd6df64c7d0ee3371ea61bbd739a85869855d7f404126",
+          "after_sha256": "d4c875dc0b31819aaca8ed6cb0f5fec4fc99df5b984b5b28d4c5154649a8cf6b",
+          "after_source": "from src.tools.registry import get_documentation_tool_definitions as get_tool_definitions"
+        }
+      ],
+      "original_ast_sha256": "c0f15c48a0e8c4eed551b52fda30c0db0aec538a7904131123d10c600a83da99",
+      "adapted_ast_sha256": "912d5027ae21665c9c8c6a838e7f0dad08865580770d6e88a98f7423225e4d63",
+      "corpus_sha256": "c9eac1c82ebb61bb3a512248d594669d2cf6265281a1979bf1b5fab6f623c4f9",
+      "assertions_sha256": "f3d3a10335053d86812e1d823b7a6ee326e7da84d4b661f2ca0ff81d40fd323b",
+      "case_labels_sha256": "a679dc177eab932923c6823528232f6f0b2068744f3ee911e56a8148e4104acb",
+      "corpus_equal": true,
+      "complete_reverse_replay": true,
+      "counts": {
+        "static_test_definitions": 3,
+        "static_assertions": 22,
+        "matrix_cases": 147,
+        "matrix_executions": 294,
+        "multi_call_executions": 2,
+        "catalog_guard_executions": 1,
+        "builtin_fixture_count": 67,
+        "documentation_catalog_count": 63,
+        "executed": 297,
+        "passed": 286,
+        "failed": 11
+      },
+      "blocker": "The exact unchanged frozen assertion at line 442 requires all 67 BUILTIN_INPUTS names to equal the real static documentation catalog. The desktop documentation catalog has 63 names: it removes five Discord/RBAC names and adds read_conversation. Full catalog import alone therefore preserves AST meaning but cannot pass coverage equality. Five inherited matrix fixtures have no wire schema and fail at _wire_schema:142 before emission, each in both chat and agent replay. Synthetic legacy schemas, renaming the frozen input matrix, deleting its cases or weakening coverage would misrepresent the actual catalog. No such changes were made.",
+      "missing_from_documentation": [
+        "add_reaction", "create_poll", "purge_messages", "read_channel", "set_permission"
+      ],
+      "missing_from_frozen_inputs": ["read_conversation"],
+      "missing_schema_case_labels": [
+        "builtin-purge_messages", "builtin-set_permission", "builtin-read_channel",
+        "builtin-add_reaction", "builtin-create_poll"
+      ],
+      "visible_failure_details": {
+        "coverage": "AssertionError at original line 442",
+        "matrix": "StopIteration at original _wire_schema line 142; propagated as RuntimeError: coroutine raised StopIteration",
+        "counts": "1 coverage failure + 5 missing schemas x 2 replay paths = 11 failures; every other inherited collected case passed"
+      },
+      "retired_cases": [],
+      "excluded_cases": [],
+      "logs": [".test-state/step8-review-codex.log", ".test-state/step8-review-codex.xml"]
+    }
+  ],
+  "loader_safeguards": [
+    "Complete pinned source/archive bytes and full original/adapted corpus equality",
+    "Exact one import hunk before/after SHA256",
+    "Changed source bytes rejected",
+    "Missing setup hunk rejected",
+    "Duplicate setup hunk rejected",
+    "Wrong replacement setup hunk rejected",
+    "Original assertion mutation rejected",
+    "Original signature mutation rejected",
+    "Original decorator mutation rejected",
+    "Original parameter decorator mutation rejected",
+    "Non-corpus input matrix constructor edit rejected by full reverse replay",
+    "Changed adapted import hash rejected"
+  ],
+  "parent_disposition_required": "Keep this visibly failing diagnostic out of restored counts. Parent may explicitly disposition removed-surface cases and the catalog coverage contract, or defer this suite. This worker does not approve changes to the inherited assertion or full matrix."
+}

@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "step": 8,
+  "part": 5,
+  "entries": [
+    {
+      "path": "scripts/maintenance/phase2_part5.py",
+      "reason": "Consume the exact 16 inherited suite/case dispositions without conflating partial restoration, removed surfaces, handoffs or proposals with whole-suite passing evidence.",
+      "contract": "Pin the immutable archive and retained suite bytes, complete original definition membership, reviewed-surface citation categories, concrete owner/blocker pairs, qualification associations and actual frozen original-to-executable collection aliases. Check fragment, module and decoded collection digests.",
+      "invariant": "Offline accounting never imports engine or inherited tests, changes the historical 326/869 populations, approves independent review, or claims runtime passing from static association. Mixed suites remain whole-suite deferred.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_step8_part5_accounting.py"]
+    },
+    {
+      "path": "scripts/maintenance/phase2_suites.py",
+      "reason": "Make the existing historical whole-suite checker consume part5 case-level records when their index or linkage is present.",
+      "contract": "Retain exact historical suite statuses and restoration/retirement admission rules; invoke the additional fail-closed checker for case-disposition errors and expose its nonpassing counts separately.",
+      "invariant": "No original membership, whole-suite restoration requirements or immutable baseline hashes change. A mixed subset is not promoted to safe_pass_now.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_phase2_suite_map.py", "tests/test_desktop_step8_part5_accounting.py"]
+    },
+    {
+      "path": "tests/test_desktop_step8_part5_accounting.py",
+      "reason": "Exercise exhaustive actual part5 accounting and rejection of missing, duplicated, invented, stale, unsafe, unowned or unjustified dispositions.",
+      "contract": "The real index checks every original definition and remains review-pending; mutations test membership/hash, status/reason, handoff/blocker, retirement citation/category/nonpassing and restored selector/counterpart/mode constraints.",
+      "invariant": "Static provenance is distinct from passing execution; no inherited test corpus or source is rewritten.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_step8_part5_accounting.py"]
+    },
+    {
+      "path": "tests/test_desktop_step8_part5_app_frozen.py",
+      "reason": "Restore retained reasoning gateway/probe/catalogue and native report-format schema cases without importing removed web/gateway composition.",
+      "contract": "Selected frozen original assertions, signatures, decorators and parameters run unchanged. Exact hash/line-sealed inert Discord Config and source-consumer fixture substitutions have inverse-AST proof; only pinned unused imports are projected out.",
+      "invariant": "No fabricated provider, enum, report schema or passing smoke substitutes for original cases; original suite bytes remain hash-identical. Unimplemented settings reload/forwarding remain handoffs.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_step8_part5_app_frozen.py", "tests/test_desktop_step8_part5_accounting.py"]
+    },
+    {
+      "path": "tests/test_desktop_step8_part5_app_contracts.py",
+      "reason": "Exercise actual Desktop schema-derived neutral choices and settings ownership boundaries behind the restored Vue counterparts.",
+      "contract": "Real SettingsService schema exposes shared reasoning authority; generic settings rejects every dedicated host-owned field singly and atomically without profile/config mutation.",
+      "invariant": "Desktop counterpart proof is explicitly separate from frozen old-HTTP/source-string equivalence; no owner ACL, serving readiness or live service change is introduced.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_step8_part5_app_contracts.py"]
+    },
+    {
+      "path": "tests/desktop_adapters/step8_part5_engine.py",
+      "reason": "Keep exact neutral FD/workspace/teardown/reexec-veto cases executable while retired installers and absent app relaunch obligations remain explicitly accountable.",
+      "contract": "Frozen-source hash verification and literal setup-rule hashes plus full inverse-AST replay preserve original assertions/decorators/signatures/parameters; authentic owner fixture injects temporary profile/executor context only. Actual barriers, child-process finalizers, containment and deadline code runs unchanged.",
+      "invariant": "No destructive command inputs, real systemd/Docker installer, live profile, remote endpoint or active desktop. Removed install/update paths never execute; missing Desktop bootstrap/routing/relaunch proofs remain named blockers.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_step8_part5_engine.py", "tests/test_desktop_step8_part5_accounting.py"]
+    },
+    {
+      "path": "tests/test_desktop_step8_part5_engine.py",
+      "reason": "Export and qualify selected exact inherited FD, protected workspace and hard teardown definitions with nonroot disposable owner setup.",
+      "contract": "143 expanded tests include selected originals and four provenance checks. Original code filenames/qualnames and parameter IDs bind actual collected aliases; selected AST allowlists and setup replay checks prevent corpus rewriting.",
+      "invariant": "Partial selected restoration does not qualify all four suites or app/native relaunch. Hostile synthetic teardown warnings remain visible, not suppressed as acceptance evidence.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_step8_part5_engine.py", "tests/test_desktop_step8_part5_accounting.py"]
+    },
+    {
+      "path": "tests/test_desktop_step8_part5_removed.py",
+      "reason": "Retain neutral image-follow-default persistence and supplemental loop-owner delegation/settlement rather than blanket removing mixed updater obligations.",
+      "contract": "Real selected-profile provisioning/save/reload preserves absent image pins and operator bytes. Supplemental composed owner and synthetic task settlement proofs do not claim unavailable stop-all admission. Four-suite accounting preserves every original definition/hash and separates eight documentation proposals.",
+      "invariant": "No updater/apply/rollback path, signal, listener, credential or display is activated. Notice-check and admitted stop-all remain explicit named owner handoffs.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_step8_part5_removed.py", "tests/test_desktop_step8_part5_accounting.py"]
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "artifact": "Parent reviewed exact PR35 review1 source and case accounting",
+  "original_assigned_suites": 47,
+  "restored_suites": 20,
+  "retired_suites": 21,
+  "deferred_suites": 6,
+  "restored_this_review": 6,
+  "unique_retained_inherited_parameter_cases": 332,
+  "whole_suite_retirement_reviewer": "Claude, review of #35",
+  "case_retirement_definitions": 4,
+  "case_retirement_parameter_executions": 9,
+  "branch_retirement": "Two bot-origin branches of the mixed helper case; both non-bot history branches remain",
+  "targeted_results": {
+    "restoration_accounting_selection": "361 passed, zero failures/skips",
+    "cli_resume_requests_safeguards": "98 passed, zero failures/skips",
+    "startup_lifecycle_diagnostic": "53 passed; historical failed full gate retained"
+  },
+  "rejected_attempts": [
+    "Runtime CLI timeout0.1 test raced before response; replaced with event-gated actual admitted execution",
+    "Resume assertion normalization rejected; exact corpus mismatch is fail-closed",
+    "Initial parent CLI selection used three nonexistent file names; no tests ran; corrected exact selection passed",
+    "Full documentation catalog experiment remains 11 inherited failures, diagnostic only",
+    "Dispatcher two foreign-owner literal golden failures remain diagnostic only"
+  ],
+  "cli_built_not_frozen_suite_restored": true,
+  "final_gate": "pending single full fresh frozen checkout invocation",
+  "hashes": {
+    "tests/desktop_adapters/step8_review_cli.py": "4fb07777775d56437fa477e236c45246e47064874419db6cb0f6d288cd3c4faa",
+    "tests/desktop_adapters/step8_review_codex.py": "708c509db505e382c37a7eaadea031a747edd6178e70af789686f1ee4518a73d",
+    "tests/desktop_adapters/step8_review_delivery.py": "514133f5c9f5bb9b19f4ebb0e906ebed78408db59fc24f923fb8e4332b2e12cf",
+    "tests/desktop_adapters/step8_review_helpers.py": "eb4b6195c2e4e1a373dbf8bc1941b342eea3bbf9d2154b6067da14a47fa2da3c",
+    "tests/desktop_adapters/step8_review_resume.py": "1f7ffffae92612a5e170f6ce496fbc87ad71de2b5db646e5df4d538d731ff758",
+    "tests/desktop_adapters/step8_review_search_attachments.py": "73b296e01126ae6732ee6c246111ae317a04d4b517961571a0f35f8727f8ee99",
+    "tests/desktop_adapters/step8_review_steer_resume.py": "8e6e3f41d047772d799decfdffd6c5a777d92eeb2b06cfa646af716fe9f7ec99",
+    "tests/desktop_adapters/step8_review_steering.py": "770ffcfab24a1be31d6bf942cceafa8d775b4b51b4804acabfc2b1fe32f6f8f5",
+    "tests/desktop_adapters/step8_review_timeout.py": "45cce18d6f4c6f76f7f2a1838639eae490618624b76751b0b165731c023e8092",
+    "tests/test_desktop_step8_review_cli.py": "d484ad83e5d67613673a091a2e56a7a47782a5806ba787fe760602adcb63b6b7",
+    "tests/test_desktop_step8_review_delivery.py": "96e6c31bd40b8874001dcd0ccf38c9ef1363d0ba4b306f6306525468fb0ad1de",
+    "tests/test_desktop_step8_review_helpers.py": "32bad83c65d554e68eab3f9290775ded2d3600a6191e462b0baf235d14090e7c",
+    "tests/test_desktop_step8_review_resume.py": "75e5b9786c9ffbff69ffc79f2dde6dd8a29d65dbf624ba215bb62d592a97af1f",
+    "tests/test_desktop_step8_review_search_attachments_corpus.py": "d0e7fee504541687bc8bd29c5e6a32bd64b6d1907c1eef266fa7b11c5d7dd045",
+    "tests/test_desktop_step8_review_steer_resume.py": "d3ae00ed92908e586c998c0f9a87e2662ccd1009ebf8282c9be4cdc8f77193b2",
+    "tests/test_desktop_step8_review_steering.py": "2ac23a03189baad98743d061fe75e36cd8b736e5dce23cacb70651bfd5c015c3",
+    "tests/test_desktop_step8_review_timeout.py": "6163dc63de4e68dfa8a03675a1e7a820f5062403f2cb0fbceb0d0d5e99784066"
+  }
+}

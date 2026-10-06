@@ -1,51 +1,86 @@
 // The app's actual Broker against `python -m src`, never the fixture or an in-process service substitute.
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, readlinkSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readlinkSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { Broker, type Welcome } from '../src/main/broker'
 import { ensureProfileDirs, ensureToken, profilePaths, type ProfilePaths } from '../src/main/paths'
+import { startCannedProvider } from './real-core-provider-fixture.mjs'
+import { configureCannedProvider } from '../src/main/real-core-smoke'
 
 const repository = resolve(__dirname, '../..')
 
-// The published named contract, not an arbitrary renderer RPC surface. Step 6 is absent.
+// The published named contract, not an arbitrary renderer RPC surface. Retained
+// background work, reports and schedules are served; foreground input is absent.
 export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
   'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
   'artifacts.read', 'tool.detail', 'tool.output',
   'control.stop', 'control.steer', 'control.resume',
+  'work.list', 'work.control', 'reports.page',
+  'schedules.list', 'schedules.save', 'schedules.delete', 'schedules.run',
+  'schedules.reset_failures', 'schedules.history', 'schedules.validate_cron',
   'conversations.list', 'conversations.create', 'conversations.update', 'conversations.delete',
   'conversations.reset_context', 'conversations.mark_read', 'messages.list',
   'conversation.snapshot', 'search.query', 'messages.around',
   'settings.schema', 'settings.set', 'secrets.set', 'secrets.clear', 'secrets.unlock', 'models.image.intent',
   'providers.codex.set', 'providers.auxiliary.set', 'providers.ollama.set', 'providers.compat.set',
-  'codex.accounts.list', 'codex.accounts.activate', 'codex.accounts.remove', 'codex.accounts.label',
+  'codex.accounts.list', 'codex.accounts.activate', 'codex.accounts.remove', 'codex.accounts.label', 'codex.accounts.refresh',
   'codex.login.begin', 'codex.login.poll',
   'hosts.list', 'hosts.settings', 'hosts.prepare', 'hosts.test', 'hosts.commit', 'hosts.set_enabled',
   'hosts.references', 'hosts.delete', 'hosts.public_key', 'hosts.force_revoke',
   'memory.list', 'memory.get', 'memory.set', 'memory.delete', 'memory.bulk_delete',
   'lists.list', 'lists.get', 'lists.delete',
   'knowledge.list', 'knowledge.search', 'knowledge.ingest', 'knowledge.reingest', 'knowledge.delete',
-  'knowledge.versions', 'knowledge.restore', 'knowledge.import',
+  'knowledge.versions', 'knowledge.restore', 'knowledge.import', 'knowledge.chunks', 'knowledge.duplicates',
+  'knowledge.merge', 'knowledge.version', 'knowledge.diff',
   'audit.query', 'audit.verify', 'health.get', 'logs.search', 'turn_state.list', 'usage.get', 'runtime.reload',
+  'audit.diffs', 'audit.failures', 'audit.tail', 'logs.stats', 'logs.tail',
   'models.main.set', 'models.agents.get', 'models.agents.set', 'models.discover',
   'personality.get', 'personality.set', 'personality.presets.save', 'personality.presets.delete',
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
   'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete',
-  'webhooks.outbound.test', 'integrations.email.get'
+  'webhooks.outbound.test', 'integrations.email.get',
+  'learned.list', 'learned.update', 'learned.delete',
+  'trajectories.list', 'trajectories.read', 'trajectories.search', 'trajectories.message',
+  'observability.stats', 'observability.tools', 'observability.risk', 'observability.risk_recent',
+  'observability.governor', 'observability.audit_risk', 'observability.freshness',
+  'observability.freshness_recent', 'observability.bulkheads', 'observability.compression',
+  'observability.validation', 'observability.affordances', 'observability.context',
+  'observability.usage', 'observability.usage_totals', 'observability.subsystems',
+  'recovery.stats', 'recovery.recent', 'capacity.snapshot', 'turn_state.snapshot',
+  'pools.ssh', 'pools.http', 'pools.close',
+  'openrouter.catalogue', 'openrouter.endpoints', 'openrouter.select',
+  'providers.compat.diagnostic', 'models.status', 'models.provider.get', 'models.provider.set',
+  'skills.list', 'skills.get', 'skills.save', 'skills.validate', 'skills.test', 'skills.set_enabled', 'skills.delete',
+  'skills.config.get', 'skills.config.set',
+  'mcp.list', 'mcp.status', 'mcp.tools', 'mcp.save', 'mcp.set_enabled', 'mcp.delete',
+  'mcp.reconnect', 'mcp.refresh_tools', 'mcp.set_global_enabled', 'mcp.set_limits',
+  'computer.status', 'computer.pause', 'computer.stop', 'computer.cancel', 'computer.close',
+  'computer.reconcile', 'computer.reconcile_hyprland_owner', 'computer.acknowledge_legacy_recovery',
+  'computer.operator_reconcile', 'computer.release_owned_input', 'computer.activation.set'
 ].sort()]
 
-type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string }
+type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string; profileRoot?: string; workProof?: boolean }
 
 // Only the external secret/auth boundary is substituted. The entry point, management services,
 // transport, command journal, settings persistence and Broker remain the actual repository code.
 const isolatedServicesBootstrap = `
-import sys, runpy
+import sys, runpy, os
 from src.desktop.management import ManagementService
 class MemoryKeyring:
     def __init__(self): self.values = {}
-    def get_password(self, namespace, name): return self.values.get((namespace, name))
-    def set_password(self, namespace, name, value): self.values[(namespace, name)] = value
-    def delete_password(self, namespace, name): self.values.pop((namespace, name), None)
+    def check(self):
+        if os.path.exists(os.path.join(os.environ['HOME'], 'keyring.locked')):
+            raise RuntimeError('ephemeral test keyring locked')
+    def get_password(self, namespace, name):
+        self.check()
+        return self.values.get((namespace, name))
+    def set_password(self, namespace, name, value):
+        self.check()
+        self.values[(namespace, name)] = value
+    def delete_password(self, namespace, name):
+        self.check()
+        self.values.pop((namespace, name), None)
 if sys.argv[1] == 'memory':
     original = ManagementService.compose.__func__
     backend = MemoryKeyring()
@@ -123,6 +158,8 @@ export class RealCoreHarness {
   private output = ''
   private exited: Promise<{ code: number | null; signal: NodeJS.Signals | null }> | null = null
   private readonly brokers = new Set<Broker>()
+  private providerConfigured = false
+  provider: Awaited<ReturnType<typeof startCannedProvider>> | null = null
 
   constructor(private readonly services: IsolatedServices = {}) {
     this.python = enginePython()
@@ -133,12 +170,14 @@ export class RealCoreHarness {
         throw new Error('Isolated auth must be a disposable HTTP server on 127.0.0.1 with an explicit port.')
       }
     }
-    this.root = mkdtempSync(join(process.env.ODIN_REAL_CORE_ROOT!, 'profile-'))
+    if (services.profileRoot && services.profileRoot !== process.env.ODIN_REAL_CORE_ROOT) throw new Error('Shared smoke profile must belong to the isolation runner.')
+    this.root = services.profileRoot ?? mkdtempSync(join(process.env.ODIN_REAL_CORE_ROOT!, 'profile-'))
     this.env = {
       PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C.UTF-8', HOME: this.root,
       XDG_CONFIG_HOME: join(this.root, 'config'), XDG_DATA_HOME: join(this.root, 'data'),
       XDG_CACHE_HOME: join(this.root, 'cache'), XDG_RUNTIME_DIR: join(this.root, 'run'),
-      PYTHONNOUSERSITE: '1', PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONNOUSERSITE: '1', PYTHONDONTWRITEBYTECODE: '1',
+      ODIN_DESKTOP_BUNDLE_ROOT: join(this.root, 'absent-browser-bundle')
     }
     this.paths = profilePaths('default', this.env)
     ensureProfileDirs(this.paths)
@@ -158,8 +197,10 @@ export class RealCoreHarness {
     assertIsolated()
     if (this.running) throw new Error('Real core is already running.')
     this.output = ''
-    const entry = this.services.memoryKeyring || this.services.authBaseUrl
-      ? ['-c', isolatedServicesBootstrap, this.services.memoryKeyring ? 'memory' : 'missing', this.services.authBaseUrl ?? '']
+    this.providerConfigured = false
+    const entry = this.services.workProof ? [join(repository, 'app/test/services-b-core.py')]
+      : this.services.memoryKeyring || this.provider || this.services.authBaseUrl
+        ? ['-c', isolatedServicesBootstrap, this.services.memoryKeyring || this.provider ? 'memory' : 'missing', this.services.authBaseUrl ?? '']
       : ['-m', 'src']
     const child = spawn(this.python, ['-B', '-P', ...entry, '--socket', this.paths.socketPath,
       '--token-file', this.paths.tokenPath, '--profile', this.paths.profileId, '--data-dir', this.paths.dataDir],
@@ -179,9 +220,19 @@ export class RealCoreHarness {
       }
       return existsSync(this.paths.socketPath)
     // A cold installed engine imports its complete retained dependency closure.
-    // Allow bounded startup on busy self-hosted runners, without retrying or
-    // substituting a fixture after launch. Event wait defaults stay unchanged.
-    }, 'real core socket creation', 25_000)
+    // Allow bounded startup on busy self-hosted runners (CI runs the shards and
+    // these contracts in parallel on one host), without retrying or substituting
+    // a fixture after launch. Event wait defaults stay unchanged.
+    }, 'real core socket creation', 60_000)
+    if (this.services.workProof) await waitFor(() => {
+      if (!this.running) throw new Error(`Work bootstrap failed: ${this.output}`)
+      return existsSync(join(this.root, 'work-proof.json'))
+    }, 'actual manager proof admission', 12_000)
+  }
+
+  async configureProvider(): Promise<void> {
+    if (this.running) throw new Error('Configure the canned provider before core startup.')
+    this.provider = await startCannedProvider({ root: join(this.root, 'provider') })
   }
 
   broker(wrongToken = false): Broker {
@@ -203,10 +254,14 @@ export class RealCoreHarness {
     const ready = onceEvent<Welcome>(broker, 'welcome')
     broker.connect()
     const welcome = await ready
+    if (this.provider && !this.providerConfigured) {
+      await configureCannedProvider(broker, this.provider.baseUrl)
+      this.providerConfigured = true
+    }
     return { broker, welcome }
   }
 
-  async waitExit(timeoutMs = 8_000): Promise<{ code: number | null; signal: NodeJS.Signals | null }> {
+  async waitExit(timeoutMs = 15_000): Promise<{ code: number | null; signal: NodeJS.Signals | null }> {
     if (!this.exited) throw new Error('No real core process to wait for.')
     let timer: NodeJS.Timeout | undefined
     try {
@@ -235,6 +290,23 @@ export class RealCoreHarness {
 
   get diagnostics(): string { return this.output }
 
+  /** Damage only an existing checkpoint's integrity proof offline. No invented authority. */
+  corruptCheckpoint(requestId: string): void {
+    assertIsolated()
+    if (this.running) throw new Error('Checkpoint corruption requires the owned core to have exited.')
+    const result = spawnSync(this.python, ['-c',
+      'import sqlite3,sys; db=sqlite3.connect(sys.argv[1]); row=db.execute("UPDATE turns SET payload_digest=? WHERE message_id=? AND payload IS NOT NULL",("invalid-contract-digest",sys.argv[2])); assert row.rowcount==1; db.commit(); db.close()',
+      join(this.paths.dataDir, 'turn_state/turns.db'), requestId], { cwd: repository, env: this.env, encoding: 'utf8', timeout: 5000 })
+    if (result.error || result.status !== 0) throw new Error(`Checkpoint corruption failed: ${result.error?.message ?? result.stderr}`)
+  }
+
+  /** Lock only the ephemeral adapter; never touch a host keyring or Secret Service. */
+  lockKeyring(): void {
+    assertIsolated()
+    if (!this.services.memoryKeyring) throw new Error('No ephemeral keyring adapter.')
+    writeFileSync(join(this.root, 'keyring.locked'), 'locked', { mode: 0o600 })
+  }
+
   /** Offline time travel, not a fabricated tombstone: startup runs the real receipt pruner. */
   ageReceipt(commandId: string): void {
     assertIsolated()
@@ -256,7 +328,8 @@ export class RealCoreHarness {
         }
       }
     } finally {
-      if (!this.running) rmSync(this.root, { recursive: true, force: true })
+      await this.provider?.close()
+      if (!this.running && !this.services.profileRoot) rmSync(this.root, { recursive: true, force: true })
     }
   }
 }

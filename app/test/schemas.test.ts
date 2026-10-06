@@ -16,6 +16,29 @@ import {
 const uuid = '0b6f1c1e-9a3e-4a8e-9d43-2f1f0c7d5a10'
 
 describe('bridge request validation', () => {
+  it('accepts real revision-bound MCP inputs through only their named schemas', () => {
+    const inputs = {
+      mcpSave: { name: 'harmless', command: '/bin/true' },
+      mcpSetEnabled: { name: 'harmless', enabled: false },
+      mcpDelete: { name: 'harmless' }, mcpReconnect: { name: 'harmless' }, mcpRefreshTools: { name: 'harmless' },
+      mcpSetGlobalEnabled: { enabled: false }, mcpSetLimits: { max_published_tools_global: 5 }
+    } as const
+    for (const [name, input] of Object.entries(inputs)) {
+      const schema = MANAGEMENT_SCHEMAS[name as keyof typeof inputs]
+      expect(parseRequest(schema, { ...input, expected_revision: 'revision-1' }).ok).toBe(true)
+      expect(parseRequest(schema, { ...input, expected_revision: '' }).ok).toBe(false)
+      expect(parseRequest(schema, { ...input, expected_revision: 'revision-1', rpc: 'other.method' }).ok).toBe(false)
+    }
+    expect(parseRequest(MANAGEMENT_SCHEMAS.mcpSave, { name: 'harmless', create: true, command: '/bin/true' }).ok).toBe(true)
+  })
+
+  it('accepts real reconcile without adding a fixture acknowledgment requirement', () => {
+    const input = { session_id: 'retained-session', generation: 3 }
+    expect(parseRequest(MANAGEMENT_SCHEMAS.computerReconcile, input)).toEqual({ ok: true, value: input })
+    expect(parseRequest(MANAGEMENT_SCHEMAS.computerReconcile, { ...input, acknowledgment: 'legacy fixture' }).ok).toBe(true)
+    expect(parseRequest(MANAGEMENT_SCHEMAS.computerReconcile, { ...input, operation: 'input' }).ok).toBe(false)
+  })
+
   it('accepts a revision-bound model leaf without admitting a second change', () => {
     const base = { method: 'models.main.set', params: { model: 'gpt-6-luna', expected_revision: 'rev-1' } }
     expect(parseRequest(editLeafSchema, base).ok).toBe(true)
@@ -44,6 +67,7 @@ describe('bridge request validation', () => {
   it('binds controls to an exact request and generation', () => {
     const base = { control_command_id: uuid, conversation_id: 'c_1', request_id: 'r_1', generation: 1 }
     expect(parseRequest(controlSchema, base).ok).toBe(true)
+    expect(parseRequest(controlSchema, { ...base, generation: 0 }).ok).toBe(false)
     expect(parseRequest(controlSchema, { ...base, generation: -1 }).ok).toBe(false)
     expect(parseRequest(controlSchema, { control_command_id: uuid, conversation_id: 'c_1' }).ok).toBe(false)
   })

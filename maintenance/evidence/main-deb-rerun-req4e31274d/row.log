@@ -1,0 +1,14 @@
+Source: b276b0b34c44c553ed1aa9042e716bf06395694f
+Packaging prerequisite: PASS (3 private lanes), 0 errors
+Fresh native installed .deb: one launch, no retry
+UTC: 2026-10-06T13:15:38Z through 2026-10-06T13:16:26Z
+Row exit: 1
+smoke: timed out
+UnhandledPromiseRejectionWarning: Error: UnknownVizError
+Screenshot/success marker: absent
+Renderer: PID1505, 284 samples, Seccomp2, NoNewPrivs1, sandbox enabled
+Namespaces: user/pid/net distinct; mount shared
+Both AppArmor exceptions installed/loaded; owned digest matches source
+Gate: OPEN, graphics/Viz capture path unresolved
+No candidate PIDs remained; app receipt unresolved, core receipt clean
+All odq VMs: STOPPED

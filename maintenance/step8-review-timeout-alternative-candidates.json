@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "status": "blocked-full-matrix-with-verified-alternatives",
+  "artifact": "PR35 timeout admission and denied-output alternative investigation",
+  "source_freeze": "No production modifications retained. Unvalidated runtime candidate reverted before final targeted run. No shared maps, ledgers, maintenance scripts, original assertions or original parameter matrix changed.",
+  "files": {
+    "baseline": {"path": "tests/test_executor_timeout_durability.py", "sha256": "7d1ad9553f761f999f910ed7843aba30312f4cc490b22ad95d03a59245de10c2"},
+    "adapter": {"path": "tests/desktop_adapters/step8_review_timeout.py", "sha256": "45cce18d6f4c6f76f7f2a1838639eae490618624b76751b0b165731c023e8092", "changed_by_this_task": false},
+    "checks": {"path": "tests/test_desktop_step8_review_timeout.py", "sha256": "dfcfe7db3ab8b8970e6143c19c0950dd2fa911fb3083aee02c09afb0ad89058a", "added_checks": 2},
+    "runtime_delivery": {"path": "src/tools/runtime_delivery.py", "sha256": "fd70b56d7db34efb53e8ce29de96206724e96bd5142efec3190467893d163e2f", "working_tree_diff": false}
+  },
+  "targeted_validation": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_timeout.py tests/diagnostic_step8_review_timeout.py tests/test_desktop_capabilities_publication.py --tb=short",
+    "isolation": "Repository runner: odin non-root, isolated mount/PID namespace, env -i, throwaway HOME/XDG, no native/live work",
+    "pid": 944877,
+    "output_generation": "2edb54b444782011c1bba3e98b2d16ef",
+    "exit_code": 1,
+    "passed": 32,
+    "failed": 4,
+    "duration_seconds": 12.54,
+    "inherited_original_cases": {"passed": 2, "blocked": 4},
+    "integrity_authenticity_and_alternative_checks": {"passed": 8, "failed": 0},
+    "capability_publication_denial_checks": {"passed": 22, "failed": 0},
+    "failure": "All four unchanged wait_for_agents/future_dynamic_tool missing/registered matrix executions raise PermissionError: Output capability unavailable. Do not replay the tool. at runtime_delivery.py:69 before WI-3.",
+    "initial_test_authoring_iteration": {"pid": 937365, "passed": 31, "failed": 5, "new_check_error": "SQL probe used result_text; actual column is result. Probe corrected, final new checks both pass."},
+    "git_diff_check": "passed"
+  },
+  "observed_alternatives": [
+    {
+      "test": "test_timeout_unavailable_refusal_fails_before_wi3",
+      "result": "passed diagnostic",
+      "facts": [
+        "Actual RequestService owning worker and real enabled turn ledger admit future_dynamic_tool intent.",
+        "Sanctioned handler override exists but is never invoked: live production capability gate denies before handler dispatch.",
+        "Runner still enters RUNNING before executor denial. Output-authority refusal prevents after_tool; immediate SQL checkpoint is RUNNING and result is NULL.",
+        "Normal terminal cleanup is used, not a test-authored ledger repair. This reveals a real not-started-operation truthfulness gap independent of inherited assertion compatibility."
+      ]
+    },
+    {
+      "test": "test_timeout_real_authored_skill_registry_does_not_grant_retention",
+      "result": "passed diagnostic",
+      "facts": [
+        "Actual SkillManager.create_skill authors and imports temporary future_dynamic_tool in private temporary profile storage. No fake enabled handles or fabricated readiness.",
+        "Actual NativeToolDispatcher handles and executes loaded dynamic skill with canonical authenticated request owner; actual one-second skill timeout produces uncertain ToolFailure and invocation count is one.",
+        "wait_for_agents is a reserved built-in and cannot be registered as a skill. The name is not remapped, shadowed or treated as a pretend phase-1 owner.",
+        "Loaded future_dynamic_tool does not make BuiltinToolPolicy.is_available true. deliver_runtime_result refuses retention. The actual registry route therefore cannot restore this executor-specific frozen matrix unchanged."
+      ]
+    }
+  ],
+  "exact_production_proposal_not_applied": {
+    "authorization": "Requires parent approval and production file ownership beyond runtime_delivery.py before implementation. Source freeze honored; no approved fix claimed.",
+    "executor.py": "At existing pre-dispatch authentication/scope/unknown/permission/disabled/unavailable gates mint a private code-owned NotStartedToolResult provenance subtype (or opaque sealed record). Do not mint in handlers, retry, timeout or after dispatch. All deny-before-handler and capability ordering must remain unchanged.",
+    "runtime_delivery.py": "Only an authenticated current PermissionManager owner plus trusted not-started provenance may receive a newly synthesized fixed generic refusal notice. Construct bounded scrubbed failed-retention DeliveredOutput with status failed, cursor null and no continuation. Never copy or hash original output/input, attachments/image blocks, audit payload or sensitive names; never open a retention store. Ordinary ToolResult.error flags and live-unavailable status alone are insufficient evidence of no execution, because capabilities may revoke after effects. Actual tool results still require existing owner and live readiness checks.",
+    "tool_loop.py": "Preserve trusted structured result into deliver_runtime_result before WI-3 instead of collapsing it to a plain string. Keep status/error/uncertainty and genuine publication/durability owner intact. A provenance denial settles definitely failed and not-started without after_tool_interrupted. Do not turn unexecuted unsupported names into successful tool results or pretend missing handlers timed out.",
+    "required_regressions": [
+      "unavailable authentic request settles DEFINITELY_FAILED with no dispatched handler, no retained original evidence and bounded cursor-null notice",
+      "foreign or unbound owner refusal remains enforced",
+      "success, actual uncertain failure and plain strings cannot enter denial exception path",
+      "forged ordinary ToolResult with tool_unavailable cannot publish arbitrary text or media",
+      "revocation after real execution preserves unknown outcome and cannot claim not-started",
+      "binary output retains current originating-owner/readiness guards",
+      "all existing denied-before-handler capability assertions remain unchanged"
+    ],
+    "limits": "A truthful denied-output settlement fix still does not restore registered dynamic variants requiring calls==1 and timed-out output. Full inherited matrix remains blocked until an explicitly authorized optional capability route supports these names without violating built-in reservation or Phase-1 readiness boundaries. No such current executor route was found."
+  },
+  "qualification": "Honest blocked full inherited corpus. New alternatives and known denial checks pass; no full gate, git commit, deployment, native/live execution or shared maintenance status update performed."
+}

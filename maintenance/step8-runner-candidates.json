@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "artifact": "Whole-suite runner candidates; parent owns final dispositions",
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "qualification_group": "phase2-step3-restored-corpus",
+  "safety": {
+    "all_assigned_original_sources_and_executed_helper_inputs_read_before_execution": true,
+    "destructive_command_inputs_executed": false,
+    "desktop_used": false,
+    "services_modified": false,
+    "original_bytes_modified": false,
+    "test_command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_runner_corpus.py tests/test_compatible_output_reserve.py --junitxml=.test-state/step8-runner-qualified-targets.xml",
+    "isolation": "nonroot odin, mount/PID namespace, env-i throwaway HOME/XDG, no display/DBus/credentials"
+  },
+  "validation": {
+    "stable_final_log": ".test-state/step8-runner-stable-final.log",
+    "stable_final_junit": ".test-state/step8-runner-stable-final.xml",
+    "stable_final_log_sha256": "9e649a90eb7fe255796c408aefeebb7c19ef059f6e9a9a23c19ad249fca752e2",
+    "stable_final_junit_sha256": "c05f36808ec636f586c302404d46d8ffa102ea586f777f827c60e2736f0f48a5",
+    "stable_final_passed": 30,
+    "stable_final_elapsed_seconds": 23.78,
+    "ruff": "All checks passed; E501 exempted only for literal pinned SHA256 declarations and diagnostic invocations",
+    "static_full_adapter_associations": {"tests/test_command_shell_framing.py": true, "tests/test_process_zero_offset.py": true},
+    "log": ".test-state/step8-runner-qualified-targets.log",
+    "junit": ".test-state/step8-runner-qualified-targets.xml",
+    "log_sha256": "98c663656720a284151e075d885dcc14e260c53f62179326e3771216fa5bd4f5",
+    "junit_sha256": "c4a6b03dab67c63228d37471e9a4c4354ba252b97378b78417c8b191f7951c22",
+    "passed": 30, "failed": 0, "errors": 0, "skipped": 0,
+    "inherited_cases": 24, "loader_safeguards": 6, "elapsed_seconds": 22.53,
+    "earlier_diagnostics": [".test-state/step8-runner-corpus.log", ".test-state/step8-runner-corpus2.log", ".test-state/step8-runner-final-targeted.log", ".test-state/step8-runner-reserve.log"]
+  },
+  "entries": [
+    {
+      "path": "tests/characterization/test_executor_dispatch_parity.py",
+      "inherited_sha256": "652656e3e628455a90975498315f7fe4fcc329cac940e0e5ff34ac60bea43a29",
+      "candidate_status": "blocked", "mode": null, "selector": null,
+      "group": "phase2-step3-restored-corpus", "adaptations": [],
+      "blocker": "TestMiddlewarePins.test_rbac_denial_shape_and_metrics requires guest-tier prose and a metric increment. Current executor check_permission:762-777 emits authenticated-owner prose; _execute_scoped:823-826 returns before _execute_inner metrics. Real PermissionManager:25-34 cannot authorize the frozen literal alice/bob/u-42 callers. No permit-all shim, tier-prose implementation, or metrics manufacture is admissible.",
+      "counts": {"static_test_definitions": 22, "static_assertions": 56, "executed": 0}, "logs": []
+    },
+    {
+      "path": "tests/test_codex_replay_matrix.py",
+      "inherited_sha256": "eed93185f30efd619bafbfb1fd0f2d7bcac1eda96879b50214cfc1f8f5585256",
+      "candidate_status": "blocked", "mode": null, "selector": null,
+      "group": "phase2-step3-restored-corpus", "adaptations": [],
+      "blocker": "test_matrix_covers_real_served_catalog_and_computer_operations:441 requires BUILTIN_INPUTS equality with get_tool_definitions. registry.py:96-111 publishes only explicitly ready executor tools. Even documentation catalog omits retired purge_messages/set_permission/add_reaction/create_poll/read_channel and now has read_conversation. Full frozen BUILTIN_INPUTS/CASES retain all old names; invented legacy catalog or deleting/renaming parameter corpus would not prove current publication. Parent-reviewed exact legacy catalog disposition required.",
+      "counts": {"static_test_definitions": 3, "static_assertions": 22, "executed": 0}, "logs": []
+    },
+    {
+      "path": "tests/test_command_shell_framing.py",
+      "inherited_sha256": "cb5bd6655d51b4ed8994ea0df7f750a5295722e7234071e8935dcc4a4929324e",
+      "candidate_status": "restorable", "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_runner_corpus.py", "group": "phase2-step3-restored-corpus",
+      "adaptations": ["Two exact hashed import statements rebind HOST/USER and runtime fixture only. Retained async runtime fixture is exported intact.", "Authentic private temporary ProfilePaths/OwnerAuthority/PermissionManager and workspace; USER bound to authenticated owner UUID.", "Real ToolExecutor, host registry, kernel supervision, command framing/timeout, file/patch IO. Real BuiltinToolPolicy readiness tests actual callable retained owners, limited to invoked tools. No permissive identity shim or product/containment replacement."],
+      "blocker": null,
+      "counts": {"static_test_definitions": 8, "static_assertions": 52, "passed": 12, "failed": 0, "errors": 0, "skipped": 0},
+      "logs": [".test-state/step8-runner-qualified-targets.log", ".test-state/step8-runner-qualified-targets.xml"]
+    },
+    {
+      "path": "tests/test_compatible_output_reserve.py",
+      "inherited_sha256": "8ca908a54d6b66b20c10b766c6ddd86b0c82a293ab1908c0744dc8541ca2968c",
+      "candidate_status": "restorable", "mode": "direct",
+      "selector": "tests/test_compatible_output_reserve.py", "group": "phase2-step3-restored-corpus",
+      "adaptations": [], "blocker": null,
+      "counts": {"static_test_definitions": 6, "static_assertions": 27, "passed": 10, "failed": 0, "errors": 0, "skipped": 0},
+      "logs": [".test-state/step8-runner-qualified-targets.log", ".test-state/step8-runner-qualified-targets.xml"]
+    },
+    {
+      "path": "tests/test_execute_api.py",
+      "inherited_sha256": "504900a3e35a622f0983db1acbf89d11357fcf0bccbbd60739498a1eb9bc95c8",
+      "candidate_status": "blocked", "mode": null, "selector": null,
+      "group": "phase2-step3-restored-corpus", "adaptations": [],
+      "blocker": "src/web/api/sessions_chat.py:9-10 register_chat is removed gateway Phase2 stub, not HTTP route registrar. Inherited exact HTTP statuses, api-user/API fixed service identity, api- ephemeral IDs and CLI scripts/odin-cli.py existence/executable/--url/--token assertions:290-327 require retired transport. CLI absent. Cannot fabricate HTTP server/script or drop assertions to call Desktop submission service.",
+      "counts": {"static_test_definitions": 16, "static_assertions": 30, "executed": 0}, "logs": []
+    },
+    {
+      "path": "tests/test_process_zero_offset.py",
+      "inherited_sha256": "b7db1aadbd1ad1fa965f13609906808ca282089f7b3acf87f6dfcc67dcd8b052",
+      "candidate_status": "restorable", "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_runner_corpus.py", "group": "phase2-step3-restored-corpus",
+      "adaptations": ["One exact pinned helper import; every assertion/decorator/parameter retained.", "Frozen tail helper independently source-hash pinned; executor import and six exact owner-label constants rebound to authentic temporary owner UUID. Every helper assertion preserved and complete reverse AST replay required.", "Real registry, local/remote supervisors, spool/FIFO, capture, delivery and cursor paging. Unchanged _remote_job substitutes local subprocess transport only. No authorization/settlement bypass."],
+      "blocker": null,
+      "counts": {"static_test_definitions": 1, "static_assertions": 18, "passed": 2, "failed": 0, "errors": 0, "skipped": 0},
+      "logs": [".test-state/step8-runner-qualified-targets.log", ".test-state/step8-runner-qualified-targets.xml"]
+    },
+    {
+      "path": "tests/test_tool_loop_helpers.py",
+      "inherited_sha256": "a852e1e285166c02beaedc9c5c4ae113c77ffd1aec08641bcc19870b19ea5782",
+      "candidate_status": "blocked", "mode": null, "selector": null,
+      "group": "phase2-step3-restored-corpus", "adaptations": [],
+      "blocker": "Inherited no_history_bot_turn_keeps_bot_origin_note, bot_message_block and all_combinations_match_reference require from_another_bot keyword and exact bot-origin instructions. Current src/discord/tool_loop_helpers.py:45-54 removed keyword and bot branch. Adapter manufacturing old prompt replaces product behavior and hides instruction-affecting D19 delta. Parent-reviewed precise legacy wording disposition required.",
+      "counts": {"static_test_definitions": 11, "static_assertions": 24, "executed": 0}, "logs": []
+    },
+    {
+      "path": "tests/test_turn_durability_heartbeat.py",
+      "inherited_sha256": "e7595d33ed5660a9055e372a36bc98606df1b61f5c6f8aa8153cb727f440a04c",
+      "candidate_status": "blocked", "mode": null, "selector": null,
+      "group": "phase2-step3-restored-corpus", "adaptations": [],
+      "blocker": "admit helper:44-49 calls TurnDurability.admit with FakeMsg gateway shape and asserts enabled. durability.py:102-119 deliberately disables/refuses old API. Desktop RequestService.admit_turn:429-455 requires sealed task-bound authenticated EngineRequest and persisted request row. Complete authentic request admission fixture not built in this candidate; constructing raw lease/heartbeat bypasses required Desktop admission. No fake enabled handle or retirement. Parent may reuse its pending bounded-wait authentic request factory to finish this candidate.",
+      "counts": {"static_test_definitions": 6, "static_assertions": 10, "executed": 0}, "logs": []
+    }
+  ],
+  "loader_safeguards": ["Changed source bytes rejected", "Wrong/duplicate setup hunks rejected", "Assertion mutation outside exact admitted allowlist rejected", "Complete suite admissions, no selected/excluded cases", "Collateral AST edits rejected by independent complete reverse replay", "Missing fixture, foreign requester and revoked runtime deny authority"]
+}
