@@ -77,7 +77,7 @@ describe('served settings/management through actual Broker and isolated reposito
     expect(result(await broker.request('knowledge.list'))).toEqual([])
     expect(result(await broker.request('audit.query'))).toEqual([])
     expect(result(await broker.request('logs.search'))).toEqual({ entries: [], count: 0 })
-    expect(result(await broker.request('turn_state.list'))).toMatchObject({ schema_version: 1, availability: 'not_enabled', data: {} })
+    expect(result(await broker.request('turn_state.list'))).toMatchObject({ schema_version: 1, availability: 'available', data: {} })
     expect(result(await broker.request('usage.get', { period: '7d' }))).toMatchObject({ period: '7d', tokens: { value: null, kind: 'unknown' },
       context: { used: { value: null, kind: 'unknown' }, budget: { value: null, kind: 'unknown' } }, quota: [] })
     expect(result(await broker.request('audit.verify'))).toMatchObject({ valid: false, verified: 0, availability: 'not_enabled' })
