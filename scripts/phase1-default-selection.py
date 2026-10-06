@@ -38,6 +38,8 @@ def _groups(root: Path) -> list[dict]:
         name, reason, files = group.get("name"), group.get("reason"), group.get("files")
         if not isinstance(name, str) or not name.strip():
             raise ValueError("Group lacks a name")
+        if name == "additional-desktop-boundaries":
+            raise ValueError("Additional Desktop group name is reserved")
         if not isinstance(reason, str) or not reason.strip():
             raise ValueError(f"Group {name!r} lacks reviewed selection rationale")
         if not isinstance(files, list) or not files:
@@ -62,18 +64,23 @@ def _groups(root: Path) -> list[dict]:
     return validated
 
 
-def run_default(root: Path, arguments: list[str], *, execute=None) -> int:
-    """Validate the entire plan first; run all groups with no alternate retries."""
+def run_default(root: Path, arguments: list[str], *, execute=None,
+                extras_only: bool = False) -> int:
+    """Validate the entire plan first, then optionally run only Desktop extras."""
     try:
         groups = _groups(root)
     except (OSError, ValueError, TypeError, AttributeError) as error:
         raise SystemExit(f"Default selection refused: {error}") from error
+    if extras_only:
+        groups = [group for group in groups if group["name"] == "additional-desktop-boundaries"]
     failures = []
     for index, group in enumerate(groups, 1):
         command = [sys.executable, str(root / "scripts/run-phase1-tests.py"),
                    *group["files"], *arguments]
         if group.get("exclude_expression"):
             command.extend(["-k", f"not ({group['exclude_expression']})"])
+        if extras_only:
+            command.append("--junitxml=.test-state/additional-desktop-boundaries.xml")
         print(f"Default qualification group {index}/{len(groups)}: {group['name']}", flush=True)
         try:
             result = execute(command) if execute is not None else subprocess.call(command, cwd=root)

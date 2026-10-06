@@ -8,6 +8,7 @@ import os
 from pathlib import Path, PurePosixPath
 import pwd
 import re
+import shlex
 import shutil
 import stat
 import struct
@@ -346,13 +347,34 @@ def install_deb(deb, source, destination, user):
         (work / 'root/etc/passwd').write_text('root:x:0:0:root:/root:/bin/bash\n')
         (work / 'root/etc/group').write_text('root:x:0:\n')
         account = pwd.getpwuid(os.getuid())
+        # Postinst must install the profile even when no kernel parser is in the
+        # tiny chroot. Audit before export/chown, while root ownership is real.
+        # Never precreate/chmod /opt/Odin: dpkg retains stale directory modes.
+        profile_audit = (
+            'import hashlib, json, os, stat; from pathlib import Path; '
+            'install=Path("/opt/Odin"); '
+            'parents=[install.parent, install, install/"resources"]; '
+            'assert all(stat.S_ISDIR(p.lstat().st_mode) and '
+            'p.lstat().st_uid == 0 and p.lstat().st_gid == 0 and '
+            'stat.S_IMODE(p.lstat().st_mode) == 0o755 for p in parents), '
+            '"installed application directories are not root-owned 0755"; '
+            'source=(install/"resources/apparmor-profile").read_bytes(); '
+            'assert Path("/etc/apparmor.d/odin-desktop").read_bytes() == source; '
+            'receipt=json.loads(Path("/var/lib/odin-desktop/package-ownership/"'
+            '"apparmor-profile.json").read_text()); '
+            'assert receipt["sha256"] == hashlib.sha256(source).hexdigest(); '
+            'print("AppArmor postinst profile/receipt/root-directory audit: PASS; "'
+            '"kernel parser/loading not qualified")')
         script = ('/usr/sbin/chroot /work/root /usr/bin/python3 -I -B -S -c '
                   '\'import argparse, fcntl, hashlib, json, os, stat, subprocess, sys; '
                   'from contextlib import contextmanager; from pathlib import Path\' || '
                   '{ echo "disposable install python3 prerequisite check failed"; exit 1; }; '
                   'PATH=/usr/sbin:/usr/bin:/sbin:/bin /usr/bin/dpkg --root=/work/root '
                   '--force-depends --install /work/candidate.deb; '
-                  'result=$?; /usr/bin/find /work/root -xdev '
+                  'result=$?; if [ "$result" -eq 0 ]; then '
+                  '/usr/sbin/chroot /work/root /usr/bin/python3 -I -B -S -c '
+                  + shlex.quote(profile_audit) + '; result=$?; fi; '
+                  '/usr/bin/find /work/root -xdev '
                   '\\( -path /work/root/proc -o -path /work/root/dev \\) -prune -o '
                   '-exec /bin/chown -h %s:%s {} +; exit "$result"' %
                   (account.pw_uid, account.pw_gid))

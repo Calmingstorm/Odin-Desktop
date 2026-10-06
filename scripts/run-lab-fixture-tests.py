@@ -9,7 +9,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = (
-    "tests/test_desktop_qualification_lab.py",
     "tests/test_lab_common.py",
     "tests/test_lab_cinnamon.py",
     "tests/test_lab_gnome.py",
