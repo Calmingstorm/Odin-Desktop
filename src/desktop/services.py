@@ -781,19 +781,18 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             return [s for s in scheduler.list_all() if s.get("requester_id") == message.owner_id]
 
         async def update(self, schedule_id, **kwargs):
+            # As Scheduler.update: None leaves a field unchanged; a missing id is None.
             service, message = self._admitted()
-            if "conversation_id" in kwargs:
-                kwargs["channel_id"] = kwargs.pop("conversation_id")
+            values = {k: v for k, v in kwargs.items() if v is not None}
+            if "conversation_id" in values:
+                values["channel_id"] = values.pop("conversation_id")
             return await service.for_request(
-                "schedules.save", {"id": schedule_id, **kwargs}, message)
+                "schedules.save", {"id": schedule_id, **values}, message)
 
         async def delete(self, schedule_id):
             service, message = self._admitted()
-            service.assert_request(message)
-            if not any(s["id"] == schedule_id for s in scheduler.list_all()):
-                return False
-            await service.for_request("schedules.delete", {"id": schedule_id}, message)
-            return True
+            return bool(await service.for_request(
+                "schedules.delete", {"id": schedule_id}, message))
 
     skills.set_services(knowledge_store=knowledge, embedder=embedder,
                         session_manager=SkillHistory(), scheduler=SkillSchedules())

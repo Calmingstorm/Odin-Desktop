@@ -287,6 +287,26 @@ async def test_restored_scheduling_binds_real_owner_and_destination(composed, to
                                                          else schedules)
 
 
+async def test_schedule_tools_report_a_missing_id_as_not_found(composed):
+    # Odin's delete/update_schedule say "Schedule <id> not found." for a missing id.
+    graph = composed
+    cid = await conversation(graph)
+    await turn(graph, cid, "schedule_task", {
+        "description": "Private reminder", "action": "reminder",
+        "run_at": "2099-01-01T00:00:00Z", "message": "D19 scheduled fixture"})
+    saved, = graph.core.engine.deps.scheduler.list_all()
+    await turn(graph, cid, "delete_schedule", {"schedule_id": saved["id"]})
+    assert f"Deleted schedule {saved['id']}." in str(tool_results(graph))
+    assert not graph.core.engine.deps.scheduler.list_all()
+    for tool, arguments in (("delete_schedule", {"schedule_id": saved["id"]}),
+                            ("update_schedule", {"schedule_id": saved["id"], "paused": True})):
+        await turn(graph, cid, tool, arguments)
+        assert f"Schedule {saved['id']} not found." in str(tool_results(graph)), tool
+    # The management protocol refuses a missing id instead of reporting a deletion.
+    response = await request(graph.reader, graph.writer, "schedules.delete", {"id": saved["id"]})
+    assert not response["ok"] and response["error"]["code"] == "not_found", response
+
+
 async def test_restored_delegate_task_executes_and_settles_owned_background(composed):
     graph = composed
     cid = await conversation(graph)
@@ -441,14 +461,20 @@ async def test_restored_skill_scheduling_binds_owner_and_destination(composed):
         f"message='Skill reminder', run_at={run_at!r})",
         "listed = [item['id'] for item in context.list_schedules()]",
         "updated = await context.update_schedule(created['id'], paused=True)",
+        # Odin's Scheduler.update: None fields are unchanged, a missing id is None.
+        "kept = await context.update_schedule(created['id'], message='Skill reminder 2', "
+        "run_at=None, paused=None, max_retries=None, conversation_id=None)",
+        "missing = await context.update_schedule('missing', paused=True)",
         "return f\"created={created['id']} listed={created['id'] in listed} "
-        "paused={updated['paused']}\"",
+        "paused={updated['paused']} kept={kept['paused']} "
+        "run_at_kept={kept['run_at'] == created['run_at']} missing={missing}\"",
     ])
     await turn(graph, cid, "d19_schedule")
     results = " ".join(str(content) for content in tool_results(graph))
-    assert "listed=True paused=True" in results, results
+    assert "listed=True paused=True kept=True run_at_kept=True missing=None" in results, results
     stored, = scheduler.list_all()
     assert stored["channel_id"] == cid and stored["paused"] is True
+    assert stored["message"] == "Skill reminder 2"
     assert stored["requester_id"] == graph.core.authority.owner_id
     assert stored["description"] == "D19 skill reminder"
     await save_skill(graph, "d19_unschedule", [
