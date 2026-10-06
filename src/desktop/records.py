@@ -172,6 +172,12 @@ def _read_log_updates(path: Path, last_pos: int, identity, lines_limit: int = _L
         return lines, last_pos, current_identity
 
 
+def _signing_key(audit) -> bytes:
+    """The key an audit object verifies with; empty when it signs nothing."""
+    signer = getattr(audit, "_signer", None)
+    return getattr(signer, "_key", b"") if signer is not None else b""
+
+
 class _AuditReader(AuditLogger):
     """Reuse audit read algorithms without the writer's directory creation.
 
@@ -253,10 +259,12 @@ class RecordsService:
             path = Path(config.tools.audit_log_path) if config is not None else (
                 self.paths.data_dir / "audit.jsonl")
         runtime = self._audit_getter() if self._audit_getter is not None else None
-        if runtime is not None and Path(runtime.path) == path:
+        key = hmac_key.encode() if isinstance(hmac_key, str) else (hmac_key or b"")
+        if runtime is not None and Path(runtime.path) == path and _signing_key(runtime) == key:
             # Share the actual writer's snapshot lock whenever the configured
-            # read source is still its active file. Relocated history stays a
-            # read-only reader until the owning runtime adopts that path.
+            # read source is still its active file and the writer verifies with
+            # the signing authority this read resolved. Relocated history, or a
+            # writer under another key, stays a read-only reader.
             return runtime
         binding = (path, hmac_key)
         if binding != self._audit_binding:

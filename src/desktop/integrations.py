@@ -121,9 +121,14 @@ class ProfileOutboundWebhookDispatcher(OutboundWebhookDispatcher):
                                               "are unavailable"})
                     continue
                 try:
+                    # Requalifying an unchanged row keeps the adopted target: a row
+                    # without a stored created_at keeps its first one, as in Odin.
+                    adopted = self._webhooks.get(ident)
                     candidate.register(**row.model_dump(exclude={
-                        "id", "secret", "url", "signing_key_stored", "private_url_stored"}),
-                        url=private_url or row.url, webhook_id=ident, secret=secret)
+                        "id", "secret", "url", "signing_key_stored", "private_url_stored",
+                        "created_at"}),
+                        url=private_url or row.url, webhook_id=ident, secret=secret,
+                        created_at=row.created_at or (adopted.created_at if adopted else ""))
                 except ValueError:
                     continue
             # Config replacement/in-place edits can occur while the vault is
