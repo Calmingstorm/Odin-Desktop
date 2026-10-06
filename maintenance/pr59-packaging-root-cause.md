@@ -70,6 +70,30 @@ applicable engine delta to fabricate or recapture. Run the report and retain its
 zero-error result. New tests use production behavior, not Markdown assertions.
 Independent review is required; author's model self-review is not approval.
 
-Fresh candidate/test receipts and artifact hashes are recorded separately after
-the build. Native rows remain OPEN until the parent measures them on qualified
-candidates in the authorized guest lane.
+## Final measurements
+
+- Packaging suite: 120 tests, 98 passed, 22 explicit root-only fixture skips in the
+  unprivileged PID-isolated run. Real generated-hook dpkg prerequisite row passed.
+- Inventory report: zero errors. The attempted app-path `record` fails explicitly
+  outside the tool's scope; no metadata authority was broadened to hide this.
+- One fresh full candidate build from committed source
+  `d57b76cbe60877be13f71cc787c265793db6d76f` succeeded. Only immutable pinned cache
+  input copies were reused; existing cache and evidence were not modified.
+- Full `--install --gui --user hyprlab` package qualification: **PASS, zero
+  errors**. Debian extracted, AppImage extracted, and real disposable-dpkg
+  installed-root each pass manifest, payload scan, real core and private-Xvfb GUI.
+  All share resource manifest digest
+  `d3741949d974292a745b523ad6d8a15ca9e18929b4f83b19c560c366cf0534a7`.
+- System Python masked during all candidate runtime probes, isolated network,
+  real first-start SSH key, sandboxed renderer, clean app/core receipts, offline
+  browser/embedding and pinned separate-fixture PDF installation all pass.
+- [Artifact manifest](pr59-packaging-artifacts.json) contains paths and SHA-256s.
+  Candidates live in the external evidence root's `candidates/` directory.
+- 119 GB remained free on `/` after qualification. Own worktree retained pending
+  the parent's cleanup decision.
+
+Qualification uses `dpkg --force-depends`, not clean-distro dependency resolution;
+Xvfb is not native graphics/session acceptance; AppImage extraction is not FUSE.
+No native input was attempted. Native rows remain OPEN until the parent measures
+them on these qualified candidates in the authorized guest lane. Evidence-only
+follow-up commits do not change the candidate source commit.
