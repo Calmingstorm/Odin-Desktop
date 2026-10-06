@@ -151,6 +151,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
         input.value = ${JSON.stringify(value)}; input.dispatchEvent(new Event(${JSON.stringify(event)}, { bubbles: true })); })()`)
     }
     const button = async (label: string): Promise<void> => {
+      await pause(50) // Vue must commit the previous grounded field change.
       await run(`(() => { const button = Array.from(document.querySelectorAll(${JSON.stringify(panel + ' button')})).find(b => b.textContent.trim() === ${JSON.stringify(label)});
         if (!button || button.disabled) throw new Error('Missing or disabled webhook action'); button.click(); })()`)
     }
@@ -174,6 +175,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     assert(created.ok, 'named trigger schedule creation must succeed')
     const row = created.result
     webhookProof.schedule = row
+    await click('button[aria-label="Refresh schedules"]')
+    await until(async () => (await text('section[aria-label="Schedules"]')).includes(row.description), 'actual created trigger in Settings schedule list')
     await refresh()
     await field('webhook-ingress-schedule', row.id, 'change')
     await until(async () => (await count('[data-testid="webhook-ingress-secret"]')) === 1, 'selected saved trigger inspector')
@@ -202,10 +205,16 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert(answer.ok)
       return answer.result
     }
-    const deliver = (credential: string, event: string, title: string): Promise<Response> => fetch(url, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': credential },
-      body: JSON.stringify({ event, title, message: 'Harmless isolated delivery.' }), signal: AbortSignal.timeout(5_000)
-    })
+    const deliver = async (credential: string, event: string, title: string): Promise<Response> => {
+      try {
+        return await fetch(url, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': credential },
+          body: JSON.stringify({ event, title, message: 'Harmless isolated delivery.' }), signal: AbortSignal.timeout(5_000)
+        })
+      } catch (error) {
+        throw new Error(`Isolated webhook delivery ${title} failed: ${String(error)}`)
+      }
+    }
     assert.deepEqual(await history(), [])
     const denied = await deliver('not-the-trigger-secret', 'smoke-delivery', 'Rejected webhook')
     assert.equal(denied.status, 403)
@@ -257,12 +266,26 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   screens.push({ screen: 'Status', text: await text('.status') })
   // This retained Chat contains genuine task/report/reminder publications. The
   // new conversation below separately proves an authoritative empty snapshot.
-  await until(async () => (await count('.conv-row')) === 1 && (await text('.message-scroll')).includes('Harmless catch-up notice') &&
+  await until(async () => (await count('.conv-row')) === 1 && (await text('.conv.active .conv-title')) === 'Chat' &&
     await run<boolean>('document.querySelector(".composer textarea")?.disabled === false'), 'real first conversation and snapshot')
   assert.equal(await text('.conv.active .conv-title'), 'Chat')
   assert.equal(await count('.sidebar-notice'), 0, 'served conversations must not claim unavailable')
   assert((await count('.msg')) > 0, 'real background publication must appear in the transcript')
-  assert(/Due:.*late by.*Omitted slots:/s.test(await text('.message-scroll')), 'real D12 reminder must show catch-up provenance')
+  const retained = await broker.request('conversation.snapshot', { conversation_id: proof.conversation_id })
+  assert(retained.ok, 'retained Chat snapshot must be served')
+  const retainedMessages = (retained.result as ConversationSnapshot).messages.items
+  const reminders = retainedMessages.filter(message => message.text.includes('Harmless catch-up notice'))
+  assert.equal(reminders.length, 1, 'real D12 reminder must publish exactly once')
+  assert(/Due:.*late by.*Omitted slots:/s.test(reminders[0]!.text), 'durable D12 reminder must retain catch-up provenance')
+  // Chromium skips offscreen content-visibility bodies in ancestor innerText.
+  // Bring the exact authoritative message into view, then prove visible text.
+  const reminderSelector = `#m-${reminders[0]!.id}`
+  await run(`document.querySelector(${JSON.stringify(reminderSelector)}).scrollIntoView({ block: 'center' })`)
+  await until(async () => (await text(reminderSelector)).includes('Harmless catch-up notice') &&
+    /Due:.*late by.*Omitted slots:/s.test(await text(reminderSelector)), 'visible real D12 catch-up notice and provenance')
+  screens.push({ screen: 'Visible durable D12 catch-up notice', text: await text(reminderSelector) })
+  writeFileSync(out.replace(/\.png$/i, '') + '-reminder.png', (await win.webContents.capturePage()).toPNG())
+  await run(`document.querySelector('.report-body').scrollIntoView({ block: 'center' })`)
   await until(async () => (await text('.report-body')).includes('produced once'), 'stored real report first page')
   await click('.report-nav button:nth-of-type(2)')
   await until(async () => (await text('.report-body')).includes('no rerun'), 'stored real report second page')
@@ -462,6 +485,10 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   // Keep provider failure after the management/task-log checkpoints:
   // executing a real request legitimately records its failure in core logs.
   await click('.settings-nav .back')
+  // The retained Work inspector can consume the transcript viewport. Close it
+  // through its real control before inspecting visible message bodies.
+  await click('button[aria-label="Close work"]')
+  await until(async () => (await count('.work-panel')) === 0, 'chat viewport after closing Work inspector')
   const submissionText = 'real-core smoke unavailable provider check'
   await run(`(() => {
     const input = document.querySelector('.composer textarea');
@@ -472,6 +499,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   await until(async () => (await text('.message-scroll .msg.notice .body')).includes('No LLM provider available. Please try again later.') &&
     (await text('.message-scroll .outcome')).includes('The task failed.') && (await count('.working, .msg.pending')) === 0, 'actual unavailable-provider task outcome')
   assert.equal(await count('.message-scroll .msg.user'), 1, 'submission must commit exactly one user message')
+  await run(`document.querySelector('.message-scroll .msg.user').scrollIntoView({ block: 'center' })`)
+  await until(async () => (await text('.message-scroll .msg.user .body')) === submissionText, 'visible committed user submission')
   assert.equal(await text('.message-scroll .msg.user .body'), submissionText)
   assert.equal(await count('.message-scroll .msg.assistant'), 0, 'missing provider must not invent an assistant reply')
   assert(await run('document.querySelector(".composer textarea").value === ""'), 'accepted submission clears its draft')

@@ -129,7 +129,7 @@ async function saveListener(): Promise<void> {
     // Core validates explicit numeric/nonwildcard LAN, tailnet, link-local and loopback addresses.
     // No renderer address policy narrower than D17.
     const number = Number(port.value)
-    if (!port.value.trim() || !Number.isInteger(number) || number < 0 || number > 65535) {
+    if (!String(port.value).trim() || !Number.isInteger(number) || number < 0 || number > 65535) {
       error.value = 'Listen port must be a whole number from 0 to 65535.'
       return
     }

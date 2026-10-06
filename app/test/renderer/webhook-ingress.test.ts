@@ -117,6 +117,17 @@ describe('inbound listener observed state and write-only setup', () => {
     ] })
     expect(bridge.secretsSet).not.toHaveBeenCalled()
   })
+  it.each([0, 8081, 65535])('submits numeric DOM-coerced port %s without throwing', async (port) => {
+    const v = await open()
+    control(v, 'webhook-ingress-port').type(String(port))
+    expect(typeof v.setup.port).toBe('number')
+    v.setup.enabled = true
+    await call(v, 'saveListener')
+    expect(bridge.settingsSet).toHaveBeenCalledWith({ expected_revision: 'rev1', changes: [
+      { path: 'webhook.enabled', value: true }, { path: 'webhook.bind_address', value: '127.0.0.1' },
+      { path: 'webhook.port', value: port }
+    ] })
+  })
   it('saves source first then exact secret path, clears pending draft and prevents duplicates', async () => {
     let land!: (result: unknown) => void
     bridge.settingsSet.mockImplementation(() => new Promise((resolve) => { land = resolve }))
