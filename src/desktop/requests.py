@@ -5,7 +5,7 @@ import asyncio
 import hashlib
 import json
 from contextvars import ContextVar
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from uuid import uuid4
 
 from ..discord.response_guards import scrub_response_secrets
@@ -588,18 +588,13 @@ class RequestService:
             images = []
             content = message.content
             if st is None and self.attachments is not None and message.attachments:
-                from ..discord.attachments import AttachmentProcessor, infer_attachment_intent
+                from ..discord.attachments import (
+                    AttachmentIntent,
+                    AttachmentProcessor,
+                    infer_attachment_intent,
+                )
                 streams = self.attachments.streams_for_request(
                     message.conversation_id, message.request_id)
-                # Explicit ingestion remains a service seam, not automatic
-                # ingestion of attached content or an app-supplied path.
-                if any(add for _stream, add in streams):
-                    ingest = getattr(self.engine, "ingest_attachment", None)
-                    if ingest is None:
-                        raise RuntimeError("Explicit attachment ingestion is not wired")
-                    for stream, add in streams:
-                        if add:
-                            await ingest(message, stream)
                 cfg = self.engine.deps.get_config().attachments
                 processor = AttachmentProcessor(
                     temp_dir=cfg.temp_directory, inline_max_bytes=cfg.inline_text_max_bytes,
@@ -612,14 +607,27 @@ class RequestService:
                     archive_preview_file_max_bytes=cfg.archive_preview_file_max_bytes,
                     image_max_bytes=cfg.image_max_bytes, pdf_max_bytes=cfg.pdf_max_bytes,
                     retention_hours=cfg.retention_hours)
-                processed = await processor.process(
-                    [stream for stream, _add in streams], conversation_id=message.conversation_id,
-                    request_id=message.request_id, intent=infer_attachment_intent(content, None))
-                content += processed.inline_text
-                images = processed.image_blocks
-                if processed.retained_content:
+                inferred_intent = infer_attachment_intent(content, None)
+                text_parts = []
+                retained_content = []
+                for stream, add in streams:
+                    # The checkbox is the same explicit request as Odin's text
+                    # inference, scoped to this attachment. The processor owns
+                    # the existing model note; ingestion remains a model tool.
+                    intent = AttachmentIntent.INGEST_KNOWLEDGE if add else inferred_intent
+                    processed = await processor.process(
+                        [stream], conversation_id=message.conversation_id,
+                        request_id=message.request_id, intent=intent)
+                    if processed.inline_text:
+                        text_parts.append(processed.inline_text)
+                    images.extend(processed.image_blocks)
+                    for attachment in processed.retained_content:
+                        retained_content.append(replace(
+                            attachment, content_index=len(retained_content)))
+                content += "\n\n".join(text_parts)
+                if retained_content:
                     manifest = self.engine.deps.tool_executor.retain_attachments(
-                        processed.retained_content, tool_name="get_tool_output",
+                        retained_content, tool_name="get_tool_output",
                         user_id=message.owner_id, channel_id=message.conversation_id)
                     content += ("\n[Full attachment contents in labelled source order.]\n"
                                 + canonical_json(manifest))
