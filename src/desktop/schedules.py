@@ -20,6 +20,7 @@ class ScheduleService:
     def __init__(self, scheduler, *, authority, conversations, assert_request=None):
         self.scheduler, self.authority = scheduler, authority
         self.conversations, self.assert_request = conversations, assert_request
+        self.ingress = None
 
     def _owned(self, id, owner_id):
         for item in self.scheduler.list_all():
@@ -97,13 +98,19 @@ class ScheduleService:
             if "channel_id" in values or not id:
                 values["channel_id"] = self._destination(values.get("channel_id"))
             if id:
-                return await self.scheduler.update(
+                result = await self.scheduler.update(
                     id, nested_payload_validated=nested_payload_validated, **values)
-            return await self.scheduler.add(requester_id=owner_id,
-                nested_payload_validated=nested_payload_validated, **values)
+            else:
+                result = await self.scheduler.add(requester_id=owner_id,
+                    nested_payload_validated=nested_payload_validated, **values)
+            if self.ingress is not None:
+                await self.ingress.sync()
+            return result
         self._owned(id, owner_id)
         if method == "schedules.delete":
             await self.scheduler.delete(id)
+            if self.ingress is not None:
+                await self.ingress.sync()
             return {"status": "deleted"}
         if method == "schedules.run":
             return await self.scheduler.run_now(id)

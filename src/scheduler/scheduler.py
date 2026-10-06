@@ -259,7 +259,9 @@ class Scheduler:
                     schedule["run_started_at"] = started
                     return
 
-    async def _admit_reserved_execution(self, schedule: dict) -> bool:
+    async def _admit_reserved_execution(
+        self, schedule: dict, admission=None, run_started=None,
+    ) -> bool:
         """Fence queued work against acknowledged CRUD before effects start.
 
         A manual run can override an existing pause, but a new pause changes
@@ -274,12 +276,16 @@ class Scheduler:
                     return False
                 if current.get("paused") and not schedule.get("paused"):
                     return False
+                if admission is not None and not await admission(current):
+                    return False
                 if self._tracks_run_start(schedule):
                     started = datetime.now(UTC).isoformat()
                     current["run_started_at"] = started
                     self._bind_desktop_run(current, schedule)
                     await self._publish(candidate)
                     schedule["run_started_at"] = started
+                if run_started is not None:
+                    await run_started(schedule)
                 return True
             return False
 
@@ -914,7 +920,8 @@ class Scheduler:
                 return False
         return True
 
-    async def fire_triggers(self, source: str, event_data: dict) -> int:
+    async def fire_triggers(self, source: str, event_data: dict, *, schedule_id=None,
+                            admission=None, run_started=None) -> int:
         """Check all trigger-based schedules against an incoming webhook event.
 
         Returns the number of triggers that fired.
@@ -929,6 +936,8 @@ class Scheduler:
             now = datetime.now(UTC)
             candidate = copy.deepcopy(self._schedules)
             for schedule in candidate:
+                if schedule_id is not None and schedule.get("id") != schedule_id:
+                    continue
                 if schedule.get("paused"):
                     continue
                 trigger = schedule.get("trigger")
@@ -965,7 +974,8 @@ class Scheduler:
         executed = 0
         for schedule, reservation, epoch in matched:
             try:
-                if await self._execute_and_record(schedule, reservation, epoch):
+                if await self._execute_and_record(schedule, reservation, epoch,
+                                                  admission=admission, run_started=run_started):
                     executed += 1
             except ScheduleConnectionUnavailableError:
                 continue
@@ -1421,7 +1431,7 @@ class Scheduler:
 
     async def _execute_and_record(
         self, schedule: dict, reservation: str | None = None,
-        admitted_epoch: int | None = None,
+        admitted_epoch: int | None = None, *, admission=None, run_started=None,
     ) -> bool:
         """Execute the schedule callback and record the result in history.
 
@@ -1470,7 +1480,7 @@ class Scheduler:
                     await self._restore_unstarted_reservation(schedule, reservation)
                     raise ScheduleConnectionUnavailableError(snapshot)
             if reservation is not None:
-                if not await self._admit_reserved_execution(schedule):
+                if not await self._admit_reserved_execution(schedule, admission, run_started):
                     await self._restore_unstarted_reservation(schedule, reservation)
                     return False
             elif self._tracks_run_start(schedule):

@@ -143,6 +143,7 @@ class SettingsService:
         self._keyring_checked = False
         self._keyring_error = None
         self._transaction_active = False
+        self.ingress = None
 
     @staticmethod
     def _merge(base, updates):
@@ -161,6 +162,9 @@ class SettingsService:
                         stored = self.secrets.get(path)
                         if stored is not None:
                             _put(values, tuple(path.split(".")), stored)
+                        elif path.startswith("webhook.triggers.") and path.endswith(".secret"):
+                            # Imported plaintext is never an ingress credential.
+                            _put(values, tuple(path.split(".")), "")
             except SecretStoreError:
                 self._keyring_error = "Profile keyring is unavailable or locked"
                 self._keyring_checked = True
@@ -655,18 +659,23 @@ class SettingsService:
             self._transaction_active = True
             try:
                 if method in {"secrets.set", "secrets.clear"}:
-                    return await self._secret(method, params)
-                if method == "models.image.intent":
-                    return self._image_intent(params)
-                if set(params) != {"expected_revision", "changes"} or not isinstance(
-                    params["expected_revision"], str
-                ):
-                    raise _error("expected_revision and changes are required")
-                return await self._save_async(
-                    self._normalize_changes(params["changes"]), method, params["expected_revision"]
-                )
+                    result = await self._secret(method, params)
+                elif method == "models.image.intent":
+                    result = self._image_intent(params)
+                else:
+                    if set(params) != {"expected_revision", "changes"} or not isinstance(
+                        params["expected_revision"], str
+                    ):
+                        raise _error("expected_revision and changes are required")
+                    result = await self._save_async(
+                        self._normalize_changes(params["changes"]), method,
+                        params["expected_revision"]
+                    )
             finally:
                 self._transaction_active = False
+            if self.ingress is not None:
+                await self.ingress.sync()
+            return result
 
     async def unlock_prompt(self, params):
         """No settings lock is held while an owner's native prompt is pending."""
@@ -708,6 +717,8 @@ class SettingsService:
                             stored = await secret_call(self.secrets.get, path)
                             if stored is not None:
                                 _put(values, tuple(path.split(".")), stored)
+                            elif path.startswith("webhook.triggers.") and path.endswith(".secret"):
+                                _put(values, tuple(path.split(".")), "")
                     desired = Config.model_validate(values)
                 except Exception:
                     raise _error(
@@ -736,4 +747,7 @@ class SettingsService:
                 finally:
                     self._transaction_active = False
                 self._publish(desired, changes, hook is not None)
+                self._transaction_active = False
+                if self.ingress is not None:
+                    await self.ingress.sync()
                 return {"revision": self.revision, "fields": self.get_fields()}

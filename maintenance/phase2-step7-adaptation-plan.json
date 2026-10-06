@@ -1,0 +1,108 @@
+{
+  "entries": [
+    {
+      "path": "src/desktop/webhooks.py",
+      "reason": "Compose native generic/GitHub/Gitea authentication, normalization and event notices with per-trigger schedule credentials and one supervised profile listener.",
+      "contract": "D10 opt-in nonwildcard binding, unique durable receipt per delivery before effects, scoped scheduler admission and schedule-conversation publication; native responses and identical-body redelivery under D17.",
+      "invariant": "No management/chat/control routes, body deduplication, freshness/rate/TLS gates, automatic interrupted handoff replay, or payload-derived tool authority.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_webhooks.py", "tests/test_desktop_webhook_adapters.py"]
+    },
+    {
+      "path": "src/config/schema.py",
+      "reason": "Replace the unimplemented global inbound credential with explicit owner-selected bind settings and per-schedule source/keyring credential leaves.",
+      "contract": "Ingress remains off by default and cannot bind a wildcard; bounded schedule identifiers map independent trigger secrets through existing settings/secrets methods.",
+      "invariant": "No imported server listener or global credential can widen a trigger's candidate set; unrelated schema behavior remains retained.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_webhooks.py", "tests/test_desktop_foundation_config.py", "tests/test_desktop_webhook_adapters.py"]
+    },
+    {
+      "path": "src/config/apply_registry.py",
+      "reason": "Describe inbound webhook desired state as live-read by the actual supervised ingress owner rather than an unimplemented boot-only listener.",
+      "contract": "Configuration changes are adopted by ingress reconciliation without a live-service restart or new transport API.",
+      "invariant": "Secret sensitivity, settings transaction semantics and outbound owner behavior remain unchanged.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_webhooks.py", "tests/test_desktop_settings.py"]
+    },
+    {
+      "path": "src/desktop/core.py",
+      "reason": "Compose the inbound receiver after real schedule/settings/storage owners and close it before profile storage during supervised shutdown.",
+      "contract": "One core lifetime owns listener, admission and durable event publication; parent EOF closes actual ephemeral ingress and its pending work.",
+      "invariant": "No daemon, extra owner/executor, active-desktop interaction, or remote management capability.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_webhooks.py", "tests/test_desktop_background_core.py", "tests/test_desktop_core_lifecycle.py"]
+    },
+    {
+      "path": "src/desktop/runtime.py",
+      "reason": "Project actual ingress availability and bound address through the existing bounded status summary.",
+      "contract": "Status distinguishes disabled/unconfigured/no-eligible/not-bound/accepting, never promising an externally reachable endpoint.",
+      "invariant": "No secret, raw payload, transcript or invented listener readiness is exposed.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_webhooks.py", "tests/test_desktop_background_core.py"]
+    },
+    {
+      "path": "src/desktop/schedules.py",
+      "reason": "Reconcile the real receiver after authenticated schedule CRUD without altering retained schedule action validation.",
+      "contract": "Removing/pausing the last eligible trigger closes admission, and retained stored conversation destinations remain authoritative.",
+      "invariant": "No supplied requester identity, cross-schedule credential dispatch, or alternate schedule executor.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_webhooks.py", "tests/test_desktop_schedule_recovery.py", "tests/test_desktop_background_core.py"]
+    },
+    {
+      "path": "src/desktop/schema.py",
+      "reason": "Register exact inbound receipt columns for supported profile reopen and interrupted delivery recovery.",
+      "contract": "Receipt persistence is part of the same profile journal identity and schema validator.",
+      "invariant": "Unknown tables/columns or foreign-profile stores still refuse adoption; no weakening of storage validation.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_webhooks.py", "tests/test_desktop_profile_upgrade.py"]
+    },
+    {
+      "path": "src/desktop/settings.py",
+      "reason": "Notify the actual ingress owner after existing transactional settings, keyring secret and reload operations settle.",
+      "contract": "Configuration remains durable before adoption; secrets remain in the profile vault and revocation is checked again immediately before dispatch.",
+      "invariant": "No new management protocol, plaintext credential persistence or bypass of shared settings locks.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_webhooks.py", "tests/test_desktop_settings.py", "tests/test_desktop_secret_domain_threads.py"]
+    },
+    {
+      "path": "src/scheduler/scheduler.py",
+      "reason": "Add an optional core-owned candidate and admission callback to retained trigger reservation/dispatch under the existing scheduler lock.",
+      "contract": "Only the authenticated trigger's schedule can be admitted, with current generation/config checks before effects and retained AND matching/in-flight exclusion.",
+      "invariant": "Unscoped inherited callers retain their behavior; no new executor, uncertain-effect retry, overlap backlog, or payload replacement of stored tool inputs.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_webhooks.py", "tests/test_desktop_webhook_adapters.py", "tests/test_desktop_schedule_recovery.py"]
+    },
+    {
+      "path": "tests/desktop_adapters/webhook_cases.py",
+      "reason": "Seal and project exactly named safe inherited auth/event/scheduler and YAML utility assertions from the immutable archive.",
+      "contract": "Original assertions, decorators, signatures and parameter data are preserved before exact selection; only the removed GitHub factory setup is bridged to genuine Desktop owners.",
+      "invariant": "Partial mixed-suite selections are not full restoration, and prohibited inputs/removed management surfaces are never executed or replaced with fabricated pass evidence.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_webhook_adapters.py"]
+    },
+    {
+      "path": "tests/desktop_adapters/webhook_ingress.py",
+      "reason": "Bridge inherited GitHub fixture construction to real temporary profile stores, scheduler and actual delivery-only ingress.",
+      "contract": "Legacy callbacks observe committed transcript readback rather than implementing fake delivery or request authority.",
+      "invariant": "Ephemeral loopback only; no HealthServer management emulation, LAN exposure, real keyring or active desktop.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_webhook_adapters.py"]
+    },
+    {
+      "path": "tests/test_desktop_webhook_adapters.py",
+      "reason": "Execute the exact selected inherited corpus with independent source/AST seals and real private-profile integration checks.",
+      "contract": "Selected auth/message/matching/persistence behavior runs behind the sanitized PID namespace and remains distinguishable from new receiver proofs.",
+      "invariant": "Frozen corpus bytes are unchanged, partial suites remain explicit, and no unsafe native/lifecycle/management test is admitted.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_webhook_adapters.py", "tests/test_desktop_webhooks.py"]
+    },
+    {
+      "path": "tests/test_desktop_webhooks.py",
+      "reason": "Exercise actual receipt durability, duplicate redelivery, scoped authentication, revocation, parsing/body limits and supervised parent-loss cleanup.",
+      "contract": "Real temporary profiles and ephemeral loopback listeners prove the new composition; no document-only assertion substitutes for behavior.",
+      "invariant": "No live config, LAN exposure, active desktop, external effect, or automatic uncertain-run replay.",
+      "owner": "Odin",
+      "tests": ["tests/test_desktop_webhooks.py", "tests/test_desktop_webhook_adapters.py"]
+    }
+  ]
+}

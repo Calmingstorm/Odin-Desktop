@@ -202,9 +202,8 @@ SECTIONS: dict[str, SectionSpec] = {
         "history must be enabled explicitly before this path is written.",
     ),
     "webhook": SectionSpec(
-        "restart",
+        "live_read",
         "Inbound webhook listener and authentication policy.",
-        restart_reason="The listener binds its routes and auth policy at startup.",
     ),
     "learning": SectionSpec(
         "restart",
