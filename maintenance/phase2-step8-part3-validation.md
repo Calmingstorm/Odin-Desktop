@@ -139,12 +139,41 @@ remain byte-identical.
 
 ## Final frozen-checkout gate
 
-Pending parent finalization. The full 33-group qualification is run once, after
-all executable source, selectors, dependency lock and byte ledger are frozen,
-from a fresh checkout beneath a group-writable folder. Its exact source commit,
-JUnit hashes, complete log, pass/failure/skip counts and limitations are recorded
-in `phase2-step8-part3-result.json`. This section is updated only from actual
-execution evidence.
+The full qualification ran **once**, from fresh frozen checkout
+`19f3c4a6ae3b7bc3433bba96aa97e73984439bfa` under
+`/home/odin/desktop-phase2-step8-part3/qualification/final`. Both checkout and
+parent have mode 2775, group-writable; umask 002 preceded checkout and dependency
+sync. `uv sync --locked --extra dev`, `pip check`, exact-byte drift, suite-map
+and lint gates passed. Lint retained 43 prior findings, zero new. A mistyped
+base SHA initially failed the lint setup; the corrected exact base passed
+before the full test invocation.
+
+**Observed full gate: 32/33 groups passed; 14,633 passing executions, one failure,
+zero errors and two skips. The full qualification did not pass.** All three
+restoration groups passed: step 2 has 73 executions, step 3 has 103, and step 4
+has 88. Safeguards and repeated vision cases are included in those executions;
+there remain 164 unique inherited cases across the restored fourteen suites.
+
+The one failure is the existing Desktop startup assertion:
+`test_desktop_core_entry.py::test_real_core_starts_with_symlinked_xdg_or_socket_folder[cache]`.
+The process did not publish its listener within the helper's 300 x 0.01-second
+poll budget. It was not observed exiting first. No captured child stderr proves
+the cause, so this is not labelled a harmless scheduling issue or a proven
+symlink regression. A separate, unchanged-source isolated diagnostic selection
+of all four symlink variants passed four cases in 7.64 seconds. That follow-up
+does not replace the failed full run. No assertion, startup deadline or selector
+was changed to green the gate, and no second full qualification was run.
+
+The draft review PR retains this unresolved full-gate failure. Its failure
+receipt, per-group JUnit hashes, complete log, diagnostic follow-up and tested
+source identity are in `phase2-step8-part3-result.json`. The full log is
+`/home/odin/desktop-phase2-step8-part3/qualification/full-qualification.log`.
+After the full run only this document and generated result receipt changed;
+source, tests, dependency lock, qualification selectors and exact-byte ledger
+remain the tested bytes.
+
+Inherited coroutine-not-awaited and closed-loop subprocess-finalizer warnings
+remain visible and unsuppressed. No warning-clean claim.
 
 No full Phase 2 parity, native qualification, release acceptance or independent
 approval is implied by the restored subset. No deployment, live-service change,
