@@ -1,7 +1,7 @@
-"""Whole frozen replay matrix, with only the documentation import adapted.
+"""Frozen replay restoration approved by Claude, review of #35, round 2.
 
-This is not a readiness publication or a synthetic historical catalog. The
-unchanged catalog assertion refuses restoration when desktop schemas differ.
+Only the documentation import and five retired/one added builtin rows change.
+The catalog equality assertion and every other assertion remain unchanged.
 No tool handler, live endpoint, desktop input or owner admission is involved.
 """
 # ruff: noqa: E501
@@ -25,8 +25,21 @@ AFTER_SOURCE = (
     "get_documentation_tool_definitions as get_tool_definitions"
 )
 SETUP_HUNKS = ((22, 0, BEFORE_SHA256, AFTER_SHA256, AFTER_SOURCE),)
+REVIEW_AUTHORITY = "Claude, review of #35, round 2"
+REMOVED = frozenset({"purge_messages", "set_permission", "read_channel", "add_reaction", "create_poll"})
+NEW_INPUT = {"limit": 10}
+MATRIX_BEFORE_SHA256 = "96af24f8e2b4f7d499fa0c8c7f0b8fa77600552871bc1109b85169e8ae736c43"
+MATRIX_AFTER_SHA256 = "d30aab0dda7d38794e57b66636795ab8e58b59f1af0510b94a7578db3372e203"
 CORPUS_SELECTIONS = {"test_codex_replay_matrix": None}
 CORPUS_EXCLUSIONS = {}
+PARAMETER_RETIREMENTS = {
+    "test_codex_replay_matrix": {
+        "test_emitted_replayed_matrix": [
+            "builtin-add_reaction", "builtin-create_poll", "builtin-purge_messages",
+            "builtin-read_channel", "builtin-set_permission",
+        ],
+    },
+}
 
 
 def digest(data):
@@ -54,8 +67,29 @@ def _put(tree, path, replacement):
         setattr(target, path[-1], replacement)
 
 
+def _matrix(tree, expected_hash):
+    matches = [(p, n) for p, n in _paths(tree)
+               if isinstance(n, ast.Assign)
+               and any(isinstance(t, ast.Name) and t.id == "BUILTIN_INPUTS" for t in n.targets)]
+    if len(matches) != 1 or digest(dump(matches[0][1]).encode()) != expected_hash:
+        raise ValueError("Codex exact approved input matrix hash mismatch")
+    return matches[0]
+
+
+def _desktop_matrix(original):
+    _, before = _matrix(original, MATRIX_BEFORE_SHA256)
+    after = copy.deepcopy(before)
+    pairs = [(k, v) for k, v in zip(after.value.keys, after.value.values, strict=True)
+             if ast.literal_eval(k) not in REMOVED]
+    after.value.keys = [k for k, _ in pairs] + [ast.Constant("read_conversation")]
+    after.value.values = [v for _, v in pairs] + [ast.parse(repr(NEW_INPUT), mode="eval").body]
+    if digest(dump(after).encode()) != MATRIX_AFTER_SHA256:
+        raise ValueError("Codex exact approved input matrix hash mismatch")
+    return after
+
+
 def verify(original, adapted):
-    """Independently reverse the only allowed hunk over the complete AST."""
+    """Reverse both exact approved deltas, protecting every other source node."""
     if corpus(original) != corpus(adapted):
         raise ValueError("Codex assertion/signature/decorator/parameter corpus drift")
     matches = [(p, n) for p, n in _paths(original)
@@ -71,6 +105,11 @@ def verify(original, adapted):
         raise ValueError("Codex adapted setup hunk hash mismatch")
     restored = copy.deepcopy(adapted)
     _put(restored, path, copy.deepcopy(before))
+    matrix_path, matrix_before = _matrix(original, MATRIX_BEFORE_SHA256)
+    adapted_path, matrix_after = _matrix(adapted, MATRIX_AFTER_SHA256)
+    if adapted_path != matrix_path or dump(matrix_after) != dump(_desktop_matrix(original)):
+        raise ValueError("Codex exact approved input matrix hash mismatch")
+    _put(restored, matrix_path, copy.deepcopy(matrix_before))
     if dump(restored) != dump(original):
         raise ValueError("Codex complete AST reverse replay failed")
     return True
@@ -96,6 +135,8 @@ def adapt(source=None, *, hunks=SETUP_HUNKS):
         if digest(dump(after).encode()) != after_hash:
             raise ValueError("Codex replacement hunk hash mismatch")
         _put(tree, path, ast.copy_location(after, before))
+    matrix_path, matrix_before = _matrix(original, MATRIX_BEFORE_SHA256)
+    _put(tree, matrix_path, ast.copy_location(_desktop_matrix(original), matrix_before))
     ast.fix_missing_locations(tree)
     verify(original, tree)
     return original, tree
@@ -119,11 +160,34 @@ def load(namespace):
 
 
 def evidence(module, original, tree):
-    """Machine-readable complete corpus and catalog mismatch, never authority."""
+    """Exact case/parameter dispositions and preserved assertions, not qualification."""
     inherited = corpus(original)
     expected = set(module.BUILTIN_INPUTS)
     documentation = {tool["name"] for tool in module.get_tool_definitions()}
     cases = module.CASES
+    _, original_matrix = _matrix(original, MATRIX_BEFORE_SHA256)
+    original_inputs = eval(compile(ast.Expression(original_matrix.value), PATH, "eval"), module.__dict__)
+    original_cases = [module._case("builtin-" + name, name, expected)
+                      for name, expected in original_inputs.items()]
+    original_cases.extend(c for c in cases if not c.label.startswith("builtin-"))
+    dispositions = []
+    for case in original_cases:
+        retired = case.name in REMOVED
+        dispositions.append({
+            "label": case.label, "tool": case.name,
+            "disposition": "retired" if retired else "retained",
+            "reason": "removed-by-design Desktop tool" if retired else "unchanged case and assertions",
+            "supplied": case.supplied, "expected": case.expected,
+            "error": case.error, "literal": case.literal,
+            "parameters": [{"path": path, "disposition": "retired" if retired else "retained"}
+                           for path in ("chat", "agent")],
+        })
+    dispositions.append({
+        "label": "builtin-read_conversation", "tool": "read_conversation", "disposition": "added",
+        "reason": "real Desktop documentation-catalog input; strict normalization and exact SSE/history replay",
+        "supplied": NEW_INPUT, "expected": NEW_INPUT, "error": False, "literal": None,
+        "parameters": [{"path": path, "disposition": "added"} for path in ("chat", "agent")],
+    })
     return {
         "path": PATH,
         "source_sha256": SOURCE_SHA256,
@@ -133,6 +197,26 @@ def evidence(module, original, tree):
         "assertions_sha256": digest(json.dumps(inherited["assertions"]).encode()),
         "static_test_definitions": len(inherited["cases"]),
         "static_assertions": len(inherited["assertions"]),
+        "review_authority": REVIEW_AUTHORITY,
+        "original_matrix_cases": len(original_cases),
+        "original_executions": 2 * len(original_cases) + 3,
+        "retained_original_executions": 2 * (len(original_cases) - len(REMOVED)) + 3,
+        "retired_original_executions": 2 * len(REMOVED),
+        "added_executions": 2,
+        "documentation_catalog_names": sorted(documentation),
+        "case_dispositions": dispositions,
+        "non_matrix_parameter_dispositions": [
+            {"test": "test_matrix_covers_real_served_catalog_and_computer_operations", "disposition": "retained"},
+            *[{"test": "test_multi_call_order_and_duplicate_stream_events", "path": path,
+               "disposition": "retained"} for path in ("chat", "agent")],
+        ],
+        "approved_matrix_delta": {
+            "before_sha256": MATRIX_BEFORE_SHA256, "after_sha256": MATRIX_AFTER_SHA256,
+            "retired_labels": ["builtin-" + name for name in sorted(REMOVED)],
+            "added_label": "builtin-read_conversation", "added_input": NEW_INPUT,
+            "equality_assertion_changed": False,
+            "contract": "unchanged equality assertion compares 63 fixture names to real Desktop documentation catalog",
+        },
         "matrix_cases": len(cases),
         "matrix_executions": 2 * len(cases),
         "multi_call_executions": 2,

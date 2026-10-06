@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "artifact": "PR35 round 2 item 4 actual frozen Codex replay matrix restoration",
+  "review_authority": "Claude, review of #35, round 2",
+  "candidate_status": "targeted-restoration-passed; awaiting parent integration and full qualification",
+  "qualification_claim": false,
+  "original_suite_restored": true,
+  "supersedes_diagnostic": "tests/diagnostics/test_pr35_codex.py moved to real test export",
+  "historical_candidates_unchanged": [
+    "maintenance/step8-review-codex-candidates.json",
+    "maintenance/step8-review-codex-alternative-candidates.json"
+  ],
+  "baseline": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+  "archive_sha256": "845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0",
+  "entries": [
+    {
+      "path": "tests/test_codex_replay_matrix.py",
+      "inherited_sha256": "eed93185f30efd619bafbfb1fd0f2d7bcac1eda96879b50214cfc1f8f5585256",
+      "mode": "frozen-adapter",
+      "selector": "tests/test_desktop_step8_review_codex.py",
+      "declaration_path": "tests/desktop_adapters/step8_review_codex.py",
+      "adapter_hashes": [
+        {
+          "path": "tests/desktop_adapters/step8_review_codex.py",
+          "sha256": "ba6e094fbea83b00a6b2b8f079bb39fb37eb90c9cf015cdc7b99c24b4a878b7e"
+        },
+        {
+          "path": "tests/test_desktop_step8_review_codex.py",
+          "sha256": "254de750d63812c9936c9624eee49331b3e252175892ad675eef95d0b8196659"
+        }
+      ],
+      "original_ast_sha256": "c0f15c48a0e8c4eed551b52fda30c0db0aec538a7904131123d10c600a83da99",
+      "adapted_ast_sha256": "42091b514f0d6b21b42bee892cf7a691b2a3a66d63f9cc5aa844c59a03c1e706",
+      "corpus_sha256": "c9eac1c82ebb61bb3a512248d594669d2cf6265281a1979bf1b5fab6f623c4f9",
+      "assertions_sha256": "f3d3a10335053d86812e1d823b7a6ee326e7da84d4b661f2ca0ff81d40fd323b",
+      "case_labels_sha256": "3e2b8a1236d10a47d254bdbc50e564809ed97cf43e788eb8c6dc941ca2babb34",
+      "corpus_equal": true,
+      "complete_reverse_replay": true,
+      "transformations": [
+        {
+          "review_authority": "Claude, review of #35, round 2",
+          "symbol": "<module>",
+          "line": 22,
+          "column": 0,
+          "kind": "statement",
+          "operation": "documentation_catalog_import",
+          "before_sha256": "42e493c48ee7f8eadebcd6df64c7d0ee3371ea61bbd739a85869855d7f404126",
+          "after_sha256": "d4c875dc0b31819aaca8ed6cb0f5fec4fc99df5b984b5b28d4c5154649a8cf6b",
+          "after_source": "from src.tools.registry import get_documentation_tool_definitions as get_tool_definitions"
+        },
+        {
+          "review_authority": "Claude, review of #35, round 2",
+          "symbol": "<module>",
+          "line": 30,
+          "column": 0,
+          "kind": "statement",
+          "operation": "desktop_builtin_matrix_rows",
+          "before_sha256": "96af24f8e2b4f7d499fa0c8c7f0b8fa77600552871bc1109b85169e8ae736c43",
+          "after_sha256": "d30aab0dda7d38794e57b66636795ab8e58b59f1af0510b94a7578db3372e203",
+          "retired_names": ["add_reaction", "create_poll", "purge_messages", "read_channel", "set_permission"],
+          "added_name": "read_conversation",
+          "added_input": {"limit": 10},
+          "invariant": "All retained values, ordering, helper code and all 22 assertions unchanged; complete reverse AST replay of only two deltas"
+        }
+      ],
+      "catalog_equality": {
+        "assertion_line": 442,
+        "assertion_modified": false,
+        "comparison": "set(BUILTIN_INPUTS) == names returned by real get_documentation_tool_definitions",
+        "fixture_count": 63,
+        "real_documentation_count": 63,
+        "missing_from_documentation": [],
+        "missing_from_inputs": [],
+        "synthetic_or_archived_product_schemas": false
+      },
+      "case_dispositions": {
+        "method": "Every listed matrix label executes both unchanged parameter paths chat and agent; original row inputs are pinned by inherited source SHA256; full concrete supplied/expected/error/literal values emitted in CODEX_CANDIDATE_EVIDENCE in both receipt logs",
+        "test": "test_emitted_replayed_matrix",
+        "parameter_paths": ["chat", "agent"],
+        "retained_original_labels": [
+          "builtin-run_command", "builtin-run_script", "builtin-run_command_multi", "builtin-read_file", "builtin-apply_patch",
+          "builtin-post_file", "builtin-generate_file", "builtin-schedule_task", "builtin-list_schedules", "builtin-update_schedule",
+          "builtin-delete_schedule", "builtin-parse_time", "builtin-search_history", "builtin-memory_manage", "builtin-search_audit",
+          "builtin-create_skill", "builtin-edit_skill", "builtin-delete_skill", "builtin-list_skills", "builtin-enable_skill",
+          "builtin-disable_skill", "builtin-install_skill", "builtin-export_skill", "builtin-skill_status", "builtin-invoke_skill",
+          "builtin-delegate_task", "builtin-list_tasks", "builtin-cancel_task", "builtin-search_knowledge", "builtin-ingest_document",
+          "builtin-bulk_ingest_knowledge", "builtin-list_knowledge", "builtin-delete_knowledge", "builtin-browser_screenshot",
+          "builtin-browser_read_page", "builtin-browser_read_table", "builtin-browser_click", "builtin-browser_fill", "builtin-browser_evaluate",
+          "builtin-web_search", "builtin-fetch_url", "builtin-analyze_pdf", "builtin-manage_process", "builtin-manage_list",
+          "builtin-analyze_image", "builtin-start_loop", "builtin-stop_loop", "builtin-list_loops", "builtin-spawn_agent",
+          "builtin-send_to_agent", "builtin-list_agents", "builtin-kill_agent", "builtin-get_agent_results", "builtin-wait_for_agents",
+          "builtin-http_probe", "builtin-generate_image", "builtin-validate_action", "builtin-email_send", "builtin-email_search",
+          "builtin-email_read", "builtin-email_list_recent", "builtin-get_tool_output",
+          "computer-focus", "computer-click", "computer-double_click", "computer-right_click", "computer-middle_click",
+          "computer-scroll", "computer-type", "computer-key", "computer-drag", "computer-polyline", "computer-replace_field",
+          "computer-replace_field_pixels", "computer-sequence", "computer-strokes",
+          "session-start", "session-inventory_targets", "session-status", "session-stop", "session-pause", "session-resume",
+          "session-reconcile", "session-cancel", "session-close", "session-export", "computer-observe",
+          "sequence-click", "sequence-double_click", "sequence-right_click", "sequence-middle_click", "sequence-scroll",
+          "sequence-type", "sequence-key", "sequence-drag", "sequence-polyline", "sequence-replace_field",
+          "schedule_task-steps-json", "update_schedule-steps-json", "delegate_task-steps-json", "update-direct-json",
+          "closed-false-zero-empty", "closed-explicit-null", "closed-sentinel-omission", "closed-recursive-null-sentinel",
+          "open-envelope", "union-envelope", "exception-unchanged", "headers-empty", "headers-duplicate-exact",
+          "headers-duplicate-case", "envelope-duplicate-key", "nested-duplicate-key", "invalid-selected-target", "malformed-json",
+          "recursive-selected-target", "nested-target-header-map",
+          "schedule_task-direct-empty-object", "schedule_task-direct-duplicates", "schedule_task-direct-array", "schedule_task-direct-false-zero-empty",
+          "schedule_task-step-empty-object", "schedule_task-step-duplicates", "schedule_task-step-array", "schedule_task-step-false-zero-empty",
+          "update_schedule-direct-empty-object", "update_schedule-direct-duplicates", "update_schedule-direct-array", "update_schedule-direct-false-zero-empty",
+          "update_schedule-step-empty-object", "update_schedule-step-duplicates", "update_schedule-step-array", "update_schedule-step-false-zero-empty",
+          "delegate_task-step-empty-object", "delegate_task-step-duplicates", "delegate_task-step-array", "delegate_task-step-false-zero-empty",
+          "invoke_skill-direct-empty-object", "invoke_skill-direct-duplicates", "invoke_skill-direct-array", "invoke_skill-direct-false-zero-empty",
+          "outer-duplicate-key"
+        ],
+        "retired_original_labels": [
+          "builtin-add_reaction", "builtin-create_poll", "builtin-purge_messages", "builtin-read_channel", "builtin-set_permission"
+        ],
+        "retirement_reason": "Five removed-by-design Desktop tools, Claude, review of #35, round 2",
+        "added_labels": ["builtin-read_conversation"],
+        "added_input": {"limit": 10},
+        "added_assertions": "Unchanged test body asserts accepted input, error state, exact original emitted JSON replay, history immutability for chat and agent",
+        "non_matrix_retained": [
+          {"test": "test_matrix_covers_real_served_catalog_and_computer_operations", "executions": 1},
+          {"test": "test_multi_call_order_and_duplicate_stream_events", "parameter_paths": ["chat", "agent"], "executions": 2}
+        ],
+        "static_definitions": 3,
+        "static_assertions": 22,
+        "original_matrix_rows": 147,
+        "retained_original_matrix_rows": 142,
+        "retired_original_matrix_rows": 5,
+        "added_matrix_rows": 1,
+        "actual_matrix_rows": 143,
+        "original_executions": 297,
+        "retained_original_executions": 287,
+        "retired_original_executions": 10,
+        "added_executions": 2,
+        "actual_restored_suite_executions": 289,
+        "loader_guard_executions": 22
+      },
+      "blocker": null
+    }
+  ],
+  "validation": {
+    "isolation": "USER=odin scripts/run-phase1-tests.py; required mount/PID namespace, env-i HOME/XDG; no display, DBus, credentials, live config or tool handlers",
+    "dependency_sync": "uv sync --locked --extra dev --python 3.12, exit 0, local .venv only",
+    "receipts": [
+      {
+        "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_codex.py -s --tb=short --junitxml=.test-state/step8-review2-codex.xml",
+        "log": "/home/odin/desktop-pr35-round2-20261006/catalog-codex-tests.log",
+        "log_sha256": "0042c5d95994ffe69ed0d75539ba018698eddbc495b190fb5bb5b83b7aa5adf2",
+        "junit": ".test-state/step8-review2-codex.xml",
+        "junit_sha256": "55b4bd979bf698bad8c9978b5ac7ef23e93d3750f89c149575d7eb4490ad82c8",
+        "exit_code": 0,
+        "passed": 311,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "elapsed_seconds": 5.91,
+        "note": "Before formatting-only two-line ruff correction in guard export"
+      },
+      {
+        "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_codex.py tests/test_desktop_step8_review_codex_alternative.py -s --tb=short --junitxml=.test-state/step8-review2-codex-final.xml",
+        "log": "/home/odin/desktop-pr35-round2-20261006/catalog-codex-final-tests.log",
+        "log_sha256": "d02333a5b4cb8b68bd5851fb9d494be9ede427e7cc51b87e3af9216c169bf552",
+        "junit": ".test-state/step8-review2-codex-final.xml",
+        "junit_sha256": "3c0803b77c23dcc89a4f31527b5dc6544a58f7e162bfe35f726c91230b312308",
+        "exit_code": 0,
+        "passed": 325,
+        "restored_suite_passed": 289,
+        "loader_guards_passed": 22,
+        "unchanged_supplemental_passed": 14,
+        "failed": 0,
+        "errors": 0,
+        "skipped": 0,
+        "elapsed_seconds": 6.70
+      }
+    ],
+    "ruff": "All checks passed for adapter and export",
+    "full_gate_run": false
+  },
+  "safety": {
+    "original_source_and_archive_bytes_unchanged": true,
+    "production_changed": false,
+    "common_ledgers_plans_suite_map_test_plan_runners_changed": false,
+    "live_service_or_desktop_used": false,
+    "push_or_rebase": false,
+    "attribution_trailers": false
+  },
+  "parent_integration": {
+    "declarations": {
+      "CORPUS_SELECTIONS": {"test_codex_replay_matrix": null},
+      "CORPUS_EXCLUSIONS": {},
+      "PARAMETER_RETIREMENTS": {
+        "test_codex_replay_matrix": {
+          "test_emitted_replayed_matrix": [
+            "builtin-add_reaction", "builtin-create_poll", "builtin-purge_messages", "builtin-read_channel", "builtin-set_permission"
+          ]
+        }
+      }
+    },
+    "remaining": "Parent owns parameter-row disposition checker, suite-map/ledger/plan updates and final fresh-checkout full qualification; this candidate is real targeted restoration, not supplemental-only"
+  }
+}
