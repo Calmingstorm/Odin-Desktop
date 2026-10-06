@@ -5,7 +5,8 @@ export default defineConfig({
     include: ['test/real-core-contract.test.ts', 'test/real-core-settings.test.ts'],
     environment: 'node',
     fileParallelism: false,
-    testTimeout: 20_000,
-    hookTimeout: 20_000
+    // Each real case includes cold engine startup and bounded Broker requests.
+    testTimeout: 60_000,
+    hookTimeout: 30_000
   }
 })
