@@ -24,7 +24,7 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
   'audit.query', 'audit.verify', 'health.get', 'logs.search', 'turn_state.list', 'usage.get', 'runtime.reload',
   'models.main.set', 'models.agents.get', 'models.agents.set', 'models.discover', 'personality.get', 'personality.set', 'personality.presets.save', 'personality.presets.delete',
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
-  'control.stop', 'control.steer', 'request.resume',
+  'control.stop', 'control.steer', 'control.resume',
   'webhooks.outbound.list', 'webhooks.outbound.save', 'webhooks.outbound.delete', 'webhooks.outbound.test', 'integrations.email.get'
 ].sort()]
 export type RealCoreStatus = { phase: string; version: string; core_instance_id: string; capabilities: string[];

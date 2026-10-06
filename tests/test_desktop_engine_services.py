@@ -288,7 +288,9 @@ async def test_original_process_failure_durable_unknown_and_never_retried(tmp_pa
     from unittest.mock import AsyncMock
 
     from src.desktop.resource_cleanup import (
-        ResourceCleanupError, ResourceCleanupJournal, close_existing_execution_owners,
+        ResourceCleanupError,
+        ResourceCleanupJournal,
+        close_existing_execution_owners,
     )
 
     registry = SimpleNamespace(shutdown=AsyncMock(side_effect=RuntimeError("private detail")))

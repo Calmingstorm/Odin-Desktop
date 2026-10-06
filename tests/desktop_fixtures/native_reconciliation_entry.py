@@ -195,6 +195,9 @@ def core_entry(root):
             SimpleNamespace(config=management.settings.config), controller=controller,
             settings=management.settings.config.computer)
         core.computer = integration
+        # The request-enabled engine now owns the same native dispatcher graph.
+        # Bind this exact original dormant owner there, not a second controller.
+        core.engine.deps.native_tools.owners["computer"] = integration
         (root / "core-native-owner.json").write_text(json.dumps({
             "core_pid": os.getpid(), "integration": "original-ComputerIntegration",
             "store": "original-ComputerStore", "test_only_dormant_composition": True,
