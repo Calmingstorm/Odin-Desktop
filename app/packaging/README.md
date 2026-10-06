@@ -59,6 +59,18 @@ inventory, not a signed trust anchor, update feed or self-updater.
 credential-pattern scanning and namespace isolation. Engine/resource pytest cases
 must run inside the PID namespace prescribed by `CONTRIBUTING.md`.
 
+The behavior tests use the invoking account for isolation and real first-start
+OpenSSH key generation. Ordinary users use a private unprivileged user namespace;
+real root uses the privileged sandbox without `--unshare-user`, retaining access
+to checkout inputs in another user's private home until they are bound. No named
+workstation account, checkout location or passwordless sudo is needed for these
+rows. Missing namespace support/tools produces an explicit prerequisite skip;
+once the prerequisite succeeds, sandbox failures remain failures. The disposable
+real-dpkg/maintainer-script row still needs real root, and skips with a plain
+reason if neither root nor `sudo -n true` is available. This does not qualify
+user-namespace dpkg as real installation or replace the privileged candidate
+and installed-root acceptance lanes below.
+
 Run `sudo -n python3 -B app/packaging/qualify.py --deb <candidate.deb>
 --appimage <candidate.AppImage> --pdf-wheel <local-pinned-wheel.whl>
 --output <evidence-dir> --install --gui --user
