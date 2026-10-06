@@ -11,6 +11,13 @@ CREATE_FIELDS = frozenset({"description", "action", "channel_id", "cron", "run_a
 UPDATE_FIELDS = (CREATE_FIELDS - {"action"}) | {"paused"}
 
 
+class ScheduleNotFoundError(ConversationError):
+    """No schedule with that id."""
+
+    def __init__(self):
+        super().__init__("not_found", "Schedule not found")
+
+
 class ScheduleService:
     """No payload requester identity or web token is owner authority."""
     methods = frozenset({"schedules.list", "schedules.save", "schedules.delete",
@@ -28,7 +35,7 @@ class ScheduleService:
                 if item.get("requester_id") != owner_id:
                     raise PermissionError("Schedule belongs to another owner")
                 return item
-        raise ConversationError("not_found", "Schedule not found")
+        raise ScheduleNotFoundError()
 
     def _destination(self, value):
         if type(value) is not str or not value:
@@ -123,5 +130,9 @@ class ScheduleService:
         owner = self.authority.authenticate_local(peer_uid=self.authority.owner_uid)
         if message.owner_id != owner.owner_id:
             raise PermissionError("Foreign request owner")
-        return await self.invoke(method, params, owner=owner,
-                                 nested_payload_validated=nested_payload_validated)
+        try:
+            return await self.invoke(method, params, owner=owner,
+                                     nested_payload_validated=nested_payload_validated)
+        except ScheduleNotFoundError:
+            # Odin's schedule tools report a missing id as "not found", not an error.
+            return None

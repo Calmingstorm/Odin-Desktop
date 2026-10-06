@@ -94,12 +94,6 @@ CORPUS_EXCLUSIONS = {
         "TestHelpers.test_set_skill_allowed_urls",
         "TestHostAndFile.test_run_on_host_uses_executor_with_requester",
         "TestHostAndFile.test_read_file",
-        "TestMessaging.test_post_message_no_callback",
-        "TestMessaging.test_post_file_no_callback",
-        "TestDelegations.test_knowledge_and_history_disabled",
-        "TestDelegations.test_knowledge_enabled",
-        "TestDelegations.test_scheduler_disabled",
-        "TestDelegations.test_scheduler_enabled",
         "TestDelegations.test_execute_tool",
     ],
 }
