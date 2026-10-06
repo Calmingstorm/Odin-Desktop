@@ -121,6 +121,10 @@ def replace_locked(source, destination, expected, transaction):
         write_transaction(transaction, record)
         stage_fd = os.open(stage, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
                            0o600, dir_fd=directory)
+        staged_info = os.fstat(stage_fd)
+        record['stage_identity'] = [staged_info.st_dev, staged_info.st_ino]
+        os.fsync(directory)
+        write_transaction(transaction, record)
         os.lseek(source_fd, 0, os.SEEK_SET)
         while chunk := os.read(source_fd, 1024 * 1024):
             view = memoryview(chunk)
@@ -128,9 +132,6 @@ def replace_locked(source, destination, expected, transaction):
                 view = view[os.write(stage_fd, view):]
         os.fchmod(stage_fd, 0o755)
         os.fsync(stage_fd)
-        staged_info = os.fstat(stage_fd)
-        record['stage_identity'] = [staged_info.st_dev, staged_info.st_ino]
-        write_transaction(transaction, record)
         os.close(stage_fd)
         stage_fd = None
         checked = os.open(stage, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory)

@@ -121,7 +121,7 @@ class UserReplacement(unittest.TestCase):
             self.run_replace()
         self.assertEqual(hashlib.sha256(self.old.read_bytes()).hexdigest(), self.old_hash)
 
-    def test_interrupted_copy_does_not_claim_success_or_erase_unknown_stage(self):
+    def test_interrupted_copy_preserves_old_and_recovers_exact_recorded_stage(self):
         real_write = os.write
         def interrupt(fd, value):
             if bytes(value).startswith(b'\x7fELF'):
@@ -132,9 +132,39 @@ class UserReplacement(unittest.TestCase):
                 self.run_replace()
         self.assertEqual(hashlib.sha256(self.old.read_bytes()).hexdigest(), self.old_hash)
         pending = json.loads(self.transaction.read_text())
+        self.assertTrue((self.root / pending['stage']).exists())
+        self.assertEqual(self.run_replace()['status'], 'replaced')
+        self.assertFalse((self.root / pending['stage']).exists())
+
+    def test_crash_before_stage_identity_publication_requires_manual_inspection(self):
+        real_write = replacement.write_transaction
+        def interrupt(path, value):
+            if 'stage_identity' in value:
+                raise OSError('Harmless simulated identity publication failure')
+            return real_write(path, value)
+        with patch.object(replacement, 'write_transaction', side_effect=interrupt):
+            with self.assertRaises(OSError):
+                self.run_replace()
+        pending = json.loads(self.transaction.read_text())
         with self.assertRaises(replacement.ReplacementError):
             self.run_replace()
         self.assertTrue((self.root / pending['stage']).exists())
+
+    def test_source_mutation_after_initial_digest_does_not_replace_executable(self):
+        original_digest = replacement.digest_fd
+        calls = 0
+        def digest(fd):
+            nonlocal calls
+            result = original_digest(fd)
+            calls += 1
+            if calls == 1:
+                self.new.write_bytes(b'\x7fELF\x02\x01\x01\x00AI\x02\x00changed payload')
+            return result
+        with patch.object(replacement, 'digest_fd', side_effect=digest):
+            with self.assertRaises(replacement.ReplacementError):
+                self.run_replace()
+        self.assertEqual(hashlib.sha256(self.old.read_bytes()).hexdigest(), self.old_hash)
+        self.assertTrue(self.transaction.exists())
 
     def test_interrupted_stage_changed_identity_refuses_cleanup(self):
         real_replace = os.replace
