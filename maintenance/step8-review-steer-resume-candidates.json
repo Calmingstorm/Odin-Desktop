@@ -1,0 +1,172 @@
+{
+  "version": 1,
+  "branch": "phase-2/restore-steps2-4",
+  "review": "/home/odin/reviews/desktop-pr35-review.md",
+  "disposition": "restore",
+  "suite": "tests/test_chat_steering_resume.py",
+  "baseline_sha256": "fd1316042f023dbabdd8f2d522bff522df54328bb04d984b619bbf93cb2f7f89",
+  "adapter": "tests/desktop_adapters/step8_review_steer_resume.py",
+  "adapter_sha256": "2ae99773594f3646872258b1e7e81d41a892ca563d56e407d2c98edf06220b50",
+  "executable": "tests/test_desktop_step8_review_steer_resume.py",
+  "executable_sha256": "d3ae00ed92908e586c998c0f9a87e2662ccd1009ebf8282c9be4cdc8f77193b2",
+  "assertion_preservation": {
+    "count": 53,
+    "assertions_sha256": "f1e6d38137736be83367a83f589a758dcbfe294c5e7142031f9d5dccb29b0b67",
+    "cases_sha256": "b40a9643a392e3d659a60a9d00fe9ce37a48dce98b2b84b403077ea75fd71c75",
+    "unchanged": true,
+    "assertion_identity_substitutions": [],
+    "signatures_and_decorators_unchanged": true,
+    "verification": "adapt verifies exact assertions and cases corpus; all 21 setup hunks have literal line/column/whole-node SHA256 allowlist; complete AST reverse replay is checked; only removed class is the original fake _SuspendingDurability",
+    "split_case": "error-next-turn case is split at original line 352; full adapted function AST pinned 5737090d36b3d0f99b0afb446d7329c5aa2f807d2c359379f93bb945a5fc7a5d; depth-first concatenated first/suffix assertion AST equals full case"
+  },
+  "adaptations": [
+    {
+      "type": "real_request_admission",
+      "lines": [184, 231, 275, 304, 330, 371],
+      "detail": "Replace make_bot call with admitted_components(scripted FakeLLM). Entire inherited coroutine runs inside unchanged RequestService submit/after_commit/_drain/_execute task binding. Real engine graph, canonical temporary_owner, persisted ledger generation and actual production durability required. No sealed object is forged, no permission/admission gate is replaced. Only provider responses are scripted."
+    },
+    {
+      "type": "authentic_identity_setup",
+      "lines": [87, 186, 202, 233, 251, 277, 306, 332, 352, 373],
+      "detail": "Runtime FakeMessage constructors replaced with current sealed EngineRequest and exact input text validation. Queue and mailbox-close setup uses actual conversation/request/owner identity. Every inherited assertion remains identical. Pure compression directive identities and _bare_turn snapshot fixture remain original."
+    },
+    {
+      "type": "same_worker_snapshot_restore",
+      "lines": [209, 258],
+      "detail": "Restored _ChatTurn reuses original actual admitted TurnDurability handle rather than disabled durability. run_resumed executes in the same genuine RequestService worker binding. These two cases prove runner checkpoint round-trip and inbox sequence behavior, not cross-process automatic resume or RequestService.launch_resume."
+    },
+    {
+      "type": "second_admitted_request",
+      "line": 352,
+      "detail": "Error-next-turn suffix compiled with first-half locals, after first admitted worker settles failed. Same real conversation, fresh submit/after_commit worker and message identity. Unmodified final two original assertions run before new request's real guarded completion."
+    },
+    {
+      "type": "actual_durable_suspension",
+      "lines": [382, 389],
+      "detail": "Remove _SuspendingDurability fake class, replace reassignment with actual handle verification. Original _call_llm capacity seam still invokes real runner._suspend_turn and actual TurnDurability.suspend/store. Additional assertions verify durable handle suspended and TurnStatus.SUSPENDED in production ledger."
+    },
+    {
+      "type": "fixture_rebase",
+      "detail": "Original autouse _isolated_cwd is rebased into executable pytest namespace. Async runtime wrappers expose tmp_path and original monkeypatch fixture where required. Pure inherited cases execute directly."
+    }
+  ],
+  "common_case_hashes": {
+    "empty_decorators_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "no_args_signature_sha256": "e58cb0263c904c808370db9f49df89b186c074aa66956616c77e0f141fcfe8fd"
+  },
+  "cases": [
+    {
+      "baseline_selector": "tests/test_chat_steering_resume.py::test_soft_compression_preserves_consumed_directive_structurally",
+      "executable_selector": "tests/test_desktop_step8_review_steer_resume.py::test_step8_review_steer_resume_soft_compression_preserves_consumed_directive_structurally",
+      "assertions_sha256": "75c68f5790700f40a76bd00f5dd2faeb7b09fbee09ebcdda747991b45d86d389",
+      "assertion_count": 5,
+      "preservation": "exact",
+      "evidence": "Direct inherited soft compressor preserves consumed directive and newest native tool pair",
+      "result": "passed"
+    },
+    {
+      "baseline_selector": "tests/test_chat_steering_resume.py::test_emergency_compression_preserves_consumed_directive_structurally",
+      "executable_selector": "tests/test_desktop_step8_review_steer_resume.py::test_step8_review_steer_resume_emergency_compression_preserves_consumed_directive_structurally",
+      "assertions_sha256": "8fe03045ba8ac9f2461f63ec7590807192672ae138be6f7709fb68713154243b",
+      "assertion_count": 7,
+      "preservation": "exact",
+      "evidence": "Direct inherited emergency compressor fits, preserves directive and newest call/result identity",
+      "result": "passed"
+    },
+    {
+      "baseline_selector": "tests/test_chat_steering_resume.py::test_checkpoint_keeps_consumed_directives_but_drops_pending_mailbox",
+      "executable_selector": "tests/test_desktop_step8_review_steer_resume.py::test_step8_review_steer_resume_checkpoint_keeps_consumed_directives_but_drops_pending_mailbox",
+      "assertions_sha256": "b33d3bebafb0cb86a7bbdfd366e354bd1c17ff9cd607afd0a34e618d8b2f8563",
+      "assertion_count": 6,
+      "preservation": "exact",
+      "evidence": "Original non-executing _bare_turn and codec snapshot retain only consumed steering; transport notifier not invoked or serialized",
+      "result": "passed"
+    },
+    {
+      "baseline_selector": "tests/test_chat_steering_resume.py::test_run_resumed_seeds_sequence_after_consumed_checkpoint_directives",
+      "executable_selector": "tests/test_desktop_step8_review_steer_resume.py::test_step8_review_steer_resume_run_resumed_seeds_sequence_after_consumed_checkpoint_directives",
+      "assertions_sha256": "71a6fa37c66f58f997c52a0a2c9ec4f601dc3a9079e6e2f2751416c38557cef2",
+      "assertion_count": 9,
+      "preservation": "exact",
+      "evidence": "Actual admitted prepare/snapshot/restored turn/run_resumed under same task and handle; sequence 3 replan reaches second generation",
+      "result": "passed"
+    },
+    {
+      "baseline_selector": "tests/test_chat_steering_resume.py::test_resumed_post_tool_steer_does_not_resurrect_skipped_wait_judgment",
+      "executable_selector": "tests/test_desktop_step8_review_steer_resume.py::test_step8_review_steer_resume_resumed_post_tool_steer_does_not_resurrect_skipped_wait_judgment",
+      "assertions_sha256": "e33394095e44d2dc582bea8512e32d61f9cfece1be8e0ab0be0fe6107f15805d",
+      "assertion_count": 5,
+      "preservation": "exact",
+      "evidence": "Actual same-worker durable handle and restored runner produce single generation without stale wait judgment/warning",
+      "result": "passed"
+    },
+    {
+      "baseline_selector": "tests/test_chat_steering_resume.py::test_runtime_post_tool_drain_replans_with_directive_in_next_generation",
+      "executable_selector": "tests/test_desktop_step8_review_steer_resume.py::test_step8_review_steer_resume_runtime_post_tool_drain_replans_with_directive_in_next_generation",
+      "assertions_sha256": "1d8968924966a89178093205288a2384d07c9994c884e99023a8eed513854012",
+      "assertion_count": 6,
+      "preservation": "exact",
+      "evidence": "Production admitted tool batch drains owner steering and includes sequence 1 only in next model generation",
+      "result": "passed"
+    },
+    {
+      "baseline_selector": "tests/test_chat_steering_resume.py::test_runtime_stop_after_entry_drain_never_generates_for_consumed_directive",
+      "executable_selector": "tests/test_desktop_step8_review_steer_resume.py::test_step8_review_steer_resume_runtime_stop_after_entry_drain_never_generates_for_consumed_directive",
+      "assertions_sha256": "c4c4e60f8299d3be6491fa13ff76c9cee586cdbf300f64aa32ad292f5ceb1f7a",
+      "assertion_count": 5,
+      "preservation": "exact",
+      "evidence": "Production admitted cancellation after entry drain consumes directive without generation and closes inbox",
+      "result": "passed"
+    },
+    {
+      "baseline_selector": "tests/test_chat_steering_resume.py::test_runtime_error_closes_pending_mailbox_without_replay_to_next_turn",
+      "executable_selector": "tests/test_desktop_step8_review_steer_resume.py::test_step8_review_steer_resume_runtime_error_closes_pending_mailbox_without_replay_to_next_turn",
+      "assertions_sha256": "838cde74e1a44f076408fdc87022302eca9bbbd48889559be1d573416db4a5d5",
+      "assertion_count": 6,
+      "preservation": "exact across pinned split",
+      "evidence": "First request actual failed provider closes mailbox; second real admitted request same cid starts sequence zero with no directives",
+      "result": "passed"
+    },
+    {
+      "baseline_selector": "tests/test_chat_steering_resume.py::test_runtime_suspension_closes_pending_mailbox_without_consuming_it",
+      "executable_selector": "tests/test_desktop_step8_review_steer_resume.py::test_step8_review_steer_resume_runtime_suspension_closes_pending_mailbox_without_consuming_it",
+      "assertions_sha256": "fad4e74777ec81cbd431880f4ce0802c3576befa33ebb06d6b90b6432c55638d",
+      "signature_sha256": "48d7b70d2081aab6236846f0dbdb5a2e2ee525ff0e92b916277483282b97cbd2",
+      "assertion_count": 4,
+      "preservation": "exact",
+      "evidence": "Actual durable production suspension closes inbox with pending directive unconsumed; additional store SUSPENDED proof",
+      "result": "passed"
+    }
+  ],
+  "adapter_integrity_selectors": [
+    "tests/test_desktop_step8_review_steer_resume.py::test_steer_resume_loader_preserves_all_assertions_and_cases",
+    "tests/test_desktop_step8_review_steer_resume.py::test_steer_resume_loader_changed_bytes",
+    "tests/test_desktop_step8_review_steer_resume.py::test_steer_resume_loader_wrong_duplicate_and_assertion_hunks",
+    "tests/test_desktop_step8_review_steer_resume.py::test_steer_resume_loader_collateral_reverse_replay",
+    "tests/test_desktop_step8_review_steer_resume.py::test_steer_resume_setup_requires_admitted_worker",
+    "tests/test_desktop_step8_review_steer_resume.py::test_steer_resume_real_gate_rejects_fake_and_unbound_seal"
+  ],
+  "validation": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_steer_resume.py -q",
+    "isolation": "approved isolated PID/mount phase1 runner, non-root odin",
+    "process_pid": 526654,
+    "exit_code": 0,
+    "passed": 15,
+    "inherited_passed": 9,
+    "integrity_passed": 6,
+    "failed": 0,
+    "deferred": 0,
+    "retired": 0,
+    "output": "............... [100%]",
+    "earlier_iterations": [
+      "Collection split corpus BFS ordering rejected; corrected to depth-first corpus traversal preserving assertion ordering",
+      "Three provider-generation cases failed missing ProviderBoundary.chat_with_tools; added direct scripted-provider delegation and reran successfully"
+    ]
+  },
+  "blockers": [],
+  "limitations": [
+    "No full qualification requested or run by this agent",
+    "No cross-process resume orchestration coverage claimed; original two run_resumed cases are same-worker codec round trips with authentic current binding",
+    "Original/production/scripts/existing adapters/shared ledgers/maps/qualification untouched; three new files remain uncommitted"
+  ]
+}

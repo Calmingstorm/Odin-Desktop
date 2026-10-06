@@ -8,6 +8,7 @@ Neither path reads compactable LLM sessions.
 from __future__ import annotations
 
 import inspect
+import math
 import re
 from datetime import datetime
 
@@ -91,10 +92,28 @@ class TranscriptSearch:
         only = params.get("conversation_id")
         if only is not None:
             only = _text(only, "conversation_id")
+        bounds = {}
+        for key in ("after", "before"):
+            value = params.get(key)
+            if value is not None:
+                if type(value) not in (int, float) or not math.isfinite(value):
+                    raise ConversationError("bad_request", f"Invalid parameter: {key}")
+                bounds[key] = value
+        role = params.get("role")
+        if role is not None and (type(role) is not str or role not in
+                                 ("user", "assistant", "notice")):
+            raise ConversationError("bad_request", "Invalid parameter: role")
         messages, watermark = self._snapshot(only)
         needle = query.lower()
         hits = []
         for message in messages:
+            if role is not None and message["role"] != role:
+                continue
+            if bounds:
+                timestamp = _timestamp(message["created_at"])
+                if ("after" in bounds and timestamp < bounds["after"] or
+                        "before" in bounds and timestamp > bounds["before"]):
+                    continue
             texts = [message["text"], *(item["name"] for item in message.get("artifacts", []))]
             for text in texts:
                 at = text.lower().find(needle)

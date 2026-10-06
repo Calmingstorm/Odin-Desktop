@@ -1,0 +1,177 @@
+{
+  "version": 1,
+  "kind": "restoration-candidates-not-dispositions",
+  "qualification_group": "phase2-step3-restored-corpus",
+  "entries": [
+    {
+      "path": "tests/characterization/test_delivery.py",
+      "mode": "blocked",
+      "selector": null,
+      "qualification_group": "phase2-step3-restored-corpus",
+      "baseline_sha256": "aa67067f7f247f4a366cf50527c35dfb019b4051575dc08d86eeb69c270bf1fb",
+      "original_case_definitions": 30,
+      "original_assertions": 78,
+      "adaptations": [],
+      "blocker": "src.discord.delivery has no DISCORD_MAX_LEN, ResponseDelivery, close_open_fence, send_chunked or send_with_retry. Desktop DurableDelivery persists one guarded reply and artifact refs, not Discord-limit chunk/fence rendering, pending channel file lists, deleted-message reference fallback or connector-only HTTP retries. Whole inherited transport assertions cannot be exercised by importing frozen Discord behavior as a fake product."
+    },
+    {
+      "path": "tests/test_attachments.py",
+      "mode": "blocked",
+      "selector": null,
+      "qualification_group": "phase2-step3-restored-corpus",
+      "baseline_sha256": "fd45c95e1c4ea5c2d0bca39bf8809b1912194695523973ebf0d8370bc58743f6",
+      "original_case_definitions": 51,
+      "original_assertions": 75,
+      "adaptations": [],
+      "rejected_diagnostic_adaptations": [
+        {
+          "symbol": "TestAttachmentProcessor.test_zip_path_traversal_blocked",
+          "line": 149,
+          "before_sha256": "7907974429eb4882fb60a2e21090f0ccd3f7f766d4ac0ea423d058e4ea735925",
+          "after_source": "zf.writestr('harmless.txt', 'ordinary fixture bytes')",
+          "after_sha256": "ed733e4367c9766ce432b78537f482567d9c308c6f9a3a7847278cb992b97205",
+          "reason": "Replace traversal archive member creation with harmless bytes; real extraction rejects private symlink boundary before writes."
+        },
+        {
+          "symbol": "TestAttachmentProcessor.test_zip_path_traversal_blocked",
+          "line": 151,
+          "before_sha256": "b9f4f63829147d494ae45062321c940e38f2294d9ea6800082b94e4c484465f3",
+          "after_source": "proc = BoundaryProcessor(temp_dir=str(tmp_path / 'workspace'))",
+          "after_sha256": "cc727c9ce76e9c77b6c77a5c2bfa99e51924f0f9eda930525b3cc6d3a181181a",
+          "reason": "Subclass sets up only a tmp_path-owned symlink for the existing real containment rejection; no extraction, safety, save or preview method is stubbed."
+        },
+        {
+          "symbol": "TestArchiveExtended.test_extract_tar_unsafe_entry_blocked",
+          "line": 402,
+          "before_sha256": "32f66d5bfd4a49b73586957ea9e7a5b823a9ee77a252cb9a20d30576b4c7ab6c",
+          "after_source": "p = BoundaryProcessor(temp_dir=str(tmp_path))",
+          "after_sha256": "5108e29e807a88b0ad32cea8dd0595ba0049152b32b85068d1ecdd4bd49f10ce",
+          "reason": "Same authentic temporary containment boundary for real TAR extraction."
+        },
+        {
+          "symbol": "TestArchiveExtended.test_extract_tar_unsafe_entry_blocked",
+          "line": 404,
+          "before_sha256": "8b914373a867b8d26a5d6f1cfb7cee9ee989577bb81b3c1af78e0d1d5a912c73",
+          "after_source": "tp.write_bytes(_tar_bytes({'harmless.txt': 'ordinary fixture bytes'}))",
+          "after_sha256": "fcd41d86c43ecfab588bd8cb08721305be0b9bc99ce1304a2ced386e18556a1a",
+          "reason": "Harmless archive creation; unchanged original BLOCKED assertions exercise the committed processor's real containment guard."
+        }
+      ],
+      "diagnostic_log": ".test-state/step8-delivery-final.log",
+      "diagnostic_junit": ".test-state/step8-delivery-final.xml",
+      "safety": "Frozen suite creates traversal-bearing ZIP and TAR attack fixtures at lines149 and404. No original attack archive executed. Diagnostic harmless-member/symlink containment substitution preserved assertions but tested a different security property, so parent rejected it and loader/export files were deleted. No further attachment suite execution authorized.",
+      "blocker": "Forbidden path-traversal archive setup requires an equivalent safe fixture proving the ORIGINAL path-traversal property without malicious archive creation. Harmless archive members plus symlink containment are NOT equivalent. Suite remains deferred; diagnostic passes are not qualification."
+    },
+    {
+      "path": "tests/test_campaign_attachment_intake_coverage.py",
+      "mode": "blocked",
+      "selector": null,
+      "qualification_group": "phase2-step3-restored-corpus",
+      "baseline_sha256": "3e7b098ed229a29e64287038b8a19803c79d1109cc2e5b63064f58f9f697aeb0",
+      "original_case_definitions": 5,
+      "original_assertions": 10,
+      "adaptations": [],
+      "blocker": "Exclusive save and preview helpers exist, but the complete suite uses removed Config.discord, bot intake helpers and Discord source deletion/notification behavior. MessageIntake._process_attachments has an unconditional authenticated-admission guard; no supported Discord bot/source gate or deletion notice adapter is committed. No partial helper export or fabricated bot product qualifies the whole suite."
+    },
+    {
+      "path": "tests/test_campaign_discord_attachments.py",
+      "mode": "blocked",
+      "selector": null,
+      "qualification_group": "phase2-step3-restored-corpus",
+      "baseline_sha256": "02a6f587d5a9771b2bfb5534f2bbf662614ece94075762d66485c235ca9d2d84",
+      "original_case_definitions": 4,
+      "original_assertions": 18,
+      "adaptations": [],
+      "blocker": "Whole suite expects direct MessageIntake._process_attachments on Discord author/channel message objects plus retained binary cursors owned by synthetic owner IDs. Committed MessageIntake processing rejects before IO until authenticated phase2 admission, and expects conversation_id rather than Discord channel identity. Desktop RequestService uses committed owner-bound attachment references, not a guard-bypassable Discord message intake. Collision and standalone processor tests alone cannot qualify all original retrieval/owner/channel assertions."
+    },
+    {
+      "path": "tests/test_campaign_discord_intake.py",
+      "mode": "blocked",
+      "selector": null,
+      "qualification_group": "phase2-step3-restored-corpus",
+      "baseline_sha256": "0f1220b61d5d606dcdc1eab4ad0d97bb73affd2219431380b959f9e119440e20",
+      "original_case_definitions": 2,
+      "original_assertions": 4,
+      "adaptations": [],
+      "blocker": "Discord respond_to_bots/require_mention source admission, bot_msg_buffer_delay/tasks, on_message and from_another_bot pipeline tagging are absent in committed Desktop owner-bound request intake. Frozen bot gateway emulation would recreate obsolete transport behavior rather than exercise a product surface."
+    },
+    {
+      "path": "tests/test_delivery_file_retries.py",
+      "mode": "blocked",
+      "selector": null,
+      "qualification_group": "phase2-step3-restored-corpus",
+      "baseline_sha256": "cea07757691729a80ec3f82ed662d99280a22f92e6fb1d52c93fcf3847d29f6c",
+      "original_case_definitions": 3,
+      "original_assertions": 19,
+      "adaptations": [],
+      "blocker": "ResponseDelivery.send_with_retry and _prepare_owned_file_fallbacks no longer exist. Inherited parameter corpus requires actual discord.py multipart File ownership, HTTP connector retries, deleted-reply fallback, ambiguous sends and cancellation cleanup. Desktop artifacts are durable reference rows, not multipart HTTP attempts, so an equivalent committed stream-retry surface is absent."
+    },
+    {
+      "path": "tests/test_delivery_review_regressions.py",
+      "mode": "blocked",
+      "selector": null,
+      "qualification_group": "phase2-step3-restored-corpus",
+      "baseline_sha256": "bc0ddcfe244eeee48507dd6a5a16b333f18b421415b3fc1f1f1f856b340ae018",
+      "original_case_definitions": 7,
+      "original_assertions": 31,
+      "adaptations": [],
+      "blocker": "Authentic temporary-owner executor attempt exposed a whole-suite behavior mismatch: failure='runtime' calls deliver_runtime_output(object(),...) and expects scrubbed failed-retention head/tail JSON, but current runtime_delivery.py55 raises RuntimeError because an ownerless object cannot be an authenticated retention consumer. Preserving this parameter/assertion corpus requires obsolete ownerless fallback or replacing the tested operation, neither permitted. Remaining search_history source readiness also needs actual composed service, not a permit-all fixture; old executor fixture has no owner/profile/readiness. Attempt removed from exported candidates, no assertions were weakened.",
+      "diagnostic_log": ".test-state/step8-delivery-candidate.log",
+      "diagnostic_junit": ".test-state/step8-delivery-candidate.xml"
+    },
+    {
+      "path": "tests/test_delivery_status.py",
+      "mode": "blocked",
+      "selector": null,
+      "qualification_group": "phase2-step3-restored-corpus",
+      "baseline_sha256": "d1dbc5f6cf47aedaed3c4005291531219b9fdb889429ac289c2081a81c7c3db2",
+      "original_case_definitions": 2,
+      "original_assertions": 13,
+      "adaptations": [],
+      "blocker": "ResponseDelivery.set_status/active_tasks/change_presence do not exist. Both whole-suite assertions pin discord.ActivityType.watching and exact debounced change_presence callback arguments/counts; Desktop journal publication/notifications do not implement Discord presence. No changed assertions or status fake are proposed."
+    },
+    {
+      "path": "tests/test_delivery_turn_observation.py",
+      "mode": "original",
+      "selector": "tests/test_delivery_turn_observation.py",
+      "qualification_group": "phase2-step3-restored-corpus",
+      "baseline_sha256": "14fd1148b43bb330206566ec926930b3e6e96671bab52399b4ff746e376bfbda",
+      "original_case_definitions": 3,
+      "original_assertions": 2,
+      "inherited_cases_passed": 3,
+      "adaptations": [],
+      "safety": "Unchanged TurnRecorder with only original inert user-content target, fake disk-failing trajectory saver and fake lifecycle dispatcher. No provider, network ingress, real desktop or live store.",
+      "blocker": null
+    },
+    {
+      "path": "tests/test_computer_privacy_r5.py",
+      "mode": "original",
+      "selector": "tests/test_computer_privacy_r5.py",
+      "qualification_group": "phase2-step3-restored-corpus",
+      "baseline_sha256": "02625a61cd0ff31dc72f9f23d5015ba99d09f948f1b9c94a2d93268dbf797374",
+      "original_case_definitions": 3,
+      "original_assertions": 15,
+      "inherited_cases_passed": 15,
+      "adaptations": [],
+      "safety": "Transitive dispatch_state/_chat_state helper bodies inspected: only inert _ChatTurn/trajectory/durability construction, not computer integration or execution. ToolLoopRunner.__new__ invokes real audit/storage scrub methods and tmp_path-owned AuditLogger. No real computer controller/session/desktop operation is instantiated or called.",
+      "blocker": null
+    }
+  ],
+  "evidence": {
+    "runner": "USER=odin .venv/bin/python scripts/run-phase1-tests.py",
+    "isolation": "runner env -i, throwaway .test-state HOME/XDG, no display/DBus environment; unshare mount/PID namespace and child subreaper",
+    "selectors": ["tests/test_delivery_turn_observation.py", "tests/test_computer_privacy_r5.py"],
+    "log": ".test-state/step8-delivery-direct.log",
+    "junit": ".test-state/step8-delivery-direct.xml",
+    "restorable_suites": 2,
+    "blocked_suites": 8,
+    "inherited_cases": 18,
+    "loader_safety_cases": 0,
+    "expected_selected_cases": 18,
+    "passed_cases": 18,
+    "failed_cases": 0,
+    "elapsed_seconds": 3.70,
+    "rejected_diagnostic_run": {"log": ".test-state/step8-delivery-final.log", "junit": ".test-state/step8-delivery-final.xml", "passed": 76, "qualification": false, "reason": "Original archive traversal property changed to symlink containment; parent rejected equivalence and removed loader."},
+    "full_final_qualification": "Parent-owned; this file records candidates only."
+  }
+}
