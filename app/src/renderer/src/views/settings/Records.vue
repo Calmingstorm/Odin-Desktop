@@ -5,7 +5,7 @@ import { unavailableText } from '../../capability'
 import { basis, count, percent } from '../../format'
 import { state } from '../../store'
 import { management } from '../../stores/management'
-import { loadAudit, loadComputer, loadHealth, loadRecords, loadTurns, loadUsage, reasonText, reconcileComputer, records, searchLogs, verifyAudit } from '../../stores/records'
+import { auditVerificationNote, loadAudit, loadComputer, loadHealth, loadRecords, loadTurns, loadUsage, logLevel, logMessage, reasonText, reconcileComputer, records, searchLogs, verifyAudit } from '../../stores/records'
 
 onMounted(loadRecords)
 
@@ -14,14 +14,20 @@ const period = ref<keyof typeof PERIODS>('7d')
 const audit = reactive({ q: '', tool: '', error_only: false })
 const logs = reactive<{ q: string; level: 'error' | 'info' | 'all' }>({ q: '', level: 'all' })
 
-const at = (iso: string | null | undefined): string => (iso ? new Date(iso).toLocaleString() : '')
-const conversationTitle = (id: string): string => state.conversations.find((c) => c.id === id)?.title ?? 'a conversation that is gone'
+const at = (value: string | number | null | undefined): string => value == null || value === '' ? '' : new Date(typeof value === 'number' ? value * 1000 : value).toLocaleString()
+const conversationTitle = (id: string): string => state.conversations.find((c) => c.id === id)?.title ?? id
 /** The period the usage shown covers: the answer's own, which lags the choice until its read lands. */
 const usagePeriod = computed(() => {
   const shown = records.usage?.period
   return shown && shown in PERIODS ? PERIODS[shown as keyof typeof PERIODS] : shown
 })
 const computerKey = computed(() => `computer:${records.computer?.session_id ?? ''}`)
+const fullyVerified = computed(() => {
+  const check = records.verify
+  return check?.valid === true && check.availability !== 'not_enabled' &&
+    typeof check.verified === 'number' && check.verified > 0 &&
+    check.verified === check.total && !check.unsigned_prefix
+})
 
 async function reconcile(): Promise<void> {
   const status = records.computer
@@ -54,7 +60,7 @@ async function reconcile(): Promise<void> {
       <li v-for="c in records.health?.components ?? []" :key="c.name" class="manage-row">
         <div class="manage-line">
           <code class="manage-name">{{ c.name }}</code>
-          <span :class="['state-chip', c.status === 'healthy' ? 'connected' : c.status === 'unconfigured' ? 'disabled' : 'failed']">{{ c.status }}</span>
+          <span :class="['state-chip', c.status === 'ok' || c.status === 'healthy' ? 'connected' : c.status === 'unconfigured' || c.status === 'unavailable' ? 'disabled' : 'failed']">{{ c.status }}</span>
           <span class="manage-count">{{ c.detail }}</span>
         </div>
       </li>
@@ -98,8 +104,8 @@ async function reconcile(): Promise<void> {
     </header>
     <p v-if="records.unavailable.verify" class="manage-desc" role="status">{{ unavailableText('Audit verification') }}</p>
     <p v-else-if="records.errors.verify" class="warn">Couldn't check the record: {{ records.errors.verify }}. It is neither verified nor known to be broken.</p>
-    <p v-else-if="records.verify" :class="records.verify.valid ? 'field-saved' : 'warn'">
-      {{ records.verify.valid ? `Intact: ${records.verify.verified ?? records.verify.total} entries verified.` : `Not intact: ${records.verify.reason ?? 'the chain is broken'}.` }}
+    <p v-else-if="records.verify" :class="fullyVerified ? 'field-saved' : 'warn'">
+      {{ auditVerificationNote(records.verify) }}
     </p>
     <div class="limits">
       <label class="limit">Search the audit <input v-model="audit.q" type="search" class="panel-filter" placeholder="Search" :aria-describedby="records.errors.audit ? 'records-audit-error' : undefined" @keydown.enter="loadAudit(audit)" /></label>
@@ -146,8 +152,8 @@ async function reconcile(): Promise<void> {
       <tbody>
         <tr v-for="(e, i) in records.logs" :key="i">
           <td>{{ at(e.timestamp) }}</td>
-          <td :class="e.level === 'ERROR' ? 'bad' : ''">{{ e.level }}</td>
-          <td>{{ e.message }}</td>
+          <td :class="logLevel(e) === 'ERROR' ? 'bad' : ''">{{ logLevel(e) }}</td>
+          <td><code>{{ e.tool_name }}</code> {{ logMessage(e) }}</td>
         </tr>
         <tr v-if="records.loaded.logs && !records.logs.length"><td>No entries.</td></tr>
       </tbody>
@@ -168,11 +174,13 @@ async function reconcile(): Promise<void> {
       {{ records.turns.availability === 'not_enabled' ? 'Turn state is off.' : 'Turn state is unavailable right now.' }}
     </p>
     <ul v-else class="manage-list">
-      <li v-for="t in records.turns?.data.turns ?? []" :key="`${t.request_id}:${t.turn_generation}`" class="manage-row">
+      <li v-for="t in records.turns?.data.turns ?? []" :key="`${t.source}:${t.channel_id}:${t.message_id}:${t.turn_generation}`" class="manage-row">
         <div class="manage-line">
-          <span :class="['state-chip', t.attention ? 'failed' : 'disabled']">{{ t.status.toLowerCase() }}</span>
-          <span class="manage-count">In {{ conversationTitle(t.conversation_id) }}, generation {{ t.turn_generation }}</span>
-          <span v-if="t.outcome_unknown_operations" class="state-chip failed">{{ t.outcome_unknown_operations }} unknown</span>
+          <span :class="['state-chip', t.requires_attention ? 'failed' : 'disabled']">{{ t.status.toLowerCase() }}</span>
+          <span class="manage-count">{{ t.source }}, in {{ conversationTitle(t.channel_id) }}, request {{ t.message_id }}, generation {{ t.turn_generation }}</span>
+          <span v-if="t.requires_attention" class="state-chip failed">Needs attention</span>
+          <span v-if="t.manual_resolution_operations" class="state-chip failed">{{ t.manual_resolution_operations }} need manual resolution</span>
+          <span v-if="t.outcome_unknown_operations" class="manage-count">{{ t.outcome_unknown_operations }} historical unknown (diagnostic only)</span>
         </div>
         <p class="manage-desc">Started {{ at(t.created_at) }}{{ t.has_checkpoint ? '. Progress is kept.' : '.' }}</p>
       </li>

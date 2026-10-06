@@ -3,13 +3,13 @@ import { statSync } from 'node:fs'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import type { CoreEvent } from '../src/shared/api'
 import { PROTOCOL, type Settled, type Welcome } from '../src/main/broker'
-import { assertIsolated, onceEvent, RealCoreHarness, waitFor } from './real-core-harness'
+import { assertIsolated, onceEvent, RealCoreHarness, waitFor, SERVED_CAPABILITIES } from './real-core-harness'
 import { assertFreshManagementStatus, realCoreCapabilities, type RealCoreStatus } from '../src/main/real-core-smoke'
 
 // Intentional module-level hard failure if someone invokes this file with the normal/unisolated Vitest gate.
 assertIsolated()
 
-const capabilities = realCoreCapabilities
+const capabilities = SERVED_CAPABILITIES
 function successful<T>(answer: Settled): T {
   expect(answer.ok).toBe(true)
   if (!answer.ok) throw new Error(`Expected a real-core receipt, got ${answer.error.code}`)
@@ -21,7 +21,7 @@ function refused(answer: Settled, code: string, disposition = 'rejected'): void 
 type Status = RealCoreStatus
 type Subscription = { event_high: string; reset_required: boolean }
 
-describe('actual app Broker ↔ repository real core (step 1)', () => {
+describe('actual app Broker ↔ repository real core (step 5)', () => {
   let core: RealCoreHarness
   beforeEach(async () => {
     core = new RealCoreHarness()
@@ -30,6 +30,7 @@ describe('actual app Broker ↔ repository real core (step 1)', () => {
   afterEach(async () => { await core?.dispose() })
 
   test('authenticates the handshake, reads real status and replays events after a cursor', async () => {
+    expect(realCoreCapabilities).toEqual(SERVED_CAPABILITIES)
     const { broker, welcome } = await core.connect()
     expect(welcome).toMatchObject({
       protocol: { major: PROTOCOL.major }, profile_id: 'default', capabilities, features: [],
@@ -43,6 +44,9 @@ describe('actual app Broker ↔ repository real core (step 1)', () => {
     assertFreshManagementStatus(status)
     expect(status).toMatchObject({ phase: 'ready', core_instance_id: welcome.core.instance_id,
       version: welcome.core.version, capabilities })
+    // A configured model label is not provider readiness. No client is available on a fresh profile.
+    expect(status).toMatchObject({ model: { main: expect.any(String), provider: 'codex' },
+      providers: expect.arrayContaining([{ name: 'codex', health: 'unavailable' }]) })
 
     const events: CoreEvent[] = []
     broker.on('event', (event: CoreEvent) => events.push(event))
@@ -118,7 +122,7 @@ describe('actual app Broker ↔ repository real core (step 1)', () => {
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '0' }, id)).reset_required).toBe(false)
     expect(successful<Subscription>(await broker.request('events.subscribe', { after: '999999' }, id)).reset_required).toBe(true)
     refused(await broker.request('conversations.list', {}, id), 'capability_unavailable')
-    refused(await broker.request('conversations.create', { title: 'not admitted in step one' }, id), 'capability_unavailable')
+    refused(await broker.request('conversations.create', { title: 'not admitted before step six' }, id), 'capability_unavailable')
     refused(await broker.request('submission.send', {}, id), 'capability_unavailable')
     expect(successful<{ fields: unknown[] }>(await broker.request('settings.schema', {}, id)).fields.length).toBeGreaterThan(0)
     refused(await broker.request('codex.accounts.list', {}, id), 'keyring_unavailable')

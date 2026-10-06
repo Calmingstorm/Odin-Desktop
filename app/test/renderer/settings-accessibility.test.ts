@@ -65,6 +65,16 @@ describe('P3.4 settings field semantics', () => {
     expect(descriptions(root, root.find('input')!).map((node) => node.textContent())).toContain('The lowest is 1.')
     unmount()
   })
+
+  it('includes the visible reset text in its contextual accessible name', async () => {
+    const Form = (await import('../../src/renderer/src/components/SchemaForm.vue')).default
+    const { root, unmount } = mount(Form, { fields: [field('timezone', { label: 'Timezone' })] })
+    await flush()
+    const reset = root.button('Reset to default')
+    expect(reset.props['aria-label']).toBe('Reset to default: Timezone')
+    expect(String(reset.props['aria-label'])).toContain(reset.textContent().trim())
+    unmount()
+  })
 })
 
 describe('P3.4 general and provider controls', () => {

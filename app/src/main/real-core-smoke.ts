@@ -49,9 +49,14 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assertFreshManagementStatus(status)
   assert.equal(status.core_instance_id, broker.coreInstanceId)
   assert.equal(status.version, process.env.ODIN_SMOKE_EXPECT_VERSION ?? '0.1.0.dev1')
+  for (const method of ['status.get', 'events.subscribe', 'runtime.shutdown', 'settings.schema', 'settings.set',
+    'tools.list', 'tools.timeouts.get', 'personality.get', 'hosts.list', 'hosts.public_key',
+    'memory.get', 'lists.list', 'knowledge.list', 'audit.query', 'logs.search', 'turn_state.list', 'usage.get']) {
+    assert(status.capabilities.includes(method), `${method} must be published by the real management core`)
+  }
 
   // Later-slice reads are genuine core refusals, not empty successful lists.
-  for (const method of ['conversations.list', 'conversations.create', 'submission.send', 'search.query', 'work.list', 'skills.list', 'mcp.list', 'schedules.list', 'computer.status']) {
+  for (const method of ['conversations.list', 'conversations.create', 'submission.send', 'search.query', 'work.list', 'skills.list', 'mcp.list', 'mcp.status', 'schedules.list', 'computer.status']) {
     const refused = await broker.request(method)
     assert(!refused.ok && refused.error.code === 'capability_unavailable', `${method} must honestly refuse`)
   }
@@ -80,6 +85,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     }
   }
   const text = (selector: string): Promise<string> => run(`document.querySelector(${JSON.stringify(selector)})?.innerText ?? ''`)
+  const count = (selector: string): Promise<number> => run(`document.querySelectorAll(${JSON.stringify(selector)}).length`)
   const click = async (selector: string): Promise<void> => {
     assert(await run(`Boolean(document.querySelector(${JSON.stringify(selector)}))`), `missing UI control ${selector}`)
     await run(`document.querySelector(${JSON.stringify(selector)}).click()`)
@@ -121,7 +127,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.equal(await run('document.querySelectorAll(".conv-row").length'), 0, 'refused creation must not invent a conversation')
 
   // Slash commands remain useful without chat. Exercise the actual command
-  // palette and bridge; served usage with missing history remains unknown.
+  // palette and bridge; /status and /usage use real step-five observations,
+  // with served usage remaining unknown when history is missing.
   for (const command of ['/status', '/usage']) {
     await run(`(() => {
       const input = document.querySelector('.composer textarea');
@@ -156,7 +163,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   writeFileSync(out, (await win.webContents.capturePage()).toPNG())
 
   await click('button[title="Settings (Ctrl+,)"]')
-  await until(async () => (await run<number>('document.querySelectorAll(".settings-group .schema-form").length')) > 0, 'served settings schema and navigation')
+  await until(async () => (await run<number>('document.querySelectorAll(".settings-nav-item").length')) > 1, 'settings navigation')
+  await until(async () => (await count('.settings-group .schema-form')) > 0, 'real settings schema before enumerating all sections')
   const sections = await run<string[]>('Array.from(document.querySelectorAll(".settings-nav-item"), b => b.innerText)')
   assert.deepEqual(sections, ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and trust', 'Scheduled and running work', 'State', 'Records', 'Other'])
   // Check unserved owners separately from read-backed management panels.
@@ -174,11 +182,48 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     State: [['section[aria-label="Memory"]', /0 entries/], ['section[aria-label="Named lists"]', /No lists\./], ['section[aria-label="Knowledge"]', /Knowledge/]],
     Records: [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /not measured: Odin doesn't know this value/], ['section[aria-label="Audit"]', /Nothing recorded\./], ['section[aria-label="Logs"]', /No entries\./], ['section[aria-label="Turn state"]', /Turn state is off\./]]
   }
+  const observations = await run<Record<string, { ok: boolean; result?: unknown; error?: { code: string; message: string } }>>(`(async () => ({
+    settings: await window.odin.settingsSchema(), hosts: await window.odin.hostsList({}),
+    key: await window.odin.hostsPublicKey({}), tools: await window.odin.toolsList({}),
+    timeouts: await window.odin.toolsTimeoutsGet({}), personality: await window.odin.personalityGet({}),
+    memory: await window.odin.memoryList({}), lists: await window.odin.listsList({}),
+    knowledge: await window.odin.knowledgeList({}), audit: await window.odin.auditQuery({}),
+    logs: await window.odin.logsSearch({ level: 'all' }), turns: await window.odin.turnStateList({}),
+    usage: await window.odin.usage('7d'), accounts: await window.odin.codexAccounts()
+  }))()`)
+  for (const [name, answer] of Object.entries(observations)) {
+    if (name === 'accounts') {
+      assert(answer.ok || answer.error?.code === 'keyring_unavailable', 'accounts must report empty accounts or distinct keyring failure')
+    } else assert(answer.ok, `named bridge ${name} failed: ${JSON.stringify(answer.error)}`)
+  }
+  const hostData = observations.hosts!.result as { hosts: Array<{ alias: string; trust_state: string }>; default_host: string }
+  assert.equal(hostData.hosts.length, 1, 'fresh core must have only its actual local host')
+  assert.equal(hostData.hosts[0]!.alias, 'localhost')
+  assert.equal(hostData.hosts[0]!.trust_state, 'local')
+  assert.equal(hostData.default_host, 'localhost')
+  assert.deepEqual(observations.audit!.result, [], 'fresh audit must have no invented tool records')
+  assert.deepEqual((observations.logs!.result as { entries: unknown[] }).entries, [])
+  assert.equal((observations.turns!.result as { availability: string }).availability, 'not_enabled')
   for (let i = 0; i < sections.length; i++) {
     await click(`.settings-nav-item:nth-of-type(${i + 2})`)
     if (sections[i] === 'Models and providers') {
       await until(async () => (await text('.codex-accounts')).includes('Add account'), 'served account management')
+      await until(async () => !(await text('.codex-accounts')).includes('Loading'), 'real account observation')
+      assert(!/not (?:yet )?available|not served/i.test(await text('.codex-accounts')), 'served account management must not remain capability-unavailable')
       assert.equal(await run('document.querySelectorAll(".account").length'), 0, 'real session must not display fixture accounts')
+      await until(async () => (await run<number>('document.querySelectorAll(".schema-form").length')) > 0, 'real provider settings')
+    }
+    if (sections[i] === 'Personality') {
+      await until(async () => await run<boolean>('Boolean(document.querySelector("section[aria-label=Personality] select"))'), 'real personality settings')
+    }
+    if (sections[i] === 'Tools') {
+      await until(async () => (await count('section[aria-label="Built-in tools"] .manage-row')) > 0, 'real built-in tools')
+      assert((await text('section[aria-label="Tool timeouts"]')).includes('Timeouts'))
+    }
+    if (sections[i] === 'Hosts and trust') {
+      await until(async () => (await text('section[aria-label=Hosts]')).includes('localhost'), 'real localhost row')
+      assert.equal(await run('document.querySelector("section[aria-label=Hosts] select").value'), 'localhost')
+      await until(async () => (await text('section[aria-label="Odin\'s key"]')).includes('ssh-ed25519'), 'fresh provisioned SSH public key')
     }
     for (const selector of servicePanels[sections[i]!] ?? []) {
       await recordUnavailable(`Settings / ${sections[i]} / ${selector}`, selector)
@@ -197,6 +242,11 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       await until(async () => /Context reloaded.*context directory does not exist; nothing is loaded/s.test(await text('section[aria-label="Context"] .manage-json')), 'served context reload')
       assert.equal(await run('document.querySelectorAll("section[aria-label=Context] button").length'), 1, 'served context reload remains offered')
       screens.push({ screen: 'Settings / State / Context reload', text: await text('section[aria-label="Context"]') })
+      assert(!(await text('.settings-body')).includes('Loading'))
+      assert((await text('section[aria-label="Named lists"]')).includes('No lists.'))
+    }
+    if (sections[i] === 'Records') {
+      assert((await text('section[aria-label="Health"]')).includes('host(s) configured'), 'real health must observe profile hosts')
     }
     assert.equal(await run('document.querySelectorAll(".settings-body [role=alert]").length'), 0, `${sections[i]} must not present capability refusal as a fault`)
     assert.equal(await run('document.querySelectorAll(".settings-body .work-item, .settings-body .account").length'), 0, `${sections[i]} must not display fixture accounts/work`)
@@ -204,6 +254,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     const fields = (reads['settings.schema'] as { fields: Array<{ path: string }> }).fields
     for (const path of renderedPaths) assert(fields.some((field) => field.path === path), `rendered field ${path} must belong to the served schema`)
     if (sections[i] === 'General') assert(renderedPaths.length > 0, 'General must render real schema fields')
+    assert(!(await text('.settings-body')).includes('Service is not available yet'), `${sections[i]} must not leak a generic capability refusal`)
     screens.push({ screen: `Settings / ${sections[i]}`, text: await text('.settings-body') })
     if (i === 0) {
       assert((await text('.settings-body')).includes('Start Odin when you log in'), 'app-local settings remain available')
@@ -212,7 +263,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   }
   writeFileSync(out.replace(/\.png$/i, '') + '-settings.png', (await win.webContents.capturePage()).toPNG())
   assert.equal(broker.linkState, 'ready')
-  writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify({ link: broker.linkState, status, reads, screens }, null, 2) + '\n')
-  process.stdout.write(`real-core-smoke: evidence ${JSON.stringify({ link: broker.linkState, status, screens })}\n`)
+  writeFileSync(out.replace(/\.png$/i, '') + '-evidence.json', JSON.stringify({ link: broker.linkState, status, reads, observations, screens }, null, 2) + '\n')
+  process.stdout.write(`real-core-smoke: evidence ${JSON.stringify({ link: broker.linkState, status, screens: screens.map(({ screen }) => screen), observations: Object.fromEntries(Object.entries(observations).map(([name, answer]) => [name, answer.ok ? 'observed' : answer.error?.code])) })}\n`)
   process.stdout.write(`real-core-smoke: ok link=ready version=${status.version} screens=${screens.length}\n`)
 }

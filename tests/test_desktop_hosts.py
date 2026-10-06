@@ -80,6 +80,19 @@ async def test_local_enrollment_requires_only_odin_confirmation(service):
 
 
 @pytest.mark.asyncio
+async def test_list_keeps_configured_inactive_default_without_mutation(service):
+    await service.handle("hosts.set_enabled", {"alias": "localhost", "enabled": False})
+    revision = service.settings.revision
+    snapshot = service.registry.snapshot()
+    rows = await service.handle("hosts.list", {})
+    assert rows["default_host"] == ""
+    assert rows["configured_default_host"] == "localhost"
+    assert service.settings.config.tools.default_host == "localhost"
+    assert service.settings.revision == revision
+    assert service.registry.snapshot() is snapshot
+
+
+@pytest.mark.asyncio
 async def test_generation_drain_revoke_and_references(service):
     token = await prepare_test(service)
     await service.handle("hosts.commit", {"token": token})

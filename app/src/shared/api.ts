@@ -281,7 +281,7 @@ export interface ConfigField {
   /** Saved and effective values; redacted for a sensitive field. */
   desired: unknown
   effective: unknown
-  configured: boolean
+  configured: boolean | null
   pending_restart: boolean
   apply_state: ApplyState
 }
@@ -299,7 +299,7 @@ export interface ConfigMeta {
   schema_version: number
   revision: string
   fields: ConfigField[]
-  status: { counts: Record<string, number>; desired_revision: string; effective_revision: string | null }
+  status: { counts: Record<string, number>; desired_revision: string; effective_revision: string | null; keyring_error?: string | null }
   image_models?: Record<ImageLeaf, ImageModelIntent>
   image_models_revision?: string
 }
@@ -433,6 +433,7 @@ export interface McpSave {
 export interface HostTest {
   ok?: boolean
   at?: string
+  checked_at?: number
   detail?: string
   [key: string]: unknown
 }
@@ -461,6 +462,8 @@ export interface HostList {
   hosts: HostRow[]
   /** Empty: Odin needs every command to name its host. */
   default_host: string
+  /** Saved choice can be inactive while the effective default is empty. */
+  configured_default_host?: string
   generation: number
   tofu_enabled: boolean
 }
@@ -473,6 +476,7 @@ export interface HostPrepare {
   port?: number
   os?: 'linux' | 'macos'
   description?: string
+  enabled?: boolean
   trust_mode: 'pinned' | 'ca' | 'tofu'
   expected_fingerprints?: string[]
   candidate_fingerprints?: string[]
@@ -497,9 +501,22 @@ export interface HostTestResult {
 }
 
 export interface HostSaved {
-  result: string
-  alias: string
-  host_id: string
+  saved: boolean
+  active: boolean
+  targetable: boolean
+  trust_state: string
+  last_test: HostTest | null
+  draining: boolean
+  pending_references: HostReference[]
+  registry_generation: number
+  ssh_paths: {
+    desired_key: string
+    effective_key: string
+    desired_known_hosts: string
+    effective_known_hosts: string
+    restart_pending: boolean
+  }
+  host?: HostRow
 }
 
 export interface HostReference {
@@ -507,8 +524,7 @@ export interface HostReference {
   location: string
 }
 
-export interface HostRevoked {
-  result: string
+export interface HostRevoked extends HostSaved {
   leases_interrupted: number
   processes: { attempted: number; killed: number; unknown: number }
 }
@@ -644,8 +660,8 @@ export interface KnowledgeHit {
 export interface KnowledgeIngest {
   source: string
   chunks?: number
-  status: string
-  outcome: 'created' | 'unchanged' | 'duplicate' | 'conflict'
+  status?: string
+  outcome?: 'created' | 'unchanged' | 'duplicate' | 'conflict'
   duplicate_of?: string
   message?: string
 }
@@ -676,8 +692,12 @@ export interface AuditEntry {
 
 export interface AuditVerify {
   valid: boolean
+  availability?: 'available' | 'not_enabled'
   total?: number
   verified?: number
+  unsigned_prefix?: number
+  error?: string | null
+  segments?: Array<Record<string, unknown>>
   first_bad?: number | null
   reason?: string
   [key: string]: unknown
@@ -697,29 +717,31 @@ export interface HealthReport {
   degraded_count: number
   down_count: number
   unconfigured_count: number
+  unavailable_count?: number
   total: number
   checked_at: string
 }
 
-export interface LogEntry {
-  timestamp: string
-  level: string
-  message: string
+export interface LogEntry extends AuditEntry {
+  /** Older fixture rows only. Real core log rows are scrubbed audit entries. */
+  level?: string
+  message?: string
   tool?: string
 }
 
 export interface TurnRecord {
-  conversation_id: string
-  request_id: string
+  source: string
+  channel_id: string
+  message_id: string
   turn_generation: number
   status: string
-  created_at: string
-  last_progress_at: string | null
-  suspended_at: string | null
+  created_at: number
+  last_progress_at: number | null
+  suspended_at: number | null
   has_checkpoint: boolean
   manual_resolution_operations: number
   outcome_unknown_operations: number
-  attention: boolean
+  requires_attention: boolean
 }
 
 /** Odin's turn-state envelope (GET /api/turn-state/turns). */
@@ -793,7 +815,7 @@ export interface ManagementCalls {
   mcpSetGlobalEnabled: [{ enabled: boolean }, { saved: boolean; enabled: boolean; connected_count: number }]
   mcpSetLimits: [{ max_published_tools_per_server?: number; max_published_tools_global?: number }, McpStatus & { saved: boolean }]
   hostsList: [Empty, HostList]
-  hostsSettings: [{ default_host?: string; allow_host_tofu?: boolean }, { result: string }]
+  hostsSettings: [{ default_host?: string; allow_host_tofu?: boolean }, { saved: boolean; default_host: string; configured_default_host: string; tofu_enabled: boolean; registry_generation: number }]
   hostsPublicKey: [Empty, PublicKeyInfo]
   hostsPrepare: [HostPrepare, HostCandidate]
   hostsTest: [{ token: string }, HostTestResult]
@@ -828,7 +850,7 @@ export interface ManagementCalls {
   knowledgeDelete: [{ source: string }, { status: string; chunks_removed: number }]
   knowledgeVersions: [{ source: string }, KnowledgeVersion[]]
   knowledgeRestore: [{ source: string; version: number }, { status: string; source: string; version: number; chunks: number }]
-  auditQuery: [{ tool?: string; host?: string; q?: string; date?: string; error_only?: boolean; limit?: number }, AuditEntry[]]
+  auditQuery: [{ tool?: string; user?: string; host?: string; q?: string; date?: string; error_only?: boolean; limit?: number }, AuditEntry[]]
   auditVerify: [Empty, AuditVerify]
   healthGet: [Empty, HealthReport]
   logsSearch: [{ q?: string; level?: 'error' | 'info' | 'all'; tool?: string; start?: string; end?: string; limit?: number }, { entries: LogEntry[]; count: number }]

@@ -15,11 +15,12 @@ try {
     join(repositoryRoot, 'tests/desktop_fixtures/private-session.conf'), '--',
     'xvfb-run', '-a', '-s', '-screen 0 1280x800x24 -nolisten tcp',
     join(appDir, 'node_modules/.bin/electron'), appDir, '--smoke-test'], {
-    cwd: repositoryRoot,
+    // Deliberately launch from app/: its TypeScript src/ must not shadow the installed engine.
+    cwd: appDir,
     timeoutMs: 90_000,
     env: {
       ODIN_DESKTOP_ENGINE_PYTHON: python,
-      ODIN_DESKTOP_CORE_CMD: JSON.stringify([python, '-B', '-m', 'src']),
+      ODIN_DESKTOP_CORE_CMD: JSON.stringify([python, '-B', '-P', '-m', 'src']),
       ODIN_SMOKE_REAL_CORE: '1',
       ODIN_SMOKE_OUT: out
     }
