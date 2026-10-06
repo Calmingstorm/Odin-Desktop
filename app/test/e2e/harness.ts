@@ -80,7 +80,8 @@ export async function request(application: ElectronApplication, method: string, 
   }).__odinE2E.request(input.method, input.params, input.id), { method, params, id })
 }
 export async function waitForCore(application: ElectronApplication): Promise<{pid: number; instanceId: string}> {
-  const deadline = Date.now() + 15_000
+  // Allow cold startup plus the unchanged 5s handshake/restart policy under load; bound observation, not product timing.
+  const deadline = Date.now() + 45_000
   while (Date.now() < deadline) {
     const state = await snapshot(application)
     if (state.appState.link === 'ready' && state.corePid && state.appState.coreInstanceId) return { pid: state.corePid, instanceId: state.appState.coreInstanceId }
