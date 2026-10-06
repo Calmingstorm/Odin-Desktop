@@ -7,6 +7,7 @@ import ast
 import json
 import re
 from collections import Counter
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -14,13 +15,18 @@ BASELINE_SHA = "16e35e8f370661a2baf8e7030a27919b3e658b3b"
 SOURCE_TABLE = "maintenance/pr2-model-facing-string-approvals.md"
 STATUSES = {
     "removed_by_restored_behaviour", "pending_restoration",
-    "proposed_mechanical", "proposed_behavioural", "internal_unreachable_guard",
+    "proposed_mechanical", "proposed_behavioural", "approved_behavioural",
+    "internal_unreachable_guard",
 }
 PENDING_REFERENCES = {
     "PR #37 (6B)", "PR #42 (step 7)", "PR #48 (media publication)",
     "PR #62 (skill delivery, lane 3)", "PR #61 (step 8 closure, lane 2)",
-    "P3.3", "P3.5", "unassigned",
+    "P3.3", "P3.5", "unassigned", "D17 restoration (next bridge task)",
 }
+HEALTH_RESTORATION_TEST = (
+    "tests/test_desktop_health_delivery.py::"
+    "test_health_delivery_ready_after_startup_and_real_guarded_turn"
+)
 
 
 def parse_rows(text, *, source_paths):
@@ -238,10 +244,23 @@ def validate(inventory, rows, findings, root):
         if (not isinstance(evidence, list)
                 or any(not test_reference_exists(root, test) for test in evidence)):
             errors.append(f"{ident}: invalid test reference")
+        # #69 restores the live projection, not the legitimate not-ready and
+        # uncomposed-owner diagnostics. Their retained literals are not a fence.
+        health_restored = ident == "D19-049"
+        if health_restored and (
+                status != "removed_by_restored_behaviour"
+                or record.get("restoration_kind") != "composed_delivery_health"
+                or evidence != [HEALTH_RESTORATION_TEST]):
+            errors.append(f"{ident}: require #69 composed delivery health restoration "
+                          "and its exact guarded-turn evidence")
         if status == "removed_by_restored_behaviour":
             if not evidence:
                 errors.append(f"{ident}: restoration requires real test nodeids")
-            if any(i["reachability"] == "active" for i in observations):
+            if health_restored:
+                if {(i["path"], i["selector"]) for i in observations} != {
+                        ("src/health/checker.py", "check_delivery")}:
+                    errors.append(f"{ident}: health diagnostics moved or gained unproved callers")
+            elif any(i["reachability"] == "active" for i in observations):
                 errors.append(f"{ident}: removed claim has present active AST matches")
         elif status == "pending_restoration":
             if not record.get("owner") or not record.get("pending_reference"):
@@ -291,12 +310,20 @@ def validate(inventory, rows, findings, root):
             if (not record.get("odin_string") or not record.get("desktop_string")
                     or record.get("reviewer") != "Claude"):
                 errors.append(f"{ident}: mechanical needs exact strings and Claude reviewer")
-        elif status == "proposed_behavioural":
+        elif status in ("proposed_behavioural", "approved_behavioural"):
             if not record.get("behaviour_change") or record.get("reviewer") != "Aaron":
                 errors.append(f"{ident}: behavioural needs behaviour_change and Aaron reviewer")
             for field in ("when_odin_sees_it", "odin_v4130_equivalent"):
                 if not isinstance(record.get(field), str) or not record[field].strip():
                     errors.append(f"{ident}: behavioural needs {field} for a decidable review")
+            if status == "approved_behavioural":
+                approved_on = record.get("approval_date")
+                try:
+                    if not isinstance(approved_on, str) or date.fromisoformat(
+                            approved_on).isoformat() != approved_on:
+                        raise ValueError("Approval must have a canonical date")
+                except ValueError:
+                    errors.append(f"{ident}: Aaron approval requires an ISO approval_date")
     return {"errors": errors, "counts": dict(Counter(str(r.get("status")) for r in records)),
             "source_row_count": len(rows),
             "proof_limit": "Static gate does not prove composed restoration or approve wording."}

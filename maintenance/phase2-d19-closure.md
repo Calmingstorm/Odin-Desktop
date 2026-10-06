@@ -1,6 +1,6 @@
 # Phase 2 D19 closure inventory
 
-**Phase 2 exit: NOT CLOSED.** This is a disposition inventory and review proposal, not wording approval or full runtime-parity certification.
+**Phase 2 exit: NOT CLOSED.** This disposition inventory records five Aaron wording approvals, not full runtime-parity certification.
 
 ## Scope and counts
 
@@ -8,11 +8,12 @@ Baseline: `16e35e8f370661a2baf8e7030a27919b3e658b3b`. Section 4 of `maintenance/
 
 | Disposition | Rows |
 |---|---:|
-| Removed by restored behaviour | 4 |
-| Pending restoration (5 unassigned) | 28 |
-| Internal unreachable guard (Claude review) | 10 |
+| Removed by restored behaviour | 5 |
+| Pending restoration (4 unassigned) | 28 |
+| Internal unreachable guard (Claude review) | 12 |
 | Proposed mechanical | 0 |
-| Proposed behavioural (Aaron review) | 8 |
+| Proposed behavioural (Aaron review) | 0 |
+| Approved behavioural (Aaron, 2026-10-06) | 5 |
 | Total section-4 rows | 50 |
 
 ## Removed by restored behaviour
@@ -20,14 +21,15 @@ Baseline: `16e35e8f370661a2baf8e7030a27919b3e658b3b`. Section 4 of `maintenance/
 - **D19-024, D19-025:** The old dependency refusal literals are absent. `tests/test_desktop_d19_behaviour.py::test_composed_skill_dependency_resolution_and_actual_admitted_execution` exercises preinstalled dependencies and missing-dependency installer success/failure through the real composed manager and admitted skill execution. Package metadata is real; missing-dependency pip subprocess I/O is stubbed. Dynamic result delivery remains gated, so these rows do not close skill delivery.
 - **D19-045:** The old main-entry deferral is absent. Evidence: `tests/test_desktop_core_entry.py::test_real_core_accepts_node_style_socketpair_stdin_and_exits_on_parent_eof`, `tests/test_desktop_core_entry.py::test_entry_uses_containment_and_finalize_barrier`, and `tests/test_desktop_d19_behaviour.py::test_real_main_entry_and_local_client_complete_supervised_shutdown`.
 - **D19-046:** The old CLI deferral is absent. `tests/test_desktop_d19_behaviour.py::test_real_cli_entry_authenticates_to_composed_core` exercises the actual CLI entry against the authenticated composed core, not just the LocalClient class.
+- **D19-049:** Merged **PR #69** restores the live `health.get` delivery projection. Exact evidence: `tests/test_desktop_health_delivery.py::test_health_delivery_ready_after_startup_and_real_guarded_turn`. Startup and a completed real guarded turn both report delivery ready, with durable publication observed. The ready/not-ready and uncomposed-owner diagnostics legitimately remain in `check_delivery`: this is composed behaviour restoration, not literal removal. The gate requires this exact status, restoration kind and test nodeid, without waiving active-string checks for any other row.
 
 ## Proposed mechanical substitutions
 
 **NONE.** No instruction or behaviour change is presented as a Claude-reviewed noun swap.
 
-## Proposed behavioural review by Aaron
+## Recorded behavioural decisions and baseline context
 
-One grouped decision remains: **D19-011, 012, 013, 014, 015, 016, 026, 043**; none is approved. Rarity below is an engineering estimate from guard conditions, not measured incident frequency. Baseline citations refer to the pinned `maintenance/odin-v4.13.0.tar.gz`, SHA-256 `845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0`.
+**Aaron approved D19-011, 012, 013, 016 and 026 on 2026-10-06.** Their JSON status is `approved_behavioural`, reviewer `Aaron`, with `approval_date`. No behavioural proposals remain. Rows **014 and 015** are internal mis-composition guards with never-invoked branch proofs below; **043** is pending **D17 restoration (next bridge task)** because fail-to-start is stricter than Odin's warn-and-ignore. No config code is changed here. Rarity below is an engineering estimate from guard conditions, not measured incident frequency. Baseline citations refer to the pinned `maintenance/odin-v4.13.0.tar.gz`, SHA-256 `845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0`.
 
 ### D19-011: permission denial propagation
 **When Odin sees it:** A requested tool or selected `invoke_skill` target is denied by authenticated owner policy or its live request scope has been revoked, producing `permission_denied`; unusual in normal single-owner use but expected when stale calls cross a policy/scope change.
@@ -63,13 +65,15 @@ One grouped decision remains: **D19-011, 012, 013, 014, 015, 016, 026, 043**; no
 
 ## Internal unreachable guards
 
-Reviewer: **Claude**. Nine legacy guards were never invoked on the representative real composed profile: chat with tool/history and durable file output, MCP start/connect/tool publication/disable/close, shutdown, and **background admission refusal only**. No assigned guard was reached; this is not a global-unreachability claim for arbitrary legacy callers.
+Reviewer: **Claude**. Eleven guarded rows were never invoked on the representative real composed profile: chat with tool/history and durable file output, MCP start/connect/tool publication/disable/close, shutdown, and **background admission refusal only**. No assigned guard was reached; this is not a global-unreachability claim for arbitrary legacy callers.
 
 All nine cite `tests/test_desktop_d19_unreachable.py::test_composed_flows_never_invoke_legacy_guards`. Callable spies raise on invocation and assert zero calls even if a caller swallows the exception; original code-object trace spies additionally catch pre-imported aliases, with `test_original_guard_code_spy_catches_preimported_resume_alias` as a positive control. Other positive controls are `test_fail_spies_are_attached_to_existing_callable_targets` and `test_missing_reader_branch_spy_positive_control` in the same file.
 
 | Row | Exact AST path / selector | Proof |
 |---|---|---|
 | 001 | `src/discord/native_tools/channel_ops.py` / `ChannelOpsTools._handle_read_conversation` | AST-selected missing-reader return only: raising trace spy on actual code-object branch lines; handler and composed reader positively execute, backstop never does. |
+| 014 | `src/tools/runtime_delivery.py` / `deliver_runtime_output`, `deliver_runtime_result` | AST-selected actual missing-consumer raise branches, raising code-object/line spies; zero hits, successful delivery helpers positively execute. Both raise branches have malformed-executor positive controls. |
+| 015 | `src/tools/runtime_delivery.py` / `_require_retention_authority` | AST-selected missing-authority raise branch, raising code-object/line spy; zero hits, successful authority checks positively execute. Missing permission and missing policy have separate positive controls. |
 | 017 | `src/tools/output_authorization.py` / `owner_output_scope` | Raising callable and original code-object spies; zero calls. |
 | 027 | `src/discord/tool_loop.py` / `_require_phase2_wiring` | Raising callable/code-object spies, including imported resume alias; zero calls. |
 | 028 | `src/discord/delivery.py` / `DeliveryService.__init__` | Raising constructor/code-object spies preserve class identity; zero calls. |
@@ -81,6 +85,8 @@ All nine cite `tests/test_desktop_d19_unreachable.py::test_composed_flows_never_
 | 006 | `src/discord/native_tools/agents_tasks.py` / `AgentTaskTools._handle_spawn_agent` | Separate AST + compiled-code omission + real-owner trace proof behind the unconditional 005 fence. |
 
 **Background limitation:** no successful background task was executed. This branch has no `authenticated_scope`, `register_background`, or `background_execution` composition seam; `delegate_task` is hidden/refused before its handler, so requested successful composed-background guard coverage awaits **PR #37 (6B)**. The tests expose that pre-dispatch limitation rather than fabricating a task-owned context.
+
+Rows **014/015** share the composed-flow proof and cite `test_runtime_miscomposition_branch_spies_positive_control` in the same test file. Their exact raises remain live for mis-composed executors; this disposition does not claim they are removed or approve malformed-engine delivery.
 
 **006** cites `tests/test_desktop_d19_unreachable.py::test_agent_invocation_context_is_dead_after_unconditional_spawn_fence`: its exact obsolete inner raise is after the unconditional **005** admission fence, has no executable bytecode line or diagnostic constant, and a fail-on-line code-object spy has zero hits while the direct real-owner trace reaches 005; stale composed agent calls are refused without creating an agent. **005 remains pending PR #37 (6B)**, not an Aaron proposal, and neither agent admission nor background behaviour is claimed restored.
 
@@ -96,17 +102,21 @@ Each normal fragment binds to its recorded source path. D19-050 explicitly recor
 | 009, 010, 020, 021 | Odin | PR #62 (skill delivery, lane 3) | Request-bound callbacks/export; background skill publication integration still depends on PR #37 (6B). |
 | 029, 030 | Odin | PR #37 (6B) | Foreground admission/binding; **P3.5** is the separate native receiver/quarantine qualification dependency (`docs/work/phase-3-app-v1.md:238-269`). |
 | 047 | Odin | P3.3 | Relaunch/bounded shutdown/replacement acceptance, not PR61 status reporting (`docs/work/phase-3-app-v1.md:175-209`). |
-| 022, 023, 048, 049, 050 | unassigned | unassigned | Aaron must assign the five gaps below. |
+| 043 | D17 restoration (next bridge task) | D17 restoration (next bridge task) | Restore Odin's warn-and-ignore unknown top-level key behaviour instead of refusing startup; source unchanged here. |
+| 022, 023, 048, 050 | unassigned | unassigned | Four gaps remain unassigned below. |
 
 - **022:** `SkillContext.search_history` is still an unconditional fence (`src/tools/skill_context.py:369-373`); PR62 message/file callbacks do not restore its owner-scoped history helper.
 - **023:** Skill scheduling helpers remain unconditional fences (`src/tools/skill_context.py:375-404`); PR37 native scheduling/background admission and PR42 inbound webhook triggers do not establish restoration of these helpers.
 - **048:** Actual onboarding is **P3.2**, outside the permitted owner references (`docs/work/phase-3-app-v1.md:133-171`); PR61 fresh-profile parity evidence does not restore `setup_wizard.is_setup_needed`, and P3.3/P3.5 do not own onboarding.
-- **049:** `check_delivery` needs an observed `delivery_readiness` value (`src/health/checker.py:140-155`); PR61 package/migration/quiescence status does not supply it, and PR48 handler readiness is not this health projection.
 - **050:** The omnibus `require_phase2` helper spans conversation, skill, lifecycle, setup, work and scheduling operations; PR37, PR62, PR61 and P3.3 are only operation-level dependencies, and PR42 inbound webhooks do not restore the whole row.
 
 No pending row is assigned to **PR #42 (step 7)** or **PR #61 (step 8 closure, lane 2)** merely because scheduling/status words appear; their inspected work does not own a complete remaining row. There are no fictitious lane names.
 
+**Round-3 merged-code recheck:** merged `main` at `c680b15d`, including #69. Every other pending row and each 050 caller still has its active source-bound diagnostic, so no additional removal/restoration is claimed. The path-keyed ledger retains both parent path sets; actual changed bytes and test citations are re-recorded with `inventory.py record`.
+
 ## Evidence and limits
+
+**Round 3:** **92 gate tests**, **63 guard/composed/health tests**, and **68 short fixture/ownership tests** passed in the restricted ordinary-user PID namespace. D19 gate statement coverage: **252/258, 97.67%**. Drift report has **0 errors**, ownership-plan gate passes, lint has no new findings, and touched-file Ruff/diff checks pass. No full qualification. Current counts and external artifact digests are in `phase2-d19-round3-validation.json`. A malformed-status regression and an incorrect coverage selector were corrected before these final results; initial evidence is retained.
 
 **Round 2:** 76 gate tests passed with **97.53% gate statement coverage** (237/243 statements; rounded report: 98%), plus 47 guard/composed tests (15 new guard tests and 32 existing composed tests), and 38 hermetic short-gate fixture tests. All ran under the sanitized ordinary-user PID namespace. D19 and ownership-plan gates passed; no new lint findings and touched-file Ruff/diff checks passed. No full qualification was run this round. Small receipts and external artifact digests are in `phase2-d19-round2-validation.json`.
 
@@ -116,7 +126,7 @@ The paired JSON preserves each exact source-location/string key, fragments, reso
 
 Composed test references cover authenticated current-conversation history, real durable generate_file/post_file bytes, retention paging and live capability revocation, revision-bound attachment admission and deduplication, shared management/executor/runner owners, and orderly shutdown. Negative proofs of hidden tools, skill callback fences and unsupported foreground computer input identify remaining limits, not restorations. Scoped legacy-guard proofs change disposition, not source bytes or background parity.
 
-Health remains pending because the actual projection still emits its delivery-unavailable diagnostic. Image/browser media publication, autonomous/scheduled producers, full skill delivery, relaunch, onboarding, qualified foreground computer control and mixed web endpoints remain open.
+Health is restored by #69; image/browser media publication, autonomous/scheduled producers, full skill delivery, relaunch, onboarding, qualified foreground computer control, unknown-key D17 parity and mixed web endpoints remain open.
 
 **Previous-round evidence only:** executed locally in the sanitized ordinary-user PID namespace: **46 gate tests**, **32 composed-engine tests**, and **165 existing integration/regression tests** passed. The then-current gate module had **97% statement coverage**. A first coverage command used the dynamic module's wrong import name and collected no data; the corrected path-based run produced the measured coverage. These are not round-2 validation counts or current coverage measurements.
 

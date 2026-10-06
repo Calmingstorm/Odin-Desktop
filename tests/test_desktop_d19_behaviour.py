@@ -374,16 +374,17 @@ async def test_core_supervisor_shutdown_closes_real_owners_without_desktop_input
     assert not graph.core.engine.deps.turn_store.available
 
 
-async def test_health_delivery_diagnostic_is_still_reachable_despite_real_publication(composed):
+async def test_health_delivery_ready_after_real_publication(composed):
     graph = composed
     await turn(graph, await conversation(graph))
     health = await rpc(graph, "health.get")
     delivery = next(item for item in health["components"] if item["name"] == "delivery")
-    assert delivery == {"name": "delivery", "healthy": False, "status": "unavailable",
-                        "detail": "Authenticated delivery readiness is not wired (Phase 2)"}
-    assert health["unavailable_count"] >= 1
-    # Successful durable transcript publication does not make this retained
-    # diagnostic inactive. The real management projection still emits it.
+    assert delivery == {"name": "delivery", "healthy": True, "status": "ok",
+                        "detail": "Delivery ready"}
+    assert health["unavailable_count"] == sum(
+        item["status"] == "unavailable" for item in health["components"])
+    # #69 projects the actual durable owner; retained uncomposed diagnostics
+    # remain legitimate but no longer describe this successfully composed core.
     assert graph.core.delivery is graph.core.requests.delivery
 
 

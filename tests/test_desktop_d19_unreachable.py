@@ -21,7 +21,8 @@ import pytest
 
 from src.discord import delivery, intake_pipeline, slash_commands, tool_loop, wiring
 from src.discord.native_tools.channel_ops import ChannelOpsTools
-from src.tools import output_authorization
+from src.tools import output_authorization, runtime_delivery
+from src.tools.result_validator import ToolResult
 from tests.test_desktop_d19_behaviour import composed as composed  # shared pytest fixture
 from tests.test_desktop_d19_behaviour import (
     conversation,
@@ -62,6 +63,36 @@ def _missing_reader_return():
     return handler.__code__, lines
 
 
+def _runtime_guard_branches():
+    """Bind the exact mis-composition raises, not the successful delivery calls."""
+    targets = {
+        "014": [runtime_delivery.deliver_runtime_output,
+                runtime_delivery.deliver_runtime_result],
+        "015": [runtime_delivery._require_retention_authority],
+    }
+    messages = {
+        "014": "Output retention unavailable: no authenticated executor consumer is "
+               "configured. Do not replay the tool.",
+        "015": "Output authority unavailable. Do not replay the tool.",
+    }
+    branches = {}
+    for row, handlers in targets.items():
+        branches[row] = []
+        for handler in handlers:
+            source, start = inspect.getsourcelines(handler)
+            tree = ast.parse(textwrap.dedent("".join(source)))
+            raises = [node for node in ast.walk(tree) if isinstance(node, ast.Raise)
+                      and isinstance(node.exc, ast.Call) and node.exc.args
+                      and isinstance(node.exc.args[0], ast.Constant)
+                      and node.exc.args[0].value == messages[row]]
+            assert len(raises) == 1
+            node = raises[0]
+            lines = set(range(start + node.lineno - 1, start + node.end_lineno))
+            assert lines & {line for _, _, line in handler.__code__.co_lines()}
+            branches[row].append((handler.__code__, lines))
+    return branches
+
+
 @pytest.fixture
 def guard_spies(monkeypatch):
     spies = {}
@@ -90,6 +121,10 @@ def guard_spies(monkeypatch):
     spies["001"] = Mock(side_effect=AssertionError("D19-001 missing-reader backstop invoked"))
     visited = {"handler": 0, "reader": 0}
     reader_codes = set()
+    runtime_branches = _runtime_guard_branches()
+    for row in runtime_branches:
+        spies[row] = Mock(side_effect=AssertionError(f"D19-{row} runtime backstop invoked"))
+        visited[row] = 0
 
     def trace(frame, event, arg):
         # An imported alias can bypass the patched module attribute. Bind
@@ -105,6 +140,14 @@ def guard_spies(monkeypatch):
             return trace
         if frame.f_code in reader_codes and event == "call":
             visited["reader"] += 1
+        for row, branches in runtime_branches.items():
+            for branch_code, branch_lines in branches:
+                if frame.f_code is branch_code:
+                    if event == "call":
+                        visited[row] += 1
+                    elif event == "line" and frame.f_lineno in branch_lines:
+                        spies[row]()
+                    return trace
         return None
 
     previous = sys.gettrace()
@@ -134,7 +177,7 @@ async def guarded_core(guard_spies, composed):
     "chat_history", "background_admission_refusal", "mcp_start_stop", "shutdown",
 ])
 async def test_composed_flows_never_invoke_legacy_guards(guarded_core, guard_spies, flow):
-    """All nine spies are installed before CoreService.start and through close."""
+    """All eleven spies are installed before CoreService.start and through close."""
     graph = guarded_core
     if flow == "chat_history":
         cid = await conversation(graph)
@@ -149,6 +192,8 @@ async def test_composed_flows_never_invoke_legacy_guards(guarded_core, guard_spi
         assert graph.core.management.executor._load_all_memory()["global"]["d19_guard"] == "saved"
         await turn(graph, cid, "generate_file", {"filename": "d19.txt", "content": "durable"})
         assert any(row.get("artifacts") for row in graph.core.transcript.list(cid)["items"])
+        assert guard_spies.visited["014"] > 0
+        assert guard_spies.visited["015"] > 0
     elif flow == "background_admission_refusal":
         tasks = graph.core.engine.deps.channel_state.background_tasks
         before = dict(tasks)
@@ -259,6 +304,49 @@ async def test_missing_reader_branch_spy_positive_control():
             await ChannelOpsTools()._handle_read_conversation(object(), {"limit": 1})
     finally:
         sys.settrace(previous)
+    spy.assert_called_once()
+
+
+@pytest.mark.parametrize("case", ["text_consumer", "result_consumer", "permission", "policy"])
+def test_runtime_miscomposition_branch_spies_positive_control(case):
+    """Each backstop's actual raise is observed under deliberately malformed input."""
+    row = "014" if case.endswith("consumer") else "015"
+    branches = _runtime_guard_branches()[row]
+    spy = Mock(side_effect=AssertionError(f"D19-{row} actual runtime branch"))
+    visited = []
+
+    def trace(frame, event, arg):
+        for code, lines in branches:
+            if frame.f_code is code:
+                if event == "line":
+                    visited.append(frame.f_lineno)
+                    if frame.f_lineno in lines:
+                        spy()
+                return trace
+        return None
+
+    previous = sys.gettrace()
+    assert previous is None
+    sys.settrace(trace)
+    try:
+        with pytest.raises(AssertionError, match=f"D19-{row} actual runtime branch"):
+            if case == "text_consumer":
+                runtime_delivery.deliver_runtime_output(
+                    object(), "bounded", tool_name="fixture", tool_input={}, user_id="owner")
+            elif case == "result_consumer":
+                runtime_delivery.deliver_runtime_result(object(), ToolResult(output="bounded"))
+            elif case == "permission":
+                runtime_delivery._require_retention_authority(
+                    SimpleNamespace(_builtin_policy=object()), "fixture", "owner")
+            else:
+                class MissingPolicy:
+                    def check_permission(self, *_args):
+                        return None
+
+                runtime_delivery._require_retention_authority(MissingPolicy(), "fixture", "owner")
+    finally:
+        sys.settrace(previous)
+    assert visited
     spy.assert_called_once()
 
 
