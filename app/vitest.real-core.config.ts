@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    include: ['test/real-core-contract.test.ts', 'test/real-core-settings.test.ts', 'test/real-core-completion.test.ts', 'test/real-core-services.test.ts', 'test/real-core-work.test.ts', 'test/renderer/real-core-renderer-contract.test.ts'],
+    include: ['test/real-core-contract.test.ts', 'test/real-core-settings.test.ts', 'test/real-core-completion.test.ts', 'test/real-core-services.test.ts', 'test/real-core-work.test.ts', 'test/real-core-webhooks.test.ts', 'test/renderer/real-core-renderer-contract.test.ts'],
     environment: 'node',
     fileParallelism: false,
     // Each real case includes cold engine startup (up to the harness's 60 s

@@ -134,8 +134,10 @@ slots notice and leaves a missed check recovery-required. Agent mailbox/process 
 are controlled seeds, not provider/native execution qualification. Autonomous ticking is stopped only in this
 test bootstrap so clock seeding cannot race it; real tick/admission/history/delivery remain intact.
 The profile shows its actual local/default host and provisioned public SSH key, empty memory/lists/knowledge,
-actual task/check audit/log records in the seeded pass (empty audit/logs in the production pass), unknown usage and its actual turn-state availability. Missing
-keyring access is a distinct failure with Retry, not an empty account success. Both passes save, validate and
+actual task/check audit/log records in the seeded pass (empty audit/logs in the production pass), unknown usage and its actual turn-state availability. In the
+production pass, missing keyring access is a distinct failure with Retry, not an empty account success. The seeded
+bootstrap injects only an ephemeral memory keyring at the external Secret Service boundary; its empty accounts and
+fresh/provider-not-configured status are genuine reads under that boundary, not native keyring qualification. Both passes save, validate and
 test a harmless constant skill through the named bridge, add a local stdio MCP fixture and render its discovered
 tools; browser health distinguishes missing bundle/readiness from next-use retry, and computer status says no
 session and no qualified foreground/native input. No remote MCP service or real account is used. The gate exits through normal `runtime.shutdown` and parent-EOF cleanup. Evidence paths
@@ -146,6 +148,15 @@ and the provider-backed chat pass adds `-provider-chat.png` with its own JSON.
 The default screenshots, evidence and profiles are discarded. `real-core-work.test.ts` additionally checks ordinary
 `manage_process` list (with actual authorization filtering) and unrelated `run_command` calls pass through the bootstrap to the real executor via admitted
 scheduled workflows. Listing the seeded registry row is not real process admission or process execution qualification.
+
+The seeded pass also creates a trigger reminder through the named preload schedule API, then uses the rendered
+Webhook ingress inspector to opt in on `127.0.0.1` with port `0` and store a per-trigger source/secret via the
+existing settings and write-only secret APIs. Saved opt-in without a secret remains off. Actual `status.get`
+ingress reason/address/eligible/unknown fields and the rendered endpoint prove binding to the ephemeral port.
+Real authenticated HTTP delivery exercises source/event filtering, rejects a wrong secret, runs two distinct
+matching deliveries exactly once, and verifies schedule history plus the actual conversation publications.
+Secret clear closes the listener without replay. Existing child-written task/report counters stay unchanged.
+No LAN listener, real account, native keyring or production profile participates.
 
 The fixture smoke gate explicitly clears real-core overrides, so it remains a fixture regression gate rather
 than accidentally running whichever core a developer shell last selected.

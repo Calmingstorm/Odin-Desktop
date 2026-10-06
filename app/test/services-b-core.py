@@ -28,6 +28,27 @@ assert os.getuid() != 0
 assert b"real-core-isolation.mjs" in Path("/proc/1/cmdline").read_bytes()
 assert b"--inside-run" in Path("/proc/1/cmdline").read_bytes()
 original_start = CoreService.start
+original_init = CoreService.__init__
+
+
+class MemoryKeyring:
+    """Ephemeral external Secret Service boundary, not native keyring proof."""
+    def __init__(self):
+        self.values = {}
+
+    def get_password(self, namespace, name):
+        return self.values.get((namespace, name))
+
+    def set_password(self, namespace, name, value):
+        self.values[(namespace, name)] = value
+
+    def delete_password(self, namespace, name):
+        self.values.pop((namespace, name), None)
+
+
+def isolated_init(self, *args, **kwargs):
+    assert "secret_backend" not in kwargs
+    original_init(self, *args, secret_backend=MemoryKeyring(), **kwargs)
 
 
 async def seed(self, *args, **kwargs):
@@ -149,5 +170,6 @@ async def seed(self, *args, **kwargs):
         self.permissions.reset_request_owner(token)
 
 
+CoreService.__init__ = isolated_init
 CoreService.start = seed
 runpy.run_module("src", run_name="__main__")
