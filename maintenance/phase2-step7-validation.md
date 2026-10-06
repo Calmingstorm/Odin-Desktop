@@ -180,6 +180,62 @@ Final qualification will use the corrected history-evidence source, not that
 audited intermediate head. History evidence fixes remain within the local P2-1
 dependency and do not introduce replay or pause the recurring definition.
 
+## Final accepted-source qualification evidence
+
+The specific interrupted-recurring dependency is now implemented and tested
+locally. Unknown runs retain their full binding in a cumulative, backward-
+compatible list outbox. Recovery history performs a strict full-file read and
+idempotent append under the history lock, flushes/fsyncs the file and directory,
+then retires evidence from the schedule store. Read/write/fsync failures retain
+every pending binding. Deleting a definition must first durably drain this
+evidence; history compaction also fsyncs before/after replacement. There is no
+unknown-effect replay and recurring definitions remain available at normal
+cadence. One-time effecting runs retain exact native quarantine wording.
+
+Main integration includes accepted lifecycle, CI/portable namespace and package
+ownership work through `f597c1af`. Shared-outbound producer-guard assertions are
+retained and strengthened, not replaced by permissive cleanup. No product
+deadline was raised; two real webhook handoff fixture waits were bounded at
+15 seconds after an observed two-second deadline failure on a loaded host.
+
+Final source: `0092ebb3699443f0b9dfea03e3f8b2e72fd52eda`.
+One complete invocation from fresh `space-recovered-final/`, parent and checkout
+both `2775`, completed **30/30 groups: 14,834 passed, 3 skipped, zero failures
+and zero errors**. The sanitized restricted-helper PID harness ran as UID 1003
+with throwaway HOME/config/data/cache and no active graphical session.
+
+Skips are explicit: native Hyprland wire binary not supplied; installed
+Playwright cannot exercise the missing-import path; exact previous-package
+candidate resources are not supplied for package-upgrade proof. None is
+webhook/recurring recovery coverage. Headless tests do not qualify those native
+or previous-package behaviors.
+
+The previous complete intermediate run remains **14,736 passed, 3 failed,
+2 skipped**; its failures were resolved as above. Two later pre-final attempts
+were stopped on source-audit findings and remain incomplete. A subsequent
+attempt exhausted host disk space and did not produce complete group evidence.
+After the host recovered from zero free space to more than 47 GiB, a new fresh
+checkout completed the final clean invocation. No failed/incomplete counts are
+combined with final acceptance, and no source changed during the final run.
+
+Final short gates pass: zero exact byte-drift errors, clean ownership and suite
+accounting, seven inherited lint findings and zero new findings. Focused final
+ingress/adapters/recovery/history/native-scheduler regression passed **358**;
+earlier corrected preflight passed **368**. Counts remain separate runs.
+
+Final log:
+`/home/odin/desktop-pr42-review1-qualification/space-recovered-final-full.log`.
+JUnit and driver result:
+`space-recovered-final/.test-state/qualification-*.xml` and
+`qualification-result.json`. Additional retained source/space-failure attempts
+are in sibling directories/logs, not overwritten.
+
+PR37 remains at its unchanged reviewed base; the requested local P2-1 dependency
+is included without modifying its other findings. PR34 remains unmerged; no
+unreviewed Admin branch was substituted for main. Future base changes require
+a normal merge preserving scoped candidate admission, recurring recovery and
+P3 notifications. No rebase, force-push, attribution trailers or PR merge.
+
 Evidence under `/home/odin/desktop-step7-20261006/`:
 `review1-targeted-final-prebase.log`, `review1-prebase-ingress.log`,
 `review1-ingress-audit.log`, `review1-notification-edges.log`,
