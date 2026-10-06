@@ -1,10 +1,8 @@
 """Current contracts and exact neutral proofs for the last historical failures."""
 
 import ast
-import builtins
 import hashlib
 import json
-import tomllib
 from unittest.mock import AsyncMock
 
 import pytest
@@ -88,30 +86,27 @@ def test_retired_model_rejected_at_desktop_selection_contract():
 
 
 async def test_missing_bundled_pdf_reports_repair_and_never_fetches(monkeypatch):
+    """Retain the historical selector, but exercise Decision F's first-use failure."""
+    from src.runtime.pdf_resources import PdfUnavailable
     from src.tools import safe_fetch
     from src.tools.handlers.files_docs import FilesDocsTools
 
-    original_import = builtins.__import__
-
-    def unavailable(name, *args, **kwargs):
-        if name == "fitz":
-            raise ImportError("fixture: bundled module unavailable")
-        return original_import(name, *args, **kwargs)
-
-    fetch = AsyncMock(side_effect=AssertionError("must not fetch without bundled PDF"))
+    reason = (
+        "PDF support download failed. Check your internet connection and try again; "
+        "nothing was installed."
+    )
+    resolver = AsyncMock(side_effect=PdfUnavailable(reason))
+    fetch = AsyncMock(side_effect=AssertionError("must not fetch after PDF resolver failure"))
     monkeypatch.setattr(safe_fetch, "safe_fetch", fetch)
-    monkeypatch.setattr(builtins, "__import__", unavailable)
+    monkeypatch.setattr("src.runtime.pdf_resources.ensure_pdf", resolver)
     result = await FilesDocsTools.__new__(FilesDocsTools)._handle_analyze_pdf(
         {"url": "https://example.com/fixture.pdf"}
     )
     assert isinstance(result, tuple) and result[1] != 0
-    assert "PyMuPDF could not be loaded" in result[0]
-    assert "required bundled dependency" in result[0]
-    assert "repair the desktop installation" in result[0]
+    assert result == (reason, 1)
     assert "pip install" not in result[0]
+    resolver.assert_awaited_once_with()
     fetch.assert_not_awaited()
-    dependencies = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["dependencies"]
-    assert any(d.startswith("PyMuPDF>=") for d in dependencies)
 
 
 def test_desktop_constants_keep_deadlines_without_transport_authority():

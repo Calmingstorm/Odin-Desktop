@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..odin_log import get_logger
+from .bundled_models import bundled_model_roots
 
 if TYPE_CHECKING:
     from fastembed import TextEmbedding
@@ -29,8 +30,10 @@ class LocalEmbedder:
     MODEL = "BAAI/bge-small-en-v1.5"
     DIMENSIONS = 384
 
-    def __init__(self, *, model_roots: Iterable[str | Path] = ()) -> None:
-        roots = tuple(Path(root) for root in model_roots)
+    def __init__(self, *, model_roots: Iterable[str | Path] | None = None) -> None:
+        roots = tuple(Path(root) for root in (
+            bundled_model_roots() if model_roots is None else model_roots
+        ))
         if any(not root.is_absolute() for root in roots):
             raise ValueError("bundled model roots must be absolute paths")
         self._model_roots = roots

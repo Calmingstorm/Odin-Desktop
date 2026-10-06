@@ -4,6 +4,13 @@
   "baseline_plan": "maintenance/test-plan.json",
   "baseline_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
   "status": "not-accepted",
+  "decision_f_pdf_catalog_disposition": {
+    "original": "tests/test_tool_catalog_dependency_gate.py::test_missing_pdf_dependency_is_hidden_with_actionable_log",
+    "source_sha256": "f7db630da366641f110d4f433398747dbd6a24f8bdf3be31acb936abacdd0311",
+    "disposition": "obsolete-contract-replaced-pending-independent-review",
+    "reason": "Aaron Decision F requires PDF offered with a verified automatic first-use download, not hidden when the optional module is absent. Original source assertions and hash remain frozen; no old-contract pass is claimed.",
+    "replacement": "tests/test_desktop_pdf_catalog.py::test_missing_pdf_dependency_is_offered_with_unchanged_description"
+  },
   "suite_pairing": "All869 original suites/support paths in test-plan.json remain paired by exact hashes. Literal CORPUS_SELECTIONS/CORPUS_EXCLUSIONS in adapters specify exact originals. No unselected neutral case is implicitly proved.",
   "failure_accounting": {
     "population": ".test-state/inherited-bounded.xml all259 failures across49 original files",
@@ -1476,6 +1483,8 @@
         "tests/test_desktop_strip_root.py",
         "tests/test_desktop_strip_web.py",
         "tests/test_desktop_test_plan.py",
+        "tests/test_pdf_resources.py",
+        "tests/test_desktop_pdf_catalog.py",
         "tests/test_desktop_transcript.py"
       ],
       "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups."
