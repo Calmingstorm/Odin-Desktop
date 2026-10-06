@@ -70,6 +70,7 @@ class NativeToolDispatcher:
         prompt_builder,
         channel_state,
         builtin_policy=None,
+        skill_delivery=None,
     ) -> None:
         # Handlers are stored as (OWNER KEY, ATTRIBUTE NAME) and resolved
         # against the owner object at dispatch time (RFC-002 P5). Late
@@ -92,6 +93,7 @@ class NativeToolDispatcher:
             skill_manager=skill_manager,
             tool_catalog=tool_catalog,
             prompt_builder=prompt_builder,
+            **(skill_delivery or {}),
         )
         self._handlers: dict[str, tuple[str, str, Shape]] = {}
 

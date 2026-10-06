@@ -94,6 +94,33 @@ def _runtime_guard_branches():
     return branches
 
 
+def _skill_delivery_fallbacks():
+    """Bind the mis-composition raises of SkillTools' injected delivery seam."""
+    from src.discord.native_tools.skills_tools import SkillTools
+
+    branches = []
+    for method, inner in ((SkillTools._assert_delivery, None),
+                          (SkillTools._skill_message_cb, "_skill_msg"),
+                          (SkillTools._skill_file_cb, "_skill_file")):
+        source, start = inspect.getsourcelines(method)
+        tree = ast.parse(textwrap.dedent("".join(source)))
+        raises = [node for node in ast.walk(tree) if isinstance(node, ast.Raise)
+                  and isinstance(node.exc, ast.Call) and isinstance(node.exc.func, ast.Name)
+                  and node.exc.func.id == "NotImplementedError" and node.exc.args
+                  and isinstance(node.exc.args[0], ast.Name)
+                  and node.exc.args[0].id == "_DELIVERY_UNAVAILABLE"]
+        assert len(raises) == 1, method.__name__
+        code = method.__code__
+        if inner is not None:
+            [code] = [const for const in code.co_consts
+                      if inspect.iscode(const) and const.co_name == inner]
+        node = raises[0]
+        lines = set(range(start + node.lineno - 1, start + node.end_lineno))
+        assert lines & {line for _, _, line in code.co_lines()}
+        branches.append((code, lines))
+    return branches
+
+
 @pytest.fixture
 def guard_spies(monkeypatch):
     spies = {}
@@ -123,6 +150,7 @@ def guard_spies(monkeypatch):
     visited = {"handler": 0, "reader": 0}
     reader_codes = set()
     runtime_branches = _runtime_guard_branches()
+    runtime_branches["009"] = _skill_delivery_fallbacks()
     for row in runtime_branches:
         spies[row] = Mock(side_effect=AssertionError(f"D19-{row} runtime backstop invoked"))
         visited[row] = 0
@@ -175,10 +203,10 @@ async def guarded_core(guard_spies, composed):
 
 
 @pytest.mark.parametrize("flow", [
-    "chat_history", "background_admission", "mcp_start_stop", "shutdown",
+    "chat_history", "background_admission", "mcp_start_stop", "skill_delivery", "shutdown",
 ])
 async def test_composed_flows_never_invoke_legacy_guards(guarded_core, guard_spies, flow):
-    """All eleven spies are installed before CoreService.start and through close."""
+    """All twelve spies are installed before CoreService.start and through close."""
     graph = guarded_core
     if flow == "chat_history":
         cid = await conversation(graph)
@@ -221,6 +249,24 @@ async def test_composed_flows_never_invoke_legacy_guards(guarded_core, guard_spi
         assert graph.core.requests.get_request(work[0]["request_id"])["state"] == "completed"
         assert guard_spies.visited["014"] > 0
         assert guard_spies.visited["015"] > 0
+    elif flow == "skill_delivery":
+        # A real skill's message and file reach the composed request-owned delivery,
+        # running every injected-delivery function without reaching its fallback.
+        definition = {"name": "d19_delivery", "description": "Private delivery proof",
+                      "input_schema": {"type": "object", "properties": {}}}
+        code = (f"SKILL_DEFINITION = {definition!r}\n"
+                "async def execute(inp, context):\n"
+                "    await context.post_message('d19 delivered message')\n"
+                "    await context.post_file(b'd19 bytes', 'd19.txt')\n"
+                "    return 'delivered'\n")
+        saved = await rpc(graph, "skills.save", {"name": "d19_delivery", "code": code})
+        assert "created" in saved["result"]
+        cid = await conversation(graph)
+        await turn(graph, cid, "d19_delivery")
+        items = graph.core.transcript.list(cid)["items"]
+        assert any("d19 delivered message" in (item.get("text") or "") for item in items)
+        assert any(item.get("artifacts") for item in items)
+        assert guard_spies.visited["009"] > 0
     elif flow == "mcp_start_stop":
         from src.tools.mcp.manager import MCPManager
 
@@ -319,6 +365,39 @@ async def test_missing_reader_branch_spy_positive_control():
     finally:
         sys.settrace(previous)
     spy.assert_called_once()
+
+
+async def test_skill_delivery_fallback_spy_positive_control():
+    """Without injected delivery, each fallback's actual raise is observed."""
+    from src.discord.native_tools.skills_tools import SkillTools
+
+    branches = _skill_delivery_fallbacks()
+    spy = Mock()
+
+    def trace(frame, event, arg):
+        for code, lines in branches:
+            if frame.f_code is code:
+                if event == "line" and frame.f_lineno in lines:
+                    spy(code.co_name)
+                return trace
+        return None
+
+    tools = SkillTools(skill_manager=None, tool_catalog=None, prompt_builder=None)
+    previous = sys.gettrace()
+    assert previous is None
+    sys.settrace(trace)
+    try:
+        with pytest.raises(NotImplementedError):
+            await tools._skill_message_cb(object())("text")
+        tools.assert_request = lambda message: None
+        with pytest.raises(NotImplementedError):
+            await tools._skill_message_cb(object())("text")
+        with pytest.raises(NotImplementedError):
+            await tools._skill_file_cb(object(), "stage", "producer")(b"x", "x.txt")
+    finally:
+        sys.settrace(previous)
+    assert [call.args[0] for call in spy.call_args_list] == [
+        "_assert_delivery", "_skill_msg", "_skill_file"]
 
 
 @pytest.mark.parametrize("case", ["text_consumer", "result_consumer", "permission", "policy"])

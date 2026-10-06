@@ -1641,8 +1641,8 @@ class AgentTaskTools:
             outcome = "completed" if status == "completed" else (
                 "cancelled" if status == "killed" or finished.cancelled() else "failed"
             )
-            self._background_admission.settle_background(background, outcome)
-            self._work_service.refresh_all()
+            self._background_admission.queue_background_finish(background, outcome,
+                on_finished=self._work_service.refresh_all)
 
         agent._task.add_done_callback(_settled)
         _self_id["id"] = agent_id

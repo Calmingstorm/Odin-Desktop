@@ -92,6 +92,10 @@ class ComputerForegroundBinding(ComputerIntegration):
         if binding is None or not binding.active or binding.task.done():
             raise PermissionError("No active admitted computer request")
         message = binding.message
+        # Computer authority rejects background lineage before publication
+        # validation, which has its own independent background task latch.
+        if self._background(message):
+            raise PermissionError("Computer request lineage expired")
         self.requests.assert_bound_request(message)
         row = self.requests.binding(message.conversation_id, message.request_id,
                                     message.generation)

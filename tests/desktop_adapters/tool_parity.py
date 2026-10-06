@@ -170,6 +170,11 @@ def catalog_names(**config_kwargs):
             requests = RequestService(store, conversations, transcript, engine=engine,
                 permissions=permissions, authority=authority, delivery=delivery)
             engine.bind_requests(requests)
+            # Odin pins the whole OdinBot. Desktop's core marks background work ready
+            # once it binds the agent, loop and schedule owners (src/desktop/core.py;
+            # test_desktop_management_core pins that side), so pin the served catalog.
+            engine.deps.background_work_ready = True
+            engine.deps.tool_catalog.invalidate()
             return {t["name"] for t in engine.deps.tool_catalog.merged_definitions()}
         finally:
             async def close():

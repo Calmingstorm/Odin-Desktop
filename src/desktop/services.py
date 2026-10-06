@@ -669,7 +669,11 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         ready.update({"parse_time": True, "search_history": True, "search_audit": True,
                       "read_conversation": engine.requests is not None,
                       "generate_file": engine.requests is not None,
-                      "post_file": engine.requests is not None})
+                      "post_file": engine.requests is not None,
+                      "invoke_skill": engine.requests is not None,
+                      "export_skill": engine.requests is not None})
+        ready.update({skill["name"]: skills.has_skill(skill["name"])
+                      for skill in skills.list_skills()})
         ready["browser_screenshot"] = ready["browser_read_page"] and engine.requests is not None
         ready["generate_image"] = (engine.requests is not None
                                    and image_backend.is_configured()
@@ -747,6 +751,37 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         get_knowledge_store=lambda: knowledge, embedder=embedder, audit=audit))
     publication_tool = ContextVar("desktop_media_publication_tool", default=None)
 
+    def assert_skill_request(message):
+        if engine.requests is None:
+            raise PermissionError("Request admission unavailable")
+        engine.requests.assert_bound_request(message)
+        row = engine.requests.binding(message.conversation_id, message.request_id,
+                                      message.generation)
+        if row is None or row["state"] not in {"running", "stop_requested"}:
+            raise PermissionError("Skill delivery requires an executing request")
+
+    def make_artifact(message, data, filename, producer):
+        from ..tools.output_authorization import accessed_hosts
+        from .delivery import ArtifactPost
+
+        engine.requests.assert_bound_request(message)
+        if not producer:
+            raise PermissionError("No admitted artifact producer")
+        mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        return ArtifactPost(data, filename, mime,
+            "image" if mime.startswith("image/") else "file", producer,
+            tuple(deepcopy(list((accessed_hosts.get() or {}).values()))))
+
+    async def send_skill_message(message, text):
+        assert_skill_request(message)
+        return await delivery.send(message, text)
+
+    async def post_skill_file(message, data, filename, caption, *, producer, mode):
+        artifact = make_artifact(message, data, filename, producer)
+        if mode == "stage":
+            return delivery.stage_file(message, artifact)
+        return await delivery.send(message.channel, caption, files=[artifact])
+
     class DesktopMediaTools(MediaTools):
         """Adapt only the copied media handler's durable-publication seam."""
 
@@ -754,17 +789,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             return engine.requests is not None
 
         async def _publish_attachment(self, message, data, filename, caption=""):
-            from ..tools.output_authorization import accessed_hosts
-            from .delivery import ArtifactPost
-
-            engine.requests.assert_bound_request(message)
-            tool = publication_tool.get()
-            if tool is None:
-                raise PermissionError("No admitted artifact producer")
-            mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-            artifact = ArtifactPost(data, filename, mime,
-                "image" if mime.startswith("image/") else "file", tool,
-                tuple((accessed_hosts.get() or {}).values()))
+            artifact = make_artifact(message, data, filename, publication_tool.get())
             return await delivery.send(message.channel, caption, files=[artifact])
 
         async def _handle_generate_file(self, message, inp):
@@ -804,7 +829,9 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         image_selector=ImageBackendSelector(get_config=get_config, openai_backend=image_backend)))
     owners["transcript_history"] = TranscriptHistoryTools()
     dispatcher = _ReadyDispatcher(owners=owners, skill_manager=skills, tool_catalog=catalog,
-        prompt_builder=prompt, channel_state=state, builtin_policy=policy)
+        prompt_builder=prompt, channel_state=state, builtin_policy=policy,
+        skill_delivery={"assert_request": assert_skill_request,
+                        "send_message": send_skill_message, "post_file": post_skill_file})
     compression = getattr(runtime, "context_compressor", cc.context_compression if cc.context_compression.enabled else None)
     compression_stats = getattr(runtime, "compression_stats", None) or CompressionStats()
     d = SimpleNamespace(get_config=get_config, paths=paths, permissions=permissions,

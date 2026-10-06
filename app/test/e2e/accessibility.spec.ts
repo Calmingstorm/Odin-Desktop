@@ -377,7 +377,7 @@ test('real core keyboard status usage and every real settings or unavailable ser
   await send('/status')
   await expect(page.getByRole('region', { name: 'Status', exact: true }).locator('.panel-text')).toContainText('Odin v0.1.0.dev1')
   await send('/usage')
-  await expect(page.getByRole('region', { name: 'Usage, 7d', exact: true }).locator('.panel-text')).toContainText('history unavailable (usage history not enabled)')
+  await expect(page.getByRole('region', { name: 'Usage, 7d', exact: true }).locator('.panel-text')).toContainText('settled turns 0')
   await expect(page.locator('.statusbar')).not.toContainText('Usage is unavailable in this core')
   await audit('real-core-chat')
   expect(await ax('real-core-chat')).not.toContain('Echo:')
@@ -433,7 +433,8 @@ test('real core keyboard status usage and every real settings or unavailable ser
       await expect(computer.getByRole('button', { name: 'Reconcile', exact: true })).toHaveCount(0)
       const usage = page.getByRole('region', { name: 'Usage', exact: true })
       await expect(usage.getByRole('combobox', { name: 'Period', exact: true })).toBeVisible()
-      await expect(usage).toContainText('history unavailable (usage history not enabled)')
+      // Step 8 part 4 composes the real usage rollup: served history, not 'not enabled'.
+      await expect(usage).toContainText('settled turns 0')
       await expect(usage).toContainText("not measured: Odin doesn't know this value")
       await expect(usage).not.toContainText('Usage is unavailable in this core')
     }

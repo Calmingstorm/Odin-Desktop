@@ -281,9 +281,21 @@ class ReportDelivery:
             artifact = {"ref": rid, "name": name, "mime": "text/plain",
                         "size": descriptor["size"], "kind": "report",
                         "available": descriptor["available"]}
+            from .delivery import RequestContext
+
+            has_requests = delivery.store.connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='desktop_requests'").fetchone()
+            request = (delivery.store.connection.execute(
+                "SELECT message_id FROM desktop_requests WHERE request_id=?",
+                (binding.request_id,)).fetchone() if has_requests else None)
+            context = RequestContext(binding.conversation_id, binding.request_id,
+                                     binding.generation, binding.owner_id,
+                                     request[0] if request is not None else None)
+            staged = delivery.consume_staged(context)
             message = delivery.transcript_commit(conversation_id=binding.conversation_id,
                 role="notice", text=text, request_id=binding.request_id,
-                id="report_message_" + rid, artifacts=[artifact])
+                id="report_message_" + rid, artifacts=[artifact, *staged])
             delivery.notifications.intent(conversation_id=binding.conversation_id,
                 message_id=message["id"], category="report", preview=text,
                 dedupe_key="report:" + rid, request_id=binding.request_id)

@@ -379,7 +379,6 @@ async def test_restored_agent_admission_and_owner_scoped_result_read(composed, t
 
 
 @pytest.mark.parametrize("tool,arguments", [
-    pytest.param("export_skill", {"name": "fixture"}, id="export_skill"),
     pytest.param("computer_session", {"operation": "start"}, id="computer_session"),
 ])
 async def test_unwired_features_are_hidden_and_stale_calls_refused_not_restored(
@@ -404,11 +403,9 @@ async def test_unwired_features_are_hidden_and_stale_calls_refused_not_restored(
     assert not [item for item in graph.core.transcript.list(cid)["items"] if item.get("artifacts")]
 
 
+# Message and file posting are restored by skill delivery (D19-020/021); the
+# composed-core proofs live in test_desktop_skill_delivery.py.
 @pytest.mark.parametrize("body,diagnostic", [
-    pytest.param("await context.post_message('fixture message')",
-                 "Conversation skill delivery is unavailable until Phase 2.", id="post_message"),
-    pytest.param("await context.post_file(b'fixture', 'fixture.txt')",
-                 "Conversation skill delivery is unavailable until Phase 2.", id="post_file"),
     pytest.param("await context.search_history('fixture')",
                  "Owner-scoped conversation history is unavailable until Phase 2 wiring.",
                  id="search_history"),
@@ -433,17 +430,14 @@ async def test_dynamic_skill_context_fences_remain_reachable(composed, caplog, b
     assert "created" in saved["result"]
     assert graph.core.management.skills.skill_manager is graph.core.engine.deps.skill_manager
     cid = await conversation(graph)
-    receipt = await turn(graph, cid, "d19_fixture", expected_state="failed")
+    await turn(graph, cid, "d19_fixture")
     assert "d19_fixture" in {item["name"] for item in graph.provider.calls[0]["tools"]}
-    # The real trusted skill runs and reaches the legacy context/callback fence.
-    # Failure output is then blocked by the dynamic tool's output readiness:
-    # this is a still-reachable fence, NOT a successful model-visible delivery.
+    # The real trusted skill runs and reaches the still-pending context fence.
+    # Installed skills' results are model-visible (as in v4.13.0), so the model
+    # receives the refusal, never a fabricated success.
     assert diagnostic in caplog.text
-    detail = await request(graph.reader, graph.writer, "tool.detail", {
-        "request_id": receipt["request_id"], "invocation_id": "d19-call"})
-    assert not detail["ok"] and detail["error"]["code"] == "not_found"
-    notice = graph.core.transcript.read_conversation(cid)[-1]["text"]
-    assert "Output capability unavailable" in notice
+    results = [str(content) for content in tool_results(graph)]
+    assert results and not any("unexpected success" in content for content in results)
     assert not graph.core.engine.deps.scheduler.list_all()
     assert not [item for item in graph.core.transcript.list(cid)["items"] if item.get("artifacts")]
 
@@ -624,8 +618,8 @@ async def test_composed_skill_dependency_resolution_and_actual_admitted_executio
         composed, monkeypatch, dependency, pip_status):
     """Real OS package metadata; only missing-dependency pip I/O is stubbed.
 
-    Trusted loading/publication preserves upstream diagnostics. Dynamic result
-    delivery still fails closed and is explicitly not claimed restored here.
+    Trusted loading/publication preserves upstream diagnostics, and the skill's
+    result reaches the model as in v4.13.0.
     """
     import src.tools.skill_manager as skills_module
 
@@ -669,7 +663,9 @@ async def test_composed_skill_dependency_resolution_and_actual_admitted_executio
         diagnostics = str(skill.diagnostics)
         assert ("Auto-installed dependencies" if pip_status == 0 else
                 "Failed to install dependencies") in diagnostics
-    await turn(graph, await conversation(graph), "d19_dependency", expected_state="failed")
+    await turn(graph, await conversation(graph), "d19_dependency")
+    results = [str(content) for content in tool_results(graph)]
+    assert any("dependency execution marker 1.2.3" in content for content in results)
     assert sys.modules[skill.module_name].EXECUTIONS == 1
     assert "d19_dependency" in {item["name"] for item in graph.provider.calls[0]["tools"]}
     assert len(calls) == (0 if pip_status is None else 1)

@@ -178,8 +178,7 @@ async def test_real_runner_guarded_delivery_and_accounting(graph):
     assert len(provider.calls) == 1
     tools = {tool["name"] for tool in provider.calls[0]["tools"]}
     assert "read_file" in tools
-    assert "spawn_agent" not in tools
-    assert "schedule_task" in tools  # D17: the retained scheduling owner is bound.
+    assert "spawn_agent" not in tools and "schedule_task" not in tools
 
 
 @pytest.mark.asyncio

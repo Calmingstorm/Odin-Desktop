@@ -424,6 +424,14 @@ def _adapter_modules(root: Path, selector: str) -> list[ast.Module]:
 
 
 def _part4_dispositions(root: Path) -> dict:
+    """Part 4's dispositions; none where its audited artifact is wholly absent.
+
+    Offline fixtures carry no part-4 artifact. A present but changed, unreadable or
+    non-regular artifact still fails closed.
+    """
+    artifact = root / PART4_PATH
+    if not (artifact.exists() or artifact.is_symlink()):
+        return {}
     data = _regular(root, PART4_PATH).read_bytes()
     if _digest(data) != PART4_SHA256:
         raise ValueError("part4 exact audited dispositions artifact hash changed")
@@ -431,18 +439,6 @@ def _part4_dispositions(root: Path) -> dict:
     if result.get("reviewer") != PART4_REVIEWER:
         raise ValueError("part4 work-order retirement authority changed")
     return _indexed(result.get("dispositions"), "part4 dispositions", [])
-
-
-def _part4_suites(root: Path) -> dict:
-    """Part 4's dispositions; none where its audited artifact is wholly absent.
-
-    Offline fixtures carry no part-4 artifact. A present but changed, unreadable or
-    non-regular artifact still fails closed through _part4_dispositions.
-    """
-    artifact = root / PART4_PATH
-    if not (artifact.exists() or artifact.is_symlink()):
-        return {}
-    return _part4_dispositions(root)
 
 
 def _part4_case_retirements(root: Path, path: str, inherited_hash: str, rows) -> bool:
@@ -522,7 +518,7 @@ def _case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool
     if path in ROUND3_CASES:
         # Review of #34, round 3, is a separate authority for its two suites.
         return _round3_case_retirements(root, path, inherited_hash, value)
-    if path in _part4_suites(root):
+    if path in _part4_dispositions(root):
         # Step 8 part 4's audited lane-8 dispositions are a separate authority.
         return _part4_case_retirements(root, path, inherited_hash, value)
     if not isinstance(value, list):
@@ -651,7 +647,7 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             "tests/test_tool_parity.py":
                 "e734b9f088569c37109de900f8bbecf48d6d76885d29c23def4fadd8bf4b3849",
             "tests/desktop_adapters/tool_parity.py":
-                "decc80ec9cb5d07e355978ccad7214688f588aa8b51a273402c658551d2c6777",
+                "91c1549e391b702cb7248921069092cec5ed2f099283bfb86f0a56fb1473fcdd",
             "tests/test_desktop_tool_parity_adaptation.py":
                 "42a97c359c0141011b82e35bfe94f285629fa771d2c8d897f1baa164af4debe9",
         }
@@ -1105,7 +1101,7 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
         if status == "retired":
             mapped_retired.add(path)
             retirement = row.get("retirement", {})
-            part4 = (_part4_suites(root).get(path, {}) if step == 6 else {})
+            part4 = (_part4_dispositions(root).get(path, {}) if step == 6 else {})
             part4_retired = part4.get("status") == "retired"
             legacy = path in RETIRABLE_SUITES
             round3_retired = path == "tests/test_health_endpoints.py"
@@ -1172,7 +1168,7 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
                 errors.append(f"mapping: deferred suite carries restoration: {path}")
             continue
         mapped_restored.add(path)
-        part4 = (_part4_suites(root).get(path, {}) if step == 6 else {})
+        part4 = (_part4_dispositions(root).get(path, {}) if step == 6 else {})
         part4_restored = (part4.get("status") == "restored"
                           and part4.get("inherited_sha256") == row.get("inherited_sha256"))
         if type(step) is not int or (step not in RESTORATION_GROUPS and not part4_restored):

@@ -67,12 +67,13 @@ def test_host_inventory_has_no_desired_config_fallback():
     assert _context(tool_executor=executor).get_hosts() == []
 
 
-async def test_unwired_conversation_delivery_is_explicitly_unavailable():
+async def test_unwired_conversation_delivery_is_explicitly_unavailable(caplog):
+    """Without a callback, posting follows v4.13.0: a logged warning, nothing sent."""
     context = _context()
-    with pytest.raises(RuntimeError, match="Phase 2"):
-        await context.post_message("hello")
-    with pytest.raises(RuntimeError, match="Phase 2"):
-        await context.post_file(b"content", "notes.txt")
+    assert await context.post_message("hello") is None
+    assert await context.post_file(b"content", "notes.txt") is None
+    assert "post_message called but no channel callback available" in caplog.text
+    assert "post_file called but no channel callback available" in caplog.text
     assert context._tracker.messages_sent == context._tracker.files_sent == 0
 
 
