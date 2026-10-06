@@ -71,10 +71,10 @@ jobs:
   full-suites:
     if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: [self-hosted, odin-desktop-ci]
-    # The explicit default selection and classified qualification deliberately
-    # replay the broad boundary corpus. Bound the whole job without cancelling
-    # its last groups when this self-hosted machine is running parallel lanes.
-    timeout-minutes: 60
+    # The explicit default selection and classified qualification currently
+    # replay the broad boundary corpus. Under parallel lane load the job ran past
+    # 60 minutes and was cancelled mid-qualification, so bound it at 120.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
