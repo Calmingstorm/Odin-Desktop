@@ -123,7 +123,10 @@ class WorkflowPlanTests(unittest.TestCase):
                 'PATH': str(binary) + ':' + os.environ['PATH'],
                 'GITHUB_REPOSITORY': 'Calmingstorm/Odin-Desktop',
             }
-            env.update({key: str(expression(value, ctx)) for key, value in step['env'].items()})
+            env.update({
+                key: str(expression(value, ctx)) if key != 'UV_PYTHON_DOWNLOADS' else value
+                for key, value in step['env'].items()
+            })
             result = subprocess.run(
                 ['bash', '-e', '-c', step['run']],
                 cwd=root,
@@ -159,7 +162,10 @@ class WorkflowPlanTests(unittest.TestCase):
             for s in self.workflow['jobs']['build']['steps']
             if 'workflow_entry.py' in s.get('run', '')
         )
-        env = {key: str(expression(value, ctx)) for key, value in step['env'].items()}
+        env = {
+            key: str(expression(value, ctx)) if key != 'UV_PYTHON_DOWNLOADS' else value
+            for key, value in step['env'].items()
+        }
         env['GITHUB_REPOSITORY'] = 'Calmingstorm/Odin-Desktop'
         self.assertIn('--tag=v0.1.0', candidate_arguments(env))
         for key, value in [
@@ -193,8 +199,31 @@ class WorkflowPlanTests(unittest.TestCase):
             self.workflow['jobs']['verify']['steps'][-1]['env'],
             self.workflow['jobs']['publish']['steps'][-1]['env'],
         )
-        self.assertNotIn('GH_TOKEN', self.workflow['jobs']['build']['steps'][3]['env'])
+        build_entry = next(
+            step for step in self.workflow['jobs']['build']['steps']
+            if 'workflow_entry.py' in step.get('run', '')
+        )
+        self.assertNotIn('GH_TOKEN', build_entry['env'])
         self.assertNotIn('rehearse', self.workflow['jobs']['publish']['steps'][-1]['run'])
+
+    def test_release_jobs_provision_cached_interpreters_without_setup_actions(self):
+        for job_name, job in self.workflow['jobs'].items():
+            with self.subTest(job=job_name):
+                steps = job['steps']
+                provisioning = [
+                    step for step in steps
+                    if 'provision_cached_tools.py' in step.get('run', '')
+                ]
+                self.assertEqual(len(provisioning), 1)
+                uses = [step.get('uses', '').split('@', 1)[0] for step in steps]
+                self.assertNotIn('actions/setup-python', uses)
+                self.assertNotIn('actions/setup-node', uses)
+                self.assertEqual(
+                    '--require-node' in provisioning[0]['run'], job_name == 'build'
+                )
+        build = self.workflow['jobs']['build']
+        entry = next(step for step in build['steps'] if 'workflow_entry.py' in step.get('run', ''))
+        self.assertEqual(entry['env']['UV_PYTHON_DOWNLOADS'], 'never')
 
     def test_actual_yaml_job_names_accepted_by_candidate_api(self):
         # Verifier sees YAML's actual emitted identities, not parallel names.

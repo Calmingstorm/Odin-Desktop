@@ -1,7 +1,7 @@
 {
   "version": 1,
   "phase": "P4.3",
-  "release_scope": "Account for ten original release files plus a new lint regression test. Extend maintenance lint coverage to release scripts without loosening the allowlist. Mechanical release Python lint repair only; no workflow behavior, engine, app or inherited test changes.",
+  "release_scope": "Account for release scripts and tests, including PR39 P2/P3 helper-first verified isolation and no-download cached-interpreter provisioning. Extend release lint coverage without loosening the allowlist. App launcher adapts the reviewed #25 helper-first implementation; production engine and inherited test corpus are unchanged.",
   "authorization": "maintenance/phase4-releases.md; notice 6c3bc43e, P4.1 merge 5ba8d6df, main integration ff8bb499, offline helpers 4ea8e842, implementation 208135d4 and runner restriction 45a51b8e",
   "review": "Pending independent review. Exact-byte accounting is not qualification, external protection, publication authorization or executed Actions evidence.",
   "entries": [
@@ -32,8 +32,8 @@
     {
       "path": "scripts/release/gates.mjs",
       "reason": "Add sanitized candidate gate orchestration for a dedicated nonprivileged runner, retaining namespace and virtual-display entrypoints.",
-      "contract": "Install pinned local uv and sync locked dev dependencies; run release tests, namespaced app check, fixture smoke, real-core tests/smoke and accessibility with disposable allowlisted HOME.",
-      "invariant": "Reject root; exclude owner credentials/session state; no unsafe isolation fallback, installer execution, upload or publication. Fixture orchestration is not app qualification.",
+      "contract": "Install pinned local uv/build backend and sync locked dev dependencies without interpreter downloads; probe the restricted isolation helper before a verified full-sudo fallback, then run release tests and every app gate with disposable allowlisted HOME.",
+      "invariant": "Verify numeric invoking identity, PID1/private proc, zero capabilities/groups and no_new_privs before suites. Reject root; exclude credentials/session state; no unisolated fallback or suite replay, installer, upload or publication. Fixture orchestration is not qualification.",
       "owner": "Odin",
       "tests": ["scripts/release/tests/gates.test.mjs"]
     },
@@ -41,7 +41,7 @@
       "path": "scripts/release/rehearse.mjs",
       "reason": "Add shared local/Actions nonpublishing rehearsal so both paths select the same pinned candidate builder and offline validator.",
       "contract": "Validate options and exact version/curated notes before building, require fresh paths, optionally run npm ci without scripts, pinned Electron provisioning and package:candidate, then offline validation.",
-      "invariant": "Disposable allowlisted HOME excludes credentials/session/Node configuration. No upload, tag, release, version rewrite or installer use.",
+      "invariant": "Disposable allowlisted HOME excludes credentials/session/Node configuration and forces UV_PYTHON_DOWNLOADS=never. No upload, tag, release, version rewrite or installer use.",
       "owner": "Odin",
       "tests": ["scripts/release/tests/rehearse.test.mjs", "scripts/release/tests/gates.test.mjs", "scripts/release/tests/test_workflow_plan.py"]
     },
@@ -56,7 +56,7 @@
     {
       "path": "scripts/release/tests/gates.test.mjs",
       "reason": "Add disposable command-stub execution of the actual gate entrypoint, not documentation wording assertions.",
-      "contract": "Execute copied gates/rehearse modules as nonprivileged account; capture argv/environment and assert credential/session removal, namespace wrapping and required app commands.",
+      "contract": "Execute actual copied modules with harmless command stubs; prove restricted-helper preference, fallback before suites, denied isolation, no suite replay, credential/session removal and every required app command.",
       "invariant": "Only stub child commands run; no actual sudo isolation, package install, live desktop/service/network or app qualification.",
       "owner": "Odin",
       "tests": ["scripts/release/tests/gates.test.mjs"]
@@ -64,7 +64,7 @@
     {
       "path": "scripts/release/tests/rehearse.test.mjs",
       "reason": "Add behavioral fixtures for rehearsal environment, nonpublishing builder selection and option rejection.",
-      "contract": "Assert exact allowlisted environment and npm/Electron candidate plan; invalid/incomplete options fail before launching a builder.",
+      "contract": "Assert exact allowlisted environment, disabled uv interpreter downloads and npm/Electron candidate plan; invalid/incomplete options fail before launching a builder.",
       "invariant": "No build/upload/release/tag/installer; command-plan fixtures do not prove real package correctness or Actions execution.",
       "owner": "Odin",
       "tests": ["scripts/release/tests/rehearse.test.mjs"]
@@ -88,7 +88,7 @@
     {
       "path": "scripts/release/tests/test_workflow_plan.py",
       "reason": "Execute actual YAML conditions and shell/environment entry with fake builder; mechanical wrapping/import sorting only, retaining assertions.",
-      "contract": "Check dry-run/tag nonpublication, unauthorized runner/retention denial, main-only dispatch, pre-builder validation, action pins, least permissions, publication environment and API acceptance of emitted job names.",
+      "contract": "Check dry-run/tag nonpublication, unauthorized runner/retention denial, main-only dispatch, pre-builder validation, pinned actions, least permissions, publication environment and API acceptance of job names. All three jobs require cached Python; build also requires cached/system Node22, with no setup/download actions.",
       "invariant": "Restricted expression vocabulary and disposable fake node only; not an Actions emulator, hosted run, external tag-rule installation or publication proof. Inherited tests untouched.",
       "owner": "Odin",
       "tests": ["scripts/release/tests/test_workflow_plan.py", "scripts/release/tests/test_actions_control.py"]
@@ -100,6 +100,22 @@
       "invariant": "No upload/publication/version write/credential propagation. Dry-run cannot retain artifacts; tag is not publication authorization; fixtures do not install external controls.",
       "owner": "Odin",
       "tests": ["scripts/release/tests/test_workflow_plan.py"]
+    },
+    {
+      "path": "scripts/release/provision_cached_tools.py",
+      "reason": "PR39 P3: self-hosted runners must use existing cached Python 3.12 and cached or system Node22 instead of downloading interpreters.",
+      "contract": "Select completed executable cache entries, verify actual interpreter versions, prefer highest verified versions, allow system Node22 only, and write selected directories through GITHUB_PATH for subsequent workflow steps. Fail clearly on missing/mismatched interpreters.",
+      "invariant": "No interpreter downloads or installation, credentials, build, network, release or live service. Python requires runner cache, not an arbitrary system fallback.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/test_provision_cached_tools.py", "scripts/release/tests/test_workflow_plan.py"]
+    },
+    {
+      "path": "scripts/release/tests/test_provision_cached_tools.py",
+      "reason": "PR39 P3 behavioral coverage of executable cache selection and explicit no-download errors.",
+      "contract": "Run the real provisioning helper against disposable harmless executable fixtures; exercise cache version/marker/binary mismatch, numeric patch ordering, Node22 cache/system selection, missing runtimes and Python-only jobs.",
+      "invariant": "No real toolcache mutation, interpreter download, network, credentials, publication or live runner changes. Fixtures are not an Actions dry-run.",
+      "owner": "Odin",
+      "tests": ["scripts/release/tests/test_provision_cached_tools.py"]
     }
   ]
 }

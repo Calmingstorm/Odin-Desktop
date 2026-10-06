@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 export function buildEnvironment(source, home) {
   const allowed = ['PATH', 'LANG', 'LC_ALL', 'TMPDIR', 'ODIN_PACKAGING_CACHE', 'SOURCE_DATE_EPOCH']
   const env = Object.fromEntries(allowed.filter(key => source[key]).map(key => [key, source[key]]))
-  return { ...env, HOME: home, XDG_CACHE_HOME: resolve(home, '.cache'),
+  return { ...env, HOME: home, XDG_CACHE_HOME: resolve(home, '.cache'), UV_PYTHON_DOWNLOADS: 'never',
     npm_config_userconfig: '/dev/null', npm_config_globalconfig: resolve(home, 'empty-global-npmrc'), CI: 'true' }
 }
 

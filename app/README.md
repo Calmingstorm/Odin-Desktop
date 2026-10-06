@@ -46,7 +46,8 @@ Packaged launches ignore the development override and **never fall back to the f
 verification and interpreter isolation. Until that resolver is integrated, a packaged build fails visibly with
 an unavailable-runtime dialog. This slice does not claim packaged launch or full P3.1 completion.
 
-Real-core gates require Linux, Node 22, `xvfb-run` (smoke), `sudo -n unshare --pid --fork --mount-proc`, `setpriv`
+Real-core gates require Linux, Node 22, `xvfb-run` (smoke), and the restricted
+`sudo -n /usr/local/sbin/odin-desktop-isolate` helper (or noninteractive full-sudo `unshare`/`setpriv` fallback)
 and a Python 3.12 environment containing the engine dependencies from the repository's `pyproject.toml`/`uv.lock`.
 Provision a repository `.venv` with `uv sync --frozen`, or explicitly set `ODIN_DESKTOP_ENGINE_PYTHON` to a suitable
 environment. Imports are checked against **this checkout's real source**, not another installed core.
@@ -129,6 +130,13 @@ are written under ignored `test-results/`. Set `ODIN_APP_A11Y_REPORT` to an abso
 outside the checkout. Review `../maintenance/phase3-accessibility.md` for findings, dispositions and open native rows.
 
 ## Manual version notice (P4.3 notice slice)
+
+The release workflow uses only the runner's completed, version-verified cached Python 3.12 and cached or
+system Node 22. Missing interpreters fail with a provisioning error, never an interpreter download. All three
+jobs select their Python explicitly; build gates also disable uv interpreter downloads. Release and app
+launchers probe the restricted namespace helper first and verify isolation before running suites. A failed
+suite is not replayed through another launcher. The first actual Actions dry-run remains an owner/reviewer
+`workflow_dispatch` on reviewed `main`, not a lane action.
 
 General shows the installed **desktop product** version, separate from the engine version, and a manual
 **Check for updates** control. It performs one named `checkReleases` main-process operation against the fixed
