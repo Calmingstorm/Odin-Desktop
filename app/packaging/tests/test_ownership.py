@@ -29,7 +29,8 @@ class OwnershipTests(unittest.TestCase):
             'state': 'process-exited', 'shutdownAccepted': True, 'processOutcome': 'exited',
             'unsaved': False, 'unreceipted': 0, 'eventId': os.urandom(8).hex()}}))
         self.core.write_text(json.dumps({'version': 1, 'state': 'complete',
-            'previous_unknown': None, 'resources': {'processes': {'state': 'released'}},
+            'previous_unknown': None, 'resources': {'processes': {'state': 'released'},
+                                                  'computer': {'state': 'not_started'}},
             'at': os.urandom(8).hex()}))
 
     def lease(self, role='app'):
@@ -93,6 +94,20 @@ class OwnershipTests(unittest.TestCase):
                 lease.finish()
         finally:
             lease.close()
+
+    def test_incomplete_or_malformed_core_evidence_refuses(self):
+        for resources in ({}, [], {'processes': {'state': 'released'}, 'computer': []}):
+            with self.subTest(resources=resources):
+                lease = self.lease()
+                try:
+                    self.clean()
+                    value = json.loads(self.core.read_text())
+                    value['resources'] = resources
+                    self.core.write_text(json.dumps(value))
+                    with self.assertRaises(own.OwnershipError):
+                        lease.finish()
+                finally:
+                    lease.close()
 
 
 if __name__ == '__main__':

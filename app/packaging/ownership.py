@@ -99,15 +99,19 @@ def _fingerprint(path):
 
 def _clean(app_cleanup, core_cleanup, role):
     core = _read(core_cleanup)
+    resources = core.get('resources')
     if (core.get('version') != 1 or core.get('state') != 'complete'
             or core.get('previous_unknown') is not None
+            or not isinstance(resources, dict)
+            or not {'computer', 'processes'}.issubset(resources)
             or any(row.get('state') not in {'released', 'not_started'}
-                   for row in core.get('resources', {}).values())):
+                   for row in resources.values() if isinstance(row, dict))
+            or any(not isinstance(row, dict) for row in resources.values())):
         raise OwnershipError('Core resource cleanup is unresolved')
     if role == 'app':
         app = _read(app_cleanup)
         current = app.get('current', app)
-        if (current.get('state') != 'process-exited'
+        if (not isinstance(current, dict) or current.get('state') != 'process-exited'
                 or current.get('shutdownAccepted') is not True
                 or current.get('processOutcome') not in {'exited', 'not-running'}
                 or current.get('unsaved') or current.get('unreceipted', 0)
@@ -192,6 +196,8 @@ def replacement_guard(paths, check_receipts=True):
                 receipt = _read(path)
                 if receipt.get('state') != 'clean':
                     raise OwnershipError('Unresolved lifetime evidence blocks replacement')
+                if not all(key in receipt for key in ('app_cleanup', 'core_cleanup', 'role')):
+                    raise OwnershipError('Incomplete lifetime receipt blocks replacement')
                 _clean(receipt['app_cleanup'], receipt['core_cleanup'], receipt['role'])
         yield
     finally:
