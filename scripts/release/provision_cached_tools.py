@@ -40,7 +40,11 @@ def cached_python(tool_cache):
     for _, expected, executable in sorted(versions, reverse=True):
         code = 'import sys; print(".".join(map(str, sys.version_info[:3])))'
         actual = _version(executable, ["-c", code])
-        if actual == expected:
+        # Workflow/build entrypoints invoke python3 by name after GITHUB_PATH.
+        # A lone bin/python must not silently select a different system python3.
+        python3 = executable.with_name("python3")
+        if (actual == expected and python3.is_file() and os.access(python3, os.X_OK)
+                and _version(python3, ["-c", code]) == expected):
             return executable
     raise RuntimeError(
         "Provision Python 3.12 in this runner's tool cache; CI will not download it."

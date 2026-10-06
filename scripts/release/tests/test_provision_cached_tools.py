@@ -20,7 +20,9 @@ def _python_cache(root, version="3.12.4", actual=None):
     directory = root / "Python" / version
     directory.mkdir(parents=True)
     (directory / "x64.complete").touch()
-    return _runtime(directory / "x64/bin/python", actual or version)
+    executable = _runtime(directory / "x64/bin/python", actual or version)
+    _runtime(directory / "x64/bin/python3", actual or version)
+    return executable
 
 
 def _run(cache, tmp_path, *, require_node=False, path=""):
@@ -70,7 +72,8 @@ class ProvisionCachedToolsTests(unittest.TestCase):
         self.assertEqual(output.read_text().splitlines(), [f"python={selected}"])
 
     def test_python_failure_branches_never_download(self):
-        for case in ("missing", "wrong_version", "marker_missing", "binary_missing"):
+        for case in ("missing", "wrong_version", "marker_missing", "binary_missing",
+                     "python3_missing", "python3_mismatch"):
             with self.subTest(case=case):
                 cache = self.root / f"{case}-cache"
                 if case == "wrong_version":
@@ -80,6 +83,11 @@ class ProvisionCachedToolsTests(unittest.TestCase):
                     (binary.parents[2] / "x64.complete").unlink()
                 elif case == "binary_missing":
                     _python_cache(cache).unlink()
+                elif case == "python3_missing":
+                    _python_cache(cache).with_name("python3").unlink()
+                elif case == "python3_mismatch":
+                    executable = _python_cache(cache).with_name("python3")
+                    executable.write_text("#!/bin/sh\nprintf '%s\\n' '3.11.9'\n")
                 result, output, paths = self.run_helper(cache=cache)
                 self.assertEqual(result.returncode, 1)
                 self.assertIn("Provision Python 3.12", result.stderr)
