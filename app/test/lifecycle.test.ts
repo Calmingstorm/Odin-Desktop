@@ -32,16 +32,17 @@ describe('lifecycle (D3)', () => {
   })
 })
 
-// Electron emits ready-to-show on the window and did-finish-load on its webContents.
-function hiddenWindow() {
-  return Object.assign(new EventEmitter(), {
-    visible: false, destroyed: false, shows: 0,
-    isDestroyed() { return this.destroyed },
-    isVisible() { return this.visible },
-    show() { this.shows += 1; this.visible = true },
-    webContents: new EventEmitter()
-  })
+// Electron emits ready-to-show and show on the window, and did-finish-load on its webContents.
+class HiddenWindow extends EventEmitter {
+  visible = false
+  destroyed = false
+  shows = 0
+  webContents = new EventEmitter()
+  isDestroyed(): boolean { return this.destroyed }
+  isVisible(): boolean { return this.visible }
+  show(): void { this.shows += 1; this.visible = true; this.emit('show') }
 }
+const hiddenWindow = (): HiddenWindow => new HiddenWindow()
 
 describe('first window show', () => {
   it('shows a window whose page loaded but never painted (Wayland)', () => {
@@ -58,6 +59,37 @@ describe('first window show', () => {
       for (const event of order) (event === 'ready-to-show' ? win : win.webContents).emit(event)
       expect(win.shows).toBe(1)
     }
+  })
+
+  it('a Close between the two events sticks, in either order', () => {
+    const orders: Array<[string, string]> = [['ready-to-show', 'did-finish-load'], ['did-finish-load', 'ready-to-show']]
+    for (const [first, second] of orders) {
+      const win = hiddenWindow()
+      showWhenReady(win, () => true)
+      ;(first === 'ready-to-show' ? win : win.webContents).emit(first)
+      win.visible = false // Close hides the window and keeps Odin running
+      ;(second === 'ready-to-show' ? win : win.webContents).emit(second)
+      expect(win.shows).toBe(1)
+    }
+  })
+
+  it('an explicit Open and Close before the page is ready is not undone', () => {
+    const win = hiddenWindow()
+    showWhenReady(win, () => true)
+    win.show() // tray Open during startup
+    win.visible = false // then Close
+    win.webContents.emit('did-finish-load')
+    win.emit('ready-to-show')
+    expect(win.shows).toBe(1)
+  })
+
+  it('a renderer lost before its first load still gets one first show on reload', () => {
+    const win = hiddenWindow()
+    showWhenReady(win, () => true)
+    win.webContents.emit('did-finish-load') // the reloaded page
+    win.visible = false
+    win.emit('ready-to-show')
+    expect(win.shows).toBe(1)
   })
 
   it('keeps a --hidden launch hidden', () => {

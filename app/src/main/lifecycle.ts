@@ -44,6 +44,7 @@ export function decideSecondInstance(argv: readonly string[]): 'exit' | 'focus' 
 /** The part of a BrowserWindow the first-show rule uses. */
 export interface FirstShowWindow {
   once(event: 'ready-to-show', listener: () => void): unknown
+  once(event: 'show', listener: () => void): unknown
   isDestroyed(): boolean
   isVisible(): boolean
   show(): void
@@ -52,11 +53,19 @@ export interface FirstShowWindow {
 
 /** Show a window created hidden once it is ready: on ready-to-show, or once its page has
  * loaded. A hidden window may never paint under Wayland, so waiting for ready-to-show alone
- * left a fresh launch with no window at all on GNOME and KDE. */
+ * left a fresh launch with no window at all on GNOME and KDE.
+ *
+ * This is one decision, made by whichever event comes first. Once the window has been shown
+ * by anyone, including an explicit Open, the later event never shows it again: a Close in
+ * between must stick. */
 export function showWhenReady(win: FirstShowWindow, wanted: () => boolean): void {
-  const show = (): void => {
+  let decided = false
+  win.once('show', () => { decided = true })
+  const decide = (): void => {
+    if (decided) return
+    decided = true
     if (wanted() && !win.isDestroyed() && !win.isVisible()) win.show()
   }
-  win.once('ready-to-show', show)
-  win.webContents.once('did-finish-load', show)
+  win.once('ready-to-show', decide)
+  win.webContents.once('did-finish-load', decide)
 }
