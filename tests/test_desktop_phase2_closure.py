@@ -63,6 +63,34 @@ def test_deferral_without_a_named_blocker_stays_open(blocked_on):
     assert result["blockers"][0]["id"] == "tests/a.py"
 
 
+def test_valid_internal_guard_disposition_is_final():
+    result = check(wording={"rows": [{"id": "D19-001", "status": "internal_unreachable_guard"}]})
+    assert result["ready"]
+    assert result["D19"] == {"inventory": "present", "rows": 1, "open": 0}
+
+
+@pytest.mark.parametrize("damage", ["missing_proof", "target_drift"])
+def test_real_validator_keeps_a_damaged_guard_row_from_closing(damage):
+    import copy
+
+    root = PATH.parents[2]
+    checker = closure._tool("d19")
+    wording = copy.deepcopy(closure._json(root / closure.D19))
+    rows, findings = checker.load_source(root)
+    guard = next(row for row in wording["rows"] if row["status"] == "internal_unreachable_guard")
+    if damage == "missing_proof":
+        guard.pop("guard_proof")
+    else:
+        guard["guard_targets"] = [{"path": guard["guard_targets"][0]["path"],
+                                   "selector": "Moved.elsewhere"}]
+    check_result = checker.validate(wording, rows, findings, root)
+    assert any(guard["id"] in error for error in check_result["errors"])
+    result = closure.summarize({"entries": []}, {"errors": []}, wording, check_result,
+                               {"valid": True, "errors": []})
+    assert not result["ready"]
+    assert result["blockers"][-1]["kind"] == "integrity"
+
+
 @pytest.mark.parametrize("status", ["pending_restoration", "proposed_mechanical",
                                     "proposed_behavioural", "approved", None])
 def test_d19_proposals_and_unspecified_approval_do_not_close_rows(status):
