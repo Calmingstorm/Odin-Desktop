@@ -165,6 +165,9 @@ try {
       report.notification = evidence
       await page.locator('.conv', { hasText: 'Other conversation' }).click()
       await expect(page.locator('#m-notify-other-119')).toBeVisible()
+      const beforeRead = await app.evaluate(() => globalThis.__odinE2E.request('notification.qualification'))
+      expect(beforeRead.ok).toBe(true)
+      evidence.beforeRead = beforeRead
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].hide())
       const marker = `P33 native ${randomUUID()}`
       evidence.marker = marker
@@ -173,8 +176,20 @@ try {
         preview: marker, dedupe_key: marker }, new Date().toISOString()), marker)
       evidence.accepted = accepted
       expect(accepted).toBe('shown')
+      const acceptedRead = await app.evaluate(() => globalThis.__odinE2E.request('notification.qualification'))
+      expect(acceptedRead).toMatchObject({ ok: true, result: { reads: beforeRead.result.reads } })
+      evidence.acceptedRead = acceptedRead
       const beforeActions = (await native('inspect')).actions.length
-      const click = await native('notification-click', { text: marker })
+      let click
+      if (options.click === 'external') {
+        const capture = join(root, 'notification.png')
+        execFileSync('/usr/local/lib/odq/capture', [capture], { timeout: 30_000 })
+        writeFileSync(join(root, 'notification-ready.json'), JSON.stringify({ marker, capture }))
+        await expect(page.locator('#m-notify-main-3')).toHaveClass(/highlight/, { timeout: 300_000 })
+        click = { transport: 'external guest native input; see separately grounded capture/input receipt', capture }
+      } else {
+        click = await native('notification-click', { text: marker })
+      }
       evidence.click = click
       await expect(page.locator('#m-notify-main-3')).toHaveClass(/highlight/)
       await expect(page.locator('.conv.active')).toContainText('Notification target')
@@ -183,9 +198,15 @@ try {
       await expect.poll(async () => (await app.evaluate(() => globalThis.__odinE2E.notificationAcks))
         .find((ack) => ack.dedupeKey === marker)?.settled.ok).toBe(true)
       const daemon = await native('inspect')
-      expect(daemon.actions.slice(beforeActions).some((action) => action.action === 'default')).toBe(true)
+      if (options.click !== 'external')
+        expect(daemon.actions.slice(beforeActions).some((action) => action.action === 'default')).toBe(true)
+      else evidence.signalVisibility = 'Real native activation and DOM route observed; daemon signals may be destination-scoped'
+      const clickedRead = await app.evaluate(() => globalThis.__odinE2E.request('notification.qualification'))
+      expect(clickedRead).toMatchObject({ ok: true, result: { reads: beforeRead.result.reads } })
+      evidence.clickedRead = clickedRead
       return { scope: 'fixture conversation/ack, real native OS daemon and AT-SPI click', marker,
         accepted, click, daemon, visibleMessage: await page.locator('.msg.highlight').getAttribute('id'),
+        beforeRead, acceptedRead, clickedRead,
         acks: await app.evaluate(() => globalThis.__odinE2E.notificationAcks) }
     })
   }

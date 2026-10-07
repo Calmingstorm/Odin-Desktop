@@ -23,6 +23,26 @@ def identities():
     return inner, outer
 
 
+def test_notification_forwarder_and_named_shell_have_distinct_owned_identities():
+    _, daemon = identities()
+    shell = {**daemon, "pid": 730, "exe": "/usr/bin/gnome-shell"}
+    api = Mock()
+    api.NameHasOwner.return_value = True
+    api.GetNameOwner.return_value = ":1.24"
+    api.GetConnectionUnixProcessID.return_value = 730
+    with patch.object(PROBE, "identity", return_value=shell):
+        assert PROBE.notification_presenters(api, daemon, 1001, "GNOME") == [daemon, shell]
+    api.GetConnectionUnixProcessID.assert_called_once_with(":1.24")
+    with patch.object(PROBE, "identity", return_value={**shell, "uid": 1002}), \
+            pytest.raises(RuntimeError, match="foreign UID"):
+        PROBE.notification_presenters(api, daemon, 1001, "GNOME")
+    with patch.object(PROBE, "identity", return_value={**shell, "exe": "/app/electron"}), \
+            pytest.raises(RuntimeError, match="not gnome-shell"):
+        PROBE.notification_presenters(api, daemon, 1001, "GNOME")
+    assert PROBE.notification_presenters(api, daemon, 1001, "KDE") == [daemon]
+    assert PROBE.notification_presenters(api, None, 1001, "GNOME") == []
+
+
 def test_inner_pid_is_not_arbitrary_outer_pid():
     inner, outer = identities()
     assert PROBE.matches_inner(outer, inner, 1001)

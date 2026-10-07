@@ -243,6 +243,20 @@ def x11_peer_pid(window):
         x11.XCloseDisplay(display)
 
 
+def notification_presenters(api, daemon, uid, desktop):
+    """Resolve a named native presenter, never trust an arbitrary same-UID tree."""
+    presenters = [daemon] if daemon else []
+    if daemon and desktop == "GNOME" and api.NameHasOwner("org.gnome.Shell"):
+        shell_owner = str(api.GetNameOwner("org.gnome.Shell"))
+        shell = identity(int(api.GetConnectionUnixProcessID(shell_owner)))
+        if shell["uid"] != uid:
+            raise RuntimeError("Notification Shell presenter has foreign UID")
+        if Path(shell["exe"]).name != "gnome-shell":
+            raise RuntimeError("Named Shell presenter is not gnome-shell")
+        presenters.append(shell)
+    return presenters
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--socket", required=True)
@@ -270,6 +284,10 @@ def main():
         owner_identity = identity(int(api.GetConnectionUnixProcessID(owner)))
         if owner_identity["uid"] != account.pw_uid:
             raise RuntimeError("Notification daemon has foreign UID")
+    # GNOME's real notification D-Bus service is a GJS forwarding process;
+    # its visible banners belong to the independently named native Shell.
+    presenters = notification_presenters(
+        api, owner_identity, account.pw_uid, os.environ.get("XDG_CURRENT_DESKTOP"))
     address = str(dbus.Interface(bus.get_object("org.a11y.Bus", "/org/a11y/bus"),
                                 "org.a11y.Bus").GetAddress())
     a11y_bus = dbus.bus.BusConnection(address)
@@ -281,10 +299,18 @@ def main():
     signals = []
     observed_menu = {}
     if owner:
+        signal_owners = {owner}
+        if api.NameHasOwner("org.gnome.Shell") and len(presenters) > 1:
+            signal_owners.add(str(api.GetNameOwner("org.gnome.Shell")))
+
+        def action_invoked(nid, action, sender=None):
+            if sender in signal_owners:
+                signals.append({"id": int(nid), "action": str(action), "sender": str(sender)})
+
         bus.add_signal_receiver(
-            lambda nid, action: signals.append({"id": int(nid), "action": str(action)}),
+            action_invoked,
             signal_name="ActionInvoked", dbus_interface="org.freedesktop.Notifications",
-            bus_name=owner)
+            sender_keyword="sender")
     context = GLib.MainContext.default()
 
     def pump():
@@ -472,9 +498,29 @@ def main():
             text = request["text"]
             if not text.startswith("P33 native ") or len(text) > 100:
                 raise RuntimeError("Requires qualification notification marker")
-            obj, parents = find(lambda obj: text in obj.name or text in obj.description)
+            candidates = []
+
+            def owned_marker(obj):
+                if text not in obj.name and text not in obj.description:
+                    return False
+                try:
+                    peer = accessible_identity(obj)
+                    candidates.append({"node": describe(obj), "peer": peer})
+                    return peer in presenters
+                except Exception as error:
+                    candidates.append({"node": describe(obj), "error": str(error)})
+                    return False
+
+            try:
+                obj, parents = find(owned_marker)
+            except RuntimeError as error:
+                detail = f"{error}; presenters={presenters}; markers={candidates[:8]}"
+                raise RuntimeError(detail) from error
             appeared = describe(obj)
-            if accessible_identity(obj) != owner_identity:
+            appeared["showing"] = obj.getState().contains(pyatspi.STATE_SHOWING)
+            appeared["visible"] = obj.getState().contains(pyatspi.STATE_VISIBLE)
+            presenter = accessible_identity(obj)
+            if presenter not in presenters or identity(presenter["pid"]) != presenter:
                 raise RuntimeError("Notification accessible not owned by real daemon")
             for candidate in [obj, *parents[:4]]:
                 info = describe(candidate)
@@ -482,7 +528,8 @@ def main():
                     break
                 for i, name in enumerate(info["actions"]):
                     if name.lower() in ("click", "activate", "press", "default", "open"):
-                        return {"appeared": appeared, **activate(candidate, i)}
+                        return {"appeared": appeared, "daemon": owner_identity,
+                                "presenter": presenter, **activate(candidate, i, presenter)}
             raise RuntimeError(f"Notification appeared but no native click action: {appeared}")
         raise RuntimeError("Unknown collector operation")
 

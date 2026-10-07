@@ -199,7 +199,7 @@ gnome_with_service_policy() (
 
 gnome_install_packages() {
     apt-get update
-    apt-get install -y --no-install-recommends gdm3 gnome-session gnome-shell \
+    apt-get install -y --no-install-recommends gdm3 gnome-session gnome-shell gjs \
         gnome-settings-daemon gnome-control-center gnome-terminal nautilus \
         gnome-screenshot gsettings-desktop-schemas dbus-user-session dconf-cli \
         libgl1-mesa-dri mesa-utils fonts-dejavu-core xdg-desktop-portal-gnome
