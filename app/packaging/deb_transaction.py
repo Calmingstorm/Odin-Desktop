@@ -22,6 +22,7 @@ INSTALL = Path('/opt/Odin')
 APPARMOR = Path('/etc/apparmor.d')
 APPARMOR_PARSER = Path('/sbin/apparmor_parser')
 BUILD_VERSION = None  # Generated hooks bind this to their actual candidate version.
+UNWIND = frozenset({'abort-install', 'abort-upgrade', 'abort-remove', 'abort-deconfigure'})
 
 
 class Refusal(RuntimeError):  # noqa: N818
@@ -237,6 +238,11 @@ def transaction(script: str, args: list[str], *, root: Path = ROOT, install: Pat
     if os.geteuid() != 0:
         raise Refusal('Maintainer transaction requires root')
     operation = args[0] if args else ''
+    if operation in UNWIND:
+        # dpkg's error unwind after a refused change restores the previous version and
+        # changes nothing here. Waiting on the lease failed it while Odin ran, leaving the
+        # old version half-configured and apt blocked instead of installed.
+        return
     marker = root / 'transaction.json'
     with exclusive(root):
         current = None

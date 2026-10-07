@@ -133,6 +133,27 @@ class DebTransactionTests(unittest.TestCase):
         with self.assertRaisesRegex(deb.Refusal, 'cleanup is unresolved'):
             self.call('preinst', 'upgrade')
 
+    def test_refused_change_unwinds_while_odin_holds_the_lease(self):
+        self.call('preinst', 'install')
+        self.call('postinst', 'configure')
+        lease = os.open(self.root / 'lease', os.O_RDONLY)
+        try:
+            fcntl.flock(lease, fcntl.LOCK_SH)
+            # dpkg's own sequence for a busy upgrade, then a busy removal.
+            for refused, unwind in ((('prerm', 'upgrade', '0.1.0'), ('postinst', 'abort-upgrade', '0.1.0')),
+                                    (('prerm', 'remove'), ('postinst', 'abort-remove'))):
+                with self.subTest(refused=refused):
+                    with self.assertRaisesRegex(deb.Refusal, 'Exit Odin'):
+                        self.call(*refused)
+                    self.call(*unwind)  # the old version stays installed
+            for unwind in (('postrm', 'abort-upgrade', '0.1.0'), ('postrm', 'abort-install'),
+                           ('postinst', 'abort-deconfigure', 'in-favour', 'other', '1')):
+                self.call(*unwind)
+            self.assertFalse((self.root / 'transaction.json').exists())
+            self.assertEqual(os.readlink(self.launcher), str(self.install / 'odin-desktop'))
+        finally:
+            os.close(lease)
+
     def test_unreadable_boot_identity_keeps_unclean_receipts_fenced(self):
         self.receipt(state='running', boot_id='boot-a')
         with self.assertRaisesRegex(deb.Refusal, 'cleanup is unresolved'):
