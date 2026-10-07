@@ -9,8 +9,8 @@ Baseline: `16e35e8f370661a2baf8e7030a27919b3e658b3b`. Section 4 of `maintenance/
 | Disposition | Rows |
 |---|---:|
 | Removed by restored behaviour | 19 |
-| Pending restoration (2 unassigned) | 14 |
-| Internal unreachable guard (Claude review) | 12 |
+| Pending restoration | 6 |
+| Internal unreachable guard (Claude review) | 20 |
 | Proposed mechanical | 0 |
 | Proposed behavioural (Aaron review) | 0 |
 | Approved behavioural (Aaron, 2026-10-06) | 5 |
@@ -84,7 +84,17 @@ All nine cite `tests/test_desktop_d19_unreachable.py::test_composed_flows_never_
 | 038 | `src/discord/wiring.py` / `build_services` | Raising callable and original code-object spies; zero calls. |
 | 039 | `src/discord/wiring.py` / `build_components` | Raising callable and original code-object spies; zero calls. |
 | 040 | `src/discord/wiring.py` / `start_mcp` | Raising callable and original code-object spies; zero calls. |
+| 002 | `src/discord/native_tools/media.py` / `<module>` | Raising spy on the base `MediaTools._publish_attachment` and a line spy on generate_image's fallback return; Desktop's media owner overrides both seams; zero hits. |
+| 033 | `src/discord/scheduled_events.py` / `_require_phase2` | Line spy on the raise; real scheduled runs enter the fence and return; zero hits. |
+| 034 | `src/discord/scheduled_events.py` / `_publish_notice` | Line spy on the raise; a real reminder publishes through it; zero hits. |
+| 036 | `src/discord/scheduled_report.py` / `ScheduledReportPaginationService.post` | Raising callable and original code-object spies; Desktop never builds the class; zero calls. |
+| 044 | `src/discord/scheduled_report.py` / `ScheduledReportPaginationService._load`, `project_page`, `store_projection` | Raising callable and original code-object spies; zero calls. |
+| 047 | `src/restart.py` / `reexec` | Raising callable and original code-object spies, including shutdown; zero calls. |
+| 048 | `src/setup_wizard.py` / `is_setup_needed` | Raising callable and original code-object spies; zero calls. |
+| 050 | `src/web/api/__init__.py` / `require_phase2`, plus its 14 web registrars and `setup_websocket` | Raising callable and original code-object spies on all 16; Desktop serves no HTTP API; zero calls. |
 | 006 | `src/discord/native_tools/agents_tasks.py` / `AgentTaskTools._handle_spawn_agent` | Separate AST + compiled-code omission + real-owner trace proof behind the unconditional 005 fence. |
+
+**Batch A (2026-10-06):** rows 002, 033, 034, 036, 044, 047, 048 and 050 joined the guard proofs. A sixth composed flow, `scheduled_runs`, saves and runs a real reminder and a real check through `schedules.run`, so both scheduled fences are entered on the admitted path and their raises stay unreached. Each new line spy has a positive control outside admission.
 
 **Background limitation:** no successful background task was executed. This branch has no `authenticated_scope`, `register_background`, or `background_execution` composition seam; `delegate_task` is hidden/refused before its handler, so requested successful composed-background guard coverage awaits **PR #37 (6B)**. The tests expose that pre-dispatch limitation rather than fabricating a task-owned context.
 
@@ -99,14 +109,10 @@ Each normal fragment binds to its recorded source path. D19-050 explicitly recor
 
 | Rows | Owner | Exact pending reference | Dependency / scope |
 |---|---|---|---|
-| 002, 031 | Odin | PR #48 (media publication) | Generated-image/browser-screenshot publication identity and durable bytes. |
-| 033, 034, 035, 036, 041, 042, 044 | Odin | PR #37 (6B) | Work/report/schedule recovery, native producers, background execution and publication. |
+| 031 | Odin | PR #48 (media publication) | Generated-image/browser-screenshot publication identity and durable bytes. |
+| 035, 041, 042 | Odin | PR #37 (6B) | Work/report/schedule recovery, native producers, background execution and publication. |
 | 029, 030 | Odin | PR #37 (6B) | Foreground admission/binding; **P3.5** is the separate native receiver/quarantine qualification dependency (`docs/work/phase-3-app-v1.md:238-269`). |
-| 047 | Odin | P3.3 | Relaunch/bounded shutdown/replacement acceptance, not PR61 status reporting (`docs/work/phase-3-app-v1.md:175-209`). |
-| 048, 050 | unassigned | unassigned | Two gaps remain unassigned below. |
 
-- **048:** Actual onboarding is **P3.2**, outside the permitted owner references (`docs/work/phase-3-app-v1.md:133-171`); PR61 fresh-profile parity evidence does not restore `setup_wizard.is_setup_needed`, and P3.3/P3.5 do not own onboarding.
-- **050:** The omnibus `require_phase2` helper spans conversation, skill, lifecycle, setup, work and scheduling operations; PR37, PR62, PR61 and P3.3 are only operation-level dependencies, and PR42 inbound webhooks do not restore the whole row.
 
 No pending row is assigned to **PR #42 (step 7)** or **PR #61 (step 8 closure, lane 2)** merely because scheduling/status words appear; their inspected work does not own a complete remaining row. There are no fictitious lane names.
 

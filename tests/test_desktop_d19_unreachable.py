@@ -19,10 +19,23 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from src.discord import delivery, intake_pipeline, slash_commands, tool_loop, wiring
+from src import restart, setup_wizard
+from src.discord import (
+    delivery,
+    intake_pipeline,
+    scheduled_events,
+    scheduled_report,
+    slash_commands,
+    tool_loop,
+    wiring,
+)
+from src.discord.native_tools import media as media_tools
 from src.discord.native_tools.channel_ops import ChannelOpsTools
 from src.tools import output_authorization, runtime_delivery
 from src.tools.result_validator import ToolResult
+from src.web import api as web_api
+from src.web import websocket as web_websocket
+from src.web.api import agents_loops, config_admin, sessions_chat, skills_api
 from tests.test_desktop_d19_behaviour import composed as composed  # shared pytest fixture
 from tests.test_desktop_d19_behaviour import (
     configure_agent_fixture,
@@ -43,6 +56,29 @@ CALLABLE_GUARDS = {
     "038": (wiring, "build_services"),
     "039": (wiring, "build_components"),
     "040": (wiring, "start_mcp"),
+    # Batch A: Odin-only owners Desktop never composes or calls.
+    "002": (media_tools.MediaTools, "_publish_attachment"),
+    "036": (scheduled_report.ScheduledReportPaginationService, "post"),
+    "044-load": (scheduled_report.ScheduledReportPaginationService, "_load"),
+    "044-page": (scheduled_report.ScheduledReportPaginationService, "project_page"),
+    "044-store": (scheduled_report.ScheduledReportPaginationService, "store_projection"),
+    "047": (restart, "reexec"),
+    "048": (setup_wizard, "is_setup_needed"),
+    "050": (web_api, "require_phase2"),
+    "050-loops": (agents_loops, "register_loops"),
+    "050-agents": (agents_loops, "register_agents"),
+    "050-processes": (agents_loops, "register_processes"),
+    "050-setup": (config_admin, "register_setup_wizard"),
+    "050-status": (config_admin, "register_status_info"),
+    "050-actions": (config_admin, "register_quick_actions"),
+    "050-personality": (config_admin, "register_personality"),
+    "050-diagnostics": (config_admin, "register_startup_diagnostics"),
+    "050-chat": (sessions_chat, "register_chat"),
+    "050-sessions": (sessions_chat, "register_sessions"),
+    "050-trajectories": (sessions_chat, "register_trajectories"),
+    "050-agent-trajectories": (sessions_chat, "register_agent_trajectories"),
+    "050-skills": (skills_api, "register_skills"),
+    "050-websocket": (web_websocket, "setup_websocket"),
 }
 
 
@@ -92,6 +128,48 @@ def _runtime_guard_branches():
             assert lines & {line for _, _, line in handler.__code__.co_lines()}
             branches[row].append((handler.__code__, lines))
     return branches
+
+
+def _raise_lines(handler, prefix):
+    """The exact raise of a guard whose function also runs on admitted paths."""
+    source, start = inspect.getsourcelines(handler)
+    tree = ast.parse(textwrap.dedent("".join(source)))
+    raises = [node for node in ast.walk(tree) if isinstance(node, ast.Raise)
+              and isinstance(node.exc, ast.Call) and node.exc.args
+              and isinstance(node.exc.args[0], ast.Constant)
+              and str(node.exc.args[0].value).startswith(prefix)]
+    assert len(raises) == 1, handler.__name__
+    node = raises[0]
+    lines = set(range(start + node.lineno - 1, start + node.end_lineno))
+    assert lines & {line for _, _, line in handler.__code__.co_lines()}
+    return handler.__code__, lines
+
+
+def _scheduled_fence_branches():
+    """Scheduled runs call these fences; only outside admission do they raise."""
+    return {
+        "033": [_raise_lines(scheduled_events._require_phase2,
+                             "Scheduled execution requires Phase 2")],
+        "034": [_raise_lines(scheduled_events._publish_notice,
+                             "Conversation publication is unavailable until Phase 2")],
+    }
+
+
+def _image_delivery_return():
+    """generate_image's early return when no durable publisher is composed."""
+    handler = media_tools.MediaTools._handle_generate_image
+    source, start = inspect.getsourcelines(handler)
+    tree = ast.parse(textwrap.dedent("".join(source)))
+    returns = [node for node in ast.walk(tree) if isinstance(node, ast.Return)
+               and isinstance(node.value, ast.Call)
+               and any(keyword.arg == "output" and isinstance(keyword.value, ast.Name)
+                       and keyword.value.id == "_DELIVERY_UNAVAILABLE"
+                       for keyword in node.value.keywords)]
+    assert len(returns) == 1
+    node = returns[0]
+    lines = set(range(start + node.lineno - 1, start + node.end_lineno))
+    assert lines & {line for _, _, line in handler.__code__.co_lines()}
+    return [(handler.__code__, lines)]
 
 
 def _skill_delivery_fallbacks():
@@ -151,6 +229,8 @@ def guard_spies(monkeypatch):
     reader_codes = set()
     runtime_branches = _runtime_guard_branches()
     runtime_branches["009"] = _skill_delivery_fallbacks()
+    runtime_branches.update(_scheduled_fence_branches())
+    runtime_branches["002-image"] = _image_delivery_return()
     for row in runtime_branches:
         spies[row] = Mock(side_effect=AssertionError(f"D19-{row} runtime backstop invoked"))
         visited[row] = 0
@@ -203,7 +283,8 @@ async def guarded_core(guard_spies, composed):
 
 
 @pytest.mark.parametrize("flow", [
-    "chat_history", "background_admission", "mcp_start_stop", "skill_delivery", "shutdown",
+    "chat_history", "background_admission", "mcp_start_stop", "skill_delivery",
+    "scheduled_runs", "shutdown",
 ])
 async def test_composed_flows_never_invoke_legacy_guards(guarded_core, guard_spies, flow):
     """All twelve spies are installed before CoreService.start and through close."""
@@ -267,6 +348,34 @@ async def test_composed_flows_never_invoke_legacy_guards(guarded_core, guard_spi
         assert any("d19 delivered message" in (item.get("text") or "") for item in items)
         assert any(item.get("artifacts") for item in items)
         assert guard_spies.visited["009"] > 0
+    elif flow == "scheduled_runs":
+        # Real admitted scheduled runs enter both fences without reaching their raises.
+        from datetime import UTC, datetime, timedelta
+
+        cid = await conversation(graph)
+        reminder = await rpc(graph, "schedules.save", {
+            "description": "D19 guard reminder", "action": "reminder", "channel_id": cid,
+            "run_at": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
+            "message": "D19 guard reminder delivered"})
+        await rpc(graph, "schedules.run", {"id": reminder["id"]})
+        check = await rpc(graph, "schedules.save", {
+            "description": "D19 guard check", "action": "check", "channel_id": cid,
+            "cron": "0 0 1 1 *", "tool_name": "run_command",
+            "tool_input": {"host": "localhost", "command": "printf ran"}})
+        await rpc(graph, "schedules.run", {"id": check["id"]})
+        scheduler = graph.core.engine.deps.scheduler
+        for _ in range(500):
+            delivered = any("D19 guard reminder delivered" in str(item)
+                            for item in graph.core.transcript.list(cid)["items"])
+            ran = any(item["id"] == check["id"] and item.get("last_run")
+                      for item in scheduler.list_all())
+            if delivered and ran:
+                break
+            await asyncio.sleep(0.02)
+        assert delivered, graph.core.transcript.list(cid)["items"]
+        assert ran, scheduler.list_all()
+        assert guard_spies.visited["033"] > 0
+        assert guard_spies.visited["034"] > 0
     elif flow == "mcp_start_stop":
         from src.tools.mcp.manager import MCPManager
 
@@ -398,6 +507,66 @@ async def test_skill_delivery_fallback_spy_positive_control():
         sys.settrace(previous)
     assert [call.args[0] for call in spy.call_args_list] == [
         "_assert_delivery", "_skill_msg", "_skill_file"]
+
+
+@pytest.mark.parametrize("row", ["033", "034"])
+async def test_scheduled_fence_spies_positive_control(row):
+    """Outside an admitted scheduled run, each fence's actual raise is observed."""
+    [(code, lines)] = _scheduled_fence_branches()[row]
+    spy = Mock(side_effect=AssertionError(f"D19-{row} actual fence"))
+
+    def trace(frame, event, arg):
+        if frame.f_code is code:
+            if event == "line" and frame.f_lineno in lines:
+                spy()
+            return trace
+        return None
+
+    previous = sys.gettrace()
+    assert previous is None
+    sys.settrace(trace)
+    try:
+        with pytest.raises(AssertionError, match=f"D19-{row} actual fence"):
+            if row == "033":
+                scheduled_events._require_phase2()
+            else:
+                await scheduled_events._publish_notice("c_fixture", "text")
+    finally:
+        sys.settrace(previous)
+    spy.assert_called_once()
+
+
+async def test_image_delivery_return_spy_positive_control_and_desktop_override():
+    """The base media owner returns the fallback; Desktop's owner never can."""
+    [(code, lines)] = _image_delivery_return()
+    spy = Mock(side_effect=AssertionError("D19-002 actual image fallback"))
+
+    def trace(frame, event, arg):
+        if frame.f_code is code:
+            if event == "line" and frame.f_lineno in lines:
+                spy()
+            return trace
+        return None
+
+    owner = media_tools.MediaTools.__new__(media_tools.MediaTools)
+    owner.image_selector = object()
+    previous = sys.gettrace()
+    assert previous is None
+    sys.settrace(trace)
+    try:
+        with pytest.raises(AssertionError, match="D19-002 actual image fallback"):
+            await owner._handle_generate_image(object(), {"prompt": "fixture"})
+    finally:
+        sys.settrace(previous)
+    spy.assert_called_once()
+
+
+async def test_composed_media_owner_always_has_durable_publication(composed):
+    """Desktop's media owner overrides both fallback seams under an admitted core."""
+    owner = composed.core.engine.deps.native_tools.owners["media"]
+    assert type(owner) is not media_tools.MediaTools
+    assert type(owner)._publish_attachment is not media_tools.MediaTools._publish_attachment
+    assert owner._delivery_available() is True
 
 
 @pytest.mark.parametrize("case", ["text_consumer", "result_consumer", "permission", "policy"])
