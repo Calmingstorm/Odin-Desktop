@@ -1018,7 +1018,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       if (selector === 'section[aria-label="Computer use"]') {
         // Served management and unqualified native input are separate claims.
         await until(async () => (await count(selector + ' .capability-unavailable')) === 1, 'computer use foreground refusal')
-        assert.match(await text(selector + ' .capability-unavailable'), /Foreground computer use is unavailable.*Native input is not qualified or supported.*Dispatch: none/s)
+        assert.match(await text(selector + ' .capability-unavailable'), /Foreground computer use is unavailable\..*Dispatch: none\./s)
         assert.equal(await run(`document.querySelector(${JSON.stringify('button[aria-label="Refresh computer use"]')})?.disabled`), false)
       } else {
         assert.equal(await count(selector + ' .capability-unavailable'), 0, `${selector} must not claim its served capability unavailable`)

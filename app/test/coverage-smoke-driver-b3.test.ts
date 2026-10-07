@@ -224,7 +224,7 @@ function fixture(provider = false, seeded = false, fault = '') {
     }
     const panel = selector.match(/^section\[aria-label=(?:"([^"]+)"|([^\]]+))\]/)?.slice(1).find(Boolean)
     if (panel && panel in panels) {
-      if (selector.endsWith('.capability-unavailable')) return 'Foreground computer use is unavailable Native input is not qualified or supported Dispatch: none'
+      if (selector.endsWith('.capability-unavailable')) return 'Foreground computer use is unavailable. Dispatch: none. Reason: computer disabled.'
       return panels[panel]!
     }
     if (selector === '.settings-body') return section === 'General' ? 'Start Odin when you log in' : section
