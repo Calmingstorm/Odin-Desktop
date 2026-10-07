@@ -2,12 +2,12 @@
 // docs/work/phase-3-app-v1.md). Each test records its case only after every assertion passed (r4-cases.ts).
 import { test, expect, type ElectronApplication } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assertIsolated, exitApp, launchApp, repository, request, snapshot, waitForCore } from './harness'
 import { isolatedServicesBootstrap } from '../isolated-services-bootstrap'
 import { recordCase } from './r4-cases'
-import { FILE_CONTENT, REPLY, TOOL_REPLY, startCannedProvider } from '../real-core-provider-fixture.mjs'
+import { FILE_CONTENT, IMAGE_BYTES, REPLY, TOOL_REPLY, startCannedProvider } from '../real-core-provider-fixture.mjs'
 
 type Provider = Awaited<ReturnType<typeof startCannedProvider>>
 type ProviderCall = Provider['requests'][number]
@@ -254,6 +254,165 @@ test('R4-04: closing the window and losing the renderer never lose or repeat a r
       scope: 'window close/reopen catch-up asserted in the DOM; renderer loss asserted through the core and recovery',
       not_automated: 'the recovered window\'s contents after a renderer loss (Playwright limit); check in the final manual run',
       covered_elsewhere: 'core/app loss: lifecycle.spec.ts'
+    })
+  } finally {
+    if (application) await exitApp(application)
+    await provider.close()
+  }
+})
+
+// A stored (uncompressed) zip with one entry, built here so the test needs no archive tool.
+function storedZip(name: string, data: Buffer): Buffer {
+  let crc = 0xffffffff
+  for (const byte of data) {
+    crc ^= byte
+    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1))
+  }
+  crc = (crc ^ 0xffffffff) >>> 0
+  const fileName = Buffer.from(name)
+  const local = Buffer.alloc(30); local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(20, 4)
+  local.writeUInt32LE(crc, 14); local.writeUInt32LE(data.length, 18); local.writeUInt32LE(data.length, 22)
+  local.writeUInt16LE(fileName.length, 26)
+  const central = Buffer.alloc(46); central.writeUInt32LE(0x02014b50, 0); central.writeUInt16LE(20, 4); central.writeUInt16LE(20, 6)
+  central.writeUInt32LE(crc, 16); central.writeUInt32LE(data.length, 20); central.writeUInt32LE(data.length, 24)
+  central.writeUInt16LE(fileName.length, 28)
+  const offset = local.length + fileName.length + data.length
+  const end = Buffer.alloc(22); end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(1, 8); end.writeUInt16LE(1, 10)
+  end.writeUInt32LE(central.length + fileName.length, 12); end.writeUInt32LE(offset, 16)
+  return Buffer.concat([local, fileName, data, central, fileName, end])
+}
+
+// A one-page PDF whose text is the marker.
+function minimalPdf(text: string): Buffer {
+  const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 100] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    '', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>']
+  const stream = `BT /F1 12 Tf 10 50 Td (${text}) Tj ET`
+  objects[3] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`
+  let body = '%PDF-1.4\n'
+  const offsets: number[] = []
+  objects.forEach((object, index) => { offsets.push(body.length); body += `${index + 1} 0 obj\n${object}\nendobj\n` })
+  const xref = body.length
+  body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n` + offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')
+  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
+  return Buffer.from(body)
+}
+
+test('R4-01: text, image, PDF, archive, binary and mixed files through the real picker, paste and remove', async ({}, info) => {
+  assertIsolated()
+  const provider = await startCannedProvider({ root: join(process.env.ODIN_REAL_CORE_ROOT!, 'r4-provider-attachments') })
+  let application: ElectronApplication | null = null
+  try {
+    application = await launchApp({ profile: 'r4-attachments', env: memoryKeyringCore() })
+    await waitForCore(application)
+    await useCannedProvider(application, provider.baseUrl)
+    const app = application
+    const marker = `files-${randomUUID().slice(0, 8)}`
+    const title = `R4 files ${marker}`
+    const cid = (await call<{ conversation: { id: string } }>(app, 'conversations.create', { title })).conversation.id
+    const snap = (): Promise<Snapshot> => call(app, 'conversation.snapshot', { conversation_id: cid })
+    const dir = join(process.env.ODIN_REAL_CORE_ROOT!, 'r4-files')
+    mkdirSync(dir, { recursive: true, mode: 0o700 })
+    const files: Record<string, Buffer> = {
+      'note.txt': Buffer.from(`Plain text body ${marker}\n`),
+      'pixel.png': IMAGE_BYTES,
+      'doc.pdf': minimalPdf(`PDF body ${marker}`),
+      'bundle.zip': storedZip('inner.txt', Buffer.from(`Archive body ${marker}\n`)),
+      'blob.bin': Buffer.from([0, 255, 1, 254, 0, 0, 7, 9, 0, 128, 64, 0]),
+      'mixed.txt': Buffer.from(`Mixed text body ${marker}\n`),
+      'mixed.png': IMAGE_BYTES,
+      'removed.txt': Buffer.from(`Removed body ${marker}\n`)
+    }
+    for (const [name, data] of Object.entries(files)) writeFileSync(join(dir, name), data, { mode: 0o600 })
+    const page = await app.firstWindow()
+    await page.getByText(title, { exact: true }).first().click()
+    const box = page.getByRole('textbox', { name: 'Message', exact: true })
+    const sendButton = page.locator('button.composer-send')
+
+    const pick = async (names: string[]): Promise<void> => {
+      await app.evaluate(({ dialog }, paths) => {
+        dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: paths })) as typeof dialog.showOpenDialog
+      }, names.map((name) => join(dir, name)))
+      await page.getByRole('button', { name: 'Attach files' }).click()
+      for (const name of names) await expect(page.getByRole('button', { name: `Remove ${name}` })).toBeVisible({ timeout: 30_000 })
+    }
+    // Sends what the composer holds, waits for the reply, and returns the stored user message and the model call.
+    const send = async (label: string): Promise<{ user: Message & { attachments?: Array<{ name: string; mime: string }> }; seen: string; image: boolean }> => {
+      await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+      const text = `[reply] ${marker} ${label}`
+      await box.fill(text)
+      await expect(sendButton).toBeEnabled({ timeout: 30_000 })
+      await sendButton.click()
+      let user: (Message & { attachments?: Array<{ name: string; mime: string }> }) | undefined
+      await expect.poll(async () => {
+        const items = (await snap()).messages.items
+        user = items.find((m) => m.role === 'user' && m.text.includes(text))
+        return Boolean(user?.request_id && replied({ messages: { items } } as Snapshot, user.request_id))
+      }, { timeout: 60_000 }).toBe(true)
+      const modelCall = provider.requests.find((r) => lastUser(r).includes(text))!
+      return { user: user!, seen: lastUser(modelCall), image: JSON.stringify(modelCall.body.messages.at(-1)).includes('image_url') }
+    }
+    const names = (user: { attachments?: Array<{ name: string }> }): string[] => (user.attachments ?? []).map((a) => a.name)
+
+    await pick(['note.txt'])
+    const text = await send('text')
+    expect(names(text.user)).toEqual(['note.txt'])
+    expect(text.seen).toContain('Attached file: note.txt')
+    expect(text.seen).toContain(`Plain text body ${marker}`)
+
+    await pick(['pixel.png'])
+    const image = await send('image')
+    expect(image.image).toBe(true)
+    expect(image.seen).toContain('[User shared image: pixel.png]')
+
+    await pick(['doc.pdf'])
+    const pdf = await send('pdf')
+    expect(pdf.seen).toContain('Attached PDF: doc.pdf')
+    expect(pdf.seen).toContain(`PDF body ${marker}`)
+
+    await pick(['bundle.zip'])
+    const archive = await send('archive')
+    expect(archive.seen).toContain('Attached archive: bundle.zip')
+    expect(archive.seen).toContain(`Archive body ${marker}`)
+
+    // An unreadable binary is saved and described honestly, never passed off as text.
+    await pick(['blob.bin'])
+    const binary = await send('binary')
+    expect(binary.seen).toContain('[Attachment saved:')
+    expect(binary.seen).toContain('application/octet-stream, 12 bytes')
+
+    await pick(['mixed.txt', 'mixed.png'])
+    const mixed = await send('mixed')
+    expect(names(mixed.user).sort()).toEqual(['mixed.png', 'mixed.txt'])
+    expect(mixed.seen).toContain(`Mixed text body ${marker}`)
+    expect(mixed.image).toBe(true)
+
+    // A pasted image has no file on disk: its bytes are uploaded directly.
+    await box.evaluate((element, encoded) => {
+      const transfer = new DataTransfer()
+      transfer.items.add(new File([Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0))], 'pasted.png', { type: 'image/png' }))
+      element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true }))
+    }, IMAGE_BYTES.toString('base64'))
+    await expect(page.getByRole('button', { name: 'Remove pasted.png' })).toBeVisible({ timeout: 30_000 })
+    const pasted = await send('pasted')
+    expect(names(pasted.user)).toEqual(['pasted.png'])
+    expect(pasted.image).toBe(true)
+
+    // A file removed before sending never reaches the conversation or the model.
+    await pick(['removed.txt'])
+    await page.getByRole('button', { name: 'Remove removed.txt' }).click()
+    await expect(page.getByRole('button', { name: 'Remove removed.txt' })).toHaveCount(0)
+    const removed = await send('after removal')
+    expect(names(removed.user)).toEqual([])
+    expect(removed.seen).not.toContain('removed.txt')
+    expect(removed.seen).not.toContain(`Removed body ${marker}`)
+
+    await recordCase(info, 'R4-01', {
+      conversation: cid,
+      picker: { text: 'contents read', image: 'image part', pdf: 'text extracted', archive: 'entries previewed',
+        binary: 'saved and described, not read', mixed: 'text and image in one message' },
+      paste: 'image bytes uploaded directly', remove_before_send: 'never reached the model',
+      not_covered_here: ['upload cancel mid-transfer', 'byte-limit refusal', 'drag and drop from the desktop']
     })
   } finally {
     if (application) await exitApp(application)
