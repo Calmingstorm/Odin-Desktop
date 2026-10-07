@@ -179,6 +179,32 @@ describe('work names, associations and controls', () => {
     expect(focus).toHaveBeenCalledOnce()
   })
 
+  it('repairs focus when a focused row moves from Running now to Finished in the Work column', async () => {
+    // Review #86: one running agent and no schedules, so the move changes only the row's section.
+    view = mount((await import('../../src/renderer/src/components/WorkList.vue')).default, { sections: true })
+    await flush()
+    const row = view!.root.find('article')!
+    const active = { isConnected: true, closest: () => ({ id: row.props.id }) }
+    const focus = vi.fn()
+    Object.assign(document, { activeElement: active, getElementById: vi.fn(() => ({ focus })) })
+    // The renderer detaches the old section, with the row inside it, when the row's section changes: the focused
+    // node is gone, as in a browser.
+    const section = row.parent!
+    let parent = section.parent
+    Object.defineProperty(section, 'parent', { configurable: true, get: () => parent, set: (next) => {
+      parent = next
+      if (next) return
+      active.isConnected = false
+      Object.assign(document, { activeElement: document.body })
+    } })
+    expect(workStore.work.items[0]!.actions).toEqual(['stop'])
+    workStore.work.items[0]!.state = 'stopped'
+    await flush()
+    expect(view!.root.findAll((node) => node.tag === 'h2').map((h2) => h2.textContent().replace(/\s+/g, ' ').trim())).toEqual(['Finished 1'])
+    expect(document.getElementById).toHaveBeenCalledWith(row.props.id)
+    expect(focus).toHaveBeenCalledOnce()
+  })
+
   it('keeps item ids distinct in two mounted lists', async () => {
     const WorkList = (await import('../../src/renderer/src/components/WorkList.vue')).default
     view = mount(defineComponent({ render: () => h('div', [h(WorkList), h(WorkList)]) }))

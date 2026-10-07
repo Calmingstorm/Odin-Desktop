@@ -138,7 +138,7 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
       </label>
       <div class="panel-actions">
         <button class="ghost" :aria-label="`Save settings for ${management.skill.name}`" :disabled="management.busy[`skill-config:${management.skill.name}`]" @click="saveSkillConfig(management.skill!.name, { ...management.skillConfig })">
-          Save its settings
+          Save settings
         </button>
       </div>
       <p v-if="management.notes[`skill-config:${management.skill.name}`]" class="manage-note" role="status">

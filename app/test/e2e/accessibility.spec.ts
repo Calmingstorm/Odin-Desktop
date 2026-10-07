@@ -195,6 +195,18 @@ test('theme choice applies to the page and window, keeps focus and survives a re
   await activate(page.getByRole('button', { name: `Switch to ${startDark ? 'dark' : 'light'} theme`, exact: true }))
   await expect.poll(pageDark).toBe(startDark)
   expect((await native()).source).toBe(startDark ? 'dark' : 'light')
+  // General's theme choice returns to following the system, by keyboard, and says which choice is current.
+  await page.keyboard.press('Control+,')
+  // Tab reaches a radio group at its checked option; the arrow keys move the choice, as with any radio group.
+  const theme = page.getByRole('group', { name: 'Theme', exact: true })
+  const system = theme.getByRole('radio', { name: 'System', exact: true })
+  await tabTo(theme.getByRole('radio', { checked: true }))
+  for (let n = 0; n < 3 && !(await system.isChecked()); n++) await page.keyboard.press('ArrowUp')
+  await expect(system).toBeChecked()
+  await expect(system).toBeFocused()
+  await expect.poll(async () => (await native()).source).toBe('system')
+  expect(await pageDark()).toBe(initial.dark)
+  await audit('theme-general')
 })
 
 test('settings section audit inventory', async () => {
