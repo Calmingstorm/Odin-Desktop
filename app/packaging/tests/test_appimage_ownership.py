@@ -93,9 +93,10 @@ class SharedOwnershipIntegration(unittest.TestCase):
         boot = ownership._boot_id()
         with self.lease() as lease:
             core = json.loads(self.core.read_text())
-            core.update(state='complete', previous_unknown={
-                'state': 'unknown', 'boot_id': boot, 'resources': {'computer': {'state': 'unknown'}}},
-                resources={'computer': {'state': 'not_started'}, 'processes': {'state': 'released'}})
+            unknown = {'state': 'unknown', 'boot_id': boot,
+                       'resources': {'computer': {'state': 'unknown'}}}
+            clean = {'computer': {'state': 'not_started'}, 'processes': {'state': 'released'}}
+            core.update(state='complete', previous_unknown=unknown, resources=clean)
             self.core.write_text(json.dumps(core))
             with self.assertRaisesRegex(ownership.OwnershipError, 'Core resource cleanup'):
                 self.clean_exit(lease)
