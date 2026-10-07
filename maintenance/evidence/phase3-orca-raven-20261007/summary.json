@@ -1,0 +1,195 @@
+{
+ "artifact_sha256": "478abb490721a72ecae3ca12b73c98b2ab8abdb45f4d7f87e0c4dd37c32e5d7f",
+ "manifest_sha256": "42afc55dfe3f85f31838a9aa03ca4d9decaafa2fb679fae98a86934d4b638d13",
+ "source_commit": "dae1e369",
+ "desktops": {
+  "cinnamon": {
+   "session": {
+    "Desktop": "cinnamon",
+    "Type": "x11",
+    "Active": "yes",
+    "State": "active"
+   },
+   "orca_version": "46.1",
+   "passed": true,
+   "tasks": [
+    {
+     "task": "orca-bridge-named-message-and-native-button-role",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-chat-results-attach-cancel-save-copy-report",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-conversation-child-modal-search",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-busy-steer-consumed-queued-stop-resume-unknown-no-flood",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-all-eleven-settings-names-roles-states-errors-secret",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-delayed-history-search-retains-focused-current-message",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-real-core-services-when-explicitly-provisioned",
+     "status": "passed",
+     "error": null
+    }
+   ]
+  },
+  "gnome": {
+   "session": {
+    "Desktop": "",
+    "Type": "wayland",
+    "Active": "yes",
+    "State": "active"
+   },
+   "orca_version": "46.1",
+   "passed": true,
+   "tasks": [
+    {
+     "task": "orca-bridge-named-message-and-native-button-role",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-chat-results-attach-cancel-save-copy-report",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-conversation-child-modal-search",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-busy-steer-consumed-queued-stop-resume-unknown-no-flood",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-all-eleven-settings-names-roles-states-errors-secret",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-delayed-history-search-retains-focused-current-message",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-real-core-services-when-explicitly-provisioned",
+     "status": "passed",
+     "error": null
+    }
+   ]
+  },
+  "kde": {
+   "session": {
+    "Desktop": "KDE",
+    "Type": "wayland",
+    "Active": "yes",
+    "State": "active"
+   },
+   "orca_version": "46.1",
+   "passed": false,
+   "tasks": [
+    {
+     "task": "orca-bridge-named-message-and-native-button-role",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-chat-results-attach-cancel-save-copy-report",
+     "status": "failed",
+     "error": "Error: Error: Owned active native dialog required: Attach files"
+    },
+    {
+     "task": "orca-conversation-child-modal-search",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-busy-steer-consumed-queued-stop-resume-unknown-no-flood",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-all-eleven-settings-names-roles-states-errors-secret",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-delayed-history-search-retains-focused-current-message",
+     "status": "passed",
+     "error": null
+    },
+    {
+     "task": "orca-real-core-services-when-explicitly-provisioned",
+     "status": "passed",
+     "error": null
+    }
+   ]
+  },
+  "cinnamon-contaminated-first-attempt": {
+   "session": {
+    "Desktop": "cinnamon",
+    "Type": "x11",
+    "Active": "yes",
+    "State": "active"
+   },
+   "orca_version": "46.1",
+   "passed": false,
+   "tasks": [
+    {
+     "task": "orca-bridge-named-message-and-native-button-role",
+     "status": "failed",
+     "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed"
+    },
+    {
+     "task": "orca-chat-results-attach-cancel-save-copy-report",
+     "status": "failed",
+     "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed"
+    },
+    {
+     "task": "orca-conversation-child-modal-search",
+     "status": "failed",
+     "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed"
+    },
+    {
+     "task": "orca-busy-steer-consumed-queued-stop-resume-unknown-no-flood",
+     "status": "failed",
+     "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed"
+    },
+    {
+     "task": "orca-all-eleven-settings-names-roles-states-errors-secret",
+     "status": "failed",
+     "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed"
+    },
+    {
+     "task": "orca-delayed-history-search-retains-focused-current-message",
+     "status": "failed",
+     "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed"
+    },
+    {
+     "task": "orca-real-core-services-when-explicitly-provisioned",
+     "status": "failed",
+     "error": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed"
+    }
+   ]
+  }
+ }
+}
