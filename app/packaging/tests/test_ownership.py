@@ -11,6 +11,7 @@ from unittest import mock
 
 BOOT_A = 'a1b2c3d4-0000-4000-8000-00000000000a'
 BOOT_B = 'a1b2c3d4-0000-4000-8000-00000000000b'
+BOOT_C = 'a1b2c3d4-0000-4000-8000-00000000000c'
 
 MODULE = Path(__file__).resolve().parents[1] / 'ownership.py'
 spec = importlib.util.spec_from_file_location('ownership_fixture', MODULE)
@@ -183,6 +184,23 @@ class OwnershipTests(unittest.TestCase):
                 lease.close()
             with own.replacement_guard(self.paths):
                 pass
+
+    def test_a_newer_unknown_this_boot_fences_despite_older_history(self):
+        def newer(lease):
+            try:
+                self.clean()
+                core = json.loads(self.core.read_text())
+                core['previous_unknown'] = {'state': 'unknown', 'boot_id': BOOT_A}
+                core['latest_unknown_boot_id'] = BOOT_B
+                self.core.write_text(json.dumps(core))
+                lease.finish()
+            finally:
+                lease.close()
+        with self.boot(BOOT_B):
+            with self.assertRaisesRegex(own.OwnershipError, 'Core resource cleanup'):
+                newer(self.lease())
+        with self.boot(BOOT_C):
+            newer(self.lease())
 
     def test_history_without_a_boot_identity_stays_fenced(self):
         with self.boot(BOOT_B):

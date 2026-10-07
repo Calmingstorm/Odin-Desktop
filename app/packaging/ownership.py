@@ -128,9 +128,11 @@ def _clean(app_cleanup, core_cleanup, role):
     core = _read(core_cleanup)
     resources = core.get('resources')
     previous = core.get('previous_unknown')
+    # The newest unresolved lifetime's boot decides; the retained notice is the first one.
+    latest = core.get('latest_unknown_boot_id') or (
+        previous.get('boot_id') if isinstance(previous, dict) else None)
     if (core.get('version') != 1 or core.get('state') != 'complete'
-            or (previous is not None and not (isinstance(previous, dict) and _earlier_boot(
-                previous.get('boot_id'), _boot_id())))
+            or (previous is not None and not _earlier_boot(latest, _boot_id()))
             or not isinstance(resources, dict)
             or not {'computer', 'processes'}.issubset(resources)
             or any(row.get('state') not in {'released', 'not_started'}

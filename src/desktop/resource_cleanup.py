@@ -37,6 +37,7 @@ class ResourceCleanupJournal:
         self.path = path
         self.previous_unknown = None
         self.previous_unknown_count = 0
+        self.latest_unknown_boot_id = None
         boot = current_boot_id()
         try:
             previous = json.loads(path.read_text())
@@ -45,6 +46,7 @@ class ResourceCleanupJournal:
                 raise ValueError("Invalid cleanup evidence")
             self.previous_unknown = previous.get("previous_unknown")
             self.previous_unknown_count = int(previous.get("previous_unknown_count", 0))
+            self.latest_unknown_boot_id = previous.get("latest_unknown_boot_id")
             if previous["state"] != "complete":
                 # Retain the first unresolved receipt, not an exponentially
                 # nested chain of every later interrupted startup.
@@ -53,16 +55,24 @@ class ResourceCleanupJournal:
                     for key in ("state", "at", "resources", "boot_id") if key in previous
                 }
                 self.previous_unknown_count += 1
+                # The first unresolved lifetime stays the notice; the newest one decides how
+                # long the package fence holds. One without a recorded boot is this boot.
+                self.latest_unknown_boot_id = previous.get("boot_id") or boot
         except FileNotFoundError:
             pass
         except (OSError, ValueError, TypeError):
             self.previous_unknown = {"state": "unknown", "reason": "cleanup_evidence_unreadable"}
+            self.latest_unknown_boot_id = boot
         # The package fence holds an unknown for the rest of the boot it happened in. One
         # recorded before boots were, or from unreadable evidence, is stamped now and only
         # once: it can only be from this boot or an earlier one.
         if isinstance(self.previous_unknown, dict) and "boot_id" not in self.previous_unknown:
             self.previous_unknown = {**self.previous_unknown, "boot_id": boot}
+        if self.previous_unknown is not None and not self.latest_unknown_boot_id:
+            self.latest_unknown_boot_id = (self.previous_unknown.get("boot_id")
+                                           if isinstance(self.previous_unknown, dict) else boot)
         self.current = {"version": 1, "state": "running", "resources": {}, "boot_id": boot,
+                        "latest_unknown_boot_id": self.latest_unknown_boot_id,
                         "previous_unknown": self.previous_unknown,
                         "previous_unknown_count": self.previous_unknown_count}
         self._write()

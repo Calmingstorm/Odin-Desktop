@@ -271,9 +271,11 @@ The fence now works per lifetime and per boot:
   profile retains no core unknown from the current boot. The core journal records
   each lifetime's boot; a retained unknown keeps the boot it happened in, and
   history from before boots were recorded is stamped once with the boot that
-  found it. An unknown therefore fences every installation kind on that profile
-  for the rest of its boot (review finding 89.2), and a later clean lifetime
-  cannot erase that.
+  found it. The journal also records the newest unresolved lifetime's boot
+  separately from that first notice, so an older unknown cannot mask a new one
+  (review finding R2.1). An unknown therefore fences every installation kind on
+  that profile for the rest of its boot (review finding 89.2), and a later clean
+  lifetime cannot erase that.
 - Boot identities must be well-formed kernel UUIDs; a malformed one is not an
   earlier boot (review finding 89.1). Receipts are cooperative evidence the owner
   can already rewrite, so this guards against corruption, not a hostile owner.

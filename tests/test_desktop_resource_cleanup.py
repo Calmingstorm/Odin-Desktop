@@ -60,6 +60,20 @@ def test_retained_unknown_keeps_the_boot_it_happened_in(tmp_path, monkeypatch):
     assert ResourceCleanupJournal(path).public()["reconciliation_required"] is True
 
 
+def test_a_newer_unknown_moves_the_fence_boot_not_the_notice(tmp_path, monkeypatch):
+    path = tmp_path / "receipt.json"
+    boot(monkeypatch, tmp_path, BOOT_A)
+    ResourceCleanupJournal(path)  # boot A: never finished
+    boot(monkeypatch, tmp_path, BOOT_B)
+    ResourceCleanupJournal(path)  # boot B: this lifetime never finishes either
+    later = ResourceCleanupJournal(path)
+    later.finish({"computer": {"state": "not_started"}, "processes": {"state": "released"}})
+    saved = json.loads(path.read_text())
+    assert saved["previous_unknown"]["boot_id"] == BOOT_A
+    assert saved["latest_unknown_boot_id"] == BOOT_B
+    assert saved["previous_unknown_count"] == 2
+
+
 def test_history_from_before_boots_were_recorded_is_stamped_once(tmp_path, monkeypatch):
     path = tmp_path / "receipt.json"
     path.write_text(json.dumps({"version": 1, "state": "complete", "resources": {},
