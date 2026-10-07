@@ -21,7 +21,7 @@ describe('Exit readiness within the original request bound', () => {
 
   it('returns immediately for an already ready core', async () => {
     const link = broker()
-    Object.assign(link, { link: 'ready' })
+    Object.assign(link, { link: 'ready', welcomeFrame: { core: { instance_id: 'current' } } })
     link.quiesce()
     expect(await link.waitForShutdownReady(500)).toBe(true)
     link.close()

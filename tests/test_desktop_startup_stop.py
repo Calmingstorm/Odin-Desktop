@@ -167,7 +167,7 @@ async def test_late_secret_error_is_retained_and_inactive_scope_keeps_transactio
         release.set()
         await calls.settle(1)
         await asyncio.sleep(0)
-        assert calls.outcome() == {"state": "unknown", "pending": 0,
+        assert calls.outcome() == {"state": "released",
                                    "error_types": ["ValueError"]}
         calls.active = False
         started.clear()

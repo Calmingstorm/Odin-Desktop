@@ -41,10 +41,12 @@ class StartupSecretCalls:
             await asyncio.wait(self.pending, timeout=timeout)
 
     def outcome(self):
-        if self.pending or self.errors:
+        if self.pending:
             return {"state": "unknown", "pending": len(self.pending),
                     "error_types": sorted(self.errors)}
-        return {"state": "released" if self.started else "not_started"}
+        # A failed read still proves worker settlement, not credential readiness.
+        return {"state": "released" if self.started else "not_started",
+                **({"error_types": sorted(self.errors)} if self.errors else {})}
 
 
 startup_secret_calls: ContextVar[StartupSecretCalls | None] = ContextVar(

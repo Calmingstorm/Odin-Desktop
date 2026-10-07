@@ -23,7 +23,7 @@
 "src/desktop/authority.py":"e1f92faf9354f78cc87d445091f92e8764d89ae1c9a7795f9513b197029edd79",
 "src/desktop/paths.py":"54b434214483a1a3230419f72aed03edba75722f1f0067472b4d19865bd243af",
 "src/desktop/provisioning.py":"13c83f8b7bc37bb83e3a51435f133eec4c264e70f24190208f26187fbdd91ee0",
-"src/desktop/secrets.py":"07a27e35602c22ae2b4240457af49377b2cb32cab0a5487cc92f079d57583575",
+"src/desktop/secrets.py":"4306c1418667f843c07a28d14f58b608e1a806bae58c702a639d66773e3f7416",
 "src/desktop/settings.py":"5900062b471979920ed3c02f03698f741f80b53618cc401ba17bb942cab60da4",
 "src/json_store.py":"a3bdffaa80560a58a39c5683005da37c37de3ef2edb7ef81fcb8d7bfb8b63ad0",
 "src/llm/model_ref.py":"a26ba1e36ac5fc959053f292f4695ac9561d49cedb023a7dde8039ef9cf1d8f6",
