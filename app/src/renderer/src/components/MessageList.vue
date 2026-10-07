@@ -168,15 +168,45 @@ watch(
   () => [state.highlightId, jump.value?.messageId],
   async () => {
     if (!state.highlightId) return
-    scrollRun += 1 // the search result owns the view now
+    const run = ++scrollRun // the search result owns the view now
     await nextTick()
-    if (!state.highlightId) return
-    const target = document.getElementById(`m-${state.highlightId}`)
+    const id = state.highlightId
+    if (!id) return
+    const target = document.getElementById(`m-${id}`)
     const view = scroller.value
+    if (!target) return
+    const tall = (): boolean => Boolean(view && 'offsetHeight' in target && target.offsetHeight > view.clientHeight)
     // A message taller than the view opens at its start, where reading begins; centring it would land mid-message.
-    // Off-screen messages keep their last rendered height (contain-intrinsic-size: auto), so this sees a long reply.
-    const tall = Boolean(target && view && 'offsetHeight' in target && target.offsetHeight > view.clientHeight)
-    target?.scrollIntoView({ block: tall ? 'start' : 'center' })
+    let start = tall()
+    target.scrollIntoView({ block: start ? 'start' : 'center' })
+    if (!view || !('isConnected' in target)) return
+    // Its height settles over a few frames: one that never rendered here has only its estimated height until it is
+    // brought into view, and estimated blocks become real as they render. Keep a tall one at its start until it stays
+    // put, as the scroll to the end does, unless the view changes hands meanwhile.
+    const offset = (): number | null => typeof target.getBoundingClientRect === 'function' && typeof view.getBoundingClientRect === 'function'
+      ? target.getBoundingClientRect().top - view.getBoundingClientRect().top
+      : null
+    let steady = 0
+    for (let frame = 0; frame < 60 && steady < 3; frame++) {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+      if (run !== scrollRun || state.highlightId !== id || !target.isConnected) return
+      if (!start) {
+        if (tall()) {
+          start = true
+          target.scrollIntoView({ block: 'start' })
+        } else if (frame >= 1) {
+          return // it fits: centring stands
+        }
+        continue
+      }
+      const at = offset()
+      if (at === null) return
+      if (Math.abs(at) <= 1) steady += 1
+      else {
+        steady = 0
+        target.scrollIntoView({ block: 'start' })
+      }
+    }
   }
 )
 

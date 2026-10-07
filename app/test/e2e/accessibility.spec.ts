@@ -657,6 +657,41 @@ test('real-shape service failure cards and readiness are accessible without clai
   expect(await ax('computer-unqualified-envelope')).toContain('Native input is not qualified or supported')
 })
 
+test('a notification for a long reply opens it at its start, even before it rendered in this list', async () => {
+  await launch()
+  const exchange = async (text: string): Promise<void> => {
+    await send(text)
+    await expect(page.locator('.msg.assistant').filter({ hasText: `Echo: ${text}` })).toHaveCount(1)
+  }
+  // The long reply sits in the middle: a rebuilt list opens at its top, then jumps to its end, and never shows it.
+  for (let n = 1; n <= 16; n++) await exchange(`short opener ${n}`)
+  await send('a long reply please')
+  const long = page.locator('.msg.assistant').filter({ hasText: 'log line 5000' })
+  await expect(long).toHaveCount(1)
+  const messageId = (await long.getAttribute('id'))!.slice(2)
+  for (let n = 1; n <= 16; n++) await exchange(`short follow-up ${n}`)
+  // Leave and come back: the list is rebuilt, and the long reply never renders in it.
+  const conversations = page.getByRole('navigation', { name: 'Conversations', exact: true })
+  const title = (await conversations.locator('.conv.active').getAttribute('aria-label'))!
+  await activate(page.getByRole('button', { name: 'New conversation', exact: true }))
+  await expect(conversations.locator('.conv.active')).not.toHaveAttribute('aria-label', title)
+  await activate(conversations.getByRole('button', { name: title, exact: true }))
+  await expect(page.locator('.msg.assistant').filter({ hasText: 'Echo: short follow-up 16' })).toBeVisible()
+  // The case under test: the reply has only its estimated height here, never its rendered one.
+  expect(await long.evaluate((el) => (el as HTMLElement).offsetHeight)).toBeLessThan(200)
+  const listed = await page.evaluate(async () => (window as any).odin.listConversations())
+  const conversationId = listed.result.items.find((c: { title: string }) => c.title === title).id
+  await app.evaluate(({ BrowserWindow }, target) => BrowserWindow.getAllWindows()[0]!.webContents.send('odin:open-conversation', target),
+    { conversationId, messageId })
+  await expect(long).toHaveClass(/highlight/)
+  const top = (): Promise<number> => page.evaluate((id) => {
+    const view = document.querySelector('.message-scroll')!.getBoundingClientRect()
+    return Math.round(document.getElementById(`m-${id}`)!.getBoundingClientRect().top - view.top)
+  }, messageId)
+  await expect.poll(top).toBeGreaterThanOrEqual(-2)
+  expect(await top()).toBeLessThanOrEqual(2)
+})
+
 test('work panel keyboard controls, focus return and target names', async () => {
   await launch()
   await send('slow agent process keyboard work')

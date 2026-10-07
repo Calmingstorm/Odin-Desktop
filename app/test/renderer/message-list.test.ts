@@ -269,3 +269,48 @@ describe('a jumped-to message taller than the view', () => {
     expect(placements).toEqual([{ block: 'start' }, { block: 'center' }])
   })
 })
+
+describe('a jumped-to message that has never rendered here (review #87)', () => {
+  /** A target known only by its 120 px estimate until it renders at 3,000 px. */
+  function unrendered(placements: unknown[]) {
+    const target = { isConnected: true, height: 120, get offsetHeight() { return this.height },
+      scrollIntoView: (options: unknown) => placements.push(options) }
+    return target
+  }
+
+  it('moves to its start once it renders taller than the view', async () => {
+    await settle()
+    const doc = (globalThis as unknown as { document: { getElementById: unknown } }).document
+    const original = doc.getElementById
+    const placements: unknown[] = []
+    const target = unrendered(placements)
+    try {
+      doc.getElementById = () => target
+      await searchHit('c1')
+      expect(placements).toEqual([{ block: 'center' }]) // only the estimate is known yet
+      target.height = 3000 // brought into view, it renders at its real size
+      await settle()
+    } finally {
+      doc.getElementById = original
+    }
+    expect(placements).toEqual([{ block: 'center' }, { block: 'start' }])
+  })
+
+  it('leaves the view alone when the reader scrolled before it rendered', async () => {
+    await settle()
+    const doc = (globalThis as unknown as { document: { getElementById: unknown } }).document
+    const original = doc.getElementById
+    const placements: unknown[] = []
+    const target = unrendered(placements)
+    try {
+      doc.getElementById = () => target
+      await searchHit('c1')
+      scroller.fire('pointerdown') // the reader took the view
+      target.height = 3000
+      await settle()
+    } finally {
+      doc.getElementById = original
+    }
+    expect(placements).toEqual([{ block: 'center' }])
+  })
+})
