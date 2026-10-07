@@ -7,12 +7,25 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import sqlite3
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 
 from ..permissions.persistence import write_private_atomic
+
+BOOT_ID = Path("/proc/sys/kernel/random/boot_id")
+_BOOT_ID_SHAPE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+def current_boot_id() -> str | None:
+    """This boot's kernel identity, or None when it cannot be read or is malformed."""
+    try:
+        value = BOOT_ID.read_text().strip()
+    except OSError:
+        return None
+    return value if _BOOT_ID_SHAPE.fullmatch(value) else None
 
 
 class ResourceCleanupError(RuntimeError):
@@ -24,6 +37,10 @@ class ResourceCleanupJournal:
         self.path = path
         self.previous_unknown = None
         self.previous_unknown_count = 0
+        self.latest_unknown_boot_id = None
+        # Only history written before the fence binding existed may use its notice's own boot.
+        legacy = False
+        boot = current_boot_id()
         try:
             previous = json.loads(path.read_text())
             if (not isinstance(previous, dict) or previous.get("version") != 1
@@ -31,18 +48,39 @@ class ResourceCleanupJournal:
                 raise ValueError("Invalid cleanup evidence")
             self.previous_unknown = previous.get("previous_unknown")
             self.previous_unknown_count = int(previous.get("previous_unknown_count", 0))
+            self.latest_unknown_boot_id = previous.get("latest_unknown_boot_id")
+            legacy = "latest_unknown_boot_id" not in previous
             if previous["state"] != "complete":
                 # Retain the first unresolved receipt, not an exponentially
                 # nested chain of every later interrupted startup.
                 self.previous_unknown = self.previous_unknown or {
-                    key: previous[key] for key in ("state", "at", "resources") if key in previous
+                    key: previous[key]
+                    for key in ("state", "at", "resources", "boot_id") if key in previous
                 }
                 self.previous_unknown_count += 1
+                # The first unresolved lifetime stays the notice; the newest one decides how
+                # long the package fence holds. One without a recorded boot is this boot.
+                legacy = False
+                self.latest_unknown_boot_id = previous.get("boot_id") or boot
         except FileNotFoundError:
             pass
         except (OSError, ValueError, TypeError):
+            legacy = False
             self.previous_unknown = {"state": "unknown", "reason": "cleanup_evidence_unreadable"}
-        self.current = {"version": 1, "state": "running", "resources": {},
+            self.latest_unknown_boot_id = boot
+        # The package fence holds an unknown for the rest of the boot it happened in. A
+        # missing binding (history recorded before boots were, unreadable evidence, or a boot
+        # that could not be read) binds to the boot that finds it, once: the unknown can only be
+        # from this boot or an earlier one. Only history from before the binding existed may use
+        # the boot stamped in its own notice; a newer unknown never borrows the notice's older
+        # boot. The retained record stays exactly as reported, so the app does not announce the
+        # same unknown again.
+        if self.previous_unknown is not None and not self.latest_unknown_boot_id:
+            recorded = (self.previous_unknown.get("boot_id")
+                        if legacy and isinstance(self.previous_unknown, dict) else None)
+            self.latest_unknown_boot_id = recorded or boot
+        self.current = {"version": 1, "state": "running", "resources": {}, "boot_id": boot,
+                        "latest_unknown_boot_id": self.latest_unknown_boot_id,
                         "previous_unknown": self.previous_unknown,
                         "previous_unknown_count": self.previous_unknown_count}
         self._write()

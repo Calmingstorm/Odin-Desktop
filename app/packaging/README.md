@@ -187,7 +187,15 @@ the tree for candidate runtime probes; workstation Python remains masked there.
 They fence replacement without starting
 or signalling any application/service and preserve all user state. The shared
 lease-bearing launcher and independent app/core lifetimes remain active through
-authoritative cleanup. AppImage replacement is explicitly user-managed and
+authoritative cleanup. Each lifetime receipt records the boot it ran in and judges
+its own Exit, plus any core unknown the shared profile retains from that boot,
+since `.deb` and AppImage keep separate receipts. A lifetime that ended without
+confirmed cleanup fences replacement and removal until the computer restarts,
+since nothing it held survives that boot; the refusal says to restart. Receipts
+with a missing or malformed boot identity, as from older candidates, stay fenced. The app's guardian ignores stop signals, so a
+logout or system stop cannot end it before the app's own Exit is recorded.
+Nothing here clears or acknowledges unknown cleanup or quarantine.
+AppImage replacement is explicitly user-managed and
 offline; see [`APPIMAGE-REPLACEMENT.md`](APPIMAGE-REPLACEMENT.md). No app apply
 path exists. Legacy unguarded P4.1 direct upgrade is refused; its isolated
 offline transition is qualified separately, not mislabeled a normal upgrade.

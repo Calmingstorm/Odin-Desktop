@@ -34,6 +34,96 @@ def test_interrupted_or_unknown_cleanup_survives_later_clean_exit(tmp_path):
     assert ResourceCleanupJournal(path).public()["reconciliation_required"] is True
 
 
+def boot(monkeypatch, tmp_path, identity):
+    from src.desktop import resource_cleanup
+
+    path = tmp_path / f"boot-{identity[-1]}"
+    path.write_text(identity + "\n")
+    monkeypatch.setattr(resource_cleanup, "BOOT_ID", path)
+
+
+BOOT_A = "a1b2c3d4-0000-4000-8000-00000000000a"
+BOOT_B = "a1b2c3d4-0000-4000-8000-00000000000b"
+
+
+def test_retained_unknown_keeps_the_boot_it_happened_in(tmp_path, monkeypatch):
+    path = tmp_path / "receipt.json"
+    boot(monkeypatch, tmp_path, BOOT_A)
+    ResourceCleanupJournal(path)  # never finished: its lifetime ends unknown
+    assert json.loads(path.read_text())["boot_id"] == BOOT_A
+    boot(monkeypatch, tmp_path, BOOT_B)
+    later = ResourceCleanupJournal(path)
+    later.finish({"computer": {"state": "not_started"}, "processes": {"state": "released"}})
+    saved = json.loads(path.read_text())
+    assert saved["boot_id"] == BOOT_B
+    assert saved["previous_unknown"]["boot_id"] == BOOT_A
+    assert ResourceCleanupJournal(path).public()["reconciliation_required"] is True
+
+
+def test_a_newer_unknown_moves_the_fence_boot_not_the_notice(tmp_path, monkeypatch):
+    path = tmp_path / "receipt.json"
+    boot(monkeypatch, tmp_path, BOOT_A)
+    ResourceCleanupJournal(path)  # boot A: never finished
+    boot(monkeypatch, tmp_path, BOOT_B)
+    ResourceCleanupJournal(path)  # boot B: this lifetime never finishes either
+    later = ResourceCleanupJournal(path)
+    later.finish({"computer": {"state": "not_started"}, "processes": {"state": "released"}})
+    saved = json.loads(path.read_text())
+    assert saved["previous_unknown"]["boot_id"] == BOOT_A
+    assert saved["latest_unknown_boot_id"] == BOOT_B
+    assert saved["previous_unknown_count"] == 2
+
+
+def test_history_from_before_boots_were_recorded_binds_its_fence_once(tmp_path, monkeypatch):
+    path = tmp_path / "receipt.json"
+    reported = {"state": "running", "at": "2026-10-07T12:34:11+00:00", "resources": {}}
+    path.write_text(json.dumps({"version": 1, "state": "complete", "resources": {},
+                                "previous_unknown": reported}))
+    boot(monkeypatch, tmp_path, BOOT_A)
+    first = ResourceCleanupJournal(path)
+    first.finish({"computer": {"state": "not_started"}, "processes": {"state": "released"}})
+    assert json.loads(path.read_text())["latest_unknown_boot_id"] == BOOT_A
+    boot(monkeypatch, tmp_path, BOOT_B)
+    later = ResourceCleanupJournal(path)
+    # The app keys its notice on this record: it must stay exactly as already shown.
+    assert later.public()["previous_unknown"] == reported
+    assert json.loads(path.read_text())["latest_unknown_boot_id"] == BOOT_A
+
+
+def test_unreadable_evidence_binds_the_fence_to_the_boot_that_found_it(tmp_path, monkeypatch):
+    path = tmp_path / "receipt.json"
+    path.write_text("not json")
+    boot(monkeypatch, tmp_path, BOOT_A)
+    found = ResourceCleanupJournal(path)
+    found.finish({"computer": {"state": "not_started"}, "processes": {"state": "released"}})
+    reported = {"state": "unknown", "reason": "cleanup_evidence_unreadable"}
+    assert found.public()["previous_unknown"] == reported
+    boot(monkeypatch, tmp_path, BOOT_B)
+    assert ResourceCleanupJournal(path).public()["previous_unknown"] == reported
+    assert json.loads(path.read_text())["latest_unknown_boot_id"] == BOOT_A
+
+
+def test_an_unreadable_newer_unknown_never_borrows_the_notice_boot(tmp_path, monkeypatch):
+    from src.desktop import resource_cleanup
+
+    path = tmp_path / "receipt.json"
+    clean = {"computer": {"state": "not_started"}, "processes": {"state": "released"}}
+    boot(monkeypatch, tmp_path, BOOT_A)
+    ResourceCleanupJournal(path)  # boot A: never finished
+    boot(monkeypatch, tmp_path, BOOT_B)
+    ResourceCleanupJournal(path).finish(clean)  # the boot A notice is retained
+    monkeypatch.setattr(resource_cleanup, "BOOT_ID", tmp_path / "unreadable")
+    ResourceCleanupJournal(path)  # still boot B, but unreadable: never finished
+    ResourceCleanupJournal(path).finish(clean)
+    saved = json.loads(path.read_text())
+    assert saved["previous_unknown"]["boot_id"] == BOOT_A
+    assert saved["previous_unknown_count"] == 2
+    assert saved["latest_unknown_boot_id"] is None  # held, never boot A's
+    boot(monkeypatch, tmp_path, BOOT_B)  # readback recovers within the same boot
+    ResourceCleanupJournal(path)
+    assert json.loads(path.read_text())["latest_unknown_boot_id"] == BOOT_B
+
+
 def test_unknown_cleanup_is_durable_before_error(tmp_path):
     path = tmp_path / "receipt.json"
     journal = ResourceCleanupJournal(path)
