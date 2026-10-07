@@ -402,3 +402,48 @@ test('close and simultaneous relaunch preserve app and ready real core with no t
     await receipt(info, 'normal-shutdown', persisted)
   } finally { await dispose(application) }
 })
+
+test('session stop signals are orderly Exits, for the app alone or with its core', async ({}, info) => {
+  // Logout, system stop and Ctrl+C signal the app; a scope stop signals the core with it.
+  for (const route of ['app-sigterm', 'app-sighup', 'app-and-core-sigterm'] as const) {
+    const application = await launchApp({ profile: `session-${route}` })
+    try {
+      const core = await waitForCore(application)
+      const before = await snapshot(application)
+      const owned = identity(core.pid)
+      const closed = application.waitForEvent('close')
+      application.process().kill(route === 'app-sighup' ? 'SIGHUP' : 'SIGTERM')
+      if (route === 'app-and-core-sigterm') process.kill(core.pid, 'SIGTERM')
+      await closed
+      await expect.poll(() => alive(owned)).toBe(false)
+      const cleanup = JSON.parse(readFileSync(before.cleanupPath, 'utf8'))
+      expect(cleanup.current).toMatchObject({ state: 'process-exited', shutdownAccepted: true, unreceipted: 0 })
+      expect(cleanup.warning).toBeNull()
+      await receipt(info, `session-${route}`, { owned, cleanup })
+    } finally { await dispose(application) }
+  }
+})
+
+test('a system shutdown notice holds the delay and runs the same Exit', async ({}, info) => {
+  const application = await launchApp({ profile: 'system-shutdown' })
+  try {
+    const core = await waitForCore(application)
+    const before = await snapshot(application)
+    const owned = identity(core.pid)
+    const closed = application.waitForEvent('close')
+    // Electron delivers logind's PrepareForShutdown as this event. The tested app has no
+    // workstation system bus, so this run never holds the host's own delay lock.
+    const notice = await application.evaluate(({ powerMonitor }) => {
+      const event = { defaultPrevented: false, preventDefault() { this.defaultPrevented = true } }
+      powerMonitor.emit('shutdown', event)
+      return { delayed: event.defaultPrevented, systemBus: process.env.DBUS_SYSTEM_BUS_ADDRESS }
+    })
+    expect(notice.delayed).toBe(true)
+    expect(notice.systemBus).toMatch(/no-system-bus$/)
+    await closed
+    await expect.poll(() => alive(owned)).toBe(false)
+    const cleanup = JSON.parse(readFileSync(before.cleanupPath, 'utf8'))
+    expect(cleanup.current).toMatchObject({ state: 'process-exited', shutdownAccepted: true, unreceipted: 0 })
+    await receipt(info, 'system-shutdown', { owned, notice, cleanup })
+  } finally { await dispose(application) }
+})

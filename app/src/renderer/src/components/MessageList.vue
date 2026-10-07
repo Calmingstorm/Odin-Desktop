@@ -178,34 +178,34 @@ watch(
     const tall = (): boolean => Boolean(view && 'offsetHeight' in target && target.offsetHeight > view.clientHeight)
     // A message taller than the view opens at its start, where reading begins; centring it would land mid-message.
     let start = tall()
-    target.scrollIntoView({ block: start ? 'start' : 'center' })
+    const place = (): void => target.scrollIntoView({ block: start ? 'start' : 'center' })
+    place()
     if (!view || !('isConnected' in target)) return
-    // Its height settles over a few frames: one that never rendered here has only its estimated height until it is
-    // brought into view, and estimated blocks become real as they render. Keep a tall one at its start until it stays
-    // put, as the scroll to the end does, unless the view changes hands meanwhile.
+    // Its place settles over a few frames. A message that never rendered here, and the ones around it, have only
+    // estimated heights until they are brought into view, and estimated blocks become real as they render, so the
+    // message moves; in a hidden window that waits until it is shown. Keep it where it was placed (a tall one at its
+    // start) until it stays put, as the scroll to the end does, unless the view changes hands meanwhile.
     const offset = (): number | null => typeof target.getBoundingClientRect === 'function' && typeof view.getBoundingClientRect === 'function'
       ? target.getBoundingClientRect().top - view.getBoundingClientRect().top
       : null
+    let placed = offset()
     let steady = 0
     for (let frame = 0; frame < 60 && steady < 3; frame++) {
       await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
       if (run !== scrollRun || state.highlightId !== id || !target.isConnected) return
-      if (!start) {
-        if (tall()) {
-          start = true
-          target.scrollIntoView({ block: 'start' })
-        } else if (frame >= 1) {
-          return // it fits: centring stands
-        }
-        continue
-      }
+      const grew = !start && tall()
       const at = offset()
-      if (at === null) return
-      if (Math.abs(at) <= 1) steady += 1
-      else {
-        steady = 0
-        target.scrollIntoView({ block: 'start' })
+      if (!grew) {
+        if (placed === null || at === null) return // nothing to measure: the placement stands
+        if (Math.abs(at - placed) <= 1) {
+          steady += 1
+          continue
+        }
       }
+      start ||= grew
+      steady = 0
+      place()
+      placed = offset()
     }
   }
 )

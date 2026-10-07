@@ -5,7 +5,7 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync, readlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { BrowserWindow, Menu, Notification, app, clipboard, dialog, ipcMain, nativeTheme, shell } from 'electron'
+import { BrowserWindow, Menu, Notification, app, clipboard, dialog, ipcMain, nativeTheme, powerMonitor, shell } from 'electron'
 import { IPC, type AppState, type Appearance, type CoreEvent, type LinkState, type NotificationSettings, type Settings } from '../shared/api'
 import { AppearanceController, loadAppearance } from './appearance'
 import { ArtifactStore, safeFileName } from './artifacts'
@@ -17,7 +17,7 @@ import { CoreSupervisor } from './core-supervisor'
 import { DraftStore } from './drafts'
 import { registerIpc } from './ipc'
 import { DeviceLoginBoundary } from './device-login'
-import { decideSecondInstance, decideWindowClose, parseLaunchFlags, type LifecycleState } from './lifecycle'
+import { decideSecondInstance, decideWindowClose, parseLaunchFlags, showWhenReady, type LifecycleState } from './lifecycle'
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
 import { inspectPackagedState } from './package-state'
@@ -29,6 +29,7 @@ import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppSchem
 import { APP_ORIGIN } from './security-policy'
 import { OdinTray, detectTray } from './tray'
 import { boundedShutdown, CleanupJournal, resourceCleanupSource } from './shutdown'
+import { installKdeLogoutHook, startSessionMonitor } from './session-logout'
 import { showNativeNotification } from './native-notifications'
 
 registerAppScheme()
@@ -307,6 +308,8 @@ function run(): void {
     unreceipted: () => broker.unreceiptedCount,
     finish: (record) => cleanup.finish(record),
     release: () => {
+      sessionMonitor?.close()
+      logoutHook?.remove()
       for (const os of liveNotifications) os.close()
       liveNotifications.clear()
       tray?.destroy()
@@ -315,6 +318,8 @@ function run(): void {
     exit: (code) => app.exit(code)
   })
   const exitOdin = async (code = 0): Promise<void> => { await shutdown(code) }
+  const sessionMonitor = startSessionMonitor(launch, () => { void exitOdin() })
+  const logoutHook = installKdeLogoutHook(launchCommand())
 
   // Main-only hooks; not exposed through IPC/preload. The E2E runner enforces isolation before launch.
   if (!app.isPackaged && process.env.ODIN_APP_E2E === '1'
@@ -357,6 +362,15 @@ function run(): void {
     appearance = theme
     // Following the system, the theme can change while Odin runs; the window background follows it.
     nativeTheme.on('updated', () => win?.setBackgroundColor(theme.background()))
+    // logind announces a shutdown or reboot before the session is torn down. Holding its
+    // delay lock until Exit finishes records an orderly Exit, not an abrupt app loss.
+    // Electron 44 asks logind for that lock only if another powerMonitor listener exists
+    // when the 'shutdown' one is added; added first, it never arrives (measured in the lab).
+    powerMonitor.on('suspend', () => undefined)
+    powerMonitor.on('shutdown', (event?: Electron.Event) => {
+      event?.preventDefault()
+      void exitOdin()
+    })
     installGuards()
     serveAppScheme(rendererDir)
     registerIpc({
@@ -482,9 +496,9 @@ function run(): void {
     win.webContents.on('did-start-navigation', (_event, _url, _inPlace, mainFrame) => {
       if (mainFrame) notificationRouteReady = false
     })
-    win.once('ready-to-show', () => {
-      if (pendingOpen && !lifecycle.quitting) win?.show()
-    })
+    // The window background already matches the theme, so showing it before the first paint
+    // is safe.
+    showWhenReady(win, () => pendingOpen && !lifecycle.quitting)
     win.webContents.on('render-process-gone', (_event, details) => {
       notificationRouteReady = false
       process.stderr.write(`renderer ended reason=${details.reason}; core remains supervised\n`)

@@ -7,6 +7,11 @@ import signal
 import socket
 import stat
 
+# Logout, system stop and Ctrl+C signal the app and this core together. The app's
+# orderly Exit asks for shutdown within milliseconds; stopping on the signal first
+# would leave its in-flight requests without receipts and its Exit unaccepted.
+PARENT_EXIT_GRACE_SECONDS = 3.0
+
 
 class CoreLifetime:
     """One explicit shutdown edge, shared by parent loss and protocol shutdown."""
@@ -22,12 +27,20 @@ class CoreLifetime:
         loop = asyncio.get_running_loop()
         self._loop = loop
         for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, self.request_stop, sig.name.lower())
+            loop.add_signal_handler(sig, self._signalled, sig.name.lower())
             self._signals.append(sig)
 
     @property
     def admitting(self) -> bool:
         return not self.stopping.is_set()
+
+    def _signalled(self, reason: str) -> None:
+        # With a live parent link, its shutdown request or EOF comes first; the
+        # first stop edge wins. A silent or absent parent still stops the core.
+        if self._stdin_fd is None:
+            self.request_stop(reason)
+        else:
+            self._loop.call_later(PARENT_EXIT_GRACE_SECONDS, self.request_stop, reason)
 
     def request_stop(self, reason: str) -> None:
         if not self.stopping.is_set():
