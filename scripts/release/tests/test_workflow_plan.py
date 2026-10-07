@@ -63,7 +63,8 @@ class WorkflowPlanTests(unittest.TestCase):
             self.jobs(self.context(mode=trigger['workflow_dispatch']['inputs']['mode']['default'])),
             ['build'],
         )
-        self.assertEqual(self.jobs(self.context(event='push', ref=f'refs/tags/v{VERSION}')), ['build'])
+        tag_push = self.context(event='push', ref=f'refs/tags/v{VERSION}')
+        self.assertEqual(self.jobs(tag_push), ['build'])
         self.assertEqual(self.jobs(self.context(mode='retain-candidate')), ['build'])
         for ctx in [
             self.context(repo='foreign/repo'),
