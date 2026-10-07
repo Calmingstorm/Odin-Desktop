@@ -681,6 +681,41 @@ test('work panel keyboard controls, focus return and target names', async () => 
   await expect(page.locator('.work-panel')).toHaveCount(0)
 })
 
+test('narrow window: Work sits above the chat, so no covered control stays in the keyboard order', async () => {
+  await launch()
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(800, 720))
+  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(900)
+  const workButton = page.locator('.work-toggle')
+  await activate(workButton)
+  await expect(page.getByRole('button', { name: 'Refresh work', exact: true })).toBeFocused()
+  await expect(page.locator('.work-panel')).toBeVisible()
+  const message = page.getByRole('textbox', { name: 'Message', exact: true })
+  await expect(message).toBeVisible()
+  const work = (await page.locator('.work-panel').boundingBox())!
+  const chat = (await page.locator('main.main').boundingBox())!
+  expect(work.y + work.height).toBeLessThanOrEqual(chat.y + 1)
+  // Every control Tab reaches is the topmost element at its own centre: nothing focusable is under the panel.
+  for (let n = 0; n < 40; n++) {
+    await page.keyboard.press('Tab')
+    const covered = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null
+      if (!el || el === document.body) return null
+      const box = el.getBoundingClientRect()
+      if (!box.width || !box.height) return null
+      const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+      return top && (top === el || el.contains(top)) ? null : `${el.tagName} ${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 40)}`
+    })
+    expect(covered, 'a focused control is covered by another element').toBeNull()
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await audit('work-narrow')
+  await page.locator('.work-panel').getByRole('button', { name: 'Close work', exact: true }).focus()
+  await page.keyboard.press('Escape')
+  await expect(workButton).toBeFocused()
+  await expect(page.locator('.work-panel')).toHaveCount(0)
+  await expect(message).toBeVisible()
+})
+
 test('keyboard and accessibility tree preserve unknown work settlement and steer boundaries', async () => {
   await launch(false, 'work-settlement')
   await activate(page.locator('.work-toggle'))
