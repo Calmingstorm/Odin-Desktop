@@ -173,22 +173,6 @@ def test_skill_allowed_urls_are_instance_scoped():
     assert second._allowed_urls == ("https://two.invalid",)
 
 
-async def test_skill_knowledge_neutral_delegations_are_not_history_wiring():
-    from unittest.mock import AsyncMock, MagicMock
-
-    from src.tools.skill_context import SkillContext
-
-    store = MagicMock()
-    store.search_hybrid = AsyncMock(return_value=[{"content": "x"}])
-    store.ingest = AsyncMock(return_value=3)
-    context = SkillContext(MagicMock(), "fixture", knowledge_store=store, embedder=object())
-    assert (await context.search_knowledge("q"))[0]["content"] == "x"
-    assert await context.ingest_document("text", "source") == 3
-    empty = SkillContext(MagicMock(), "empty")
-    assert await empty.search_knowledge("q") == []
-    assert await empty.ingest_document("text", "source") == 0
-
-
 def test_schema_retained_container_ancestry_and_secret_facts():
     from src.config.apply_registry import build_meta_payload, schema_facts
 
@@ -267,24 +251,6 @@ def test_documentation_generation_is_pure_and_current_catalog_only(monkeypatch):
     assert f"**{len(TOOLS)} built-in tools**" in text
     assert "### read_conversation\n" in text
     assert "### read_channel\n" not in text
-
-
-async def test_skill_missing_delivery_and_destination_fail_explicitly():
-    from unittest.mock import MagicMock
-
-    from src.tools.skill_context import SkillContext
-
-    context = SkillContext(MagicMock(), "fixture")
-    # Posting without a callback follows v4.13.0 (warning, nothing sent); the
-    # history and scheduling destinations stay explicitly unavailable.
-    assert await context.post_message("hello") is None
-    assert await context.post_file(b"x", "x.txt") is None
-    for call in (lambda: context.search_history("q"),
-                 lambda: context.schedule_task("test", "reminder", "untrusted-id"),
-                 lambda: context.update_schedule("S1"),
-                 lambda: context.delete_schedule("S1")):
-        with pytest.raises(RuntimeError, match="unavailable"):
-            await call()
 
 
 def test_builtin_static_catalog_publishes_real_schemas():

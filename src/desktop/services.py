@@ -517,7 +517,6 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         allowed_urls=tuple(cfg.tools.skill_allowed_urls), config_store=skill_config_store)
     scheduler = getattr(runtime, "scheduler", None) or Scheduler(
         str(paths.data_dir / "schedules.json"), desktop_recovery=True)
-    skills.set_services(knowledge_store=knowledge, embedder=embedder, session_manager=sessions, scheduler=scheduler)
     audit = getattr(runtime, "audit", None) or AuditLogger(path=str(paths.data_dir / "audit.jsonl"),
         hmac_key=cfg.audit.hmac_key, classify_failures=cfg.observability.audit_failure_classification)
     agents = getattr(runtime, "agent_manager", None) or AgentManager(
@@ -747,6 +746,56 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
 
     owners.setdefault("channel_ops", ChannelOpsTools(read_visible_history=read_history))
     owners.setdefault("scheduling", SchedulingTools(scheduler=scheduler, tool_catalog=catalog))
+
+    class SkillHistory:
+        """Odin's skill history surface on the executing request's transcript."""
+
+        async def search_history(self, query, limit=10):
+            from .search import TranscriptSearch
+
+            if engine.requests is None:
+                raise PermissionError("Request admission unavailable")
+            search = TranscriptSearch(engine.requests.transcript, engine.requests.events,
+                                      current_conversation=current_conversation)
+            history = search.for_request(engine.requests.current_bound_request())
+            return await history.search_history(query, limit=limit)
+
+    class SkillSchedules:
+        """Odin's skill scheduler surface, admitted like the native schedule tools."""
+
+        @staticmethod
+        def _admitted():
+            return owners["scheduling"]._admitted_service()
+
+        async def add(self, description, action, channel_id, requester_id=None, **kwargs):
+            # The authenticated owner is the requester; payload identity is not authority.
+            service, message = self._admitted()
+            values = {"description": description, "action": action,
+                      "channel_id": channel_id, **kwargs}
+            return await service.for_request(
+                "schedules.save", {k: v for k, v in values.items() if v is not None}, message)
+
+        def list_all(self):
+            service, message = self._admitted()
+            service.assert_request(message)
+            return [s for s in scheduler.list_all() if s.get("requester_id") == message.owner_id]
+
+        async def update(self, schedule_id, **kwargs):
+            # As Scheduler.update: None leaves a field unchanged; a missing id is None.
+            service, message = self._admitted()
+            values = {k: v for k, v in kwargs.items() if v is not None}
+            if "conversation_id" in values:
+                values["channel_id"] = values.pop("conversation_id")
+            return await service.for_request(
+                "schedules.save", {"id": schedule_id, **values}, message)
+
+        async def delete(self, schedule_id):
+            service, message = self._admitted()
+            return bool(await service.for_request(
+                "schedules.delete", {"id": schedule_id}, message))
+
+    skills.set_services(knowledge_store=knowledge, embedder=embedder,
+                        session_manager=SkillHistory(), scheduler=SkillSchedules())
     owners.setdefault("knowledge", KnowledgeTools(sessions=sessions,
         get_knowledge_store=lambda: knowledge, embedder=embedder, audit=audit))
     publication_tool = ContextVar("desktop_media_publication_tool", default=None)
