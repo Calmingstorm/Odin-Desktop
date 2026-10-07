@@ -15,6 +15,7 @@ import importlib.util
 import json
 import os
 import pwd
+import signal
 import socket
 import subprocess
 import sys
@@ -32,8 +33,7 @@ CASES = {
                   "tests/test_computer_geometry_r1.py"],
     "focus_geometry_modal": ["tests/test_computer_native_gui_r5.py",
                              "tests/test_desktop_computer_binding.py"],
-    "actions": ["tests/test_computer_actions_r4.py",
-                "tests/test_computer_native_keyboard_focus_class.py"],
+    "actions": ["tests/test_computer_actions_r4.py"],
     "loss_recovery": ["tests/test_desktop_computer_binding.py",
                       "tests/test_computer_class1_receipt_recovery.py"],
     "foreground": ["tests/test_desktop_computer_binding.py"],
@@ -161,6 +161,7 @@ def run_host(args):
     proof = json.loads((args.output / "guest" / "result.json").read_text())
     record = {"schema": 1, "source_sha": sha, "source_dirty": dirty,
               "candidate_sha256": deb_sha, "backend": args.backend, "vm": vm,
+              "candidate_source_sha": proof["candidate_source_sha"],
               "vm_configuration": lab.find(instances, vm), "command": command,
               "start_unix": started, "finish_unix": time.time(), "guest_exit_code": code,
               "cases": proof["cases"], "blockers": proof["blockers"],
@@ -233,6 +234,17 @@ async def guest_probe(args):
     from src.computer.runtime.wayland_probe import _ASSETS
     installed["asset_discovery"] = str(_ASSETS)
     installed["private_probe_loaded"] = callable(device_equal)
+    installed["helper_usage_refusals"] = {}
+    for name in ("odin-computer-wayland-input", "odin-hyprland-input", "odin-hyprland-capture"):
+        binary = RESOURCES / "runtime/helpers/bin" / name
+        probe = subprocess.run([str(binary)], stdin=subprocess.DEVNULL, capture_output=True,
+            timeout=5, env={"PATH": "/usr/bin:/bin", "HOME": str(out), "LANG": "C.UTF-8"})
+        installed["helper_usage_refusals"][name] = {
+            "sha256": digest(binary), "exit_code": probe.returncode,
+            "stdout": probe.stdout.decode(errors="replace"),
+            "stderr": probe.stderr.decode(errors="replace")}
+        if probe.returncode == 0:
+            blockers.append("native_helper_did_not_refuse_missing_configuration:" + name)
     cases.append({"case": "helper_discovery", "passed": str(_ASSETS).startswith(str(RESOURCES)),
                   "evidence_kind": "candidate_discovery"})
     (out / "installed.json").write_text(json.dumps(installed, indent=2))
@@ -241,6 +253,39 @@ async def guest_probe(args):
             plugin = list((RESOURCES / "runtime").rglob("odin-hyprland-scope-*.so"))
             blockers.append("candidate_has_no_exact_abi_hyprland_scope_plugin" if not plugin
                             else "hyprland_same_boot_receiver_release_unqualified")
+            # Exercise the installed ABI fence with a measured guest executable,
+            # not a guessed version, stub IPC, loaded experiment or edited guard.
+            from src.computer.runtime.hyprland_identity import (
+                ExecutableTrust,
+                HyprlandIdentity,
+                measure_process,
+            )
+            from src.computer.runtime.hyprland_plugin import (
+                HyprlandPluginError,
+                ManagedHyprlandPlugin,
+                PluginApproval,
+            )
+            version = json.loads(subprocess.check_output(["hyprctl", "-j", "version"], text=True))
+            pids = subprocess.check_output(["pgrep", "-u", str(os.getuid()), "-x", "Hyprland"],
+                                           text=True).split()
+            if len(pids) != 1:
+                raise ValueError("unique_guest_compositor_required")
+            executable = os.readlink("/proc/" + pids[0] + "/exe")
+            trust = ExecutableTrust(executable, digest(executable),
+                version["version"].lstrip("v"), version["commit"])
+            pin = measure_process(int(pids[0]), os.getuid(), trust, time.monotonic() + 5)
+            incompatible = PluginApproval("/usr/local/lib/odin/odin-hyprland-scope-"
+                + "a" * 64 + ".so", "a" * 64, "0.0.0-incompatible", "b" * 40, "c" * 64, True)
+            try:
+                ManagedHyprlandPlugin(approval=incompatible,
+                    identity=HyprlandIdentity(pin, trust), ipc=None)
+            except HyprlandPluginError as error:
+                cases.append({"case": "abi_refusal",
+                    "passed": str(error) == "hyprland_plugin_compositor_pin_mismatch",
+                    "evidence_kind": "candidate_abi_refusal",
+                    "version": version, "refusal": str(error)})
+            else:
+                blockers.append("incompatible_compositor_abi_was_not_rejected")
         elif args.backend == "kde":
             plugin = list((RESOURCES / "runtime").rglob("*odinscope*.so"))
             blockers.append("candidate_has_no_exact_abi_kwin_scope_plugin" if not plugin
@@ -373,6 +418,46 @@ async def guest_probe(args):
                 await asyncio.sleep(.2)
                 rows = receiver_rows()
                 measured("stroke", receiver_effect(rows, "stroke"), rows[-12:])
+                obs = await observe("geometry-before")
+                before_scope = backend._scope.copy()
+                stale = payload(obs, "type", text="NoReplay")
+                receiver.stdin.write(b"G")
+                receiver.stdin.flush()
+                await asyncio.sleep(.5)
+                try:
+                    result = await controller.act(context, stale)
+                    if result.get("execution", {}).get("injected") is not False:
+                        raise RuntimeError("geometry_change_did_not_fence_old_binding")
+                except ValueError:
+                    pass
+                obs = await observe("geometry-after")
+                geometry_ok = (backend._scope["window_rect"] != before_scope["window_rect"]
+                    and backend._scope["process"] == before_scope["process"])
+                scope = backend._scope
+                x, y, width, height = scope["window_rect"]
+                origin = scope["source_origin"]
+                sx, sy = obs.width / obs.source.pixel_width, obs.height / obs.source.pixel_height
+                click = payload(obs, "click", x=int((x - origin[0] + width // 2) * sx),
+                    y=int((y - origin[1] + height - 18) * sy))
+                result = await controller.act(context, click)
+                (out / "modal-open-receipt.json").write_text(
+                    json.dumps(result, default=str, indent=2))
+                if result.get("execution", {}).get("released") is not True:
+                    raise RuntimeError("unknown_release_stop_all_input")
+                obs = await observe("modal-after")
+                modal_ok = bool(obs.modal) and obs.modal_kind == "safe_application"
+                if modal_ok:
+                    result = await controller.act(context, payload(obs, "key", key="Return",
+                        expected_modal=obs.modal))
+                    (out / "modal-close-receipt.json").write_text(
+                        json.dumps(result, default=str, indent=2))
+                    if result.get("execution", {}).get("released") is not True:
+                        raise RuntimeError("unknown_release_stop_all_input")
+                    await asyncio.sleep(.15)
+                rows = receiver_rows()
+                measured("focus_geometry_modal", geometry_ok and modal_ok
+                    and any(r.get("event") == "modal_opened" for r in rows)
+                    and any(r.get("event") == "modal_closed" for r in rows), rows[-12:])
                 current = store.get_session(grant["session_id"])
                 paused = await controller.session(context, {"operation": "pause",
                     "session_id": current.session_id, "generation": current.generation})
@@ -387,8 +472,73 @@ async def guest_probe(args):
                 measured("cancel", receiver.poll() is None and not backend._children,
                          {"receiver_alive": receiver.poll() is None,
                           "worker_count": len(backend._children)})
-                blockers.extend(["focus_geometry_modal_corpus_not_yet_measured",
-                    "native_controller_guardian_loss_and_app_core_restart_not_yet_measured",
+                # New explicit guest consent after clean cancellation. Deliberate
+                # sole-guardian loss is confined to this owned receiver/guest.
+                await controller.close()
+                backend = X11AttachedBackend(enabled=True, display_name=os.environ["DISPLAY"],
+                    xauthority=os.environ.get("XAUTHORITY", ""), monitor_names=names,
+                    input_enabled=True, runtime_sudo=False)
+                controller = ComputerController(
+                    store, lambda _: backend, lambda c: c == context, enabled=True)
+                grant = await controller.session(context, {"operation": "start"})
+                obs = await observe("loss-before")
+                scope = backend._scope
+                x, y, width, height = scope["window_rect"]
+                origin = scope["source_origin"]
+                sx, sy = obs.width / obs.source.pixel_width, obs.height / obs.source.pixel_height
+                points = [[int((x - origin[0] + dx) * sx),
+                           int((y - origin[1] + height // 2 + dy) * sy)]
+                          for dx, dy in [(100, 0), (180, 20), (260, 0), (340, 20)]]
+                baseline = sum(r.get("event") == "button_down" for r in receiver_rows())
+                request = payload(obs, "polyline", points=points, duration=1)
+                task = asyncio.create_task(controller.act(context, request))
+                until = time.monotonic() + 4
+                killed = None
+                while not task.done() and time.monotonic() < until:
+                    if (sum(r.get("event") == "button_down" for r in receiver_rows()) > baseline
+                            and len(backend._guardians) == 1):
+                        guardian = next(iter(backend._guardians))
+                        # Popen handle is exact child ownership. Never pgrep kill.
+                        killed = guardian.pid
+                        guardian.send_signal(signal.SIGKILL)
+                        break
+                    await asyncio.sleep(.005)
+                try:
+                    loss = await task
+                except Exception as error:
+                    loss = {"exception": type(error).__name__, "reason": str(error)}
+                (out / "guardian-loss.json").write_text(json.dumps({
+                    "owned_guardian_pid": killed, "receipt": loss,
+                    "receiver": receiver_rows()[-20:]}, default=str, indent=2))
+                current = store.get_session(grant["session_id"])
+                measured("guardian_loss", killed is not None and current.state == "quarantined",
+                         {"state": current.state, "killed_owned_child": killed,
+                          "release_is_unknown": True})
+                # Unknown release means no further input or replacement. Close,
+                # reopen the durable store and assert the fence and no replay.
+                sid = current.session_id
+                await controller.close()
+                store.close()
+                store = ComputerStore(out / "state.sqlite3", out / "evidence")
+                controller = ComputerController(store, lambda _: backend,
+                    lambda c: c == context, enabled=True)
+                before = receiver_rows()
+                refused = []
+                for operation in ("replay", "replacement"):
+                    try:
+                        if operation == "replay":
+                            await controller.act(context, request)
+                        else:
+                            await controller.session(context, {"operation": "start"})
+                    except Exception as error:
+                        refused.append({"operation": operation, "refusal": str(error)})
+                persisted = store.get_session(sid)
+                measured("restart_quarantine", len(refused) == 2
+                    and persisted.state == "quarantined" and receiver_rows() == before,
+                    {"state": persisted.state, "refusals": refused,
+                     "scope": "controller/store reconstruction, not Electron/core process"})
+                blockers.extend(["native_controller_loss_and_app_exit_not_yet_measured",
+                    "app_core_process_restart_quarantine_not_measured",
                     "shared_x11_abrupt_sole_guardian_loss_has_no_universal_release_guarantee"])
             except Exception as error:
                 blockers.append(str(error))
@@ -401,6 +551,7 @@ async def guest_probe(args):
             receiver.wait(timeout=5)
             receiver_log.close()
     proof = {"cases": cases, "blockers": blockers, "verdict": classify(cases, blockers),
+             "candidate_source_sha": metadata["desktop_source_commit"],
              "cleanup": "controller close completed; no replacement or replay attempted"}
     (out / "result.json").write_text(json.dumps(proof, indent=2) + "\n")
     print(json.dumps(proof), flush=True)

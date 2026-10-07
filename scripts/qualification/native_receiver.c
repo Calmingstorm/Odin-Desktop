@@ -4,6 +4,7 @@
  */
 #include <gtk/gtk.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 static GtkWidget *window, *entry, *canvas;
 static unsigned buttons, keys, motion_count;
@@ -44,6 +45,17 @@ static void dialog(GtkButton *button, gpointer data) {
 static gboolean eof(GIOChannel *channel, GIOCondition condition, gpointer data) {
     (void)channel; (void)condition; (void)data; record("receiver_exit", 0); gtk_main_quit(); return FALSE;
 }
+static gboolean command(GIOChannel *channel, GIOCondition condition, gpointer data) {
+    (void)channel; (void)data;
+    if (condition & G_IO_HUP) return eof(channel, condition, data);
+    char value;
+    if (read(STDIN_FILENO, &value, 1) != 1) return eof(channel, condition, data);
+    if (value == 'G') {
+        gtk_window_resize(GTK_WINDOW(window), 760, 520);
+        gtk_window_move(GTK_WINDOW(window), 110, 110); record("geometry_changed", 0);
+    }
+    return TRUE;
+}
 int main(int argc, char **argv) {
     gtk_init(&argc, &argv);
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -67,7 +79,7 @@ int main(int argc, char **argv) {
     g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
     gtk_widget_show_all(window); gtk_widget_grab_focus(entry);
     GIOChannel *input = g_io_channel_unix_new(STDIN_FILENO);
-    g_io_add_watch(input, G_IO_HUP, eof, NULL);
+    g_io_add_watch(input, G_IO_IN | G_IO_HUP, command, NULL);
     printf("{\"event\":\"ready\",\"pid\":%ld}\n", (long)getpid()); fflush(stdout);
     gtk_main(); g_io_channel_unref(input); return 0;
 }
