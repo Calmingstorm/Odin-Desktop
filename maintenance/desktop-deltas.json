@@ -28328,6 +28328,47 @@
       ]
     },
     {
+      "after_sha256": "d32a04aec195b962dc8f86160cf8e5e4bf25fdf489ffd91f28b6048aff8efb17",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Query/cancel preserves admission; actual end invokes ordinary bounded Exit before session teardown",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "No session inhibition, replay, new authority or live desktop tests; missing integration fails open",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiRmFrZSBHTk9NRS9jaW5uYW1vbi1zZXNzaW9uIGJ1cyBzZXJ2aWNlOyBubyBsb2dvdXQgb3BlcmF0aW9uIG9uIGFueSBkZXNrdG9wLiIiIgojIEQtQnVzIGRlY29yYXRvcnMgdXNlIHNpZ25hdHVyZSBzdHJpbmdzLCBub3QgUHl0aG9uIGFubm90YXRpb25zLgojIHJ1ZmY6IG5vcWE6IE44MDIsIEY3MjIsIEY4MjEKaW1wb3J0IGFzeW5jaW8KaW1wb3J0IGpzb24KaW1wb3J0IHN5cwoKZnJvbSBkYnVzX25leHQgaW1wb3J0IE5hbWVGbGFnLCBSZXF1ZXN0TmFtZVJlcGx5CmZyb20gZGJ1c19uZXh0LmFpbyBpbXBvcnQgTWVzc2FnZUJ1cwpmcm9tIGRidXNfbmV4dC5zZXJ2aWNlIGltcG9ydCBTZXJ2aWNlSW50ZXJmYWNlLCBtZXRob2QsIHNpZ25hbAoKTkFNRSA9ICJvcmcuZ25vbWUuU2Vzc2lvbk1hbmFnZXIiClBBVEggPSAiL29yZy9nbm9tZS9TZXNzaW9uTWFuYWdlciIKQ0xJRU5UX1BBVEggPSBQQVRIICsgIi9DbGllbnQxIgoKCmNsYXNzIENsaWVudChTZXJ2aWNlSW50ZXJmYWNlKToKICAgIGRlZiBfX2luaXRfXyhzZWxmKToKICAgICAgICBzdXBlcigpLl9faW5pdF9fKE5BTUUgKyAiLkNsaWVudFByaXZhdGUiKQogICAgICAgIHNlbGYucmVzcG9uc2VzID0gW10KCiAgICBAbWV0aG9kKCkKICAgIGRlZiBFbmRTZXNzaW9uUmVzcG9uc2Uoc2VsZiwgb2s6ICdiJywgcmVhc29uOiAncycpOgogICAgICAgIHNlbGYucmVzcG9uc2VzLmFwcGVuZChbb2ssIHJlYXNvbl0pCgogICAgQHNpZ25hbCgpCiAgICBkZWYgUXVlcnlFbmRTZXNzaW9uKHNlbGYsIGZsYWdzPTApIC0+ICd1JzoKICAgICAgICByZXR1cm4gZmxhZ3MKCiAgICBAc2lnbmFsKCkKICAgIGRlZiBFbmRTZXNzaW9uKHNlbGYsIGZsYWdzPTApIC0+ICd1JzoKICAgICAgICByZXR1cm4gZmxhZ3MKCiAgICBAc2lnbmFsKCkKICAgIGRlZiBDYW5jZWxFbmRTZXNzaW9uKHNlbGYpOgogICAgICAgIHJldHVybiBOb25lCgogICAgQHNpZ25hbCgpCiAgICBkZWYgU3RvcChzZWxmKToKICAgICAgICByZXR1cm4gTm9uZQoKCmNsYXNzIE1hbmFnZXIoU2VydmljZUludGVyZmFjZSk6CiAgICBkZWYgX19pbml0X18oc2VsZik6CiAgICAgICAgc3VwZXIoKS5fX2luaXRfXyhOQU1FKQogICAgICAgIHNlbGYuY2xpZW50cyA9IFtdCgogICAgQG1ldGhvZCgpCiAgICBkZWYgUmVnaXN0ZXJDbGllbnQoc2VsZiwgYXBwOiAncycsIHN0YXJ0dXA6ICdzJykgLT4gJ28nOgogICAgICAgIHNlbGYuY2xpZW50cy5hcHBlbmQoW2FwcCwgc3RhcnR1cF0pCiAgICAgICAgcmV0dXJuIENMSUVOVF9QQVRICgoKYXN5bmMgZGVmIHNlcnZlKCk6CiAgICBmcm9tIHRlc3RzLmRlc2t0b3BfZml4dHVyZXMucHJpdmF0ZV9ub3RpZmljYXRpb25fc2VydmVyIGltcG9ydCBhc3NlcnRfaXNvbGF0ZWQKCiAgICBhc3NlcnRfaXNvbGF0ZWQoKQogICAgYnVzID0gYXdhaXQgTWVzc2FnZUJ1cygpLmNvbm5lY3QoKQogICAgY2xpZW50LCBtYW5hZ2VyID0gQ2xpZW50KCksIE1hbmFnZXIoKQogICAgYnVzLmV4cG9ydChQQVRILCBtYW5hZ2VyKQogICAgYnVzLmV4cG9ydChDTElFTlRfUEFUSCwgY2xpZW50KQogICAgaWYgYXdhaXQgYnVzLnJlcXVlc3RfbmFtZShOQU1FLCBOYW1lRmxhZy5ET19OT1RfUVVFVUUpICE9IFJlcXVlc3ROYW1lUmVwbHkuUFJJTUFSWV9PV05FUjoKICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoIlByaXZhdGUgc2Vzc2lvbi1tYW5hZ2VyIG5hbWUgYWxyZWFkeSBvd25lZCIpCiAgICBwcmludChqc29uLmR1bXBzKHsicmVhZHkiOiBUcnVlfSksIGZsdXNoPVRydWUpCiAgICByZWFkZXIgPSBhc3luY2lvLlN0cmVhbVJlYWRlcigpCiAgICB0cmFuc3BvcnQsIF8gPSBhd2FpdCBhc3luY2lvLmdldF9ydW5uaW5nX2xvb3AoKS5jb25uZWN0X3JlYWRfcGlwZSgKICAgICAgICBsYW1iZGE6IGFzeW5jaW8uU3RyZWFtUmVhZGVyUHJvdG9jb2wocmVhZGVyKSwgc3lzLnN0ZGluKQogICAgdHJ5OgogICAgICAgIHdoaWxlIGxpbmUgOj0gYXdhaXQgcmVhZGVyLnJlYWRsaW5lKCk6CiAgICAgICAgICAgIGFjdGlvbiA9IGpzb24ubG9hZHMobGluZSlbImFjdGlvbiJdCiAgICAgICAgICAgIGlmIGFjdGlvbiA9PSAicXVlcnkiOgogICAgICAgICAgICAgICAgY2xpZW50LlF1ZXJ5RW5kU2Vzc2lvbigwKQogICAgICAgICAgICBlbGlmIGFjdGlvbiA9PSAiY2FuY2VsIjoKICAgICAgICAgICAgICAgIGNsaWVudC5DYW5jZWxFbmRTZXNzaW9uKCkKICAgICAgICAgICAgZWxpZiBhY3Rpb24gPT0gImVuZCI6CiAgICAgICAgICAgICAgICBjbGllbnQuRW5kU2Vzc2lvbigwKQogICAgICAgICAgICBlbGlmIGFjdGlvbiA9PSAic3RvcCI6CiAgICAgICAgICAgICAgICBjbGllbnQuU3RvcCgpCiAgICAgICAgICAgIGVsaWYgYWN0aW9uID09ICJjbG9zZSI6CiAgICAgICAgICAgICAgICBicmVhawogICAgICAgICAgICBzdGF0ZSA9IHsiY2xpZW50cyI6IG1hbmFnZXIuY2xpZW50cywgInJlc3BvbnNlcyI6IGNsaWVudC5yZXNwb25zZXN9CiAgICAgICAgICAgIHByaW50KGpzb24uZHVtcHMoc3RhdGUpLCBmbHVzaD1UcnVlKQogICAgZmluYWxseToKICAgICAgICB0cmFuc3BvcnQuY2xvc2UoKQogICAgICAgIGJ1cy5kaXNjb25uZWN0KCkKCgppZiBfX25hbWVfXyA9PSAiX19tYWluX18iOgogICAgYXN5bmNpby5ydW4oc2VydmUoKSkK",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/desktop_fixtures/private_session_manager.py",
+      "reason": "Preserve merged main PR94 optional orderly logout fixture unchanged",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "app/test/e2e/session-logout.spec.ts": "708f73808b109ed0f4613b23b9b298a8da44921b19e3fbb1c2dc3a4d38ef8344",
+        "app/test/session-logout.test.ts": "a154992ad819839947f4e046dab9859a08e8f05b8d3fd306e755f34a77646122",
+        "tests/test_desktop_session_end.py": "d5534f4aca03c379b12a896eee0705790caff3066df42bc99a4cdea93d3a3039"
+      },
+      "tests": [
+        "app/test/e2e/session-logout.spec.ts",
+        "app/test/session-logout.test.ts",
+        "tests/test_desktop_session_end.py"
+      ]
+    },
+    {
       "after_sha256": "ea0420870789e6d78654649f63c5de4589db1b17c1d4b15b3d3b9c18247b737e",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
