@@ -8,22 +8,33 @@ P3.1 slice 3 connects the existing chat to them: transcript/search, guarded repl
 output, attachments/artifacts, and generation-bound Stop/Steer/Resume.
 P3.1 slice 4 adds the Skills/MCP screen integration, owner-only Odin-parity skill Test, browser qualification
 and separate next-use retry observations, plus retained computer management and exact-generation recovery.
-P3.1 slice 5 connects step-6B background work, schedules and stored reports to their actual core services. Foreground owner binding is integrated; native input qualification remains pending #98;
+P3.1 slice 5 connects step-6B background work, schedules and stored reports to their actual core services. Foreground owner binding is integrated;
 uncomposed services stay explicitly unavailable. Real-core sessions never substitute fixture rows, invented
 successful reads or endless loading indicators.
 The P3.1 slice-1 launch, authentication, status and durable event replay contracts remain, with P3.3 source-build
 lifecycle qualification for bounded shutdown, quiescing, unknown-cleanup journaling and core loss.
 This integration slice is not full P3.1 or release qualification.
 
-## Qualified environments (P3.6)
+## Supported environments for 1.0.0
 
-**No final D11 candidate is qualified yet.** The executable
+The app is supported on **Cinnamon/X11, GNOME/Wayland, KDE/Wayland and Hyprland**.
+**Computer use is supported on X11 only, at parity with Odin.** Wayland computer
+use is planned for **1.1**; until then the app refuses it with guidance. A supported
+Wayland app session does not imply supported native input.
+
+The [Linux release checklist](../docs/release/linux-v1-checklist.md) is the v1 gate,
+replacing the earlier P3.6/D11 release matrix under
+[Decision I](../docs/work/phase-3-app-v1.md#decision-i-lean-v1-release-gate).
+It requires candidate smoke checks on all four desktops and Aaron's real-use check
+and publication approval. This scope statement does not claim those checks passed.
+
+The historical executable
 [matrix](../maintenance/phase3-matrix.json) and
 [closure report](../maintenance/phase3-qualification.md) distinguish interim
-measurements from required acceptance. Cinnamon uses the documented Ubuntu
-24.04/X11 VM fallback, not Mint certification. GNOME 46/Wayland has no tray
-extension; Plasma 5.27/Wayland must prove its actual SNI tray, Secret Service and
-native portals/dialogs. Hyprland 0.53.3 runs in Ubuntu 26.04 and qualifies only its
+measurements from that matrix's historical acceptance requirements. Cinnamon uses the documented Ubuntu
+24.04/X11 VM fallback, not Mint certification. The GNOME 46/Wayland row has no tray
+extension; the Plasma 5.27/Wayland row specifies SNI tray, Secret Service and
+native portals/dialogs. The Hyprland 0.53.3 row runs in Ubuntu 26.04 and concerns its
 safe-target/recovery/containment subset, never the GNOME/KDE app rows. All rows
 are x86-64 virtual GPU lab scope. Xvfb/security/content regression passes do not
 qualify Orca, native input, physical GPUs, other distros or Aaron's desktop.
@@ -31,21 +42,22 @@ qualify Orca, native input, physical GPUs, other distros or Aaron's desktop.
 `node scripts/lifecycle-e2e.mjs desktop-security.spec.ts` exercises real Electron
 renderer enforcement/content behavior in the existing isolated source runner.
 `scripts/qualification/desktop.py` collects immutable packaged guest probes and
-validates per-row versions, hashes and closure. Final acceptance needs one build
-after P3.5 and the dependency fixes, plus the packaged lifecycle/ownership rerun.
+validates per-row versions, hashes and closure. These retained harnesses and
+reports are not additional v1 release blockers; the checklist defines the checks
+for the final candidate and the 1.1 follow-ups.
 
 ## User documentation and review status
 
-The [first-draft user guide](../README.md#user-guide-first-draft) covers installation, first run, chat/results,
+The [user guide](../README.md#user-guide) covers installation, first run, chat/results,
 settings, current work boundaries, recovery, updates and accessibility using merged `main` behavior only.
 Source/review watermarks and claim references are in
 [P4.4 validation](../maintenance/p44-user-docs-validation.md). The
 [documentation status](../docs/release/pending-user-docs.md) records the promotion
-of merged #37/#39/#40/#42 and remaining native dependencies. The
+of merged #37/#39/#40/#42 and historical native dependencies. The
 guides also cover merged #89 package fencing, #90/#94 session Exit and #95
 fresh Wayland launch and #96 bounded Exit during core startup.
-The [Linux release checklist](../docs/release/linux-v1-checklist.md) still requires P4.5,
-P4.6 and Aaron's explicit approvals. This documentation PR is not package or live acceptance.
+The [Linux release checklist](../docs/release/linux-v1-checklist.md) defines the current
+1.0.0 gate and Aaron's separate publication approval. These docs are not package or live acceptance.
 
 ## Build and test
 
@@ -316,8 +328,10 @@ inspect the exact older conversation/message in the renderer, including renderer
 acknowledgement service is explicitly a fixture: those notification tests do not qualify real delivery or requests,
 even though `main` now composes their core services. Background work and foreground computer
 binding are composed; backend-specific native qualification is still separate.
-Remaining D11/native and final installed-candidate gates are tracked under #59,
-#98 and #97, not silently qualified by these fixture tests. The continuation also
+The current final installed-candidate gate is the
+[Linux release checklist](../docs/release/linux-v1-checklist.md), not the historical
+D11/native matrix. #97 and #98 are harness follow-ups for 1.1; fixture passes do
+not become native evidence. The continuation also
 qualifies actual admitted credential-free management work across hide/Exit, original execution-owner escaped
 descendant cleanup, and real isolated X11 guardian-loss quarantine/no-replay. It does not upgrade missing
 native release proof into success. See

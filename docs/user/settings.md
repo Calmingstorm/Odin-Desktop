@@ -159,21 +159,25 @@ to repeat a submission whose outcome is unknown.
 ### Check computer use without granting input
 
 Open **Settings → Records → Computer use → Refresh** to request current status.
-Read management availability, the foreground-unavailable reason, and any reported
+Read management availability, any foreground refusal reason, and any reported
 session's ID, generation, state and recovery result. **No computer-use session is
 reported** is not proof of input release or verified cleanup. A failed refresh
 may leave **Showing the last read**; that is not fresh evidence.
 
-The current core provides computer management, but does not publish usable
-foreground mouse/keyboard input. Turning computer use on does not start a native
-desktop session, grant consent or make an unsupported backend usable. Only its enabled flag can
-be changed through the current management service; other native configuration
+For **1.0.0**, the app supports Cinnamon/X11, GNOME/Wayland, KDE/Wayland and
+Hyprland, but **computer use is supported on X11 only, at parity with Odin**.
+Wayland computer use is planned for **1.1**; until then the app refuses it with
+guidance. Read the actual session readiness and any refusal reason. Turning
+computer use on does not start a native desktop session, grant consent or make an
+unsupported backend usable. Only its enabled flag can be changed through the
+current management service; other native configuration
 changes are refused. This screen is not a start/resume-input workflow. For a
 recovery warning, follow [Computer-input safety](recovery.md#computer-input-safety).
 
-Native input containment and quarantine qualification is **pending: #98**.
-Remaining native lifecycle rows are **pending: #59**; the final
-Phase 3 matrix is **pending: #97**. These gates do not grant foreground input.
+The [Linux release checklist](../release/linux-v1-checklist.md) defines the current
+release gate, replacing the earlier Phase 3/native matrix. #97 and #98 are
+harness follow-ups for 1.1, not additional v1 release blockers. Neither a release
+check nor this management screen grants foreground input consent.
 
 ## Skills and MCP servers
 

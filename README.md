@@ -23,9 +23,12 @@ D1 to D16 are in the brief. Work follows [`CONTRIBUTING.md`](CONTRIBUTING.md). W
 
 Start with [`docs/design/00-brief.md`](docs/design/00-brief.md).
 
-## User guide, first draft
+## User guide
 
-These are **unreleased implementation docs**, not a release announcement or final acceptance certificate.
+These guides describe the **1.0.0 scope**, not a release announcement or a claim that final checks passed.
+The app is supported on **Cinnamon/X11, GNOME/Wayland, KDE/Wayland and Hyprland**.
+**Computer use is supported on X11 only, at parity with Odin.** Wayland computer use is planned for **1.1**;
+until then the app refuses it with guidance. Wayland app support is not computer-use support.
 Start with [Installation](docs/user/install.md), then [First run](docs/user/first-run.md).
 
 | Guide | Covers |
@@ -36,7 +39,7 @@ Start with [Installation](docs/user/install.md), then [First run](docs/user/firs
 | [Recovery](docs/user/recovery.md) | Missing receipts, keyring/core failures, unknown effects and quarantine |
 | [Updates](docs/user/updates.md) | GitHub Releases, manual upgrades, compatibility and maintenance |
 | [Accessibility](docs/user/accessibility.md) | Keyboard tasks, screen-reader expectations and desktop limits |
-| [Linux release checklist](docs/release/linux-v1-checklist.md) | P4.5/P4.6 gates and required owner approvals |
+| [Linux release checklist](docs/release/linux-v1-checklist.md) | 1.0.0 release checks, supported scope and publication approval |
 
 Desktop runs its own local engine and profile. Managed SSH is supported; a phone client, client for an existing
 Odin server, and import of an Odin installation are **not** Linux v1 features. An alongside install does not adopt
@@ -53,17 +56,18 @@ guidance and remaining dependencies. Background work, schedules/reports,
 provider/knowledge/record administration, ingress and manual release notices
 now describe merged services. So do orderly shutdown/reboot/logout, fresh
 Wayland launch, boot-scoped package-change fences and bounded Exit during core
-startup (#96); native qualification and release approval remain separate gates.
+startup (#96). The release checklist is the current gate; historical native
+qualification reports do not certify the final candidate.
 
 The upstream review remains **baseline only** at Odin v4.13.0; later changes are
 not implied. Full internal identities are in the validation and
 [baseline record](maintenance/baseline.md). A green test count does not prove an
 identical engine, current upstream parity, native qualification or release approval.
 
-Final procedures still require immutable isolated candidates under
-[P4.4 to P4.6](docs/work/phase-3-app-v1.md), and the
-[release checklist](docs/release/linux-v1-checklist.md) retains Aaron's approvals.
-This draft does not authorize active-desktop testing or publication.
+The [release checklist](docs/release/linux-v1-checklist.md) supersedes the earlier
+Phase 3/4 release blockers under [Decision I](docs/work/phase-3-app-v1.md#decision-i-lean-v1-release-gate).
+It requires evidence for the exact candidate and Aaron's separate publication approval.
+These guides do not authorize active-desktop testing or publication.
 
 ## How we work
 

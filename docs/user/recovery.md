@@ -184,14 +184,15 @@ repeatedly start copies. Forced termination is not a clean shutdown receipt.
 ### Read the retained session
 
 1. Open **Settings → Records → Computer use → Refresh**. This requests status,
-   not mouse/keyboard input. Read management availability and the explicit
-   foreground-unavailable state. A reported session shows its exact ID, generation,
+   not mouse/keyboard input. Read management availability and any foreground
+   refusal reason. A reported session shows its exact ID, generation,
    state and recovery reason/result. No session reported is not proof of release
    or cleanup. A failed refresh may leave **Showing the last read**; that is not
    fresh evidence. Preserve those identities and errors for support.
-2. Foreground/native input remains unavailable and unqualified. The request-owner
-   binding shares the retained controller, but does not create native input or
-   publish a usable input capability. An enabled setting or a status read does
+2. **1.0.0 supports computer use on X11 only, at parity with Odin.** The app itself
+   supports Cinnamon/X11, GNOME/Wayland, KDE/Wayland and Hyprland. Wayland computer
+   use is planned for **1.1**; until then the app refuses it with guidance.
+   The request-owner binding and a status read do
    not establish backend support, consent or permission to start/resume input.
 3. A quarantined session can offer **Reconcile** when management is available.
    This inspects recorded runtime recovery for that exact session/generation; it
@@ -207,10 +208,11 @@ fresh-target/renewed-consent input workflow or permission to replay partial work
 An acknowledgment made by an operator is not proof that the receiving application
 released input, even if a retained session is closed.
 
-Native containment/quarantine qualification is **pending: #98**;
-remaining native lifecycle rows are **pending: #59**, and the final
-Phase 3 matrix is **pending: #97**. The backend limits below explain retained
-recovery evidence; they are not a supported start-input procedure.
+The [Linux release checklist](../release/linux-v1-checklist.md) is the current
+release gate, replacing the earlier Phase 3/native matrix. #97 and #98 are
+harness follow-ups for 1.1. The backend limits below explain retained recovery
+evidence, including historical Hyprland records; they do not enable Wayland
+input in v1 or provide a start-input procedure.
 
 If a resource is quarantined or its input release is unknown, stop. Do not inject
 another key press or mouse release to test it; that can interfere with a person's
@@ -225,8 +227,9 @@ helpers as a diagnosis step.
   of its owned input. Abrupt loss of the sole guardian can lose that record. There
   is no universal server-side release guarantee; a vanished helper is not proof
   that the mouse or keyboard released.
-- **Hyprland:** a confirmed release may mean only that the guardian's input record
-  was drained and local resources closed, without compositor acknowledgment. That
+- **Hyprland (Wayland input deferred to 1.1):** a confirmed release may mean only
+  that the guardian's input record was drained and local resources closed, without
+  compositor acknowledgment. That
   is not compositor or receiving-application proof. Native scoped targets and
   safe same-process dialogs need fresh observations; XWayland and ambiguous
   surfaces are not made safe by a recovery action.
