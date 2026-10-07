@@ -39,3 +39,25 @@ the actual numeric value and the test types through the rendered control.
 
 Aaron explicitly overrode the brief's no-agent restriction. Focused agents wrote
 disjoint test files and audited the instrumentation. No VM or lab work occurred.
+
+## Coverage baseline and first instrumented CI
+
+Comparable pristine base measurement used an independent worktree, identical
+sysmon/subprocess instrumentation, five unchanged classified shards plus extras:
+**64,491 / 74,498 Python lines, 86.5674%**. It ran 19,888 cases:
+19,884 passed, three skipped, one failed. The unchanged private portal socket test
+disconnected at its final close (`test_computer_wayland_portal_r10.py:272`,
+`EOFError: portal helper disconnected`). This measurement is not a green baseline
+test receipt. Logs and initial CTracer failures are retained, not hidden or retried
+until green. The first unchanged hosted PR run above was green.
+
+App before: **4,941 / 7,326, 67.4447%**, unchanged existing unit corpus.
+
+Instrumented CI at `40867040ecbc2bc9c9bb970b161b8e26fed44aa3`, run
+`37692919080`: all eight original jobs passed. The new strict ratchet failed:
+Python 64,522 / 74,498 versus the local initial ceiling's 64,525 covered lines;
+`src/__main__.py`, `src/cli.py`, `src/tools/browser.py` lost locally covered paths.
+The gate correctly refused them. Deterministic behavior tests cover those paths
+instead of lowering the baseline or adding tolerance. App CI measured
+**6,952 / 7,326, 94.8949%**. Every one of the 167 requested executable targets
+was already above 80% in that run; no native/hardware exceptions are used.
