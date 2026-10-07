@@ -28178,15 +28178,15 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "D11 cleanup truth and retained native reconciliation; source-build lifecycle qualification",
+      "contract": "D11 cleanup truth and retained native reconciliation; source-build lifecycle qualification | Teardown calls retained original owners and persists truthful current/prior resource evidence; source fixtures qualify actual harmless effects, escaped descendants and native X11 release/quarantine without adding production methods",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Unresolved original quarantine remains unknown and reconciliation_required; no release upgrade, input replay, extra controller or weakened e2e assertion",
+      "invariant": "Unresolved original quarantine remains unknown and reconciliation_required; no release upgrade, input replay, extra controller or weakened e2e assertion | No change to original ProcessRegistry, Guardian, ComputerController/Store or owner authority; no native replay/false release/extra admin approvals; cancellation and unknown evidence remain fenced",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
-      "owner": "Odin native reconciliation regression",
+      "owner": "Odin",
       "patch": [
         {
           "end": 0,
@@ -28196,7 +28196,7 @@
         }
       ],
       "path": "tests/desktop_fixtures/native_reconciliation_entry.py",
-      "reason": "PR37 foreground startup overwrote the native-loss fixture dispatcher injection with a different management store; bind the dormant original controller at the management seam before startup",
+      "reason": "PR37 foreground startup overwrote the native-loss fixture dispatcher injection with a different management store; bind the dormant original controller at the management seam before startup | Merge of #48 with main: P3.3 source lifecycle continuation: admitted management, original descendant owner settlement and native unknown-resource recovery; PR32/main integration behavioral evidence expanded in tests/test_desktop_resource_cleanup.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence | 6A provenance: P3.3 source lifecycle continuation: admitted management, original descendant owner settlement and native unknown-resource recovery; PR32/main integration behavioral evidence expanded in tests/test_desktop_resource_cleanup.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence  Main2 final evidence: Native reconciliation fixture bytes unchanged; added management-level unknown-outcome regressions preserve reconciliation evidence without retry. | Parent revalidates the named main/6A merge and refreshed evidence bytes; all records remain pending independent review. | PR48 round1 exact merged bytes and evidence revalidated; not independent approval. | Merge of #58 with main: Merge of #42 with step 6B and main #40: P3.3 source lifecycle continuation: admitted management, original descendant owner settlement and native unknown-resource recovery; PR32/main integration behavioral evidence expanded in tests/test_desktop_resource_cleanup.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence  Main lifecycle integration from 0b7d596f; preserve main-only source adaptation and named test evidence. | P3.3 source lifecycle continuation: admitted management, original descendant owner settlement and native unknown-resource recovery; PR32/main integration behavioral evidence expanded in tests/test_desktop_resource_cleanup.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence | Merged origin/main contract: P3.3 source lifecycle continuation: admitted management, original descendant owner settlement and native unknown-resource recovery; PR32/main integration behavioral evidence expanded in tests/test_desktop_resource_cleanup.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence  Main2 final evidence: Native reconciliation fixture bytes unchanged; added management-level unknown-outcome regressions preserve reconciliation evidence without retry. | Latest main contract: P3.3 source lifecycle continuation: admitted management, original descendant owner settlement and native unknown-resource recovery; PR32/main integration behavioral evidence expanded in tests/test_desktop_resource_cleanup.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence  Main2 final evidence: Native reconciliation fixture bytes unchanged; added management-level unknown-outcome regressions preserve reconciliation evidence without retry.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -28204,12 +28204,16 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/desktop_fixtures/native_reconciliation_entry.py": "bec3e0ed5f967a37c71cf47ec55f06baf5f5d33f3f09dbf34a43d28b42980034",
+        "app/test/e2e/admitted-work.spec.ts": "f1a9162c87fa5b64d74556935d47f3e503d97444c41ed2b29aa798f966ef815a",
+        "app/test/e2e/execution-containment.spec.ts": "a957c3a2ccd511365f124f0184f879f78be5e8791088072b39d4e1b16d7e20e4",
+        "app/test/e2e/native-reconciliation.spec.ts": "ba4837b5084bfda2b90d8b7a577bf344c1aaf18277b48ce7f01414f1549661e8",
         "tests/test_desktop_native_reconciliation_fixture.py": "3c829d7ff6203783849e262c45b2d0d693a0426f7737c6dfdcf0a149f59d4eb1",
         "tests/test_desktop_resource_cleanup.py": "e03e3d2be6d0f3882622ce1cf44751f4aa92cf2761bf1aadf1a184621bffd89d"
       },
       "tests": [
-        "tests/desktop_fixtures/native_reconciliation_entry.py",
+        "app/test/e2e/admitted-work.spec.ts",
+        "app/test/e2e/execution-containment.spec.ts",
+        "app/test/e2e/native-reconciliation.spec.ts",
         "tests/test_desktop_native_reconciliation_fixture.py",
         "tests/test_desktop_resource_cleanup.py"
       ]
@@ -34332,7 +34336,7 @@
       "invariant": "Unresolved original quarantine remains unknown and reconciliation_required; no release upgrade, input replay, extra controller or weakened e2e assertion",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
-      "owner": "Odin native reconciliation regression",
+      "owner": "Odin",
       "patch": [
         {
           "end": 0,
