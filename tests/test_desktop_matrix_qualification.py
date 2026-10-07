@@ -16,7 +16,7 @@ SPEC.loader.exec_module(driver)
 
 def matrix():
     candidate = {'source_sha': 'a' * 40, 'package_sha256': 'b' * 64,
-                 'architecture': 'x86-64'}
+                 'architecture': 'x86-64', 'package_bytes': 128, 'format': 'deb'}
     rows = []
     for name in driver.ROWS:
         environment = dict.fromkeys(driver.ENVIRONMENT, 'measured-version')
@@ -34,10 +34,36 @@ def matrix():
     return {'candidate': candidate, 'rows': rows, 'final_run': True, 'gates': gates}
 
 
-def test_complete_accounting_is_ready_not_release_authority():
+def test_complete_accounting_is_not_verified_evidence_or_release_authority():
     result = driver.validate_matrix(matrix())
-    assert result['valid'] and result['ready']
+    assert result['valid'] and not result['ready']
+    assert not result['artifacts_verified']
     assert 'not Aaron live acceptance' in result['scope']
+
+
+def test_actual_manifest_verification_required_before_readiness(tmp_path):
+    value = matrix()
+    for row in value['rows']:
+        directory = tmp_path / row['row']
+        directory.mkdir()
+        proof = directory / 'proof.json'
+        proof.write_text(json.dumps({'actual': 'result'}))
+        row['artifacts'][0]['sha256'] = driver.digest(proof)
+    result = driver.validate_matrix(value, tmp_path)
+    assert result['ready'] and result['artifacts_verified']
+    (tmp_path / 'kde' / 'proof.json').write_text('modified')
+    assert not driver.validate_matrix(value, tmp_path)['ready']
+
+
+def test_reuse_requires_identical_candidate_and_environment():
+    value = matrix()
+    row = value['rows'][0]
+    case = row['cases']['keyboard_orca']
+    case['reused_from'] = {'candidate': row['candidate'],
+                           'environment': copy.deepcopy(row['environment'])}
+    assert driver.validate_matrix(value)['valid']
+    case['reused_from']['environment']['kernel'] = 'different'
+    assert not driver.validate_matrix(value)['valid']
 
 
 @pytest.mark.parametrize('name', driver.ROWS)

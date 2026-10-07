@@ -15,6 +15,25 @@ The P3.1 slice-1 launch, authentication, status and durable event replay contrac
 lifecycle qualification for bounded shutdown, quiescing, unknown-cleanup journaling and core loss.
 This integration slice is not full P3.1 or release qualification.
 
+## Qualified environments (P3.6)
+
+**No final D11 candidate is qualified yet.** The executable
+[matrix](../maintenance/phase3-matrix.json) and
+[closure report](../maintenance/phase3-qualification.md) distinguish interim
+measurements from required acceptance. Cinnamon uses the documented Ubuntu
+24.04/X11 VM fallback, not Mint certification. GNOME 46/Wayland has no tray
+extension; Plasma 5.27/Wayland must prove its actual SNI tray, Secret Service and
+native portals/dialogs. Hyprland 0.53.3 runs in Ubuntu 26.04 and qualifies only its
+safe-target/recovery/containment subset, never the GNOME/KDE app rows. All rows
+are x86-64 virtual GPU lab scope. Xvfb/security/content regression passes do not
+qualify Orca, native input, physical GPUs, other distros or Aaron's desktop.
+
+`node scripts/lifecycle-e2e.mjs desktop-security.spec.ts` exercises real Electron
+renderer enforcement/content behavior in the existing isolated source runner.
+`scripts/qualification/desktop.py` collects immutable packaged guest probes and
+validates per-row versions, hashes and closure. Final acceptance needs one build
+after P3.5 and the dependency fixes, plus the packaged lifecycle/ownership rerun.
+
 ## User documentation and review status
 
 The [first-draft user guide](../README.md#user-guide-first-draft) covers installation, first run, chat/results,

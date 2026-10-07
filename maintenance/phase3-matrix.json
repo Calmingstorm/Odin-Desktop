@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "scope": "P3.6 isolated x86-64 D11 qualification, not release or live acceptance",
+  "final_run": false,
+  "candidate": null,
+  "artifact_root": "/mnt/storage/odin-desktop-evidence/p36-20261007",
+  "rows": [
+    {
+      "row": "cinnamon", "status": "pending", "candidate": null, "environment": {}, "artifacts": [],
+      "limitation": "Ubuntu 24.04 Cinnamon/X11 fallback, not Mint or physical NVIDIA qualification. Await p36 lock.",
+      "cases": {
+        "rendering": {"status": "pending"}, "keyboard_orca": {"status": "pending"},
+        "renderer_security": {"status": "pending"}, "tray_no_tray": {"status": "pending"},
+        "notifications": {"status": "pending"}, "startup_exit_parent_loss": {"status": "pending"},
+        "content_paging": {"status": "pending"}, "focus_resize_scaling_recovery": {"status": "pending"},
+        "native_dialogs": {"status": "pending"}, "computer": {"status": "pending"}
+      }
+    },
+    {
+      "row": "gnome", "status": "pending", "candidate": null, "environment": {}, "artifacts": [],
+      "limitation": "GNOME 46 Wayland with no tray extension. Prior hash evidence cannot qualify this candidate.",
+      "cases": {
+        "rendering": {"status": "pending"}, "keyboard_orca": {"status": "pending"},
+        "renderer_security": {"status": "pending"}, "tray_no_tray": {"status": "pending"},
+        "notifications": {"status": "pending"}, "startup_exit_parent_loss": {"status": "pending"},
+        "content_paging": {"status": "pending"}, "focus_resize_scaling_recovery": {"status": "pending"},
+        "native_dialogs": {"status": "pending"}, "computer": {"status": "pending"},
+        "no_tray_reopen_exit": {"status": "pending"}
+      }
+    },
+    {
+      "row": "kde", "status": "pending", "candidate": null, "environment": {}, "artifacts": [],
+      "limitation": "Plasma 5.27 Wayland; earlier Qt native-dialog AT-SPI blocker is not waived or toolkit-substituted.",
+      "cases": {
+        "rendering": {"status": "pending"}, "keyboard_orca": {"status": "pending"},
+        "renderer_security": {"status": "pending"}, "tray_no_tray": {"status": "pending"},
+        "notifications": {"status": "pending"}, "startup_exit_parent_loss": {"status": "pending"},
+        "content_paging": {"status": "pending"}, "focus_resize_scaling_recovery": {"status": "pending"},
+        "native_dialogs": {"status": "pending"}, "computer": {"status": "pending"},
+        "sni_tray": {"status": "pending"}, "kwallet_secret_service": {"status": "pending"},
+        "portal_dialogs": {"status": "pending"}
+      }
+    },
+    {
+      "row": "hyprland", "status": "pending", "candidate": null, "environment": {}, "artifacts": [],
+      "limitation": "Ubuntu 26.04, Hyprland 0.53.3 lab. Await P3.5 identical-candidate evidence; not app desktop coverage.",
+      "cases": {
+        "safe_targets": {"status": "pending"}, "recovery_containment": {"status": "pending"},
+        "packaged_helpers": {"status": "pending"}, "computer": {"status": "pending"}
+      }
+    }
+  ],
+  "gates": {
+    "ui_parity": {"status": "in_progress", "evidence": ["maintenance/p31-slice6-validation.md", "maintenance/phase3-accessibility.md"], "detail": "Merged real-core/UI slices, not complete native UI parity or final candidate evidence."},
+    "p31": {"status": "in_progress", "evidence": ["maintenance/p31-slice6-validation.md", "maintenance/p31-slice5-validation.md"], "detail": "Merged source integration slices; full step 7/native acceptance remains open."},
+    "p32": {"status": "done", "evidence": ["maintenance/p32-onboarding-validation.md"], "detail": "Merged source real-core first-run-to-ready/retry contracts, not current package keyring acceptance."},
+    "p33": {"status": "in_progress", "evidence": ["maintenance/phase3-lifecycle.md", "https://github.com/Calmingstorm/Odin-Desktop/pull/59"], "detail": "Native final packaged lifecycle in progress. #89/#94/#95 merged, previous candidate evidence is not reused."},
+    "p34": {"status": "blocked", "evidence": ["maintenance/phase3-orca-runner.md", "maintenance/phase3-accessibility.md"], "detail": "Source keyboard gates pass; KDE native Qt chooser AT-SPI remains a recorded blocker; identical-candidate Orca matrix missing."},
+    "p35": {"status": "in_progress", "evidence": ["/home/odin/reviews/desktop-p35-native-input.md"], "detail": "Separate active lane owns computer.py/native receiver/quarantine rows. No stub or another candidate accepted."},
+    "p42": {"status": "in_progress", "evidence": ["maintenance/phase4-packaging.md", "https://github.com/Calmingstorm/Odin-Desktop/pull/89"], "detail": "13 earlier actual package ownership rows passed; boot-scoped fence corrected in #89. Current candidate ownership/upgrade and lifecycle rerun pending."},
+    "phase2_suites": {"status": "done", "evidence": ["maintenance/phase2-suite-map.json", "maintenance/phase2-step8-part6-cases.json", "/mnt/storage/odin-desktop-evidence/p36-20261007/phase2-closure-inventory.json"], "detail": "326 dispositions: 99 restored, 77 retired, 150 named deferrals under Aaron decision 3 (2026-10-06). Zero missing final dispositions. This does not claim deferred suites passed."},
+    "d19": {"status": "done", "evidence": ["maintenance/phase2-d19-closure.json", "/mnt/storage/odin-desktop-evidence/p36-20261007/d19-inventory.json"], "detail": "Actual section-4 inventory is 50 rows, not 52: 19 removed/restored, 23 internal unreachable, 8 Aaron-approved behavioral; zero open wording rows."},
+    "runtime_fresh_host": {"status": "in_progress", "evidence": ["maintenance/fresh-profile-parity.json", "maintenance/step8-fresh-profile-parity.md", "maintenance/phase4-packaging.md"], "detail": "Static fresh-profile parity valid and dynamic extraction contracts exist. Not current-candidate fresh-host native/helper/runtime acceptance."},
+    "final_candidate": {"status": "blocked", "evidence": ["/home/odin/reviews/desktop-p36-matrix.md", "https://github.com/Calmingstorm/Odin-Desktop/pull/59"], "detail": "Interim harness candidate only. P3.5 not merged; final one-candidate all-row run must follow that merge and packaged P4.2 rerun."}
+  }
+}

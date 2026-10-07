@@ -28,7 +28,7 @@ def main():
              'odq-kde': ('plasma-workspace', 'kwin-wayland')}
     desktop, compositor = names[vm]
     manifest = json.loads(Path('/opt/Odin/resources/bundle-manifest.json').read_text())
-    python = command('/opt/Odin/resources/runtime/python/bin/python3', '--version')
+    python = command('/opt/Odin/resources/runtime/python/bin/python3', '-I', '-B', '--version')
     driver = []
     for path in Path('/sys/class/drm').glob('card*/device/driver'):
         driver.append(path.resolve().name)
@@ -43,14 +43,16 @@ def main():
         'electron': 'pending measured Electron probe',
         'chromium': 'pending measured Chromium probe',
         'python': python,
-        'helpers': [item for item in manifest['inputs'] if item.get('kind') == 'helpers'
-                    or 'helpers' in json.dumps(item)],
+        'helpers': [{'path': item['path'], 'sha256': item['sha256']}
+                    for item in manifest['files'] if 'helpers/bin/' in item['path']],
         'session_environment': {name: os.environ.get(name, '') for name in (
             'XDG_CURRENT_DESKTOP', 'XDG_SESSION_TYPE', 'WAYLAND_DISPLAY', 'DISPLAY')},
         'graphics_packages': {name: version for name, version in records.items()
                               if any(key in name for key in
                                      ('mesa', 'virgl', 'libdrm', 'xserver-xorg'))},
         'package_source_sha': manifest['source']['commit'],
+        'gnome_extensions': command('gsettings', 'get', 'org.gnome.shell', 'enabled-extensions')
+        if vm == 'odq-gnome' else 'not GNOME',
     }
     print(json.dumps(info, indent=2))
 

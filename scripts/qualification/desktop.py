@@ -14,6 +14,7 @@ import json
 import re
 import subprocess
 import tarfile
+import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -68,6 +69,8 @@ def validate_row(row: dict, candidate: dict) -> list[str]:
     if not isinstance(row.get('limitation'), str) or not row['limitation'].strip():
         errors.append('explicit scope/limitation required')
     if status in ('proven', 'limited'):
+        if not isinstance(candidate, dict):
+            errors.append('measured row needs candidate identity')
         if row.get('candidate') != candidate:
             errors.append('candidate identity mismatch')
         environment = row.get('environment', {})
@@ -87,6 +90,12 @@ def validate_row(row: dict, candidate: dict) -> list[str]:
         if case.get('status') in ('proven', 'limited'):
             if not case.get('evidence') or not case.get('command'):
                 errors.append(f'case lacks evidence/command: {key}')
+            reused = case.get('reused_from')
+            if reused is not None and (
+                reused.get('candidate') != candidate
+                or reused.get('environment') != row.get('environment')
+            ):
+                errors.append(f'reused evidence candidate/environment mismatch: {key}')
         if status == 'proven' and case.get('status') != 'proven':
             errors.append(f'unqualified required case: {key}')
     return errors
@@ -119,6 +128,8 @@ def validate_matrix(matrix: dict, artifact_root: Path | None = None) -> dict:
                 errors.append(f'invalid candidate {key}')
         if candidate.get('architecture') != 'x86-64':
             errors.append('only x86-64 qualified')
+        if candidate.get('package_bytes', 0) <= 0 or candidate.get('format') != 'deb':
+            errors.append('candidate bytes/format required')
     rows = matrix.get('rows', [])
     if sorted(row.get('row', '') for row in rows) != sorted(ROWS):
         errors.append('exactly four distinct D11 rows required')
@@ -135,10 +146,12 @@ def validate_matrix(matrix: dict, artifact_root: Path | None = None) -> dict:
             errors.append(f'missing/invalid gate: {name}')
         if not gate.get('evidence') or not gate.get('detail'):
             errors.append(f'gate requires inventory/evidence: {name}')
-    ready = (not errors and candidate is not None and matrix.get('final_run') is True
+    ready = (not errors and artifact_root is not None and candidate is not None
+             and matrix.get('final_run') is True
              and all(row.get('status') == 'proven' for row in rows)
              and all(gates.get(name, {}).get('status') == 'done' for name in needed))
     return {'valid': not errors, 'ready': ready, 'errors': errors,
+            'artifacts_verified': artifact_root is not None and not errors,
             'scope': 'D11 evidence accounting, not Aaron live acceptance or release permission'}
 
 
@@ -151,7 +164,8 @@ def run(*argv: str, timeout: int = 180) -> str:
 def admit(vm: str) -> None:
     if vm not in ('odq-cinnamon', 'odq-gnome', 'odq-kde'):
         raise ValueError('Hyprland consumes identical-candidate P3.5 evidence, not an app row')
-    if not LOCK.is_file() or not LOCK.read_text().startswith('p36 '):
+    if (LOCK.is_symlink() or not LOCK.is_file() or LOCK.stat().st_uid != 0
+            or not LOCK.read_text().startswith('p36 ')):
         raise ValueError('Acquire the cross-lane p36 lab lock first')
     instances = json.loads(run('sudo', '-n', 'incus', 'list', '--format=json'))
     # Existing reviewed lab ownership/device/capacity checks remain binding.
@@ -184,8 +198,14 @@ def validate_tools(path: Path) -> None:
                 if archive.extractfile(item).read() != source.read_bytes():
                     raise ValueError('Guest runner differs from reviewed checkout')
                 seen.add(item.name)
-            elif not item.name.startswith('node_modules/playwright'):
+            elif (len(name.parts) < 2 or name.parts[0] != 'node_modules'
+                  or name.parts[1] not in ('playwright', 'playwright-core')):
                 raise ValueError('Unrecognized guest tooling entry')
+            elif item.isfile():
+                source = ROOT / 'app' / name
+                if (source.is_symlink() or not source.is_file()
+                        or archive.extractfile(item).read() != source.read_bytes()):
+                    raise ValueError('Guest Playwright differs from locked local dependencies')
     if seen != expected:
         raise ValueError('Incomplete guest tools')
 
@@ -211,6 +231,8 @@ def pack_tools(output: Path) -> None:
 
 def collect(args) -> int:
     candidate = args.candidate.resolve(strict=True)
+    if args.candidate.is_symlink():
+        raise ValueError('Candidate symlink refused')
     candidate_id = identity(candidate, args.source_sha)
     validate_tools(args.tools)
     output = args.output.resolve()
@@ -222,7 +244,14 @@ def collect(args) -> int:
 
     def execute(*argv, timeout=180):
         commands.append(list(argv))
-        text = run(*argv, timeout=timeout)
+        try:
+            text = run(*argv, timeout=timeout)
+        except subprocess.CalledProcessError as exc:
+            with (output / 'runner.log').open('a') as stream:
+                stream.write(json.dumps(list(argv)) + '\n' + (exc.stdout or '')
+                             + f'\nFAILED exit={exc.returncode}\n')
+            print(exc.stdout or '', end='', flush=True)
+            raise
         print(text, end='', flush=True)
         with (output / 'runner.log').open('a') as stream:
             stream.write(json.dumps(list(argv)) + '\n' + text)
@@ -231,42 +260,57 @@ def collect(args) -> int:
     started = False
     cleanup = 'not started'
     failure = None
+    probe_command = []
+    guest_root = '/var/tmp/p36-' + uuid.uuid4().hex
     try:
         execute('sudo', '-n', 'python3', str(ROOT / 'scripts/qualification/lab/lab.py'),
                 'start', args.vm, timeout=240)
         started = True
         execute('sudo', '-n', 'incus', 'file', 'push', str(candidate),
                 f'{args.vm}/var/tmp/p36-candidate.deb', timeout=300)
+        transported = execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'sha256sum',
+                              '/var/tmp/p36-candidate.deb').split()[0]
+        if transported != candidate_id['package_sha256']:
+            raise ValueError('Transported candidate hash mismatch; no installation')
+        execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'env',
+                'DEBIAN_FRONTEND=noninteractive', 'apt-get', 'install', '-y', 'nodejs',
+                timeout=300)
         execute('sudo', '-n', 'incus', 'exec', args.vm, '--', '/root/odq/sessrun',
                 'odin-desktop', '--exit')
         execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'dpkg', '-i',
                 '/var/tmp/p36-candidate.deb', timeout=300)
         execute('sudo', '-n', 'incus', 'file', 'push', str(args.tools.resolve(strict=True)),
                 f'{args.vm}/var/tmp/p36-tools.tar', timeout=180)
-        execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'mkdir', '-p', '/var/tmp/p36-tools')
+        execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'mkdir', guest_root)
         execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'tar', '-xf',
-                '/var/tmp/p36-tools.tar', '-C', '/var/tmp/p36-tools')
+                '/var/tmp/p36-tools.tar', '-C', guest_root)
         execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'chown', '-R',
-                'odq:odq', '/var/tmp/p36-tools')
+                'odq:odq', guest_root)
         # Guest-only package installation; no host apt, desktop capture or input.
-        execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'apt-get', 'install',
-                '-y', 'nodejs', timeout=300)
         env = execute('sudo', '-n', 'incus', 'exec', args.vm, '--', '/root/odq/sessrun',
-                      'python3', '/var/tmp/p36-tools/environment.py', args.vm)
+                      'python3', guest_root + '/environment.py', args.vm)
         (output / 'environment.json').write_text(env)
         # The actual candidate verifies its own sealed bundle. The helper checks
         # the manifest source against the caller's declared candidate identity.
-        execute('sudo', '-n', 'incus', 'exec', args.vm, '--', '/root/odq/sessrun',
-                'node', '/var/tmp/p36-tools/desktop-guest.cjs', args.source_sha, timeout=240)
+        probe_command = ['sudo', '-n', 'incus', 'exec', args.vm, '--', '/root/odq/sessrun',
+                         'node', guest_root + '/desktop-guest.cjs', args.source_sha]
+        execute(*probe_command, timeout=240)
         for name in ('probe.json', 'renderer.png'):
             execute('sudo', '-n', 'incus', 'file', 'pull',
-                    f'{args.vm}/var/tmp/p36-tools/{name}', str(output / name))
+                    f'{args.vm}{guest_root}/{name}', str(output / name))
     except (subprocess.SubprocessError, ValueError, OSError) as exc:
         failure = str(exc)
         (output / 'failure.txt').write_text(failure + '\n')
     finally:
         if started:
             try:
+                for name in ('probe.json', 'renderer.png'):
+                    if not (output / name).exists():
+                        try:
+                            execute('sudo', '-n', 'incus', 'file', 'pull',
+                                    f'{args.vm}{guest_root}/{name}', str(output / name))
+                        except subprocess.SubprocessError:
+                            pass
                 execute('sudo', '-n', 'python3', str(ROOT / 'scripts/qualification/lab/lab.py'),
                         'stop', args.vm, timeout=240)
                 cleanup = 'graceful guest poweroff confirmed; no host graphical input/capture'
@@ -274,20 +318,29 @@ def collect(args) -> int:
                 cleanup = f'UNKNOWN: {exc}; retain lab lock, no automatic retry'
     row = {'row': args.vm[4:], 'status': 'blocked' if failure else 'limited',
            'candidate': candidate_id, 'environment': {}, 'cases': {}, 'commands': commands,
+           'guest_evidence_root': guest_root,
            'cleanup': cleanup, 'limitation': failure or
            ('Interim real packaged rendering/security probe only. '
             'No Orca/native/lifecycle acceptance.')}
     if (output / 'environment.json').exists():
         row['environment'] = json.loads((output / 'environment.json').read_text())
+        if row['environment'].get('package_source_sha') != args.source_sha:
+            failure = 'Installed package source differs from declared candidate'
+            row['status'] = 'blocked'
+            row['limitation'] = failure
     if (output / 'probe.json').exists():
         proof = json.loads((output / 'probe.json').read_text())
+        if proof.get('passed') is not True:
+            failure = 'Guest renderer assertions did not pass'
+            row['status'] = 'blocked'
+            row['limitation'] = failure
         for name in ('electron', 'chromium'):
-            row['environment'][name] = proof['versions'][name]
+            row['environment'][name] = proof.get('versions', {}).get(name, 'not measured')
     for name in required_cases(row['row']):
         proven = not failure and name in ('rendering', 'renderer_security')
         row['cases'][name] = {'status': 'proven' if proven else 'pending',
                              'evidence': ['probe.json', 'renderer.png'] if proven else [],
-                             'command': commands[-2] if proven else [],
+                             'command': probe_command if proven else [],
                              'detail': 'Measured packaged renderer only' if proven else 'Not run'}
     if digest(candidate) != candidate_id['package_sha256']:
         row['status'] = 'blocked'
