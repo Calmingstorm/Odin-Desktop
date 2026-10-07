@@ -179,29 +179,40 @@ async def recover(root):
     store.close()
 
 
+def bind_dormant_native_owner(management, root):
+    """Inject before service.start(), so the foreground seam keeps this store.
+
+    Startup binds the management controller into the request dispatcher. Writing
+    directly to the dispatcher at compose time is overwritten by that binding.
+    """
+    from src.computer.integration import ComputerIntegration
+
+    service = management.computer
+    assert not service._started and service.controller is None
+    store = original_store(root)
+    controller = ComputerController(store, None, lambda _: True, enabled=False)
+    integration = ComputerIntegration(
+        SimpleNamespace(config=management.settings.config), controller=controller,
+        settings=management.settings.config.computer)
+    service.controller = controller
+    service._integration = integration
+    return integration
+
+
 def core_entry(root):
     """Real source core owns the ORIGINAL dormant native integration on restart."""
     import src.__main__ as entry
-    from src.computer.integration import ComputerIntegration
     from src.desktop.management import ManagementService
 
     original_compose = ManagementService.compose.__func__
 
     def compose(cls, core, **kwargs):
         management = original_compose(cls, core, **kwargs)
-        store = original_store(root)
-        controller = ComputerController(store, None, lambda _: True, enabled=False)
-        integration = ComputerIntegration(
-            SimpleNamespace(config=management.settings.config), controller=controller,
-            settings=management.settings.config.computer)
-        core.computer = integration
-        # The request-enabled engine now owns the same native dispatcher graph.
-        # Bind this exact original dormant owner there, not a second controller.
-        core.engine.deps.native_tools.owners["computer"] = integration
+        integration = bind_dormant_native_owner(management, root)
         (root / "core-native-owner.json").write_text(json.dumps({
             "core_pid": os.getpid(), "integration": "original-ComputerIntegration",
             "store": "original-ComputerStore", "test_only_dormant_composition": True,
-            "live_backends": len(controller._live),
+            "live_backends": len(integration.controller._live),
         }), encoding="utf-8")
         return management
 
