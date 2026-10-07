@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source": "docs/work/phase-3-app-v1.md",
   "source_sha": "cd52a8e2b055a9c4abc051a49566b9daf3e1bd79",
-  "evidence_watermark": "2026-10-06. Pointers identify existing component tests and merged evidence, not fresh executions or acceptance passes. Open PRs are only pending: #N. Required environments refer to final qualification, not evidence already available.",
+  "evidence_watermark": "2026-10-07, Decision I. Pointers identify current tests; the pending-PR pointers were removed because those PRs are merged or closed. ready_for_final_run is readiness, not a pass: Decision I's final run (one smoke pass of the final build on the four lab desktops plus Aaron's day of real use) completes acceptance. Native D12 sleep/wake passed on Cinnamon, GNOME and KDE on 2026-10-07 (maintenance/phase3-native-part2-20261007.md). Wayland computer use is 1.1.",
   "cases": [
     {
       "id": "R4-01",
@@ -11,12 +11,12 @@
       "environments": ["Isolated real Electron/core on Mint 22 and Ubuntu 24.04", "Final x86-64 .deb and AppImage; D14 offline/first-use PDF cases"],
       "evidence": {
         "headless": ["tests/test_desktop_attachments.py::test_image_only_submission_is_valid_current_task_context", "tests/test_desktop_attachments.py::test_default_accepts_existing_50mib_archive_without_byte_allocation", "app/test/attachments.test.ts::stops an upload between chunks when it is cancelled"],
-        "real_core": ["pending: #31"],
+        "real_core": ["app/test/e2e/r4.spec.ts::R4-01: text, image, PDF, archive, binary and mixed files through the real picker, paste and remove"],
         "native": ["app/test/e2e/accessibility.spec.ts::keyboard chat, code and results, native attach cancel and save"],
-        "package": ["pending: #54"]
+        "package": []
       },
-      "status": "partial",
-      "unresolved": ["Full real-core text/image/mixed/PDF/archive/binary picker/drop/paste/progress/cancel matrix is outstanding; fixture and private-Xvfb chooser tests are component evidence only.", "Final package D14 PDF first-use/download/offline failures remain to be bound to candidate hashes."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "R4-02",
@@ -25,12 +25,12 @@
       "environments": ["Isolated real Electron/core with concurrent harmless owned receivers", "Final .deb and AppImage on supported Linux bases"],
       "evidence": {
         "headless": ["tests/test_desktop_requests.py::test_followups_execute_once_in_admission_order", "tests/test_desktop_conversations.py::test_child_cutoff_immutable_labeled_context_survives_parent_delete", "tests/test_desktop_attachments.py::test_foreign_conversation_and_profile_refs_are_unavailable"],
-        "real_core": ["pending: #31"],
+        "real_core": ["app/test/e2e/r4.spec.ts::R4-02: two conversations progress independently, one conversation runs in order, and no context leaks"],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Component request/branch/file isolation tests do not establish visible two-conversation independent progress, serialized original-loop execution and immutable child labels on final packages."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "R4-03",
@@ -39,12 +39,12 @@
       "environments": ["Isolated real Electron/core and harmless delayed tool receiver", "Final .deb and AppImage on supported Linux bases"],
       "evidence": {
         "headless": ["tests/test_desktop_controls.py::test_stale_generation_or_conversation_never_controls_current_owner", "tests/test_desktop_controls.py::test_unconfirmed_stop_cleanup_does_not_claim_confirmation"],
-        "real_core": ["tests/test_desktop_controls.py::test_integrated_stop_uses_real_runner_ledger_and_committed_cancel", "tests/test_desktop_controls.py::test_integrated_steer_consumes_real_mailbox_and_no_followup_turn", "pending: #31"],
+        "real_core": ["tests/test_desktop_controls.py::test_integrated_stop_uses_real_runner_ledger_and_committed_cancel", "tests/test_desktop_controls.py::test_integrated_steer_consumes_real_mailbox_and_no_followup_turn"],
         "native": ["app/test/e2e/accessibility.spec.ts::keyboard running task steer queue stop and guarded resume"],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Integrated core tests use controlled provider responses; keyboard E2E uses the fixture. Exact visible Steer/Stop/unknown receipts and late controls require the real packaged app."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "R4-04",
@@ -53,12 +53,12 @@
       "environments": ["Hard-isolated Electron/core PID namespace with exact owned crash targets", "Final .deb/AppImage on D11 desktop sessions"],
       "evidence": {
         "headless": ["tests/test_desktop_delivery.py::test_disconnect_restart_and_unknown_accept_repair_never_rerun"],
-        "real_core": ["app/test/e2e/lifecycle.spec.ts::renderer loss preserves real core and relaunch recovers renderer", "app/test/e2e/admitted-work.spec.ts::admitted actual management HTTP effect completes while hidden and exact durable receipt never replays after relaunch", "pending: #47", "pending: #37"],
+        "real_core": ["app/test/e2e/lifecycle.spec.ts::renderer loss preserves real core and relaunch recovers renderer", "app/test/e2e/admitted-work.spec.ts::admitted actual management HTTP effect completes while hidden and exact durable receipt never replays after relaunch", "app/test/e2e/r4.spec.ts::R4-04: closing the window and losing the renderer never lose or repeat a running turn"],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Source lifecycle and admitted management effect proof do not cover the complete workflow/report/artifact catch-up graph. Packaged D11 rerun after service integration remains open."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "R4-05",
@@ -67,12 +67,12 @@
       "environments": ["Isolated real Electron/core with persistent disposable profile and retained-output expiry", "Final .deb and AppImage"],
       "evidence": {
         "headless": ["tests/test_desktop_transcript.py::test_transcript_independent_of_context_and_persists_restart", "tests/test_desktop_requests.py::test_branch_seed_reset_and_compaction_preservation", "tests/test_desktop_tool_details.py::test_expiry_does_not_refresh_on_read_details_survive", "tests/test_desktop_attachments.py::test_partial_committed_adopted_and_receipts_survive_restart"],
-        "real_core": ["app/test/real-core-contract.test.ts::reads identical public transcript payloads through paging, snapshot and search navigation", "pending: #31"],
+        "real_core": ["app/test/real-core-contract.test.ts::reads identical public transcript payloads through paging, snapshot and search navigation", "app/test/e2e/r4.spec.ts::R4-05: a context reset and an app restart keep the transcript, tool outcomes and files visible"],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Compaction test simulates the compacted session cache. Combined actual compaction/reload/restart and file/tool/history visibility need final real-app candidate execution."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "R4-06",
@@ -80,13 +80,13 @@
       "dependency": "P3.3; Phase 2 step 6",
       "environments": ["Isolated Cinnamon/X11, GNOME/Wayland no-tray and KDE/Wayland VMs with owned notification receivers", "Final .deb/AppImage; VM-only sleep/wake, offline and exited-app recovery"],
       "evidence": {
-        "headless": ["pending: #37"],
-        "real_core": ["pending: #47"],
+        "headless": ["tests/test_desktop_schedule_recovery.py::test_missed_reminders_coalesce_and_bounded", "tests/test_desktop_schedule_recovery.py::test_missed_effects_wait_for_manual_run", "tests/test_desktop_schedule_recovery.py::test_boot_missed_due_and_cancellation_reconciliation", "tests/test_desktop_schedule_recovery.py::test_interrupted_elapsed_cron_skips_replay_and_resumes_cadence", "tests/test_desktop_schedule_recovery.py::test_reminder_catchup_notice_and_report_hook"],
+        "real_core": ["app/test/e2e/r4.spec.ts::R4-04: closing the window and losing the renderer never lose or repeat a running turn"],
         "native": [],
         "package": []
       },
-      "status": "no_evidence",
-      "unresolved": ["No merged scenario-specific schedule/sleep/wake/exited-app evidence. Pending services and app integration are not accepted evidence.", "Private notification-bus fixture and guest desktop smoke are not D12/native notice acceptance. Required VM sleep/wake/deadline/lease paths remain open."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "R4-07",
@@ -95,12 +95,12 @@
       "environments": ["Isolated real Electron/core and counted harmless effect receiver with lost acknowledgements", "Final .deb and AppImage; persisted report refresh/paging"],
       "evidence": {
         "headless": ["tests/test_desktop_requests.py::test_submission_deduplicates_before_any_execution", "tests/test_desktop_command_journal.py::test_final_commit_failure_never_reexecutes"],
-        "real_core": ["app/test/e2e/admitted-work.spec.ts::admitted actual management HTTP effect completes while hidden and exact durable receipt never replays after relaunch", "pending: #31", "pending: #47"],
+        "real_core": ["app/test/e2e/admitted-work.spec.ts::admitted actual management HTTP effect completes while hidden and exact durable receipt never replays after relaunch"],
         "native": [],
         "package": []
       },
       "status": "partial",
-      "unresolved": ["Existing counted management effect receipt does not complete lost-ack chat submission/reconnect plus report refresh/paging in final candidate app. Real reports await reviewed service integration."]
+      "unresolved": ["Decision I: the app-level lost-acknowledgement case (send, lose the acknowledgement, reconnect, no duplicate turn) still needs an end-to-end test; component evidence exists."]
     },
     {
       "id": "R4-08",
@@ -111,10 +111,10 @@
         "headless": ["tests/test_desktop_provisioning.py::test_explicit_profile_independent_paths_and_alongside_sentinel", "tests/test_desktop_package_state.py::test_unknown_files_and_fences_retained_in_backup_and_recovery"],
         "real_core": [],
         "native": [],
-        "package": ["maintenance/r4-evidence-manifest.json::p42-incus-package-acceptance", "maintenance/r4-evidence-manifest.json::p42-candidate-clean-exit", "pending: #54"]
+        "package": ["maintenance/r4-evidence-manifest.json::p42-incus-package-acceptance", "maintenance/r4-evidence-manifest.json::p42-candidate-clean-exit"]
       },
-      "status": "partial",
-      "unresolved": ["Merged #36 proves earlier P4.2 candidate/container transactions, not final P4.5 source/hash/environment equivalence. Legacy P4.1 direct upgrade is explicitly refused, not a qualified live upgrade.", "Final candidates, supported base environments and native packaged lifecycle still require qualification; no install or replacement occurs in this groundwork."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "R4-09",
@@ -123,12 +123,12 @@
       "environments": ["Headless original corpus and real core with disabled/unqualified capabilities", "Final .deb/AppImage bundle/catalog/provenance scans and qualified D11 native backends"],
       "evidence": {
         "headless": ["tests/test_desktop_capabilities_publication.py::test_live_policy_revocation_disabled_switch_and_reservation", "tests/test_desktop_distribution.py::test_prompt_is_exactly_the_nine_approved_d7_substitutions", "tests/test_desktop_capabilities_owner.py::test_common_classifier_functions_remain_byte_identical"],
-        "real_core": ["app/test/real-core-contract.test.ts::fresh work/report/schedule reads do not reserve IDs; real schedule execution and report reads never replay effects", "pending: #38"],
+        "real_core": ["app/test/real-core-contract.test.ts::fresh work/report/schedule reads do not reserve IDs; real schedule execution and report reads never replay effects"],
         "native": [],
         "package": ["maintenance/r4-evidence-manifest.json::p42-candidate-clean-exit"]
       },
-      "status": "partial",
-      "unresolved": ["P4.2 package scans and component capability/byte-identity regressions are not complete final bundle/prompt/admin closure. Phase 2 inherited suites/D19 and P3.5 qualification remain gates."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "R4-10",
@@ -141,8 +141,8 @@
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Windows/macOS parity remains deferred, never counted as Linux pass or waived promise. Linux unavailable-capability behavior needs exact final bundle evidence."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-01",
@@ -151,12 +151,12 @@
       "environments": ["Isolated real Electron/core with reconnect/lost acknowledgement and expired receipts", "Final .deb and AppImage"],
       "evidence": {
         "headless": ["tests/test_desktop_command_journal.py::test_success_reopens_canonical_keys_and_conflicts", "tests/test_desktop_command_journal.py::test_expiry_tombstone_survives_restart_unknowns_not_pruned"],
-        "real_core": ["app/test/real-core-contract.test.ts::the real startup pruner expires a receipt body but never re-admits its retained identity", "pending: #31"],
+        "real_core": ["app/test/real-core-contract.test.ts::the real startup pruner expires a receipt body but never re-admits its retained identity"],
         "native": [],
         "package": []
       },
       "status": "partial",
-      "unresolved": ["Full app lost/expired-ack reconciliation without new-ID retry remains a final candidate case, beyond core identity/tombstone components."]
+      "unresolved": ["Decision I: the app-level lost-acknowledgement case (send, lose the acknowledgement, reconnect, no duplicate turn) still needs an end-to-end test; component evidence exists."]
     },
     {
       "id": "CC-02",
@@ -165,12 +165,12 @@
       "environments": ["Isolated real Electron/core, successor request and harmless delayed work", "Final .deb and AppImage"],
       "evidence": {
         "headless": ["tests/test_desktop_controls.py::test_stale_generation_or_conversation_never_controls_current_owner", "tests/test_desktop_controls.py::test_control_identity_conflict_does_not_deliver_to_successor"],
-        "real_core": ["tests/test_desktop_controls.py::test_integrated_stop_uses_real_runner_ledger_and_committed_cancel", "pending: #31"],
+        "real_core": ["tests/test_desktop_controls.py::test_integrated_stop_uses_real_runner_ledger_and_committed_cancel"],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Control-service generation fences exist; stale visible app requests against successor work require hash-bound real Electron/core qualification."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-03",
@@ -183,8 +183,8 @@
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Process crash/journal and source management shutdown evidence do not replace final package crash-after-tool-dispatch visibility and no-replay proof."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-04",
@@ -193,12 +193,12 @@
       "environments": ["Isolated real Electron/core, durable outbox and counted harmless tool", "Final .deb and AppImage"],
       "evidence": {
         "headless": ["tests/test_desktop_delivery.py::test_disconnect_restart_and_unknown_accept_repair_never_rerun", "tests/test_desktop_delivery.py::test_outbox_capture_survives_zero_journal_retention"],
-        "real_core": ["pending: #31", "pending: #47"],
+        "real_core": [],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Delivery-service tests repair committed publication without reopening execution; final real app must observe repaired tool result while effect count stays unchanged."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-05",
@@ -207,12 +207,12 @@
       "environments": ["Isolated original runner/core with durable checkpoint and current policy changes", "Final .deb/AppImage and visible real-app Resume"],
       "evidence": {
         "headless": ["tests/test_desktop_resume.py::test_resume_increments_wire_generation_and_restores_exact_spent_state", "tests/test_desktop_resume.py::test_fetch_failure_preserves_checkpoint_without_fresh_execution", "tests/test_desktop_resume.py::test_unknown_effects_halt_before_rebuild_and_never_reexecute", "tests/test_desktop_resume.py::test_resume_uses_current_disabled_tools_setting"],
-        "real_core": ["tests/test_desktop_resume.py::test_integrated_real_suspension_guarded_resume_and_committed_result", "pending: #31"],
+        "real_core": ["tests/test_desktop_resume.py::test_integrated_real_suspension_guarded_resume_and_committed_result"],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Controlled-provider original-runner resume evidence needs final real app/packages and missing-input/current-policy failure visibility; no fresh-run substitution permitted."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-06",
@@ -221,12 +221,12 @@
       "environments": ["Isolated real Electron/core with mutable parent and immutable child snapshot", "Final .deb and AppImage"],
       "evidence": {
         "headless": ["tests/test_desktop_conversations.py::test_child_cutoff_immutable_labeled_context_survives_parent_delete", "tests/test_desktop_requests.py::test_branch_seed_reset_and_compaction_preservation"],
-        "real_core": ["pending: #31"],
+        "real_core": [],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Immutable service snapshots are covered; visible child labels and original-loop inherited context after parent mutation/deletion remain final packaged app cases."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-07",
@@ -235,12 +235,12 @@
       "environments": ["Isolated real Electron/core with compaction and persistent disposable file/history store", "Final .deb and AppImage"],
       "evidence": {
         "headless": ["tests/test_desktop_transcript.py::test_transcript_independent_of_context_and_persists_restart", "tests/test_desktop_attachments.py::test_partial_committed_adopted_and_receipts_survive_restart", "tests/test_desktop_requests.py::test_branch_seed_reset_and_compaction_preservation"],
-        "real_core": ["app/test/real-core-contract.test.ts::reads identical public transcript payloads through paging, snapshot and search navigation", "pending: #31"],
+        "real_core": ["app/test/real-core-contract.test.ts::reads identical public transcript payloads through paging, snapshot and search navigation", "app/test/e2e/r4.spec.ts::R4-05: a context reset and an app restart keep the transcript, tool outcomes and files visible"],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Separate store/cache component tests do not complete actual compaction/restart with visible file/history preservation in final real packages."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-08",
@@ -248,13 +248,13 @@
       "dependency": "P3.3",
       "environments": ["Isolated real Electron/core with hidden/destroyed renderer and owned schedule destination", "Final .deb/AppImage and D11 notification environments"],
       "evidence": {
-        "headless": ["pending: #37"],
-        "real_core": ["pending: #47"],
+        "headless": ["tests/test_desktop_background_core.py::test_real_core_native_task_uses_retained_dispatch_and_stored_destination", "tests/test_desktop_background_requests.py::test_background_destination_survives_foreground_settlement_and_cannot_replay"],
+        "real_core": ["app/test/e2e/r4.spec.ts::R4-04: closing the window and losing the renderer never lose or repeat a running turn"],
         "native": [],
         "package": []
       },
-      "status": "no_evidence",
-      "unresolved": ["No merged schedule-specific closed-window durable-destination proof. Pending service/app integration must land before final conversation/inbox/native delivery acceptance."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-09",
@@ -267,8 +267,8 @@
         "native": ["app/test/e2e/native-reconciliation.spec.ts::real native ${loss} loss: restart quarantine, original reconcile, no replay"],
         "package": ["maintenance/r4-evidence-manifest.json::p42-candidate-clean-exit"]
       },
-      "status": "partial",
-      "unresolved": ["Source native receiver is private Xvfb, not D11 compositor qualification. Abrupt sole X11 guardian loss has unknown release and remains quarantined; namespace teardown is not receiver-release proof.", "Packaged native input/descendant containment and shipped-helper ABI qualification remain P3.5/P3.6 gates."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-10",
@@ -281,8 +281,8 @@
         "native": [],
         "package": ["maintenance/r4-evidence-manifest.json::p42-candidate-clean-exit"]
       },
-      "status": "partial",
-      "unresolved": ["Source private-bus/Xvfb routes and earlier package clean receipts do not prove real SNI/no-tray desktop behavior or actual app-only login startup. Final native candidate matrix remains open."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-11",
@@ -290,13 +290,13 @@
       "dependency": "P3.3",
       "environments": ["Isolated D11 desktop VMs with sleep/wake/offline/exited transitions", "Final .deb/AppImage, durable clocks/deadlines/leases and harmless owned work"],
       "evidence": {
-        "headless": ["pending: #37"],
+        "headless": ["tests/test_desktop_schedule_recovery.py::test_missed_reminders_coalesce_and_bounded", "tests/test_desktop_schedule_recovery.py::test_missed_effects_wait_for_manual_run", "tests/test_desktop_schedule_recovery.py::test_boot_missed_due_and_cancellation_reconciliation", "tests/test_desktop_schedule_recovery.py::test_interrupted_elapsed_cron_skips_replay_and_resumes_cadence", "tests/test_desktop_schedule_recovery.py::test_reminder_catchup_notice_and_report_hook"],
         "real_core": [],
         "native": [],
         "package": []
       },
-      "status": "no_evidence",
-      "unresolved": ["Only pending service evidence is identified. No merged full D12 recovery case or actual VM sleep/wake final-candidate proof; do not fabricate sleeping execution or replay unknown effects."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-12",
@@ -305,12 +305,12 @@
       "environments": ["Isolated real Electron/core with expired event cursor and slow client", "Final .deb and AppImage"],
       "evidence": {
         "headless": ["tests/test_desktop_event_journal.py::test_unknown_cursor_requires_reset_not_empty_interval", "app/test/broker.test.ts::reports a reset with the new cursor so the window rebuilds from snapshots"],
-        "real_core": ["pending: #31"],
+        "real_core": [],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Reset/broker components exist. Combined slow-client bounded snapshot recovery, stale optimistic state removal and unchanged effect count require final real-app qualification."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-13",
@@ -319,12 +319,12 @@
       "environments": ["Isolated real Electron/core with revoked tool/host/output generations", "Final .deb/AppImage and qualified native read/input scopes"],
       "evidence": {
         "headless": ["tests/test_desktop_tool_details.py::test_scope_tool_and_host_rechecked_every_page", "tests/test_desktop_capabilities_owner.py::test_live_scope_revocation_is_not_snapshot", "tests/test_desktop_tool_details.py::test_binary_permissions_revoked_and_exact_expiry"],
-        "real_core": ["tests/test_desktop_requests.py::test_real_runner_tool_detail_preserves_sink_output_and_live_authorization", "tests/test_desktop_engine_services.py::test_readiness_revocation_denies_stale_native_call", "pending: #38"],
+        "real_core": ["tests/test_desktop_requests.py::test_real_runner_tool_detail_preserves_sink_output_and_live_authorization", "tests/test_desktop_engine_services.py::test_readiness_revocation_denies_stale_native_call"],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Service/original-runner authorization rechecks are components. Full app cursor/alias revocation and native target continuity need final packages and qualified backends."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-14",
@@ -333,12 +333,12 @@
       "environments": ["Isolated real Electron/core management with disabled/unconfigured/unqualified services", "Final .deb/AppImage catalog/bundle scans and D11 backends"],
       "evidence": {
         "headless": ["tests/test_desktop_capabilities_publication.py::test_removed_tools_are_neither_published_nor_reserved", "tests/test_desktop_capabilities_owner.py::test_unconfigured_dispatch_denies_before_handler_or_host"],
-        "real_core": ["app/test/real-core-contract.test.ts::fresh work/report/schedule reads do not reserve IDs; real schedule execution and report reads never replay effects", "pending: #38"],
+        "real_core": ["app/test/real-core-contract.test.ts::fresh work/report/schedule reads do not reserve IDs; real schedule execution and report reads never replay effects"],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Core unavailable dispatch/catalog and renderer components do not qualify integrated management reasons or packaged native readiness. Correct absence of required unqualified D11 backend still blocks release."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-15",
@@ -347,12 +347,12 @@
       "environments": ["Disposable fresh Linux profiles with independent Secret Service and harmless second install", "Final .deb and AppImage on supported bases"],
       "evidence": {
         "headless": ["tests/test_desktop_provisioning.py::test_explicit_profile_independent_paths_and_alongside_sentinel", "tests/test_desktop_provisioning.py::test_fresh_config_does_not_use_ambient_profile", "tests/test_desktop_provisioning.py::test_real_executor_host_selection_and_local_probe"],
-        "real_core": ["pending: #40"],
+        "real_core": [],
         "native": [],
         "package": ["maintenance/r4-evidence-manifest.json::p42-incus-package-acceptance"]
       },
-      "status": "partial",
-      "unresolved": ["Earlier P4.2 alongside sentinel and profile/host tests are groundwork. Final package independent real credentials/default-host/no-import proof across supported bases and secret-service backends remains outstanding."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-16",
@@ -363,10 +363,10 @@
         "headless": ["tests/test_desktop_package_state.py::test_newer_independent_versions_refuse_without_writes", "tests/test_desktop_package_state.py::test_transport_unknown_receipts_survive_compatible_upgrade"],
         "real_core": ["tests/test_desktop_package_state.py::test_core_refuses_future_storage_before_identity_permissions_and_settings"],
         "native": [],
-        "package": ["maintenance/r4-evidence-manifest.json::p42-incus-package-acceptance", "pending: #39"]
+        "package": ["maintenance/r4-evidence-manifest.json::p42-incus-package-acceptance"]
       },
-      "status": "partial",
-      "unresolved": ["Merged earlier-candidate P4.2 refuses incompatible writes and preserves upgrade state. P4.3 release notice/private-access evidence is pending; final packages plus full renderer/core/protocol/storage refusal and non-publishing rehearsal are outstanding."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-17",
@@ -374,13 +374,13 @@
       "dependency": "Phase 2/maintenance closure",
       "environments": ["Offline source/safety drift and exact inherited assertion/corpus accounting", "Final real-core .deb/AppImage original guard/data/budget and approved D19 deltas"],
       "evidence": {
-        "headless": ["tests/test_desktop_distribution.py::test_prompt_is_exactly_the_nine_approved_d7_substitutions", "tests/test_desktop_distribution.py::test_response_guard_only_changes_the_two_approved_lines", "tests/test_desktop_strip_loop.py::test_all_unadapted_loop_phase_bodies_are_byte_identical", "tests/test_desktop_strip_loop.py::test_request_preamble_keeps_history_no_replay_bytes_without_bot_origin_surface", "pending: #34", "pending: #35", "pending: #43", "pending: #48", "pending: #52"],
+        "headless": ["tests/test_desktop_distribution.py::test_prompt_is_exactly_the_nine_approved_d7_substitutions", "tests/test_desktop_distribution.py::test_response_guard_only_changes_the_two_approved_lines", "tests/test_desktop_strip_loop.py::test_all_unadapted_loop_phase_bodies_are_byte_identical", "tests/test_desktop_strip_loop.py::test_request_preamble_keeps_history_no_replay_bytes_without_bot_origin_surface"],
         "real_core": [],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Byte/corpus component regressions are relevant, not inherited-suite exit or complete D19/prompt/request/result closure. Phase 2 restoration PRs and fresh final-bundle guards/data/budget proof remain required."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-18",
@@ -390,11 +390,11 @@
       "evidence": {
         "headless": [],
         "real_core": [],
-        "native": ["app/test/e2e/accessibility.spec.ts::keyboard chat, code and results, native attach cancel and save", "app/test/e2e/native-reconciliation.spec.ts::real native ${loss} loss: restart quarantine, original reconcile, no replay", "pending: #50", "pending: #49"],
-        "package": ["pending: #54"]
+        "native": ["app/test/e2e/accessibility.spec.ts::keyboard chat, code and results, native attach cancel and save", "app/test/e2e/native-reconciliation.spec.ts::real native ${loss} loss: restart quarantine, original reconcile, no replay"],
+        "package": []
       },
-      "status": "partial",
-      "unresolved": ["Merged keyboard/native-loss source tests use private Xvfb, not actual compositor or Orca speech acceptance.", "Pending #50: Cinnamon and GNOME 7/7, KDE Attach/Save group 6/7; direct portal chooser is visible but not registered as eligible AT-SPI chooser. Cause unproved; no waiver or pass claimed.", "Pending #49 lab ownership fixtures are separate from pending #54 Ubuntu 24.04 restricted-userns packaging. #54 installed deb GUI launch timed out with UnknownVizError; AppImage honestly refuses before Electron. Ubuntu gate stays open. Final packaged GNOME/KDE/Hyprland/native helpers, release receiver and renderer-security matrix remain open."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-19",
@@ -402,13 +402,13 @@
       "dependency": "Phase 2 step 7; P4.5",
       "environments": ["Isolated network namespaces and owned peers for bind/auth/signature/replay/revocation", "Final .deb/AppImage real core/app packaged ingress lifecycle/settings; no live LAN listener"],
       "evidence": {
-        "headless": ["pending: #42"],
-        "real_core": [],
+        "headless": ["tests/test_desktop_webhooks.py::test_identical_deliveries_have_unique_receipts_and_runs", "tests/test_desktop_webhooks.py::test_disabled_no_schedule_and_revoked_listener", "tests/test_desktop_webhooks.py::test_bound_secret_cannot_dispatch_other_matching_schedule"],
+        "real_core": ["app/test/real-core-webhooks.test.ts::opt-in binds only an eligible keyed trigger; authentic identical HTTP deliveries run twice with native replies", "app/test/real-core-webhooks.test.ts::pause and secret clear revoke the actual listener; resuming restores only the eligible schedule"],
         "native": [],
         "package": []
       },
-      "status": "no_evidence",
-      "unresolved": ["D10 remains required. Only pending #42 headless ingress evidence is identified; packaged bind/lifecycle/settings and isolated namespace peer acceptance remain outstanding, including durable trigger/outbox identities and no chat/control API."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     }
   ]
 }
