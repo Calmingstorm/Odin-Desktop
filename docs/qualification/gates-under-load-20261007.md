@@ -95,3 +95,11 @@ At 18:40 UTC the engine workflow was re-enabled to execute the task's required
 hosted gates. No runner configuration or other lane's code changed. A fresh push
 triggers the normal pull-request workflow; no success is claimed before it ends.
 Local source gates above do not substitute for the task's required hosted pass.
+
+The first hosted run failed both short gates: the exact adaptation ledger had
+not been refreshed for the changed fixture and its named E2E evidence digests.
+Earlier local short-gate success therefore did not establish a reproducible
+committed-tree pass. This failure is retained and corrected by recording exact
+fixture bytes and refreshing affected evidence records as **pending independent
+review**, not by changing the drift checker, approval state or any ratchet.
+The refreshed committed ledger reports no byte drift; a new CI run is required.
