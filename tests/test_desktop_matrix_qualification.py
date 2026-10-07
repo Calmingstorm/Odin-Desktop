@@ -2,6 +2,7 @@
 import copy
 import importlib.util
 import json
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -149,3 +150,32 @@ def test_admission_refuses_other_lane_without_even_querying_daemon(monkeypatch, 
         driver.admit('odq-gnome')
     with pytest.raises(ValueError, match='Hyprland'):
         driver.admit('odq-hyprland')
+
+
+def test_archive_refuses_escape_symlink_and_unreviewed_runner(tmp_path):
+    for mode in ('escape', 'link', 'changed'):
+        path = tmp_path / (mode + '.tar')
+        with tarfile.open(path, 'w') as archive:
+            item = tarfile.TarInfo('../escape' if mode == 'escape' else 'desktop-guest.cjs')
+            if mode == 'link':
+                item.type = tarfile.SYMTYPE
+                item.linkname = '/etc/passwd'
+            archive.addfile(item)
+        with pytest.raises(ValueError):
+            driver.validate_tools(path)
+
+
+def test_failed_admission_does_not_create_evidence_or_operate_guest(monkeypatch, tmp_path):
+    import argparse
+
+    package = tmp_path / 'candidate.deb'
+    package.write_bytes(b'disposable-candidate')
+    output = tmp_path / 'evidence'
+    monkeypatch.setattr(driver, 'validate_tools', lambda path: None)
+    monkeypatch.setattr(driver, 'admit', lambda vm: (_ for _ in ()).throw(ValueError('busy')))
+    monkeypatch.setattr(driver, 'run', lambda *args, **kwargs: pytest.fail('guest operated'))
+    args = argparse.Namespace(candidate=package, source_sha='a' * 40, tools=tmp_path / 'tools',
+                              output=output, vm='odq-gnome')
+    with pytest.raises(ValueError, match='busy'):
+        driver.collect(args)
+    assert not output.exists()

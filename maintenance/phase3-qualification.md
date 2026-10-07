@@ -13,6 +13,18 @@ does not rebuild a feature to manufacture a matrix entry or waive a native gate.
 - Candidate build consumes merged #89 (fence), #94 (logout), #95 (Wayland window).
   It is **interim**, because P3.5 is still being built on another lane.
 
+Interim build source: `243a613a00cb1751357648915dc1881b773f189b`.
+The later accounting/guest harness changes do not alter shipped product bytes.
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `.deb` | 342198876 | `31e7baee6779f77ca2d696d0f2b097ad1da655195d93bcede28a617eb538ca5c` |
+| AppImage | see artifact manifest | `a757435633334db1970227463f9fa454da9e3e57a38c25e9a5d7206ecd5a9000` |
+
+Both retained under the raw artifact directory. AppImage is built/hashed, not a
+native D11 row run. Bundled resource manifest hash:
+`a278eed51825a7c4d98d6931c8b279faa8f1ba57fb8e2d0304a202d4a523538f`.
+
 ```sh
 python3 scripts/qualification/desktop.py check maintenance/phase3-matrix.json
 # Accounting validity is not qualification. This deliberately fails until final:

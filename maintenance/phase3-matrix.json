@@ -2,7 +2,13 @@
   "schema_version": 1,
   "scope": "P3.6 isolated x86-64 D11 qualification, not release or live acceptance",
   "final_run": false,
-  "candidate": null,
+  "candidate": {
+    "source_sha": "243a613a00cb1751357648915dc1881b773f189b",
+    "package_sha256": "31e7baee6779f77ca2d696d0f2b097ad1da655195d93bcede28a617eb538ca5c",
+    "package_bytes": 342198876,
+    "format": "deb",
+    "architecture": "x86-64"
+  },
   "artifact_root": "/mnt/storage/odin-desktop-evidence/p36-20261007",
   "rows": [
     {

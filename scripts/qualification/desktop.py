@@ -336,6 +336,10 @@ def collect(args) -> int:
             row['limitation'] = failure
         for name in ('electron', 'chromium'):
             row['environment'][name] = proof.get('versions', {}).get(name, 'not measured')
+    elif not failure:
+        failure = 'Guest probe result missing'
+        row['status'] = 'blocked'
+        row['limitation'] = failure
     for name in required_cases(row['row']):
         proven = not failure and name in ('rendering', 'renderer_security')
         row['cases'][name] = {'status': 'proven' if proven else 'pending',
@@ -348,6 +352,11 @@ def collect(args) -> int:
     row['artifacts'] = [{'path': path.name, 'sha256': digest(path),
                          'bytes': path.stat().st_size} for path in sorted(output.iterdir())
                         if path.is_file()]
+    errors = validate_row(row, candidate_id) + check_artifacts(row, output)
+    if errors:
+        row['status'] = 'blocked'
+        row['limitation'] = 'Evidence incomplete: ' + '; '.join(errors)
+        failure = row['limitation']
     (output / 'row.json').write_text(json.dumps(row, indent=2) + '\n')
     return 1 if failure or cleanup.startswith('UNKNOWN') else 0
 
