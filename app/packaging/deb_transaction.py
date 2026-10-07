@@ -107,12 +107,22 @@ def legacy_process_check(install: Path, proc: Path = Path('/proc')) -> None:
             raise Refusal('Cannot establish stopped legacy package ownership') from error
 
 
-def clean_receipts(root: Path) -> None:
+def boot_identity(proc: Path) -> str | None:
+    try:
+        return (proc / 'sys/kernel/random/boot_id').read_text().strip() or None
+    except OSError:
+        return None
+
+
+def clean_receipts(root: Path, proc: Path = Path('/proc')) -> None:
     """A durable clean role receipt, not missing PID, is cleanup evidence.
 
-Launch owners validate current Exit AND resource/quarantine evidence before
-committing clean. Missing/malformed/running/unknown does not mean clean.
+Launch owners validate their own Exit AND resource/quarantine evidence before
+committing clean. Missing/malformed/running/unknown does not mean clean. Nothing
+a lifetime held survives the boot it ran in, so a receipt recording an earlier
+boot no longer fences. One without a readable boot identity stays fenced.
 """
+    boot = boot_identity(proc)
     for receipt in (root / 'receipts').iterdir():
         try:
             fd = os.open(receipt, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -124,7 +134,17 @@ committing clean. Missing/malformed/running/unknown does not mean clean.
                 value = json.load(stream)
         except (OSError, ValueError) as error:
             raise Refusal('Unreadable lifetime receipt; replacement remains fenced') from error
-        if not isinstance(value, dict) or value.get('state') != 'clean':
+        if not isinstance(value, dict):
+            raise Refusal('Previous app/core cleanup is unresolved; package unchanged')
+        recorded = value.get('boot_id')
+        if isinstance(recorded, str) and recorded and boot:
+            if recorded != boot:
+                continue
+            if value.get('state') != 'clean':
+                raise Refusal('An Odin session ended without confirmed cleanup since this '
+                              'computer started. Restart the computer, then try again; '
+                              'package unchanged')
+        if value.get('state') != 'clean':
             raise Refusal('Previous app/core cleanup is unresolved; package unchanged')
 
 
@@ -235,7 +255,7 @@ def transaction(script: str, args: list[str], *, root: Path = ROOT, install: Pat
                     'Unguarded predecessor cannot be upgraded live; use an externally '
                     'fenced offline remove/install transition')
             legacy_process_check(install, proc)
-            clean_receipts(root)
+            clean_receipts(root, proc)
             if current and current.get('operation') not in {'install', 'upgrade', operation}:
                 raise Refusal('Different interrupted package transaction is pending')
             atomic_json(marker, {'version': 1, 'operation': operation, 'script': script,

@@ -1,10 +1,13 @@
 import importlib.util
 import json
 import os
+import signal
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 MODULE = Path(__file__).resolve().parents[1] / 'ownership.py'
 spec = importlib.util.spec_from_file_location('ownership_fixture', MODULE)
@@ -103,17 +106,95 @@ class OwnershipTests(unittest.TestCase):
             with own.replacement_guard(self.paths):
                 pass
 
-    def test_native_previous_unknown_rejects_clean_process_exit(self):
+    def boot(self, identity):
+        path = self.root / 'boot_id'
+        path.write_text(identity + '\n')
+        return mock.patch.object(own, 'BOOT_ID', path)
+
+    def guard_refuses(self):
+        with self.assertRaisesRegex(own.OwnershipError, 'Unresolved lifetime evidence'):
+            with own.replacement_guard(self.paths):
+                pass
+
+    def test_earlier_unknown_fences_its_boot_not_the_next(self):
+        with self.boot('boot-a'):
+            crashed = self.lease('core')
+            crashed.close()  # ended without finish: its receipt stays running
+            later = self.lease()
+            try:
+                self.clean()
+                # Retained history of the crash; this lifetime's own Exit is clean.
+                core = json.loads(self.core.read_text())
+                core['previous_unknown'] = {'state': 'unknown'}
+                self.core.write_text(json.dumps(core))
+                app = json.loads(self.app.read_text())
+                app['warning'] = {'id': 'notice', 'records': [{'state': 'unknown'}]}
+                self.app.write_text(json.dumps(app))
+                later.finish()
+            finally:
+                later.close()
+            states = sorted(json.loads(path.read_text())['state']
+                            for path in self.paths.receipts.iterdir())
+            self.assertEqual(states, ['clean', 'running'])
+            self.guard_refuses()
+        with self.boot('boot-b'):
+            with own.replacement_guard(self.paths):
+                pass
+
+    def test_own_unclean_exit_stays_unclean_with_history_present(self):
         lease = self.lease()
         try:
             self.clean()
-            value = json.loads(self.core.read_text())
-            value['previous_unknown'] = {'state': 'unknown'}
-            self.core.write_text(json.dumps(value))
+            app = json.loads(self.app.read_text())
+            app['current']['shutdownAccepted'] = False
+            self.app.write_text(json.dumps(app))
             with self.assertRaises(own.OwnershipError):
                 lease.finish()
         finally:
             lease.close()
+
+    def test_receipt_without_boot_identity_stays_fenced(self):
+        self.paths.directory.mkdir(mode=0o700)
+        self.paths.receipts.mkdir(mode=0o700)
+        (self.paths.receipts / 'older.json').write_text(json.dumps(
+            {'version': 1, 'role': 'app', 'state': 'running'}))
+        with self.boot('boot-b'):
+            self.guard_refuses()
+
+    def test_unreadable_boot_identity_keeps_every_unclean_receipt_fenced(self):
+        with self.boot('boot-a'):
+            self.lease('core').close()
+        with mock.patch.object(own, 'BOOT_ID', self.root / 'missing'):
+            self.guard_refuses()
+
+    def test_hold_guardian_outlives_stop_signals_and_records_a_clean_exit(self):
+        env = {'PATH': '/usr/bin:/bin', 'HOME': str(self.root),
+               'XDG_STATE_HOME': str(self.root / 'state')}
+        child = subprocess.Popen(
+            [sys.executable, '-I', '-B', str(MODULE), '--kind', 'appimage', '--role', 'app',
+             '--app-cleanup', str(self.app), '--core-cleanup', str(self.core), 'hold'],
+            env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        try:
+            self.assertEqual(child.stdout.readline(), 'READY\n')
+            child.stdin.write('ADMIT\n')
+            child.stdin.flush()
+            self.assertEqual(child.stdout.readline(), 'ADMITTED\n')
+            for number in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+                child.send_signal(number)
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    child.wait(timeout=0.5)
+            self.clean()
+            child.stdin.close()
+            self.assertEqual(child.wait(timeout=10), 0)
+        finally:
+            if child.poll() is None:
+                child.kill()
+                child.wait()
+            child.stdout.close()
+        receipts = self.root / 'state/odin-desktop/install-ownership/appimage/receipts'
+        rows = [json.loads(path.read_text()) for path in receipts.iterdir()]
+        self.assertEqual([(row['role'], row['state']) for row in rows], [('app', 'clean')])
+        self.assertTrue(rows[0]['boot_id'])
 
     def test_incomplete_or_malformed_core_evidence_refuses(self):
         for resources in ({}, [], {'processes': {'state': 'released'}, 'computer': []}):

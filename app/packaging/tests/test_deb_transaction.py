@@ -101,6 +101,44 @@ class DebTransactionTests(unittest.TestCase):
             self.call('preinst', 'upgrade')
         self.assertEqual(json.loads(receipt.read_text())['state'], 'unknown')
 
+    def boot(self, identity):
+        path = self.proc / 'sys/kernel/random/boot_id'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(identity + '\n')
+
+    def receipt(self, **value):
+        deb.provision(self.root)
+        path = self.root / 'receipts' / 'app.json'
+        path.write_text(json.dumps({'version': 1, 'role': 'app', **value}))
+        return path
+
+    def test_unclean_receipt_from_an_earlier_boot_no_longer_blocks_removal(self):
+        receipt = self.receipt(state='running', boot_id='boot-a')
+        before = receipt.read_bytes()
+        self.boot('boot-b')
+        self.call('prerm', 'remove')
+        self.assertTrue((self.root / 'transaction.json').exists())
+        self.assertEqual(receipt.read_bytes(), before)
+
+    def test_unclean_receipt_from_this_boot_asks_for_a_restart(self):
+        self.receipt(state='running', boot_id='boot-a')
+        self.boot('boot-a')
+        with self.assertRaisesRegex(deb.Refusal, 'Restart the computer'):
+            self.call('preinst', 'upgrade')
+        self.assertFalse((self.root / 'transaction.json').exists())
+
+    def test_receipt_without_boot_identity_stays_fenced(self):
+        self.receipt(state='running')
+        self.boot('boot-b')
+        with self.assertRaisesRegex(deb.Refusal, 'cleanup is unresolved'):
+            self.call('preinst', 'upgrade')
+
+    def test_unreadable_boot_identity_keeps_unclean_receipts_fenced(self):
+        self.receipt(state='running', boot_id='boot-a')
+        with self.assertRaisesRegex(deb.Refusal, 'cleanup is unresolved'):
+            self.call('prerm', 'remove')
+        self.assertFalse((self.root / 'transaction.json').exists())
+
     def test_legacy_executable_maps_and_argv_each_reject(self):
         process = self.proc / '1234'
         process.mkdir()

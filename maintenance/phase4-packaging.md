@@ -246,3 +246,34 @@ reviewer's notification after #41 lands.
   one critical); no unrelated dependency update is hidden in this work.
 - Exact ledger entries remain pending independent review. No publishing, tags,
   uploads, merge, deployment, live-service or active-desktop changes by this lane.
+
+## Correction, 2026-10-07: the cleanup fence had no exit
+
+Native lab evidence on `odq-cinnamon` showed the fence above could never lift.
+Packaged Odin ran hidden in the tray, as Start at login leaves it, when the guest
+was powered off normally. systemd stopped the app's scope within one second, and
+SIGTERM killed the app's separate guardian before the app recorded its Exit, so
+that app receipt stayed `running`. Every later app lifetime's `_clean` then failed
+on the retained notice until acknowledged. After any core crash, the core's
+`previous_unknown` would fail every later core lifetime the same way, and nothing
+clears it. Even after a normal Exit, `dpkg -r odin-desktop` refused with "Previous
+app/core cleanup is unresolved; package unchanged". The user could no longer
+remove or upgrade the package, and a restart did not help.
+
+The fence now works per lifetime and per boot:
+
+- Each receipt records the kernel boot identity. A receipt from an earlier boot
+  no longer fences `.deb` hooks or AppImage replacement, because no process or
+  native resource of a lifetime survives the boot it ran in. Receipts without a
+  boot identity, and every receipt while the current identity is unreadable,
+  stay fenced.
+- A lifetime is clean when its own Exit and resource evidence are clean. An
+  earlier unknown keeps fencing through its own receipt for the rest of its boot,
+  and a later clean lifetime cannot erase that.
+- The app's guardian ignores SIGTERM, SIGINT and SIGHUP. Its lifetime ends at the
+  app's stdin EOF, and SIGKILL still leaves its receipt unclean.
+- A current-boot refusal now tells the user to restart the computer.
+
+Unknown cleanup records, retained notices and quarantine are unchanged and
+never cleared. The app still records a normal session end as an unconfirmed
+Exit; that is P3.3 lifecycle work, tracked separately.

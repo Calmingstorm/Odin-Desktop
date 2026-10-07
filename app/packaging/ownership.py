@@ -7,6 +7,7 @@ import fcntl
 import hashlib
 import json
 import os
+import signal
 import stat
 import subprocess
 import sys
@@ -16,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 DEB_ROOT = Path('/var/lib/odin-desktop/package-ownership')
+BOOT_ID = Path('/proc/sys/kernel/random/boot_id')
 
 
 class OwnershipError(RuntimeError):
@@ -97,11 +99,31 @@ def _fingerprint(path):
         return None
 
 
+def _boot_id():
+    """This boot's kernel identity, or None when it cannot be read."""
+    try:
+        return BOOT_ID.read_text().strip() or None
+    except OSError:
+        return None
+
+
+def _earlier_boot(receipt, current):
+    """No process or native resource of a lifetime survives the boot it ran in.
+
+    Only a recorded identity that differs from a readable current one counts. A
+    receipt without one, from an older candidate, stays fenced.
+    """
+    recorded = receipt.get('boot_id')
+    return bool(isinstance(recorded, str) and recorded and current and recorded != current)
+
+
 def _clean(app_cleanup, core_cleanup, role):
+    # Judge this lifetime's own Exit. An earlier unknown keeps its own receipt,
+    # which fences replacement until the boot it ran in has ended; the retained
+    # notice and history stay visible and are never cleared here.
     core = _read(core_cleanup)
     resources = core.get('resources')
     if (core.get('version') != 1 or core.get('state') != 'complete'
-            or core.get('previous_unknown') is not None
             or not isinstance(resources, dict)
             or not {'computer', 'processes'}.issubset(resources)
             or any(row.get('state') not in {'released', 'not_started'}
@@ -114,8 +136,7 @@ def _clean(app_cleanup, core_cleanup, role):
         if (not isinstance(current, dict) or current.get('state') != 'process-exited'
                 or current.get('shutdownAccepted') is not True
                 or current.get('processOutcome') not in {'exited', 'not-running'}
-                or current.get('unsaved') or current.get('unreceipted', 0)
-                or app.get('warning') is not None):
+                or current.get('unsaved') or current.get('unreceipted', 0)):
             raise OwnershipError('Current app Exit is not clean')
 
 
@@ -150,7 +171,8 @@ class Lease:
             self.initial_app = _fingerprint(self.app_cleanup)
             self.receipt = None
             self.record = {'version': 1, 'role': role, 'state': 'running',
-                           'uid': os.getuid(), 'app_cleanup': str(self.app_cleanup),
+                           'uid': os.getuid(), 'boot_id': _boot_id(),
+                           'app_cleanup': str(self.app_cleanup),
                            'core_cleanup': str(self.core_cleanup)}
             if not provisional:
                 self.begin()
@@ -206,8 +228,11 @@ def replacement_guard(paths, check_receipts=True):
         except BlockingIOError as error:
             raise OwnershipError('Exit both app and core before replacement') from error
         if check_receipts:
+            boot = _boot_id()
             for path in paths.receipts.iterdir():
                 receipt = _read(path)
+                if _earlier_boot(receipt, boot):
+                    continue
                 if receipt.get('state') != 'clean':
                     raise OwnershipError('Unresolved lifetime evidence blocks replacement')
                 if not all(key in receipt for key in ('app_cleanup', 'core_cleanup', 'role')):
@@ -303,6 +328,11 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
                 return subprocess.run(command, check=False).returncode
             finally:
                 os.close(fd)
+        # Logout, system stop and Ctrl+C signal this guardian together with the app.
+        # Dying first would leave a cleanly exiting app's receipt running; its
+        # lifetime ends at the app's stdin EOF instead. SIGKILL still ends it, unclean.
+        for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+            signal.signal(number, signal.SIG_IGN)
         with acquire_lifetime(ownership_paths(args.kind), args.role,
                               args.app_cleanup or app_cleanup,
                               args.core_cleanup or core_cleanup, provisional=True) as lease:
