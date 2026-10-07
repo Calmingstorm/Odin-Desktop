@@ -92,7 +92,7 @@ blockers until measured. Correct tool absence is not backend support. Aaron must
 decide the supported release subset or authorize the missing backend work; this
 PR never silently waives the promised desktop rows.
 
-## This attempt, 2026-10-07
+## Initial bounded attempt, 2026-10-07
 
 No native VM probe was executed. The P3.3 lane held the lab continuously during
 the bounded P3.5 wait, with owner `p33 2026-10-07T16:26:57Z GNOME missing rows
@@ -140,3 +140,75 @@ and portal proofs remain open. **P3.5 was not completed cleanly.** The PR is an
 honest blocked implementation handoff, not a waiver or release recommendation.
 Aaron's immediate decision is lab scheduling/handoff so this lane can execute
 the candidate corpus. Backend support decisions require those actual results.
+
+## Native followup: actual lab handoff and measured results
+
+**Supersedes the initial lab-unavailable rows above, not the passing code gates.**
+P3.5 acquired the lock at **18:28:43 UTC**, after P3.3 and P3.6 released it.
+It installed and probed the same `.deb` hash above sequentially in all four
+owned guests. No workstation session was touched. All four VMs are stopped;
+only P3.5's own lock was removed after verified guest stop.
+
+| Backend | Measured result | Evidence directory |
+|---|---|---|
+| Cinnamon X11 | **limited**: real candidate controller/store and compiled trusted receiver prove capture/target, harmless text, BackSpace, multi-point stroke/release, fresh geometry/modal, stale-observation refusal, pause/cancel and owned guardian SIGKILL to durable quarantine | `x11-r3/` |
+| GNOME portal | **blocked**: installed candidate helper discovery works; retained provider returns `wayland_scope_unavailable` with no extension enabled; no input/portal consent bypass attempted | `gnome-r1/` |
+| KDE portal | **blocked**: installed candidate has no exact-ABI KWin scope ELF; provider returns `wayland_scope_unavailable`; no substitute or unsafe activation | `kde-r1/` |
+| Hyprland native | **blocked**: installed candidate has no exact-ABI scope plugin; installed managed-plugin code rejects an incompatible pin against measured native Hyprland 0.53.3, commit `dd220efe7b1e292415bd0ea7161f63df9c95bfd3` | `hyprland-r5/` |
+
+Each completed probe imports `/opt/Odin/resources/runtime/python/.../src`,
+discovers installed probe assets, and runs the packaged input/capture helpers
+without arguments. Their usage refusals are discovery evidence, not input proof.
+The Hyprland incompatible tuple is a validator-level negative test with a real
+measured compositor executable; it is **not a loaded mismatching ELF/ABI test**.
+
+### X11 independent loss evidence
+
+- Inspected initial native capture: harmless P35 receiver visible, empty focused
+  entry with blue focus outline, blank canvas and Information button.
+- Receiver logs record `P35safe`, BackSpace to `P35saf`, press/motion/release
+  ordering for the cooperative stroke, real geometry change and modal open/close.
+- Guardian PID **3036** was killed only after receiver button-down in that exact
+  guest-owned task. Candidate returned `input_release_unknown`, released false,
+  replay_allowed false and durable quarantined session
+  `aca2cae8e34440279cbdc006427d4ec7`.
+- **Receiver exit still records buttons=1. No button-up was observed after loss.**
+  Closing the local receiver/VM is containment, not proven universal X-server
+  release. No RELEASE-ALL, replacement input or false clean-release claim.
+- Controller/store reopening preserves quarantine; replacement refuses
+  `session_busy`. The initial harness incorrectly expected replay lookup to
+  throw. It instead returns the original unknown receipt without native dispatch,
+  which is correct idempotency. Original `restart_quarantine: false` is retained,
+  not rewritten. Harness now recognizes this behavior with an additional test;
+  a native rerun has **not** been claimed. Read-only SQLite/receiver audit is
+  `x11-durable-audit.json`.
+- Generation=0 negative input was rejected as invalid bounds. This does **not**
+  prove rejection of a valid stale generation after a real consent transition.
+- Native app/core process restart, controller loss during held input, full Exit,
+  exact resource retirement/recovery and independent focus-switch corpus remain
+  unmeasured. Controller/store reconstruction does not stand in for those.
+
+### Provisioning failures and cleanup
+
+All failed attempts are retained. Cinnamon initially lacked compiler/pkg-config/
+GTK headers and XRandR utility; those were installed **inside the guest only**.
+Hyprland's clean guest lacked libnss3/libxss1/libsecret and dependency closure;
+guest-only installation configured the candidate without force-depends. The
+fresh Hyprland environment required explicit measured own native socket selection
+because its compositor startup environment lacks post-start socket variables.
+No host apt/dpkg, VM removal, disk/snapshot replacement or pool change occurred.
+
+After the Hyprland probe, `lab.py start odq-cinnamon` refused:
+**54.5 GiB allocated pool + 50 GiB growth/reserve exceeds 100 GiB budget**.
+Actual allocated measurement: 58,493,747,200 bytes. No budget weakening,
+disk/snapshot removal or pool mutation was attempted. All guests remained stopped.
+The one cleanup check briefly matched its own `pgrep` shell; exact PID inspection
+showed it gone. Guest shutdown succeeded through the existing graceful driver.
+
+### Release decision
+
+**P3.5/D11 still open.** The reason is now measured candidate backend limitations
+plus unexecuted required loss/restart/recovery rows, not merely lab scheduling.
+Aaron must decide/authorize missing packaged GNOME/KDE/Hyprland support and lab
+capacity remediation within the no-disk-removal rule. Correct absence is not
+fulfilment of the promised backend support. No production guards were changed.
