@@ -4,6 +4,7 @@ import { init, openSettings, state } from './store'
 import FirstRunBanner from './components/FirstRunBanner.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import CleanupNotice from './components/CleanupNotice.vue'
+import ChatStatus from './components/ChatStatus.vue'
 import ConversationList from './components/ConversationList.vue'
 import IconRail from './components/IconRail.vue'
 import MessageList from './components/MessageList.vue'
@@ -67,6 +68,7 @@ const workOpen = computed(() => state.view === 'chat' && work.open)
     <main v-if="state.view === 'chat'" class="main">
       <header class="topbar">
         <h1>{{ active?.title ?? 'Odin' }}</h1>
+        <ChatStatus />
       </header>
       <FirstRunBanner v-if="!state.setupReminderHidden" dismissible />
       <SearchPanel v-if="state.search.open" />

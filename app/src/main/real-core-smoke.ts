@@ -520,7 +520,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     if (await run('Boolean(document.querySelector(".first-run button"))')) {
       await run('Array.from(document.querySelectorAll(".first-run button")).find(b => b.textContent.trim() === "Retry")?.click()')
     }
-    await until(async () => (await text('.status')).includes('Connected'), 'real ready status bar')
+    await until(async () => (await text('.rail-link')).includes('Connected'), 'real ready connection indicator')
     // The renderer legitimately creates its first conversation on an empty
     // served core. Never confuse that successful command with fixture seeding.
     if (await run<number>('document.querySelectorAll(".conv-row").length') === 0) await click('button[title="New conversation"]')

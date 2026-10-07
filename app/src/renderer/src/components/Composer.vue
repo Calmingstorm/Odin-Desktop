@@ -20,6 +20,7 @@ import {
 } from '../stores/composer'
 import AttachmentTray from './AttachmentTray.vue'
 import CommandPalette from './CommandPalette.vue'
+import Icon from './Icon.vue'
 
 // The box's text is its conversation's draft (stores/composer.ts); typing saves it.
 const text = computed({ get: () => box.text, set: (value: string) => edit(value) })
@@ -217,7 +218,10 @@ async function closeReport(): Promise<void> {
       @remove="onRemove"
       @knowledge="onKnowledge"
     />
-    <div class="row">
+    <div class="row composer-box">
+      <button type="button" class="composer-icon" aria-label="Attach files" title="Attach files" :disabled="!state.activeId || chatUnavailable()" @click="attach">
+        <Icon name="attach" :size="18" />
+      </button>
       <textarea
         v-model="text"
         rows="3"
@@ -233,10 +237,11 @@ async function closeReport(): Promise<void> {
         @paste="onPaste"
       />
       <div class="buttons">
-        <button type="submit" class="primary" :disabled="!busy && !canSend && !matches.length" :aria-disabled="busy">{{ buttonLabel }}</button>
-        <button type="button" class="ghost" aria-label="Attach files" :disabled="!state.activeId || chatUnavailable()" @click="attach">Attach</button>
-        <button v-if="running" ref="stopButton" type="button" class="danger" aria-label="Stop the current task" title="Stop the current task (Ctrl+.)" :aria-disabled="stopping" @click="stopTask">
-          {{ stopping ? 'Stopping…' : 'Stop' }}
+        <button v-if="running" ref="stopButton" type="button" class="danger composer-stop" aria-label="Stop the current task" title="Stop the current task (Ctrl+.)" :aria-disabled="stopping" @click="stopTask">
+          <Icon name="stop" :size="14" :stroke="2.4" />{{ stopping ? 'Stopping…' : 'Stop' }}
+        </button>
+        <button type="submit" :class="['primary', 'composer-send', { labelled: running }]" :aria-label="buttonLabel" :title="buttonLabel" :disabled="!busy && !canSend && !matches.length" :aria-disabled="busy">
+          <Icon name="send" :size="18" :stroke="2.4" /><span v-if="running">{{ buttonLabel }}</span>
         </button>
       </div>
     </div>

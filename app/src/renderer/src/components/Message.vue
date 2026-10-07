@@ -6,6 +6,7 @@ import { onCodeCopyClick } from '../code-copy'
 import { plainTextOf, renderMarkdown } from '../markdown'
 import { startThread, type ToolEntry } from '../store'
 import FileCard from './FileCard.vue'
+import Icon from './Icon.vue'
 import ReportViewer from './ReportViewer.vue'
 import ToolActivity from './ToolActivity.vue'
 
@@ -23,6 +24,7 @@ const copied = ref('')
 const copyButton = ref<HTMLButtonElement | null>(null)
 const copyChoices = ref<HTMLElement | null>(null)
 const messageLabel = computed(() => `${who(props.message.role)} message at ${time(props.message.created_at)}`)
+const avatar = computed(() => (props.message.role === 'assistant' ? 'rune' : props.message.role === 'user' ? 'person' : 'info'))
 watch(copyOpen, async (open) => {
   await nextTick()
   if (open) copyChoices.value?.querySelector<HTMLButtonElement>('button')?.focus()
@@ -88,7 +90,9 @@ function onImageError(ref: string): void {
 
 <template>
   <article :id="`m-${message.id}`" :class="['msg', message.role, { highlight }]" tabindex="-1" :aria-label="messageLabel">
-    <ToolActivity v-if="message.role === 'assistant' && tools?.length" :entries="tools" :request-id="message.request_id" />
+    <span class="avatar" aria-hidden="true">
+      <Icon :name="avatar" :size="message.role === 'assistant' ? 16 : 18" :stroke="message.role === 'assistant' ? 2.6 : 2" />
+    </span>
     <div class="meta">
       <span class="who">{{ who(message.role) }}</span>
       <time :datetime="message.created_at">{{ time(message.created_at) }}</time>
@@ -105,6 +109,7 @@ function onImageError(ref: string): void {
         </button>
       </span>
     </div>
+    <ToolActivity v-if="message.role === 'assistant' && tools?.length" :entries="tools" :request-id="message.request_id" />
     <div v-if="copyOpen" :id="`copy-${message.id}`" ref="copyChoices" class="copy-choices" @keydown.esc.prevent.stop="closeCopy">
       <button class="ghost" @click="copy('markdown')">Copy as Markdown</button>
       <button class="ghost" @click="copy('plain')">Copy as plain text</button>
