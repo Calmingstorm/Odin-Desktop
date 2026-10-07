@@ -437,8 +437,8 @@
         "total": 110
       },
       "app/src/renderer/src/stores/schedules.ts": {
-        "covered": 40,
-        "missing": 10,
+        "covered": 50,
+        "missing": 0,
         "total": 50
       },
       "app/src/renderer/src/stores/settings.ts": {
@@ -533,8 +533,8 @@
       }
     },
     "total": {
-      "covered": 6952,
-      "missing": 374,
+      "covered": 6962,
+      "missing": 364,
       "total": 7326
     }
   },
@@ -1962,8 +1962,8 @@
         "total": 14
       },
       "src/search/vectorstore.py": {
-        "covered": 223,
-        "missing": 25,
+        "covered": 225,
+        "missing": 23,
         "total": 248
       },
       "src/sessions/__init__.py": {
@@ -2292,8 +2292,8 @@
         "total": 180
       },
       "src/tools/output_retention.py": {
-        "covered": 154,
-        "missing": 6,
+        "covered": 155,
+        "missing": 5,
         "total": 160
       },
       "src/tools/output_streamer.py": {

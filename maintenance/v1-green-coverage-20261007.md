@@ -61,3 +61,16 @@ The gate correctly refused them. Deterministic behavior tests cover those paths
 instead of lowering the baseline or adding tolerance. App CI measured
 **6,952 / 7,326, 94.8949%**. Every one of the 167 requested executable targets
 was already above 80% in that run; no native/hardware exceptions are used.
+
+The second instrumented run `37694315076` at `a02100d6` passed all eight original
+jobs and measured **64,538 / 74,498 Python lines (86.6305%)**. Its new gate refused
+one previously incidental cancellation-race line in `desktop/management.py`.
+That branch receives a deterministic ownership/receipt proof, not a lower ceiling.
+
+Before/after auditing also found the app schedule store's existing cron validation
+coverage depended on an unawaited 400 ms view debounce: before 47/50, intermediate
+40/50. Direct actual-store tests now deterministically cover **50/50**, and its
+baseline is raised, never lowered. Final local app measurement is
+**6,962 / 7,326 (95.0314%)**, with no per-file decrease against the original report.
+The independent pristine Python report had two additional backfill failure lines
+covered; an explicit failure/repair proof preserves those as well.

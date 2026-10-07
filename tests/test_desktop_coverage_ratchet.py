@@ -114,6 +114,30 @@ def test_combine_requires_each_named_shard_not_six_arbitrary_files(tmp_path):
         gate.combine(tmp_path, tmp_path / "output")
 
 
+def test_explicit_update_cannot_lower_existing_ceiling(tmp_path, monkeypatch):
+    baseline, current = fixture()
+    baseline_path = tmp_path / "baseline.json"
+    import json
+    baseline_path.write_text(json.dumps(baseline))
+    python = tmp_path / "python.json"
+    python.write_text(json.dumps({"files": {"src/desktop/a.py": {
+        "summary": {"num_statements": 10, "covered_lines": 7}}}}))
+    app = tmp_path / "app.json"
+    app.write_text(json.dumps({"app/src/a.ts": {
+        "statementMap": {str(index): {"start": {"line": index + 1}} for index in range(10)},
+        "s": {str(index): int(index < 8) for index in range(10)}}}))
+    monkeypatch.setattr(gate, "executable_inventory", lambda: {
+        runtime: set(rows) for runtime, rows in current.items()})
+    monkeypatch.setattr(gate.subprocess, "check_output", lambda *args, **kwargs:
+                        "src/desktop/a.py\napp/src/a.ts\n")
+    assert gate.main(["--python-json", str(python), "--app-json", str(app),
+                      "--baseline", str(baseline_path), "--output", str(tmp_path / "out"),
+                      "--update-baseline"]) == 1
+    updated = json.loads(baseline_path.read_text())
+    assert updated["python"]["files"] == baseline["python"]["files"]
+    assert updated["python"]["total"] == baseline["python"]["total"]
+
+
 def test_ci_measurements_use_all_classified_shards_and_upload_even_on_failure():
     root = Path(__file__).parents[1]
     workflow = yaml.safe_load((root / ".github/workflows/phase1-engine.yml").read_text())

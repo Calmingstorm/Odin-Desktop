@@ -150,11 +150,25 @@ def main(argv=None):
                 "git", "log", "--since=2026-10-04T00:00:00-04:00", "--format=", "--name-only",
                 "--", "src/desktop", "app/src"], cwd=ROOT, text=True).splitlines()
             inventory = executable_inventory()
-            baseline = {runtime: {"total": total(rows), "files": rows}
+            baseline = {runtime: {"total": total(rows), "files": dict(rows)}
                         for runtime, rows in current.items()}
             baseline.update(schema_version=1, target_files=sorted(
                 set(changed) & (inventory["python"] | inventory["app"])), exceptions={})
             previous = json.loads(args.baseline.read_text()) if args.baseline.exists() else None
+            # Updating is explicit, not permission to erase stronger evidence.
+            # Preserve each existing ceiling; regressions remain findings until
+            # the code/tests improve or a separate reviewed policy change occurs.
+            if previous:
+                for runtime in current:
+                    for path, old in previous[runtime]["files"].items():
+                        value = baseline[runtime]["files"].get(path)
+                        if (value is None or ratio(value) < ratio(old)
+                                or value["missing"] > old["missing"]):
+                            baseline[runtime]["files"][path] = old
+                    value = baseline[runtime]["total"]
+                    old = previous[runtime]["total"]
+                    if ratio(value) < ratio(old) or value["missing"] > old["missing"]:
+                        baseline[runtime]["total"] = old
             print("Explicit baseline update; prior totals:",
                   {key: previous[key]["total"] for key in current} if previous else "none")
             args.baseline.write_text(json.dumps(baseline, indent=2, sort_keys=True) + "\n")
