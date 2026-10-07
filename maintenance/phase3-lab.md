@@ -18,17 +18,20 @@ The host preflight and subsequent setup found:
   `incus storage create odq-lab zfs source=/mnt/storage/odq-lab.img size=100GiB`.
   The directory driver avoids the hand-managed loop attachment/reboot problem.
   No reboot or service restart test has been performed.
-- Each VM has a **thin 40 GiB** root disk. Admission uses a **100 GiB aggregate
-  allocated-space budget**, reserves one heavy guest's 40 GiB disk growth plus
-  10 GiB overhead, and conservatively preserves a **50 GiB free filesystem
-  floor after all remaining pool-budget growth**. Optional snapshots are not
-  the default; rebuild disposable guests instead.
+- Each VM has a **thin 40 GiB** root disk. Admission uses a **150 GiB aggregate
+  allocated-space budget** (raised from 100 GiB on 2026-10-07). It reserves the
+  remaining growth of every guest that may run during the operation: each
+  running guest and the one being started, up to its 40 GiB cap, plus 10 GiB
+  overhead each; a new guest or snapshot reserves a full 40 + 10 GiB. It keeps
+  a **50 GiB free filesystem floor after that reserved growth** (stopped guests
+  cannot grow, and every operation that adds data runs the preflight first).
+  Optional snapshots are not the default; rebuild disposable guests instead.
 - The existing managed `incusbr0` NAT bridge remains in use. `bots` was not
   modified; its Incus metadata was compared before/after, not its files.
 
 Thin disks are logical caps, not reservations. Capacity checks fail closed if
-the aggregate allocation budget, single-heavy-guest reserve, filesystem floor,
-guest exclusivity, or host-memory preconditions are not met. The lab tool does
+the aggregate allocation budget, running-guest growth reserve, filesystem floor,
+two-VM limit, or host-memory preconditions are not met. The lab tool does
 not create, import, repair, resize or replace storage.
 
 ## Pinned images and guest recipes
@@ -81,13 +84,16 @@ GNOME and KDE smoke. Resolute has been imported and boot-verified for Hyprland.
 - Unique `user.odq.owner=odin-desktop-qualification-v1` marker; commands also
   validate VM type, exact caps and expanded devices. Names alone confer no
   removal authority. `bots` is not an accepted CLI target.
-- One VM at a time: operations refuse another non-stopped VM, including a VM
-  outside this lab. Commands take a same-operator cross-checkout lock; manual
-  Incus actions bypass that lock, so operators must not race the lab runner.
+- At most two VMs at once (Decision H): operations refuse when two other VMs
+  are not stopped, counting VMs outside this lab. Commands take a same-operator
+  cross-checkout lock and wait up to 15 minutes for another lane's command to
+  finish; manual Incus actions bypass that lock, so operators must not race the
+  lab runner.
 - At least 12 GiB host memory headroom before create/start/provision/smoke.
-- One heavy guest at a time; 100 GiB aggregate allocation budget, 40 GiB disk
-  growth plus 10 GiB reserve, and conservative 50 GiB filesystem floor. No
-  snapshots by default; rebuild disposable guests.
+- 150 GiB aggregate allocation budget; each guest that may run reserves its
+  remaining growth to the 40 GiB cap plus 10 GiB, and the 50 GiB filesystem
+  floor holds after that growth. No snapshots by default; rebuild disposable
+  guests.
 - Graceful guest-agent poweroff and bounded agent waits; no automatic force,
   replay, background start, storage repair or global profile mutation.
 - Guest-only user `odq`, no known password, explicit graphical autologin,
@@ -219,8 +225,8 @@ not an additional custom restart loop. The readiness check is bounded and
 actual spoken output remains untested.
 
 After the first four smokes all guests were stopped. Actual pool allocation was
-**15.04 GiB**, with **198.56 GiB** free on `/mnt/storage`. The 100 GiB workflow
-budget is an admission check, **not a kernel quota or continuous monitor**.
+**15.04 GiB**, with **198.56 GiB** free on `/mnt/storage`. The workflow
+budget (100 GiB then, 150 GiB since 2026-10-07) is an admission check, **not a kernel quota or continuous monitor**.
 Do not race this runner with manual Incus changes or unrelated storage writers.
 No snapshots were retained. These are lab smoke proofs, not P3.3-P3.6 acceptance.
 
