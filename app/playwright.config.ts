@@ -9,7 +9,7 @@ export default defineConfig({
   // uses Vitest's separately owned runner, not this Playwright configuration.
   testMatch: process.env.ODIN_APP_E2E === '1'
     ? ['**/lifecycle.spec.ts', '**/notifications.spec.ts', '**/admitted-work.spec.ts',
-      '**/execution-containment.spec.ts', '**/native-reconciliation.spec.ts']
+      '**/execution-containment.spec.ts', '**/native-reconciliation.spec.ts', '**/session-logout.spec.ts']
     : ['**/accessibility.spec.ts', '**/release-notice.spec.ts'],
   workers: 1,
   fullyParallel: false,

@@ -29,6 +29,7 @@ import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppSchem
 import { APP_ORIGIN } from './security-policy'
 import { OdinTray, detectTray } from './tray'
 import { boundedShutdown, CleanupJournal, resourceCleanupSource } from './shutdown'
+import { installKdeLogoutHook, startSessionMonitor } from './session-logout'
 import { showNativeNotification } from './native-notifications'
 
 registerAppScheme()
@@ -307,6 +308,8 @@ function run(): void {
     unreceipted: () => broker.unreceiptedCount,
     finish: (record) => cleanup.finish(record),
     release: () => {
+      sessionMonitor?.close()
+      logoutHook?.remove()
       for (const os of liveNotifications) os.close()
       liveNotifications.clear()
       tray?.destroy()
@@ -315,6 +318,8 @@ function run(): void {
     exit: (code) => app.exit(code)
   })
   const exitOdin = async (code = 0): Promise<void> => { await shutdown(code) }
+  const sessionMonitor = startSessionMonitor(launch, () => { void exitOdin() })
+  const logoutHook = installKdeLogoutHook(launchCommand())
 
   // Main-only hooks; not exposed through IPC/preload. The E2E runner enforces isolation before launch.
   if (!app.isPackaged && process.env.ODIN_APP_E2E === '1'
