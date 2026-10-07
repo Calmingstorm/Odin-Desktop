@@ -62,7 +62,8 @@ describe('settings on a core without configuration capabilities', () => {
     expect(root.textContent()).toContain('Core settings are unavailable in this core.')
     expect(root.textContent()).not.toContain('internal protocol text')
 
-    const inputs = root.findAll((host) => host.tag === 'input')
+    // The app's checkboxes in order: start at login, then desktop notifications (the theme radios come first).
+    const inputs = root.findAll((host) => host.tag === 'input' && host.props.type === 'checkbox')
     inputs[0]!.fire('change', { target: { checked: true } })
     inputs[1]!.fire('change', { target: { checked: false } })
     await flush()

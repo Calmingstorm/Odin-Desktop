@@ -36,6 +36,6 @@ onBeforeUnmount(() => {
       <button ref="refresh" class="ghost" aria-label="Refresh work" title="Fetch the list again" @click="loadWork">Refresh</button>
       <button class="ghost" aria-label="Close work" title="Close work" @click="close"><span aria-hidden="true">✕</span></button>
     </header>
-    <WorkList />
+    <WorkList sections />
   </section>
 </template>

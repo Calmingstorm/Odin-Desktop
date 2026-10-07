@@ -2,13 +2,16 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, useId, watch } from 'vue'
 import type { WorkAction, WorkItem, WorkKind } from '../../../shared/api'
 import { select, state } from '../store'
-import { actionLabel, controlWork, grouped, isActive, work, workKey } from '../stores/work'
+import { actionLabel, bySection, controlWork, grouped, isActive, kindLabel, work, workKey } from '../stores/work'
 import { changedWorkNotices, workAnnouncement, workName } from '../work-accessibility'
 import { detailFields, settlementFields, workStartedLabel } from '../work-format'
 
-const props = defineProps<{ kinds?: WorkKind[]; emptyText?: string }>()
+/** `sections`: running, scheduled and finished work, as the Work column shows it; otherwise grouped by kind. */
+const props = defineProps<{ kinds?: WorkKind[]; emptyText?: string; sections?: boolean }>()
 
-const groups = computed(() => grouped().filter((group) => !props.kinds || props.kinds.includes(group.kind)))
+const groups = computed<Array<{ kind: string; label: string; items: WorkItem[] }>>(() => props.sections
+  ? bySection()
+  : grouped().filter((group) => !props.kinds || props.kinds.includes(group.kind)))
 const prefix = `work-${useId()}`
 // A shared schedule lock uses its manager ID, but rows remain distinct immutable work generations.
 const itemId = (item: Parameters<typeof workKey>[0], suffix: string): string => `${prefix}-${encodeURIComponent(`${item.kind}:${item.id}`)}-${suffix}`
@@ -122,6 +125,7 @@ async function open(conversationId: string, event: MouseEvent): Promise<void> {
         </span>
       </div>
       <div class="work-meta">
+        <span v-if="sections" class="work-kind">{{ kindLabel(item.kind) }}</span>
         <span v-if="typeof item.detail === 'string' && item.detail">{{ item.detail }}</span>
         <span v-if="item.started_at != null">started {{ workStartedLabel(item.started_at) }}</span>
         <button v-if="item.conversation_id && titleOf(item.conversation_id)" class="work-link" :aria-label="`Open conversation ${titleOf(item.conversation_id)} for ${workName(item)}`" @click="open(item.conversation_id, $event)">

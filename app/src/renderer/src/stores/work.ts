@@ -68,6 +68,29 @@ export function activeCount(): number {
   return work.items.filter(isActive).length
 }
 
+const KIND_LABELS: Record<WorkKind, string> = {
+  agent: 'Agent', task: 'Task', loop: 'Loop', process: 'Process', workflow: 'Workflow', schedule: 'Schedule'
+}
+
+export function kindLabel(kind: WorkKind): string {
+  return KIND_LABELS[kind] ?? kind
+}
+
+/**
+ * The Work column's view of the same items: what is running now, then the schedules, then finished work, each most
+ * recently started first. Nothing is dropped; every item is in exactly one section.
+ */
+export function bySection(): Array<{ kind: string; label: string; items: WorkItem[] }> {
+  const recent = (a: WorkItem, b: WorkItem): number => workStartedMillis(b.started_at) - workStartedMillis(a.started_at)
+  const scheduled = (item: WorkItem): boolean => item.kind === 'schedule'
+  return [
+    { kind: 'running', label: 'Running now', items: work.items.filter((i) => !scheduled(i) && isActive(i)).sort(recent) },
+    { kind: 'scheduled', label: 'Scheduled', items: work.items.filter(scheduled)
+      .sort((a, b) => Number(isActive(b)) - Number(isActive(a)) || recent(a, b)) },
+    { kind: 'finished', label: 'Finished', items: work.items.filter((i) => !scheduled(i) && !isActive(i)).sort(recent) }
+  ].filter((section) => section.items.length > 0)
+}
+
 /** The items of each kind, running ones first, then the most recently started. */
 export function grouped(): Array<{ kind: WorkKind; label: string; items: WorkItem[] }> {
   return GROUPS.map((group) => ({
