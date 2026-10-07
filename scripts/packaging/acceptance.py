@@ -76,10 +76,13 @@ class Container:
         network = self.api.query("/1.0/networks/incusbr0")
         if not network.get("managed") or network.get("config", {}).get("ipv4.nat") != "true":
             raise AcceptanceError("Existing managed incusbr0 NAT network required")
+        # Same policy as lab VMs: reserve this container's growth plus the remaining
+        # growth of every running lab VM (caps validated), measured before the pool.
+        growth = 14 * GIB + sum(lab.running_reserve(self.api.instances(), skip=(NAME,)).values())
         used, free = lab.storage_usage()
-        if used + 14 * GIB > lab.POOL_BUDGET:
+        if used + growth > lab.POOL_BUDGET:
             raise AcceptanceError("Container growth would exceed existing lab storage budget")
-        if free < lab.FILESYSTEM_FLOOR + lab.POOL_BUDGET - used:
+        if free < lab.FILESYSTEM_FLOOR + growth:
             raise AcceptanceError("Container growth would violate existing filesystem floor")
         memory = self.api.query("/1.0/resources")["memory"]
         if int(memory["total"]) - int(memory["used"]) < 8 * GIB:

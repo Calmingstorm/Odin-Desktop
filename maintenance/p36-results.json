@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "status": "source-gates-pass-native-matrix-pending",
+  "tested_source_sha": "7f2326f069ef271856fe119b2f077c1d1e85645b",
+  "app_source_sha": "7f2326f069ef271856fe119b2f077c1d1e85645b",
+  "interim_candidate_source_sha": "243a613a00cb1751357648915dc1881b773f189b",
+  "artifact_manifest": "/mnt/storage/odin-desktop-evidence/p36-20261007/artifact-manifest.json",
+  "gates": {
+    "app_check": {"passed": 1054, "files": 109, "failed": 0},
+    "fixture_smoke": "passed",
+    "real_core": {"passed": 66, "failed": 0},
+    "onboarding": {"passed": 6, "failed": 0},
+    "renderer_security_content": {"passed": 2, "failed": 0, "skipped": 0},
+    "matrix_focused": {"passed": 34, "failed": 0},
+    "additional_desktop": {"passed": 511, "failed": 0},
+    "inherited_qualification": {"groups": 38, "passed": 19313, "failed": 0, "skipped": 3, "deselected": 379},
+    "offline_lab_fixture": {"passed": 159, "failed": 0, "skipped": 4, "limitation": "Missing subordinate UID/GID mappings; no native acceptance"},
+    "drift": {"errors": 0, "review": "pending"},
+    "lint": {"new": 0, "inherited": 7},
+    "matrix": {"valid": true, "ready": false}
+  },
+  "rows": {"cinnamon": "limited", "gnome": "blocked", "kde": "limited", "hyprland": "pending"},
+  "interim_package": {"extracted_formats": 2, "passing_checks": 8, "gate": "fail", "reason": "Actual installed .deb lane not proven; no P4.2 or native D11 claim"},
+  "ci": {"run": 37658777046, "short_gates": "pass", "qualification_shards": "5/5 pass", "full_suites": "fail", "reason": "Real-core work manager proof admission timeout; 65/66 pass; cause unproved"},
+  "phase2": {"total": 326, "restored": 99, "retired": 77, "named_deferrals": 150, "missing_dispositions": 0, "d19_open": 0},
+  "lab": {"handoff": "p36 acquired 18:03 UTC; exact lock released 18:28 UTC after all guests stopped", "cleanup": "graceful poweroff confirmed", "other_lane_operations": 0},
+  "limits": ["Only Cinnamon/KDE packaged rendering/security subsets measured", "GNOME package cleanup fence refusal unresolved", "Final immutable candidate pending P3.5 PR98 merge", "P4.2 exact-candidate rerun pending", "No live desktop or release approval"]
+}
