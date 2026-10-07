@@ -7,6 +7,7 @@ import { Broker, type Welcome } from '../src/main/broker'
 import { ensureProfileDirs, ensureToken, profilePaths, type ProfilePaths } from '../src/main/paths'
 import { startCannedProvider } from './real-core-provider-fixture.mjs'
 import { configureCannedProvider } from '../src/main/real-core-smoke'
+import { isolatedServicesBootstrap } from './isolated-services-bootstrap'
 
 const repository = resolve(__dirname, '../..')
 
@@ -66,48 +67,6 @@ type IsolatedServices = { memoryKeyring?: boolean; authBaseUrl?: string; profile
 // transport, command journal, settings persistence and Broker remain the actual repository code.
 // stageFileSkill selects the existing dispatcher delivery policy for one disposable fixture;
 // it does not replace skill execution, callbacks, publication or final-reply delivery.
-const isolatedServicesBootstrap = `
-import sys, runpy, os
-from src.desktop.management import ManagementService
-class MemoryKeyring:
-    def __init__(self): self.values = {}
-    def check(self):
-        if os.path.exists(os.path.join(os.environ['HOME'], 'keyring.locked')):
-            raise RuntimeError('ephemeral test keyring locked')
-    def get_password(self, namespace, name):
-        self.check()
-        return self.values.get((namespace, name))
-    def set_password(self, namespace, name, value):
-        self.check()
-        self.values[(namespace, name)] = value
-    def delete_password(self, namespace, name):
-        self.check()
-        self.values.pop((namespace, name), None)
-if sys.argv[1] == 'memory':
-    original = ManagementService.compose.__func__
-    backend = MemoryKeyring()
-    ManagementService.compose = classmethod(lambda cls, core, **kw: original(cls, core, secret_backend=backend))
-base = sys.argv[2]
-if base:
-    import src.desktop.codex_accounts as device
-    import src.llm.codex_auth as auth
-    device.DEVICE_USERCODE_URL = base + '/device/code'
-    device.DEVICE_TOKEN_URL = base + '/device/token'
-    device.DEVICE_VERIFY_URL = base + '/verify'
-    auth.TOKEN_URL = base + '/oauth/token'
-stage_skill = sys.argv[3]
-file_delivery = sys.argv[4]
-if stage_skill:
-    from src.discord.native_tools.registry import NativeToolDispatcher
-    dispatch = NativeToolDispatcher.dispatch
-    async def staged_dispatch(self, tool_name, tool_input, **kwargs):
-        if tool_name == stage_skill or (tool_name == 'invoke_skill' and tool_input.get('name') == stage_skill):
-            kwargs['skill_file_delivery'] = file_delivery
-        return await dispatch(self, tool_name, tool_input, **kwargs)
-    NativeToolDispatcher.dispatch = staged_dispatch
-sys.argv = ['src', *sys.argv[5:]]
-runpy.run_module('src', run_name='__main__')
-`
 
 export function assertIsolated(): void {
   if (process.platform !== 'linux' || !process.getuid || process.getuid() === 0) {
