@@ -38,7 +38,7 @@ linux:
     entry:
       Name: Odin
       Comment: Odin, your execution agent
-      StartupWMClass: Odin
+      StartupWMClass: odin-desktop
       Actions: exit;
     desktopActions:
       exit:
