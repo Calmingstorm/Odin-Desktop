@@ -514,6 +514,8 @@ async def guest_probe(args):
                 measured("guardian_loss", killed is not None and current.state == "quarantined",
                          {"state": current.state, "killed_owned_child": killed,
                           "release_is_unknown": True})
+                if killed is None or current.state != "quarantined":
+                    raise RuntimeError("guardian_loss_corpus_not_established_stop_input")
                 # Unknown release means no further input or replacement. Close,
                 # reopen the durable store and assert the fence and no replay.
                 sid = current.session_id
@@ -525,6 +527,8 @@ async def guest_probe(args):
                 before = receiver_rows()
                 refused = []
                 for operation in ("replay", "replacement"):
+                    if store.get_session(sid).state != "quarantined":
+                        raise RuntimeError("durable_quarantine_missing_stop_input")
                     try:
                         if operation == "replay":
                             await controller.act(context, request)
