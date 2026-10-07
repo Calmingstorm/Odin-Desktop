@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "status": "source-gates-pass-native-matrix-pending",
+  "tested_source_sha": "98ac6dd7fab2bf25869940921bf4cf115cf13981",
+  "app_source_sha": "28e6de9b",
+  "interim_candidate_source_sha": "243a613a00cb1751357648915dc1881b773f189b",
+  "artifact_manifest": "/mnt/storage/odin-desktop-evidence/p36-20261007/artifact-manifest.json",
+  "gates": {
+    "app_check": {"passed": 1049, "files": 108, "failed": 0},
+    "fixture_smoke": "passed",
+    "real_core": {"passed": 66, "failed": 0},
+    "onboarding": {"passed": 6, "failed": 0},
+    "renderer_security_content": {"passed": 2, "failed": 0, "skipped": 0},
+    "matrix_focused": {"passed": 34, "failed": 0},
+    "additional_desktop": {"passed": 504, "failed": 0},
+    "inherited_qualification": {"groups": 38, "passed": 19313, "failed": 0, "skipped": 3, "deselected": 379},
+    "offline_lab_fixture": {"passed": 159, "failed": 0, "skipped": 4, "limitation": "Missing subordinate UID/GID mappings; no native acceptance"},
+    "drift": {"errors": 0, "review": "pending"},
+    "lint": {"new": 0, "inherited": 7},
+    "matrix": {"valid": true, "ready": false}
+  },
+  "rows": {"cinnamon": "pending", "gnome": "pending", "kde": "pending", "hyprland": "pending"},
+  "phase2": {"total": 326, "restored": 99, "retired": 77, "named_deferrals": 150, "missing_dispositions": 0, "d19_open": 0},
+  "lab": {"operations": 0, "lock_owner": "p33 2026-10-07T16:26:57Z GNOME missing rows req-7747a619", "wait": "30 minutes bounded, no other-lane operations"},
+  "limits": ["No native D11 row measured", "Final immutable candidate pending P3.5 merge", "P4.2 exact-candidate rerun pending", "No live desktop or release approval"]
+}

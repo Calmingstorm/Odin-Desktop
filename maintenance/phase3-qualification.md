@@ -95,6 +95,50 @@ its approved exit-obligation inventory; that boolean is not this Phase 3 gate.
 Old prose in D19 docs calling exit open does not override the current executable
 inventory. No previously approved disposition is silently changed here.
 
+## This PR's final source gates (2026-10-07)
+
+Fresh worktree `/home/odin/desktop-p36-fresh-20261007`, source
+`28e6de9b` plus ledger-only `98ac6dd7fab2bf25869940921bf4cf115cf13981`.
+Fresh locked Python dev environment and `npm ci --ignore-scripts`; pinned
+Electron installed explicitly. Product/probe source did not change between
+the fresh app gates and the ledger-only update. Latest main `aa3d61b3` merged.
+
+| Gate | Actual result |
+|---|---|
+| Full `npm run check` | Typecheck/build pass; **1049 tests, 108 files passed** |
+| Fixture smoke | Passed, sandbox intact, normal Exit, isolated screenshot retained |
+| Real-core + onboarding | **66 + 6 passed** |
+| New actual renderer/security/content E2E | **2 passed**, zero retries/skips |
+| Matrix targeted | **34 passed** |
+| Additional Desktop boundaries | **504 passed**, zero failures/skips |
+| Full inherited qualification | **38/38 groups**, **19,313 passed, 3 skipped**, zero failed groups; 379 deselected per reviewed selectors |
+| Offline lab fixtures | **159 passed, 4 skipped** because restricted helper lacks distinct subordinate UID/GID mappings |
+| Drift/lint/ownership/D19/closure | Zero drift errors/new lint findings; seven inherited lint findings; ownership plan and exact closure inventories pass |
+| Matrix check | Valid accounting, **ready=false**, not qualification |
+
+The full inherited run was executed once after the final source changes. Its
+three skips and coroutine/mock/aiohttp warnings are preserved, not promoted to
+native qualification. Earlier developing probe failures (module/preload observer
+setup) preceded the corrected 2/2 run. Initial final drift check caught four
+unledgered new qualification scripts **before any engine suite ran**; explicit
+ledger records fixed that accounting failure, with no source/assertion/guard
+change. `final-drift.json` and corrected report both remain retained.
+
+**No P3.6 VM row was run in this turn:** Claude initially owned the lab, then
+P3.3 held `p33 2026-10-07T16:26:57Z GNOME missing rows req-7747a619`, still held
+at 17:20 UTC. Bounded lock polling ran for 30 minutes and code/gates proceeded
+meanwhile. `lab-wait-receipt.json` records the owner. No lock theft, guest stop,
+input, capture or disk action was attempted. Thus the interim candidate proves
+construction plus source renderer harness, **not the VM runner in operation**.
+All four D11 rows remain pending, with P3.4's earlier KDE accessibility blocker
+and P3.5's promised-backend gaps explicitly retained. Final candidate run is
+pending P3.5 merge and lab availability; current row statuses are not waived.
+
+Raw logs, candidate installers, screenshots and hashes remain in the external
+artifact directory, indexed by `artifact-manifest.json`. The small committed
+manifest pointer/results are `p36-results.json`. No tests are claimed to have
+run on a new final-candidate hash. No publishing/deployment/live desktop action.
+
 ## Decisions and remaining work
 
 No extra owner approval/governor/allow-list or model instruction is introduced.
