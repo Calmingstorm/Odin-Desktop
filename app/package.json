@@ -2,7 +2,7 @@
   "name": "odin-desktop",
   "productName": "Odin",
   "desktopName": "odin-desktop.desktop",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "homepage": "https://github.com/Calmingstorm/Odin-Desktop",
   "author": "Calmingstorm",
