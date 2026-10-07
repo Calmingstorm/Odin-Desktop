@@ -5,7 +5,7 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync, readlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { BrowserWindow, Menu, Notification, app, clipboard, dialog, ipcMain, nativeTheme, shell } from 'electron'
+import { BrowserWindow, Menu, Notification, app, clipboard, dialog, ipcMain, nativeTheme, powerMonitor, shell } from 'electron'
 import { IPC, type AppState, type Appearance, type CoreEvent, type LinkState, type NotificationSettings, type Settings } from '../shared/api'
 import { AppearanceController, loadAppearance } from './appearance'
 import { ArtifactStore, safeFileName } from './artifacts'
@@ -357,6 +357,15 @@ function run(): void {
     appearance = theme
     // Following the system, the theme can change while Odin runs; the window background follows it.
     nativeTheme.on('updated', () => win?.setBackgroundColor(theme.background()))
+    // logind announces a shutdown or reboot before the session is torn down. Holding its
+    // delay lock until Exit finishes records an orderly Exit, not an abrupt app loss.
+    // Electron 44 asks logind for that lock only if another powerMonitor listener exists
+    // when the 'shutdown' one is added; added first, it never arrives (measured in the lab).
+    powerMonitor.on('suspend', () => undefined)
+    powerMonitor.on('shutdown', (event?: Electron.Event) => {
+      event?.preventDefault()
+      void exitOdin()
+    })
     installGuards()
     serveAppScheme(rendererDir)
     registerIpc({

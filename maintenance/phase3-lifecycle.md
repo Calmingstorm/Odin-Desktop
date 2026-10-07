@@ -193,3 +193,29 @@ code changed in this review fix. A separate same-source, no-retry owner-suite re
 settlement/exit 0. Both results remain at `/home/odin/desktop-pr32-r1-final-e2e/` and
 `/home/odin/desktop-pr32-r1-owner-rerun/`. This is intermittent qualification evidence, **not a clean 29/29 claim**;
 the exact transport race is not established and no ownership guard was weakened.
+
+## Session end as an Exit route, 2026-10-07
+
+Native evidence from `odq-cinnamon` showed that a normal poweroff with Odin in the tray was recorded as an
+abrupt app loss. systemd stopped Odin's scope within one second, and the next login showed "Previous app
+stopped without a shutdown receipt. Cleanup unknown". Measured on the source build in the isolated runner:
+
+| Stop | Before | After |
+|---|---|---|
+| SIGTERM to the app alone | clean Exit (Electron runs `before-quit`) | unchanged |
+| SIGHUP to the app alone | clean Exit | unchanged |
+| SIGTERM to app and core together (a scope stop) | `unknown`, shutdown not accepted, 4 unreceipted | clean Exit |
+| logind shutdown notice (`powerMonitor` `shutdown`) | not handled | delay held, clean Exit |
+
+- The core's stop signal no longer races the app's orderly Exit. With a live parent link, it waits up to
+  `PARENT_EXIT_GRACE_SECONDS` (3 s) for the app's shutdown request or EOF; the first stop edge wins. With no
+  parent link, or a silent parent after the grace, the signal still stops it.
+- The app takes logind's shutdown delay lock through Electron's `powerMonitor` and runs the same bounded Exit
+  before the session is torn down.
+- Test launchers point `DBUS_SYSTEM_BUS_ADDRESS` at a dead path in the private root. A tested app never takes
+  the workstation's logind locks, and the system-shutdown test asserts that it never sees the host bus.
+
+Evidence: `tests/test_desktop_core_lifecycle.py` (real signals; mutants reverting the grace, ignoring the parent
+or delaying without a parent each fail) and the two new `lifecycle.spec.ts` cases. With main's core lifetime,
+the combined-SIGTERM case fails as `unknown` with 4 unreceipted. Without the handler, the shutdown notice isn't
+delayed. Logout has no logind notice; its native behaviour per desktop is measured in the lab, not claimed here.
