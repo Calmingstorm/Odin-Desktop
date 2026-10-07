@@ -149,7 +149,7 @@ export class CleanupJournal {
 export interface ShutdownDeps {
   stopAdmission(): void
   persist(): void
-  requestShutdown(): Promise<boolean>
+  requestShutdown(signal: AbortSignal): Promise<boolean>
   stopCore(): Promise<StopOutcome>
   unreceipted(): number
   finish(record: CleanupRecord): void
@@ -167,13 +167,14 @@ export function boundedShutdown(deps: ShutdownDeps): (code?: number) => Promise<
       let unsaved = false
       try { deps.persist() } catch { unsaved = true }
       let timer: NodeJS.Timeout | undefined
+      const requestBound = new AbortController()
       let shutdownAccepted = false
       try {
         shutdownAccepted = await Promise.race([
-          Promise.resolve().then(() => deps.requestShutdown()).catch(() => false),
+          Promise.resolve().then(() => deps.requestShutdown(requestBound.signal)).catch(() => false),
           new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(false), deps.requestTimeoutMs ?? 5_000) })
         ])
-      } finally { if (timer) clearTimeout(timer) }
+      } finally { requestBound.abort(); if (timer) clearTimeout(timer) }
       let processOutcome: StopOutcome
       try { processOutcome = await deps.stopCore() } catch { processOutcome = 'unknown' }
       const unreceipted = deps.unreceipted()

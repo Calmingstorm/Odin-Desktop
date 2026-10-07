@@ -28,7 +28,7 @@ The next Tab can leave Message.
 
 1. Tab to **Settings** and press Enter. Navigate to **Models and providers** or
    another section; **Back to chat** returns to chat.
-2. Tab to **+ New**, activate it and move to **Message**. Type a request and send
+2. Tab to **New conversation**, activate it and move to **Message**. Type a request and send
    with Enter, or use Shift+Enter for more lines.
 3. Tab to **Attach files**. Choose a file in the desktop dialog, or Escape to
    cancel. Check its named upload state and Remove control.
@@ -42,8 +42,9 @@ The next Tab can leave Message.
    errors and result controls remain in scrollable regions when enlarged.
 8. Reopen Odin from the launcher after Close, then use Ctrl+Q to Exit.
 
-Unavailable Work or report services are not working controls just because the
-screen is visible. See [Background work](background-work.md).
+Use the Work column and report controls described in
+[Background work](background-work.md). A service refusal is not an empty list
+or proof a task completed.
 
 ## Screen readers and privacy
 
@@ -64,6 +65,13 @@ Keyboard navigation, enlarged layout and named controls do not guarantee Orca
 speech or that every desktop's native dialogs, keyring prompts, portals, tray and
 notifications work. Native screen-reader and Wayland support are not yet fully
 confirmed. Actual behavior can depend on desktop, screen reader and display setup.
+
+The current Raven interface has been exercised with Orca in isolated
+Cinnamon/X11 and GNOME/Wayland sessions: all seven task groups passed in each.
+KDE/Wayland passed six of seven; the native Attach dialog was visible but its
+controls were unavailable to the screen reader. Do not assume accessible
+Attach/Save on KDE. Final candidate acceptance and a decision on that KDE
+limitation remain open. These results do not qualify every desktop or version.
 
 Report app version, package format, desktop/session (**X11** or **Wayland**),
 screen reader/version, zoom/scaling, control name, expected result and actual
