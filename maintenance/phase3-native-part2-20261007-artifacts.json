@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "evidence_root": "/mnt/storage/odin-desktop-evidence/p33-finish-20261007",
+  "manifest": {
+    "path": "/mnt/storage/odin-desktop-evidence/p33-finish-20261007/artifact-manifest.json",
+    "sha256": "8502afcf6b851d74da5b4eeb30b00e9b28232c62c8dc6a1c519a1c3d351dd076",
+    "artifacts": 197
+  },
+  "scope": "Current-main candidates, GNOME source/native and packaged lifecycle results, preserved prior native results, full engine receipts and failed/corrected gate logs",
+  "native_gate": "OPEN: unchanged lab aggregate capacity guard refuses guest start; no disk/removal override",
+  "release": false
+}

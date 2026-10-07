@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "scope": "offline helper corrections only; no native/package rerun",
+  "external_manifest": {
+    "path": "/mnt/storage/odin-desktop-evidence/lane7-p33-native-20261006/offline-finish/artifacts.json",
+    "bytes": 4968,
+    "sha256": "166076219043eac2a903846e08a9eae20aedfa92c8a994335bf8d29b256c17a9"
+  },
+  "python_helper_passed": 29,
+  "node_helper_passed": 16,
+  "npm_check": {
+    "files": 78,
+    "tests": 747,
+    "typecheck": "pass",
+    "build": "pass"
+  },
+  "real_core": 22,
+  "onboarding": 6,
+  "fixture_smoke": "pass; not native notification evidence",
+  "native_matrix": {
+    "pass": 1,
+    "partial": 2,
+    "failed": 4,
+    "blocked": 8,
+    "gate": "OPEN"
+  },
+  "review": "pending independent review"
+}

@@ -37,6 +37,19 @@ def configuration(path: Path) -> configparser.ConfigParser:
     return config
 
 
+def test_package_install_provides_real_notification_forwarder_interpreter(tmp_path):
+    calls = tmp_path / "calls"
+    stub = tmp_path / "apt-get"
+    stub.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$ODQ_CALLS"\n')
+    stub.chmod(0o755)
+    subprocess.run(["bash", "-c", f"source {shlex.quote(str(RECIPE))}; gnome_install_packages"],
+                   env={"PATH": f"{tmp_path}:/usr/bin:/bin", "ODQ_CALLS": str(calls)},
+                   check=True)
+    install = next(line for line in calls.read_text().splitlines() if line.startswith("install "))
+    assert "gjs" in shlex.split(install)
+    assert "gnome-shell" in shlex.split(install)
+
+
 def test_generated_wayland_session_and_autologin(tmp_path):
     render(tmp_path)
     gdm = configuration(tmp_path / "etc/gdm3/custom.conf")
