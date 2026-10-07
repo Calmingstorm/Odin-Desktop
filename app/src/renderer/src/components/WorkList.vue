@@ -38,10 +38,12 @@ watch(
 )
 onBeforeUnmount(() => clearTimeout(noticeTimer))
 
-// A later core event may remove a completed item's controls after the initial command receipt.
-// Save only this list's current focus, and repair it only when that exact node was removed.
+// A later core event may remove a completed item's controls after the initial command receipt, or, in the Work
+// column, move its whole row to another section (running to finished), which renders a new row. Save only this
+// list's current focus, and repair it only when that exact node was removed. The section is part of the watched
+// value: a move can leave every item's kind, id and actions unchanged.
 watch(
-  () => groups.value.map((group) => group.items.map((item) => `${item.kind}:${item.id}:${item.actions.join(',')}`).join('|')).join('|'),
+  () => groups.value.map((group) => `${group.kind}=` + group.items.map((item) => `${item.kind}:${item.id}:${item.actions.join(',')}`).join('|')).join('||'),
   async () => {
     const active = document.activeElement as HTMLElement | null
     const row = active?.closest?.<HTMLElement>('.work-item')
