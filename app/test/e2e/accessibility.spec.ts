@@ -41,8 +41,9 @@ async function launch(real = false, scenario?: string, profile?: string): Promis
     delete env.DBUS_SESSION_BUS_ADDRESS
   }
   else if (scenario) env.ODIN_DESKTOP_CORE_CMD = JSON.stringify(['/usr/bin/python3', '-B', join(appDir, 'test/e2e/accessibility-core.py'), scenario])
+  // No colour-scheme emulation (Playwright's Electron default is light): the app's own theme drives the page.
   app = await electron.launch({ executablePath: require('electron'), args: [appDir, '--force-renderer-accessibility'],
-    cwd: appDir, env, chromiumSandbox: true })
+    cwd: appDir, env, chromiumSandbox: true, colorScheme: null })
   page = await app.firstWindow()
   await expect(page.locator('.link.ready')).toContainText('Connected')
   launchEvidence = await app.evaluate(({ BrowserWindow }) => {

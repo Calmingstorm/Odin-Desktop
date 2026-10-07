@@ -250,6 +250,7 @@ export function canAct(conversationId: string | null): boolean {
 }
 
 export async function init(): Promise<void> {
+  watchColorScheme()
   let pushedAppState = false
   window.odin.onAppState((app) => {
     pushedAppState = true
@@ -289,7 +290,6 @@ export async function init(): Promise<void> {
   // A main-process state push can overtake this initial IPC reply. Never put
   // the window back on an older link/incarnation after it has learned newer state.
   if (app && !pushedAppState) state.app = app
-  watchColorScheme()
   const settings = await window.odin.getSettings()
   if (settings.ok) {
     state.autostart = settings.result.autostart
