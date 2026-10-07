@@ -7,12 +7,13 @@ import { join } from 'node:path'
 import { assertIsolated, exitApp, launchApp, repository, request, waitForCore } from './harness'
 import { isolatedServicesBootstrap } from '../isolated-services-bootstrap'
 import { recordCase } from './r4-cases'
-import { REPLY, startCannedProvider } from '../real-core-provider-fixture.mjs'
+import { FILE_CONTENT, REPLY, TOOL_REPLY, startCannedProvider } from '../real-core-provider-fixture.mjs'
 
 type Provider = Awaited<ReturnType<typeof startCannedProvider>>
 type ProviderCall = Provider['requests'][number]
-interface Message { role: string; text: string; request_id?: string }
+interface Message { id: string; role: string; text: string; request_id?: string; artifacts?: Array<{ ref: string; name: string }> }
 interface Snapshot {
+  conversation: { id: string; rev: number }
   running: { request_id: string } | null
   queued: Array<{ request_id?: string }>
   messages: { items: Message[] }
@@ -63,8 +64,9 @@ const textOf = (content: unknown): string => typeof content === 'string' ? conte
 const everything = (recorded: ProviderCall): string => recorded.body.messages.map((m) => textOf(m.content)).join('\n')
 const lastUser = (recorded: ProviderCall): string =>
   textOf([...recorded.body.messages].reverse().find((m) => m.role === 'user')?.content)
-const replied = (snap: Snapshot, requestId: string): boolean =>
-  snap.messages.items.some((m) => m.role === 'assistant' && m.request_id === requestId && m.text.includes(REPLY))
+const answered = (snap: Snapshot, requestId: string, text: string): boolean =>
+  snap.messages.items.some((m) => m.role === 'assistant' && m.request_id === requestId && m.text.includes(text))
+const replied = (snap: Snapshot, requestId: string): boolean => answered(snap, requestId, REPLY)
 
 test('R4-02: two conversations progress independently, one conversation runs in order, and no context leaks', async ({}, info) => {
   assertIsolated()
@@ -122,6 +124,72 @@ test('R4-02: two conversations progress independently, one conversation runs in 
       provider_calls: provider.requests.map((r) => r.token),
       a_held_while_b_completed: true, a_second_queued_until_first_completed: true, cross_conversation_text: 'none'
     })
+  } finally {
+    if (application) await exitApp(application)
+    await provider.close()
+  }
+})
+
+test('R4-05: a context reset and an app restart keep the transcript, tool outcomes and files visible', async ({}, info) => {
+  assertIsolated()
+  const provider = await startCannedProvider({ root: join(process.env.ODIN_REAL_CORE_ROOT!, 'r4-provider-restart') })
+  const profile = 'r4-restart'
+  let application: ElectronApplication | null = null
+  try {
+    application = await launchApp({ profile, args: ['--hidden'], env: memoryKeyringCore() })
+    await waitForCore(application)
+    await useCannedProvider(application, provider.baseUrl)
+    const app = application
+    const marker = `restart-${randomUUID().slice(0, 8)}`
+    const title = `R4 restart ${marker}`
+    const cid = (await call<{ conversation: { id: string } }>(app, 'conversations.create', { title })).conversation.id
+    const send = (text: string): Promise<{ request_id: string }> =>
+      call(app, 'submission.send', { client_submission_id: randomUUID(), conversation_id: cid, text })
+    const snap = (target: ElectronApplication): Promise<Snapshot> => call(target, 'conversation.snapshot', { conversation_id: cid })
+
+    const tool = await send(`[tool] ${marker} tool`)
+    await expect.poll(async () => answered(await snap(app), tool.request_id, TOOL_REPLY), { timeout: 30_000 }).toBe(true)
+    const file = await send(`[artifact] ${marker} file`)
+    await expect.poll(async () => answered(await snap(app), file.request_id, 'file and image posted'), { timeout: 30_000 }).toBe(true)
+    const artifacts = (await snap(app)).messages.items.flatMap((m) => m.artifacts ?? [])
+    expect(artifacts.map((a) => a.name)).toContain('contract.txt')
+
+    // A context reset fences what the model sees next, not the durable history.
+    await call(app, 'conversations.reset_context', { id: cid, expected_rev: (await snap(app)).conversation.rev })
+    const after = await send(`[reply] ${marker} after reset`)
+    await expect.poll(async () => replied(await snap(app), after.request_id), { timeout: 30_000 }).toBe(true)
+    const afterCall = provider.requests.find((r) => lastUser(r).includes(`${marker} after reset`))
+    expect(afterCall).toBeDefined()
+    expect(everything(afterCall!)).not.toContain(`${marker} tool`)
+    const before = await snap(app)
+
+    // A full restart of app and core: every message and file is still there, and visible.
+    await exitApp(app)
+    application = await launchApp({ profile, env: memoryKeyringCore() })
+    await waitForCore(application)
+    const restored = await snap(application)
+    expect(restored.messages.items.map((m) => m.id)).toEqual(before.messages.items.map((m) => m.id))
+    expect(answered(restored, tool.request_id, TOOL_REPLY)).toBe(true)
+    for (const artifact of artifacts) {
+      const read = await request(application, 'artifacts.read', { ref: artifact.ref, offset: 0, length: 65_536 })
+      expect(read.ok).toBe(true)
+      if (artifact.name === 'contract.txt') {
+        expect(Buffer.from((read.result as { data_b64: string }).data_b64, 'base64').toString()).toBe(FILE_CONTENT)
+      }
+    }
+    const page = await application.firstWindow()
+    await page.getByText(title, { exact: true }).first().click()
+    const scroll = page.locator('.message-scroll')
+    await expect(scroll).toContainText(TOOL_REPLY)
+    await expect(scroll).toContainText(`${marker} after reset`)
+    await expect(scroll).toContainText('contract.txt')
+
+    const evidence = {
+      conversation: cid, messages: restored.messages.items.length, artifacts: artifacts.map((a) => a.name),
+      reset_fenced_model_context: true, restart_preserved_message_ids: true, visible_after_restart: true
+    }
+    await recordCase(info, 'R4-05', evidence)
+    await recordCase(info, 'CC-07', evidence)
   } finally {
     if (application) await exitApp(application)
     await provider.close()
