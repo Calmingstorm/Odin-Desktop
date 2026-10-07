@@ -169,6 +169,30 @@ acquisition and zero guest operations. Exact final blocker is
 
 ## Decisions and remaining work
 
+### Latest approved decisions and hard admission blocker, 19:08 UTC
+
+Merged #100 records Aaron's **Decision G**: Orca/AT-SPI results block nothing;
+existing evidence remains. Prior references in this historical report calling
+the KDE chooser speech/tree gap a release blocker are superseded. Keyboard-only
+coverage remains required and still lacks full current-candidate native tasks.
+Decision H permits two VMs/two lock slots, but does **not** authorize raising
+the lab disk budget or weakening capacity/ownership guards. This lane used the
+more conservative one-guest handoff; no live workstation interaction.
+
+New actual P3.5 summary reports X11 limited, GNOME/KDE/Hyprland blocked by absent
+scope/exact-ABI plugin support, and failed restart-quarantine observation.
+Candidate hash `6ae4203e...` differs from P3.6 `31e7baee...`, so those native
+results are upstream blockers, **not reused acceptance**. #98 remains unmerged.
+
+Latest unchanged lab preflight **refuses all further starts**:
+`Lab pool allocated usage 54.5 GiB plus 50 GiB growth/reserve exceeds the 100 GiB
+aggregate budget.` Request expressly forbids VM removal/disk/snapshot changes.
+No other lane's data cleanup, capacity-floor change, direct Incus start bypass,
+or final-candidate claim is authorized. Aaron must authorize capacity remediation
+or a reviewed lab-budget/storage change before more native coverage can run.
+Final candidate additionally requires reviewed P3.5 merge. These are current
+hard blockers, not a task Odin can finish honestly by waiting or changing labels.
+
 ### Native interim handoff, 18:28 UTC (supersedes earlier lock blocker)
 
 Lab lock finally acquired at 18:03 UTC after coordination on #59; all VMs
