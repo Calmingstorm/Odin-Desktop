@@ -9,6 +9,7 @@ import {
   imageIntentSchema,
   parseRequest,
   searchSchema,
+  setAppearanceSchema,
   steerSchema,
   submitSchema
 } from '../src/main/schemas'
@@ -76,6 +77,15 @@ describe('bridge request validation', () => {
     const base = { control_command_id: uuid, conversation_id: 'c_1', request_id: 'r_1', generation: 1 }
     expect(parseRequest(steerSchema, { ...base, text: 'x'.repeat(4_000) }).ok).toBe(true)
     expect(parseRequest(steerSchema, { ...base, text: 'x'.repeat(4_001) }).ok).toBe(false)
+  })
+
+  it('takes one of the three theme choices and nothing else', () => {
+    for (const appearance of ['system', 'dark', 'light']) {
+      expect(parseRequest(setAppearanceSchema, { appearance })).toEqual({ ok: true, value: { appearance } })
+    }
+    for (const raw of [{ appearance: 'Dark' }, { appearance: 'auto' }, { appearance: true }, {}, { appearance: 'dark', path: '/tmp/x' }, null]) {
+      expect(parseRequest(setAppearanceSchema, raw).ok).toBe(false)
+    }
   })
 
   it('reports where a request was invalid', () => {

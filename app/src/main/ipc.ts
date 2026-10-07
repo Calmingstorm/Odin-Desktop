@@ -9,6 +9,7 @@ import {
   SETTINGS_SHAPED,
   type SettingsShapedMethod,
   type AppState,
+  type Appearance,
   type NotificationChange,
   type Result,
   type Settings,
@@ -50,6 +51,7 @@ import {
   searchSchema,
   updateConversationSchema,
   parseRequest,
+  setAppearanceSchema,
   setAutostartSchema,
   setMutedSchema,
   MANAGEMENT_SCHEMAS,
@@ -92,6 +94,8 @@ export interface IpcDeps {
   getSettings: () => Settings
   setAutostart: (enabled: boolean) => Settings
   setNotifications: (change: NotificationChange) => Settings
+  /** Applies the theme to the window and saves it with the other app preferences. */
+  setAppearance: (appearance: Appearance) => Settings
   setConversationMuted: (conversationId: string, muted: boolean) => Settings
   appState: () => AppState
   /** Archives only this notice token; resource quarantine and reconciliation remain unchanged. */
@@ -239,6 +243,7 @@ export function registerIpc(deps: IpcDeps): void {
   handle(IPC.getSettings, null, () => ({ ok: true, result: deps.getSettings() }))
   handle(IPC.setAutostart, setAutostartSchema, (v) => ({ ok: true, result: deps.setAutostart(v.enabled) }))
   handle(IPC.setNotifications, setNotificationsSchema, (v) => ({ ok: true, result: deps.setNotifications(v) }))
+  handle(IPC.setAppearance, setAppearanceSchema, (v) => ({ ok: true, result: deps.setAppearance(v.appearance) }))
   // The core's settings and Codex accounts: each a named method, validated here; nothing passes through generically.
   handle(IPC.settingsSchema, null, async () => fromSettled(await deps.broker.request('settings.schema')))
   handle(IPC.settingsSet, settingsSetSchema, async (v) => {

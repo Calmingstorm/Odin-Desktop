@@ -22,9 +22,10 @@ test.beforeEach(async () => {
   expect(process.env.HOME).toMatch(/^\/tmp\/odrc-/)
 })
 
-async function launch(real = false, scenario?: string): Promise<void> {
-  root = mkdtempSync(join(tmpdir(), 'od-a11y-'))
-  for (const dir of ['config', 'data', 'cache', 'run']) mkdirSync(join(root, dir), { mode: 0o700 })
+async function launch(real = false, scenario?: string, profile?: string): Promise<void> {
+  // A given profile relaunches the same app state, as a restart would.
+  root = profile ?? mkdtempSync(join(tmpdir(), 'od-a11y-'))
+  if (!profile) for (const dir of ['config', 'data', 'cache', 'run']) mkdirSync(join(root, dir), { mode: 0o700 })
   const env: Record<string, string> = {
     PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C.UTF-8', HOME: root,
     XDG_CONFIG_HOME: join(root, 'config'), XDG_DATA_HOME: join(root, 'data'),
@@ -71,14 +72,34 @@ test.afterEach(async () => {
   } else if (root) rmSync(root, { recursive: true, force: true })
 })
 
-async function audit(name: string): Promise<void> {
-  const findings = await page.evaluate(async () => {
-    const axe = (window as unknown as { axe: { run: (doc: Document) => Promise<{ violations: unknown[]; incomplete: unknown[] }> } }).axe
-    const result = await axe.run(document)
+async function runAxe(rules: string[] | null = null): Promise<{ violations: unknown[]; incomplete: unknown[] }> {
+  return page.evaluate(async (only) => {
+    const axe = (window as unknown as { axe: { run: (doc: Document, options?: object) => Promise<{ violations: unknown[]; incomplete: unknown[] }> } }).axe
+    const result = await axe.run(document, only ? { runOnly: { type: 'rule', values: only } } : {})
     return { violations: result.violations, incomplete: result.incomplete }
-  })
+  }, rules)
+}
+
+/** Colour contrast in the theme not in effect: the page's colour scheme drives every theme token. */
+async function contrastInOtherTheme(name: string): Promise<void> {
+  const dark = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)
+  const other = dark ? 'light' : 'dark'
+  await page.emulateMedia({ colorScheme: other })
+  try {
+    expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(!dark)
+    const findings = await runAxe(['color-contrast'])
+    await test.info().attach(`axe-${name}-${other}`, { body: JSON.stringify(findings, null, 2), contentType: 'application/json' })
+    expect(findings.violations, `colour contrast on ${name} in the ${other} theme`).toEqual([])
+  } finally {
+    await page.emulateMedia({ colorScheme: null })
+  }
+}
+
+async function audit(name: string): Promise<void> {
+  const findings = await runAxe()
   await test.info().attach(`axe-${name}`, { body: JSON.stringify(findings, null, 2), contentType: 'application/json' })
   expect(findings.violations, `axe findings on ${name}`).toEqual([])
+  await contrastInOtherTheme(name)
 }
 
 async function tabTo(target: Locator, reverse = false): Promise<void> {
@@ -142,6 +163,39 @@ test('fixture baseline audit', async () => {
   await audit('general')
 })
 
+test('theme choice applies to the page and window, keeps focus and survives a restart', async () => {
+  await launch()
+  const pageDark = (): Promise<boolean> => page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)
+  const native = (): Promise<{ source: string; dark: boolean; background: string }> => app.evaluate(({ nativeTheme, BrowserWindow }) => ({
+    source: nativeTheme.themeSource, dark: nativeTheme.shouldUseDarkColors,
+    background: BrowserWindow.getAllWindows()[0]!.getBackgroundColor().toLowerCase()
+  }))
+  const background = (dark: boolean): string => (dark ? '#0e1115' : '#f5f7f9')
+  const initial = await native()
+  expect(initial.source).toBe('system')
+  const startDark = await pageDark()
+  expect(initial).toMatchObject({ dark: startDark, background: background(startDark) })
+  const chosen = startDark ? 'light' : 'dark'
+  await activate(page.getByRole('navigation', { name: 'Odin', exact: true })
+    .getByRole('button', { name: `Switch to ${chosen} theme`, exact: true }))
+  await expect.poll(pageDark).toBe(!startDark)
+  expect(await native()).toEqual({ source: chosen, dark: !startDark, background: background(!startDark) })
+  const back = page.getByRole('button', { name: `Switch to ${startDark ? 'dark' : 'light'} theme`, exact: true })
+  await expect(back).toBeFocused()
+  await audit(`theme-${chosen}`)
+  // The choice is saved with the app's preferences and applied before the window paints on the next start.
+  const profile = root
+  const child = app.process()
+  await app.close()
+  await expect.poll(() => child.exitCode !== null || child.signalCode !== null).toBe(true)
+  await launch(false, undefined, profile)
+  expect(await native()).toEqual({ source: chosen, dark: !startDark, background: background(!startDark) })
+  expect(await pageDark()).toBe(!startDark)
+  await activate(page.getByRole('button', { name: `Switch to ${startDark ? 'dark' : 'light'} theme`, exact: true }))
+  await expect.poll(pageDark).toBe(startDark)
+  expect((await native()).source).toBe(startDark ? 'dark' : 'light')
+})
+
 test('settings section audit inventory', async () => {
   await launch()
   await page.keyboard.press('Control+,')
@@ -152,10 +206,8 @@ test('settings section audit inventory', async () => {
     await activate(nav.getByRole('button', { name: label, exact: true }))
     await expect(page.locator('.settings-body')).toContainText(label)
     await page.waitForTimeout(200)
-    findings[label] = await page.evaluate(async () => {
-      const r = await (window as any).axe.run(document)
-      return { violations: r.violations, incomplete: r.incomplete }
-    })
+    findings[label] = await runAxe()
+    await contrastInOtherTheme(`settings-${label}`)
     await ax(`settings-${label}`)
   }
   await test.info().attach('axe-settings-inventory', { body: JSON.stringify(findings, null, 2), contentType: 'application/json' })

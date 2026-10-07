@@ -28,6 +28,7 @@ describe('Exit admission boundary', () => {
       getSettings: vi.fn(() => ({})),
       setAutostart: vi.fn(() => ({})),
       setNotifications: vi.fn(() => ({})),
+      setAppearance: vi.fn(() => ({ appearance: 'light' })),
       setConversationMuted: vi.fn(() => ({})),
       appState: () => ({ link: 'ready' })
     }
@@ -44,6 +45,7 @@ describe('Exit admission boundary', () => {
       [IPC.setDraft, { conversation_id: 'c', text: 'late draft' }],
       [IPC.setAutostart, { enabled: true }],
       [IPC.setNotifications, { previews: false }],
+      [IPC.setAppearance, { appearance: 'light' }],
       [IPC.pickFiles, undefined],
       [IPC.status, undefined],
       [IPC.copyText, { text: 'late clipboard' }]
@@ -55,6 +57,7 @@ describe('Exit admission boundary', () => {
     expect(deps.drafts.set).not.toHaveBeenCalled()
     expect(deps.setAutostart).not.toHaveBeenCalled()
     expect(deps.setNotifications).not.toHaveBeenCalled()
+    expect(deps.setAppearance).not.toHaveBeenCalled()
     expect(deps.pickFiles).not.toHaveBeenCalled()
     expect(deps.copyText).not.toHaveBeenCalled()
     expect(deps.broker.request).not.toHaveBeenCalled()
@@ -65,6 +68,17 @@ describe('Exit admission boundary', () => {
     const { deps, call } = fixture()
     expect(await call(IPC.status)).toEqual({ ok: true, result: {} })
     expect(deps.broker.request).toHaveBeenCalledWith('status.get')
+  })
+
+  it('applies a valid theme choice locally and refuses anything else before the handler', async () => {
+    const { deps, call } = fixture()
+    expect(await call(IPC.setAppearance, { appearance: 'light' })).toEqual({ ok: true, result: { appearance: 'light' } })
+    expect(deps.setAppearance).toHaveBeenCalledExactlyOnceWith('light')
+    for (const raw of [{ appearance: 'sepia' }, { appearance: 'dark', extra: 1 }, undefined]) {
+      expect(await call(IPC.setAppearance, raw)).toMatchObject({ ok: false })
+    }
+    expect(deps.setAppearance).toHaveBeenCalledTimes(1)
+    expect(deps.broker.request).not.toHaveBeenCalled()
   })
 
   it('dispatches trusted-key import as a command, keeps its uncertainty ID, and refuses extra fields or quiesced input', async () => {

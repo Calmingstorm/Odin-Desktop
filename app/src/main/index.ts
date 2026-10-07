@@ -5,8 +5,9 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync, readlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { BrowserWindow, Menu, Notification, app, clipboard, dialog, ipcMain, shell } from 'electron'
-import { IPC, type AppState, type CoreEvent, type LinkState, type NotificationSettings, type Settings } from '../shared/api'
+import { BrowserWindow, Menu, Notification, app, clipboard, dialog, ipcMain, nativeTheme, shell } from 'electron'
+import { IPC, type AppState, type Appearance, type CoreEvent, type LinkState, type NotificationSettings, type Settings } from '../shared/api'
+import { AppearanceController, loadAppearance } from './appearance'
 import { ArtifactStore, safeFileName } from './artifacts'
 import { AttachmentManager, type AttachmentLimits } from './attachments'
 import { isAutostartEnabled, setAutostart } from './autostart'
@@ -81,8 +82,13 @@ function run(): void {
     noTrayNoticeShown: persisted.noTrayNoticeShown === true
   }
   let notificationSettings = loadSettings(persisted.notifications)
+  const savedAppearance = loadAppearance(persisted.appearance)
+  // Applied to the native theme once the app is ready, before the window is created.
+  let appearance: AppearanceController | null = null
+  const currentAppearance = (): Appearance => appearance?.appearance ?? savedAppearance
   const savePersisted = (): boolean =>
-    writePersisted(appStateFile, { noTrayNoticeShown: lifecycle.noTrayNoticeShown, notifications: notificationSettings })
+    writePersisted(appStateFile, { noTrayNoticeShown: lifecycle.noTrayNoticeShown, notifications: notificationSettings,
+      appearance: currentAppearance() })
 
   const resources = join(app.getAppPath(), 'resources')
   const iconPath = join(resources, 'icon.png')
@@ -285,7 +291,8 @@ function run(): void {
     win.focus()
   }
 
-  const settings = (): Settings => ({ autostart: isAutostartEnabled(undefined, launchCommand()), notifications: notificationSettings })
+  const settings = (): Settings => ({ autostart: isAutostartEnabled(undefined, launchCommand()), notifications: notificationSettings,
+    appearance: currentAppearance() })
 
   const shutdown = boundedShutdown({
     stopAdmission: () => { lifecycle.quitting = true; broker.quiesce(); tray?.setStatus('Stopping Odin…') },
@@ -346,6 +353,10 @@ function run(): void {
 
   void app.whenReady().then(async () => {
     if (lifecycle.quitting) return
+    const theme = new AppearanceController(nativeTheme, savedAppearance, () => { savePersisted() })
+    appearance = theme
+    // Following the system, the theme can change while Odin runs; the window background follows it.
+    nativeTheme.on('updated', () => win?.setBackgroundColor(theme.background()))
     installGuards()
     serveAppScheme(rendererDir)
     registerIpc({
@@ -384,6 +395,11 @@ function run(): void {
       setNotifications: (change) => {
         notificationSettings = mergeSettings(notificationSettings, change)
         savePersisted()
+        return settings()
+      },
+      setAppearance: (choice) => {
+        theme.set(choice)
+        win?.setBackgroundColor(theme.background())
         return settings()
       },
       setConversationMuted: (conversationId, muted) => {
@@ -429,7 +445,7 @@ function run(): void {
       show: false,
       title: 'Odin',
       icon: iconPath,
-      backgroundColor: '#07090d',
+      backgroundColor: theme.background(),
       autoHideMenuBar: true,
       webPreferences: hardenedWebPreferences(preloadPath)
     })
@@ -525,11 +541,12 @@ function statusLabel(link: LinkState): string {
 interface PersistedState {
   noTrayNoticeShown: boolean
   notifications: NotificationSettings
+  appearance: Appearance
 }
 
-function readPersisted(path: string): { noTrayNoticeShown?: boolean; notifications?: unknown } {
+function readPersisted(path: string): { noTrayNoticeShown?: boolean; notifications?: unknown; appearance?: unknown } {
   try {
-    return JSON.parse(readFileSync(path, 'utf8')) as { noTrayNoticeShown?: boolean; notifications?: unknown }
+    return JSON.parse(readFileSync(path, 'utf8')) as { noTrayNoticeShown?: boolean; notifications?: unknown; appearance?: unknown }
   } catch {
     return {}
   }
@@ -691,7 +708,7 @@ async function interfaceShots(win: BrowserWindow, out: string, broker: Broker): 
   await pause(300)
   await shoot('resume')
   // The settings menu: General, then Models and providers with the Codex accounts.
-  await run(`[...document.querySelectorAll('.topbar button')].find((b) => b.textContent.trim() === 'Settings').click()`)
+  await run(`document.querySelector('.rail .settings-toggle').click()`)
   await pause(800)
   await shoot('settings')
   await run(`[...document.querySelectorAll('.settings-nav-item')].find((b) => b.textContent.includes('Models')).click()`)
