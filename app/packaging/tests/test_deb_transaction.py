@@ -140,8 +140,9 @@ class DebTransactionTests(unittest.TestCase):
         try:
             fcntl.flock(lease, fcntl.LOCK_SH)
             # dpkg's own sequence for a busy upgrade, then a busy removal.
-            for refused, unwind in ((('prerm', 'upgrade', '0.1.0'), ('postinst', 'abort-upgrade', '0.1.0')),
-                                    (('prerm', 'remove'), ('postinst', 'abort-remove'))):
+            busy = ((('prerm', 'upgrade', '0.1.0'), ('postinst', 'abort-upgrade', '0.1.0')),
+                    (('prerm', 'remove'), ('postinst', 'abort-remove')))
+            for refused, unwind in busy:
                 with self.subTest(refused=refused):
                     with self.assertRaisesRegex(deb.Refusal, 'Exit Odin'):
                         self.call(*refused)
