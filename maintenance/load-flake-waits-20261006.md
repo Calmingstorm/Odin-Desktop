@@ -64,3 +64,21 @@ onboarding, accessibility, native desktop or installed-package gate is claimed.
 Raw logs/traces and CPU-load script are external to Git:
 `/mnt/storage/odin-desktop-evidence/load-flake-req51800a06/`.
 The adjacent artifact manifest records sizes, absolute paths and SHA-256 digests.
+
+## Advancing-main integration
+
+After the initial push, accepted main advanced to `198c0ce` and the evidence ledger
+conflicted. Merged that main normally, preserved all harness changes and refreshed
+dependent seals with `inventory.py record`. Final PR-only changes remain the three
+TypeScript test files, the single Python test call, evidence ledger and summaries.
+No product diff relative to accepted main; its updated capabilities/services and
+assertions were retained, not reverted to the earlier base.
+
+Repeated each requested file once against merged code under a new bounded
+nine-minute eight-worker CPU load: **22 real-core tests**, **14 lifecycle tests**
+and **18 Python tests passed**, with retries zero. Typechecks and build also passed.
+Real-core duration 142.22 s; lifecycle 3.2 minutes; Python 31.30 s. CPU load consumed
+4,272.980 CPU seconds over 540.073 wall seconds. Drift remained clean and no new
+lint findings. Earlier proof is preserved separately, not presented as merged-head
+execution. The additional real-core services file and full engine corpus were not
+run. Items 1 and 5 remain unchanged and are still not claimed fixed.
