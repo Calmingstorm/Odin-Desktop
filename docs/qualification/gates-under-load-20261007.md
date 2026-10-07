@@ -29,7 +29,8 @@ the original **600s aggregate** spans both waves, including namespace probes.
 Individual test/hook/startup deadlines and CI's 120-minute job bound are unchanged.
 Bounds initiate cancellation; actual cleanup exit is awaited, not assumed.
 
-Unit/config/unchanged-launcher tests: **89 passed**. A real namespace probe verified
+Unit/config/unchanged-launcher tests: **92 passed**, including fourth-wave signal
+and aggregate-deadline cancellation. A real namespace probe verified
 four distinct PID namespaces/HOMEs, non-root identity and sanitized display/session
 environment. A real exit-7 probe cancelled two live sibling namespaces, awaited
 their exits and did not admit the fourth shard.
@@ -66,14 +67,15 @@ after all refinements was **11/11**. No #96 production fix was copied into this 
 
 ## Validation and evidence
 
-- Full app check: **1,093 passed**, typecheck/build passed.
-- Engine qualification: **38/38 groups passed**; warnings remain visible.
+- Full app check: **1,096 passed**, typecheck/build passed.
+- Engine qualification: **38/38 groups passed, 19,313 passed / 3 existing skips**;
+  warnings remain visible.
 - Additional Desktop: **470 passed**.
 - Hermetic Cinnamon/GNOME fixtures: **38 passed**.
 - Offline orchestration: **281 passed**; fixture corpus **159 passed / 4 existing
   capability skips** (subordinate mappings unavailable under unchanged isolation).
-- Short drift/lint/ownership/D19/closure gates passed on the base; final rerun and
-  full lifecycle/onboarding results will be recorded before acceptance.
+- Short drift/lint/ownership/D19/closure gates passed on the final tree.
+- Full isolated lifecycle E2E: **41/41 passed**. Onboarding: **6/6 passed**.
 - Independent static review found no blockers. Timing-report correction for
   setup preceding observation was fixed and regression-tested.
 
@@ -86,4 +88,8 @@ batch had lower load than the first fixed batch; both ran concurrently with work
 Raw logs, reports and traces are outside Git at
 `/mnt/storage/odin-desktop-evidence/ci-load-20261007/`.
 `gates-under-load-20261007-artifacts.json` records retained artifact paths and SHA-256.
-Hosted CI is required for acceptance; its final result will be reported separately.
+Hosted CI is **BLOCKED**, not passed. On 2026-10-07 at approximately 18:35 UTC,
+GitHub reported workflow `374882115` (`phase1-engine.yml`) as `disabled_manually`.
+PR #101 has no check runs, and its check watcher exited because there were none.
+The workflow was not re-enabled and no runners or another lane's CI were changed.
+Local source gates above do not substitute for the task's required hosted pass.

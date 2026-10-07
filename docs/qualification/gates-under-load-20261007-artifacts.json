@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "artifact_count": 282,
+  "artifact_bytes": 2971454,
+  "full_per_artifact_manifest": {
+    "path": "/mnt/storage/odin-desktop-evidence/ci-load-20261007/artifacts.json",
+    "sha256": "0f909570ed352d32eba4f0d580f0309b87ea2969e568cd00c549968f38c981a3",
+    "contract": "Every retained artifact has an absolute path, byte length and SHA-256. Verify this manifest hash before resolving its entries. Large raw artifacts remain outside Git."
+  },
+  "lane_manifests": [
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-load-20261007/containment/SHA256SUMS",
+      "sha256": "3d6b834bf775c3b45ca30ee52c2c9276452c81993b7a05dbcdefae313797c558"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-load-20261007/real-core/SHA256SUMS",
+      "sha256": "c0df80619a0e0de736d4845f91dd2f702026865f871b6e8660076cfc18eae40c"
+    }
+  ],
+  "key_receipts": [
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-load-20261007/app-check-final2.log",
+      "sha256": "3d69eb3f6d64864516cb316040dd235c654478a8bba374822d222aaca105655c"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-load-20261007/lifecycle-final.log",
+      "sha256": "5f71190421d0497df48c52bc4f12563336fabbd45bbbbeac6569b4af7d2a157c"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-load-20261007/onboarding-final.log",
+      "sha256": "6530a4066d015a43baee137ef35d786e5ed962a93a579cec3205eeb732b4eb58"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-load-20261007/qualification.log",
+      "sha256": "dea72793d81ddf0f65226f95c282babac010099774e4fbc85eaf45d535db1c7d"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-load-20261007/short-gates-final.log",
+      "sha256": "a4417844a42dbb6649b2cf69f948631df368ab7a8289560d34ee4b088381b8e3"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-load-20261007/load-samples.log",
+      "sha256": "66cda0a4f01ed23774fe537f0d9e7ee4f4f45f0c0b72d85aba680b47f4104590"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/ci-load-20261007/ci-first-head.log",
+      "sha256": "bcf30fec6be96f6d75803ddbf7ee840271aee52a0ed268104fc98f145dcf4645"
+    }
+  ]
+}

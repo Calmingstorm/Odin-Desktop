@@ -143,6 +143,29 @@ describe('real-core shard orchestration', () => {
     expect(f.timers.size).toBe(0)
   })
 
+  it.each(['deadline', 'SIGTERM', 'SIGINT'])('cancels fourth-wave work on %s and waits for its exit', async (cause) => {
+    const f = fixture()
+    const running = runRealCoreShards(f.options)
+    const rejected = expect(running).rejects.toThrow(cause === 'deadline' ? 'aggregate deadline' : cause)
+    let finished = false
+    void running.catch(() => { finished = true })
+    f.pending.forEach((child) => child.resolve())
+    for (let i = 0; i < 5; i++) await Promise.resolve()
+    expect(f.pending).toHaveLength(4)
+    if (cause === 'deadline') [...f.timers.values()][0]!()
+    else f.host.emit(cause)
+    const options = (f.launch.mock.calls as unknown as Array<[string, string[], { signal: AbortSignal }]>)[3]![2]
+    expect(options.signal.aborted).toBe(true)
+    await Promise.resolve()
+    expect(finished).toBe(false)
+    f.pending[3]!.reject(new Error('cancelled final work'))
+    await rejected
+    expect(f.launch).toHaveBeenCalledTimes(4)
+    expect(f.timers.size).toBe(0)
+    expect(f.host.listenerCount('SIGTERM')).toBe(0)
+    expect(f.host.listenerCount('SIGINT')).toBe(0)
+  })
+
   it.each(['--shard=1/4', '--config', '--project=x', '--exclude=x', '--include=x', '-c',
     '--outputFile=x', '--outputFile.junit=x', '--reporter=junit', '--reporters=blob', '--coverage',
     '--coverage.reportsDirectory=coverage', '--mergeReports', '--cache=true', '--watch', '-w', '--clearCache',
