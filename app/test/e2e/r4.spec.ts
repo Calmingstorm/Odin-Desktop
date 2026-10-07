@@ -262,6 +262,65 @@ test('R4-04: closing the window and losing the renderer never lose or repeat a r
 })
 
 // A stored (uncompressed) zip with one entry, built here so the test needs no archive tool.
+test('R4-07: a send whose acknowledgement is lost is reconciled by its own identity, before and after an app restart', async ({}, info) => {
+  assertIsolated()
+  const provider = await startCannedProvider({ root: join(process.env.ODIN_REAL_CORE_ROOT!, 'r4-provider-lost-ack') })
+  const profile = 'r4-lost-ack'
+  let application: ElectronApplication | null = null
+  try {
+    application = await launchApp({ profile, env: memoryKeyringCore() })
+    await waitForCore(application)
+    await useCannedProvider(application, provider.baseUrl)
+    let app = application
+    const marker = `lost-ack-${randomUUID().slice(0, 8)}`
+    const title = `R4 lost ack ${marker}`
+    const cid = (await call<{ conversation: { id: string } }>(app, 'conversations.create', { title })).conversation.id
+    const submission = { client_submission_id: randomUUID(), conversation_id: cid, text: `[hold-stop] ${marker}` }
+    const send = (): Promise<{ request_id: string; disposition: string }> => call(app, 'submission.send', submission)
+    const snap = (): Promise<Snapshot> => call(app, 'conversation.snapshot', { conversation_id: cid })
+    const calls = (): number => provider.requests.filter((r) => lastUser(r).includes(marker)).length
+
+    const first = await send()
+    expect(first.disposition).toBe('accepted')
+    await expect.poll(calls, { timeout: 30_000 }).toBe(1)
+    // The client never saw that acknowledgement, so it sends the same submission again while the turn runs.
+    expect(await send()).toEqual(first)
+    // Reusing the identity for different text is refused, not admitted as a new turn.
+    const conflict = await request(app, 'submission.send', { ...submission, text: `${marker} different` })
+    expect(conflict.ok).toBe(false)
+    expect((conflict as { error?: { code?: string } }).error?.code).toBe('id_conflict')
+    provider.release('[hold-stop]')
+    await expect.poll(async () => replied(await snap(), first.request_id), { timeout: 30_000 }).toBe(true)
+    // A retry after the turn finished returns the same receipt and starts nothing.
+    expect(await send()).toEqual(first)
+
+    // Reconnect through a full app restart: the identity survives and still maps to the one turn.
+    await exitApp(app)
+    application = await launchApp({ profile, env: memoryKeyringCore() })
+    await waitForCore(application)
+    app = application
+    expect(await send()).toEqual(first)
+    const after = await snap()
+    expect(after.running).toBeNull()
+    expect(after.queued).toEqual([])
+    expect(after.messages.items.filter((m) => m.role === 'user' && m.text.includes(marker))).toHaveLength(1)
+    expect(calls()).toBe(1)
+
+    const evidence = {
+      conversation: cid, request_id: first.request_id, identical_resends: 3, conflicting_resend: 'id_conflict',
+      provider_calls: 1, user_messages: 1, app_restart: true,
+      scope: 'lost acknowledgement through the real app broker and core: the same submission identity while running, '
+        + 'after completion and after a full app restart maps to one turn; a different payload under it is refused',
+      final_run: 'report refresh and paging after reconnect: Decision I final run'
+    }
+    await recordCase(info, 'R4-07', evidence)
+    await recordCase(info, 'CC-01', evidence)
+  } finally {
+    if (application) await exitApp(application)
+    await provider.close()
+  }
+})
+
 function storedZip(name: string, data: Buffer): Buffer {
   let crc = 0xffffffff
   for (const byte of data) {

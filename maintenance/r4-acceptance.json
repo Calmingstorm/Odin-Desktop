@@ -95,12 +95,12 @@
       "environments": ["Isolated real Electron/core and counted harmless effect receiver with lost acknowledgements", "Final .deb and AppImage; persisted report refresh/paging"],
       "evidence": {
         "headless": ["tests/test_desktop_requests.py::test_submission_deduplicates_before_any_execution", "tests/test_desktop_command_journal.py::test_final_commit_failure_never_reexecutes"],
-        "real_core": ["app/test/e2e/admitted-work.spec.ts::admitted actual management HTTP effect completes while hidden and exact durable receipt never replays after relaunch"],
+        "real_core": ["app/test/e2e/admitted-work.spec.ts::admitted actual management HTTP effect completes while hidden and exact durable receipt never replays after relaunch", "app/test/e2e/r4.spec.ts::R4-07: a send whose acknowledgement is lost is reconciled by its own identity, before and after an app restart"],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Decision I: the app-level lost-acknowledgement case (send, lose the acknowledgement, reconnect, no duplicate turn) still needs an end-to-end test; component evidence exists."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "R4-08",
@@ -151,12 +151,12 @@
       "environments": ["Isolated real Electron/core with reconnect/lost acknowledgement and expired receipts", "Final .deb and AppImage"],
       "evidence": {
         "headless": ["tests/test_desktop_command_journal.py::test_success_reopens_canonical_keys_and_conflicts", "tests/test_desktop_command_journal.py::test_expiry_tombstone_survives_restart_unknowns_not_pruned"],
-        "real_core": ["app/test/real-core-contract.test.ts::the real startup pruner expires a receipt body but never re-admits its retained identity"],
+        "real_core": ["app/test/real-core-contract.test.ts::the real startup pruner expires a receipt body but never re-admits its retained identity", "app/test/e2e/r4.spec.ts::R4-07: a send whose acknowledgement is lost is reconciled by its own identity, before and after an app restart"],
         "native": [],
         "package": []
       },
-      "status": "partial",
-      "unresolved": ["Decision I: the app-level lost-acknowledgement case (send, lose the acknowledgement, reconnect, no duplicate turn) still needs an end-to-end test; component evidence exists."]
+      "status": "ready_for_final_run",
+      "unresolved": []
     },
     {
       "id": "CC-02",
