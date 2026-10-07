@@ -17,7 +17,7 @@ import { CoreSupervisor } from './core-supervisor'
 import { DraftStore } from './drafts'
 import { registerIpc } from './ipc'
 import { DeviceLoginBoundary } from './device-login'
-import { decideSecondInstance, decideWindowClose, parseLaunchFlags, type LifecycleState } from './lifecycle'
+import { decideSecondInstance, decideWindowClose, parseLaunchFlags, showWhenReady, type LifecycleState } from './lifecycle'
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
 import { inspectPackagedState } from './package-state'
@@ -482,14 +482,9 @@ function run(): void {
     win.webContents.on('did-start-navigation', (_event, _url, _inPlace, mainFrame) => {
       if (mainFrame) notificationRouteReady = false
     })
-    // A hidden window may never paint under Wayland, so ready-to-show can never fire (a fresh
-    // launch on GNOME showed nothing). Show it once the page has loaded if it has not painted
-    // yet; its background already matches the theme.
-    const showWhenReady = (): void => {
-      if (pendingOpen && !lifecycle.quitting && !win?.isVisible()) win?.show()
-    }
-    win.once('ready-to-show', showWhenReady)
-    win.webContents.once('did-finish-load', showWhenReady)
+    // The window background already matches the theme, so showing it before the first paint
+    // is safe.
+    showWhenReady(win, () => pendingOpen && !lifecycle.quitting)
     win.webContents.on('render-process-gone', (_event, details) => {
       notificationRouteReady = false
       process.stderr.write(`renderer ended reason=${details.reason}; core remains supervised\n`)

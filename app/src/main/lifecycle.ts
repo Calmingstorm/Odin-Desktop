@@ -40,3 +40,23 @@ export function parseLaunchFlags(argv: readonly string[]): LaunchFlags {
 export function decideSecondInstance(argv: readonly string[]): 'exit' | 'focus' {
   return parseLaunchFlags(argv).exit ? 'exit' : 'focus'
 }
+
+/** The part of a BrowserWindow the first-show rule uses. */
+export interface FirstShowWindow {
+  once(event: 'ready-to-show', listener: () => void): unknown
+  isDestroyed(): boolean
+  isVisible(): boolean
+  show(): void
+  webContents: { once(event: 'did-finish-load', listener: () => void): unknown }
+}
+
+/** Show a window created hidden once it is ready: on ready-to-show, or once its page has
+ * loaded. A hidden window may never paint under Wayland, so waiting for ready-to-show alone
+ * left a fresh launch with no window at all on GNOME and KDE. */
+export function showWhenReady(win: FirstShowWindow, wanted: () => boolean): void {
+  const show = (): void => {
+    if (wanted() && !win.isDestroyed() && !win.isVisible()) win.show()
+  }
+  win.once('ready-to-show', show)
+  win.webContents.once('did-finish-load', show)
+}
