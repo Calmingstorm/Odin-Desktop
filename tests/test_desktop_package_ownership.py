@@ -111,10 +111,20 @@ def test_storage_budget_failure_never_creates_guest():
     assert not api.calls
 
 
+def lab_vm(name="odq-kde", status="Running", size="40GiB"):
+    return {"name": name, "status": status, "type": "virtual-machine", "profiles": [],
+            "config": {"user.odq.owner": acceptance.lab.MARKER},
+            "expanded_config": {"limits.cpu": "4", "limits.memory": "8GiB",
+                                "boot.autostart": "false"},
+            "expanded_devices": {
+                "root": {"type": "disk", "path": "/", "pool": "odq-lab", "size": size},
+                "eth0": {"type": "nic", "network": "incusbr0", "name": "eth0"}}}
+
+
 @pytest.mark.parametrize("failure", ["budget", "floor"])
 def test_running_lab_vm_growth_counts_against_the_container(failure):
     api = FakeIncus()
-    vm = {"name": "odq-kde", "type": "virtual-machine", "status": "Running"}
+    vm = lab_vm()
     api.instances = lambda: [api.item, vm]
     gib = acceptance.GIB
     # The container alone needs 14 GiB; the running VM at 15 GiB adds 25 + 10 GiB.
@@ -127,6 +137,37 @@ def test_running_lab_vm_growth_counts_against_the_container(failure):
     with patch.object(acceptance.lab, "storage_usage", return_value=storage), \
             patch.object(acceptance.lab, "guest_usage", return_value=15 * gib):
         with pytest.raises(acceptance.AcceptanceError, match=message):
+            acceptance.Container(api).prepare()
+    assert not api.calls
+
+
+def test_vm_growth_is_measured_before_the_pool():
+    api = FakeIncus()
+    api.instances = lambda: [api.item, lab_vm()]
+    order = []
+    def guest(name):
+        order.append("guest")
+        return 15 * acceptance.GIB
+    def pool():
+        order.append("pool")
+        return 20 * acceptance.GIB, 200 * acceptance.GIB
+    with patch.object(acceptance.lab, "storage_usage", pool), \
+            patch.object(acceptance.lab, "guest_usage", guest):
+        acceptance.Container(api).prepare()
+    # A guest growing between the two reads is then over-reserved, never under.
+    assert order == ["guest", "pool"]
+
+
+@pytest.mark.parametrize("change", ["cap", "outside"])
+def test_unbounded_running_vm_fails_closed_before_growth_math(change):
+    api = FakeIncus()
+    vm = (lab_vm(size="80GiB") if change == "cap"
+          else {"name": "other", "type": "virtual-machine", "status": "Running"})
+    api.instances = lambda: [api.item, vm]
+    with patch.object(acceptance.lab, "storage_usage", side_effect=AssertionError("pool read")), \
+            patch.object(acceptance.lab, "guest_usage", side_effect=AssertionError("du")):
+        with pytest.raises(acceptance.lab.LabError,
+                           match="caps/devices" if change == "cap" else "outside the lab"):
             acceptance.Container(api).prepare()
     assert not api.calls
 

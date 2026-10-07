@@ -330,16 +330,30 @@ def test_two_running_vms_also_block_other_storage_operations(tmp_path, operation
     assert not writes(api)
 
 
-def test_external_vm_counts_toward_the_two_vm_limit_without_a_lab_reserve():
+@pytest.mark.parametrize("operation", ["create", "start", "snapshot"])
+def test_running_vm_outside_the_lab_blocks_lab_operations(operation):
     api = FakeIncus()
-    external = {"name": "other", "type": "virtual-machine", "status": "Running"}
-    api.items = [instance(), external]
-    check = lab.preflight(api, name="odq-gnome")
-    assert check["reserved_bytes"] == {"odq-gnome": 50 * lab.GIB}
-    api.items.append(instance("odq-kde", "Running"))
-    with pytest.raises(lab.LabError, match="other VMs are not stopped"):
+    api.items = [instance(), {"name": "other", "type": "virtual-machine", "status": "Running"}]
+    with pytest.raises(lab.LabError, match="VM outside the lab is not stopped: other"):
+        if operation == "snapshot":
+            lab.snapshot(api, "odq-gnome", "configured")
+        else:
+            getattr(lab, operation)(api, "odq-kde" if operation == "create" else "odq-gnome")
+    assert not writes(api)
+
+
+def test_running_container_in_the_lab_pool_blocks_lab_operations():
+    api = FakeIncus()
+    container = {"name": "odq-p42-packages", "type": "container", "status": "Running",
+                 "expanded_devices": {"root": {"type": "disk", "path": "/", "pool": lab.POOL}}}
+    api.items = [instance(), container]
+    with pytest.raises(lab.LabError, match="Container odq-p42-packages in the lab pool"):
         lab.start(api, "odq-gnome")
     assert not writes(api)
+    # A container on another pool does not draw on the lab pool or its floor.
+    container["expanded_devices"]["root"]["pool"] = "default"
+    lab.start(api, "odq-gnome")
+    assert ("start", "odq-gnome") in writes(api)
 
 
 def test_running_guests_reserve_their_remaining_growth(monkeypatch):

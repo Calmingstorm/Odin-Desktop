@@ -27,7 +27,8 @@ POOL_SOURCE = Path("/mnt/storage/odq-lab")
 STORAGE_PATH = Path("/mnt/storage")
 POOL_BUDGET = 150 * GIB
 FILESYSTEM_FLOOR = 50 * GIB
-# Decision H: at most two VMs run at once, counting VMs outside this lab.
+# Decision H: at most two lab VMs run at once. A running VM outside the lab
+# still blocks every lab operation.
 MAX_RUNNING_VMS = 2
 LOCK_PATH = "/tmp/odin-desktop-qualification.lock"
 # With two VMs, lab commands from two lanes overlap; wait for the other command
@@ -158,6 +159,31 @@ def growth_reserve(name):
     return max(0, DISK - guest_usage(name)) + RESERVE
 
 
+def running_reserve(instances, skip=()):
+    """Reserve the remaining growth of every running lab VM.
+
+    Fail closed on any other running storage consumer whose growth has no known
+    cap: a VM outside the lab, or a container whose root is in the lab pool.
+    Callers measure this before the pool and filesystem, so a guest growing in
+    between is over-reserved, never under-reserved.
+    """
+    reserved = {}
+    for item in instances:
+        if item.get("status") == "Stopped" or item["name"] in skip:
+            continue
+        if item.get("type") == "virtual-machine":
+            if item["name"] not in NAMES:
+                raise LabError(f"A VM outside the lab is not stopped: {item['name']}")
+            owned(item)  # the 40 GiB cap is validated, never assumed
+            reserved[item["name"]] = growth_reserve(item["name"])
+        elif item.get("expanded_devices", {}).get("root", {}).get("pool") == POOL:
+            raise LabError(
+                f"Container {item['name']} in the lab pool is not stopped; "
+                "its growth has no reservation"
+            )
+    return reserved
+
+
 def preflight(api, *, creating=False, name=None):
     # Retain creating for caller compatibility. Without a running guest name,
     # an operation reserves one full guest growth budget (create, snapshot copy).
@@ -175,14 +201,13 @@ def preflight(api, *, creating=False, name=None):
             or network_config.get("ipv4.nat") != "true"):
         raise LabError("Existing incusbr0 managed NAT bridge is required")
     instances = api.instances()
-    others = []
     for item in instances:
         if item["name"] in NAMES:
             owned(item)
-        # Treat Starting, Frozen and Error as occupied, not only Running.
-        if (item.get("type") == "virtual-machine" and item.get("status") != "Stopped"
-                and item["name"] != name):
-            others.append(item["name"])
+    # Treat Starting, Frozen and Error as occupied, not only Running.
+    others = [item["name"] for item in instances
+              if item.get("type") == "virtual-machine" and item.get("status") != "Stopped"
+              and item["name"] != name]
     if len(others) >= MAX_RUNNING_VMS:
         raise LabError(
             f"{len(others)} other VMs are not stopped ({', '.join(others)}); "
@@ -193,7 +218,7 @@ def preflight(api, *, creating=False, name=None):
     # overhead. Their current allocation is already in the measured pool usage.
     # Stopped guests cannot grow, and every operation that adds data runs this
     # preflight first. Optional snapshots get no exemption.
-    reserved = {other: growth_reserve(other) for other in others if other in NAMES}
+    reserved = running_reserve(instances, skip=(name,))
     if name is not None and find(instances, name):
         reserved[name] = growth_reserve(name)
     else:
