@@ -20,6 +20,8 @@
     "matrix": {"valid": true, "ready": false}
   },
   "rows": {"cinnamon": "pending", "gnome": "pending", "kde": "pending", "hyprland": "pending"},
+  "interim_package": {"extracted_formats": 2, "passing_checks": 8, "gate": "fail", "reason": "Actual installed .deb lane not proven; no P4.2 or native D11 claim"},
+  "ci": {"run": 37658777046, "short_gates": "pass", "qualification_shards": "5/5 pass", "full_suites": "fail", "reason": "Real-core work manager proof admission timeout; 65/66 pass; cause unproved"},
   "phase2": {"total": 326, "restored": 99, "retired": 77, "named_deferrals": 150, "missing_dispositions": 0, "d19_open": 0},
   "lab": {"operations": 0, "lock_owner": "p33 2026-10-07T16:26:57Z GNOME missing rows req-7747a619", "wait": "30 minutes bounded, no other-lane operations"},
   "limits": ["No native D11 row measured", "Final immutable candidate pending P3.5 merge", "P4.2 exact-candidate rerun pending", "No live desktop or release approval"]

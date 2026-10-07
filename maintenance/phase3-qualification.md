@@ -139,6 +139,34 @@ artifact directory, indexed by `artifact-manifest.json`. The small committed
 manifest pointer/results are `p36-results.json`. No tests are claimed to have
 run on a new final-candidate hash. No publishing/deployment/live desktop action.
 
+### Additional immutable package evidence and CI, 17:49 UTC
+
+Both **extracted immutable interim** formats passed the existing packaging
+driver's manifest, credential-signature/development-artifact scan, real bundled
+core/D14 probe and sandbox-intact GUI/Exit proof. Both GUI lanes recorded fresh
+clean independent app/core lifetime receipts. Evidence:
+`interim-package-qualification/qualification.json` and its per-lane JSON/PNG.
+The overall driver **returned fail**, solely because the actual installed `.deb`
+lane was not proven. This is eight passing extracted-package checks, not P4.2
+upgrade/install acceptance or a native D11 row. No `--force-depends` install was
+used to manufacture that missing acceptance.
+
+PR #97 CI run `37658777046`: both short gates and all five qualification shards
+passed, but `full-suites` **failed**: `real-core-work.test.ts`, “all six kinds
+are destination-bound; actual task finishes and unknown release remains unknown”,
+timed out waiting for actual manager proof admission. CI recorded 65/66 real-core
+passes, unlike the local fresh 66/66. The exact cause is unproved; it is not
+silently classified as load, erased by local success or retried for a green badge.
+Full failure log retained at `ci-full-suites-failure.log`.
+
+P3.5 now has open PR #98, still with native gate blocked. A second bounded
+30-minute acquisition attempt continued while the same P3.3 lock remained held.
+Final matrix/required acceptance remain pending, not completed by these checks.
+At 17:56 UTC that second wait ended with the same P3.3 lock still held, no
+acquisition and zero guest operations. Exact final blocker is
+`lab-final-blocker.json`; followup artifact hashes are indexed by
+`artifact-manifest-followup.json` through `p36-artifacts.json`.
+
 ## Decisions and remaining work
 
 No extra owner approval/governor/allow-list or model instruction is introduced.
