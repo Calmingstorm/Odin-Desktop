@@ -148,8 +148,6 @@ def tool_results(graph):
 
 @pytest.mark.parametrize("tool,arguments", [
     pytest.param("read_conversation", {"limit": 10}, id="read_conversation"),
-    pytest.param("search_history", {"query": "D19 visible transcript marker", "limit": 10},
-                 id="search_history"),
 ])
 async def test_authenticated_history_reads_current_durable_transcript(composed, tool, arguments):
     graph = composed
@@ -168,6 +166,20 @@ async def test_authenticated_history_reads_current_durable_transcript(composed, 
     reader = graph.core.engine.deps.native_tools.owners["channel_ops"]
     denied = await reader._handle_read_conversation(message, {"limit": 10})
     assert denied == "Permission denied — cannot read this conversation."
+
+
+async def test_search_history_spans_every_conversation_in_the_profile(composed):
+    # Contract (core-contracts.md) and approved wording: profile-scoped search
+    # across conversations, as Odin searches every channel; reading stays current.
+    graph = composed
+    cid = await conversation(graph)
+    other = await conversation(graph, "Another conversation")
+    graph.core.transcript.commit(cid, "assistant", "D19 shared history marker here")
+    graph.core.transcript.commit(other, "assistant", "D19 shared history marker there")
+    await turn(graph, cid, "search_history", {"query": "D19 shared history marker", "limit": 10})
+    results = str(tool_results(graph))
+    assert "marker here" in results and "marker there" in results
+    assert "search_history" in {item["name"] for item in graph.provider.calls[0]["tools"]}
 
 
 async def test_history_rejects_foreign_selector_before_any_transcript_read(composed):
