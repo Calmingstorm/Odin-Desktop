@@ -170,7 +170,13 @@ watch(
     if (!state.highlightId) return
     scrollRun += 1 // the search result owns the view now
     await nextTick()
-    if (state.highlightId) document.getElementById(`m-${state.highlightId}`)?.scrollIntoView({ block: 'center' })
+    if (!state.highlightId) return
+    const target = document.getElementById(`m-${state.highlightId}`)
+    const view = scroller.value
+    // A message taller than the view opens at its start, where reading begins; centring it would land mid-message.
+    // Off-screen messages keep their last rendered height (contain-intrinsic-size: auto), so this sees a long reply.
+    const tall = Boolean(target && view && 'offsetHeight' in target && target.offsetHeight > view.clientHeight)
+    target?.scrollIntoView({ block: tall ? 'start' : 'center' })
   }
 )
 

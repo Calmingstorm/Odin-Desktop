@@ -247,3 +247,25 @@ describe('accessibility: stable, quiet history', () => {
     expect(status.textContent()).not.toContain('COMMITTED-REPLY')
   })
 })
+
+describe('a jumped-to message taller than the view', () => {
+  it('opens at its start, where reading begins; a shorter one stays centred', async () => {
+    await settle()
+    const doc = (globalThis as unknown as { document: { getElementById: unknown } }).document
+    const original = doc.getElementById
+    const placements: unknown[] = []
+    try {
+      for (const offsetHeight of [2000, 120]) {
+        doc.getElementById = () => ({ offsetHeight, scrollIntoView: (options: unknown) => placements.push(options) })
+        store.state.highlightId = null
+        await flush()
+        await searchHit('c1')
+        await settle()
+      }
+    } finally {
+      doc.getElementById = original
+    }
+    // The view is 500 px high: 2,000 px opens at the start, 120 px is centred.
+    expect(placements).toEqual([{ block: 'start' }, { block: 'center' }])
+  })
+})

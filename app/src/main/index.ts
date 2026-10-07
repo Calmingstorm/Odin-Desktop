@@ -794,7 +794,8 @@ async function interfaceShots(win: BrowserWindow, out: string, broker: Broker): 
   process.stdout.write(`smoke: long reply ${String(timing)}\n`)
   await pause(300)
   await shoot('long')
-  // A clicked notification for the open conversation shows its latest message, even after scrolling away from it.
+  // A clicked notification for the open conversation shows the notified message, even after scrolling away from it:
+  // highlighted, and from its start when it is taller than the view.
   const listed = await broker.request('conversations.list')
   const openTitle = String(await run(`document.querySelector('.conversations .conv.active .conv-title')?.textContent?.trim() ?? ''`))
   const items = listed.ok ? (listed.result as { items: Array<{ id: string; title: string }> }).items : []
@@ -809,8 +810,17 @@ async function interfaceShots(win: BrowserWindow, out: string, broker: Broker): 
     if (!messageId) throw new Error('notification smoke could not identify the latest real message')
     win.webContents.send(IPC.openConversation, { conversationId: latest, messageId })
     await pause(600)
-    const gap = Number(await run(`(() => { const s = document.querySelector('.message-scroll'); return Math.round(s.scrollHeight - s.scrollTop - s.clientHeight) })()`))
-    process.stdout.write(`smoke: a notification click left the view ${gap}px from the latest message\n`)
-    if (gap > 4) throw new Error(`a notification click left the view ${gap}px from the latest message`)
+    const placed = JSON.parse(String(await run(`(() => {
+      const s = document.querySelector('.message-scroll')
+      const m = document.getElementById('m-' + ${JSON.stringify(messageId)})
+      if (!s || !m) return JSON.stringify(null)
+      const view = s.getBoundingClientRect(), box = m.getBoundingClientRect()
+      return JSON.stringify({ top: Math.round(box.top - view.top), view: Math.round(view.height), height: Math.round(box.height),
+        highlighted: m.classList.contains('highlight') })
+    })()`))) as { top: number; view: number; height: number; highlighted: boolean } | null
+    process.stdout.write(`smoke: a notification click placed the notified message at ${JSON.stringify(placed)}\n`)
+    if (!placed?.highlighted) throw new Error('a notification click did not highlight the notified message')
+    const start = placed.height > placed.view ? placed.top >= -2 && placed.top <= 2 : placed.top >= 0 && placed.top + placed.height <= placed.view
+    if (!start) throw new Error(`a notification click did not show the notified message from its start: ${JSON.stringify(placed)}`)
   }
 }
