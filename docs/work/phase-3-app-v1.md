@@ -231,7 +231,7 @@ announcements. Automation covers regressions; manual Orca execution records succ
 dialogs/notifications. Screenshots are layout evidence only.
 
 **Gate:** all keyboard tasks complete without traps/lost focus/unnamed essential controls, automated findings are
-dispositioned, Orca tasks pass on Cinnamon/X11, GNOME/Wayland and KDE/Wayland. Missing AT-SPI/Orca blocks that row.
+dispositioned. Orca results are recorded but block nothing (Decision G).
 Fixes preserve D9 committed-only replies and D17 behavior. **Depends on:** reviewed app steps 1 to 6; P3.2/P3.3
 flows join before final matrix. Can begin in parallel against existing screens.
 
@@ -515,12 +515,13 @@ inherited assertions with screenshots, smoke counts, renamed exclusions or exit 
 
 ## 6. Aaron's decisions, settled on 2026-10-05
 
-Claude reviewed the work order and Aaron approved it with the update-model change below. A to F are decided, not
-open options, and do not reopen D1 to D19. Recording approval here performs no setup, test, install or publication.
+Claude reviewed the work order and Aaron approved it with the update-model change below. A to F (2026-10-05) and G
+to H (2026-10-07) are decided, not open options, and do not reopen D1 to D19. Recording approval here performs no setup, test, install or publication.
 
 ### Decision A: qualification VMs on this desktop
 
-**Decided:** test GNOME and KDE on Wayland, and Hyprland, in VMs on this workstation, **one heavy VM at a time**.
+**Decided:** test GNOME and KDE on Wayland, and Hyprland, in VMs on this workstation, **one heavy VM at a time**
+(raised to two by Decision H).
 Keep snapshots, exact versions and safe receivers; no active-seat/GPU passthrough or session teardown. Cinnamon/X11
 also uses an isolated lab before final acceptance; existing isolated harnesses remain the fast regression lane.
 
@@ -572,6 +573,19 @@ knowledge PDF imports use that resolver; concurrent first uses share one downloa
 download installs nothing, explains the reason plainly, and the next use retries. No confirmation prompt is added.
 `analyze_pdf` stays offered with Odin's unchanged description under D17/D19. Offline PDF use after installation and
 honest first-use failure are separate tests; offline first-use PDF success is no longer a bundle requirement.
+
+### Decision G: screen-reader support is not a v1 requirement
+
+**Decided, 2026-10-07:** "i dont care about being usable by blind people... whatever existing work can stay, but...
+we're blocking on this?" Orca and screen-reader acceptance is not a v1 release requirement. Existing Orca work,
+harnesses and evidence stay. Orca results are recorded but block no step, D11 row (P3.4, P3.6), CC-18 case or
+release gate, including the KDE file chooser that exposes no AT-SPI tree. Keyboard-only use remains required.
+
+### Decision H: two lab VMs at once
+
+**Decided, 2026-10-07:** run up to two lab VMs at the same time. This replaces Decision A's one-VM limit. The host has
+62 GiB RAM and 24 threads; each lab VM uses 4 vCPU and 8 GiB. Lab work coordinates through two lock slots,
+`/run/odq-lab.lock.1` and `/run/odq-lab.lock.2`, with at most two `odq-*` VMs running.
 
 ## 7. Deliverables and authorization summary
 

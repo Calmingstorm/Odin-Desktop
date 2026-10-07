@@ -26,9 +26,13 @@ from .package_status import PackageStatus
 from .paths import ProfilePaths
 from .reports import ReportBinding, ReportDelivery, ReportService
 from .requests import RequestService
-from .resource_cleanup import ResourceCleanupJournal
+from .resource_cleanup import (
+    ResourceCleanupError,
+    ResourceCleanupJournal,
+    close_existing_execution_owners,
+)
 from .search import TranscriptSearch
-from .secrets import secret_call
+from .secrets import StartupSecretCalls, secret_call, startup_secret_calls
 from .services import build_engine_services
 from .tool_details import ToolDetailsStore
 from .transcript import TranscriptStore
@@ -68,6 +72,7 @@ READ_METHODS = frozenset({
 # Receipt bodies are bounded by age; identities and unresolved outcomes are not.
 RECEIPT_RETENTION = 7 * 24 * 60 * 60
 RECEIPT_PRUNE_INTERVAL = 60 * 60
+STARTUP_SETTLE_SECONDS = 0.5
 
 
 class _PublicationStore(JournalStore):
@@ -456,6 +461,9 @@ class CoreService:
                 get_logger("desktop.core").exception("Usage backfill startup failed (non-fatal)")
         # Hydration/status now await workers. Commit the initial event before
         # admitting any handshake, preserving welcome/catch-up's high watermark.
+        # IPC handlers must never inherit the abandonable startup-only secret
+        # scope: their transactional writes always wait for settlement.
+        startup_secret_calls.set(None)
         await self.server.start()
         await self.management.start_background()
         self._receipt_pruner = asyncio.create_task(self._prune_receipts())
@@ -1033,8 +1041,21 @@ class CoreService:
                     if self.store is not None:
                         self.store.close()
             finally:
-                if self._release_runtime_on_close:
-                    self.release_runtime()
+                try:
+                    if getattr(self, "_startup_cleanup", None) is not None:
+                        if self.resource_cleanup is not None:
+                            resources = self.resource_cleanup.current["resources"]
+                            if self.management is None:
+                                resources = await close_existing_execution_owners(self, None)
+                            self.resource_cleanup.finish({
+                                **resources, **self._startup_cleanup,
+                            })
+                        if self._startup_unsettled:
+                            raise ResourceCleanupError("Core startup settlement is unverified")
+                finally:
+                    if (self._release_runtime_on_close
+                            and not getattr(self, "_startup_unsettled", False)):
+                        self.release_runtime()
         # _closed is an entry/idempotency guard, never cleanup success. This
         # barrier sits outside finally: even a listener failure must stay false.
         self._close_complete = True
@@ -1045,11 +1066,49 @@ class CoreService:
             self.authority.release_runtime()
 
     async def run(self, stdin_fd: int = 0) -> int:
+        secrets = StartupSecretCalls()
+
+        async def start():
+            token = startup_secret_calls.set(secrets)
+            try:
+                await self.start(stdin_fd)
+            finally:
+                secrets.active = False
+                startup_secret_calls.reset(token)
+
+        startup = asyncio.create_task(start())
+        stopping = asyncio.create_task(self.lifetime.wait())
         try:
-            await self.start(stdin_fd)
+            await asyncio.wait((startup, stopping), return_when=asyncio.FIRST_COMPLETED)
+            if not stopping.done():
+                await startup
             await self.lifetime.wait()
             return 0
         finally:
+            stopping.cancel()
+            await asyncio.gather(stopping, return_exceptions=True)
+            if not startup.done():
+                startup.cancel()
+                await asyncio.wait((startup,), timeout=STARTUP_SETTLE_SECONDS)
+                await secrets.settle(STARTUP_SETTLE_SECONDS)
+                self._startup_unsettled = not startup.done() or bool(secrets.pending)
+                self._startup_cleanup = {
+                    "startup": {"state": "unknown" if not startup.done() else "released"},
+                    "startup_secrets": secrets.outcome(),
+                }
+            if startup.done():
+                # Retrieve failures even when the stop edge won the race.
+                if not startup.cancelled():
+                    startup.exception()
+            else:
+                # Never dismantle shared persistence beneath a cancellation-
+                # resistant producer. Containment/finalization owns this lock.
+                self.lifetime.close()
+                startup.add_done_callback(
+                    lambda done: None if done.cancelled() else done.exception())
+                if self.resource_cleanup is not None:
+                    self.resource_cleanup.finish(self._startup_cleanup)
+                raise ResourceCleanupError("Core startup is still settling")
             await self.close()
 
 

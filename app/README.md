@@ -8,7 +8,7 @@ P3.1 slice 3 connects the existing chat to them: transcript/search, guarded repl
 output, attachments/artifacts, and generation-bound Stop/Steer/Resume.
 P3.1 slice 4 adds the Skills/MCP screen integration, owner-only Odin-parity skill Test, browser qualification
 and separate next-use retry observations, plus retained computer management and exact-generation recovery.
-P3.1 slice 5 connects step-6B background work, schedules and stored reports to their actual core services. Computer foreground input remains a separate review handoff;
+P3.1 slice 5 connects step-6B background work, schedules and stored reports to their actual core services. Foreground owner binding is integrated; native input qualification remains pending #98;
 uncomposed services stay explicitly unavailable. Real-core sessions never substitute fixture rows, invented
 successful reads or endless loading indicators.
 The P3.1 slice-1 launch, authentication, status and durable event replay contracts remain, with P3.3 source-build
@@ -20,10 +20,11 @@ This integration slice is not full P3.1 or release qualification.
 The [first-draft user guide](../README.md#user-guide-first-draft) covers installation, first run, chat/results,
 settings, current work boundaries, recovery, updates and accessibility using merged `main` behavior only.
 Source/review watermarks and claim references are in
-[P4.4 validation](../maintenance/p44-user-docs-validation.md); preserved drafts for open #37,
-#39, #40 and #42 are in [pending user docs](../docs/release/pending-user-docs.md), alongside
-historical #28 material now promoted where integrated. Merged #36 ownership/upgrades/removal
-and #28 service management are included in the guides.
+[P4.4 validation](../maintenance/p44-user-docs-validation.md). The
+[documentation status](../docs/release/pending-user-docs.md) records the promotion
+of merged #37/#39/#40/#42 and remaining native dependencies. The
+guides also cover merged #89 package fencing, #90/#94 session Exit and #95
+fresh Wayland launch and #96 bounded Exit during core startup.
 The [Linux release checklist](../docs/release/linux-v1-checklist.md) still requires P4.5,
 P4.6 and Aaron's explicit approvals. This documentation PR is not package or live acceptance.
 
@@ -294,9 +295,10 @@ a new unknown event raises a fresh notice. Hidden login starts never open a clea
 Notification tests exercise actual Electron D-Bus requests, acceptance/refusal and native `ActionInvoked`, then
 inspect the exact older conversation/message in the renderer, including renderer loss. Their conversation and
 acknowledgement service is explicitly a fixture: those notification tests do not qualify real delivery or requests,
-even though `main` now composes their core services. Background work/computer service composition remains pending.
-D11 trays/login, installed package paths, admitted work/descendant cleanup and
-full native desktop input grants remain open, not silently qualified by these tests. The continuation also
+even though `main` now composes their core services. Background work and foreground computer
+binding are composed; backend-specific native qualification is still separate.
+Remaining D11/native and final installed-candidate gates are tracked under #59,
+#98 and #97, not silently qualified by these fixture tests. The continuation also
 qualifies actual admitted credential-free management work across hide/Exit, original execution-owner escaped
 descendant cleanup, and real isolated X11 guardian-loss quarantine/no-replay. It does not upgrade missing
 native release proof into success. See

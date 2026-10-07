@@ -1,0 +1,16 @@
+{
+  "schema": "p44_artifacts_v1",
+  "request": "req-0120eb63",
+  "source_main": "aa3d61b3043ea47805686c185133a53c54b127fc",
+  "evidence_root": "/mnt/storage/odin-desktop-evidence/p44-update-req-0120eb63",
+  "artifacts": [
+    {"path": "/mnt/storage/odin-desktop-evidence/p44-update-req-0120eb63/audit-and-metadata.md", "bytes": 1108, "sha256": "4106dcb2aa9b0a0aa6efa3746f5e1c28f8ec447d3ecf059e1bdb94ed81671cda"},
+    {"path": "/mnt/storage/odin-desktop-evidence/p44-update-req-0120eb63/check-links.py", "bytes": 3751, "sha256": "f307a41781273224efd2315e170af525e93c43e569ebd54f9619e1d9c23612ce"},
+    {"path": "/mnt/storage/odin-desktop-evidence/p44-update-req-0120eb63/links.json", "bytes": 61204, "sha256": "2c4d6fc3fbbfc15052c72ca9029cbe48ced6db6f0af4fbb1a685b8f14c89e557"},
+    {"path": "/mnt/storage/odin-desktop-evidence/p44-update-req-0120eb63/dependencies.log", "bytes": 2440, "sha256": "a4a0d56e09df086e4a7efca7faa9e6712b9c7918b6b0a97ffa7e85f7822f380b"},
+    {"path": "/mnt/storage/odin-desktop-evidence/p44-update-req-0120eb63/short-gates.log", "bytes": 110337, "sha256": "85d29ec7dff7900c8e3801a96225d63ac6a8092d01f8e5c032f990a8deba01ba"},
+    {"path": "/mnt/storage/odin-desktop-evidence/p44-update-req-0120eb63/d12-cinnamon.log", "bytes": 3651, "sha256": "620d7d00cdd56bfcb64bcfb9650a88a1bbcc20d903673868a0457e818d091873", "provenance": "/home/calmingstorm/odin-desktop-evidence/d12-20261007/cinnamon/d12.log; read-only copy, not rerun"},
+    {"path": "/mnt/storage/odin-desktop-evidence/p44-update-req-0120eb63/d12-gnome-check.log", "bytes": 3672, "sha256": "05a59d5e755698c62473ec5a784543ebc6cf41ac576f1e64434acb3de051dbad", "provenance": "/home/calmingstorm/odin-desktop-evidence/d12-20261007/gnome-check/d12.log; read-only copy, not rerun"},
+    {"path": "/mnt/storage/odin-desktop-evidence/p44-update-req-0120eb63/d12-kde.log", "bytes": 3612, "sha256": "4fe71e8df1cd22b30732830c4ae48434c6ca70b9bc446e4ce997314353570055", "provenance": "/home/calmingstorm/odin-desktop-evidence/d12-20261007/kde/d12.log; read-only copy, not rerun"}
+  ]
+}

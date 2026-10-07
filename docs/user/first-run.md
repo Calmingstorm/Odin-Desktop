@@ -6,7 +6,7 @@ Settings screens; there is no separate wizard.
 ## Open Settings
 
 1. Read the **Provider readiness** banner and choose **Open Models and providers**.
-   You can also choose **Settings** in the top bar or press **Ctrl+,**.
+   You can also choose **Settings** in the navigation rail or press **Ctrl+,**.
 2. If you are not ready, choose **Set up later** on the chat banner. This hides the
    reminder; it does not configure a provider.
 3. If it says **Readiness unavailable**, wait for the core connection. If it does
@@ -151,8 +151,9 @@ requests. A local model does not make every tool local-only.
   for the current request. **Add to knowledge** expresses a retention request,
   not guaranteed ingestion.
 - **Settings → State → Knowledge** stores searchable document text separately.
-  Adding it there does not currently make that store available to the model's
-  knowledge tools. See [State](settings.md#state-memory-lists-and-knowledge).
+  The model's knowledge tools use that shared store. Adding a document does not
+  guarantee it will be retrieved for every request, and attaching a file does
+  not automatically store it there. See [State](settings.md#state-memory-lists-and-knowledge).
 - Memory is another kind of retained information, distinct from documents and
   conversation history. Do not put secrets in any of them.
 
