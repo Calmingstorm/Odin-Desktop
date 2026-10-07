@@ -48,10 +48,20 @@ async def overdue(scheduler, *, days=1):
 
 
 @pytest.mark.asyncio
-async def test_missed_reminders_coalesce_and_bounded(graph):
+async def test_missed_reminders_coalesce_and_bounded(graph, monkeypatch):
+    # This proves coalescing of one overdue cohort, not passage into the next
+    # real cron minute while fsync/coverage completes between the two ticks.
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 10, 7, 12, 0, 10, tzinfo=UTC)
+    monkeypatch.setattr("src.scheduler.scheduler.datetime", Clock)
     scheduler, _, _, _ = graph
     await add(graph)
-    await overdue(scheduler, days=365)
+    async with scheduler._lock:
+        values = scheduler.list_all()
+        values[0]["next_run"] = (Clock.now(UTC) - timedelta(days=365)).isoformat()
+        await scheduler._publish(values)
     seen = []
     async def effect(schedule):
         seen.append(copy.deepcopy(schedule))

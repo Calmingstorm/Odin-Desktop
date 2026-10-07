@@ -20,7 +20,7 @@ import {
 onMounted(loadMcp)
 
 const shownTools = reactive<Record<string, boolean | undefined>>({})
-const limits = reactive({ perServer: '', global: '' })
+const limits = reactive<{ perServer: string | number; global: string | number }>({ perServer: '', global: '' })
 
 
 const form = ref<Form | null>(null)
@@ -60,8 +60,8 @@ async function remove(server: McpServer): Promise<void> {
 
 async function saveLimits(): Promise<void> {
   const change: { max_published_tools_per_server?: number; max_published_tools_global?: number } = {}
-  if (limits.perServer.trim()) change.max_published_tools_per_server = Number(limits.perServer)
-  if (limits.global.trim()) change.max_published_tools_global = Number(limits.global)
+  if (String(limits.perServer).trim()) change.max_published_tools_per_server = Number(limits.perServer)
+  if (String(limits.global).trim()) change.max_published_tools_global = Number(limits.global)
   await setMcpLimits(change)
 }
 </script>

@@ -1,0 +1,2761 @@
+{
+  "app": {
+    "files": {
+      "app/src/main/appearance.ts": {
+        "covered": 11,
+        "missing": 0,
+        "total": 11
+      },
+      "app/src/main/artifacts.ts": {
+        "covered": 94,
+        "missing": 3,
+        "total": 97
+      },
+      "app/src/main/attachments.ts": {
+        "covered": 70,
+        "missing": 4,
+        "total": 74
+      },
+      "app/src/main/autostart.ts": {
+        "covered": 18,
+        "missing": 1,
+        "total": 19
+      },
+      "app/src/main/broker.ts": {
+        "covered": 169,
+        "missing": 12,
+        "total": 181
+      },
+      "app/src/main/command-id.ts": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "app/src/main/core-command.ts": {
+        "covered": 36,
+        "missing": 0,
+        "total": 36
+      },
+      "app/src/main/core-supervisor.ts": {
+        "covered": 110,
+        "missing": 8,
+        "total": 118
+      },
+      "app/src/main/device-login.ts": {
+        "covered": 38,
+        "missing": 1,
+        "total": 39
+      },
+      "app/src/main/drafts.ts": {
+        "covered": 26,
+        "missing": 2,
+        "total": 28
+      },
+      "app/src/main/framing.ts": {
+        "covered": 28,
+        "missing": 0,
+        "total": 28
+      },
+      "app/src/main/index.ts": {
+        "covered": 420,
+        "missing": 0,
+        "total": 420
+      },
+      "app/src/main/ipc.ts": {
+        "covered": 157,
+        "missing": 0,
+        "total": 157
+      },
+      "app/src/main/lifecycle.ts": {
+        "covered": 12,
+        "missing": 0,
+        "total": 12
+      },
+      "app/src/main/native-notifications.ts": {
+        "covered": 33,
+        "missing": 0,
+        "total": 33
+      },
+      "app/src/main/notifications.ts": {
+        "covered": 73,
+        "missing": 0,
+        "total": 73
+      },
+      "app/src/main/onboarding-smoke.ts": {
+        "covered": 201,
+        "missing": 0,
+        "total": 201
+      },
+      "app/src/main/package-ownership.ts": {
+        "covered": 34,
+        "missing": 5,
+        "total": 39
+      },
+      "app/src/main/package-state.ts": {
+        "covered": 4,
+        "missing": 0,
+        "total": 4
+      },
+      "app/src/main/paths.ts": {
+        "covered": 23,
+        "missing": 0,
+        "total": 23
+      },
+      "app/src/main/real-core-smoke.ts": {
+        "covered": 808,
+        "missing": 16,
+        "total": 824
+      },
+      "app/src/main/release-notice.ts": {
+        "covered": 61,
+        "missing": 0,
+        "total": 61
+      },
+      "app/src/main/schemas.ts": {
+        "covered": 85,
+        "missing": 0,
+        "total": 85
+      },
+      "app/src/main/security-policy.ts": {
+        "covered": 28,
+        "missing": 3,
+        "total": 31
+      },
+      "app/src/main/security.ts": {
+        "covered": 20,
+        "missing": 0,
+        "total": 20
+      },
+      "app/src/main/session-logout.ts": {
+        "covered": 41,
+        "missing": 0,
+        "total": 41
+      },
+      "app/src/main/shutdown.ts": {
+        "covered": 86,
+        "missing": 1,
+        "total": 87
+      },
+      "app/src/main/tray.ts": {
+        "covered": 19,
+        "missing": 0,
+        "total": 19
+      },
+      "app/src/preload/index.ts": {
+        "covered": 97,
+        "missing": 0,
+        "total": 97
+      },
+      "app/src/renderer/src/App.vue": {
+        "covered": 32,
+        "missing": 0,
+        "total": 32
+      },
+      "app/src/renderer/src/artifacts.ts": {
+        "covered": 57,
+        "missing": 3,
+        "total": 60
+      },
+      "app/src/renderer/src/capability.ts": {
+        "covered": 4,
+        "missing": 0,
+        "total": 4
+      },
+      "app/src/renderer/src/chat-announcements.ts": {
+        "covered": 11,
+        "missing": 0,
+        "total": 11
+      },
+      "app/src/renderer/src/code-copy.ts": {
+        "covered": 6,
+        "missing": 0,
+        "total": 6
+      },
+      "app/src/renderer/src/commands.ts": {
+        "covered": 55,
+        "missing": 7,
+        "total": 62
+      },
+      "app/src/renderer/src/components/AttachmentTray.vue": {
+        "covered": 18,
+        "missing": 0,
+        "total": 18
+      },
+      "app/src/renderer/src/components/ChatStatus.vue": {
+        "covered": 13,
+        "missing": 0,
+        "total": 13
+      },
+      "app/src/renderer/src/components/CleanupNotice.vue": {
+        "covered": 18,
+        "missing": 0,
+        "total": 18
+      },
+      "app/src/renderer/src/components/CodexAccounts.vue": {
+        "covered": 67,
+        "missing": 3,
+        "total": 70
+      },
+      "app/src/renderer/src/components/CommandPalette.vue": {
+        "covered": 5,
+        "missing": 0,
+        "total": 5
+      },
+      "app/src/renderer/src/components/CompletionResult.vue": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "app/src/renderer/src/components/Composer.vue": {
+        "covered": 101,
+        "missing": 9,
+        "total": 110
+      },
+      "app/src/renderer/src/components/ConfirmDialog.vue": {
+        "covered": 44,
+        "missing": 0,
+        "total": 44
+      },
+      "app/src/renderer/src/components/ConversationList.vue": {
+        "covered": 40,
+        "missing": 0,
+        "total": 40
+      },
+      "app/src/renderer/src/components/ConversationMenu.vue": {
+        "covered": 36,
+        "missing": 0,
+        "total": 36
+      },
+      "app/src/renderer/src/components/FileCard.vue": {
+        "covered": 21,
+        "missing": 5,
+        "total": 26
+      },
+      "app/src/renderer/src/components/FirstRunBanner.vue": {
+        "covered": 28,
+        "missing": 2,
+        "total": 30
+      },
+      "app/src/renderer/src/components/Icon.vue": {
+        "covered": 7,
+        "missing": 0,
+        "total": 7
+      },
+      "app/src/renderer/src/components/IconRail.vue": {
+        "covered": 10,
+        "missing": 2,
+        "total": 12
+      },
+      "app/src/renderer/src/components/KnowledgeDetails.vue": {
+        "covered": 122,
+        "missing": 3,
+        "total": 125
+      },
+      "app/src/renderer/src/components/Message.vue": {
+        "covered": 54,
+        "missing": 0,
+        "total": 54
+      },
+      "app/src/renderer/src/components/MessageList.vue": {
+        "covered": 120,
+        "missing": 27,
+        "total": 147
+      },
+      "app/src/renderer/src/components/ObservabilityDetails.vue": {
+        "covered": 28,
+        "missing": 6,
+        "total": 34
+      },
+      "app/src/renderer/src/components/OpenRouterAdmin.vue": {
+        "covered": 82,
+        "missing": 12,
+        "total": 94
+      },
+      "app/src/renderer/src/components/RecordDetails.vue": {
+        "covered": 82,
+        "missing": 1,
+        "total": 83
+      },
+      "app/src/renderer/src/components/ReleaseNotice.vue": {
+        "covered": 33,
+        "missing": 0,
+        "total": 33
+      },
+      "app/src/renderer/src/components/ReportViewer.vue": {
+        "covered": 44,
+        "missing": 4,
+        "total": 48
+      },
+      "app/src/renderer/src/components/ResumeBanner.vue": {
+        "covered": 17,
+        "missing": 0,
+        "total": 17
+      },
+      "app/src/renderer/src/components/SchemaForm.vue": {
+        "covered": 33,
+        "missing": 6,
+        "total": 39
+      },
+      "app/src/renderer/src/components/SearchPanel.vue": {
+        "covered": 43,
+        "missing": 2,
+        "total": 45
+      },
+      "app/src/renderer/src/components/StatusBar.vue": {
+        "covered": 6,
+        "missing": 1,
+        "total": 7
+      },
+      "app/src/renderer/src/components/ToolActivity.vue": {
+        "covered": 51,
+        "missing": 0,
+        "total": 51
+      },
+      "app/src/renderer/src/components/TrajectoryDetails.vue": {
+        "covered": 20,
+        "missing": 0,
+        "total": 20
+      },
+      "app/src/renderer/src/components/WebhookIngress.vue": {
+        "covered": 146,
+        "missing": 6,
+        "total": 152
+      },
+      "app/src/renderer/src/components/WorkList.vue": {
+        "covered": 60,
+        "missing": 1,
+        "total": 61
+      },
+      "app/src/renderer/src/components/WorkPanel.vue": {
+        "covered": 14,
+        "missing": 1,
+        "total": 15
+      },
+      "app/src/renderer/src/conversation-menu-keys.ts": {
+        "covered": 7,
+        "missing": 0,
+        "total": 7
+      },
+      "app/src/renderer/src/dialog.ts": {
+        "covered": 6,
+        "missing": 0,
+        "total": 6
+      },
+      "app/src/renderer/src/format.ts": {
+        "covered": 15,
+        "missing": 0,
+        "total": 15
+      },
+      "app/src/renderer/src/main.ts": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
+      "app/src/renderer/src/markdown.ts": {
+        "covered": 65,
+        "missing": 6,
+        "total": 71
+      },
+      "app/src/renderer/src/mcp-form.ts": {
+        "covered": 20,
+        "missing": 0,
+        "total": 20
+      },
+      "app/src/renderer/src/schedule-form.ts": {
+        "covered": 94,
+        "missing": 6,
+        "total": 100
+      },
+      "app/src/renderer/src/schedule-observations.ts": {
+        "covered": 11,
+        "missing": 0,
+        "total": 11
+      },
+      "app/src/renderer/src/schedule-time.ts": {
+        "covered": 33,
+        "missing": 0,
+        "total": 33
+      },
+      "app/src/renderer/src/settings-accessibility.ts": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
+      "app/src/renderer/src/settings-form.ts": {
+        "covered": 102,
+        "missing": 1,
+        "total": 103
+      },
+      "app/src/renderer/src/skill-config.ts": {
+        "covered": 4,
+        "missing": 0,
+        "total": 4
+      },
+      "app/src/renderer/src/skill-editor.ts": {
+        "covered": 4,
+        "missing": 0,
+        "total": 4
+      },
+      "app/src/renderer/src/store.ts": {
+        "covered": 575,
+        "missing": 60,
+        "total": 635
+      },
+      "app/src/renderer/src/stores/browser.ts": {
+        "covered": 19,
+        "missing": 0,
+        "total": 19
+      },
+      "app/src/renderer/src/stores/completion.ts": {
+        "covered": 20,
+        "missing": 1,
+        "total": 21
+      },
+      "app/src/renderer/src/stores/composer.ts": {
+        "covered": 133,
+        "missing": 2,
+        "total": 135
+      },
+      "app/src/renderer/src/stores/hosts.ts": {
+        "covered": 134,
+        "missing": 15,
+        "total": 149
+      },
+      "app/src/renderer/src/stores/locks.ts": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
+      "app/src/renderer/src/stores/management.ts": {
+        "covered": 237,
+        "missing": 8,
+        "total": 245
+      },
+      "app/src/renderer/src/stores/records.ts": {
+        "covered": 108,
+        "missing": 2,
+        "total": 110
+      },
+      "app/src/renderer/src/stores/schedules.ts": {
+        "covered": 40,
+        "missing": 10,
+        "total": 50
+      },
+      "app/src/renderer/src/stores/settings.ts": {
+        "covered": 148,
+        "missing": 21,
+        "total": 169
+      },
+      "app/src/renderer/src/stores/state.ts": {
+        "covered": 115,
+        "missing": 21,
+        "total": 136
+      },
+      "app/src/renderer/src/stores/status.ts": {
+        "covered": 28,
+        "missing": 3,
+        "total": 31
+      },
+      "app/src/renderer/src/stores/work.ts": {
+        "covered": 86,
+        "missing": 1,
+        "total": 87
+      },
+      "app/src/renderer/src/tool-output.ts": {
+        "covered": 12,
+        "missing": 0,
+        "total": 12
+      },
+      "app/src/renderer/src/views/Settings.vue": {
+        "covered": 13,
+        "missing": 2,
+        "total": 15
+      },
+      "app/src/renderer/src/views/settings/General.vue": {
+        "covered": 20,
+        "missing": 2,
+        "total": 22
+      },
+      "app/src/renderer/src/views/settings/Hosts.vue": {
+        "covered": 77,
+        "missing": 9,
+        "total": 86
+      },
+      "app/src/renderer/src/views/settings/Mcp.vue": {
+        "covered": 67,
+        "missing": 9,
+        "total": 76
+      },
+      "app/src/renderer/src/views/settings/Personality.vue": {
+        "covered": 60,
+        "missing": 2,
+        "total": 62
+      },
+      "app/src/renderer/src/views/settings/Records.vue": {
+        "covered": 56,
+        "missing": 5,
+        "total": 61
+      },
+      "app/src/renderer/src/views/settings/Skills.vue": {
+        "covered": 41,
+        "missing": 0,
+        "total": 41
+      },
+      "app/src/renderer/src/views/settings/State.vue": {
+        "covered": 87,
+        "missing": 4,
+        "total": 91
+      },
+      "app/src/renderer/src/views/settings/Tools.vue": {
+        "covered": 53,
+        "missing": 5,
+        "total": 58
+      },
+      "app/src/renderer/src/views/settings/Work.vue": {
+        "covered": 92,
+        "missing": 22,
+        "total": 114
+      },
+      "app/src/renderer/src/work-accessibility.ts": {
+        "covered": 12,
+        "missing": 0,
+        "total": 12
+      },
+      "app/src/renderer/src/work-format.ts": {
+        "covered": 17,
+        "missing": 0,
+        "total": 17
+      },
+      "app/src/shared/api.ts": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      }
+    },
+    "total": {
+      "covered": 6952,
+      "missing": 374,
+      "total": 7326
+    }
+  },
+  "exceptions": {},
+  "python": {
+    "files": {
+      "src/__init__.py": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "src/__main__.py": {
+        "covered": 229,
+        "missing": 51,
+        "total": 280
+      },
+      "src/agents/__init__.py": {
+        "covered": 4,
+        "missing": 0,
+        "total": 4
+      },
+      "src/agents/execution_context.py": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "src/agents/manager.py": {
+        "covered": 884,
+        "missing": 194,
+        "total": 1078
+      },
+      "src/agents/repetition.py": {
+        "covered": 21,
+        "missing": 0,
+        "total": 21
+      },
+      "src/agents/results.py": {
+        "covered": 86,
+        "missing": 12,
+        "total": 98
+      },
+      "src/agents/tool_cycle.py": {
+        "covered": 80,
+        "missing": 10,
+        "total": 90
+      },
+      "src/agents/trajectory.py": {
+        "covered": 186,
+        "missing": 26,
+        "total": 212
+      },
+      "src/agents/wait_deadlines.py": {
+        "covered": 23,
+        "missing": 0,
+        "total": 23
+      },
+      "src/agents/wait_results.py": {
+        "covered": 0,
+        "missing": 48,
+        "total": 48
+      },
+      "src/async_utils.py": {
+        "covered": 38,
+        "missing": 2,
+        "total": 40
+      },
+      "src/audit/__init__.py": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "src/audit/diff_tracker.py": {
+        "covered": 33,
+        "missing": 0,
+        "total": 33
+      },
+      "src/audit/logger.py": {
+        "covered": 595,
+        "missing": 34,
+        "total": 629
+      },
+      "src/audit/signer.py": {
+        "covered": 99,
+        "missing": 1,
+        "total": 100
+      },
+      "src/audit/tool_context.py": {
+        "covered": 36,
+        "missing": 6,
+        "total": 42
+      },
+      "src/cli.py": {
+        "covered": 55,
+        "missing": 8,
+        "total": 63
+      },
+      "src/computer/__init__.py": {
+        "covered": 0,
+        "missing": 0,
+        "total": 0
+      },
+      "src/computer/accessibility_status.py": {
+        "covered": 108,
+        "missing": 0,
+        "total": 108
+      },
+      "src/computer/actions.py": {
+        "covered": 63,
+        "missing": 0,
+        "total": 63
+      },
+      "src/computer/admission.py": {
+        "covered": 73,
+        "missing": 0,
+        "total": 73
+      },
+      "src/computer/app_profiles.py": {
+        "covered": 12,
+        "missing": 1,
+        "total": 13
+      },
+      "src/computer/capabilities.py": {
+        "covered": 43,
+        "missing": 0,
+        "total": 43
+      },
+      "src/computer/controller.py": {
+        "covered": 1327,
+        "missing": 239,
+        "total": 1566
+      },
+      "src/computer/effects.py": {
+        "covered": 208,
+        "missing": 0,
+        "total": 208
+      },
+      "src/computer/error_guidance.py": {
+        "covered": 168,
+        "missing": 4,
+        "total": 172
+      },
+      "src/computer/geometry.py": {
+        "covered": 107,
+        "missing": 11,
+        "total": 118
+      },
+      "src/computer/grounding.py": {
+        "covered": 40,
+        "missing": 11,
+        "total": 51
+      },
+      "src/computer/gui_actions.py": {
+        "covered": 216,
+        "missing": 3,
+        "total": 219
+      },
+      "src/computer/integration.py": {
+        "covered": 186,
+        "missing": 59,
+        "total": 245
+      },
+      "src/computer/manager.py": {
+        "covered": 282,
+        "missing": 165,
+        "total": 447
+      },
+      "src/computer/models.py": {
+        "covered": 151,
+        "missing": 10,
+        "total": 161
+      },
+      "src/computer/policy.py": {
+        "covered": 37,
+        "missing": 5,
+        "total": 42
+      },
+      "src/computer/provenance.py": {
+        "covered": 41,
+        "missing": 1,
+        "total": 42
+      },
+      "src/computer/provisioning.py": {
+        "covered": 75,
+        "missing": 3,
+        "total": 78
+      },
+      "src/computer/render.py": {
+        "covered": 106,
+        "missing": 28,
+        "total": 134
+      },
+      "src/computer/runtime/__init__.py": {
+        "covered": 0,
+        "missing": 0,
+        "total": 0
+      },
+      "src/computer/runtime/accessibility.py": {
+        "covered": 376,
+        "missing": 20,
+        "total": 396
+      },
+      "src/computer/runtime/assets/wayland_probe_gate.py": {
+        "covered": 0,
+        "missing": 73,
+        "total": 73
+      },
+      "src/computer/runtime/assets/wayland_probe_kwin.py": {
+        "covered": 33,
+        "missing": 1,
+        "total": 34
+      },
+      "src/computer/runtime/assets/wayland_probe_private.py": {
+        "covered": 18,
+        "missing": 68,
+        "total": 86
+      },
+      "src/computer/runtime/assets/wayland_probe_receiver.py": {
+        "covered": 0,
+        "missing": 176,
+        "total": 176
+      },
+      "src/computer/runtime/assets/wayland_probe_sender.py": {
+        "covered": 0,
+        "missing": 281,
+        "total": 281
+      },
+      "src/computer/runtime/assets/wayland_probe_session.py": {
+        "covered": 0,
+        "missing": 324,
+        "total": 324
+      },
+      "src/computer/runtime/backend.py": {
+        "covered": 303,
+        "missing": 17,
+        "total": 320
+      },
+      "src/computer/runtime/dependency_resolver.py": {
+        "covered": 42,
+        "missing": 3,
+        "total": 45
+      },
+      "src/computer/runtime/exports.py": {
+        "covered": 29,
+        "missing": 0,
+        "total": 29
+      },
+      "src/computer/runtime/gi_support.py": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "src/computer/runtime/hyprland_absence.py": {
+        "covered": 51,
+        "missing": 89,
+        "total": 140
+      },
+      "src/computer/runtime/hyprland_backend.py": {
+        "covered": 1169,
+        "missing": 90,
+        "total": 1259
+      },
+      "src/computer/runtime/hyprland_capture.py": {
+        "covered": 120,
+        "missing": 20,
+        "total": 140
+      },
+      "src/computer/runtime/hyprland_discovery.py": {
+        "covered": 165,
+        "missing": 20,
+        "total": 185
+      },
+      "src/computer/runtime/hyprland_errors.py": {
+        "covered": 38,
+        "missing": 1,
+        "total": 39
+      },
+      "src/computer/runtime/hyprland_guardian.py": {
+        "covered": 196,
+        "missing": 2,
+        "total": 198
+      },
+      "src/computer/runtime/hyprland_identity.py": {
+        "covered": 153,
+        "missing": 22,
+        "total": 175
+      },
+      "src/computer/runtime/hyprland_plugin.py": {
+        "covered": 299,
+        "missing": 16,
+        "total": 315
+      },
+      "src/computer/runtime/hyprland_recovery.py": {
+        "covered": 76,
+        "missing": 0,
+        "total": 76
+      },
+      "src/computer/runtime/hyprland_scope.py": {
+        "covered": 558,
+        "missing": 88,
+        "total": 646
+      },
+      "src/computer/runtime/isolated_pixels.py": {
+        "covered": 131,
+        "missing": 0,
+        "total": 131
+      },
+      "src/computer/runtime/kwin_scope.py": {
+        "covered": 51,
+        "missing": 5,
+        "total": 56
+      },
+      "src/computer/runtime/local_recovery.py": {
+        "covered": 12,
+        "missing": 1,
+        "total": 13
+      },
+      "src/computer/runtime/pixel_fields.py": {
+        "covered": 17,
+        "missing": 0,
+        "total": 17
+      },
+      "src/computer/runtime/primitives.py": {
+        "covered": 630,
+        "missing": 111,
+        "total": 741
+      },
+      "src/computer/runtime/profile.py": {
+        "covered": 58,
+        "missing": 0,
+        "total": 58
+      },
+      "src/computer/runtime/protocol.py": {
+        "covered": 34,
+        "missing": 0,
+        "total": 34
+      },
+      "src/computer/runtime/recovery.py": {
+        "covered": 108,
+        "missing": 13,
+        "total": 121
+      },
+      "src/computer/runtime/supervisor.py": {
+        "covered": 131,
+        "missing": 7,
+        "total": 138
+      },
+      "src/computer/runtime/wayland_backend.py": {
+        "covered": 514,
+        "missing": 54,
+        "total": 568
+      },
+      "src/computer/runtime/wayland_guardian.py": {
+        "covered": 204,
+        "missing": 19,
+        "total": 223
+      },
+      "src/computer/runtime/wayland_identity.py": {
+        "covered": 135,
+        "missing": 1,
+        "total": 136
+      },
+      "src/computer/runtime/wayland_portal.py": {
+        "covered": 574,
+        "missing": 292,
+        "total": 866
+      },
+      "src/computer/runtime/wayland_probe.py": {
+        "covered": 98,
+        "missing": 88,
+        "total": 186
+      },
+      "src/computer/runtime/wayland_scope.py": {
+        "covered": 165,
+        "missing": 74,
+        "total": 239
+      },
+      "src/computer/runtime/worker.py": {
+        "covered": 147,
+        "missing": 15,
+        "total": 162
+      },
+      "src/computer/runtime/x11_accessibility.py": {
+        "covered": 160,
+        "missing": 2,
+        "total": 162
+      },
+      "src/computer/runtime/x11_app_scope.py": {
+        "covered": 313,
+        "missing": 92,
+        "total": 405
+      },
+      "src/computer/runtime/x11_appearance.py": {
+        "covered": 28,
+        "missing": 3,
+        "total": 31
+      },
+      "src/computer/runtime/x11_attached.py": {
+        "covered": 911,
+        "missing": 103,
+        "total": 1014
+      },
+      "src/computer/runtime/x11_attached_worker.py": {
+        "covered": 217,
+        "missing": 15,
+        "total": 232
+      },
+      "src/computer/runtime/x11_capture.py": {
+        "covered": 152,
+        "missing": 9,
+        "total": 161
+      },
+      "src/computer/runtime/x11_guardian.py": {
+        "covered": 595,
+        "missing": 60,
+        "total": 655
+      },
+      "src/computer/runtime/x11_owned_device.py": {
+        "covered": 537,
+        "missing": 375,
+        "total": 912
+      },
+      "src/computer/runtime/x11_session_lifecycle.py": {
+        "covered": 81,
+        "missing": 11,
+        "total": 92
+      },
+      "src/computer/runtime/x11_topology.py": {
+        "covered": 34,
+        "missing": 2,
+        "total": 36
+      },
+      "src/computer/runtime/x11_worker_lifecycle.py": {
+        "covered": 44,
+        "missing": 0,
+        "total": 44
+      },
+      "src/computer/sequences.py": {
+        "covered": 231,
+        "missing": 27,
+        "total": 258
+      },
+      "src/computer/store.py": {
+        "covered": 1070,
+        "missing": 141,
+        "total": 1211
+      },
+      "src/computer/task_context.py": {
+        "covered": 43,
+        "missing": 0,
+        "total": 43
+      },
+      "src/computer/vision.py": {
+        "covered": 180,
+        "missing": 44,
+        "total": 224
+      },
+      "src/config/__init__.py": {
+        "covered": 31,
+        "missing": 2,
+        "total": 33
+      },
+      "src/config/apply_registry.py": {
+        "covered": 349,
+        "missing": 11,
+        "total": 360
+      },
+      "src/config/environment.py": {
+        "covered": 258,
+        "missing": 38,
+        "total": 296
+      },
+      "src/config/image_defaults.py": {
+        "covered": 12,
+        "missing": 0,
+        "total": 12
+      },
+      "src/config/initialization.py": {
+        "covered": 331,
+        "missing": 93,
+        "total": 424
+      },
+      "src/config/migrations.py": {
+        "covered": 446,
+        "missing": 25,
+        "total": 471
+      },
+      "src/config/model_defaults.py": {
+        "covered": 8,
+        "missing": 0,
+        "total": 8
+      },
+      "src/config/model_retirement.py": {
+        "covered": 53,
+        "missing": 15,
+        "total": 68
+      },
+      "src/config/persistence.py": {
+        "covered": 462,
+        "missing": 11,
+        "total": 473
+      },
+      "src/config/schema.py": {
+        "covered": 1134,
+        "missing": 26,
+        "total": 1160
+      },
+      "src/config/sensitivity.py": {
+        "covered": 20,
+        "missing": 1,
+        "total": 21
+      },
+      "src/config/startup_context.py": {
+        "covered": 40,
+        "missing": 34,
+        "total": 74
+      },
+      "src/config/webhook_text.py": {
+        "covered": 161,
+        "missing": 1,
+        "total": 162
+      },
+      "src/config/workspace_paths.py": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "src/constants.py": {
+        "covered": 4,
+        "missing": 0,
+        "total": 4
+      },
+      "src/context/__init__.py": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "src/context/loader.py": {
+        "covered": 93,
+        "missing": 1,
+        "total": 94
+      },
+      "src/credential_redaction.py": {
+        "covered": 7,
+        "missing": 0,
+        "total": 7
+      },
+      "src/desktop/__init__.py": {
+        "covered": 0,
+        "missing": 0,
+        "total": 0
+      },
+      "src/desktop/artifacts.py": {
+        "covered": 116,
+        "missing": 18,
+        "total": 134
+      },
+      "src/desktop/attachments.py": {
+        "covered": 249,
+        "missing": 3,
+        "total": 252
+      },
+      "src/desktop/authority.py": {
+        "covered": 147,
+        "missing": 7,
+        "total": 154
+      },
+      "src/desktop/browser_runtime.py": {
+        "covered": 150,
+        "missing": 6,
+        "total": 156
+      },
+      "src/desktop/capabilities.py": {
+        "covered": 4,
+        "missing": 0,
+        "total": 4
+      },
+      "src/desktop/codex_accounts.py": {
+        "covered": 363,
+        "missing": 25,
+        "total": 388
+      },
+      "src/desktop/commands.py": {
+        "covered": 233,
+        "missing": 24,
+        "total": 257
+      },
+      "src/desktop/computer_binding.py": {
+        "covered": 314,
+        "missing": 23,
+        "total": 337
+      },
+      "src/desktop/controls.py": {
+        "covered": 288,
+        "missing": 23,
+        "total": 311
+      },
+      "src/desktop/conversations.py": {
+        "covered": 161,
+        "missing": 9,
+        "total": 170
+      },
+      "src/desktop/core.py": {
+        "covered": 677,
+        "missing": 30,
+        "total": 707
+      },
+      "src/desktop/delivery.py": {
+        "covered": 277,
+        "missing": 30,
+        "total": 307
+      },
+      "src/desktop/errors.py": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "src/desktop/events.py": {
+        "covered": 68,
+        "missing": 3,
+        "total": 71
+      },
+      "src/desktop/hosts.py": {
+        "covered": 229,
+        "missing": 4,
+        "total": 233
+      },
+      "src/desktop/integrations.py": {
+        "covered": 336,
+        "missing": 15,
+        "total": 351
+      },
+      "src/desktop/ipc.py": {
+        "covered": 222,
+        "missing": 16,
+        "total": 238
+      },
+      "src/desktop/ipc_auth.py": {
+        "covered": 65,
+        "missing": 0,
+        "total": 65
+      },
+      "src/desktop/knowledge.py": {
+        "covered": 154,
+        "missing": 4,
+        "total": 158
+      },
+      "src/desktop/learned_context.py": {
+        "covered": 55,
+        "missing": 0,
+        "total": 55
+      },
+      "src/desktop/lifecycle.py": {
+        "covered": 63,
+        "missing": 4,
+        "total": 67
+      },
+      "src/desktop/local_client.py": {
+        "covered": 183,
+        "missing": 6,
+        "total": 189
+      },
+      "src/desktop/management.py": {
+        "covered": 396,
+        "missing": 42,
+        "total": 438
+      },
+      "src/desktop/mcp.py": {
+        "covered": 422,
+        "missing": 56,
+        "total": 478
+      },
+      "src/desktop/model_settings.py": {
+        "covered": 262,
+        "missing": 7,
+        "total": 269
+      },
+      "src/desktop/notifications.py": {
+        "covered": 52,
+        "missing": 4,
+        "total": 56
+      },
+      "src/desktop/observability.py": {
+        "covered": 198,
+        "missing": 5,
+        "total": 203
+      },
+      "src/desktop/openrouter_admin.py": {
+        "covered": 246,
+        "missing": 10,
+        "total": 256
+      },
+      "src/desktop/package_ownership.py": {
+        "covered": 26,
+        "missing": 0,
+        "total": 26
+      },
+      "src/desktop/package_state.py": {
+        "covered": 286,
+        "missing": 33,
+        "total": 319
+      },
+      "src/desktop/package_status.py": {
+        "covered": 44,
+        "missing": 0,
+        "total": 44
+      },
+      "src/desktop/paths.py": {
+        "covered": 96,
+        "missing": 3,
+        "total": 99
+      },
+      "src/desktop/profile.py": {
+        "covered": 9,
+        "missing": 0,
+        "total": 9
+      },
+      "src/desktop/protocol.py": {
+        "covered": 67,
+        "missing": 1,
+        "total": 68
+      },
+      "src/desktop/providers.py": {
+        "covered": 316,
+        "missing": 32,
+        "total": 348
+      },
+      "src/desktop/provisioning.py": {
+        "covered": 67,
+        "missing": 3,
+        "total": 70
+      },
+      "src/desktop/records.py": {
+        "covered": 318,
+        "missing": 4,
+        "total": 322
+      },
+      "src/desktop/reports.py": {
+        "covered": 191,
+        "missing": 16,
+        "total": 207
+      },
+      "src/desktop/requests.py": {
+        "covered": 596,
+        "missing": 55,
+        "total": 651
+      },
+      "src/desktop/resource_cleanup.py": {
+        "covered": 117,
+        "missing": 7,
+        "total": 124
+      },
+      "src/desktop/runtime.py": {
+        "covered": 243,
+        "missing": 21,
+        "total": 264
+      },
+      "src/desktop/schedule_recovery.py": {
+        "covered": 33,
+        "missing": 0,
+        "total": 33
+      },
+      "src/desktop/schedules.py": {
+        "covered": 97,
+        "missing": 10,
+        "total": 107
+      },
+      "src/desktop/schema.py": {
+        "covered": 10,
+        "missing": 1,
+        "total": 11
+      },
+      "src/desktop/search.py": {
+        "covered": 194,
+        "missing": 8,
+        "total": 202
+      },
+      "src/desktop/secrets.py": {
+        "covered": 188,
+        "missing": 20,
+        "total": 208
+      },
+      "src/desktop/services.py": {
+        "covered": 544,
+        "missing": 60,
+        "total": 604
+      },
+      "src/desktop/session_end.py": {
+        "covered": 101,
+        "missing": 0,
+        "total": 101
+      },
+      "src/desktop/settings.py": {
+        "covered": 489,
+        "missing": 30,
+        "total": 519
+      },
+      "src/desktop/skills.py": {
+        "covered": 178,
+        "missing": 17,
+        "total": 195
+      },
+      "src/desktop/state.py": {
+        "covered": 115,
+        "missing": 3,
+        "total": 118
+      },
+      "src/desktop/tool_catalog.py": {
+        "covered": 11,
+        "missing": 0,
+        "total": 11
+      },
+      "src/desktop/tool_details.py": {
+        "covered": 123,
+        "missing": 13,
+        "total": 136
+      },
+      "src/desktop/trajectories.py": {
+        "covered": 85,
+        "missing": 0,
+        "total": 85
+      },
+      "src/desktop/transcript.py": {
+        "covered": 110,
+        "missing": 7,
+        "total": 117
+      },
+      "src/desktop/turn_state.py": {
+        "covered": 36,
+        "missing": 1,
+        "total": 37
+      },
+      "src/desktop/webhooks.py": {
+        "covered": 331,
+        "missing": 18,
+        "total": 349
+      },
+      "src/desktop/work.py": {
+        "covered": 242,
+        "missing": 18,
+        "total": 260
+      },
+      "src/desktop/workspace_diagnostics.py": {
+        "covered": 147,
+        "missing": 15,
+        "total": 162
+      },
+      "src/desktop/x11_probe.py": {
+        "covered": 15,
+        "missing": 0,
+        "total": 15
+      },
+      "src/discord/__init__.py": {
+        "covered": 0,
+        "missing": 0,
+        "total": 0
+      },
+      "src/discord/attachments.py": {
+        "covered": 333,
+        "missing": 24,
+        "total": 357
+      },
+      "src/discord/background_task.py": {
+        "covered": 242,
+        "missing": 187,
+        "total": 429
+      },
+      "src/discord/channel_logger.py": {
+        "covered": 145,
+        "missing": 17,
+        "total": 162
+      },
+      "src/discord/channel_state.py": {
+        "covered": 179,
+        "missing": 44,
+        "total": 223
+      },
+      "src/discord/completion.py": {
+        "covered": 58,
+        "missing": 0,
+        "total": 58
+      },
+      "src/discord/delivery.py": {
+        "covered": 5,
+        "missing": 0,
+        "total": 5
+      },
+      "src/discord/helpers/__init__.py": {
+        "covered": 0,
+        "missing": 0,
+        "total": 0
+      },
+      "src/discord/housekeeping.py": {
+        "covered": 48,
+        "missing": 19,
+        "total": 67
+      },
+      "src/discord/intake_pipeline.py": {
+        "covered": 41,
+        "missing": 228,
+        "total": 269
+      },
+      "src/discord/llm_gateway.py": {
+        "covered": 559,
+        "missing": 1,
+        "total": 560
+      },
+      "src/discord/mcp_dispatch.py": {
+        "covered": 24,
+        "missing": 2,
+        "total": 26
+      },
+      "src/discord/native_tools/__init__.py": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
+      "src/discord/native_tools/agents_tasks.py": {
+        "covered": 457,
+        "missing": 307,
+        "total": 764
+      },
+      "src/discord/native_tools/channel_ops.py": {
+        "covered": 20,
+        "missing": 4,
+        "total": 24
+      },
+      "src/discord/native_tools/knowledge.py": {
+        "covered": 159,
+        "missing": 0,
+        "total": 159
+      },
+      "src/discord/native_tools/media.py": {
+        "covered": 76,
+        "missing": 102,
+        "total": 178
+      },
+      "src/discord/native_tools/registry.py": {
+        "covered": 115,
+        "missing": 4,
+        "total": 119
+      },
+      "src/discord/native_tools/scheduling.py": {
+        "covered": 97,
+        "missing": 69,
+        "total": 166
+      },
+      "src/discord/native_tools/skills_tools.py": {
+        "covered": 99,
+        "missing": 8,
+        "total": 107
+      },
+      "src/discord/prompts.py": {
+        "covered": 163,
+        "missing": 6,
+        "total": 169
+      },
+      "src/discord/response_guards.py": {
+        "covered": 224,
+        "missing": 0,
+        "total": 224
+      },
+      "src/discord/scheduled_context.py": {
+        "covered": 6,
+        "missing": 0,
+        "total": 6
+      },
+      "src/discord/scheduled_events.py": {
+        "covered": 188,
+        "missing": 173,
+        "total": 361
+      },
+      "src/discord/scheduled_report.py": {
+        "covered": 268,
+        "missing": 72,
+        "total": 340
+      },
+      "src/discord/slash_commands.py": {
+        "covered": 183,
+        "missing": 39,
+        "total": 222
+      },
+      "src/discord/steer_notifications.py": {
+        "covered": 39,
+        "missing": 8,
+        "total": 47
+      },
+      "src/discord/tool_catalog.py": {
+        "covered": 79,
+        "missing": 0,
+        "total": 79
+      },
+      "src/discord/tool_loop.py": {
+        "covered": 1261,
+        "missing": 496,
+        "total": 1757
+      },
+      "src/discord/tool_loop_helpers.py": {
+        "covered": 27,
+        "missing": 0,
+        "total": 27
+      },
+      "src/discord/turn_recorder.py": {
+        "covered": 91,
+        "missing": 45,
+        "total": 136
+      },
+      "src/discord/turn_resume.py": {
+        "covered": 246,
+        "missing": 76,
+        "total": 322
+      },
+      "src/discord/wiring.py": {
+        "covered": 79,
+        "missing": 64,
+        "total": 143
+      },
+      "src/error_presentation.py": {
+        "covered": 46,
+        "missing": 0,
+        "total": 46
+      },
+      "src/health/__init__.py": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "src/health/checker.py": {
+        "covered": 231,
+        "missing": 71,
+        "total": 302
+      },
+      "src/health/server.py": {
+        "covered": 0,
+        "missing": 4,
+        "total": 4
+      },
+      "src/health/startup.py": {
+        "covered": 169,
+        "missing": 120,
+        "total": 289
+      },
+      "src/health/subsystem_guard.py": {
+        "covered": 224,
+        "missing": 0,
+        "total": 224
+      },
+      "src/json_store.py": {
+        "covered": 43,
+        "missing": 4,
+        "total": 47
+      },
+      "src/knowledge/__init__.py": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "src/knowledge/importer.py": {
+        "covered": 300,
+        "missing": 5,
+        "total": 305
+      },
+      "src/knowledge/store.py": {
+        "covered": 620,
+        "missing": 62,
+        "total": 682
+      },
+      "src/learning/__init__.py": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "src/learning/loop_reflection.py": {
+        "covered": 19,
+        "missing": 35,
+        "total": 54
+      },
+      "src/learning/reflector.py": {
+        "covered": 752,
+        "missing": 31,
+        "total": 783
+      },
+      "src/llm/__init__.py": {
+        "covered": 13,
+        "missing": 0,
+        "total": 13
+      },
+      "src/llm/account_key.py": {
+        "covered": 119,
+        "missing": 0,
+        "total": 119
+      },
+      "src/llm/auxiliary.py": {
+        "covered": 87,
+        "missing": 0,
+        "total": 87
+      },
+      "src/llm/backoff.py": {
+        "covered": 10,
+        "missing": 0,
+        "total": 10
+      },
+      "src/llm/circuit_breaker.py": {
+        "covered": 73,
+        "missing": 3,
+        "total": 76
+      },
+      "src/llm/client_lifecycle.py": {
+        "covered": 91,
+        "missing": 1,
+        "total": 92
+      },
+      "src/llm/codex_auth.py": {
+        "covered": 644,
+        "missing": 23,
+        "total": 667
+      },
+      "src/llm/codex_quota.py": {
+        "covered": 162,
+        "missing": 3,
+        "total": 165
+      },
+      "src/llm/codex_quota_check.py": {
+        "covered": 86,
+        "missing": 2,
+        "total": 88
+      },
+      "src/llm/compatible_presets.py": {
+        "covered": 6,
+        "missing": 0,
+        "total": 6
+      },
+      "src/llm/context_budget.py": {
+        "covered": 146,
+        "missing": 7,
+        "total": 153
+      },
+      "src/llm/context_compressor.py": {
+        "covered": 522,
+        "missing": 21,
+        "total": 543
+      },
+      "src/llm/cost_tracker.py": {
+        "covered": 83,
+        "missing": 0,
+        "total": 83
+      },
+      "src/llm/errors.py": {
+        "covered": 30,
+        "missing": 0,
+        "total": 30
+      },
+      "src/llm/kimi.py": {
+        "covered": 6,
+        "missing": 0,
+        "total": 6
+      },
+      "src/llm/model_breaker.py": {
+        "covered": 106,
+        "missing": 2,
+        "total": 108
+      },
+      "src/llm/model_ref.py": {
+        "covered": 41,
+        "missing": 0,
+        "total": 41
+      },
+      "src/llm/ollama.py": {
+        "covered": 199,
+        "missing": 9,
+        "total": 208
+      },
+      "src/llm/openai_codex.py": {
+        "covered": 694,
+        "missing": 41,
+        "total": 735
+      },
+      "src/llm/openai_compatible.py": {
+        "covered": 566,
+        "missing": 24,
+        "total": 590
+      },
+      "src/llm/openrouter.py": {
+        "covered": 132,
+        "missing": 12,
+        "total": 144
+      },
+      "src/llm/progress.py": {
+        "covered": 20,
+        "missing": 2,
+        "total": 22
+      },
+      "src/llm/provider.py": {
+        "covered": 17,
+        "missing": 3,
+        "total": 20
+      },
+      "src/llm/recovery.py": {
+        "covered": 132,
+        "missing": 9,
+        "total": 141
+      },
+      "src/llm/retained_output.py": {
+        "covered": 40,
+        "missing": 2,
+        "total": 42
+      },
+      "src/llm/secret_scrubber.py": {
+        "covered": 123,
+        "missing": 1,
+        "total": 124
+      },
+      "src/llm/strict_tool_adapter.py": {
+        "covered": 208,
+        "missing": 15,
+        "total": 223
+      },
+      "src/llm/system_prompt.py": {
+        "covered": 36,
+        "missing": 3,
+        "total": 39
+      },
+      "src/llm/timing.py": {
+        "covered": 30,
+        "missing": 0,
+        "total": 30
+      },
+      "src/llm/tool_history.py": {
+        "covered": 62,
+        "missing": 9,
+        "total": 71
+      },
+      "src/llm/tool_replay.py": {
+        "covered": 63,
+        "missing": 0,
+        "total": 63
+      },
+      "src/llm/types.py": {
+        "covered": 84,
+        "missing": 0,
+        "total": 84
+      },
+      "src/llm/window_observer.py": {
+        "covered": 103,
+        "missing": 385,
+        "total": 488
+      },
+      "src/monitoring/__init__.py": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "src/monitoring/resource_usage.py": {
+        "covered": 71,
+        "missing": 95,
+        "total": 166
+      },
+      "src/notifications/__init__.py": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "src/notifications/outbound_webhooks.py": {
+        "covered": 372,
+        "missing": 3,
+        "total": 375
+      },
+      "src/notifications/payloads.py": {
+        "covered": 12,
+        "missing": 0,
+        "total": 12
+      },
+      "src/observability/__init__.py": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "src/observability/aggregates.py": {
+        "covered": 161,
+        "missing": 0,
+        "total": 161
+      },
+      "src/observability/context_trace.py": {
+        "covered": 126,
+        "missing": 12,
+        "total": 138
+      },
+      "src/observability/correlation.py": {
+        "covered": 11,
+        "missing": 2,
+        "total": 13
+      },
+      "src/observability/diagnostics.py": {
+        "covered": 35,
+        "missing": 1,
+        "total": 36
+      },
+      "src/observability/failure_classes.py": {
+        "covered": 14,
+        "missing": 2,
+        "total": 16
+      },
+      "src/odin_log/__init__.py": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "src/odin_log/logger.py": {
+        "covered": 28,
+        "missing": 1,
+        "total": 29
+      },
+      "src/packaging/__init__.py": {
+        "covered": 0,
+        "missing": 0,
+        "total": 0
+      },
+      "src/permissions/__init__.py": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "src/permissions/host_access.py": {
+        "covered": 64,
+        "missing": 0,
+        "total": 64
+      },
+      "src/permissions/manager.py": {
+        "covered": 23,
+        "missing": 0,
+        "total": 23
+      },
+      "src/permissions/persistence.py": {
+        "covered": 43,
+        "missing": 4,
+        "total": 47
+      },
+      "src/planning/__init__.py": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "src/planning/store.py": {
+        "covered": 105,
+        "missing": 0,
+        "total": 105
+      },
+      "src/reasoning.py": {
+        "covered": 4,
+        "missing": 0,
+        "total": 4
+      },
+      "src/relevance.py": {
+        "covered": 21,
+        "missing": 1,
+        "total": 22
+      },
+      "src/restart.py": {
+        "covered": 18,
+        "missing": 3,
+        "total": 21
+      },
+      "src/runtime/__init__.py": {
+        "covered": 0,
+        "missing": 0,
+        "total": 0
+      },
+      "src/runtime/pdf_resources.py": {
+        "covered": 129,
+        "missing": 22,
+        "total": 151
+      },
+      "src/runtime_paths.py": {
+        "covered": 15,
+        "missing": 0,
+        "total": 15
+      },
+      "src/scheduler/__init__.py": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "src/scheduler/history.py": {
+        "covered": 156,
+        "missing": 10,
+        "total": 166
+      },
+      "src/scheduler/scheduler.py": {
+        "covered": 1123,
+        "missing": 38,
+        "total": 1161
+      },
+      "src/search/__init__.py": {
+        "covered": 6,
+        "missing": 0,
+        "total": 6
+      },
+      "src/search/bundled_models.py": {
+        "covered": 14,
+        "missing": 0,
+        "total": 14
+      },
+      "src/search/embedder.py": {
+        "covered": 55,
+        "missing": 1,
+        "total": 56
+      },
+      "src/search/errors.py": {
+        "covered": 11,
+        "missing": 0,
+        "total": 11
+      },
+      "src/search/fts.py": {
+        "covered": 321,
+        "missing": 0,
+        "total": 321
+      },
+      "src/search/hybrid.py": {
+        "covered": 23,
+        "missing": 0,
+        "total": 23
+      },
+      "src/search/sqlite_vec.py": {
+        "covered": 14,
+        "missing": 0,
+        "total": 14
+      },
+      "src/search/vectorstore.py": {
+        "covered": 223,
+        "missing": 25,
+        "total": 248
+      },
+      "src/sessions/__init__.py": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "src/sessions/manager.py": {
+        "covered": 929,
+        "missing": 79,
+        "total": 1008
+      },
+      "src/setup_wizard.py": {
+        "covered": 6,
+        "missing": 0,
+        "total": 6
+      },
+      "src/storage_redaction.py": {
+        "covered": 35,
+        "missing": 1,
+        "total": 36
+      },
+      "src/tools/__init__.py": {
+        "covered": 7,
+        "missing": 0,
+        "total": 7
+      },
+      "src/tools/affordances.py": {
+        "covered": 69,
+        "missing": 0,
+        "total": 69
+      },
+      "src/tools/agent_tool_policy.py": {
+        "covered": 269,
+        "missing": 10,
+        "total": 279
+      },
+      "src/tools/apply_patch.py": {
+        "covered": 703,
+        "missing": 116,
+        "total": 819
+      },
+      "src/tools/autonomous_loop.py": {
+        "covered": 260,
+        "missing": 64,
+        "total": 324
+      },
+      "src/tools/branch_freshness.py": {
+        "covered": 99,
+        "missing": 0,
+        "total": 99
+      },
+      "src/tools/browser.py": {
+        "covered": 326,
+        "missing": 30,
+        "total": 356
+      },
+      "src/tools/builtin_policy.py": {
+        "covered": 56,
+        "missing": 0,
+        "total": 56
+      },
+      "src/tools/bulkhead.py": {
+        "covered": 88,
+        "missing": 3,
+        "total": 91
+      },
+      "src/tools/command_authority.py": {
+        "covered": 53,
+        "missing": 2,
+        "total": 55
+      },
+      "src/tools/command_shapes.py": {
+        "covered": 220,
+        "missing": 192,
+        "total": 412
+      },
+      "src/tools/command_shell.py": {
+        "covered": 92,
+        "missing": 8,
+        "total": 100
+      },
+      "src/tools/defs/__init__.py": {
+        "covered": 0,
+        "missing": 0,
+        "total": 0
+      },
+      "src/tools/defs/agents.py": {
+        "covered": 20,
+        "missing": 1,
+        "total": 21
+      },
+      "src/tools/defs/browser_web.py": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
+      "src/tools/defs/channel_process_loops.py": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
+      "src/tools/defs/computer.py": {
+        "covered": 50,
+        "missing": 0,
+        "total": 50
+      },
+      "src/tools/defs/integrations_email.py": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
+      "src/tools/defs/media_scheduling.py": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
+      "src/tools/defs/memory_skills.py": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
+      "src/tools/defs/output_delivery.py": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
+      "src/tools/defs/system_files.py": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
+      "src/tools/defs/tasks_knowledge.py": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
+      "src/tools/effect_classifier.py": {
+        "covered": 17,
+        "missing": 0,
+        "total": 17
+      },
+      "src/tools/email_client.py": {
+        "covered": 263,
+        "missing": 17,
+        "total": 280
+      },
+      "src/tools/execution_outcome.py": {
+        "covered": 36,
+        "missing": 1,
+        "total": 37
+      },
+      "src/tools/executor.py": {
+        "covered": 656,
+        "missing": 39,
+        "total": 695
+      },
+      "src/tools/handlers/__init__.py": {
+        "covered": 0,
+        "missing": 0,
+        "total": 0
+      },
+      "src/tools/handlers/browser_web.py": {
+        "covered": 51,
+        "missing": 27,
+        "total": 78
+      },
+      "src/tools/handlers/comms.py": {
+        "covered": 78,
+        "missing": 31,
+        "total": 109
+      },
+      "src/tools/handlers/deps.py": {
+        "covered": 65,
+        "missing": 0,
+        "total": 65
+      },
+      "src/tools/handlers/files_docs.py": {
+        "covered": 240,
+        "missing": 0,
+        "total": 240
+      },
+      "src/tools/handlers/output.py": {
+        "covered": 20,
+        "missing": 0,
+        "total": 20
+      },
+      "src/tools/handlers/state.py": {
+        "covered": 310,
+        "missing": 1,
+        "total": 311
+      },
+      "src/tools/handlers/system.py": {
+        "covered": 245,
+        "missing": 31,
+        "total": 276
+      },
+      "src/tools/handlers/validation.py": {
+        "covered": 42,
+        "missing": 1,
+        "total": 43
+      },
+      "src/tools/hosts/__init__.py": {
+        "covered": 4,
+        "missing": 0,
+        "total": 4
+      },
+      "src/tools/hosts/control.py": {
+        "covered": 265,
+        "missing": 12,
+        "total": 277
+      },
+      "src/tools/hosts/registry.py": {
+        "covered": 311,
+        "missing": 12,
+        "total": 323
+      },
+      "src/tools/hosts/trust.py": {
+        "covered": 110,
+        "missing": 0,
+        "total": 110
+      },
+      "src/tools/http_probe_ops.py": {
+        "covered": 92,
+        "missing": 14,
+        "total": 106
+      },
+      "src/tools/image/__init__.py": {
+        "covered": 5,
+        "missing": 0,
+        "total": 5
+      },
+      "src/tools/image/base.py": {
+        "covered": 57,
+        "missing": 3,
+        "total": 60
+      },
+      "src/tools/image/openai_backend.py": {
+        "covered": 146,
+        "missing": 8,
+        "total": 154
+      },
+      "src/tools/image/selector.py": {
+        "covered": 21,
+        "missing": 1,
+        "total": 22
+      },
+      "src/tools/input_defaults.py": {
+        "covered": 5,
+        "missing": 0,
+        "total": 5
+      },
+      "src/tools/local_supervisor.py": {
+        "covered": 178,
+        "missing": 0,
+        "total": 178
+      },
+      "src/tools/local_supervisor_worker.py": {
+        "covered": 351,
+        "missing": 1,
+        "total": 352
+      },
+      "src/tools/mcp/__init__.py": {
+        "covered": 4,
+        "missing": 0,
+        "total": 4
+      },
+      "src/tools/mcp/client.py": {
+        "covered": 753,
+        "missing": 80,
+        "total": 833
+      },
+      "src/tools/mcp/errors.py": {
+        "covered": 11,
+        "missing": 0,
+        "total": 11
+      },
+      "src/tools/mcp/manager.py": {
+        "covered": 717,
+        "missing": 68,
+        "total": 785
+      },
+      "src/tools/mcp/outcomes.py": {
+        "covered": 27,
+        "missing": 0,
+        "total": 27
+      },
+      "src/tools/mcp/protocol.py": {
+        "covered": 298,
+        "missing": 18,
+        "total": 316
+      },
+      "src/tools/mcp/transport_http.py": {
+        "covered": 188,
+        "missing": 16,
+        "total": 204
+      },
+      "src/tools/mcp/transport_stdio.py": {
+        "covered": 229,
+        "missing": 29,
+        "total": 258
+      },
+      "src/tools/media_result.py": {
+        "covered": 45,
+        "missing": 2,
+        "total": 47
+      },
+      "src/tools/model_hints.py": {
+        "covered": 97,
+        "missing": 1,
+        "total": 98
+      },
+      "src/tools/nested_payload.py": {
+        "covered": 101,
+        "missing": 10,
+        "total": 111
+      },
+      "src/tools/output_authorization.py": {
+        "covered": 42,
+        "missing": 0,
+        "total": 42
+      },
+      "src/tools/output_delivery.py": {
+        "covered": 174,
+        "missing": 6,
+        "total": 180
+      },
+      "src/tools/output_retention.py": {
+        "covered": 154,
+        "missing": 6,
+        "total": 160
+      },
+      "src/tools/output_streamer.py": {
+        "covered": 114,
+        "missing": 49,
+        "total": 163
+      },
+      "src/tools/post_validation.py": {
+        "covered": 310,
+        "missing": 106,
+        "total": 416
+      },
+      "src/tools/process_manager.py": {
+        "covered": 1552,
+        "missing": 37,
+        "total": 1589
+      },
+      "src/tools/recovery.py": {
+        "covered": 127,
+        "missing": 0,
+        "total": 127
+      },
+      "src/tools/registry.py": {
+        "covered": 30,
+        "missing": 0,
+        "total": 30
+      },
+      "src/tools/result_capture.py": {
+        "covered": 13,
+        "missing": 0,
+        "total": 13
+      },
+      "src/tools/result_validator.py": {
+        "covered": 116,
+        "missing": 0,
+        "total": 116
+      },
+      "src/tools/risk_classifier.py": {
+        "covered": 433,
+        "missing": 254,
+        "total": 687
+      },
+      "src/tools/runtime_delivery.py": {
+        "covered": 78,
+        "missing": 1,
+        "total": 79
+      },
+      "src/tools/safe_fetch.py": {
+        "covered": 125,
+        "missing": 14,
+        "total": 139
+      },
+      "src/tools/skill_context.py": {
+        "covered": 217,
+        "missing": 0,
+        "total": 217
+      },
+      "src/tools/skill_manager.py": {
+        "covered": 627,
+        "missing": 224,
+        "total": 851
+      },
+      "src/tools/ssh.py": {
+        "covered": 281,
+        "missing": 3,
+        "total": 284
+      },
+      "src/tools/ssh_pool.py": {
+        "covered": 247,
+        "missing": 14,
+        "total": 261
+      },
+      "src/tools/time_parser.py": {
+        "covered": 252,
+        "missing": 0,
+        "total": 252
+      },
+      "src/tools/tool_text.py": {
+        "covered": 35,
+        "missing": 0,
+        "total": 35
+      },
+      "src/tools/url_safety.py": {
+        "covered": 104,
+        "missing": 15,
+        "total": 119
+      },
+      "src/tools/web.py": {
+        "covered": 102,
+        "missing": 0,
+        "total": 102
+      },
+      "src/tools/workspace.py": {
+        "covered": 146,
+        "missing": 6,
+        "total": 152
+      },
+      "src/trajectories/__init__.py": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "src/trajectories/saver.py": {
+        "covered": 319,
+        "missing": 18,
+        "total": 337
+      },
+      "src/turn_state/__init__.py": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "src/turn_state/codec.py": {
+        "covered": 287,
+        "missing": 31,
+        "total": 318
+      },
+      "src/turn_state/durability.py": {
+        "covered": 150,
+        "missing": 24,
+        "total": 174
+      },
+      "src/turn_state/observer.py": {
+        "covered": 64,
+        "missing": 0,
+        "total": 64
+      },
+      "src/turn_state/store.py": {
+        "covered": 393,
+        "missing": 31,
+        "total": 424
+      },
+      "src/usage/__init__.py": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "src/usage/provenance.py": {
+        "covered": 41,
+        "missing": 6,
+        "total": 47
+      },
+      "src/usage/rollup.py": {
+        "covered": 600,
+        "missing": 60,
+        "total": 660
+      },
+      "src/version.py": {
+        "covered": 15,
+        "missing": 8,
+        "total": 23
+      },
+      "src/web/__init__.py": {
+        "covered": 0,
+        "missing": 0,
+        "total": 0
+      },
+      "src/web/api/__init__.py": {
+        "covered": 8,
+        "missing": 0,
+        "total": 8
+      },
+      "src/web/api/_agent_display.py": {
+        "covered": 72,
+        "missing": 11,
+        "total": 83
+      },
+      "src/web/api/agents_loops.py": {
+        "covered": 7,
+        "missing": 0,
+        "total": 7
+      },
+      "src/web/api/codex_admin.py": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "src/web/api/computer.py": {
+        "covered": 11,
+        "missing": 10,
+        "total": 21
+      },
+      "src/web/api/config_admin.py": {
+        "covered": 17,
+        "missing": 15,
+        "total": 32
+      },
+      "src/web/api/hosts.py": {
+        "covered": 27,
+        "missing": 19,
+        "total": 46
+      },
+      "src/web/api/integrations.py": {
+        "covered": 22,
+        "missing": 7,
+        "total": 29
+      },
+      "src/web/api/knowledge_mem.py": {
+        "covered": 22,
+        "missing": 0,
+        "total": 22
+      },
+      "src/web/api/llm_admin.py": {
+        "covered": 212,
+        "missing": 67,
+        "total": 279
+      },
+      "src/web/api/observability.py": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "src/web/api/schedules_api.py": {
+        "covered": 11,
+        "missing": 1,
+        "total": 12
+      },
+      "src/web/api/security.py": {
+        "covered": 0,
+        "missing": 3,
+        "total": 3
+      },
+      "src/web/api/self_update.py": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "src/web/api/sessions_chat.py": {
+        "covered": 9,
+        "missing": 0,
+        "total": 9
+      },
+      "src/web/api/skills_api.py": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "src/web/api/turn_state.py": {
+        "covered": 13,
+        "missing": 0,
+        "total": 13
+      },
+      "src/web/api_common.py": {
+        "covered": 91,
+        "missing": 13,
+        "total": 104
+      },
+      "src/web/authentication.py": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "src/web/bootstrap_policy.py": {
+        "covered": 0,
+        "missing": 3,
+        "total": 3
+      },
+      "src/web/chat.py": {
+        "covered": 0,
+        "missing": 3,
+        "total": 3
+      },
+      "src/web/computer_binding.py": {
+        "covered": 5,
+        "missing": 2,
+        "total": 7
+      },
+      "src/web/middleware.py": {
+        "covered": 0,
+        "missing": 7,
+        "total": 7
+      },
+      "src/web/onboarding.py": {
+        "covered": 0,
+        "missing": 6,
+        "total": 6
+      },
+      "src/web/session_store.py": {
+        "covered": 0,
+        "missing": 4,
+        "total": 4
+      },
+      "src/web/websocket.py": {
+        "covered": 2,
+        "missing": 1,
+        "total": 3
+      }
+    },
+    "total": {
+      "covered": 64525,
+      "missing": 9973,
+      "total": 74498
+    }
+  },
+  "schema_version": 1,
+  "target_files": [
+    "app/src/main/appearance.ts",
+    "app/src/main/artifacts.ts",
+    "app/src/main/attachments.ts",
+    "app/src/main/autostart.ts",
+    "app/src/main/broker.ts",
+    "app/src/main/command-id.ts",
+    "app/src/main/core-command.ts",
+    "app/src/main/core-supervisor.ts",
+    "app/src/main/device-login.ts",
+    "app/src/main/drafts.ts",
+    "app/src/main/framing.ts",
+    "app/src/main/index.ts",
+    "app/src/main/ipc.ts",
+    "app/src/main/lifecycle.ts",
+    "app/src/main/native-notifications.ts",
+    "app/src/main/notifications.ts",
+    "app/src/main/onboarding-smoke.ts",
+    "app/src/main/package-ownership.ts",
+    "app/src/main/package-state.ts",
+    "app/src/main/paths.ts",
+    "app/src/main/real-core-smoke.ts",
+    "app/src/main/release-notice.ts",
+    "app/src/main/schemas.ts",
+    "app/src/main/security-policy.ts",
+    "app/src/main/security.ts",
+    "app/src/main/session-logout.ts",
+    "app/src/main/shutdown.ts",
+    "app/src/main/tray.ts",
+    "app/src/preload/index.ts",
+    "app/src/renderer/src/App.vue",
+    "app/src/renderer/src/artifacts.ts",
+    "app/src/renderer/src/capability.ts",
+    "app/src/renderer/src/chat-announcements.ts",
+    "app/src/renderer/src/code-copy.ts",
+    "app/src/renderer/src/commands.ts",
+    "app/src/renderer/src/components/AttachmentTray.vue",
+    "app/src/renderer/src/components/ChatStatus.vue",
+    "app/src/renderer/src/components/CleanupNotice.vue",
+    "app/src/renderer/src/components/CodexAccounts.vue",
+    "app/src/renderer/src/components/CommandPalette.vue",
+    "app/src/renderer/src/components/CompletionResult.vue",
+    "app/src/renderer/src/components/Composer.vue",
+    "app/src/renderer/src/components/ConfirmDialog.vue",
+    "app/src/renderer/src/components/ConversationList.vue",
+    "app/src/renderer/src/components/ConversationMenu.vue",
+    "app/src/renderer/src/components/FileCard.vue",
+    "app/src/renderer/src/components/FirstRunBanner.vue",
+    "app/src/renderer/src/components/Icon.vue",
+    "app/src/renderer/src/components/IconRail.vue",
+    "app/src/renderer/src/components/KnowledgeDetails.vue",
+    "app/src/renderer/src/components/Message.vue",
+    "app/src/renderer/src/components/MessageList.vue",
+    "app/src/renderer/src/components/ObservabilityDetails.vue",
+    "app/src/renderer/src/components/OpenRouterAdmin.vue",
+    "app/src/renderer/src/components/RecordDetails.vue",
+    "app/src/renderer/src/components/ReleaseNotice.vue",
+    "app/src/renderer/src/components/ReportViewer.vue",
+    "app/src/renderer/src/components/ResumeBanner.vue",
+    "app/src/renderer/src/components/SchemaForm.vue",
+    "app/src/renderer/src/components/SearchPanel.vue",
+    "app/src/renderer/src/components/StatusBar.vue",
+    "app/src/renderer/src/components/ToolActivity.vue",
+    "app/src/renderer/src/components/TrajectoryDetails.vue",
+    "app/src/renderer/src/components/WebhookIngress.vue",
+    "app/src/renderer/src/components/WorkList.vue",
+    "app/src/renderer/src/components/WorkPanel.vue",
+    "app/src/renderer/src/conversation-menu-keys.ts",
+    "app/src/renderer/src/dialog.ts",
+    "app/src/renderer/src/format.ts",
+    "app/src/renderer/src/main.ts",
+    "app/src/renderer/src/markdown.ts",
+    "app/src/renderer/src/mcp-form.ts",
+    "app/src/renderer/src/schedule-form.ts",
+    "app/src/renderer/src/schedule-observations.ts",
+    "app/src/renderer/src/schedule-time.ts",
+    "app/src/renderer/src/settings-accessibility.ts",
+    "app/src/renderer/src/settings-form.ts",
+    "app/src/renderer/src/skill-config.ts",
+    "app/src/renderer/src/skill-editor.ts",
+    "app/src/renderer/src/store.ts",
+    "app/src/renderer/src/stores/browser.ts",
+    "app/src/renderer/src/stores/completion.ts",
+    "app/src/renderer/src/stores/composer.ts",
+    "app/src/renderer/src/stores/hosts.ts",
+    "app/src/renderer/src/stores/locks.ts",
+    "app/src/renderer/src/stores/management.ts",
+    "app/src/renderer/src/stores/records.ts",
+    "app/src/renderer/src/stores/schedules.ts",
+    "app/src/renderer/src/stores/settings.ts",
+    "app/src/renderer/src/stores/state.ts",
+    "app/src/renderer/src/stores/status.ts",
+    "app/src/renderer/src/stores/work.ts",
+    "app/src/renderer/src/tool-output.ts",
+    "app/src/renderer/src/views/Settings.vue",
+    "app/src/renderer/src/views/settings/General.vue",
+    "app/src/renderer/src/views/settings/Hosts.vue",
+    "app/src/renderer/src/views/settings/Mcp.vue",
+    "app/src/renderer/src/views/settings/Personality.vue",
+    "app/src/renderer/src/views/settings/Records.vue",
+    "app/src/renderer/src/views/settings/Skills.vue",
+    "app/src/renderer/src/views/settings/State.vue",
+    "app/src/renderer/src/views/settings/Tools.vue",
+    "app/src/renderer/src/views/settings/Work.vue",
+    "app/src/renderer/src/work-accessibility.ts",
+    "app/src/renderer/src/work-format.ts",
+    "app/src/shared/api.ts",
+    "src/desktop/__init__.py",
+    "src/desktop/artifacts.py",
+    "src/desktop/attachments.py",
+    "src/desktop/authority.py",
+    "src/desktop/browser_runtime.py",
+    "src/desktop/capabilities.py",
+    "src/desktop/codex_accounts.py",
+    "src/desktop/commands.py",
+    "src/desktop/computer_binding.py",
+    "src/desktop/controls.py",
+    "src/desktop/conversations.py",
+    "src/desktop/core.py",
+    "src/desktop/delivery.py",
+    "src/desktop/errors.py",
+    "src/desktop/events.py",
+    "src/desktop/hosts.py",
+    "src/desktop/integrations.py",
+    "src/desktop/ipc.py",
+    "src/desktop/ipc_auth.py",
+    "src/desktop/knowledge.py",
+    "src/desktop/learned_context.py",
+    "src/desktop/lifecycle.py",
+    "src/desktop/local_client.py",
+    "src/desktop/management.py",
+    "src/desktop/mcp.py",
+    "src/desktop/model_settings.py",
+    "src/desktop/notifications.py",
+    "src/desktop/observability.py",
+    "src/desktop/openrouter_admin.py",
+    "src/desktop/package_ownership.py",
+    "src/desktop/package_state.py",
+    "src/desktop/package_status.py",
+    "src/desktop/paths.py",
+    "src/desktop/profile.py",
+    "src/desktop/protocol.py",
+    "src/desktop/providers.py",
+    "src/desktop/provisioning.py",
+    "src/desktop/records.py",
+    "src/desktop/reports.py",
+    "src/desktop/requests.py",
+    "src/desktop/resource_cleanup.py",
+    "src/desktop/runtime.py",
+    "src/desktop/schedule_recovery.py",
+    "src/desktop/schedules.py",
+    "src/desktop/schema.py",
+    "src/desktop/search.py",
+    "src/desktop/secrets.py",
+    "src/desktop/services.py",
+    "src/desktop/session_end.py",
+    "src/desktop/settings.py",
+    "src/desktop/skills.py",
+    "src/desktop/state.py",
+    "src/desktop/tool_catalog.py",
+    "src/desktop/tool_details.py",
+    "src/desktop/trajectories.py",
+    "src/desktop/transcript.py",
+    "src/desktop/turn_state.py",
+    "src/desktop/webhooks.py",
+    "src/desktop/work.py",
+    "src/desktop/workspace_diagnostics.py",
+    "src/desktop/x11_probe.py"
+  ]
+}

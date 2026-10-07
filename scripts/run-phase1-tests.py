@@ -203,6 +203,14 @@ def main(argv: list[str] | None = None) -> int:
             "PYTHONDONTWRITEBYTECODE": "1",
             "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
         }
+        # Opt-in measurement stays repository-local and inside the existing
+        # sanitized namespace. Sequential classified groups append to one file;
+        # CI shards upload their own files for a separate combine/gate job.
+        coverage_arguments = []
+        if os.environ.get("ODIN_COVERAGE") == "1":
+            environment["COVERAGE_FILE"] = str(ROOT / ".test-state/.coverage")
+            coverage_arguments = ["--cov=src", "--cov=src/computer/runtime/assets",
+                                  "--cov-append", "--cov-report="]
         # This is a cleanup tag, not an authentication credential. Preserve it
         # so GitHub can also identify children after an abrupt launcher death.
         if tracking := os.environ.get("RUNNER_TRACKING_ID"):
@@ -248,6 +256,7 @@ def main(argv: list[str] | None = None) -> int:
             str(ROOT / ".venv/bin/pytest"), "-p", "pytest_asyncio.plugin",
             "-p", "pytest_cov.plugin", "-p", "pytest_timeout", "--timeout=90",
             "--timeout-method=signal", "-q", *arguments,
+            *coverage_arguments,
         ]
         return run_namespace(command)
 

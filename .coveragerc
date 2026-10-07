@@ -1,0 +1,10 @@
+[run]
+source = src, src/computer/runtime/assets
+relative_files = True
+branch = False
+core = sysmon
+patch = subprocess
+
+[report]
+show_missing = True
+
