@@ -116,16 +116,16 @@ def test_running_lab_vm_growth_counts_against_the_container(failure):
     api = FakeIncus()
     vm = {"name": "odq-kde", "type": "virtual-machine", "status": "Running"}
     api.instances = lambda: [api.item, vm]
-    GIB = acceptance.GIB
+    gib = acceptance.GIB
     # The container alone needs 14 GiB; the running VM at 15 GiB adds 25 + 10 GiB.
     if failure == "budget":
-        storage = (acceptance.lab.POOL_BUDGET - 49 * GIB + 1, 200 * GIB)
+        storage = (acceptance.lab.POOL_BUDGET - 49 * gib + 1, 200 * gib)
         message = "storage budget"
     else:
-        storage = (20 * GIB, acceptance.lab.FILESYSTEM_FLOOR + 49 * GIB - 1)
+        storage = (20 * gib, acceptance.lab.FILESYSTEM_FLOOR + 49 * gib - 1)
         message = "filesystem floor"
     with patch.object(acceptance.lab, "storage_usage", return_value=storage), \
-            patch.object(acceptance.lab, "guest_usage", return_value=15 * GIB):
+            patch.object(acceptance.lab, "guest_usage", return_value=15 * gib):
         with pytest.raises(acceptance.AcceptanceError, match=message):
             acceptance.Container(api).prepare()
     assert not api.calls
