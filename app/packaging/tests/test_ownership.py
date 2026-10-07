@@ -9,6 +9,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+BOOT_A = 'a1b2c3d4-0000-4000-8000-00000000000a'
+BOOT_B = 'a1b2c3d4-0000-4000-8000-00000000000b'
+
 MODULE = Path(__file__).resolve().parents[1] / 'ownership.py'
 spec = importlib.util.spec_from_file_location('ownership_fixture', MODULE)
 own = importlib.util.module_from_spec(spec)
@@ -116,30 +119,91 @@ class OwnershipTests(unittest.TestCase):
             with own.replacement_guard(self.paths):
                 pass
 
+    def history(self, boot):
+        """The core's retained unknown from an earlier lifetime, stamped with its boot."""
+        core = json.loads(self.core.read_text())
+        core['previous_unknown'] = {'state': 'unknown', 'boot_id': boot}
+        self.core.write_text(json.dumps(core))
+
     def test_earlier_unknown_fences_its_boot_not_the_next(self):
-        with self.boot('boot-a'):
+        with self.boot(BOOT_A):
             crashed = self.lease('core')
             crashed.close()  # ended without finish: its receipt stays running
             later = self.lease()
             try:
                 self.clean()
-                # Retained history of the crash; this lifetime's own Exit is clean.
-                core = json.loads(self.core.read_text())
-                core['previous_unknown'] = {'state': 'unknown'}
-                self.core.write_text(json.dumps(core))
+                self.history(BOOT_A)  # this lifetime's own Exit is clean
                 app = json.loads(self.app.read_text())
                 app['warning'] = {'id': 'notice', 'records': [{'state': 'unknown'}]}
                 self.app.write_text(json.dumps(app))
-                later.finish()
+                with self.assertRaisesRegex(own.OwnershipError, 'Core resource cleanup'):
+                    later.finish()
             finally:
                 later.close()
             states = sorted(json.loads(path.read_text())['state']
                             for path in self.paths.receipts.iterdir())
-            self.assertEqual(states, ['clean', 'running'])
+            self.assertEqual(states, ['running', 'running'])
             self.guard_refuses()
-        with self.boot('boot-b'):
+        with self.boot(BOOT_B):
             with own.replacement_guard(self.paths):
                 pass
+            # The same retained history no longer fences a lifetime in a later boot.
+            lease = self.lease()
+            try:
+                self.clean()
+                self.history(BOOT_A)
+                lease.finish()
+            finally:
+                lease.close()
+            with own.replacement_guard(self.paths):
+                pass
+
+    def test_an_unknown_this_boot_fences_another_installation_on_the_profile(self):
+        # The .deb and AppImage keep separate registries but share one profile.
+        other = own.OwnershipPaths(self.root / 'other-installation')
+        with self.boot(BOOT_A):
+            crashed = own.acquire_lifetime(other, 'core', self.app, self.core)
+            crashed.close()  # unknown cleanup, fenced in its own registry
+            lease = self.lease()
+            try:
+                self.clean()
+                self.history(BOOT_A)  # the next core retains it in the shared profile
+                with self.assertRaisesRegex(own.OwnershipError, 'Core resource cleanup'):
+                    lease.finish()
+            finally:
+                lease.close()
+            self.guard_refuses()
+        with self.boot(BOOT_B):
+            lease = self.lease()
+            try:
+                self.clean()
+                self.history(BOOT_A)
+                lease.finish()
+            finally:
+                lease.close()
+            with own.replacement_guard(self.paths):
+                pass
+
+    def test_history_without_a_boot_identity_stays_fenced(self):
+        with self.boot(BOOT_B):
+            lease = self.lease()
+            try:
+                self.clean()
+                core = json.loads(self.core.read_text())
+                core['previous_unknown'] = {'state': 'unknown'}
+                self.core.write_text(json.dumps(core))
+                with self.assertRaisesRegex(own.OwnershipError, 'Core resource cleanup'):
+                    lease.finish()
+            finally:
+                lease.close()
+
+    def test_malformed_boot_identity_is_not_an_earlier_boot(self):
+        self.paths.directory.mkdir(mode=0o700)
+        self.paths.receipts.mkdir(mode=0o700)
+        (self.paths.receipts / 'forged.json').write_text(json.dumps(
+            {'version': 1, 'role': 'app', 'state': 'running', 'boot_id': 'not-a-kernel-boot-id'}))
+        with self.boot(BOOT_B):
+            self.guard_refuses()
 
     def test_own_unclean_exit_stays_unclean_with_history_present(self):
         lease = self.lease()
@@ -158,11 +222,11 @@ class OwnershipTests(unittest.TestCase):
         self.paths.receipts.mkdir(mode=0o700)
         (self.paths.receipts / 'older.json').write_text(json.dumps(
             {'version': 1, 'role': 'app', 'state': 'running'}))
-        with self.boot('boot-b'):
+        with self.boot(BOOT_B):
             self.guard_refuses()
 
     def test_unreadable_boot_identity_keeps_every_unclean_receipt_fenced(self):
-        with self.boot('boot-a'):
+        with self.boot(BOOT_A):
             self.lease('core').close()
         with mock.patch.object(own, 'BOOT_ID', self.root / 'missing'):
             self.guard_refuses()

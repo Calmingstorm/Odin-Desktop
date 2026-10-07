@@ -7,12 +7,25 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import sqlite3
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 
 from ..permissions.persistence import write_private_atomic
+
+BOOT_ID = Path("/proc/sys/kernel/random/boot_id")
+_BOOT_ID_SHAPE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+def current_boot_id() -> str | None:
+    """This boot's kernel identity, or None when it cannot be read or is malformed."""
+    try:
+        value = BOOT_ID.read_text().strip()
+    except OSError:
+        return None
+    return value if _BOOT_ID_SHAPE.fullmatch(value) else None
 
 
 class ResourceCleanupError(RuntimeError):
@@ -24,6 +37,7 @@ class ResourceCleanupJournal:
         self.path = path
         self.previous_unknown = None
         self.previous_unknown_count = 0
+        boot = current_boot_id()
         try:
             previous = json.loads(path.read_text())
             if (not isinstance(previous, dict) or previous.get("version") != 1
@@ -35,14 +49,20 @@ class ResourceCleanupJournal:
                 # Retain the first unresolved receipt, not an exponentially
                 # nested chain of every later interrupted startup.
                 self.previous_unknown = self.previous_unknown or {
-                    key: previous[key] for key in ("state", "at", "resources") if key in previous
+                    key: previous[key]
+                    for key in ("state", "at", "resources", "boot_id") if key in previous
                 }
                 self.previous_unknown_count += 1
         except FileNotFoundError:
             pass
         except (OSError, ValueError, TypeError):
             self.previous_unknown = {"state": "unknown", "reason": "cleanup_evidence_unreadable"}
-        self.current = {"version": 1, "state": "running", "resources": {},
+        # The package fence holds an unknown for the rest of the boot it happened in. One
+        # recorded before boots were, or from unreadable evidence, is stamped now and only
+        # once: it can only be from this boot or an earlier one.
+        if isinstance(self.previous_unknown, dict) and "boot_id" not in self.previous_unknown:
+            self.previous_unknown = {**self.previous_unknown, "boot_id": boot}
+        self.current = {"version": 1, "state": "running", "resources": {}, "boot_id": boot,
                         "previous_unknown": self.previous_unknown,
                         "previous_unknown_count": self.previous_unknown_count}
         self._write()

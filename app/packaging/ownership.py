@@ -7,6 +7,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import signal
 import stat
 import subprocess
@@ -18,6 +19,7 @@ from pathlib import Path
 
 DEB_ROOT = Path('/var/lib/odin-desktop/package-ownership')
 BOOT_ID = Path('/proc/sys/kernel/random/boot_id')
+_BOOT_ID_SHAPE = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 
 
 class OwnershipError(RuntimeError):
@@ -100,30 +102,35 @@ def _fingerprint(path):
 
 
 def _boot_id():
-    """This boot's kernel identity, or None when it cannot be read."""
+    """This boot's kernel identity, or None when it cannot be read or is malformed."""
     try:
-        return BOOT_ID.read_text().strip() or None
+        value = BOOT_ID.read_text().strip()
     except OSError:
         return None
+    return value if _BOOT_ID_SHAPE.fullmatch(value) else None
 
 
-def _earlier_boot(receipt, current):
+def _earlier_boot(recorded, current):
     """No process or native resource of a lifetime survives the boot it ran in.
 
-    Only a recorded identity that differs from a readable current one counts. A
-    receipt without one, from an older candidate, stays fenced.
+    Only a well-formed kernel boot identity that differs from a readable current one
+    counts. A missing or malformed one, as from an older candidate, stays fenced.
     """
-    recorded = receipt.get('boot_id')
-    return bool(isinstance(recorded, str) and recorded and current and recorded != current)
+    return bool(isinstance(recorded, str) and _BOOT_ID_SHAPE.fullmatch(recorded)
+                and current and recorded != current)
 
 
 def _clean(app_cleanup, core_cleanup, role):
-    # Judge this lifetime's own Exit. An earlier unknown keeps its own receipt,
-    # which fences replacement until the boot it ran in has ended; the retained
-    # notice and history stay visible and are never cleared here.
+    # Judge this lifetime's own Exit. A core unknown the shared profile retains from
+    # this boot fences it too: installation kinds keep separate receipts. Once the boot
+    # it happened in has ended, nothing it held survives and it no longer fences; the
+    # retained notice and history stay visible and are never cleared here.
     core = _read(core_cleanup)
     resources = core.get('resources')
+    previous = core.get('previous_unknown')
     if (core.get('version') != 1 or core.get('state') != 'complete'
+            or (previous is not None and not (isinstance(previous, dict) and _earlier_boot(
+                previous.get('boot_id'), _boot_id())))
             or not isinstance(resources, dict)
             or not {'computer', 'processes'}.issubset(resources)
             or any(row.get('state') not in {'released', 'not_started'}
@@ -231,7 +238,7 @@ def replacement_guard(paths, check_receipts=True):
             boot = _boot_id()
             for path in paths.receipts.iterdir():
                 receipt = _read(path)
-                if _earlier_boot(receipt, boot):
+                if _earlier_boot(receipt.get('boot_id'), boot):
                     continue
                 if receipt.get('state') != 'clean':
                     raise OwnershipError('Unresolved lifetime evidence blocks replacement')

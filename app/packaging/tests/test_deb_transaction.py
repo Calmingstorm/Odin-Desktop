@@ -8,6 +8,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+BOOT_A = 'a1b2c3d4-0000-4000-8000-00000000000a'
+BOOT_B = 'a1b2c3d4-0000-4000-8000-00000000000b'
+
 HERE = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('deb_transaction', HERE / 'deb_transaction.py')
 deb = importlib.util.module_from_spec(spec)
@@ -113,23 +116,23 @@ class DebTransactionTests(unittest.TestCase):
         return path
 
     def test_unclean_receipt_from_an_earlier_boot_no_longer_blocks_removal(self):
-        receipt = self.receipt(state='running', boot_id='boot-a')
+        receipt = self.receipt(state='running', boot_id=BOOT_A)
         before = receipt.read_bytes()
-        self.boot('boot-b')
+        self.boot(BOOT_B)
         self.call('prerm', 'remove')
         self.assertTrue((self.root / 'transaction.json').exists())
         self.assertEqual(receipt.read_bytes(), before)
 
     def test_unclean_receipt_from_this_boot_asks_for_a_restart(self):
-        self.receipt(state='running', boot_id='boot-a')
-        self.boot('boot-a')
+        self.receipt(state='running', boot_id=BOOT_A)
+        self.boot(BOOT_A)
         with self.assertRaisesRegex(deb.Refusal, 'Restart the computer'):
             self.call('preinst', 'upgrade')
         self.assertFalse((self.root / 'transaction.json').exists())
 
     def test_receipt_without_boot_identity_stays_fenced(self):
         self.receipt(state='running')
-        self.boot('boot-b')
+        self.boot(BOOT_B)
         with self.assertRaisesRegex(deb.Refusal, 'cleanup is unresolved'):
             self.call('preinst', 'upgrade')
 
@@ -155,8 +158,15 @@ class DebTransactionTests(unittest.TestCase):
         finally:
             os.close(lease)
 
+    def test_malformed_boot_identity_is_not_an_earlier_boot(self):
+        self.receipt(state='running', boot_id='not-a-kernel-boot-id')
+        self.boot(BOOT_B)
+        with self.assertRaisesRegex(deb.Refusal, 'cleanup is unresolved'):
+            self.call('prerm', 'remove')
+        self.assertFalse((self.root / 'transaction.json').exists())
+
     def test_unreadable_boot_identity_keeps_unclean_receipts_fenced(self):
-        self.receipt(state='running', boot_id='boot-a')
+        self.receipt(state='running', boot_id=BOOT_A)
         with self.assertRaisesRegex(deb.Refusal, 'cleanup is unresolved'):
             self.call('prerm', 'remove')
         self.assertFalse((self.root / 'transaction.json').exists())

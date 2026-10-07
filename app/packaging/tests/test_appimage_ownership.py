@@ -88,14 +88,17 @@ class SharedOwnershipIntegration(unittest.TestCase):
             self.core.write_text(json.dumps(core))
             with self.assertRaises(ownership.OwnershipError):
                 lease.finish()
-        # A later lifetime exits cleanly; the core keeps the earlier unknown as history.
+        # A later lifetime exits cleanly, but the core keeps that unknown as history from this
+        # boot, so the later lifetime cannot be clean evidence before a restart either.
+        boot = ownership._boot_id()
         with self.lease() as lease:
             core = json.loads(self.core.read_text())
             core.update(state='complete', previous_unknown={
-                'state': 'unknown', 'resources': {'computer': {'state': 'unknown'}}}, resources={
-                'computer': {'state': 'not_started'}, 'processes': {'state': 'released'}})
+                'state': 'unknown', 'boot_id': boot, 'resources': {'computer': {'state': 'unknown'}}},
+                resources={'computer': {'state': 'not_started'}, 'processes': {'state': 'released'}})
             self.core.write_text(json.dumps(core))
-            self.clean_exit(lease)
+            with self.assertRaisesRegex(ownership.OwnershipError, 'Core resource cleanup'):
+                self.clean_exit(lease)
         evidence = [self.core, self.app, *self.paths.receipts.iterdir()]
         before = {path: path.read_bytes() for path in evidence}
         with self.assertRaisesRegex(ownership.OwnershipError, 'Unresolved lifetime evidence'):
@@ -104,9 +107,10 @@ class SharedOwnershipIntegration(unittest.TestCase):
         self.assertEqual(self.old.read_bytes()[-9:], b'old image')
         # Nothing that lifetime held survives a restart, so the next boot may replace.
         # The evidence itself is still never cleared.
-        boot = self.root / 'next-boot'
-        boot.write_text('a later boot\n')
-        with mock.patch.object(ownership, 'BOOT_ID', boot):
+        later = self.root / 'next-boot'
+        later.write_text('a1b2c3d4-0000-4000-8000-00000000000b\n')
+        self.assertNotEqual(later.read_text().strip(), boot)
+        with mock.patch.object(ownership, 'BOOT_ID', later):
             self.assertEqual(self.replace()['status'], 'replaced')
         self.assertEqual(self.core.read_bytes(), before[self.core])
 

@@ -267,9 +267,18 @@ The fence now works per lifetime and per boot:
   native resource of a lifetime survives the boot it ran in. Receipts without a
   boot identity, and every receipt while the current identity is unreadable,
   stay fenced.
-- A lifetime is clean when its own Exit and resource evidence are clean. An
-  earlier unknown keeps fencing through its own receipt for the rest of its boot,
-  and a later clean lifetime cannot erase that.
+- A lifetime is clean when its own Exit and resource evidence are clean and the
+  profile retains no core unknown from the current boot. The core journal records
+  each lifetime's boot; a retained unknown keeps the boot it happened in, and
+  history from before boots were recorded is stamped once with the boot that
+  found it. An unknown therefore fences every installation kind on that profile
+  for the rest of its boot (review finding 89.2), and a later clean lifetime
+  cannot erase that.
+- Boot identities must be well-formed kernel UUIDs; a malformed one is not an
+  earlier boot (review finding 89.1). Receipts are cooperative evidence the owner
+  can already rewrite, so this guards against corruption, not a hostile owner.
+- dpkg's error unwind (`abort-*` hooks) returns before taking the lease, so a
+  refusal while Odin runs leaves the previous version installed.
 - The app's guardian ignores SIGTERM, SIGINT and SIGHUP. Its lifetime ends at the
   app's stdin EOF, and SIGKILL still leaves its receipt unclean.
 - A current-boot refusal now tells the user to restart the computer.

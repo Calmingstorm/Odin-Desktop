@@ -34,6 +34,50 @@ def test_interrupted_or_unknown_cleanup_survives_later_clean_exit(tmp_path):
     assert ResourceCleanupJournal(path).public()["reconciliation_required"] is True
 
 
+def boot(monkeypatch, tmp_path, identity):
+    from src.desktop import resource_cleanup
+
+    path = tmp_path / f"boot-{identity[-1]}"
+    path.write_text(identity + "\n")
+    monkeypatch.setattr(resource_cleanup, "BOOT_ID", path)
+
+
+BOOT_A = "a1b2c3d4-0000-4000-8000-00000000000a"
+BOOT_B = "a1b2c3d4-0000-4000-8000-00000000000b"
+
+
+def test_retained_unknown_keeps_the_boot_it_happened_in(tmp_path, monkeypatch):
+    path = tmp_path / "receipt.json"
+    boot(monkeypatch, tmp_path, BOOT_A)
+    ResourceCleanupJournal(path)  # never finished: its lifetime ends unknown
+    assert json.loads(path.read_text())["boot_id"] == BOOT_A
+    boot(monkeypatch, tmp_path, BOOT_B)
+    later = ResourceCleanupJournal(path)
+    later.finish({"computer": {"state": "not_started"}, "processes": {"state": "released"}})
+    saved = json.loads(path.read_text())
+    assert saved["boot_id"] == BOOT_B
+    assert saved["previous_unknown"]["boot_id"] == BOOT_A
+    assert ResourceCleanupJournal(path).public()["reconciliation_required"] is True
+
+
+def test_history_from_before_boots_were_recorded_is_stamped_once(tmp_path, monkeypatch):
+    path = tmp_path / "receipt.json"
+    path.write_text(json.dumps({"version": 1, "state": "complete", "resources": {},
+                                "previous_unknown": {"state": "unknown"}}))
+    boot(monkeypatch, tmp_path, BOOT_A)
+    ResourceCleanupJournal(path)
+    boot(monkeypatch, tmp_path, BOOT_B)
+    assert ResourceCleanupJournal(path).public()["previous_unknown"]["boot_id"] == BOOT_A
+
+
+def test_unreadable_evidence_is_stamped_with_the_boot_that_found_it(tmp_path, monkeypatch):
+    path = tmp_path / "receipt.json"
+    path.write_text("not json")
+    boot(monkeypatch, tmp_path, BOOT_A)
+    found = ResourceCleanupJournal(path).public()["previous_unknown"]
+    assert found == {"state": "unknown", "reason": "cleanup_evidence_unreadable", "boot_id": BOOT_A}
+
+
 def test_unknown_cleanup_is_durable_before_error(tmp_path):
     path = tmp_path / "receipt.json"
     journal = ResourceCleanupJournal(path)

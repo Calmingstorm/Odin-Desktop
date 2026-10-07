@@ -11,6 +11,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -23,6 +24,7 @@ APPARMOR = Path('/etc/apparmor.d')
 APPARMOR_PARSER = Path('/sbin/apparmor_parser')
 BUILD_VERSION = None  # Generated hooks bind this to their actual candidate version.
 UNWIND = frozenset({'abort-install', 'abort-upgrade', 'abort-remove', 'abort-deconfigure'})
+BOOT_ID_SHAPE = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 
 
 class Refusal(RuntimeError):  # noqa: N818
@@ -110,9 +112,10 @@ def legacy_process_check(install: Path, proc: Path = Path('/proc')) -> None:
 
 def boot_identity(proc: Path) -> str | None:
     try:
-        return (proc / 'sys/kernel/random/boot_id').read_text().strip() or None
+        value = (proc / 'sys/kernel/random/boot_id').read_text().strip()
     except OSError:
         return None
+    return value if BOOT_ID_SHAPE.fullmatch(value) else None
 
 
 def clean_receipts(root: Path, proc: Path = Path('/proc')) -> None:
@@ -121,7 +124,7 @@ def clean_receipts(root: Path, proc: Path = Path('/proc')) -> None:
 Launch owners validate their own Exit AND resource/quarantine evidence before
 committing clean. Missing/malformed/running/unknown does not mean clean. Nothing
 a lifetime held survives the boot it ran in, so a receipt recording an earlier
-boot no longer fences. One without a readable boot identity stays fenced.
+boot no longer fences. One without a well-formed, readable boot identity stays fenced.
 """
     boot = boot_identity(proc)
     for receipt in (root / 'receipts').iterdir():
@@ -138,7 +141,7 @@ boot no longer fences. One without a readable boot identity stays fenced.
         if not isinstance(value, dict):
             raise Refusal('Previous app/core cleanup is unresolved; package unchanged')
         recorded = value.get('boot_id')
-        if isinstance(recorded, str) and recorded and boot:
+        if isinstance(recorded, str) and BOOT_ID_SHAPE.fullmatch(recorded) and boot:
             if recorded != boot:
                 continue
             if value.get('state') != 'clean':
