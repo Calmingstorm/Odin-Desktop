@@ -917,10 +917,10 @@ export interface DesktopComputerStatus {
   session: ComputerSession | null
   readiness: {
     management_available: boolean
-    foreground_available: false
+    foreground_available: boolean
     native_qualified: false
-    input_supported: false
-    dispatch: 'none'
+    input_supported: boolean
+    dispatch: 'none' | 'x11'
     reason: string
   }
 }

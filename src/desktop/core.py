@@ -297,8 +297,8 @@ class CoreService:
                 **package,
                 "limits": self.limits,
                 "diagnostics": self.engine.diagnostics(),
-                "computer": {"published_available": False,
-                             "reason": self.computer_unavailable_reason or "native_unqualified"},
+                "computer": {"published_available": self.management.computer.published_available,
+                             "reason": self.management.computer.readiness()["reason"]},
             }
         return {
             **package,
@@ -711,8 +711,11 @@ class CoreService:
         status = (await self.management.runtime.status_async()
                   if self.management is not None else self.status())
         status.update(limits=self.limits, diagnostics=self.engine.diagnostics(),
-                      computer={"published_available": False,
-                                "reason": self.computer_unavailable_reason or "native_unqualified"})
+                      computer={"published_available": self.management.computer.published_available
+                                if self.management is not None else False,
+                                "reason": self.management.computer.readiness()["reason"]
+                                if self.management is not None else
+                                self.computer_unavailable_reason or "native_unqualified"})
         if self.package_status is not None:
             status["package"] = self.package_status.snapshot()
         self.events.append(

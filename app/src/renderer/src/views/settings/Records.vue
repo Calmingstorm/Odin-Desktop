@@ -213,7 +213,8 @@ async function reconcile(): Promise<void> {
     <p v-if="records.errors.computer" class="warn">Couldn't read computer use: {{ records.errors.computer }}{{ records.computer ? ' Showing the last read.' : '' }}</p>
     <template v-if="readiness">
       <p class="manage-desc">Management: {{ readiness.management_available ? 'available' : 'unavailable' }}.</p>
-      <p class="capability-unavailable" role="status">Foreground computer use is unavailable. Native input is not qualified or supported. Dispatch: {{ readiness.dispatch }}. Reason: {{ reasonText(readiness.reason) }}.</p>
+      <p v-if="readiness.foreground_available" role="status">Foreground computer use is available on X11. Input still requires an admitted turn, consent, and a verified target.</p>
+      <p v-else class="capability-unavailable" role="status">Foreground computer use is unavailable. Dispatch: {{ readiness.dispatch }}. Reason: {{ reasonText(readiness.reason) }}.</p>
       <p v-if="!session" class="manage-desc">No computer-use session is reported by this status. This is not proof of input release or cleanup.</p>
       <p v-else class="manage-desc">Reconciliation checks recorded recovery only. It does not start a session, send input, or assert that you checked the computer.</p>
     </template>

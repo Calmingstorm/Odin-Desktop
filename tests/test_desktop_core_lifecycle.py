@@ -225,7 +225,7 @@ async def test_real_core_status_ping_events_and_shutdown_are_ordered():
             assert status["limits"] == service.attachments.limits
             assert service.management.runtime.status()["limits"] == service.attachments.limits
             assert status["computer"] == {
-                "published_available": False, "reason": "native_unqualified"}
+                "published_available": False, "reason": "computer_disabled"}
             assert status["diagnostics"] == {
                 "turn_durability": {"state": "on", "reason": None},
                 "compatible_provider": {"state": "off", "reason": None},

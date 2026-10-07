@@ -12,8 +12,15 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+import json
+import os
+import re
+import sys
+import uuid
 from contextvars import ContextVar
+from copy import deepcopy
 from dataclasses import dataclass
+from pathlib import Path
 from types import SimpleNamespace
 
 from ..computer.integration import ComputerIntegration, _grant
@@ -46,12 +53,23 @@ class ComputerForegroundBinding(ComputerIntegration):
         self._management_authorize = management_authorize
         self._requests = ContextVar("desktop_computer_request", default=None)
         self._active_requests = {}
+        self._readiness = None
         self.controller.authorize = self._authorize
 
     @property
+    def enabled(self):
+        return not self._closed and bool(getattr(self.controller, "enabled",
+                                               self.bot.config.computer.enabled))
+
+    @property
     def published_available(self):
-        # An exercised stub binding is not platform or accessibility evidence.
-        return False
+        return bool(not self._closed and self.enabled and self._readiness
+                    and self._readiness()["foreground_available"])
+
+    def _backend(self, app=None):
+        if not self.published_available:
+            raise ComputerError("desktop_x11_backend_unavailable")
+        return super()._backend(app)
 
     def enter_request(self, message):
         self.requests.assert_request(message)
@@ -172,8 +190,8 @@ def bind_foreground(service, requests):
 
     Call after service.start(). Return this facade as native_owners['computer']
     and get_computer's owner. Keep the management service for protocol methods.
-    Its published_available/readiness remain unqualified; binding is not proof
-    of a working platform. Dependency resolver placement remains worker-only.
+    Publication follows the management owner's read-only X11 startup probe.
+    Dependency resolver placement remains worker-only.
     """
     if not service._started or service._closed or service.controller is None:
         raise RuntimeError("Computer management must be started before binding requests")
@@ -189,6 +207,9 @@ def bind_foreground(service, requests):
         facade._owns_store = old._owns_store
         facade.settings = old.settings
     service.controller.authorize = facade._authorize
+    facade._readiness = getattr(service, "readiness", None)
+    if getattr(service, "_backend_factory", None) is None:
+        service.controller.backend_factory = facade._backend
     service._integration = facade
     return facade
 
@@ -221,21 +242,104 @@ class ComputerBindingService:
         self._started = False
         self._closed = False
         self._startup_error = None
+        self._x11_ready = False
+        self._probe_backend = None
+        self._native_reason = "computer_not_started"
         self._bindings = contextvars.ContextVar("desktop_computer_management", default=None)
         self._lifecycle = asyncio.Lock()
 
     @property
     def published_available(self):
-        # Step 3 foreground delivery and Phase 3 native qualification are gates,
-        # not promises inferred from a configured backend or a successful stub.
-        return False
+        return self.readiness()["foreground_available"]
 
     def readiness(self):
-        return {"management_available": self._started and not self._closed,
-                "foreground_available": False, "native_qualified": False,
-                "input_supported": False, "dispatch": "none",
-                "reason": self._startup_error or
-                          "foreground_binding_and_native_qualification_pending"}
+        running = self._started and not self._closed
+        enabled = bool(self.settings.config.computer.enabled)
+        active = bool(running and self.controller.enabled
+                      and not getattr(self._integration, "_closed", False))
+        available = bool(active and enabled and self._x11_ready)
+        reason = (self._startup_error or ("computer_closed" if self._closed else
+                  "computer_disabled" if not enabled or running and not active else
+                  "computer_not_started" if not running else self._native_reason))
+        return {"management_available": running,
+                "foreground_available": available, "native_qualified": False,
+                "input_supported": available, "dispatch": "x11" if available else "none",
+                "reason": "available_on_x11" if available else reason}
+
+    async def _prepare_x11(self, enabled):
+        """Probe only metadata/capabilities, never pixels, focus, or input.
+
+        An actual task still starts its own backend after foreground admission and
+        consent. This short-lived backend creates no devices and is fully drained
+        before publication. Session settings are runtime-only, not persisted.
+        """
+        self._x11_ready = False
+        if self._probe_backend is not None:
+            self._native_reason = "x11_probe_cleanup_unverified"
+            return
+        if not enabled:
+            self._native_reason = "computer_disabled"
+            return
+        if (os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland"
+                or os.environ.get("WAYLAND_DISPLAY")):
+            self._native_reason = "wayland_computer_use_requires_1_1"
+            return
+        display = os.environ.get("DISPLAY", "")
+        # Same explicit-local-display boundary as Odin's attached X11 backend.
+        if not re.fullmatch(r":[0-9]{1,5}", display):
+            self._native_reason = "local_x11_display_required"
+            return
+        backend = None
+        try:
+            environment = dict(os.environ)
+            authority = environment.get("XAUTHORITY") or str(Path.home() / ".Xauthority")
+            environment["XAUTHORITY"] = authority
+            child = await asyncio.create_subprocess_exec(
+                sys.executable, "-B", "-I", str(Path(__file__).with_name("x11_probe.py")),
+                display, env=environment, stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+            try:
+                output, _ = await asyncio.wait_for(child.communicate(), 5)
+            finally:
+                if child.returncode is None:
+                    child.kill()
+                await child.wait()
+            if child.returncode != 0 or len(output) > 4096:
+                raise RuntimeError("X11 discovery failed")
+            names = json.loads(output)
+            from ..computer.runtime.x11_attached import X11AttachedBackend
+
+            backend = X11AttachedBackend(enabled=True, display_name=display,
+                xauthority=authority, monitor_names=names, input_enabled=True)
+            self._probe_backend = backend
+            result = await asyncio.wait_for(backend.start("probe-" + uuid.uuid4().hex), 15)
+            if result.get("ok") is not True:
+                raise RuntimeError("X11 startup failed")
+            cleanup = await backend.detach()
+            if not (cleanup.get("stopped") and cleanup.get("released")
+                    and cleanup.get("no_inflight_input")):
+                raise RuntimeError("X11 probe cleanup incomplete")
+            self._probe_backend = None
+            integration = self._integration
+            if integration is None:
+                raise RuntimeError("X11 integration missing")
+            runtime = deepcopy(integration.settings)
+            runtime.platform, runtime.environment = "x11", "existing_session"
+            runtime.display, runtime.xauthority, runtime.monitor_names = display, authority, names
+            runtime.runtime_sudo = False
+            integration.settings = runtime
+            if self._backend_factory is None:
+                self.controller.backend_factory = integration._backend
+            self._x11_ready = True
+            self._native_reason = "available_on_x11"
+        except Exception:
+            self._native_reason = "x11_backend_unavailable"
+        finally:
+            if backend is not None:
+                cleanup = await backend.detach()
+                if (cleanup.get("stopped") and cleanup.get("released")
+                        and cleanup.get("no_inflight_input")):
+                    self._probe_backend = None
 
     @property
     def management_methods(self):
@@ -244,7 +348,7 @@ class ComputerBindingService:
         return self.METHODS if self._started and not self._closed else self.READ_METHODS
 
     async def start(self):
-        """Open private durable state only. Never start a native desktop/helper."""
+        """Open private state and, when opted in, read-only native X11 readiness."""
         async with self._lifecycle:
             if self._closed:
                 raise MethodError("capability_unavailable", "Computer management is closed")
@@ -267,6 +371,7 @@ class ComputerBindingService:
             if self._backend_factory is not None:
                 self.controller.backend_factory = self._backend_factory
             self._started = True
+            await self._prepare_x11(self.controller.enabled)
 
     def _authorize(self, context):
         binding = self._bindings.get()
@@ -334,8 +439,10 @@ class ComputerBindingService:
                 result = await getattr(self.controller, target)(context, **params)
             if not self._authorize(context):
                 raise MethodError("permission_denied", "Computer management authority expired")
-            return {"session": {**result, "input_supported": False,
-                                "input_readiness": "foreground_unavailable"},
+            return {"session": {**result,
+                                **({"input_supported": False,
+                                    "input_readiness": "foreground_unavailable"}
+                                   if not self.published_available else {})},
                     "readiness": self.readiness()}
         except ComputerError as exc:
             if method == "computer.status" and exc.code == "not_found":
@@ -347,7 +454,7 @@ class ComputerBindingService:
             self._bindings.reset(token)
 
     def prepare_settings(self, desired, changes):
-        """Activation/revocation only; never adopt unqualified native settings."""
+        """Only the opt-in flag is editable; native settings come from the session."""
         paths = {".".join(path) if not isinstance(path, str) else path for path, _ in changes}
         if paths != {"computer.enabled"}:
             raise MethodError("capability_unavailable",
@@ -363,19 +470,35 @@ class ComputerBindingService:
                 if service.permissions.get_request_owner() is None:
                     raise MethodError("permission_denied", "Computer authority expired")
                 await service.controller.set_enabled(target)
-                # Enabled means the retained activation flag, not qualified input.
+                await service._prepare_x11(target)
+                service._invalidate_catalog()
                 return True
 
             async def rollback(self):
                 # Restoration cannot resume a stopped task or restore its consent.
                 await service.controller.set_enabled(old)
+                await service._prepare_x11(old)
+                service._invalidate_catalog()
 
         return Activation()
+
+    def _invalidate_catalog(self):
+        deps = getattr(getattr(self.core, "engine", None), "deps", None)
+        catalog = getattr(deps, "tool_catalog", None)
+        if catalog is not None:
+            catalog.invalidate()
 
     async def close(self):
         async with self._lifecycle:
             if self._closed:
                 return
+            self._x11_ready = False
+            if self._probe_backend is not None:
+                cleanup = await self._probe_backend.detach()
+                if not (cleanup.get("stopped") and cleanup.get("released")
+                        and cleanup.get("no_inflight_input")):
+                    raise RuntimeError("Computer X11 probe cleanup incomplete; runtime retained")
+                self._probe_backend = None
             if self._started:
                 if self._integration is not None:
                     await self._integration.close()
