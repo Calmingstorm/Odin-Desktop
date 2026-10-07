@@ -598,6 +598,7 @@ class ManagementService:
         # Retained barriers keep ambiguous native owners and independently prove
         # whole process sessions before releasing their transports.
         resources = await close_existing_execution_owners(self.core, self)
+        resources.update(getattr(self.core, "_startup_cleanup", {}))
         engine = getattr(self.core, "engine", None)
         if engine is not None and not getattr(engine, "producers_quiesced", False):
             # Never close shared services beneath unresolved engine producers.

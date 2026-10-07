@@ -297,7 +297,7 @@ function run(): void {
   const shutdown = boundedShutdown({
     stopAdmission: () => { lifecycle.quitting = true; broker.quiesce(); tray?.setStatus('Stopping Odin…') },
     persist: () => { drafts.flush(); if (!savePersisted()) throw new Error('App preferences were not persisted') },
-    requestShutdown: async () => broker.linkState === 'ready'
+    requestShutdown: async (signal) => (await broker.waitForShutdownReady(5_000, signal))
       && (await coreRequest('runtime.shutdown', { reason: 'exit' })).ok,
     stopCore: () => {
       // No reconnect or command reconciliation during Exit.
