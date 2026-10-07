@@ -23,6 +23,13 @@ export default defineConfig({
     include: ['test/**/*.test.ts'],
     exclude: ['test/real-core-*.test.ts', 'test/renderer/real-core-renderer-contract.test.ts'],
     environment: 'node',
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts', 'src/**/*.vue'],
+      exclude: ['src/**/*.d.ts'],
+      reporter: ['json', 'json-summary', 'lcov', 'html', 'text'],
+      reportsDirectory: 'coverage'
+    },
     testTimeout: 20000,
     hookTimeout: 20000
   }

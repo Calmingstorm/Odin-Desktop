@@ -5,6 +5,11 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .coverage*
+!.coveragerc
+app/coverage*/
+coverage/
+coverage-local/
+coverage-input/
 htmlcov/
 build/
 dist/

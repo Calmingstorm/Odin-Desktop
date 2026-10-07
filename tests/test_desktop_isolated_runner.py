@@ -186,6 +186,25 @@ def test_failed_suite_is_not_retried_through_sudo(tmp_path, monkeypatch):
     assert not list((tmp_path / ".test-state").iterdir())
 
 
+@pytest.mark.parametrize("enabled", [False, True])
+def test_coverage_is_opt_in_repository_local_and_does_not_pass_ambient_state(
+    tmp_path, monkeypatch, enabled,
+):
+    runner = configure_runner(tmp_path, monkeypatch)
+    monkeypatch.setenv("ODIN_COVERAGE", "1" if enabled else "0")
+    monkeypatch.setenv("COVERAGE_FILE", "/live/forbidden")
+    monkeypatch.setenv("COVERAGE_PROCESS_START", "/live/forbidden.ini")
+    probe_results(runner, monkeypatch, [0])
+    calls = []
+    monkeypatch.setattr(runner, "run_namespace", lambda cmd: calls.append(cmd) or 0)
+    assert runner.main(["tests/test_neutral.py"]) == 0
+    command = calls[0]
+    assert not any("/live/forbidden" in argument for argument in command)
+    assert ("--cov=src" in command) is enabled
+    assert ("--cov-append" in command) is enabled
+    assert (f"COVERAGE_FILE={tmp_path / '.test-state/.coverage'}" in command) is enabled
+
+
 def test_long_selection_keeps_proc_cmdline_small_without_dropping_arguments(tmp_path, monkeypatch):
     runner = configure_runner(tmp_path, monkeypatch)
     arguments = [f"tests/test_fixture_{index}.py" for index in range(700)]
