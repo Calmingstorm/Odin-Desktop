@@ -28,6 +28,246 @@
       "bytes": 108432
     },
     {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-additional.log",
+      "sha256": "8bc65c6056742d1fa44434833878d06fb1a0f237621c0164477f65adf162c8ce",
+      "bytes": 751
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-app-check.log",
+      "sha256": "9be15081e617929096d3738eb63a4c52d3389ba79b9ed0110fb7fc0b182798a7",
+      "bytes": 22482
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-drift-corrected.json",
+      "sha256": "9cc413965ef7cc8204edcac4129e81748023642f312cf2e96ab3b6f927a3f747",
+      "bytes": 108673
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-drift.json",
+      "sha256": "740f9f95291be58ff86c20047da26c54ba72d691e7ca57fa0e466eac4c9a3434",
+      "bytes": 108618
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-fixture-smoke.log",
+      "sha256": "975e1c66d792e6fed1cee0998e7cf51d727b896b03c0217c4460d9c6bc5e41a5",
+      "bytes": 2004
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-gate-receipt.json",
+      "sha256": "f80ff74a7ef1e2c3241d9bbd2a78f03d21dbb3a4d37dcc543b9cc49856eb4ba4",
+      "bytes": 491
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-0.xml",
+      "sha256": "c77b1bb65da12fae278e5a952a189cbcfb02f2206c1d288786b634dbee42fb02",
+      "bytes": 819599
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-1.xml",
+      "sha256": "8b37bf5f45ababfb058862ea748a0ad6654dfc736f913f08205b92b1a89a00b0",
+      "bytes": 680145
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-10.xml",
+      "sha256": "4e9a97854003bebd2feb0c32391376c61bdf230168d568287742bb201548223b",
+      "bytes": 4717
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-11.xml",
+      "sha256": "a97634c6ef85557d3e29cea45f773cf02f87ae42f7fa026bac437e534ef00698",
+      "bytes": 4356
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-12.xml",
+      "sha256": "70e3508628e1f497b83f0bfca031d8c7407ddb3c1f886351fd3abc0a4e181d6a",
+      "bytes": 8224
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-13.xml",
+      "sha256": "0a9bf423e045c892135903218e07e8be4112007923a89896409aee9f652d7f29",
+      "bytes": 17658
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-14.xml",
+      "sha256": "ee42cfe8dcbb51139c64cb86a37458be319f9369bf3a152e19e38a82ff208076",
+      "bytes": 830
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-15.xml",
+      "sha256": "4bb00fbfa662cd55847095f8335d1559981784b94d11c3fccdb0d66ea41553bd",
+      "bytes": 749
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-16.xml",
+      "sha256": "043597afb598ac8d211131626a4124fb998fbe3ca7ceaf961248089766abce52",
+      "bytes": 175299
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-17.xml",
+      "sha256": "37cdbaaa71e0585ef10d6cb88e1b3e0e6f416d6947c8febe9413e60affca2705",
+      "bytes": 6289
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-18.xml",
+      "sha256": "666d7970d12ef45bd321449a7b9be583d5050276993f0a3f36a1bff9921b80ff",
+      "bytes": 119018
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-19.xml",
+      "sha256": "e072064a478c6bd6b8564e196a42432b2ec72b0bfbcde4d38e05097daf08220b",
+      "bytes": 718322
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-2.xml",
+      "sha256": "c835ed14353c3c4c0ffea904c5d412100a2856ad4ad52c9cc6ead86bde261972",
+      "bytes": 141096
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-20.xml",
+      "sha256": "f7500d6cb3d2cc9c1b1dc17490fcc6691081121e2c3681d582e1dda0ee985420",
+      "bytes": 16995
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-21.xml",
+      "sha256": "8a9f3baf3111e74e3fdb58dc8e1f9ac4634f51712045435fdad7c71336048d9c",
+      "bytes": 865
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-22.xml",
+      "sha256": "86e580ecf8af4d0fd25450e893705a0ffc30e993c1f441b05f78d23d9041cb9f",
+      "bytes": 21289
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-23.xml",
+      "sha256": "0294e319235a2b1aab49bb360f517945b7250b798f056ea626673579d9b0dcf1",
+      "bytes": 5486
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-24.xml",
+      "sha256": "6ab566c5e90b593911c4d5577d1801f4783fb9a6ec71369b2b8e74b20f4d9b51",
+      "bytes": 5961
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-25.xml",
+      "sha256": "51c18555d3d23d4646b6a33d417fb9f40509a52061653640b017eaecce981b9d",
+      "bytes": 5240
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-26.xml",
+      "sha256": "6c55b8fff04381c88d2d350e807fd86ecb455c68d308239d5d59eac63b9caf4f",
+      "bytes": 5020
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-27.xml",
+      "sha256": "f41dce4aae13b0018351ebc3746e5157bb399bef50a65438e1644e2a3c29e6ca",
+      "bytes": 11377
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-28.xml",
+      "sha256": "3751db104e6f2e6ea9531925e5945fa6c780ddb5c902a6b2fb3cb0188b53d94b",
+      "bytes": 121418
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-29.xml",
+      "sha256": "667f42b4a4af596779a66f7e41a86285ae90189fe6472f3589b81492100dbb2c",
+      "bytes": 291870
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-3.xml",
+      "sha256": "1278486e0841843447137af26ff3a987c23b98bac3cd37e8156963b05dd47ba4",
+      "bytes": 670446
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-30.xml",
+      "sha256": "947e4d7190ebd6e976cbed7eda93e28f6cf68dff035261e3f6b42da7f6b7f5a2",
+      "bytes": 22061
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-31.xml",
+      "sha256": "3fa03fdc89d5f7d131a1788a28df3b656f77045c555ead0c13a7cd93e5ea26ee",
+      "bytes": 35635
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-32.xml",
+      "sha256": "f3a1fa96cb898f5879159a51da05abc3e581d91a8e559c3d24d2856cf4ccebea",
+      "bytes": 80629
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-33.xml",
+      "sha256": "0209d89e9e37a07865adf270b0e2a2ae90bf0e981b6d48e97f2801f37ad72114",
+      "bytes": 36232
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-34.xml",
+      "sha256": "c22eb6817d97e89873dd88f6943237e7096153c29d3864b39399adf7ba166d2b",
+      "bytes": 68887
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-35.xml",
+      "sha256": "50c3bb38588e8c115475c59de856f0f6c757f03f14bfc1c0d5cbf5f8436207db",
+      "bytes": 75248
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-36.xml",
+      "sha256": "41544e8bb12e59faa4a37f55a80fdfff81f7d1095f9e087f643de46b8ab0c7b6",
+      "bytes": 28509
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-37.xml",
+      "sha256": "e45b846868669fe990080ca1fe4b5e02effd80e38bee1e094b0869864fd4403d",
+      "bytes": 47724
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-4.xml",
+      "sha256": "2f347ca2afac57f3d62ebf4be0cec557befce81286ee963da6207953acbfdcc4",
+      "bytes": 35985
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-5.xml",
+      "sha256": "080e00ca04a04337f8698b12459c4d4d6060503cba9a5d72a4009c37fff9d98b",
+      "bytes": 45922
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-6.xml",
+      "sha256": "540779ac6d843f332e9bd3f89d31fc6a5030187a88d3baf93440d06c0f69a5fd",
+      "bytes": 958
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-7.xml",
+      "sha256": "269cd33305c7f6261bdd29de8927b883c52e9e431dfb61cf1b455a1db50de1bf",
+      "bytes": 43027
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-8.xml",
+      "sha256": "2301863a33e496e12e2cf5ec259e459cdd861cf7a13cb4af9a53c2c2bad401f5",
+      "bytes": 402489
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-junit/qualification-9.xml",
+      "sha256": "52747f2e10581331d64d6962f8b7c03958e70ed1065a2d8eb2316f2622138381",
+      "bytes": 27511
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-qualification-once-result.json",
+      "sha256": "da262afcb5242418b39e7b78270a6d46682e5b27fa106d06654e2f6fcc7492c4",
+      "bytes": 8458746
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-qualification-result.json",
+      "sha256": "856c0b445a45e274d8b13255037fa765e2cf01976a682a4bcde3838aa65753d8",
+      "bytes": 42
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-qualification.log",
+      "sha256": "d6f32cd3f3964b47cc583643b74df54379683d99a5f0f082a17dece69f592528",
+      "bytes": 36221
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/final-real-core.log",
+      "sha256": "9a0a8cbfba11bc6c4ddf5bb8c8f3ce266f0239cdd124799453ce00beb29e9774",
+      "bytes": 13419
+    },
+    {
       "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/fixture-smoke.log",
       "sha256": "c3f64cbcc763f6d9afa78cd806fc488a39d234c7a02e76761cbea7dfa9a0991c",
       "bytes": 2004
@@ -46,6 +286,106 @@
       "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/gate-receipt.json",
       "sha256": "9af21b7c05d7bdbf086fac0b8c8c9e5b5d229f5faa2ba74bf15d70cb21d1f327",
       "bytes": 796
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/gnome-r1/guest/installed.json",
+      "sha256": "8d9a9e118eea3e93ec3821c04382089b5974a781990ec6ddc47c2f46a6697623",
+      "bytes": 23486
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/gnome-r1/guest/result.json",
+      "sha256": "6a11bda322f83707048775bba8cdc8f81ea777c83d799e5c3fdd899f5a5c25d2",
+      "bytes": 427
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/gnome-r1/guest/versions.tsv",
+      "sha256": "d77166d7844646e95bbe220c19a074a3b2814e0d4d03ecbb92bcccef94701b84",
+      "bytes": 81
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/gnome-r1/guest.log",
+      "sha256": "27c7fab57f4a46bb557a00acc8b5750e7952a441e3edfe58195ce2c229f7a4e7",
+      "bytes": 371
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/gnome-r1/qualification.json",
+      "sha256": "1d3ebcfbda1feaa819ce6ec2fad6621a902be17077b6c0467d616d3a429f6855",
+      "bytes": 8874
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/gnome-r1-host.log",
+      "sha256": "41b7ee357588598bb89b704c20436e3fbec3a66ae1436f120c5fa8d9b96e8761",
+      "bytes": 836
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r1-host.log",
+      "sha256": "9148fc656b3212c09028b21907816ab9d68a530f7a5ff4449c0ebad4b3e5bd27",
+      "bytes": 1959
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r2-host.log",
+      "sha256": "5cf988e765efe4ce52e4ab104fbfcc30c5439545faefa95a406fb63f07340faa",
+      "bytes": 1680
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r3-host.log",
+      "sha256": "171cd787dd3ae66fda42ed7e78e35f05dc7212734722c55c3e66ff1aa69c09be",
+      "bytes": 1541
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r4/guest/installed.json",
+      "sha256": "8d9a9e118eea3e93ec3821c04382089b5974a781990ec6ddc47c2f46a6697623",
+      "bytes": 23486
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r4/guest/versions.tsv",
+      "sha256": "61a32e9976254f80a39e78f69cceaa5ab9b24bbc7ec318ee04f859b2ac49247d",
+      "bytes": 63
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r4/guest.log",
+      "sha256": "127ceac204a2f05022eab0ff78c76f1a5fe39df74118dcf6b7cb86e3a1f65429",
+      "bytes": 1552
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r4/qualification.json",
+      "sha256": "2ca5d3768f5c27968ffbccec8e0c5300fcba51309a04b2d88ea934e51ae728d8",
+      "bytes": 8688
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r4-host.log",
+      "sha256": "6f63aa7af51caf21f6ede1237bfb0c923bffe6876fea08661a60440c3020e283",
+      "bytes": 1908
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r5/guest/installed.json",
+      "sha256": "8d9a9e118eea3e93ec3821c04382089b5974a781990ec6ddc47c2f46a6697623",
+      "bytes": 23486
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r5/guest/result.json",
+      "sha256": "87bcc153b6e9514d997af6165afa2921342b4689f98343f3f29a6232de348ae4",
+      "bytes": 1447
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r5/guest/versions.tsv",
+      "sha256": "61a32e9976254f80a39e78f69cceaa5ab9b24bbc7ec318ee04f859b2ac49247d",
+      "bytes": 63
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r5/guest.log",
+      "sha256": "798ba8ec674d360b6a5b2ddc0a5bae5c648efa042dc16cc17aa514957204aa8b",
+      "bytes": 1183
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r5/qualification.json",
+      "sha256": "36c75cec35621caa556ba59555a19806f3e4de2c1d79bb1a9648c9a0b34e3d32",
+      "bytes": 10006
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/hyprland-r5-host.log",
+      "sha256": "7e35a0b92d13d88460b82b6d437b173d125fc3335443db4b380fe3384ac313b9",
+      "bytes": 1618
     },
     {
       "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/junit/qualification-0.xml",
@@ -238,6 +578,41 @@
       "bytes": 27511
     },
     {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/kde-r1/guest/installed.json",
+      "sha256": "8d9a9e118eea3e93ec3821c04382089b5974a781990ec6ddc47c2f46a6697623",
+      "bytes": 23486
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/kde-r1/guest/result.json",
+      "sha256": "21ae4cc92ee0571b00b369d0c7301bd3712c9f8b3ff158087560ff0a68af9eb7",
+      "bytes": 479
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/kde-r1/guest/versions.tsv",
+      "sha256": "739f6ae955a9c545f4e6277167cda272d7c44907227575b380e7595c52577924",
+      "bytes": 103
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/kde-r1/guest.log",
+      "sha256": "1fb5ae15ad46ccc7a4f7a72a52a7eba0ca94456de0e1cfdf2f958776ee8c6f81",
+      "bytes": 419
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/kde-r1/qualification.json",
+      "sha256": "82a7675217401d55bafcca4f4cd4c8ebdc9e7c1f55d8b3fbe1774a821da9ca89",
+      "bytes": 8787
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/kde-r1-host.log",
+      "sha256": "09c17361cec90015f62bd8643fc8b96f6296b1acdddf8e7cc47343298e270827",
+      "bytes": 869
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/native-backend-summary.json",
+      "sha256": "c35fd02b40d721964894c0c263e4b4efc0ee88118475f164043bbd27e3c631fd",
+      "bytes": 5619
+    },
+    {
       "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/native-blocker.json",
       "sha256": "092b9ed3f859ca661b488d7c8c6ff0563fb65f6cdaf8b4069e1afb5a2de6989d",
       "bytes": 498
@@ -276,7 +651,357 @@
       "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/real-smoke.log",
       "sha256": "c3947c961868e9673e57bf548efd217fdf8c42277d511d27c21c8c9f1cf48f1f",
       "bytes": 26788
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-durable-audit.json",
+      "sha256": "ab995caab4199c6d918820b122c20b3ec89445380ab36329091a09fc52266fd1",
+      "bytes": 1748
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r1-host.log",
+      "sha256": "2338837f07096a11db89fd02e03bfbb314159d93693232abed35478822c703d3",
+      "bytes": 947
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r2/guest/installed.json",
+      "sha256": "9f0c0d28e074ddb75d03cfb13276610d6f71e1abfcb28db54940322ac31926de",
+      "bytes": 23482
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r2/guest/receiver.jsonl",
+      "sha256": "56bc590ab882700615666141778a678da8794d8f1fc2788289b81c6ddb58cd7d",
+      "bytes": 160
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r2/guest/versions.tsv",
+      "sha256": "b756183d3e0d18c2330c9fc367def6418739d1c8a3c5d87b6e304d6f1bac2b73",
+      "bytes": 88
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r2/guest.log",
+      "sha256": "94cfecf93533c7394d4eb07f6eea8b30096c34183518c5456b33c78988794b11",
+      "bytes": 1884
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r2-host.log",
+      "sha256": "cbc446d95d9bc1dc3d5ac3c4369d3abf18c395b5393fca6d00fd915f0a658092",
+      "bytes": 3314
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/cancel.json",
+      "sha256": "579938145ce43456fba3c786f440b51c15c29da36f731ced3241b86d333a358c",
+      "bytes": 1153
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/002f8f71ced84bc48a60a4277015fef8",
+      "sha256": "413a8c1246f0ff9c9e7b187f6e55650b0b8d1b72c626efc87ce513f222167532",
+      "bytes": 115148
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/09fdd225449f4280a91c7155b593c096",
+      "sha256": "c88f97f5d86ad1388da3ac3d5767a84e0247d388789d6eb38cc83ca1c9a17d5d",
+      "bytes": 114974
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/1f18df778f164b0384be5cf3dfb62bb9",
+      "sha256": "713b73f2a3885bbf7d97f8563632f522bdaa77d0538b00ffb3b0c4932b4a8230",
+      "bytes": 109470
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/33915728d24340e2859d1a653d016868",
+      "sha256": "6fec28eaa894676657999ee8996d388beb9920344997a906b0a4148558154279",
+      "bytes": 114958
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/37aa78eaa31d449faec1924bf7f8a157",
+      "sha256": "8d9215e039388ab7f341de579b67c4859b90754e37413b13db4111ce0fbc2097",
+      "bytes": 109741
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/5140bcaf98c9456ea1b047615ee0a4f4",
+      "sha256": "21411ea428e464cc57847dcb7cd3e09435dc05901acf182285bdaf93a79d3e68",
+      "bytes": 113801
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/5d06128a470a4053816375749396ec97",
+      "sha256": "713b73f2a3885bbf7d97f8563632f522bdaa77d0538b00ffb3b0c4932b4a8230",
+      "bytes": 109470
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/6514107536a4440f9a766c84a89b7245",
+      "sha256": "8d9215e039388ab7f341de579b67c4859b90754e37413b13db4111ce0fbc2097",
+      "bytes": 109741
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/735b24ac081d4af691a1bd84a02208a8",
+      "sha256": "a2fe0a3f119ee03aabe1812ca58bc7f8de0f1644c6d47ed4149101dd2a6d41a6",
+      "bytes": 115123
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/787f6c97f5e943738595ac5718fbb4a2",
+      "sha256": "fcc5dd5dc573d6242db0661d40db263d077f87bce4f1fa597d97f60e9f840bbb",
+      "bytes": 113819
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/7c6bbe301ac84dbfbe527d31d1adc02e",
+      "sha256": "21411ea428e464cc57847dcb7cd3e09435dc05901acf182285bdaf93a79d3e68",
+      "bytes": 113801
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/a86b5bccc1c04e31bc2f7f64fb2626f6",
+      "sha256": "2e229d4088e5a9dfe90fb321d7099e89e42477725203038160b89c2edaa5cd4e",
+      "bytes": 117922
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/aaf637349c914655b762050203218aa1",
+      "sha256": "fcc5dd5dc573d6242db0661d40db263d077f87bce4f1fa597d97f60e9f840bbb",
+      "bytes": 113819
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/aba6b04d532b4e4d9761c5799b99fe3b",
+      "sha256": "6fec28eaa894676657999ee8996d388beb9920344997a906b0a4148558154279",
+      "bytes": 114958
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/ae4ee251c5944a6a9e47fb4d5beb8bcf",
+      "sha256": "6fec28eaa894676657999ee8996d388beb9920344997a906b0a4148558154279",
+      "bytes": 114958
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/b3e5f20353ce44e3951a9417aa205b31",
+      "sha256": "8d9215e039388ab7f341de579b67c4859b90754e37413b13db4111ce0fbc2097",
+      "bytes": 109741
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/be00d1fd3c5f4244a0663506443ba862",
+      "sha256": "713b73f2a3885bbf7d97f8563632f522bdaa77d0538b00ffb3b0c4932b4a8230",
+      "bytes": 109470
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/c28fb09d903145fa9dc0e36b9cff5d85",
+      "sha256": "2e229d4088e5a9dfe90fb321d7099e89e42477725203038160b89c2edaa5cd4e",
+      "bytes": 117922
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/d0c39f847940465ebef77b83495fc803",
+      "sha256": "8d9215e039388ab7f341de579b67c4859b90754e37413b13db4111ce0fbc2097",
+      "bytes": 109741
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/e1243ba3713a4bde8b4eebee318e56bb",
+      "sha256": "413a8c1246f0ff9c9e7b187f6e55650b0b8d1b72c626efc87ce513f222167532",
+      "bytes": 115148
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/e4c77b2ff26642c6aa8fb2374f539cfa",
+      "sha256": "6fec28eaa894676657999ee8996d388beb9920344997a906b0a4148558154279",
+      "bytes": 114958
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/eb631c67c1b1471787217c685c977ce6",
+      "sha256": "713b73f2a3885bbf7d97f8563632f522bdaa77d0538b00ffb3b0c4932b4a8230",
+      "bytes": 109470
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/f0aac9f124c64a62a1431388b560cf9d",
+      "sha256": "fcc5dd5dc573d6242db0661d40db263d077f87bce4f1fa597d97f60e9f840bbb",
+      "bytes": 113819
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/f0c29419bb474ab59a8301f06f4c155a",
+      "sha256": "713b73f2a3885bbf7d97f8563632f522bdaa77d0538b00ffb3b0c4932b4a8230",
+      "bytes": 109470
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/f0e0fcc75e244bb49cffa19ac3f54b1e",
+      "sha256": "2e229d4088e5a9dfe90fb321d7099e89e42477725203038160b89c2edaa5cd4e",
+      "bytes": 117922
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/evidence/f19d6e88b4a34ea7a3ecb88654b61430",
+      "sha256": "713b73f2a3885bbf7d97f8563632f522bdaa77d0538b00ffb3b0c4932b4a8230",
+      "bytes": 109470
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/geometry-after.json",
+      "sha256": "d59d0a0d7f597997e49b4fb52cc1cc5cf24077502571484c46ff3c4e714e67aa",
+      "bytes": 5485
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/geometry-after.png",
+      "sha256": "713b73f2a3885bbf7d97f8563632f522bdaa77d0538b00ffb3b0c4932b4a8230",
+      "bytes": 109470
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/geometry-before.json",
+      "sha256": "6d0f09be30e447a07ed2e591b46fac9ddda85f209b7b379836c00abf6d1d2a15",
+      "bytes": 5489
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/geometry-before.png",
+      "sha256": "6fec28eaa894676657999ee8996d388beb9920344997a906b0a4148558154279",
+      "bytes": 114958
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/guardian-loss.json",
+      "sha256": "8b32184cff1e0929a8947b008c27b5a5f0cff95bd6dc5e9e7a35397a42e7c9f7",
+      "bytes": 3071
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/initial.json",
+      "sha256": "09ba30e5247404a17b3024d56f21f06524b7f4490f16ef64d637f006fd78d5cf",
+      "bytes": 5440
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/initial.png",
+      "sha256": "21411ea428e464cc57847dcb7cd3e09435dc05901acf182285bdaf93a79d3e68",
+      "bytes": 113801
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/installed.json",
+      "sha256": "9f0c0d28e074ddb75d03cfb13276610d6f71e1abfcb28db54940322ac31926de",
+      "bytes": 23482
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/key-before.json",
+      "sha256": "fa51c21ca8eee947dd534f906bb3a529c798e892a53dfb4603c2f17e2b44a78f",
+      "bytes": 5489
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/key-before.png",
+      "sha256": "413a8c1246f0ff9c9e7b187f6e55650b0b8d1b72c626efc87ce513f222167532",
+      "bytes": 115148
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/key-receipt.json",
+      "sha256": "5f857c167ae6d22b5541ebf36b21ce08054eb8a9fd2b9184db5bf22b78fe3121",
+      "bytes": 415680
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/loss-before.json",
+      "sha256": "b40f95739bf6ad48a2b0c2ad6ff40d56efe591b7d0878f81246579e4f67bf207",
+      "bytes": 5440
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/loss-before.png",
+      "sha256": "8d9215e039388ab7f341de579b67c4859b90754e37413b13db4111ce0fbc2097",
+      "bytes": 109741
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/modal-after.json",
+      "sha256": "2bcb495f979766d139d1d25611f3ceafcbd87709cf4e3fadbd33602f5670b272",
+      "bytes": 5559
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/modal-after.png",
+      "sha256": "2e229d4088e5a9dfe90fb321d7099e89e42477725203038160b89c2edaa5cd4e",
+      "bytes": 117922
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/modal-close-receipt.json",
+      "sha256": "f407eedc9f41956c6f45e9184e866ca49842c5bf14aaac1ba0d1a13ec3f91ed3",
+      "bytes": 401244
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/modal-open-receipt.json",
+      "sha256": "2bee5a913c20f226a24e4691d7aa1ff2a97396db358df145cb74d47fff3934fd",
+      "bytes": 429411
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/pause.json",
+      "sha256": "6fdb1bae984e2051474768f18f3b320b4cd01ea8e4d39d89a0045010fd6574fd",
+      "bytes": 3009
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/receiver.jsonl",
+      "sha256": "a33225560129a7a3f7106054f7f964e74866afe559caa1702f1bac16287420f3",
+      "bytes": 2210
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/replacement.json",
+      "sha256": "fb1df05416cbceeb526342b02128c6781791c454748094904a4a0a0f317b47bf",
+      "bytes": 5470
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/replacement.png",
+      "sha256": "fcc5dd5dc573d6242db0661d40db263d077f87bce4f1fa597d97f60e9f840bbb",
+      "bytes": 113819
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/result.json",
+      "sha256": "c4ecfca2ec637470240d6babfaed61a4afbd21c5c0e2120e097d8deb2a5b2de3",
+      "bytes": 9964
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/start.json",
+      "sha256": "9384ab021db67f78d437e323ecdb58a5cd3d75d7684e554b06b2786a9b3f8bb2",
+      "bytes": 3000
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/state.sqlite3",
+      "sha256": "e9de18bd1081a0df3acd739e4b81b26551c53a6b7da78ce3c7e5f800d35f44fb",
+      "bytes": 106496
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/state.sqlite3-shm",
+      "sha256": "fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb",
+      "bytes": 32768
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/state.sqlite3-wal",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/stroke-grounding.json",
+      "sha256": "d9077d3ddb49ab51f8226b15e34025d730a9de24d4d5f0daf672da3da0a2d835",
+      "bytes": 5489
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/stroke-grounding.png",
+      "sha256": "6fec28eaa894676657999ee8996d388beb9920344997a906b0a4148558154279",
+      "bytes": 114958
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/stroke-receipt.json",
+      "sha256": "9c676fbed3857af17bb0e793a82c1bd156c767be9ecb750f797977a81faf7a57",
+      "bytes": 414601
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/text-before.json",
+      "sha256": "fd90b1f78737907c4fbd6b0fafd3b61875c46dec0358a1db3529b2f37e3fe1c6",
+      "bytes": 5470
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/text-before.png",
+      "sha256": "fcc5dd5dc573d6242db0661d40db263d077f87bce4f1fa597d97f60e9f840bbb",
+      "bytes": 113819
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/text-receipt.json",
+      "sha256": "fdffc8cff3437a34980d18c9b0b1811bce664bd99c03275656fb1d6122bafff3",
+      "bytes": 415795
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest/versions.tsv",
+      "sha256": "b756183d3e0d18c2330c9fc367def6418739d1c8a3c5d87b6e304d6f1bac2b73",
+      "bytes": 88
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/guest.log",
+      "sha256": "d8ba35962e0fae1ef65f39b6999fd73e2e7031fd41ae43add3dce269354ab8ca",
+      "bytes": 5798
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3/qualification.json",
+      "sha256": "8f4d6858c0965d2c0f9f6f7af49f2cded639669ebbd3832511ed85c2f957a220",
+      "bytes": 24604
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/p35-20261007/x11-r3-host.log",
+      "sha256": "c01cb7f4cc3f658c30df9f4eb236c73a61c1c64dfd70750e2744f9f1df0298e6",
+      "bytes": 6352
     }
   ],
-  "scope": "Headless/code gates and candidate construction only; native corpus not executed"
+  "scope": "Installed same-candidate four-guest probes, X11 limited receiver/loss evidence, blocked Wayland support; separate newer-source headless gates. P3.5/D11 open."
 }

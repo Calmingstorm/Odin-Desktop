@@ -212,3 +212,21 @@ plus unexecuted required loss/restart/recovery rows, not merely lab scheduling.
 Aaron must decide/authorize missing packaged GNOME/KDE/Hyprland support and lab
 capacity remediation within the no-disk-removal rule. Correct absence is not
 fulfilment of the promised backend support. No production guards were changed.
+
+## Final main-merged code gate
+
+Fresh checkout at `af9013af9b5a1c07b8891ad3e2336aa7dbea3265`:
+app check **1054 pass**, fixture smoke pass, real-core **66 pass**, onboarding
+**6 pass**, additional Desktop **493 pass**, full classified qualification
+**38/38 groups, 19313 pass, 3 inherited skips**. Ruff/lint pass. New focused
+admission/idempotency suite **16 pass**. The final byte-drift report exposed two
+new qualification scripts needing explicit ledger records; both are now recorded,
+with corrected report `errors=[]`, byte-drift-clean/review-pending. The original
+failed report is preserved.
+
+This newer main includes later startup/doc changes. **The native candidate was
+not rebuilt or rerun on this source SHA.** Its exact earlier production/source
+and hash are recorded per probe; no identical-candidate reuse for P3.6 is claimed.
+Evidence is indexed in `phase3-native-input-artifacts.json`, including original
+failures, installed guest metadata, screenshots, receiver logs, durable store
+and both gate runs. Only lane-owned inactive fresh worktrees are cleaned up.
