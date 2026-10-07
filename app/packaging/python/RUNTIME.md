@@ -49,8 +49,8 @@ duplicate entries and writes through symlink parents are rejected.
 `python/licenses/` includes the upstream MIT notice from
 maintenance/UPSTREAM-LICENSE and 21 separately hash-pinned standalone component
 license/notice files at the release's source commit. This is an inventory, not
-a legal compatibility opinion. The Desktop product has no license declaration;
-metadata deliberately says NOASSERTION pending the owner's decision. PyMuPDF/MuPDF
+a legal compatibility opinion. The Desktop product is MIT-licensed (`LICENSE`), like
+Odin, and its metadata says MIT (Aaron, 2026-10-07). PyMuPDF/MuPDF
 is not distributed: its wheel, native libraries and license staging are excluded.
 The optional PDF extra is downloaded into user data on first use using the
 immutable `runtime/pdf.lock.json` pin; see `PDF.md`.

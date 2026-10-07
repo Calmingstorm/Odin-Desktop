@@ -42,6 +42,5 @@
     "LICENSE.tix.txt": "3ac5cdd0bef6c43ce34c6a7ced452081d9e5a0bf94082b9f9147d23ec9e214f5",
     "LICENSE.zlib.txt": "818922b2620f12801a12bf78e399644a30990e66824abd8ca8ec24d451d6f92c"
   },
-  "engine_license": "NOASSERTION",
-  "engine_license_note": "Private repository contains no LICENSE or declared project license. Owner must decide before distribution."
+  "engine_license": "MIT"
 }

@@ -10,6 +10,7 @@ here. Publication needs Aaron's separate approval. The repository stays private 
 - **Computer use:** X11 only, at parity with Odin. Wayland computer use is planned for 1.1; until then the app
   refuses it there with guidance.
 - **Packages:** x86-64 `.deb` and AppImage, unsigned, published as a GitHub release on the private repository.
+- **Licence:** MIT, the same as Odin (`LICENSE`).
 - **PDF support:** downloaded on first use, pinned by hash ([Decision F](../work/phase-3-app-v1.md#decision-f-pdf-support-downloads-automatically-on-first-use)).
 
 ## Gate

@@ -6,6 +6,7 @@
   "private": true,
   "homepage": "https://github.com/Calmingstorm/Odin-Desktop",
   "author": "Calmingstorm",
+  "license": "MIT",
   "description": "Odin Desktop: the Odin execution agent as a desktop app",
   "main": "out/main/index.js",
   "scripts": {
