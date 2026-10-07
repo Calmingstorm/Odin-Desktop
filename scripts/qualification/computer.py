@@ -34,8 +34,8 @@ CASES = {
                              "tests/test_computer_hyprland_dialog_scope_r35.py"],
     "actions": ["tests/test_computer_actions_r4.py",
                 "tests/test_computer_native_keyboard_focus_class.py"],
-    "loss_recovery": ["tests/test_computer_cleanup_r7.py",
-                      "tests/test_computer_hyprland_durable_fence_r42.py"],
+    "loss_recovery": ["tests/test_desktop_computer_binding.py",
+                      "tests/test_computer_class1_receipt_recovery.py"],
     "foreground": ["tests/test_desktop_computer_binding.py"],
     "packaged_abi": ["tests/test_computer_hyprland_packaging_r32.py",
                      "tests/test_hyprland_plugin_campaign.py"],
@@ -146,6 +146,8 @@ def run_host(args):
               "cases": proof["cases"], "blockers": proof["blockers"],
               "verdict": classify(proof["cases"], proof["blockers"]),
               "reference_corpora": {p: digest(ROOT / p) for p in CORPORA[args.backend]},
+              "guest_harness_sha256": digest(Path(__file__)),
+              "receiver_source_sha256": digest(ROOT / "scripts/qualification/native_receiver.c"),
               "headless_regressions": CASES,
               "cleanup": "guest probe owns its receiver and controller; caller must stop its VM"}
     record["artifacts"] = {str(p.relative_to(args.output)): digest(p)
@@ -160,7 +162,8 @@ def guest_guard(backend):
     # This guard is never a substitute for host-side Incus ownership validation.
     if (socket.gethostname() != GUESTS[backend] or os.getuid() == 0
             or Path("/opt/odin").exists() or not PYTHON.is_file()
-            or not Path("/dev/disk/by-id/virtio-incus_root").exists()):
+            or Path("/etc/odin-desktop-qualification").read_text().strip()
+            != "odin-desktop-qualification-v1"):
         raise ValueError("owned_vm_candidate_required")
 
 
@@ -228,13 +231,109 @@ async def guest_probe(args):
         try:
             grant = await controller.session(context, {"operation": "start"})
             (out / "start.json").write_text(json.dumps(grant, indent=2))
-            blockers.append("safe_receiver_action_corpus_pending")
             try:
-                view = await controller.observe(context, {"session_id": grant["session_id"],
-                                                         "generation": grant["generation"]})
-                (out / "capture.png").write_bytes(view["image_bytes"])
-                view.pop("image_bytes")
-                (out / "observation.json").write_text(json.dumps(view, default=str, indent=2))
+                async def observe(name):
+                    from src.computer.vision import observation_image
+                    current = store.get_session(grant["session_id"])
+                    view = await controller.observe(context, {"session_id": current.session_id,
+                                                             "generation": current.generation})
+                    obs = controller._live[current.session_id].observations[view["observation_id"]]
+                    observation_image(view["image_bytes"], obs.frame_metadata)
+                    await controller.validate_observation_delivery(
+                        context, obs.frame_metadata, obs.image_sha256)
+                    (out / (name + ".png")).write_bytes(view.pop("image_bytes"))
+                    (out / (name + ".json")).write_text(json.dumps(view, default=str, indent=2))
+                    return obs
+
+                def payload(obs, operation, **fields):
+                    return {"session_id": obs.session_id, "generation": obs.generation,
+                            "consent_generation": obs.source.consent_generation,
+                            "source_id": obs.source.source_id,
+                            "source_revision": obs.source.source_revision,
+                            "observation_id": obs.observation_id, "action_id": uuid.uuid4().hex,
+                            "operation": operation, "expect": {"type": "visual_change"}, **fields}
+
+                async def act(name, operation, **fields):
+                    obs = await observe(name + "-before")
+                    result = await controller.act(context, payload(obs, operation, **fields))
+                    (out / (name + "-receipt.json")).write_text(
+                        json.dumps(result, default=str, indent=2))
+                    if result.get("execution", {}).get("released") is not True:
+                        raise RuntimeError("unknown_release_stop_all_input")
+                    await asyncio.sleep(.15)
+                    return result
+
+                def receiver_rows():
+                    receiver_log.flush()
+                    lines = (out / "receiver.jsonl").read_text().splitlines()
+                    return [json.loads(line) for line in lines
+                            if line.startswith("{")]
+
+                def measured(name, passed, detail):
+                    cases.append({"case": name, "passed": bool(passed),
+                                  "evidence_kind": "receiver_platform", "detail": detail})
+
+                obs = await observe("initial")
+                scope = backend._scope
+                if (not scope or scope["process"]["pid"] != receiver.pid
+                        or not obs.focused or obs.modal is not None):
+                    raise RuntimeError("owned_safe_receiver_not_grounded")
+                measured("target_capture", True, {"scope": scope,
+                    "receiver_pid": receiver.pid, "capture_sha256": obs.image_sha256})
+                # Replaced delivery and generation are rejected before any native write.
+                old = payload(obs, "type", text="Stale")
+                await observe("replacement")
+                for name, request in [("stale_observation", old),
+                                      ("stale_generation", {**old, "generation": 0})]:
+                    before = receiver_rows()
+                    try:
+                        await controller.act(context, request)
+                    except Exception as error:
+                        measured(name, receiver_rows() == before, str(error))
+                    else:
+                        raise RuntimeError(name + "_accepted")
+                await act("text", "type", text="P35safe")
+                rows = receiver_rows()
+                measured("text", any(r.get("text") == "P35safe" for r in rows), rows[-8:])
+                await act("key", "key", key="BackSpace")
+                rows = receiver_rows()
+                measured("key", any(r.get("text") == "P35saf" for r in rows), rows[-8:])
+                # Every point is translated from fresh captured source geometry.
+                obs = await observe("stroke-grounding")
+                scope = backend._scope
+                x, y, width, height = scope["window_rect"]
+                origin = scope["source_origin"]
+                sx, sy = obs.width / obs.source.pixel_width, obs.height / obs.source.pixel_height
+                points = [[int((x - origin[0] + dx) * sx),
+                           int((y - origin[1] + height // 2 + dy) * sy)]
+                          for dx, dy in [(100, 0), (180, 20), (260, 0), (340, 20)]]
+                result = await controller.act(context, payload(obs, "polyline", points=points,
+                                                               duration=.6))
+                (out / "stroke-receipt.json").write_text(json.dumps(result, default=str, indent=2))
+                if result.get("execution", {}).get("released") is not True:
+                    raise RuntimeError("unknown_release_stop_all_input")
+                await asyncio.sleep(.2)
+                rows = receiver_rows()
+                measured("stroke", any(r.get("event") == "stroke" for r in rows)
+                    and any(r.get("event") == "button_up" and r.get("buttons") == 0
+                            for r in rows), rows[-12:])
+                current = store.get_session(grant["session_id"])
+                paused = await controller.session(context, {"operation": "pause",
+                    "session_id": current.session_id, "generation": current.generation})
+                (out / "pause.json").write_text(json.dumps(paused, default=str, indent=2))
+                measured("pause", receiver.poll() is None and not backend._children,
+                         {"receiver_alive": receiver.poll() is None,
+                          "worker_count": len(backend._children)})
+                current = store.get_session(grant["session_id"])
+                cancelled = await controller.session(context, {"operation": "cancel",
+                    "session_id": current.session_id, "generation": current.generation})
+                (out / "cancel.json").write_text(json.dumps(cancelled, default=str, indent=2))
+                measured("cancel", receiver.poll() is None and not backend._children,
+                         {"receiver_alive": receiver.poll() is None,
+                          "worker_count": len(backend._children)})
+                blockers.extend(["focus_geometry_modal_corpus_not_yet_measured",
+                    "native_controller_guardian_loss_and_app_core_restart_not_yet_measured",
+                    "shared_x11_abrupt_sole_guardian_loss_has_no_universal_release_guarantee"])
             except Exception as error:
                 blockers.append(str(error))
         except Exception as error:
