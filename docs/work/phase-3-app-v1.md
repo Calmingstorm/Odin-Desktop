@@ -516,7 +516,7 @@ inherited assertions with screenshots, smoke counts, renamed exclusions or exit 
 ## 6. Aaron's decisions, settled on 2026-10-05
 
 Claude reviewed the work order and Aaron approved it with the update-model change below. A to F (2026-10-05) and G
-to H (2026-10-07) are decided, not open options, and do not reopen D1 to D19. Recording approval here performs no setup, test, install or publication.
+to I (2026-10-07) are decided, not open options, and do not reopen D1 to D19. Recording approval here performs no setup, test, install or publication.
 
 ### Decision A: qualification VMs on this desktop
 
@@ -586,6 +586,25 @@ release gate, including the KDE file chooser that exposes no AT-SPI tree. Keyboa
 **Decided, 2026-10-07:** run up to two lab VMs at the same time. This replaces Decision A's one-VM limit. The host has
 62 GiB RAM and 24 threads; each lab VM uses 4 vCPU and 8 GiB. Lab work coordinates through two lock slots,
 `/run/odq-lab.lock.1` and `/run/odq-lab.lock.2`, with at most two `odq-*` VMs running.
+
+### Decision I: lean v1 release gate
+
+**Decided, 2026-10-07:** "We dont need the insane qualifications, we spend so much time trying to make it work in VM,
+which is expensive." Aaron uses Odin's X11 computer use daily, and VMs could not qualify native compositor behaviour
+(Odin's Hyprland support needed a real machine). For v1 this decision replaces the D11 VM matrix as the release gate,
+along with the native P3.5/P3.6 VM rows, the P4.4 tester walkthroughs and the P4.5 rehearsal and independent-review
+items. The [release checklist](../release/linux-v1-checklist.md) is the gate.
+
+- **Scope.** Version 1.0.0. The app is supported on Cinnamon/X11, GNOME/Wayland, KDE/Wayland and Hyprland. Computer
+  use is supported on X11 only, at parity with Odin. Wayland computer use (the GNOME Shell extension and the KDE and
+  Hyprland plugin builds) moves to 1.1; until then the app refuses it there with guidance.
+- **Gate.** CI green on the release commit; every R4/CC acceptance case points to a passing test or a recorded check;
+  no known critical or high vulnerability in shipped dependencies; one automated smoke pass of the final build on all
+  four desktops (install, first window, tray where present, Exit, logout, upgrade from 0.1.0); Aaron uses the exact
+  build on his desktop for a day, including computer use; release notes state the supported scope.
+- **Publishing.** A GitHub release on the private repository, unsigned (Decisions C and D), after Aaron's separate
+  approval. PDF support stays a first-use download (Decision F): neither Odin's installer nor this package ships
+  PyMuPDF.
 
 ## 7. Deliverables and authorization summary
 

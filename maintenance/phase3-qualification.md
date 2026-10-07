@@ -1,5 +1,9 @@
 # P3.6 D11 matrix and Phase 3 closure
 
+> **Decision I (2026-10-07):** for v1 this matrix is no longer the release gate. Its app rows become one smoke
+> pass of the final build, and the GNOME, KDE and Hyprland computer-use rows move to 1.1. See the
+> [v1 release checklist](../docs/release/linux-v1-checklist.md).
+
 **Phase 3 NOT CLOSED.** This PR adds the executable evidence runner, machine matrix,
 actual Electron security/content regressions and a precise closure inventory. It
 does not rebuild a feature to manufacture a matrix entry or waive a native gate.
