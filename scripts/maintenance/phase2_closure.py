@@ -23,8 +23,11 @@ FINAL_SUITE_STATUSES = frozenset({"restored", "retired"})
 # Phase 2 as deferrals. A deferral is final only when it names its blocker.
 NAMED_DEFERRAL_AUTHORITY = ("Aaron decision 3, 2026-10-06: remaining inherited-suite "
                             "restorations are named deferrals at Phase 2 exit")
+# A proven internal guard is final: d19.py requires its Claude review, spy proof,
+# tests and exact current targets, and any drift fails that validator, which
+# blocks the exit report as an integrity error.
 FINAL_D19_STATUSES = frozenset({"removed_by_restored_behaviour", "approved_mechanical",
-                                "approved_behavioural"})
+                                "approved_behavioural", "internal_unreachable_guard"})
 
 
 def _json(path: Path):
