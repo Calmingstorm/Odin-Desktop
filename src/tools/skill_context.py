@@ -194,7 +194,7 @@ class SkillContext:
             await self._message_callback(text)
             self._tracker.messages_sent += 1
         else:
-            raise RuntimeError("Conversation delivery is unavailable until Phase 2 wiring.")
+            self._log.warning("post_message called but no channel callback available")
 
     async def post_file(self, data: bytes, filename: str, caption: str = "") -> None:
         """Send a binary file to the conversation that invoked this skill."""
@@ -205,9 +205,7 @@ class SkillContext:
             await self._file_callback(data, filename, caption)
             self._tracker.files_sent += 1
         else:
-            raise RuntimeError(
-                "Conversation attachment delivery is unavailable until Phase 2 wiring."
-            )
+            self._log.warning("post_file called but no channel callback available")
 
     def remember(self, key: str, value: str) -> None:
         """Save a key/value pair to persistent memory.
@@ -368,9 +366,9 @@ class SkillContext:
 
     async def search_history(self, query: str, limit: int = 10) -> list[dict]:
         """Search conversation history. Returns list of {type, content, timestamp, conversation_id}."""  # noqa: E501
-        # The upstream store uses transport identities. Phase 2 must inject
-        # owner/profile-scoped history rather than expose that global store.
-        raise RuntimeError("Owner-scoped conversation history is unavailable until Phase 2 wiring.")
+        if not self._session_manager:
+            return []
+        return await self._session_manager.search_history(query, limit=limit)
 
     async def schedule_task(
         self,
@@ -379,29 +377,38 @@ class SkillContext:
         conversation_id: str,
         **kwargs: Any,
     ) -> dict | None:
-        """Add a task to an authenticated, validated conversation destination.
+        """Add a scheduled task. Returns the schedule dict, or None if scheduler unavailable.
 
-        Phase 1 has no destination authority. No caller-supplied ID is admitted
-        or forwarded to the upstream scheduler. Phase 2 must bind the owner,
-        profile and conversation before this surface can schedule delivery.
+        Keyword args are passed to Scheduler.add() — e.g. cron, run_at, trigger,
+        tool_name, tool_input, steps, message.
         """
-        raise RuntimeError("Validated conversation scheduling is unavailable until Phase 2 wiring.")
+        if not self._scheduler:
+            return None
+        if self._requester_id and "requester_id" not in kwargs:
+            kwargs["requester_id"] = self._requester_id
+        return await self._scheduler.add(description, action, conversation_id, **kwargs)
 
     def list_schedules(self) -> list[dict]:
-        """List schedules when owner/conversation intake is available."""
-        return []
+        """List all scheduled tasks."""
+        if not self._scheduler:
+            return []
+        return self._scheduler.list_all()
 
     async def update_schedule(self, schedule_id: str, **kwargs: Any) -> dict | None:
         """Update a scheduled task by ID. Returns the updated schedule, or None.
 
-        Description, timing, message, tools and conversation_id require the
-        validated destination authority, unavailable until Phase 2 wiring.
+        Keyword args are passed to Scheduler.update() — e.g. description,
+        cron, run_at, trigger, message, tool_name, tool_input, steps, conversation_id.
         """
-        raise RuntimeError("Validated conversation scheduling is unavailable until Phase 2 wiring.")
+        if not self._scheduler:
+            return None
+        return await self._scheduler.update(schedule_id, **kwargs)
 
     async def delete_schedule(self, schedule_id: str) -> bool:
         """Delete a scheduled task by ID. Returns True if deleted."""
-        raise RuntimeError("Validated conversation scheduling is unavailable until Phase 2 wiring.")
+        if not self._scheduler:
+            return False
+        return await self._scheduler.delete(schedule_id)
 
     async def execute_tool(self, tool_name: str, tool_input: dict | None = None) -> str:
         """Execute a safe built-in tool by name. Returns the tool's output string.

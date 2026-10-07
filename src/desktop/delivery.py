@@ -11,6 +11,7 @@ import asyncio
 import json
 import mimetypes
 from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -24,6 +25,8 @@ DELIVERY_SCHEMA = {
         "payload", "event_seq", "state", "created_at", "delivered_at"},
     "desktop_notifications": {"dedupe_key", "conversation_id", "request_id", "payload",
         "outcome", "created_at", "acked_at"},
+    "desktop_staged_files": {"ordinal", "conversation_id", "request_id", "generation",
+        "owner", "data", "name", "mime", "kind", "tool", "hosts"},
 }
 
 
@@ -86,6 +89,13 @@ class ArtifactPublisher:
     def __init__(self, artifacts, events):
         self.artifacts, self.events = artifacts, events
 
+    def validate_stage(self, context: RequestContext, artifact: ArtifactPost) -> None:
+        """Check producer authority now, and again on actual publication."""
+        if not self.artifacts._allowed(artifact.tool, artifact.hosts, context.owner_id):
+            from .artifacts import ResultReadError
+
+            raise ResultReadError("unauthorized", "Originating result scope is not authorized")
+
     def __call__(self, context: RequestContext, files) -> list[dict]:
         if self.artifacts.store is not self.events.store:
             raise ValueError("Artifact publication must share the event transaction")
@@ -143,6 +153,11 @@ class DurableDelivery:
                 request_id TEXT, kind TEXT NOT NULL, payload TEXT NOT NULL,
                 event_seq INTEGER NOT NULL, state TEXT NOT NULL,
                 created_at TEXT NOT NULL, delivered_at TEXT)""")
+            connection.execute("""CREATE TABLE IF NOT EXISTS desktop_staged_files (
+                ordinal INTEGER PRIMARY KEY, conversation_id TEXT NOT NULL,
+                request_id TEXT NOT NULL, generation INTEGER NOT NULL, owner TEXT NOT NULL,
+                data BLOB NOT NULL, name TEXT NOT NULL, mime TEXT NOT NULL,
+                kind TEXT NOT NULL, tool TEXT NOT NULL, hosts TEXT NOT NULL)""")
             # Capture every domain event before retention prunes it, inside its
             # originating SQLite transaction, including worker lifecycle events.
             connection.execute("""CREATE TRIGGER IF NOT EXISTS desktop_event_outbox
@@ -179,25 +194,100 @@ class DurableDelivery:
         return GuardedReply(self._context(context), text, self._seal)
 
     async def send_reply(self, message, text: str, *, guarded: GuardedReply | None = None,
-                         files=None, reference=None) -> dict | None:
+                         files=None, reference=None, consume_staged=True) -> dict | None:
         context = self._context(message)
         if (not isinstance(guarded, GuardedReply) or guarded._seal is not self._seal
                 or guarded.context != context or guarded.text != text):
             raise PermissionError("Only a guarded final reply may be committed")
-        return await self._send(context, text, "assistant", files, notify=True)
+        return await self._send(context, text, "assistant", files, notify=True,
+                                consume_staged=consume_staged)
 
     async def send(self, channel, text: str = "", *, files=None, file=None,
-                   reference=None) -> dict | None:
+                   reference=None, final=False) -> dict | None:
         """Sanctioned notices or tool artifact posts, never model response previews."""
         if file is not None:
             if files is not None:
                 raise ValueError("Specify file or files, not both")
             files = [file]
-        return await self._send(self._context(channel), text, "notice", files, notify=False)
+        return await self._send(self._context(channel), text, "notice", files,
+                                notify=False, final_notice=final)
 
     async def send_chunked(self, message, text: str, *, guarded=None) -> dict | None:
         # No Discord length constraint: keep the exact guarded transcript reply.
         return await self.send_reply(message, text, guarded=guarded)
+
+    def stage_file(self, destination, artifact: ArtifactPost) -> None:
+        """Retain producer bytes for this generation's guarded final reply.
+
+        Staging is not publication. Conversion, authorization and consumption
+        occur atomically with the final transcript commit, never on a notice.
+        """
+        context = self._context(destination)
+        if not isinstance(artifact, ArtifactPost) or type(artifact.data) is not bytes:
+            raise TypeError("Staging requires producer-owned artifact bytes")
+        if (artifact.kind not in {"image", "file", "report"}
+                or not all(type(value) is str and value
+                           for value in (artifact.name, artifact.mime, artifact.tool))):
+            raise ValueError("Expected artifact metadata")
+        if self.artifact_converter is None:
+            raise RuntimeError("Artifact publication unavailable; do not replay the tool")
+        validate = getattr(self.artifact_converter, "validate_stage", None)
+        if validate is None:
+            raise RuntimeError("Artifact staging authorization unavailable")
+        validate(context, artifact)
+        if self.store.connection.execute(
+                "SELECT 1 FROM desktop_delivery_outbox WHERE delivery_id=?",
+                (self._reply_key(context),)).fetchone() is not None:
+            raise PermissionError("The final reply for this generation is already committed")
+        with self.store.transaction() as db:
+            db.execute("""INSERT INTO desktop_staged_files
+                (conversation_id,request_id,generation,owner,data,name,mime,kind,tool,hosts)
+                VALUES (?,?,?,?,?,?,?,?,?,?)""", (
+                context.conversation_id, context.request_id, context.generation, context.owner_id,
+                artifact.data, scrub_output_secrets(artifact.name), artifact.mime, artifact.kind,
+                artifact.tool, canonical_json(deepcopy(list(artifact.hosts)))))
+
+    def _staged_files(self, context):
+        return [ArtifactPost(row["data"], row["name"], row["mime"], row["kind"], row["tool"],
+                             tuple(json.loads(row["hosts"])))
+                for row in self.store.connection.execute("""SELECT * FROM desktop_staged_files
+                    WHERE conversation_id=? AND request_id=? AND generation<=? AND owner=?
+                    ORDER BY ordinal""", (context.conversation_id, context.request_id,
+                                          context.generation, context.owner_id))]
+
+    def consume_staged(self, context):
+        """Convert and retire stages inside the caller's final transaction.
+
+        Final background notices and stored reports are producer publications,
+        not a way to bypass the guarded model-reply path. Interim notices never
+        call this seam. Exact request authority and artifact provenance remain
+        checked by the same converter used by foreground final replies.
+        """
+        if self.store._depth <= 0:
+            raise RuntimeError("Staged consumption requires the final publication transaction")
+        context = self._context(context)
+        files = self._staged_files(context)
+        artifacts = self.artifact_converter(context, files) if files else []
+        if not isinstance(artifacts, list):
+            raise TypeError("Artifact publication must return committed descriptors")
+        self.store.connection.execute("""DELETE FROM desktop_staged_files
+            WHERE conversation_id=? AND request_id=? AND generation<=? AND owner=?""",
+            (context.conversation_id, context.request_id, context.generation, context.owner_id))
+        return artifacts
+
+    async def finish_staged(self, destination):
+        """Publish explicit skill artifacts once, without unguarded model text."""
+        context = self._context(destination)
+        with self.store.transaction(), self._capture() as frames:
+            artifacts = self.consume_staged(context)
+            if not artifacts:
+                return None
+            message = self.transcript_commit(conversation_id=context.conversation_id,
+                role="notice", text="", request_id=context.request_id, artifacts=artifacts)
+            for frame in frames:
+                self._enqueue(context, frame)
+        await self.drain()
+        return message
 
     async def send_with_retry(self, message, text: str, as_reply=True, files=None,
                               *, guarded=None) -> dict | None:
@@ -205,10 +295,11 @@ class DurableDelivery:
             return await self.send_reply(message, text, guarded=guarded, files=files)
         return await self.send(message, text, files=files)
 
-    async def _send(self, context, text, role, files, *, notify):
+    async def _send(self, context, text, role, files, *, notify, consume_staged=True,
+                    final_notice=False):
         if not isinstance(text, str):
             raise ValueError("Expected reply text")
-        if not text.strip() and not files:
+        if not text.strip() and not files and role != "assistant":
             return None
         with self.store.transaction(), self._capture() as frames:
             if role == "assistant":
@@ -221,6 +312,10 @@ class DurableDelivery:
                         raise ValueError("Guarded reply identity conflict")
                     return message
             artifacts = []
+            if (role == "assistant" and consume_staged) or final_notice:
+                files = list(files or ()) + self._staged_files(context)
+            if not text.strip() and not files:
+                return None
             if files:
                 if self.artifact_converter is None:
                     raise RuntimeError("Artifact publication unavailable; do not replay the tool")
@@ -230,6 +325,11 @@ class DurableDelivery:
             message = self.transcript_commit(conversation_id=context.conversation_id,
                 role=role, text=scrub_output_secrets(text), request_id=context.request_id,
                 artifacts=artifacts)
+            if (role == "assistant" and consume_staged) or final_notice:
+                self.store.connection.execute("""DELETE FROM desktop_staged_files
+                    WHERE conversation_id=? AND request_id=? AND generation<=? AND owner=?""",
+                    (context.conversation_id, context.request_id,
+                     context.generation, context.owner_id))
             if notify:
                 self.notifications.intent(conversation_id=context.conversation_id,
                     message_id=message["id"], category="reply", preview=message["text"][:240],
@@ -253,6 +353,8 @@ class DurableDelivery:
             connection.execute("DELETE FROM desktop_delivery_outbox WHERE conversation_id=?",
                                (conversation_id,))
             connection.execute("DELETE FROM desktop_notifications WHERE conversation_id=?",
+                               (conversation_id,))
+            connection.execute("DELETE FROM desktop_staged_files WHERE conversation_id=?",
                                (conversation_id,))
 
     def _enqueue(self, context, frame):

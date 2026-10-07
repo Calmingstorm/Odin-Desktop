@@ -2,13 +2,17 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import type { ScheduleRow, WorkKind } from '../../../../shared/api'
 import WorkList from '../../components/WorkList.vue'
+import WebhookIngress from '../../components/WebhookIngress.vue'
 import { ask } from '../../dialog'
 import { ACTIONS, blankForm, buildSave, formFor, REPORT_FORMATS, WEBHOOK_METHODS, type ScheduleForm } from '../../schedule-form'
 import { analyzeLocalDateTime } from '../../schedule-time'
+import { scheduleRecovery, scheduleRunLabel } from '../../schedule-observations'
 import { state } from '../../store'
 import { management } from '../../stores/management'
+import { settings } from '../../stores/settings'
 import { unavailableText } from '../../capability'
 import { checkCron, deleteSchedule, loadHistory, loadSchedules, resetFailures, runNow, saveSchedule, schedules, setPaused } from '../../stores/schedules'
+import { loadWork } from '../../stores/work'
 
 onMounted(loadSchedules)
 
@@ -27,7 +31,8 @@ const errorField = computed(() => {
     ['Choose when', 'run_at'], ['That run time', 'run_at'], ["That time doesn't", 'run_at'],
     ['That time happens', 'occurrence'], ['Choose the tool', 'tool_name'], ['The tool input', 'tool_input'],
     ['Steps are', 'steps'], ['Enter the URL', 'webhook_url'], ['Headers are', 'webhook_headers'],
-    ['Expected statuses', 'webhook_expected'], ['Retries are', 'max_retries'], ['The wait between', 'retry_backoff_seconds']
+    ['Expected statuses', 'webhook_expected'], ['Retries are', 'max_retries'], ['The wait between', 'retry_backoff_seconds'],
+    ['Trigger must', 'trigger_source']
   ]
   return fields.find(([prefix]) => formError.value.startsWith(prefix))?.[1]
 })
@@ -130,6 +135,7 @@ async function remove(row: ScheduleRow): Promise<void> {
     <header class="panel-head">
       <h3>Schedules</h3>
       <span v-if="!schedules.unavailable" class="panel-hint">{{ counts.total }} schedule{{ counts.total === 1 ? '' : 's' }}, {{ counts.paused }} paused, {{ counts.failing }} failing.</span>
+      <button class="ghost" aria-label="Refresh schedules" @click="loadSchedules">Refresh</button>
       <button v-if="!schedules.unavailable" class="ghost" @click="startNew">New schedule</button>
     </header>
     <p v-if="schedules.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Scheduling') }}</p>
@@ -141,6 +147,7 @@ async function remove(row: ScheduleRow): Promise<void> {
           <strong class="schedule-title">{{ row.description }}</strong>
           <span class="tag">{{ ACTIONS.find((a) => a.value === row.action)?.label ?? row.action }}</span>
           <span v-if="row.inert_reason" class="state-chip failed">Inert</span>
+          <span v-else-if="row.recovery_required" class="state-chip failed">Recovery required</span>
           <span v-else-if="row.paused" class="state-chip disabled">Paused</span>
           <span v-else class="state-chip connected">Active</span>
           <span v-if="(row.consecutive_failures ?? 0) > 0" class="state-chip failed">Failing ×{{ row.consecutive_failures }}</span>
@@ -164,12 +171,15 @@ async function remove(row: ScheduleRow): Promise<void> {
           {{ row.inert_reason }}
           <button class="ghost" :aria-label="`Set a new time for schedule ${row.description}`" @click="startEdit(row)">Set a new time</button>
         </div>
+        <div v-if="scheduleRecovery(row).length" class="schedule-recovery" role="status">
+          <p v-for="line in scheduleRecovery(row)" :key="line" class="manage-desc">{{ line }}</p>
+        </div>
         <p v-if="row.last_error" class="warn">{{ row.last_error }}</p>
         <table v-if="historyOpen[row.id]" :id="`schedule-runs-${row.id}`" :aria-label="`Runs for schedule ${row.description}`" class="runs">
           <tbody>
             <tr v-for="(run, index) in schedules.history[row.id] ?? []" :key="index">
               <td>{{ at(run.timestamp) }}</td>
-              <td :class="run.status === 'success' ? 'ok' : 'bad'">{{ run.status === 'success' ? 'Succeeded' : 'Failed' }}</td>
+              <td :class="run.status === 'success' ? 'ok' : run.status === 'failure' ? 'bad' : ''">{{ scheduleRunLabel(run) }}</td>
               <td>{{ (run.duration_ms / 1000).toFixed(1) }} s</td>
               <td>{{ run.error ?? '' }}</td>
             </tr>
@@ -205,11 +215,22 @@ async function remove(row: ScheduleRow): Promise<void> {
       <div class="field-input">
         <label class="toggle-inline"><input v-model="f.timing" type="radio" value="cron" /> On a schedule</label>
         <label class="toggle-inline"><input v-model="f.timing" type="radio" value="once" /> Once</label>
-        <label v-if="editing.original?.trigger" class="toggle-inline">
-          <input v-model="f.timing" type="radio" value="trigger" /> On its trigger, as it is
+        <label class="toggle-inline">
+          <input v-model="f.timing" type="radio" value="trigger" data-testid="schedule-timing-trigger" /> On a webhook trigger
         </label>
       </div>
-      <p v-if="f.timing === 'trigger'" class="manage-desc">It runs when its trigger fires. Choose a schedule or a time to replace that.</p>
+      <template v-if="f.timing === 'trigger'">
+        <p class="manage-desc">All supplied filters must match. Save this schedule, then configure its inbound source and write-only secret below. The outgoing Webhook action calls a URL; it is not this listener.</p>
+        <label class="field-input">Trigger source
+          <select v-model="f.trigger_source" v-bind="fieldError('trigger_source')" data-testid="schedule-trigger-source">
+            <option value="">Unspecified (any matching source)</option>
+            <option value="generic">Generic</option><option value="github">GitHub</option><option value="gitea">Gitea</option>
+            <option value="gitlab">GitLab (scheduler supported; ingress unavailable)</option>
+          </select>
+        </label>
+        <label class="field-input">Trigger event <input v-model="f.trigger_event" data-testid="schedule-trigger-event" placeholder="Any event when empty" /></label>
+        <label class="field-input">Repository filter <input v-model="f.trigger_repo" data-testid="schedule-trigger-repo" placeholder="Case-insensitive substring; any when empty" /></label>
+      </template>
       <template v-if="f.timing === 'cron'">
         <label class="field-input">Cron <input v-model="f.cron" :aria-invalid="errorField === 'cron' || Boolean(schedules.cron?.error && schedules.cron.expression === f.cron) ? 'true' : undefined" :aria-describedby="errorField === 'cron' ? 'schedule-form-error' : schedules.cron?.error && schedules.cron.expression === f.cron ? 'schedule-cron-error' : undefined" placeholder="0 9 * * 1-5" spellcheck="false" /></label>
         <label class="field-input">Time zone <input v-model="f.cron_timezone" list="zones" placeholder="The core's time zone" /></label>
@@ -269,10 +290,14 @@ async function remove(row: ScheduleRow): Promise<void> {
     </template>
   </section>
 
+  <WebhookIngress v-if="!schedules.unavailable && !settings.unavailable" />
+  <section v-else class="panel" aria-label="Webhook ingress"><h3>Webhook ingress</h3><p class="capability-unavailable" role="status">Webhook ingress setup unavailable from this core.</p></section>
+
   <section class="panel" aria-label="Running work">
     <header class="panel-head">
       <h3>Running now</h3>
       <span class="panel-hint">Agents, tasks, loops, processes and workflows, with the controls Odin offers for each.</span>
+      <button class="ghost" aria-label="Refresh running work" @click="loadWork">Refresh</button>
     </header>
     <WorkList :kinds="RUNNING" empty-text="Nothing is running." />
   </section>

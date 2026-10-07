@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "step": 4,
+  "qualification_group": "phase2-step4-restored-corpus",
+  "policy": "Whole inherited suites only. Original bytes, every assertion, signature, decorator and parameter are preserved. No selections, exclusions, owner bypasses, desktop input or destructive commands. No disposition is applied here; parent owns map, ledger and qualification.",
+  "targeted_run": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_computer_native_vision_r5.py tests/test_desktop_step8_controls_corpus.py --junitxml=.test-state/step8-controls-vision.xml",
+    "isolation": "Runner env-i, isolated PID/mount namespace, throwaway .test-state HOME/XDG, display and session credentials excluded",
+    "passed": 41,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 7.48,
+    "log": ".test-state/step8-controls-vision.log",
+    "junit": ".test-state/step8-controls-vision.xml"
+  },
+  "candidates": [
+    {
+      "path": "tests/characterization/test_pipeline_persistence.py",
+      "mode": "frozen-adapter",
+      "status": "deferred",
+      "selector": null,
+      "group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "d8b3da64ab8525523883638d08c700a78fc99721ddbab9059c575406f1fea7e2",
+      "adaptations": [],
+      "blocker": "Full suite requires removed src.discord.client.OdinBot via tests.fakes.make_bot, bot.pipeline and Discord reply/file methods. TestRouting.test_guest_tier_routes_to_chat_without_tools sets is_guest=True and requires no tool-loop calls plus one chat call. Desktop PermissionManager has authenticated single-owner admission, not a guest route. ThreadInheritance requires discord.Thread parent session auto-seeding and [INHERITED FROM #general], not Desktop explicit child conversation creation. Replacing these with a synthetic bot facade would invent removed behavior; rewriting routing/inheritance assertions is forbidden.",
+      "proposed_disposition": "Keep deferred; request review of guest routing and Discord automatic thread/reply presentation. Retained Desktop persistence/cancellation exists but cannot justify partial suite restoration.",
+      "result": {"execution": "not-run; static blocker", "test_definitions": 14, "assertion_nodes": 30, "collected": null, "logs": []}
+    },
+    {
+      "path": "tests/test_bounded_process_wait.py",
+      "mode": "frozen-adapter",
+      "status": "deferred",
+      "selector": null,
+      "group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "01bf1930dba107e1881744830bbae61e6492ee76fa462828a69055746d213048",
+      "adaptations": [],
+      "blocker": "Full suite imports build/run_loop from tests.test_wait_stuck_integration; build calls removed OdinBot factory and run_loop passes FakeMessage directly to ToolLoopRunner.run. Desktop run/_prepare_chat_turn require RequestService.assert_request current task-bound sealed EngineRequest plus actual durable admission. No audited full-suite adapter currently binds that helper chain to real RequestService and preserves the final direct _judge_entry_stuck test without bypassing admission. Pure fingerprints alone do not restore the full suite.",
+      "proposed_disposition": "Keep deferred pending complete authentic RequestService fixture adaptation; retained wait judgment surface is not a retirement candidate.",
+      "result": {"execution": "not-run; static blocker", "test_definitions": 11, "assertion_nodes": 23, "collected": null, "logs": []}
+    },
+    {
+      "path": "tests/test_campaign_discord_resume.py",
+      "mode": "frozen-adapter",
+      "status": "deferred",
+      "selector": null,
+      "group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "ca2d7d323e0cd9be584fb5e34576858b0a108decfa0abd824b83cb7514996574",
+      "adaptations": [],
+      "blocker": "Harness imports the removed OdinBot factory from test_resume_admission. First test admits literal source=discord rows for alice/bob/alice and asserts the selected user_id is alice; current TurnResumeManager queries conversation rows and Desktop OwnerAuthority requires canonical UUID profile owner. Second requires executing owned older work while leaving another author's suspended work intact. A single authenticated profile cannot impersonate alice/bob or treat a legacy Discord store as current Desktop request admission.",
+      "proposed_disposition": "Keep deferred; require review of multi-requester Discord ownership selection versus single authenticated Desktop owner. Never change the literal identity/replay assertions.",
+      "result": {"execution": "not-run; static blocker", "test_definitions": 2, "assertion_nodes": 11, "collected": null, "logs": []}
+    },
+    {
+      "path": "tests/test_chat_steering_admission.py",
+      "mode": "frozen-adapter",
+      "status": "deferred",
+      "selector": null,
+      "group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "70080829a6851915ea9a781bb68da617594f381198492003061b6dcf120a329a",
+      "adaptations": [],
+      "blocker": "Import of src.discord.slash_commands.register_commands cannot resolve: retained module only exports observational formatters. Three complete slash tests require bot.tree.commands[steer], ephemeral=True Discord acknowledgements, admin identity 99 and stranger identity 8. Real Desktop control API requires current profile owner plus conversation/request/generation and returns durable command receipts, not a slash interaction. Adding register_commands in an adapter would fabricate a removed transport boundary.",
+      "proposed_disposition": "Keep deferred pending reviewed Discord slash/admin presentation disposition; retained FIFO limits/mailbox proofs cannot be selected out separately.",
+      "result": {"execution": "not-run; static blocker", "test_definitions": 7, "assertion_nodes": 59, "collected": null, "logs": []}
+    },
+    {
+      "path": "tests/test_chat_steering_notifications.py",
+      "mode": "frozen-adapter",
+      "status": "deferred",
+      "selector": null,
+      "group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "a9d047ef34ada3e52002c9812eea7dc6ad6b408c5506ddee8887bcb2b856e87a",
+      "adaptations": [],
+      "blocker": "Same removed register_commands import. Terminal-before-initial-send, expired interaction, edit failure and multiple interaction tests specifically assert edit_original_response after ephemeral slash send, with response ownership scoped to Discord interaction objects. Desktop DurableDelivery/controls publish durable steering events, not interaction edits. Last test imports shutdown_services from retained src.discord.wiring, whose lifecycle shape is not the Desktop composed owner graph. No synthetic interaction facade is admitted.",
+      "proposed_disposition": "Keep deferred; review interaction-specific presentation/lifecycle contracts separately from retained detached observer settlement.",
+      "result": {"execution": "not-run; static blocker", "test_definitions": 15, "assertion_nodes": 33, "collected": null, "logs": []}
+    },
+    {
+      "path": "tests/test_chat_steering_parity.py",
+      "mode": "frozen-adapter",
+      "status": "deferred",
+      "selector": null,
+      "group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "48cf45bcceed1be223a2cf8428af0a9eff3e57b695b1d147a3e6fe7a843233ec",
+      "adaptations": [],
+      "blocker": "Full parametrized native batch parity includes run_resumed on a runner constructed via __new__ without _assert_request and a SimpleNamespace message with author requester-1. Current run_resumed requires authentic task-bound RequestService envelope. Immutable golden generations/permissions/dispatches/inbox bindings assert literal requester-1 and channel-1/request-1. OwnerAuthority accepts only canonical UUID profile identities and RequestService issues sealed r_/c_ identities. A permit-all _assert_request or fake requester permission mapper would invalidate the requested genuine ownership proof.",
+      "proposed_disposition": "Keep deferred; request reviewed identity-label adaptation contract retaining independent no-steer golden trace/budgets. No weakened goldens or simplified runner.",
+      "result": {"execution": "not-run; static blocker", "test_definitions": 4, "assertion_nodes": 45, "collected": null, "logs": []}
+    },
+    {
+      "path": "tests/test_chat_steering_resume.py",
+      "mode": "frozen-adapter",
+      "status": "deferred",
+      "selector": null,
+      "group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "fd1316042f023dbabdd8f2d522bff522df54328bb04d984b619bbf93cb2f7f89",
+      "adaptations": [],
+      "blocker": "Real-runner tests call removed make_bot and _prepare_chat_turn on FakeMessage. _queue fixes conversation 99 and requester 12345, consumed directive literals also use 12345. Desktop authentic owner is a canonical UUID and admission is a sealed task-bound EngineRequest. Directly replacing _assert_request or changing actual owner to numeric Discord requester is not acceptable. Compression/checkpoint tests alone cannot restore full suite with no selections.",
+      "proposed_disposition": "Keep deferred pending reviewed requester-label adapter plus authentic durable request fixture; checkpoint/steering surfaces remain supported.",
+      "result": {"execution": "not-run; static blocker", "test_definitions": 9, "assertion_nodes": 53, "collected": null, "logs": []}
+    },
+    {
+      "path": "tests/test_chat_steering_runtime.py",
+      "mode": "frozen-adapter",
+      "status": "deferred",
+      "selector": null,
+      "group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "b41818cc97a50a4794cac024b953f7199369b225e863e1c9b4c34b2e32cc3f2b",
+      "adaptations": [],
+      "blocker": "prepare requires removed make_bot and directly prepares FakeMessage with runner _turn_store=None; Desktop requires genuine durable request admission. Parametrized tool-batch assertions include st.message.author.id == int(st.user_id), incompatible with canonical UUID Desktop owner. Safety-exit tests reuse old turn state through run_resumed intentionally outside durable resume admission; current method requires RequestService-owned rebound envelope. Also uses a_skill handoff name with original SkillManager stub. Authentic production ownership cannot be replaced with numeric requester or permit-all resume callback.",
+      "proposed_disposition": "Keep deferred pending reviewed numeric requester contract adaptation and real request/resume fixture; preserve every race assertion.",
+      "result": {"execution": "not-run; static blocker", "test_definitions": 11, "assertion_nodes": 93, "collected": null, "logs": []}
+    },
+    {
+      "path": "tests/test_computer_native_vision_r5.py",
+      "mode": "direct-original",
+      "status": "candidate-restored",
+      "selector": "tests/test_computer_native_vision_r5.py",
+      "group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "41fd36c3afe06c24f1221d9a809fba96efddd4f77d12878080f6a4984b6681c7",
+      "adaptations": [],
+      "blocker": null,
+      "proposed_disposition": "Restore direct-original full suite after parent qualification. No Desktop authority is needed: synthetic raster/converter/socket loopback and checkpoint data only, never desktop session or real provider acceptance.",
+      "loader": {"path": "tests/desktop_adapters/step8_controls.py", "selector": "tests/test_desktop_step8_controls_corpus.py", "mode": "frozen-adapter", "adaptations": ["Only pytest executable-name prefix controls_vision; no inherited AST edits"], "complete_export": true, "selections": null, "exclusions": [], "safeguards": ["Archive hash and retained bytes/symlink check via frozen_source", "Independent suite byte digest", "Exact complete AST and corpus identity", "Changed-byte rejection before compile", "Reader failure propagation", "Complete exported case census"]},
+      "result": {"execution": "passed", "test_definitions": 5, "assertion_nodes": 33, "collected": 19, "passed": 19, "failed": 0, "skipped": 0, "loader_inherited_passed": 19, "loader_safeguards_passed": 3, "logs": [".test-state/step8-controls-vision.log", ".test-state/step8-controls-vision.xml"]}
+    },
+    {
+      "path": "tests/test_executor_timeout_durability.py",
+      "mode": "frozen-adapter",
+      "status": "deferred",
+      "selector": null,
+      "group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "7d1ad9553f761f999f910ed7843aba30312f4cc490b22ad95d03a59245de10c2",
+      "adaptations": [],
+      "blocker": "_durability uses TurnDurability.admit on a synthetic timeout-user Discord message and asserts enabled. Current admit intentionally always returns blocked admission_error; real Desktop admission is RequestService.admit_turn validating sealed owner/task/current persisted request. _ledger_state selects literal source=discord, timeout-channel and timeout-message. Complete suite also expects dynamic unknown/future tool handler timeout with readiness policy missing. Genuine RequestService admission emits conversation source and profile owner UUID. Directly constructing legacy discord lease or overriding admit/policy to satisfy assertions is not authentic Desktop admission.",
+      "proposed_disposition": "Keep deferred pending reviewed source/query fixture adaptation through real RequestService; uncertainty and no-replay behavior remain load-bearing, not retirement candidates.",
+      "result": {"execution": "not-run; static blocker", "test_definitions": 3, "assertion_nodes": 19, "collected": null, "logs": []}
+    },
+    {
+      "path": "tests/test_resume_admission.py",
+      "mode": "frozen-adapter",
+      "status": "deferred",
+      "selector": null,
+      "group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce",
+      "adaptations": [],
+      "blocker": "Harness uses removed OdinBot and constructs TurnResumeManager without mandatory assert_preserved_request. All suspended turns are driven via FakeMessage direct runner admission. Tests mutate author/content and Discord source rows; current Desktop request source is conversation and original request is durable sealed EngineRequest. Full static audit additionally found six mention-trigger cases using _get_bot_user and Discord mention stripping (963-1045), discord.NotFound code 10008 and Forbidden code 50013 fetch contracts (260-311), pipeline resume-trigger history-compaction bypass (889-914), and lexical resume store-read failure delivery (1048-1079). Desktop control.resume names exact request/generation rather than bare-message or mention intake. Numeric author, default_tier admin and literal source=discord queries cannot substitute for current authenticated UUID OwnerContext or durable request admission.",
+      "proposed_disposition": "Keep deferred pending complete trusted RequestService-backed resume fixture and review of removed Discord author/permission contracts. No partial restoration or retirement.",
+      "result": {"execution": "not-run; static blocker", "test_definitions": 58, "static_expanded_cases": 60, "assertion_nodes": 185, "collected": null, "logs": []}
+    },
+    {
+      "path": "tests/test_stop_command.py",
+      "mode": "frozen-adapter",
+      "status": "deferred",
+      "selector": null,
+      "group": "phase2-step4-restored-corpus",
+      "inherited_sha256": "2226fc01b8a881201f7d2e842aa22ee828abfc3ed9fb4d872253154005467e46",
+      "adaptations": [],
+      "blocker": "Import of removed register_commands prevents full suite collection. Stop-specific tests require bot.tree.commands[stop], response.defer(ephemeral=True), delete_original_response and public followup.send(ephemeral=False) on settled/timeout paths. Desktop request.stop uses authenticated owner, conversation/request/generation fencing and durable receipts, not interaction deletion or ephemeral/public slash transport. Reimplementing slash commands solely inside tests is fake behavior, not a Desktop restoration.",
+      "proposed_disposition": "Keep deferred; request review of slash presentation disposition while preserving request-owned cancellation settlement tests whole.",
+      "result": {"execution": "not-run; static blocker", "test_definitions": 13, "assertion_nodes": 55, "collected": null, "logs": []}
+    }
+  ]
+}

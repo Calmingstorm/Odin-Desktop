@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "artifact": "Phase2 step8 part3 PR35 round2 exact retained-suite dispositions",
+  "review": "Claude, review of #35, round 2",
+  "previous_review": "maintenance/phase2-step8-part3-review1-adaptation-plan.json",
+  "previous_review_immutable": true,
+  "original_suites": 47,
+  "restored": 25,
+  "retired": 21,
+  "deferred": 1,
+  "restored_this_review": 4,
+  "global_population": {"total": 326, "restored": 34, "retired": 26, "deferred": 266},
+  "by_step": {
+    "2": {"total": 8, "restored": 7, "retired": 1, "deferred": 0},
+    "3": {"total": 27, "restored": 12, "retired": 15, "deferred": 0},
+    "4": {"total": 12, "restored": 6, "retired": 5, "deferred": 1}
+  },
+  "current_disposition_authority": "maintenance/phase2-suite-map.json",
+  "restored_this_review_paths": [
+    "tests/characterization/test_executor_dispatch_parity.py",
+    "tests/test_campaign_cli_coverage.py",
+    "tests/test_chat_steering_parity.py",
+    "tests/test_codex_replay_matrix.py"
+  ],
+  "retained_original_executions": {
+    "prior_retained": 387,
+    "dispatch": 19,
+    "cli": 6,
+    "parity": 5,
+    "codex": 287,
+    "total_unique": 704,
+    "codex_added_executions_separate": 2
+  },
+  "retirement_scope": {
+    "dispatch": "Two round2 foreign-caller cases and unchanged round1 guest-tier case; literal CORPUS_EXCLUSIONS association in current map.",
+    "cli": "Two literal HTTP construction cases cover exactly three original executions; six retained original executions remain.",
+    "parity": "One whole tier-denial-prose case covers fresh and run-resumed-rebind; all other values exact except approved one-to-one identity projection.",
+    "codex": "Five literal builtin labels in parameter_retirements, both chat and agent executions; real63-name catalog and read_conversation input limit10."
+  },
+  "deferred_suite": {
+    "path": "tests/test_executor_timeout_durability.py",
+    "status": "deferred",
+    "blocker": "awaiting #28 and #37",
+    "restoration_target": "step8 part6A/6B"
+  },
+  "accepted_round1_named_changes": [
+    {"path": "src/desktop/controls.py", "change": "terminal-calibration release fix", "reviewer": "Claude, review of #35, round 2"},
+    {"path": "src/desktop/requests.py", "change": "resumed generation in typed-resume results", "reviewer": "Claude, review of #35, round 2"},
+    {"path": "src/desktop/search.py", "change": "retained search filters", "reviewer": "Claude, review of #35, round 2"},
+    {"path": "src/tools/executor.py", "change": "unknown-tool executor ordering after owner/reservation/scope gates", "reviewer": "Claude, review of #35, round 2"},
+    {"path": "src/turn_state/store.py", "change": "SQLite cached_statements=0 correctness fix; copied upstream module, upstream untouched", "reviewer": "Claude, review of #35, round 2"},
+    {"path": "src/cli.py", "change": "authenticated prompt CLI", "reviewer": "Claude, review of #35, round 2"},
+    {"path": "src/desktop/local_client.py", "change": "authenticated prompt CLI local IPC reply generation", "reviewer": "Claude, review of #35, round 2"}
+  ],
+  "D2": {"disposition": "no output drop in delivery", "reviewer": "Claude, review of #35, round 2", "record_type": "report-only; no source adaptation or new approval"},
+  "new_implementation_review": "Adapter, wrapper, checker and supplemental-test implementation remains pending independent Claude review; disposition authority is not blanket implementation approval.",
+  "qualification": {
+    "full_run": "parent-owned, pending fresh checkout group-writable folder with isolated USER=odin namespace",
+    "integrated_first_attempt": "630 passed, 1 transient accounting failure while map/plan writes overlapped; preserve integrated.log/xml, no runtime or corpus failure waived",
+    "short_gates": "parent-owned final targeted rerun and short gates; ledger and collection evidence remain separate"
+  },
+  "safety": "Inherited originals, immutable archive and review1 artifacts unchanged; no live services, desktop or upstream operations."
+}

@@ -4,14 +4,16 @@ import { init, openSettings, state } from './store'
 import FirstRunBanner from './components/FirstRunBanner.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import CleanupNotice from './components/CleanupNotice.vue'
+import ChatStatus from './components/ChatStatus.vue'
 import ConversationList from './components/ConversationList.vue'
+import IconRail from './components/IconRail.vue'
 import MessageList from './components/MessageList.vue'
 import Composer from './components/Composer.vue'
 import SearchPanel from './components/SearchPanel.vue'
 import StatusBar from './components/StatusBar.vue'
 import WorkPanel from './components/WorkPanel.vue'
 import SettingsView from './views/Settings.vue'
-import { activeCount, work } from './stores/work'
+import { work } from './stores/work'
 import { dialog } from './dialog'
 
 let settingsOpener: HTMLElement | null = null
@@ -25,8 +27,9 @@ watch(() => state.view, async (view) => {
   } else {
     await nextTick()
     if (state.view !== view) return
-    // Explicit work navigation owns its history focus; generic Back/Ctrl+, restoration must not pre-empt it.
-    if (focusAtTransition instanceof HTMLElement && focusAtTransition.closest('.work-link')) return
+    // Explicit work navigation owns its history focus, and a rail button keeps the focus it has; generic Back/Ctrl+,
+    // restoration must not pre-empt either.
+    if (focusAtTransition instanceof HTMLElement && focusAtTransition.closest('.work-link, .rail')) return
     if (dialog.current) return
     if (settingsOpener?.isConnected) settingsOpener.focus()
     else document.querySelector<HTMLElement>('[aria-label="Message"]')?.focus()
@@ -54,29 +57,28 @@ onMounted(() => {
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 
 const active = computed(() => state.conversations.find((c) => c.id === state.activeId) ?? null)
+const workOpen = computed(() => state.view === 'chat' && work.open)
 </script>
 
 <template>
-  <div class="shell">
+  <div class="shell" :class="{ 'work-open': workOpen }">
     <CleanupNotice />
+    <IconRail />
     <ConversationList class="sidebar" />
     <main v-if="state.view === 'chat'" class="main">
       <header class="topbar">
         <h1>{{ active?.title ?? 'Odin' }}</h1>
-        <button class="ghost work-toggle" :aria-expanded="work.open" title="Agents, tasks, loops, processes and schedules" @click="work.open = !work.open">
-          Work<span v-if="activeCount()" class="badge">{{ activeCount() }}</span>
-        </button>
-        <button class="ghost" title="Settings (Ctrl+,)" @click="openSettings()">Settings</button>
+        <ChatStatus />
       </header>
       <FirstRunBanner v-if="!state.setupReminderHidden" dismissible />
       <SearchPanel v-if="state.search.open" />
-      <WorkPanel v-if="work.open" />
       <MessageList class="messages" />
       <div class="composer">
         <Composer />
       </div>
     </main>
     <SettingsView v-else class="main" />
+    <WorkPanel v-if="workOpen" class="work-column" />
     <StatusBar class="statusbar" />
     <ConfirmDialog />
   </div>

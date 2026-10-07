@@ -70,6 +70,7 @@ class NativeToolDispatcher:
         prompt_builder,
         channel_state,
         builtin_policy=None,
+        skill_delivery=None,
     ) -> None:
         # Handlers are stored as (OWNER KEY, ATTRIBUTE NAME) and resolved
         # against the owner object at dispatch time (RFC-002 P5). Late
@@ -92,6 +93,7 @@ class NativeToolDispatcher:
             skill_manager=skill_manager,
             tool_catalog=tool_catalog,
             prompt_builder=prompt_builder,
+            **(skill_delivery or {}),
         )
         self._handlers: dict[str, tuple[str, str, Shape]] = {}
 
@@ -217,13 +219,13 @@ def register_native_handlers(dispatcher: NativeToolDispatcher) -> None:
     d.register("parse_time", "scheduling", "_handle_parse_time", "input")
     d.register("search_history", "knowledge", "_handle_search_history", "input")
     d.register("list_tasks", "agents", "_handle_list_tasks", "scoped_input")
-    d.register("cancel_task", "agents", "_handle_cancel_task", "input")
-    d.register("stop_loop", "agents", "_handle_stop_loop", "input")
+    d.register("cancel_task", "agents", "_handle_cancel_task", "msg_input")
+    d.register("stop_loop", "agents", "_handle_stop_loop", "msg_input")
     d.register("search_knowledge", "knowledge", "_handle_search_knowledge", "input")
     d.register("delete_knowledge", "knowledge", "_handle_delete_knowledge", "input")
     d.register("search_audit", "knowledge", "_handle_search_audit", "input")
-    d.register("send_to_agent", "agents", "_handle_send_to_agent", "input")
-    d.register("kill_agent", "agents", "_handle_kill_agent", "input")
+    d.register("send_to_agent", "agents", "_handle_send_to_agent", "msg_input")
+    d.register("kill_agent", "agents", "_handle_kill_agent", "msg_input")
     d.register("get_agent_results", "agents", "_handle_get_agent_results", "scoped_input")
     d.register("wait_for_agents", "agents", "_handle_wait_for_agents", "scoped_input")
     # no-arg

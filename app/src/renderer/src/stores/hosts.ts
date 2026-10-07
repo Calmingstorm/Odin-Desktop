@@ -57,8 +57,11 @@ export function isLocal(address: string): boolean {
 
 /** Each read of the hosts, in order: an older answer never replaces a newer one. */
 let hostsRead = 0
+// A late import may populate only the enrollment context that asked for it, never a newer wizard.
+let enrollmentEpoch = 0
 
 function refuseHosts(): void {
+  enrollmentEpoch += 1
   hosts.unavailable = true
   hosts.error = ''
   management.error = ''
@@ -115,6 +118,7 @@ function blankForm(): HostForm {
 }
 
 function start(editing: boolean, form: HostForm): void {
+  enrollmentEpoch += 1
   hosts.enrollment = { editing, step: 1, form, expected: '', observed: [], token: '', tested: false, test: null, note: '', busy: false }
 }
 
@@ -141,7 +145,25 @@ export function beginEdit(row: HostRow): void {
 }
 
 export function closeEnrollment(): void {
+  enrollmentEpoch += 1
   hosts.enrollment = null
+}
+
+/** Import the already trusted known_hosts key as a candidate, not a saved or tested host. */
+export async function importLegacy(row: HostRow): Promise<boolean> {
+  if (hosts.unavailable || row.trust_mode !== 'legacy' || isLocal(row.address)) return false
+  const epoch = enrollmentEpoch
+  return hostAct(`host:${row.alias}`, () => window.odin.hostsImportLegacy({ alias: row.alias }), (candidate) => {
+    if (hosts.unavailable || epoch !== enrollmentEpoch) return 'Trusted key imported as a candidate, not saved. The newer wizard was left alone.'
+    beginEdit(row)
+    const e = hosts.enrollment!
+    Object.assign(e, {
+      step: 4, token: candidate.candidate_token, observed: candidate.fingerprints,
+      expected: candidate.fingerprints.join('\n'), tested: false, test: null,
+      note: 'Imported from the trusted known_hosts file. Test the connection, then save to pin this key.'
+    })
+    return 'Trusted key imported as a candidate. Not saved yet; test the connection before activation.'
+  })
 }
 
 /** Moves between the first steps; a scan or test moves on by itself when it passes. */

@@ -211,6 +211,7 @@ class EngineServices:
         await release(d.channel_state, "shutdown_steering")
         await release(d.loop_manager, "shutdown")
         await release(d.scheduler, "stop")
+        await release(getattr(d, "usage_rollup", None), "stop")
         mcp_service = getattr(d, "management_mcp_service", None)
         if mcp_service is not None:
             await release(mcp_service, "close")
@@ -270,12 +271,17 @@ class EngineServices:
                 await shutdown_provider_clients(d.llm_gateway)
         except Exception as error:
             failed("providers", error)
-        await release(getattr(d.runtime_context, "outbound_webhook_dispatcher", None), "close")
+        await release(getattr(d, "outbound_webhook_dispatcher",
+                              getattr(d.runtime_context, "outbound_webhook_dispatcher", None)), "close")
         try:
             await asyncio.to_thread(d.sessions.save)
         except Exception as error:
             failed("sessions_save", error)
-        await release(getattr(d.runtime_context, "knowledge_store", None), "close")
+        await release(getattr(d, "image_backend", None), "close")
+        knowledge = getattr(d, "knowledge_store", None)
+        if knowledge is None:
+            knowledge = getattr(d.runtime_context, "knowledge_store", None)
+        await release(knowledge, "close")
         await release(d.turn_store, "close")
         if failures:
             raise RuntimeError("Desktop engine cleanup did not fully complete") from failures[0]
@@ -420,10 +426,12 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     from ..discord.native_tools.media import MediaTools
     from ..discord.native_tools.scheduling import SchedulingTools
     from ..health.subsystem_guard import SubsystemGuard
+    from ..knowledge.store import KnowledgeStore
     from ..learning import ConversationReflector
     from ..learning.loop_reflection import LoopReflectionGate
     from ..llm import CodexChatClient, OllamaClient, OpenAICompatibleClient
     from ..llm.codex_auth import CodexAuthPool
+    from ..llm.context_compressor import CompressionStats
     from ..llm.cost_tracker import CostTracker
     from ..llm.model_breaker import ModelBreakerRegistry
     from ..llm.recovery import RecoveryPolicy
@@ -436,10 +444,16 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     from ..tools.time_parser import set_default_timezone
     from ..trajectories.saver import TrajectorySaver
     from ..turn_state import TurnStateStore
+    from ..usage.rollup import UsageRollup
+    from .integrations import ProfileOutboundWebhookDispatcher
 
     runtime = runtime_context or SimpleNamespace()
     get_config = (lambda: settings.config) if settings is not None else getattr(runtime, "get_config", lambda: config)
     cfg = get_config()
+    outbound = getattr(runtime, "outbound_webhook_dispatcher", None)
+    if outbound is None:
+        outbound = ProfileOutboundWebhookDispatcher(
+            get_config, secrets=settings.secrets if settings is not None else None)
     set_default_timezone(cfg.timezone)
     paths.create_private()
     state = channel_state or getattr(runtime, "channel_state", None) or ChannelStateRegistry()
@@ -451,6 +465,12 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     context = getattr(runtime, "context_loader", None) or ContextLoader(cfg.context.directory)
     context.load()
     knowledge, embedder = getattr(runtime, "knowledge_store", None), getattr(runtime, "embedder", None)
+    if knowledge is None:
+        # Management and native/model tools must share one durable store. A
+        # saved management document is not an absent request-side capability.
+        # Embeddings remain the actual injected owner, never fabricated or
+        # downloaded during profile construction; retained FTS works without it.
+        knowledge = KnowledgeStore(str(paths.data_dir / "knowledge.db"))
     sessions = session_manager or getattr(runtime, "sessions", None)
     if sessions is None:
         sessions = SessionManager(max_history=cfg.sessions.max_history,
@@ -495,8 +515,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         str(paths.data_dir / "skills"), tool_executor=executor,
         memory_path=str(paths.data_dir / "memory.json"), tool_timeouts=cfg.tools.tool_timeouts,
         allowed_urls=tuple(cfg.tools.skill_allowed_urls), config_store=skill_config_store)
-    scheduler = getattr(runtime, "scheduler", None) or Scheduler(str(paths.data_dir / "schedules.json"))
-    skills.set_services(knowledge_store=knowledge, embedder=embedder, session_manager=sessions, scheduler=scheduler)
+    scheduler = getattr(runtime, "scheduler", None) or Scheduler(
+        str(paths.data_dir / "schedules.json"), desktop_recovery=True)
     audit = getattr(runtime, "audit", None) or AuditLogger(path=str(paths.data_dir / "audit.jsonl"),
         hmac_key=cfg.audit.hmac_key, classify_failures=cfg.observability.audit_failure_classification)
     agents = getattr(runtime, "agent_manager", None) or AgentManager(
@@ -505,6 +525,18 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     trajectories = getattr(runtime, "trajectory_saver", None) or TrajectorySaver(str(paths.data_dir / "trajectories"))
     agent_trajectories = getattr(runtime, "agent_trajectory_saver", None) or AgentTrajectorySaver(
         str(paths.data_dir / "agent_trajectories"))
+    usage = getattr(runtime, "usage_rollup", None) or UsageRollup(
+        str(paths.data_dir / "usage"), trajectory_directory=str(trajectories.directory),
+        agent_trajectory_directory=str(agent_trajectories.directory), audit=audit)
+    trajectories.set_usage_observer(usage)
+    agent_trajectories.set_usage_observer(usage)
+    window_observer = getattr(runtime, "window_observer", None)
+    agents.set_calibration_observer(window_observer)
+    if window_observer is not None:
+        from ..llm.context_budget import WorkloadScope
+
+        loops.set_calibration_releaser(lambda loop_id: window_observer.release_workload(
+            WorkloadScope("loop", str(loop_id))))
     # D17: feature-off or failed-open is Odin's legacy, uncheckpointed run.
     # Keep a successfully opened owner attached: later failure must refuse
     # admission, not silently convert the runtime to legacy execution.
@@ -574,9 +606,17 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             reasoning_content_feedback_policy=pc.reasoning_content_feedback_policy,
             openrouter_routing=pc.openrouter if pc.preset == "openrouter" else None,
             model_profiles=pc.model_profiles)
-    guard = getattr(runtime, "subsystem_guard", None) or SubsystemGuard()
-    for provider in ("codex", "ollama", "compat"):
-        guard.register(f"llm_{provider}")
+    guard = getattr(runtime, "subsystem_guard", None)
+    if guard is None:
+        degradation = cfg.graceful_degradation
+        guard = SubsystemGuard(
+            degraded_threshold=degradation.degraded_threshold,
+            unavailable_threshold=degradation.unavailable_threshold,
+        )
+    for name in ("llm_codex", "llm_ollama", "llm_compat", "codex", "ssh",
+                 "knowledge", "browser"):
+        guard.register(name)
+    executor.subsystem_guard = guard
     lr = cfg.llm_recovery
     gateway_dependencies = dict(get_config=get_config,
         codex_client=codex_client, ollama_client=ollama_client, kimi_client=None,
@@ -612,6 +652,12 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     def readiness():
         ready = {name: callable(executor._resolve_handler(name))
                  for name in PHASE1_EXECUTOR_TOOL_NAMES}
+        # D17: registered native owners are capabilities too. The executor-only
+        # Phase 1 set must not silently hide the retained Phase 2 catalog.
+        from ..tools.builtin_policy import BUILTIN_TOOL_NAMES
+
+        ready.update({name: dispatcher.handles(name) for name in BUILTIN_TOOL_NAMES
+                      if name not in PHASE1_EXECUTOR_TOOL_NAMES})
         for name in ("browser_read_page", "browser_read_table", "browser_click", "browser_fill", "browser_evaluate"):
             available = getattr(browser, "available", None)
             ready[name] = (available() if callable(available)
@@ -622,9 +668,24 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         ready.update({"parse_time": True, "search_history": True, "search_audit": True,
                       "read_conversation": engine.requests is not None,
                       "generate_file": engine.requests is not None,
-                      "post_file": engine.requests is not None})
+                      "post_file": engine.requests is not None,
+                      "invoke_skill": engine.requests is not None,
+                      "export_skill": engine.requests is not None})
+        ready.update({skill["name"]: skills.has_skill(skill["name"])
+                      for skill in skills.list_skills()})
+        ready["browser_screenshot"] = ready["browser_read_page"] and engine.requests is not None
+        ready["generate_image"] = (engine.requests is not None
+                                   and image_backend.is_configured()
+                                   and get_config().openai_codex.enabled
+                                   and get_config().image.openai.enabled)
+        for name in ("spawn_agent", "send_to_agent", "list_agents", "kill_agent", "get_agent_results",
+                     "wait_for_agents", "delegate_task", "list_tasks", "cancel_task", "start_loop",
+                     "stop_loop", "list_loops", "schedule_task", "list_schedules", "update_schedule",
+                     "delete_schedule"):
+            ready[name] = getattr(engine.deps, "background_work_ready", False)
         for name in ("search_knowledge", "ingest_document", "bulk_ingest_knowledge", "list_knowledge", "delete_knowledge"):
-            ready[name] = knowledge is not None and bool(get_config().search.enabled)
+            ready[name] = (knowledge is not None and knowledge.available
+                           and bool(get_config().search.enabled))
         extra = getattr(runtime, "native_readiness", None)
         if extra is not None:
             supplied = extra() if callable(extra) else extra
@@ -648,15 +709,16 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     mcp = getattr(runtime, "mcp_manager", None)
     catalog = _ReadyCatalog(policy=policy, get_config=get_config, skill_manager=skills,
         get_mcp_definitions=mcp.get_tool_definitions if mcp else None,
-        computer_available=lambda: bool(getattr(owners.get("computer"), "enabled", False)),
-        get_email_config=lambda: executor._email_config)
+        computer_available=lambda: bool(getattr(owners.get("computer"),
+                                                "published_available", False)),
+        get_email_config=lambda: executor._email_config, get_usage_rollup=lambda: usage)
     if settings is not None:
         gateway.tool_catalog, gateway.prompt_builder = catalog, prompt
     gateway.on_provider_switch = catalog.invalidate
     if mcp is not None:
         mcp.set_on_catalog_changed(catalog.invalidate)
     recorder = TurnRecorder(get_config=get_config, trajectory_saver=trajectories,
-        reflector=reflector, outbound_webhook_dispatcher=getattr(runtime, "outbound_webhook_dispatcher", None),
+        reflector=reflector, outbound_webhook_dispatcher=outbound,
         loop_reflection_gate=LoopReflectionGate(cooldown_hours=cfg.learning.loop_reflection_cooldown_hours,
             max_per_hour=cfg.learning.loop_reflection_max_per_hour))
     completion = CompletionClassifier(get_llm_client=lambda: gateway.active_client,
@@ -684,9 +746,90 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
 
     owners.setdefault("channel_ops", ChannelOpsTools(read_visible_history=read_history))
     owners.setdefault("scheduling", SchedulingTools(scheduler=scheduler, tool_catalog=catalog))
+
+    class SkillHistory:
+        """Odin's skill history surface on the executing request's transcript."""
+
+        async def search_history(self, query, limit=10):
+            from .search import TranscriptSearch
+
+            if engine.requests is None:
+                raise PermissionError("Request admission unavailable")
+            search = TranscriptSearch(engine.requests.transcript, engine.requests.events,
+                                      current_conversation=current_conversation)
+            history = search.for_request(engine.requests.current_bound_request())
+            return await history.search_history(query, limit=limit)
+
+    class SkillSchedules:
+        """Odin's skill scheduler surface, admitted like the native schedule tools."""
+
+        @staticmethod
+        def _admitted():
+            return owners["scheduling"]._admitted_service()
+
+        async def add(self, description, action, channel_id, requester_id=None, **kwargs):
+            # The authenticated owner is the requester; payload identity is not authority.
+            service, message = self._admitted()
+            values = {"description": description, "action": action,
+                      "channel_id": channel_id, **kwargs}
+            return await service.for_request(
+                "schedules.save", {k: v for k, v in values.items() if v is not None}, message)
+
+        def list_all(self):
+            service, message = self._admitted()
+            service.assert_request(message)
+            return [s for s in scheduler.list_all() if s.get("requester_id") == message.owner_id]
+
+        async def update(self, schedule_id, **kwargs):
+            # As Scheduler.update: None leaves a field unchanged; a missing id is None.
+            service, message = self._admitted()
+            values = {k: v for k, v in kwargs.items() if v is not None}
+            if "conversation_id" in values:
+                values["channel_id"] = values.pop("conversation_id")
+            return await service.for_request(
+                "schedules.save", {"id": schedule_id, **values}, message)
+
+        async def delete(self, schedule_id):
+            service, message = self._admitted()
+            return bool(await service.for_request(
+                "schedules.delete", {"id": schedule_id}, message))
+
+    skills.set_services(knowledge_store=knowledge, embedder=embedder,
+                        session_manager=SkillHistory(), scheduler=SkillSchedules())
     owners.setdefault("knowledge", KnowledgeTools(sessions=sessions,
         get_knowledge_store=lambda: knowledge, embedder=embedder, audit=audit))
     publication_tool = ContextVar("desktop_media_publication_tool", default=None)
+
+    def assert_skill_request(message):
+        if engine.requests is None:
+            raise PermissionError("Request admission unavailable")
+        engine.requests.assert_bound_request(message)
+        row = engine.requests.binding(message.conversation_id, message.request_id,
+                                      message.generation)
+        if row is None or row["state"] not in {"running", "stop_requested"}:
+            raise PermissionError("Skill delivery requires an executing request")
+
+    def make_artifact(message, data, filename, producer):
+        from ..tools.output_authorization import accessed_hosts
+        from .delivery import ArtifactPost
+
+        engine.requests.assert_bound_request(message)
+        if not producer:
+            raise PermissionError("No admitted artifact producer")
+        mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        return ArtifactPost(data, filename, mime,
+            "image" if mime.startswith("image/") else "file", producer,
+            tuple(deepcopy(list((accessed_hosts.get() or {}).values()))))
+
+    async def send_skill_message(message, text):
+        assert_skill_request(message)
+        return await delivery.send(message, text)
+
+    async def post_skill_file(message, data, filename, caption, *, producer, mode):
+        artifact = make_artifact(message, data, filename, producer)
+        if mode == "stage":
+            return delivery.stage_file(message, artifact)
+        return await delivery.send(message.channel, caption, files=[artifact])
 
     class DesktopMediaTools(MediaTools):
         """Adapt only the copied media handler's durable-publication seam."""
@@ -695,17 +838,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             return engine.requests is not None
 
         async def _publish_attachment(self, message, data, filename, caption=""):
-            from ..tools.output_authorization import accessed_hosts
-            from .delivery import ArtifactPost
-
-            engine.requests.assert_bound_request(message)
-            tool = publication_tool.get()
-            if tool is None:
-                raise PermissionError("No admitted artifact producer")
-            mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-            artifact = ArtifactPost(data, filename, mime,
-                "image" if mime.startswith("image/") else "file", tool,
-                tuple((accessed_hosts.get() or {}).values()))
+            artifact = make_artifact(message, data, filename, publication_tool.get())
             return await delivery.send(message.channel, caption, files=[artifact])
 
         async def _handle_generate_file(self, message, inp):
@@ -722,12 +855,34 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
             finally:
                 publication_tool.reset(token)
 
+        async def _handle_generate_image(self, message, inp):
+            token = publication_tool.set("generate_image")
+            try:
+                return await super()._handle_generate_image(message, inp)
+            finally:
+                publication_tool.reset(token)
+
+        async def _handle_browser_screenshot(self, message, inp):
+            token = publication_tool.set("browser_screenshot")
+            try:
+                return await super()._handle_browser_screenshot(message, inp)
+            finally:
+                publication_tool.reset(token)
+
+    from ..tools.image import ImageBackendSelector, OpenAIImageBackend
+
+    image_backend = OpenAIImageBackend(
+        get_auth=lambda: getattr(gateway.codex_client, "auth", None), get_config=get_config)
     owners.setdefault("media", DesktopMediaTools(
-        get_config=get_config, browser_manager=browser, tool_executor=executor))
+        get_config=get_config, browser_manager=browser, tool_executor=executor,
+        image_selector=ImageBackendSelector(get_config=get_config, openai_backend=image_backend)))
     owners["transcript_history"] = TranscriptHistoryTools()
     dispatcher = _ReadyDispatcher(owners=owners, skill_manager=skills, tool_catalog=catalog,
-        prompt_builder=prompt, channel_state=state, builtin_policy=policy)
+        prompt_builder=prompt, channel_state=state, builtin_policy=policy,
+        skill_delivery={"assert_request": assert_skill_request,
+                        "send_message": send_skill_message, "post_file": post_skill_file})
     compression = getattr(runtime, "context_compressor", cc.context_compression if cc.context_compression.enabled else None)
+    compression_stats = getattr(runtime, "compression_stats", None) or CompressionStats()
     d = SimpleNamespace(get_config=get_config, paths=paths, permissions=permissions,
         sessions=sessions, tool_executor=executor, channel_state=state, turn_store=ledger,
         durability_reason=durability_reason, compatible_skipped=compatible_skipped,
@@ -735,16 +890,21 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         delivery=delivery, turn_recorder=recorder, completion_classifier=completion,
         skill_manager=skills, audit=audit, agent_manager=agents, loop_manager=loops,
         host_registry=hosts, host_access_manager=access, scheduler=scheduler, reflector=reflector,
-        context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime)
+        context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime,
+        usage_rollup=usage, trajectory_saver=trajectories,
+        agent_trajectory_saver=agent_trajectories, window_observer=window_observer,
+        knowledge_store=knowledge, image_backend=image_backend, embedder=embedder,
+        compression_stats=compression_stats, outbound_webhook_dispatcher=outbound)
+    d.native_owners = owners
     engine = EngineServices(d, None)
     runner = ToolLoopRunner(ToolLoopDeps(get_config=get_config,
         get_default_system_prompt=lambda: prompt.default_prompt, get_context_compressor=lambda: compression,
-        get_compression_stats=lambda: getattr(runtime, "compression_stats", None),
+        get_compression_stats=lambda: compression_stats,
         llm_gateway=gateway, prompt_builder=prompt, tool_catalog=catalog, channel_state=state,
         delivery=delivery, turn_recorder=recorder, completion_classifier=completion,
         native_tools=dispatcher, tool_executor=executor, permissions=permissions,
         skill_manager=skills, audit=audit, loop_manager=loops, stuck_loop_tracker_cls=StuckLoopTracker,
-        turn_store=ledger, window_observer=getattr(runtime, "window_observer", None), mcp_manager=mcp,
+        turn_store=ledger, window_observer=window_observer, mcp_manager=mcp,
         kill_agents_for_turn=agents.kill_for_turn, get_computer=lambda: owners.get("computer"),
         assert_request=engine._assert_request, request_admission=engine._admit_turn))
     engine.runner = runner
@@ -759,7 +919,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     # admitted request's durable transcript, never compacted session history.
     dispatcher._handlers["search_history"] = ("transcript_history", "search_history", "msg_input")
     d.housekeeping = Housekeeping(get_config=get_config, sessions=sessions, channel_state=state,
-        prompt_builder=prompt, agent_manager=agents, channel_logger=None, fts_index=None, turn_store=ledger)
+        prompt_builder=prompt, agent_manager=agents, channel_logger=None, fts_index=None,
+        turn_store=ledger, window_observer=window_observer)
     prompt.rebuild_default()
     if request_service is not None:
         engine.bind_requests(request_service)

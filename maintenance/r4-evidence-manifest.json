@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "scope": "Existing merged P4.2 candidate evidence only, not P4.5 final acceptance. The offline inventory verifies this manifest, not external raw bytes.",
+  "source_record": "maintenance/phase4-packaging.md",
+  "merged_pr": 36,
+  "artifacts": [
+    {
+      "id": "p42-incus-package-acceptance",
+      "path": "/home/odin/desktop-p42-evidence/final-acceptance/run.json",
+      "sha256": "73a3e4d199b1c146552b9f840df87c9359468d142941f84bb1177724ce2d0921",
+      "environment": "Disposable Incus container; actual dpkg transactions and user-managed AppImage replacement, not the workstation",
+      "limitation": "Earlier P4.2 candidates; final P4.5 source/artifact/environment equivalence not established"
+    },
+    {
+      "id": "p42-candidate-clean-exit",
+      "path": "/home/odin/desktop-p42-evidence/final-clean-exit-candidates/qualification.json",
+      "sha256": "e119907d58eb544ad3eff2a61444e447b49a3977febad73388209146b6aadd59",
+      "environment": "Extracted deb, extracted AppImage and dpkg-installed export in private Xvfb/PID namespaces",
+      "limitation": "Source/core/GUI receipt proof on earlier candidates, not D11 native session acceptance"
+    }
+  ]
+}

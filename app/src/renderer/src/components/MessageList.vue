@@ -6,6 +6,7 @@ import { chatAnnouncement, type ChatAnnouncementState } from '../chat-announceme
 import Message from './Message.vue'
 import ResumeBanner from './ResumeBanner.vue'
 import ToolActivity from './ToolActivity.vue'
+import Icon from './Icon.vue'
 
 const scroller = ref<HTMLElement | null>(null)
 const view = computed(() => (state.activeId ? state.views[state.activeId] : undefined))
@@ -21,6 +22,38 @@ const steers = computed(() =>
   running.value && state.activeId ? steersFor(state.activeId, running.value.request_id, running.value.generation) : []
 )
 const stopping = computed(() => Boolean(running.value && stopPending(running.value.request_id, running.value.generation)))
+/** A failure or stop need not produce an assistant reply. Its tool receipts must remain inspectable. */
+const terminalTools = computed(() => {
+  const v = view.value
+  if (!v) return []
+  const withReply = new Set(v.messages.filter((m) => m.role === 'assistant').map((m) => m.request_id))
+  return Object.entries(v.tools).filter(([id, entries]) =>
+    entries.length && id !== v.running?.request_id && !v.queued.some((q) => q.request_id === id) && !withReply.has(id)
+  )
+})
+/** Keep settled Stop/Steer receipts visible even when the running task card disappears. */
+const controlReceipts = computed(() => {
+  const v = view.value
+  if (!v) return []
+  const receipts = new Map(Object.values(v.controls).map((c) => [c.control_command_id, c]))
+  for (const local of state.controls.filter((c) => c.conversation_id === state.activeId)) {
+    if (!receipts.has(local.control_command_id)) receipts.set(local.control_command_id, local)
+  }
+  return [...receipts.values()].filter((c) =>
+    c.kind === 'stop' || c.request_id !== v.running?.request_id || c.generation !== v.running?.generation
+  ).slice(-20)
+})
+
+const STOP_TEXT: Record<string, string> = {
+  sending: 'sending…',
+  'awaiting-receipt': 'sent, waiting for confirmation',
+  unknown: 'outcome unknown; it will not be sent again',
+  requested: 'requested; waiting for the task to stop',
+  confirmed: 'confirmed by Odin',
+  not_running: 'not used: the task was not running',
+  stale_binding: 'not used: the request binding changed',
+  'not-delivered': 'not delivered'
+}
 const announcement = ref('')
 const historyPaging = ref(false)
 const olderUsed = ref(false)
@@ -135,9 +168,45 @@ watch(
   () => [state.highlightId, jump.value?.messageId],
   async () => {
     if (!state.highlightId) return
-    scrollRun += 1 // the search result owns the view now
+    const run = ++scrollRun // the search result owns the view now
     await nextTick()
-    if (state.highlightId) document.getElementById(`m-${state.highlightId}`)?.scrollIntoView({ block: 'center' })
+    const id = state.highlightId
+    if (!id) return
+    const target = document.getElementById(`m-${id}`)
+    const view = scroller.value
+    if (!target) return
+    const tall = (): boolean => Boolean(view && 'offsetHeight' in target && target.offsetHeight > view.clientHeight)
+    // A message taller than the view opens at its start, where reading begins; centring it would land mid-message.
+    let start = tall()
+    target.scrollIntoView({ block: start ? 'start' : 'center' })
+    if (!view || !('isConnected' in target)) return
+    // Its height settles over a few frames: one that never rendered here has only its estimated height until it is
+    // brought into view, and estimated blocks become real as they render. Keep a tall one at its start until it stays
+    // put, as the scroll to the end does, unless the view changes hands meanwhile.
+    const offset = (): number | null => typeof target.getBoundingClientRect === 'function' && typeof view.getBoundingClientRect === 'function'
+      ? target.getBoundingClientRect().top - view.getBoundingClientRect().top
+      : null
+    let steady = 0
+    for (let frame = 0; frame < 60 && steady < 3; frame++) {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
+      if (run !== scrollRun || state.highlightId !== id || !target.isConnected) return
+      if (!start) {
+        if (tall()) {
+          start = true
+          target.scrollIntoView({ block: 'start' })
+        } else if (frame >= 1) {
+          return // it fits: centring stands
+        }
+        continue
+      }
+      const at = offset()
+      if (at === null) return
+      if (Math.abs(at) <= 1) steady += 1
+      else {
+        steady = 0
+        target.scrollIntoView({ block: 'start' })
+      }
+    }
   }
 )
 
@@ -187,6 +256,7 @@ async function older(): Promise<void> {
         :key="m.id"
         :message="m"
         :conversation-id="jump.conversationId"
+        :tools="m.request_id ? view.tools[m.request_id] : undefined"
         :highlight="m.id === state.highlightId"
       />
       <p v-if="jump.hasAfter" class="jump-edge">Later messages aren't shown here.</p>
@@ -214,6 +284,7 @@ async function older(): Promise<void> {
         actions
       />
       <article v-for="p in pending" :key="p.client_submission_id" class="msg user pending">
+        <span class="avatar" aria-hidden="true"><Icon name="person" :size="18" /></span>
         <div class="meta">
           <span class="who">You</span>
           <span class="state">{{
@@ -237,6 +308,15 @@ async function older(): Promise<void> {
         </div>
       </div>
       <p v-if="outcomeLine" class="outcome">{{ outcomeLine }}</p>
+      <ul v-if="controlReceipts.length" class="steers control-receipts" aria-label="Control receipts">
+        <li v-for="c in controlReceipts" :key="c.control_command_id" class="steer">
+          <span class="steer-text">{{ c.kind === 'stop' ? 'Stop' : 'Steer' }}</span>
+          <span class="steer-state">{{ (c.kind === 'stop' ? STOP_TEXT : STEER_TEXT)[c.status] ?? c.status }}</span>
+        </li>
+      </ul>
+      <div v-for="[requestId, entries] in terminalTools" :key="requestId" class="terminal-tools">
+        <ToolActivity :entries="entries" :request-id="requestId" />
+      </div>
       <ResumeBanner v-if="state.activeId" :conversation-id="state.activeId" />
       <p v-for="(line, index) in unresolvedLines" :key="index" class="outcome unresolved">{{ line }}</p>
     </template>

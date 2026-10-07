@@ -14,6 +14,17 @@ adapter with authentic temporary ownership/workspace and exact AST replay.
 `phase2-step8-part1-validation.md` records current gate evidence and limitations.
 The historical Phase 1 gate above remains provenance, not the current total.
 
+Step 8 part 3 retains every historical and merged-main selector, then adds
+`phase2-step2-restored-corpus`, `phase2-step3-restored-corpus` and
+`phase2-step4-restored-corpus`, for **33 named groups**. Fourteen complete
+inherited suites return: six from step 2, six from step 3 and two from step 4.
+Six are unchanged originals; eight are exact frozen adapters with authentic
+temporary ownership or task-bound admission. The 33 remaining assigned suites
+retain precise blockers, not partial passing exports. Static intake safeguards
+and duplicate vision corpus execution are supplemental, not additional restored
+original cases. Final fresh-checkout execution evidence is recorded in
+`phase2-step8-part3-validation.md` and its result receipt.
+
 Historical failed runs remain visible: **116 failed, 5,824 passed, 3 skipped** in the interrupted 781.08-second run; **259 failed, 10,169 passed, 4 skipped** in the complete bounded 460.54-second run. No selection change makes these passing evidence.
 
 Original cases run directly or through frozen-source adapters whose literal `CORPUS_SELECTIONS` identifies exact original functions/classes. Each adapter must preserve assertions, decorators and parameter data and verify original bytes. Unselected cases are not implicitly covered. Genuine disposable owner/profile/model/import roots and documentation catalogue imports are permitted setup alternatives, not permissive authority shims.
@@ -35,3 +46,23 @@ The plan now includes foundation and ordinary-profile migration adapters, every
 new Desktop boundary test, and exact historical passed nodes in all49 mixed
 files. Actual-browser endpoint cases are explicitly not selected. Unmapped
 neutral cases block Phase1. No acceptance or blanket surface waiver is claimed.
+
+## Step8 part2 current qualification
+
+All30 merged groups remain. Step5 gains the ten complete inherited runtime
+corpora and their behavioral provenance/boundary tests. The old neutral guard
+subset is replaced by the complete frozen module, including actual Desktop
+construction. This explicit full-corpus replacement has no constructor exclusion.
+Current results and validation scope are recorded in
+`phase2-step8-part2-result.json` and `phase2-step8-part2-validation.md`.
+Group executions may overlap; totals are not unique inherited-case counts.
+
+## PR34 review dispositions
+
+Eight further complete frozen corpora are admitted, plus explicitly partitioned
+image/LLM/log cases that never count as whole-suite restoration. The signed audit,
+host, provider rollback, quota, agent-policy, output-fence and webhook assertions
+are bound to real Desktop owners/verdicts. Thirty groups remain. Main step2/3/4
+source and qualification additions are preserved through two-parent merges.
+`phase2-step8-part2-review1-validation.md` and the final review1 result receipt
+supersede earlier numeric totals without erasing their historical provenance.

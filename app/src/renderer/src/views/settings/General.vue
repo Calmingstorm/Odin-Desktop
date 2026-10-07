@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { NotificationChange } from '../../../../shared/api'
-import { setAutostart, state } from '../../store'
+import type { Appearance, NotificationChange } from '../../../../shared/api'
+import ReleaseNotice from '../../components/ReleaseNotice.vue'
+import { setAppearance, setAutostart, state } from '../../store'
+
+const THEMES: Array<{ value: Appearance; label: string }> = [
+  { value: 'system', label: 'System' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'light', label: 'Light' }
+]
 
 // The app's own settings, kept by the app rather than the core: startup and desktop notifications (D13).
 const notifications = computed(() => state.notifications)
@@ -20,6 +27,7 @@ function quiet(key: 'start' | 'end', event: Event): void {
 </script>
 
 <template>
+  <ReleaseNotice />
   <section class="panel app-settings" aria-label="This app">
     <header class="panel-head">
       <h3>This app</h3>
@@ -27,6 +35,13 @@ function quiet(key: 'start' | 'end', event: Event): void {
     </header>
     <p class="panel-hint">Start at login is opt-in and initially off. Closing the window keeps work running. Exit stops Odin.</p>
     <p class="panel-hint">Notification previews are on by default. Change previews or quiet hours below, or mute a conversation from its menu.</p>
+    <fieldset class="theme-choice">
+      <legend>Theme</legend>
+      <label v-for="theme in THEMES" :key="theme.value" class="theme-option">
+        <input type="radio" name="appearance" :value="theme.value" :checked="state.appearance === theme.value" @change="setAppearance(theme.value)" />
+        {{ theme.label }}
+      </label>
+    </fieldset>
     <label class="field-input toggle">
       <input data-testid="start-at-login" type="checkbox" :checked="state.autostart" @change="setAutostart(($event.target as HTMLInputElement).checked)" />
       Start Odin when you log in

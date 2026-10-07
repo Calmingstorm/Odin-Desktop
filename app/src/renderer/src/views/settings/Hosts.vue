@@ -12,6 +12,7 @@ import {
   goTo,
   hostKey,
   hosts,
+  importLegacy,
   isLocal,
   loadHosts,
   saveHostSettings,
@@ -119,6 +120,7 @@ function lastTest(host: HostRow): string {
           <span :class="['state-chip', host.targetable ? 'connected' : 'disabled']">{{ host.targetable ? 'Ready' : host.enabled ? 'Not ready' : 'Off' }}</span>
           <span v-if="host.draining" class="state-chip failed">Draining</span>
           <span class="manage-actions">
+            <button v-if="host.trust_mode === 'legacy' && !isLocal(host.address)" type="button" class="ghost" :aria-label="`Enroll trusted key for host ${host.alias}`" :disabled="management.busy[`host:${host.alias}`]" @click="importLegacy(host)">Enroll trusted key</button>
             <button class="ghost" :aria-label="`Edit host ${host.alias}`" @click="beginEdit(host)">Edit</button>
             <button class="ghost" :aria-label="`${host.enabled ? 'Turn off' : 'Turn on'} host ${host.alias}`" :disabled="management.busy[`host:${host.alias}`]" @click="setHostEnabled(host.alias, !host.enabled)">
               {{ host.enabled ? 'Turn off' : 'Turn on' }}
@@ -241,6 +243,7 @@ function lastTest(host: HostRow): string {
       </template>
 
       <template v-else-if="e.step === 4">
+        <p v-if="e.observed.length" class="manage-desc">Candidate key: <code v-for="f in e.observed" :key="f" class="fingerprint">{{ f }}</code></p>
         <p class="manage-desc">{{ isLocal(e.form.address) ? 'Odin checks the local system without SSH.' : 'Odin logs in without a password and checks the system, before the host can be used.' }}</p>
         <div class="panel-actions">
           <button class="ghost" @click="goTo(3)">Back</button>

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "scope": "PR48 review round 1 items 1-2, external raw evidence",
+  "artifacts": [
+    {"path":"/mnt/storage/odin-desktop-evidence/pr48-r1/artifact-manifest.json","sha256":"97ec82877dbe8974a2c08c1e6da66907b3221945d8038a83e3c75263978bb2a6","description":"Full external artifact manifest, 91 path/hash/size entries including historical lane qualification receipts"},
+    {"path":"/mnt/storage/odin-desktop-evidence/pr48-r1/receipts/pr48-r1-postmerge-final.xml","sha256":"d99e2900213717f759f15287a1fe4a18387f4797933f2b8c18ed149138c4d2f3","description":"Final 389-pass post-merge touched-suite receipt, zero failures/errors/skips"},
+    {"path":"/mnt/storage/odin-desktop-evidence/pr48-r1/receipts/pr48-r1-owner-pins.xml","sha256":"0df300751bab0611f62487e1a79e1818e65d62c7a14960c9478695e95e6cd96e","description":"1215-pass owner invariant suites, one existing skip; large raw receipt outside Git"},
+    {"path":"/mnt/storage/odin-desktop-evidence/pr48-r1/receipts/parity-collected.json","sha256":"5a350b911813839778004870ea3f810a8ccd1e35a8f47a48d0593346b4b3eaf2","description":"Actual PID-isolated collection of ten original parity cases and six proofs"}
+  ]
+}

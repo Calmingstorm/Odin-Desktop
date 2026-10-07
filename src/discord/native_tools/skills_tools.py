@@ -14,7 +14,7 @@ dispatch-table file. Behavior is pinned by
 - file delivery: ``"send"`` posts to the conversation now (chat), ``"stage"``
   appends to the per-conversation pending-files queue (autonomous loop)
 
-Durable invocation-owned publication and staging are Phase 2-gated. No
+Delivery is injected by the request-owning composition. No conversation-wide
 in-memory queue is treated as an artifact publication receipt.
 """
 
@@ -43,10 +43,14 @@ SKILL_CRUD_TOOLS = frozenset(
 class SkillTools:
     """Owner for every skill-flavored native tool, incl. dynamic user skills."""
 
-    def __init__(self, *, skill_manager, tool_catalog, prompt_builder) -> None:
+    def __init__(self, *, skill_manager, tool_catalog, prompt_builder,
+                 assert_request=None, send_message=None, post_file=None) -> None:
         self.skill_manager = skill_manager
         self.tool_catalog = tool_catalog
         self.prompt_builder = prompt_builder
+        self.assert_request = assert_request
+        self.send_message = send_message
+        self.post_file = post_file
 
     def _invoke_skill_missing_required(self, name: str, payload: dict) -> list[str]:
         """Return required input fields the payload omits, or [] if complete.
@@ -119,19 +123,9 @@ class SkillTools:
             if isinstance(export_result, str):
                 return export_result, effects
             file_bytes, filename = export_result
-            # Artifact preparation succeeded; durable staging has not.
-            from ...tools.result_validator import ToolResult
-
-            return (
-                ToolResult(
-                    output=(f"Skill '{tool_input['name']}' export prepared as {filename} "
-                            f"({len(file_bytes)} bytes), but not staged. {_DELIVERY_UNAVAILABLE}"),
-                    ok=False,
-                    error="conversation_delivery_unavailable",
-                    tool_name="export_skill",
-                ),
-                effects,
-            )
+            await self._skill_file_cb(message, "stage", "export_skill")(file_bytes, filename)
+            return (f"Skill '{tool_input['name']}' exported as {filename} "
+                    f"({len(file_bytes)} bytes), staged for the final reply."), effects
 
         if tool_name == "skill_status":
             return self.skill_manager.skill_status(tool_input["name"]), effects
@@ -182,7 +176,7 @@ class SkillTools:
                 target_name,
                 skill_input,
                 message_callback=self._skill_message_cb(message),
-                file_callback=self._skill_file_cb(message, skill_file_delivery),
+                file_callback=self._skill_file_cb(message, skill_file_delivery, target_name),
                 requester_id=user_id,
             )
             return result, effects
@@ -193,7 +187,7 @@ class SkillTools:
                 tool_name,
                 tool_input,
                 message_callback=self._skill_message_cb(message),
-                file_callback=self._skill_file_cb(message, skill_file_delivery),
+                file_callback=self._skill_file_cb(message, skill_file_delivery, tool_name),
                 requester_id=user_id,
             )
             return result, effects
@@ -207,20 +201,27 @@ class SkillTools:
 
     def _skill_message_cb(self, message):
         async def _skill_msg(text: str) -> None:
-            scrub_response_secrets(text)
-            raise NotImplementedError(_DELIVERY_UNAVAILABLE)
+            self._assert_delivery(message)
+            if self.send_message is None:
+                raise NotImplementedError(_DELIVERY_UNAVAILABLE)
+            await self.send_message(message, scrub_response_secrets(text))
 
         return _skill_msg
 
-    def _skill_file_cb(self, message, mode: Literal["send", "stage"]):
-        if mode == "send":
-
-            async def _skill_file_send(data: bytes, filename: str, caption: str = "") -> None:
-                raise NotImplementedError(_DELIVERY_UNAVAILABLE)
-
-            return _skill_file_send
-
-        async def _skill_file_stage(data: bytes, filename: str, caption: str = "") -> None:
+    def _assert_delivery(self, message):
+        if self.assert_request is None:
             raise NotImplementedError(_DELIVERY_UNAVAILABLE)
+        self.assert_request(message)
 
-        return _skill_file_stage
+    def _skill_file_cb(self, message, mode: Literal["send", "stage"], producer=None):
+        if mode not in ("send", "stage"):
+            raise ValueError("Unknown skill file delivery mode")
+
+        async def _skill_file(data: bytes, filename: str, caption: str = "") -> None:
+            self._assert_delivery(message)
+            if self.post_file is None or not producer:
+                raise NotImplementedError(_DELIVERY_UNAVAILABLE)
+            await self.post_file(message, data, filename, scrub_response_secrets(caption),
+                                 producer=producer, mode=mode)
+
+        return _skill_file

@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "batch": "review-provider-quota",
+  "review": "/home/odin/reviews/desktop-pr34-review.md group C",
+  "entries": [
+    {
+      "path": "tests/test_codex_quota_check.py",
+      "status": "restored",
+      "inherited_sha256": "f478b1afe910589314a8ea4ffaae91f73edfe09a27debc4455a8252efe0cf462",
+      "restoration": {
+        "mode": "frozen-adapter",
+        "selector": "tests/test_desktop_review_provider_quota.py",
+        "adapter": "tests/desktop_adapters/review_provider_quota.py",
+        "whole_suite_key": "test_codex_quota_check",
+        "corpus_selections": {"test_codex_quota_check": null},
+        "corpus_exclusions": {},
+        "assertions": 45,
+        "test_definitions": 10,
+        "classes": 4,
+        "before_ast_sha256": "43d02810109cf433f71b522945d60b4e251571d48875c67c228012a3be8cc754",
+        "after_ast_sha256": "0f99bc0e40773334d2bee69c5b3a8a8095fc66c1f45b449b5cdb8b4a07cd2143",
+        "corpus_sha256": "ae7381d9f07c8c09773df983b7c2c36c06b0f56e4bca268215f6e339cdfd9a79",
+        "guards": "Frozen archive and original byte/hash verification, entire original AST pin, exact seven owner/line/node before/after seals, full transformed AST pin, identical assertion/signature/decorator/class corpus, reverse-to-original seal, whole compile/exec/register/export. No assertion edits, test selection or omissions.",
+        "hunks": [
+          {"symbol":"<module>","line":11,"before_ast_sha256":"857505ba2c53a9770dfa4a0d044b914d0b78e72b7a5382c51d910ff526962ea6","after_ast_sha256":"77987a85df7c3e997fc738d3af9cb8b6c1b7723a4524f9d01e9a18a0c861ac48","before_source":"from src.discord.llm_gateway import LLMGateway","after_source":"from tests.desktop_adapters.review_provider_quota import desktop_gateway as LLMGateway"},
+          {"symbol":"<module>","line":13,"before_ast_sha256":"f52c2901492903e8a434a083c9abe3dc017f897d436b8476fc1908e40e5af734","after_ast_sha256":"fbc0e445433f1c2b2f88119c2253637ec89d63c7c9e4cd7637bdc372010c372a","before_source":"from src.llm.codex_auth import CodexAuth, CodexAuthPool","after_source":"from src.llm.codex_auth import CodexAuth\nfrom tests.desktop_adapters.review_provider_quota import keyring_boot_pool as CodexAuthPool"},
+          {"symbol":"test_disable_enable_check_uses_only_current_serving_pool","line":92,"before_ast_sha256":"986bebc418fffc02b0806cce70f696cf8b8993037902b8ec1b0a201991bbddf0","after_ast_sha256":"06182b515db200bb1e583bf3f753d66fb94e313b4747da15b075a82257dd2148","before_source":"config = SimpleNamespace(openai_codex=SimpleNamespace(enabled=False, credentials_path=str(path), model='gpt-6-luna', reasoning_effort='none', request_timeout_seconds=60, stream_stall_timeout_seconds=30, retry=SimpleNamespace(max_retries=1, base_delay=1, max_delay=2), connection_pool=SimpleNamespace(max_connections=2, keepalive_timeout=30)))","after_source":"config = desktop_config(path)"},
+          {"symbol":"test_disable_enable_check_uses_only_current_serving_pool","line":116,"before_ast_sha256":"3afe5b9d442d71f2af400383f1b7321f041768848cf8784e54bb05f785f6b145","after_ast_sha256":"56c4879793baf437225d8788dcfdc04a731e345cf8024f8faeeead44b19d4997","before_source":"gateway.reload_codex_inner","after_source":"gateway.reload_codex"},
+          {"symbol":"test_disable_enable_check_uses_only_current_serving_pool","line":120,"before_ast_sha256":"3afe5b9d442d71f2af400383f1b7321f041768848cf8784e54bb05f785f6b145","after_ast_sha256":"56c4879793baf437225d8788dcfdc04a731e345cf8024f8faeeead44b19d4997","before_source":"gateway.reload_codex_inner","after_source":"gateway.reload_codex"},
+          {"symbol":"test_bot_wiring_check_lookup_tracks_current_gateway_and_live_config","line":157,"before_ast_sha256":"646db53e419b41e77462bf1e80f5989b31e3cde479d1006f1c3722aa5c46c1b1","after_ast_sha256":"143f4390e716d7de2f2e680f83ab933cb13621df52635693c49821397dd1793d","before_source":"from tests.fakes import make_bot","after_source":"from tests.desktop_adapters.review_provider_quota import make_bot"},
+          {"symbol":"test_missing_identity_and_http_exception_are_display_safe","line":322,"before_ast_sha256":"f01f5fae4a95c61b1439953b0675d16587956e972adc94ca29ea35e4c31a2629","after_ast_sha256":"a6f0f5bc745d832f2319242427333d7919701a09956de4d4c471e251d49b7c1c","before_source":"monkeypatch.undo()","after_source":"reset_identity_patch(monkeypatch)"}
+        ],
+        "carrier_meanings": [
+          "File-seeded boot credentials are transported into actual ProfileSecretStore/KeyringCodexVault/KeyringCodexAuthPool. Original file byte immutability assertion remains, and teardown also checks actual keyring canonical rows unchanged.",
+          "Gateway factory returns actual ProviderOwner with actual SettingsService/Config and lazy CodexAccountsService. Boot client/pool is explicit retained setup; disable removes boot client and re-enable resolves fresh canonical serving pool, preserving untouched retired boot quota.",
+          "Bot-shaped projection aliases actual ManagementService.compose settings.config/providers/codex_quota_check. No fixture constructs the production checker or copies its get_pool closure.",
+          "Identity reset executes original monkeypatch.undo but reinstalls conftest's real throwaway account-key path. It does not stub opaque identity results. This prevents undo from escaping test isolation.",
+          "No UUID or HTTP verdict mapping is needed for this suite; HTTP401/429 observations remain actual retained quota-service failures."
+        ],
+        "parent_owned_dependency": "Parent added actual ManagementService.compose manager.codex_quota_check enabled/current-provider auth closure, start_background admission and close-before-provider cleanup. This agent changed no production paths."
+      }
+    }
+  ],
+  "changes_by_path": [
+    {"path":"tests/desktop_adapters/review_provider_quota.py","operation":"add","sha256":"49b39e016a1821924767aacd7e2ee1d3604c9096f89fd5f449ef19e529685f1a"},
+    {"path":"tests/test_desktop_review_provider_quota.py","operation":"add","sha256":"63745c41005191a53f272f3cff3b2819dba31bb87ffc4c5fa1fe3bd587ae2bd5"},
+    {"path":"tests/test_desktop_review_provider_quota_provenance.py","operation":"add","sha256":"7615c424e93e323f0e75f586f0a7d6f4f6af9a8a0b2f70b77b85d3835e3a60e5"},
+    {"path":"maintenance/step8-part2-review-provider-quota.json","operation":"add","self_hash":"not embedded"}
+  ],
+  "validation": {
+    "named_command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_review_provider_quota.py tests/test_desktop_review_provider_quota_provenance.py",
+    "isolation": "Private outer mount/PID namespace bind-mounts new odin-owned mktemp /tmp/pr34-quota-state directory over .test-state. Runner enters inner PID namespace, drops to odin, env-i HOME/XDG/PATH only. Shared .test-state and live configuration untouched.",
+    "result": "28 passed in 9.17s, exit 0, zero skips",
+    "static_association": "scripts.maintenance.phase2_suites._full_adapter True for whole inherited quota hash and entry selector; no git used",
+    "counts": {"inherited":10,"independent_behavior":4,"provenance":14},
+    "lint": "ruff check all three owned Python modules passed",
+    "earlier_runs": "11 independent checks passed before production seam; first full run had 26 passes, inherited identity-reset isolation failure and fake transport teardown error. Both fixed by exact isolation hunk and resource cleanup, then 28/28 final.",
+    "full_qualification": "Not run",
+    "live_services_or_active_desktop": "Not touched",
+    "git_operations": "None"
+  },
+  "limitations": "This selection verifies composed get_pool ownership and retained checker behavior. Parent lifecycle tests must verify real CoreService background admission/close; no live service, actual network, full qualification, keyring-daemon integration or production pool-refresh mutation exercised. Independent disabled/re-enabled canonical pool test confirms normal account owner shares its pool; boot-generation inherited setup remains a distinct explicit boot pool."
+}

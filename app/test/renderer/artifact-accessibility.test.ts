@@ -8,14 +8,15 @@ vi.mock('../../src/renderer/src/markdown', () => ({ renderMarkdown: (text: strin
 
 const artifact: ArtifactRef = { ref: 'stored-report', name: 'Disk audit.md', mime: 'text/markdown', size: 200, kind: 'report', available: true }
 let mounted: Mounted
-let api: { reportPage: ReturnType<typeof vi.fn>; copyText: ReturnType<typeof vi.fn>; saveArtifact: ReturnType<typeof vi.fn> }
+let api: { reportPage: ReturnType<typeof vi.fn>; copyText: ReturnType<typeof vi.fn>; saveArtifact: ReturnType<typeof vi.fn>; schedulesRun: ReturnType<typeof vi.fn> }
 const page = (n: number): Result<ReportPage> => ({ ok: true, result: { page: n, pages: 3, text: `Stored page ${n}` } })
 
 beforeEach(() => {
   api = {
     reportPage: vi.fn().mockResolvedValue(page(1)),
     copyText: vi.fn().mockResolvedValue({ ok: true, result: { copied: true } }),
-    saveArtifact: vi.fn().mockResolvedValue({ ok: true, result: { saved: true } })
+    saveArtifact: vi.fn().mockResolvedValue({ ok: true, result: { saved: true } }),
+    schedulesRun: vi.fn()
   }
   vi.stubGlobal('window', { odin: api })
 })
@@ -95,6 +96,22 @@ describe('artifact keyboard controls and live status', () => {
     expect(mounted.root.textContent()).toContain('Copied page 1 of Disk audit.md.')
     expect(api.saveArtifact).not.toHaveBeenCalled()
     expect(api.reportPage).toHaveBeenCalledTimes(1)
+  })
+
+  it('pages through stored report bridge content and copies that page without rerunning its check', async () => {
+    mounted = mount(ReportViewer, { artifact })
+    await flush()
+    api.reportPage.mockResolvedValueOnce({ ok: true, result: { page: 2, pages: 3, text: 'Stored result, page 2 of 3.' } })
+    await mounted.root.button('Next').fire('click')
+    await flush()
+    expect(api.reportPage).toHaveBeenLastCalledWith({ report_id: 'stored-report', page: 2 })
+    expect(mounted.root.textContent()).toContain('Page 2 of 3')
+    await mounted.root.button('Copy page').fire('click')
+    await flush()
+    expect(api.copyText).toHaveBeenCalledWith('Stored result, page 2 of 3.')
+    expect(api.reportPage).toHaveBeenCalledTimes(2)
+    expect(api.saveArtifact).not.toHaveBeenCalled()
+    expect(api.schedulesRun).not.toHaveBeenCalled()
   })
 
   it('keeps unavailable controls named but never dispatches them', async () => {

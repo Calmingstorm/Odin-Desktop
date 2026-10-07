@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "scope": "PR48 accepted round 2 main integration, local subset gates only",
+  "artifacts": [
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/pr48-r2/ledger-union.log",
+      "sha256": "3f8e7e36a7fff3d1ac664e0a414d689c4fe72971dd74272e39cc5367a8a88197",
+      "size_bytes": 708,
+      "description": "Both-side path/contract union checks and six inventory.py record receipts"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/pr48-r2/drift.json",
+      "sha256": "8f25fe4251d7b74351644e83809bf8f62cbf1d0e337e7f96172c0ebb4b22c0cd",
+      "size_bytes": 87591,
+      "description": "Zero-error offline byte-drift report, 384 ledgered records"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/pr48-r2/postmerge.xml",
+      "sha256": "ef486ca1cba4aea71c674b104d5c1bd50c3f252d5db5dcb8aea7233207d1d149",
+      "size_bytes": 38614,
+      "description": "PID-isolated post-merge subset receipt: 268 passed, zero failures/errors/skips"
+    },
+    {
+      "path": "/mnt/storage/odin-desktop-evidence/pr48-r2/maintenance.xml",
+      "sha256": "68fde533f78c6fa001ffde968f9b13592b3119e74715afa6f059bb737a5cc8e9",
+      "size_bytes": 3987,
+      "description": "PID-isolated maintenance receipt: 26 passed, zero failures/errors/skips"
+    }
+  ]
+}

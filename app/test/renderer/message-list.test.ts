@@ -8,7 +8,11 @@ vi.mock('../../src/renderer/src/components/Message.vue', async () => {
   return { default: { props: ['message'], render: (self: { message: Message }) => h('article', self.message.text) } }
 })
 vi.mock('../../src/renderer/src/components/ResumeBanner.vue', () => ({ default: { render: () => null } }))
-vi.mock('../../src/renderer/src/components/ToolActivity.vue', () => ({ default: { render: () => null } }))
+vi.mock('../../src/renderer/src/components/ToolActivity.vue', async () => {
+  const { h } = await import('vue')
+  return { default: { props: ['entries', 'requestId'], render: (self: { entries: unknown[]; requestId: string }) =>
+    h('aside', { 'data-request': self.requestId }, `${self.entries.length} receipts`) } }
+})
 
 type Store = typeof import('../../src/renderer/src/store')
 
@@ -103,6 +107,28 @@ async function searchHit(conversationId: string): Promise<void> {
 }
 
 describe('scrolling to the latest messages', () => {
+  it('keeps confirmed Stop and consumed Steer receipts after their run ends', async () => {
+    const view = store.state.views.c1!
+    view.controls.stop = { control_command_id: 'stop', kind: 'stop', request_id: 'ended', generation: 1, status: 'confirmed' }
+    view.controls.steer = { control_command_id: 'steer', kind: 'steer', request_id: 'ended', generation: 1, status: 'consumed' }
+    await flush()
+    expect(mounted.root.textContent()).toContain('confirmed by Odin')
+    expect(mounted.root.textContent()).toContain('Odin has read it')
+  })
+  it('keeps tool receipts after failure without inventing an assistant reply', async () => {
+    const view = store.state.views.c1!
+    view.running = { request_id: 'failed-task', generation: 1, started_at: '2026-10-05T00:00:00Z' }
+    view.tools['failed-task'] = [{ invocation_id: 'actual-call', tool: 'run_command', summary: 'run_command', outcome: 'failure' }]
+    await flush()
+    expect(mounted.root.findAll((h) => h.tag === 'aside' && h.props['data-request'] === 'failed-task')).toHaveLength(1)
+    store.applyEvent({ seq: 2, cursor: '2', type: 'request.failed', entity: { kind: 'request', id: 'failed-task' },
+      at: '2026-10-05T00:00:00Z', payload: { conversation_id: 'c1', request_id: 'failed-task', generation: 1, unknown_effects: 0 } })
+    await flush()
+    expect(mounted.root.findAll((h) => h.tag === 'aside' && h.props['data-request'] === 'failed-task')).toHaveLength(1)
+    expect(view.messages.some((m) => m.request_id === 'failed-task' && m.role === 'assistant')).toBe(false)
+    expect(mounted.root.textContent()).toContain('The task failed.')
+    await settle()
+  })
   it('follows the end while it moves, and stops once it holds still', async () => {
     await settle()
     await store.openLatest('c1')
@@ -219,5 +245,72 @@ describe('accessibility: stable, quiet history', () => {
     store.state.views.c1!.messages.push({ ...message('committed'), text: 'COMMITTED-REPLY' })
     await flush()
     expect(status.textContent()).not.toContain('COMMITTED-REPLY')
+  })
+})
+
+describe('a jumped-to message taller than the view', () => {
+  it('opens at its start, where reading begins; a shorter one stays centred', async () => {
+    await settle()
+    const doc = (globalThis as unknown as { document: { getElementById: unknown } }).document
+    const original = doc.getElementById
+    const placements: unknown[] = []
+    try {
+      for (const offsetHeight of [2000, 120]) {
+        doc.getElementById = () => ({ offsetHeight, scrollIntoView: (options: unknown) => placements.push(options) })
+        store.state.highlightId = null
+        await flush()
+        await searchHit('c1')
+        await settle()
+      }
+    } finally {
+      doc.getElementById = original
+    }
+    // The view is 500 px high: 2,000 px opens at the start, 120 px is centred.
+    expect(placements).toEqual([{ block: 'start' }, { block: 'center' }])
+  })
+})
+
+describe('a jumped-to message that has never rendered here (review #87)', () => {
+  /** A target known only by its 120 px estimate until it renders at 3,000 px. */
+  function unrendered(placements: unknown[]) {
+    const target = { isConnected: true, height: 120, get offsetHeight() { return this.height },
+      scrollIntoView: (options: unknown) => placements.push(options) }
+    return target
+  }
+
+  it('moves to its start once it renders taller than the view', async () => {
+    await settle()
+    const doc = (globalThis as unknown as { document: { getElementById: unknown } }).document
+    const original = doc.getElementById
+    const placements: unknown[] = []
+    const target = unrendered(placements)
+    try {
+      doc.getElementById = () => target
+      await searchHit('c1')
+      expect(placements).toEqual([{ block: 'center' }]) // only the estimate is known yet
+      target.height = 3000 // brought into view, it renders at its real size
+      await settle()
+    } finally {
+      doc.getElementById = original
+    }
+    expect(placements).toEqual([{ block: 'center' }, { block: 'start' }])
+  })
+
+  it('leaves the view alone when the reader scrolled before it rendered', async () => {
+    await settle()
+    const doc = (globalThis as unknown as { document: { getElementById: unknown } }).document
+    const original = doc.getElementById
+    const placements: unknown[] = []
+    const target = unrendered(placements)
+    try {
+      doc.getElementById = () => target
+      await searchHit('c1')
+      scroller.fire('pointerdown') // the reader took the view
+      target.height = 3000
+      await settle()
+    } finally {
+      doc.getElementById = original
+    }
+    expect(placements).toEqual([{ block: 'center' }])
   })
 })

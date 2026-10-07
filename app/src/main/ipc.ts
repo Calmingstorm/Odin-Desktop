@@ -9,6 +9,7 @@ import {
   SETTINGS_SHAPED,
   type SettingsShapedMethod,
   type AppState,
+  type Appearance,
   type NotificationChange,
   type Result,
   type Settings,
@@ -19,9 +20,11 @@ import type { AttachmentManager } from './attachments'
 import type { ArtifactStore } from './artifacts'
 import type { Broker, Settled } from './broker'
 import type { DraftStore } from './drafts'
+import type { ReleaseNoticeService } from './release-notice'
 import {
   acknowledgeCleanupSchema,
   artifactActionSchema,
+  releaseNoticeSchema,
   toolDetailSchema,
   toolOutputSchema,
   workControlSchema,
@@ -29,6 +32,7 @@ import {
   copyTextSchema,
   fetchArtifactSchema,
   firstRunStatusSchema,
+  webhookIngressStatusSchema,
   reportPageSchema,
   attachBytesSchema,
   attachPathsSchema,
@@ -47,6 +51,7 @@ import {
   searchSchema,
   updateConversationSchema,
   parseRequest,
+  setAppearanceSchema,
   setAutostartSchema,
   setMutedSchema,
   MANAGEMENT_SCHEMAS,
@@ -69,6 +74,7 @@ import { DeviceLoginBoundary } from './device-login'
 import { isSameFrame, isTrustedSender, type FrameIdentity } from './security-policy'
 
 export interface IpcDeps {
+  releases: ReleaseNoticeService
   broker: Broker
   /** Exit quiesces local app writes as well as core requests before persistence. */
   admitting?: () => boolean
@@ -88,6 +94,8 @@ export interface IpcDeps {
   getSettings: () => Settings
   setAutostart: (enabled: boolean) => Settings
   setNotifications: (change: NotificationChange) => Settings
+  /** Applies the theme to the window and saves it with the other app preferences. */
+  setAppearance: (appearance: Appearance) => Settings
   setConversationMuted: (conversationId: string, muted: boolean) => Settings
   appState: () => AppState
   /** Archives only this notice token; resource quarantine and reconciliation remain unchanged. */
@@ -140,11 +148,21 @@ export function registerIpc(deps: IpcDeps): void {
     if (!answer.ok) return answer
     const raw = answer.result as Record<string, unknown> | null
     if (!raw || typeof raw !== 'object') return { ok: false, error: { code: 'internal', message: 'Invalid core status.' } }
-    if (raw.first_run === undefined) return fromSettled(answer)
-    const projection = firstRunStatusSchema.safeParse(raw.first_run)
-    if (!projection.success) return { ok: false, error: { code: 'internal', message: 'Invalid core readiness status.' } }
-    return { ok: true, result: { ...raw, first_run: projection.data } }
+    const projected = { ...raw }
+    if (raw.first_run !== undefined) {
+      const projection = firstRunStatusSchema.safeParse(raw.first_run)
+      if (!projection.success) return { ok: false, error: { code: 'internal', message: 'Invalid core readiness status.' } }
+      projected.first_run = projection.data
+    }
+    if (raw.webhook_ingress !== undefined) {
+      const ingress = webhookIngressStatusSchema.safeParse(raw.webhook_ingress)
+      if (!ingress.success) return { ok: false, error: { code: 'internal', message: 'Invalid webhook ingress status.' } }
+      projected.webhook_ingress = ingress.data
+    }
+    return { ok: true, result: projected }
   })
+  handle(IPC.checkReleases, releaseNoticeSchema, async () => ({ ok: true, result: await deps.releases.check() }))
+  handle(IPC.openRelease, releaseNoticeSchema, () => deps.releases.open())
   handle(IPC.listConversations, null, async () => fromSettled(await deps.broker.request('conversations.list')))
   // Conversation commands carry the window's command ID, so their late receipts can be matched (store.ts).
   const command = async (method: string, { command_id: id, ...params }: { command_id: string }) =>
@@ -225,6 +243,7 @@ export function registerIpc(deps: IpcDeps): void {
   handle(IPC.getSettings, null, () => ({ ok: true, result: deps.getSettings() }))
   handle(IPC.setAutostart, setAutostartSchema, (v) => ({ ok: true, result: deps.setAutostart(v.enabled) }))
   handle(IPC.setNotifications, setNotificationsSchema, (v) => ({ ok: true, result: deps.setNotifications(v) }))
+  handle(IPC.setAppearance, setAppearanceSchema, (v) => ({ ok: true, result: deps.setAppearance(v.appearance) }))
   // The core's settings and Codex accounts: each a named method, validated here; nothing passes through generically.
   handle(IPC.settingsSchema, null, async () => fromSettled(await deps.broker.request('settings.schema')))
   handle(IPC.settingsSet, settingsSetSchema, async (v) => {

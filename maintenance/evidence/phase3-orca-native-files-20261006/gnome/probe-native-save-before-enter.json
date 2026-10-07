@@ -1,0 +1,26 @@
+{
+  "binding": {
+    "type": "source",
+    "run": "f68c1d02b02ad0eec18735c4a64db9b8",
+    "observed_ns": 111628709061,
+    "identity": {
+      "pid": 1356,
+      "uid": 1001,
+      "exe": "/usr/libexec/xdg-desktop-portal-gnome",
+      "start": "5883"
+    },
+    "peer": ":1.16",
+    "path": "/org/gtk/application/xdg_desktop_portal_gnome/a11y/f312660c_50ab_400a_98f9_5cf30185827f",
+    "event": "object:state-changed:active",
+    "signature": "siiva{sv}"
+  },
+  "title": "Save file",
+  "expected": "keyboard-saved.txt",
+  "focused_field": {
+    "peer": ":1.16",
+    "path": "/org/gtk/application/xdg_desktop_portal_gnome/a11y/9c96e259_b79f_4a78_ae58_5d1916320c37",
+    "text": "keyboard-saved.txt"
+  },
+  "matches": true,
+  "acceptance_proven": false
+}

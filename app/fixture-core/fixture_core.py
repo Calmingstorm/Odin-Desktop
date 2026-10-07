@@ -387,6 +387,10 @@ class Core:
             "build_box": {"address": "10.0.0.5", "ssh_user": "deploy", "os": "linux", "port": 22,
                           "description": "8 cores, 32 GB.", "enabled": True, "trust_mode": "pinned",
                           "fingerprints": [fingerprint_of("10.0.0.5")]},
+            # A remote known_hosts-only host exercises explicit migration, without any real SSH or files.
+            "legacy_box": {"address": "10.0.0.8", "ssh_user": "deploy", "os": "linux", "port": 2222,
+                           "description": "Trusted key in the fixture legacy known_hosts file.",
+                           "enabled": False, "trust_mode": "legacy", "fingerprints": [fingerprint_of("10.0.0.8")]},
         }
         self.default_host = "localhost"
         self.allow_host_tofu = False
@@ -479,7 +483,7 @@ class Core:
             "protocol": PROTOCOL,
             "core": {"instance_id": self.instance_id, "version": "fixture-0"},
             "profile_id": self.profile,
-            "capabilities": ["chat"],
+            "capabilities": ["chat", "skills.test"],
             "features": [],
             "max_frame": MAX_FRAME,
             "event_high": str(self.seq),
@@ -565,7 +569,7 @@ class Core:
     # -------------------------------------------------------------- methods
     def m_status(self, _params: dict, _writer) -> dict:
         return {
-            "phase": "ready", "core_instance_id": self.instance_id, "version": "fixture-0", "capabilities": ["chat"],
+            "phase": "ready", "core_instance_id": self.instance_id, "version": "fixture-0", "capabilities": ["chat", "skills.test"],
             "model": {"main": "fixture-echo", "effort": "none", "provider": "fixture"},
             "providers": [{"name": "fixture", "health": "ok"}],
             "limits": {"chunk_bytes": CHUNK_BYTES, "attachment_bytes": ATTACHMENT_BYTES,
@@ -610,12 +614,23 @@ class Core:
         item = {"kind": kind, "id": new_id(kind[0]), "title": title, "state": "running",
                 "conversation_id": req["conversation_id"], "request_id": req["id"], "started_at": now(),
                 "detail": detail, "actions": ["stop"]}
+        # An explicit Work fixture scenario keeps the legacy text projection available.
+        if kind == "agent" and "structured" in words(req["text"]):
+            item.update(manager_id=item["id"], manager_generation=item["started_at"],
+                        run_id=req["id"], generation=req["generation"], actions=["cancel", "steer"],
+                        detail={"iteration_count": 0, "max_iterations": 120,
+                                "inbox_sequence": 0, "last_consumed_sequence": 0,
+                                "unsettled_descendants": []},
+                        settlement={"state": "pending", "resource_release": "unproven"})
+            seconds = 600
         self.work[item["id"]] = item
         self.publish_work(item)
 
         def finish() -> None:
             if item["state"] == "running":
                 item.update(state="completed", detail="Finished", actions=[])
+                if "settlement" in item:
+                    item["settlement"] = {"state": "settled", "resource_release": "fixture_finished"}
                 self.publish_work(item)
         self.later(seconds, finish)
 
@@ -663,12 +678,27 @@ class Core:
         action = params.get("action")
         if action not in item["actions"]:
             return {"disposition": "not_available"}
+        for key in ("manager_generation", "run_id", "generation", "conversation_id"):
+            if key in params and params[key] != item.get(key):
+                return {"disposition": "not_available", "reason": "stale_target"}
+        if action == "steer":
+            text = params.get("text")
+            if not isinstance(text, str) or not text.strip():
+                raise CoreError("bad_request", "agent steering needs text")
+            item["detail"]["inbox_sequence"] += 1
+            sequence = item["detail"]["inbox_sequence"]
+            self.publish_work(item)
+            # Intentionally no consumed event: queuing does not prove agent delivery.
+            return {"disposition": "queued", "consumed": False, "sequence": sequence,
+                    "settlement": item["settlement"]}
         if action in ("stop", "cancel"):
             item.update(state="stopping", actions=[])
             self.publish_work(item)
 
             def stopped() -> None:
                 item.update(state="stopped", detail="Stopped by you")
+                if "settlement" in item:
+                    item["settlement"] = {"state": "unknown", "resource_release": "unknown"}
                 self.publish_work(item)
             self.later(0.3, stopped)
             return {"disposition": "requested"}
@@ -1296,9 +1326,28 @@ class Core:
         self.host_candidates[token] = {"alias": alias, "address": address, "ssh_user": str(params.get("ssh_user") or ""),
                                        "os": params.get("os", "linux"), "port": port,
                                        "description": str(params.get("description") or ""), "trust_mode": mode,
+                                       "enabled": params.get("enabled", True),
                                        "fingerprints": scanned, "tested": False, "tofu_confirmed": confirmed}
         return {"candidate_token": token, "alias": alias, "host_id": f"h_{hashlib.sha256(alias.encode()).hexdigest()[:8]}",
                 "fingerprints": scanned, "trust_mode": mode, "tested": False}
+
+    def m_hosts_import_legacy(self, params: dict, _writer) -> dict:
+        alias, host = self.require_host(params)
+        if host["address"] in LOCAL_ADDRESSES:
+            raise CoreError("bad_request", "local hosts do not use SSH host-key enrollment")
+        # Stored fingerprints stand in for entries already trusted in the fixture known_hosts file.
+        # Importing is not a scan, a connection test, or activation and must not change the host.
+        fingerprints = list(host["fingerprints"])
+        if not fingerprints:
+            raise CoreError("bad_request", "no matching legacy known_hosts entry was found")
+        token = str(uuid.uuid4())
+        self.host_candidates[token] = {
+            **host, "alias": alias, "trust_mode": "pinned", "fingerprints": fingerprints,
+            "tested": False, "tofu_confirmed": False,
+            "expected_definition": {**host, "fingerprints": list(host["fingerprints"])},
+        }
+        return {"candidate_token": token, "alias": alias, "host_id": self.host_row(alias, host)["host_id"],
+                "fingerprints": fingerprints, "trust_mode": "pinned", "tested": False}
 
     def require_candidate(self, params: dict) -> dict:
         candidate = self.host_candidates.get(str(params.get("token")))
@@ -1323,8 +1372,10 @@ class Core:
         if candidate["trust_mode"] == "tofu" and not candidate["tofu_confirmed"]:
             raise CoreError("bad_request", "TOFU candidate requires a second confirmation bound to its exact fingerprints")
         alias = candidate["alias"]
+        if "expected_definition" in candidate and self.hosts.get(alias) != candidate["expected_definition"]:
+            raise CoreError("conflict", "host changed after this candidate was prepared")
         self.hosts[alias] = {key: candidate[key] for key in ("address", "ssh_user", "os", "port", "description", "trust_mode", "fingerprints")}
-        self.hosts[alias]["enabled"] = True
+        self.hosts[alias]["enabled"] = candidate.get("enabled", True)
         del self.host_candidates[params["token"]]
         self.host_generation += 1
         return {"result": "saved", "alias": alias, "host_id": self.host_row(alias, self.hosts[alias])["host_id"]}
@@ -2458,6 +2509,7 @@ METHODS = {
     "hosts.settings": Core.m_hosts_settings,
     "hosts.public_key": Core.m_hosts_public_key,
     "hosts.prepare": Core.m_hosts_prepare,
+    "hosts.import_legacy": Core.m_hosts_import_legacy,
     "hosts.test": Core.m_hosts_test,
     "hosts.commit": Core.m_hosts_commit,
     "hosts.set_enabled": Core.m_hosts_set_enabled,

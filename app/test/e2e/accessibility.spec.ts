@@ -22,9 +22,10 @@ test.beforeEach(async () => {
   expect(process.env.HOME).toMatch(/^\/tmp\/odrc-/)
 })
 
-async function launch(real = false, scenario?: string): Promise<void> {
-  root = mkdtempSync(join(tmpdir(), 'od-a11y-'))
-  for (const dir of ['config', 'data', 'cache', 'run']) mkdirSync(join(root, dir), { mode: 0o700 })
+async function launch(real = false, scenario?: string, profile?: string): Promise<void> {
+  // A given profile relaunches the same app state, as a restart would.
+  root = profile ?? mkdtempSync(join(tmpdir(), 'od-a11y-'))
+  if (!profile) for (const dir of ['config', 'data', 'cache', 'run']) mkdirSync(join(root, dir), { mode: 0o700 })
   const env: Record<string, string> = {
     PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C.UTF-8', HOME: root,
     XDG_CONFIG_HOME: join(root, 'config'), XDG_DATA_HOME: join(root, 'data'),
@@ -40,8 +41,9 @@ async function launch(real = false, scenario?: string): Promise<void> {
     delete env.DBUS_SESSION_BUS_ADDRESS
   }
   else if (scenario) env.ODIN_DESKTOP_CORE_CMD = JSON.stringify(['/usr/bin/python3', '-B', join(appDir, 'test/e2e/accessibility-core.py'), scenario])
+  // No colour-scheme emulation (Playwright's Electron default is light): the app's own theme drives the page.
   app = await electron.launch({ executablePath: require('electron'), args: [appDir, '--force-renderer-accessibility'],
-    cwd: appDir, env, chromiumSandbox: true })
+    cwd: appDir, env, chromiumSandbox: true, colorScheme: null })
   page = await app.firstWindow()
   await expect(page.locator('.link.ready')).toContainText('Connected')
   launchEvidence = await app.evaluate(({ BrowserWindow }) => {
@@ -71,14 +73,34 @@ test.afterEach(async () => {
   } else if (root) rmSync(root, { recursive: true, force: true })
 })
 
-async function audit(name: string): Promise<void> {
-  const findings = await page.evaluate(async () => {
-    const axe = (window as unknown as { axe: { run: (doc: Document) => Promise<{ violations: unknown[]; incomplete: unknown[] }> } }).axe
-    const result = await axe.run(document)
+async function runAxe(rules: string[] | null = null): Promise<{ violations: unknown[]; incomplete: unknown[] }> {
+  return page.evaluate(async (only) => {
+    const axe = (window as unknown as { axe: { run: (doc: Document, options?: object) => Promise<{ violations: unknown[]; incomplete: unknown[] }> } }).axe
+    const result = await axe.run(document, only ? { runOnly: { type: 'rule', values: only } } : {})
     return { violations: result.violations, incomplete: result.incomplete }
-  })
+  }, rules)
+}
+
+/** Colour contrast in the theme not in effect: the page's colour scheme drives every theme token. */
+async function contrastInOtherTheme(name: string): Promise<void> {
+  const dark = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)
+  const other = dark ? 'light' : 'dark'
+  await page.emulateMedia({ colorScheme: other })
+  try {
+    expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(!dark)
+    const findings = await runAxe(['color-contrast'])
+    await test.info().attach(`axe-${name}-${other}`, { body: JSON.stringify(findings, null, 2), contentType: 'application/json' })
+    expect(findings.violations, `colour contrast on ${name} in the ${other} theme`).toEqual([])
+  } finally {
+    await page.emulateMedia({ colorScheme: null })
+  }
+}
+
+async function audit(name: string): Promise<void> {
+  const findings = await runAxe()
   await test.info().attach(`axe-${name}`, { body: JSON.stringify(findings, null, 2), contentType: 'application/json' })
   expect(findings.violations, `axe findings on ${name}`).toEqual([])
+  await contrastInOtherTheme(name)
 }
 
 async function tabTo(target: Locator, reverse = false): Promise<void> {
@@ -142,6 +164,51 @@ test('fixture baseline audit', async () => {
   await audit('general')
 })
 
+test('theme choice applies to the page and window, keeps focus and survives a restart', async () => {
+  await launch()
+  const pageDark = (): Promise<boolean> => page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)
+  const native = (): Promise<{ source: string; dark: boolean; background: string }> => app.evaluate(({ nativeTheme, BrowserWindow }) => ({
+    source: nativeTheme.themeSource, dark: nativeTheme.shouldUseDarkColors,
+    background: BrowserWindow.getAllWindows()[0]!.getBackgroundColor().toLowerCase()
+  }))
+  const background = (dark: boolean): string => (dark ? '#0e1115' : '#f5f7f9')
+  const initial = await native()
+  expect(initial.source).toBe('system')
+  const startDark = await pageDark()
+  expect(initial).toMatchObject({ dark: startDark, background: background(startDark) })
+  const chosen = startDark ? 'light' : 'dark'
+  await activate(page.getByRole('navigation', { name: 'Odin', exact: true })
+    .getByRole('button', { name: `Switch to ${chosen} theme`, exact: true }))
+  await expect.poll(pageDark).toBe(!startDark)
+  expect(await native()).toEqual({ source: chosen, dark: !startDark, background: background(!startDark) })
+  const back = page.getByRole('button', { name: `Switch to ${startDark ? 'dark' : 'light'} theme`, exact: true })
+  await expect(back).toBeFocused()
+  await audit(`theme-${chosen}`)
+  // The choice is saved with the app's preferences and applied before the window paints on the next start.
+  const profile = root
+  const child = app.process()
+  await app.close()
+  await expect.poll(() => child.exitCode !== null || child.signalCode !== null).toBe(true)
+  await launch(false, undefined, profile)
+  expect(await native()).toEqual({ source: chosen, dark: !startDark, background: background(!startDark) })
+  expect(await pageDark()).toBe(!startDark)
+  await activate(page.getByRole('button', { name: `Switch to ${startDark ? 'dark' : 'light'} theme`, exact: true }))
+  await expect.poll(pageDark).toBe(startDark)
+  expect((await native()).source).toBe(startDark ? 'dark' : 'light')
+  // General's theme choice returns to following the system, by keyboard, and says which choice is current.
+  await page.keyboard.press('Control+,')
+  // Tab reaches a radio group at its checked option; the arrow keys move the choice, as with any radio group.
+  const theme = page.getByRole('group', { name: 'Theme', exact: true })
+  const system = theme.getByRole('radio', { name: 'System', exact: true })
+  await tabTo(theme.getByRole('radio', { checked: true }))
+  for (let n = 0; n < 3 && !(await system.isChecked()); n++) await page.keyboard.press('ArrowUp')
+  await expect(system).toBeChecked()
+  await expect(system).toBeFocused()
+  await expect.poll(async () => (await native()).source).toBe('system')
+  expect(await pageDark()).toBe(initial.dark)
+  await audit('theme-general')
+})
+
 test('settings section audit inventory', async () => {
   await launch()
   await page.keyboard.press('Control+,')
@@ -152,10 +219,8 @@ test('settings section audit inventory', async () => {
     await activate(nav.getByRole('button', { name: label, exact: true }))
     await expect(page.locator('.settings-body')).toContainText(label)
     await page.waitForTimeout(200)
-    findings[label] = await page.evaluate(async () => {
-      const r = await (window as any).axe.run(document)
-      return { violations: r.violations, incomplete: r.incomplete }
-    })
+    findings[label] = await runAxe()
+    await contrastInOtherTheme(`settings-${label}`)
     await ax(`settings-${label}`)
   }
   await test.info().attach('axe-settings-inventory', { body: JSON.stringify(findings, null, 2), contentType: 'application/json' })
@@ -304,6 +369,10 @@ test('keyboard running task steer queue stop and guarded resume', async () => {
   await expect(page.locator('.working')).toHaveCount(0)
   await send('interrupt keyboard task')
   await expect(page.locator('.resume-banner')).toBeVisible()
+  await expect(page.locator('.resume-banner')).toContainText('continue')
+  await expect(page.locator('.resume-banner')).toContainText('resume')
+  await audit('suspended-resume-banner')
+  expect(await ax('suspended-resume-banner')).toContain('continue')
   await activate(page.locator('.resume-banner').getByRole('button', { name: /Resume/ }))
   await expect(page.locator('.resume-banner')).toHaveCount(0)
   await expect(page.locator('.msg.assistant').last()).toContainText('interrupt keyboard task')
@@ -367,10 +436,13 @@ test('200 percent zoom reflow, reduced motion and keyboard view menu', async () 
 
 test('real core keyboard status usage and every real settings or unavailable service panel', async () => {
   await launch(true)
+  const skillCode = readFileSync(join(appDir, 'test/harmless-skill.py'), 'utf8')
+  const saved = await page.evaluate(async (code) => (window as any).odin.skillsSave({ name: 'slice4_constant', code, create: true }), skillCode)
+  expect(saved.ok).toBe(true)
   await send('/status')
   await expect(page.getByRole('region', { name: 'Status', exact: true }).locator('.panel-text')).toContainText('Odin v0.1.0.dev1')
   await send('/usage')
-  await expect(page.getByRole('region', { name: 'Usage, 7d', exact: true }).locator('.panel-text')).toContainText('history unavailable (usage history not enabled)')
+  await expect(page.getByRole('region', { name: 'Usage, 7d', exact: true }).locator('.panel-text')).toContainText('settled turns 0')
   await expect(page.locator('.statusbar')).not.toContainText('Usage is unavailable in this core')
   await audit('real-core-chat')
   expect(await ax('real-core-chat')).not.toContain('Echo:')
@@ -381,15 +453,77 @@ test('real core keyboard status usage and every real settings or unavailable ser
   const labels = await nav.locator('.settings-nav-item').allTextContents()
   expect(labels).toHaveLength(11)
   for (const label of labels) {
-    await activate(nav.getByRole('button', { name: label, exact: true }))
+    // Real Tools has the full catalog, potentially hundreds of controls. Walk
+    // backwards from its first status control to the settings navigation rather
+    // than treating a >200-tab forward circuit as proof of inaccessible nav.
+    const section = nav.getByRole('button', { name: label, exact: true })
+    await tabTo(section, label === 'Skills')
+    await page.keyboard.press('Enter')
     await expect(page.locator('.settings-body')).toContainText(label)
     await page.waitForTimeout(200)
+    if (label === 'Skills') {
+      const panel = page.getByRole('region', { name: 'Skills', exact: true })
+      await expect(panel).toContainText('slice4_constant')
+      await expect(panel).not.toContainText('Skills is unavailable in this core')
+      await activate(panel.getByRole('button', { name: 'Open slice4_constant', exact: true }))
+      await tabTo(page.getByRole('textbox', { name: 'Skill code', exact: true }))
+      await expect(panel).not.toContainText('Test is unavailable in this core.')
+      const editor = page.getByRole('region', { name: 'Skill editor', exact: true })
+      const testSkill = editor.getByRole('button', { name: 'Test slice4_constant', exact: true })
+      await expect(testSkill).toBeEnabled()
+      await activate(testSkill)
+      await expect(editor.locator('.manage-json')).toHaveText('harmless constant')
+      await expect(editor.locator('.manage-json')).not.toHaveClass(/warn/)
+      await expect(panel.locator('.manage-count')).toHaveText('1 runs')
+    }
+    if (label === 'MCP servers') {
+      const panel = page.getByRole('region', { name: 'MCP servers', exact: true })
+      await expect(panel.locator('.manage-row')).toHaveCount(0)
+      await expect(panel).not.toContainText('MCP is unavailable in this core')
+      await activate(panel.getByRole('button', { name: 'Add server', exact: true }))
+      await tabTo(page.getByRole('textbox', { name: 'Executable', exact: true }))
+    }
+    if (label === 'Tools') {
+      // D17 fresh settings enable the browser; this source-tree profile has no qualified bundle.
+      const browser = page.getByRole('region', { name: 'Browser runtime', exact: true })
+      await expect(browser).toContainText('State: unavailable')
+      await expect(browser).toContainText('Not ready')
+      await activate(browser.getByRole('button', { name: 'Refresh status for browser', exact: true }))
+      await expect(browser).toContainText('State: unavailable')
+    }
     if (label === 'Records') {
+      const computer = page.getByRole('region', { name: 'Computer use', exact: true })
+      await expect(computer).toContainText('No computer-use session is reported by this status')
+      await expect(computer).toContainText('Native input is not qualified or supported')
+      await expect(computer.getByRole('button', { name: 'Reconcile', exact: true })).toHaveCount(0)
       const usage = page.getByRole('region', { name: 'Usage', exact: true })
       await expect(usage.getByRole('combobox', { name: 'Period', exact: true })).toBeVisible()
-      await expect(usage).toContainText('history unavailable (usage history not enabled)')
-      await expect(usage).toContainText("not measured: Odin doesn't know this value")
+      // Step 8 part 4 composes the real usage rollup: served history, not 'not enabled'.
+      await expect(usage).toContainText('settled turns 0')
+      // Odin's boot backfill moves fresh usage from unknown to measured zero.
+      await expect(usage).toContainText(/\((?:measured|not measured: Odin doesn't know this value)\)/)
       await expect(usage).not.toContainText('Usage is unavailable in this core')
+    }
+    if (label === 'Scheduled and running work') {
+      await expect(page.getByRole('region', { name: 'Schedules', exact: true })).toContainText('No schedules yet.')
+      await expect(page.getByRole('region', { name: 'Running work', exact: true })).toContainText('Nothing is running.')
+      await expect(page.locator('.settings-body')).not.toContainText('Work (agents, tasks, loops, processes, workflows and schedules) is unavailable')
+      const ingress = page.getByRole('region', { name: 'Webhook ingress', exact: true })
+      await expect(ingress.getByTestId('webhook-ingress-status')).toContainText('Disabled')
+      await tabTo(ingress.getByRole('checkbox', { name: 'Enable inbound webhook deliveries', exact: true }))
+      await tabTo(ingress.getByRole('textbox', { name: 'Listen address', exact: true }))
+      await activate(page.getByRole('button', { name: 'New schedule', exact: true }))
+      const form = page.getByRole('region', { name: 'Schedule form', exact: true })
+      await tabTo(form.getByRole('radio', { name: 'On a webhook trigger', exact: true }))
+      await page.keyboard.press('Space')
+      await tabTo(form.getByRole('combobox', { name: 'Trigger source', exact: true }))
+      await tabTo(form.getByRole('textbox', { name: 'Trigger event', exact: true }))
+      await page.keyboard.insertText('push')
+      await tabTo(form.getByRole('textbox', { name: 'Repository filter', exact: true }))
+      await audit('real-webhook-trigger-editor')
+      const triggerTree = await ax('real-webhook-trigger-editor')
+      expect(triggerTree).toContain('Trigger event')
+      await activate(form.getByRole('button', { name: 'Close', exact: true }))
     }
     await audit(`real-${label}`)
     await ax(`real-${label}`)
@@ -462,6 +596,19 @@ test('keyboard management disclosures and editor forms are named and auditable',
   await audit('mcp-editor')
 
   await settingsSection('Hosts and trust')
+  const enroll = page.getByRole('button', { name: /^Enroll trusted key for host / }).first()
+  await activate(enroll)
+  const enrollment = page.getByRole('region', { name: 'Host enrollment', exact: true })
+  await expect(enrollment).toContainText('Test the connection')
+  await expect(enrollment).toContainText('Candidate key:')
+  await expect(page.getByRole('button', { name: 'Save and activate', exact: true })).toHaveCount(0)
+  await tabTo(page.getByRole('button', { name: 'Test the connection', exact: true }))
+  await audit('legacy-trusted-key-enrollment')
+  await activate(enrollment.getByRole('button', { name: 'Back', exact: true }))
+  await expect(enrollment).toContainText('Check the host\'s key yourself')
+  await expect(enrollment.getByRole('textbox', { name: 'Expected fingerprints', exact: true })).not.toHaveValue('')
+  await expect(enrollment.getByRole('button', { name: 'Scan and compare', exact: true })).toBeVisible()
+  await activate(enrollment.getByRole('button', { name: 'Close', exact: true }))
   await activate(page.getByRole('button', { name: 'Add host', exact: true }))
   await tabTo(page.getByRole('textbox', { name: 'Alias', exact: true }))
   await audit('host-enrollment')
@@ -489,6 +636,74 @@ test('keyboard management disclosures and editor forms are named and auditable',
   await audit('other-settings')
 })
 
+test('real-shape service failure cards and readiness are accessible without claiming native input', async () => {
+  // Explicit fixture AX lane; real lifecycle/redaction are independently proved
+  // by the actual-core Broker suite, never by these displayed fixture strings.
+  await launch(false, 'services-real-shape')
+  await page.keyboard.press('Control+,')
+  await settingsSection('Skills')
+  const broken = page.getByRole('region', { name: 'Skills', exact: true }).locator('.manage-row').filter({ hasText: 'broken_sync' })
+  await expect(broken).toContainText('Syntax error')
+  await expect(broken.getByRole('button', { name: 'Test broken_sync', exact: true })).toBeDisabled()
+  await audit('failed-skill-card')
+  expect(await ax('failed-skill-card')).toContain('broken_sync')
+  await settingsSection('MCP servers')
+  const servers = page.getByRole('region', { name: 'MCP servers', exact: true })
+  await expect(servers).toContainText('LMMS')
+  await expect(servers).toContainText('Profile keyring is unavailable or locked')
+  await tabTo(servers.getByRole('button', { name: 'Reconnect locked-local', exact: true }))
+  await audit('per-server-keyring-reason')
+  expect(await ax('per-server-keyring-reason')).toContain('Profile keyring is unavailable or locked')
+  await settingsSection('Tools')
+  const browser = page.getByRole('region', { name: 'Browser runtime', exact: true })
+  await expect(browser).toContainText('State: unavailable')
+  await expect(browser).toContainText('Not ready')
+  await expect(browser).toContainText(/next .*use|next-use/i)
+  await audit('browser-next-use-unavailable')
+  await settingsSection('Records')
+  const computer = page.getByRole('region', { name: 'Computer use', exact: true })
+  await expect(computer).toContainText('No computer-use session is reported by this status')
+  await expect(computer).toContainText('Native input is not qualified or supported')
+  await expect(computer.getByRole('button', { name: 'Reconcile', exact: true })).toHaveCount(0)
+  await audit('computer-unqualified-envelope')
+  expect(await ax('computer-unqualified-envelope')).toContain('Native input is not qualified or supported')
+})
+
+test('a notification for a long reply opens it at its start, even before it rendered in this list', async () => {
+  await launch()
+  const exchange = async (text: string): Promise<void> => {
+    await send(text)
+    await expect(page.locator('.msg.assistant').filter({ hasText: `Echo: ${text}` })).toHaveCount(1)
+  }
+  // The long reply sits in the middle: a rebuilt list opens at its top, then jumps to its end, and never shows it.
+  for (let n = 1; n <= 16; n++) await exchange(`short opener ${n}`)
+  await send('a long reply please')
+  const long = page.locator('.msg.assistant').filter({ hasText: 'log line 5000' })
+  await expect(long).toHaveCount(1)
+  const messageId = (await long.getAttribute('id'))!.slice(2)
+  for (let n = 1; n <= 16; n++) await exchange(`short follow-up ${n}`)
+  // Leave and come back: the list is rebuilt, and the long reply never renders in it.
+  const conversations = page.getByRole('navigation', { name: 'Conversations', exact: true })
+  const title = (await conversations.locator('.conv.active').getAttribute('aria-label'))!
+  await activate(page.getByRole('button', { name: 'New conversation', exact: true }))
+  await expect(conversations.locator('.conv.active')).not.toHaveAttribute('aria-label', title)
+  await activate(conversations.getByRole('button', { name: title, exact: true }))
+  await expect(page.locator('.msg.assistant').filter({ hasText: 'Echo: short follow-up 16' })).toBeVisible()
+  // The case under test: the reply has only its estimated height here, never its rendered one.
+  expect(await long.evaluate((el) => (el as HTMLElement).offsetHeight)).toBeLessThan(200)
+  const listed = await page.evaluate(async () => (window as any).odin.listConversations())
+  const conversationId = listed.result.items.find((c: { title: string }) => c.title === title).id
+  await app.evaluate(({ BrowserWindow }, target) => BrowserWindow.getAllWindows()[0]!.webContents.send('odin:open-conversation', target),
+    { conversationId, messageId })
+  await expect(long).toHaveClass(/highlight/)
+  const top = (): Promise<number> => page.evaluate((id) => {
+    const view = document.querySelector('.message-scroll')!.getBoundingClientRect()
+    return Math.round(document.getElementById(`m-${id}`)!.getBoundingClientRect().top - view.top)
+  }, messageId)
+  await expect.poll(top).toBeGreaterThanOrEqual(-2)
+  expect(await top()).toBeLessThanOrEqual(2)
+})
+
 test('work panel keyboard controls, focus return and target names', async () => {
   await launch()
   await send('slow agent process keyboard work')
@@ -511,6 +726,66 @@ test('work panel keyboard controls, focus return and target names', async () => 
   await activate(openConversation)
   await expect(page.getByRole('region', { name: 'Conversation history', exact: true })).toBeFocused()
   await expect(page.locator('.work-panel')).toHaveCount(0)
+})
+
+test('narrow window: Work sits above the chat, so no covered control stays in the keyboard order', async () => {
+  await launch()
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(800, 720))
+  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(900)
+  const workButton = page.locator('.work-toggle')
+  await activate(workButton)
+  await expect(page.getByRole('button', { name: 'Refresh work', exact: true })).toBeFocused()
+  await expect(page.locator('.work-panel')).toBeVisible()
+  const message = page.getByRole('textbox', { name: 'Message', exact: true })
+  await expect(message).toBeVisible()
+  const work = (await page.locator('.work-panel').boundingBox())!
+  const chat = (await page.locator('main.main').boundingBox())!
+  expect(work.y + work.height).toBeLessThanOrEqual(chat.y + 1)
+  // Every control Tab reaches is the topmost element at its own centre: nothing focusable is under the panel.
+  for (let n = 0; n < 40; n++) {
+    await page.keyboard.press('Tab')
+    const covered = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null
+      if (!el || el === document.body) return null
+      const box = el.getBoundingClientRect()
+      if (!box.width || !box.height) return null
+      const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+      return top && (top === el || el.contains(top)) ? null : `${el.tagName} ${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 40)}`
+    })
+    expect(covered, 'a focused control is covered by another element').toBeNull()
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await audit('work-narrow')
+  await page.locator('.work-panel').getByRole('button', { name: 'Close work', exact: true }).focus()
+  await page.keyboard.press('Escape')
+  await expect(workButton).toBeFocused()
+  await expect(page.locator('.work-panel')).toHaveCount(0)
+  await expect(message).toBeVisible()
+})
+
+test('keyboard and accessibility tree preserve unknown work settlement and steer boundaries', async () => {
+  await launch(false, 'work-settlement')
+  await activate(page.locator('.work-toggle'))
+  const row = page.locator('.work-item').filter({ hasText: 'Unknown release audit' })
+  await expect(row).toContainText('Settlement')
+  await expect(row).toContainText('unknown')
+  await expect(row).toContainText('unproven')
+  await expect(row).toContainText('Resource release is not confirmed')
+  await audit('work-unknown-settlement')
+  const tree = await ax('work-unknown-settlement')
+  expect(tree).toContain('Work settlement')
+  expect(tree).toContain('Resource release')
+  const steer = row.getByRole('button', { name: 'Steer agent: Unknown release audit', exact: true })
+  await activate(steer)
+  const input = row.getByRole('textbox', { name: 'Steer agent: Unknown release audit', exact: true })
+  await expect(input).toBeFocused()
+  await page.keyboard.insertText('Do not infer that resources were released.')
+  await expect(input).toHaveValue('Do not infer that resources were released.')
+  await expect(row.getByRole('button', { name: 'Send steer to agent: Unknown release audit', exact: true })).toHaveAttribute('aria-disabled', 'false')
+  await audit('work-steer-form')
+  const steerTree = await ax('work-steer-form')
+  expect(steerTree).toContain('Queued is not consumed')
+  expect(steerTree).toContain('Unknown outcomes are not retried')
 })
 
 test('rejected assistant drafts never enter DOM or real AX tree, structural announcements remain quiet', async () => {

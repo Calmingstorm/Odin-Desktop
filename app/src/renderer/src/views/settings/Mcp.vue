@@ -121,6 +121,7 @@ async function saveLimits(): Promise<void> {
         </p>
         <p v-if="server.last_error" class="warn">{{ server.last_error }}</p>
         <p v-if="server.blocked_reason" class="warn">{{ server.blocked_reason }}</p>
+        <p v-if="server.credential_migration" class="manage-desc">{{ server.credential_migration }}</p>
         <div :id="`mcp-tools-${encodeURIComponent(server.name)}`"><ul v-if="shownTools[server.name]" class="mcp-tools">
           <li v-for="tool in management.mcpTools[server.name] ?? []" :key="tool.original_name">
             <code>{{ tool.published_name }}</code>

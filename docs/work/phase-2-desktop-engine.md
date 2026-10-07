@@ -40,7 +40,8 @@ and nothing runs on an active desktop.
 6. **Background work.** Agents, loops, schedules with D12's missed-run policy, background tasks, skills (delivery and
    dependency installation), MCP startup, computer-use admission, and the browser with bundled Chromium.
 7. **Webhook triggers** (D10, [`core-contracts.md`](../design/core-contracts.md) section 8).
-8. **Closure.** The roadmap's Phase 2 exit criteria: all 326 deferred suites back (adapted, never dropped), every
+8. **Closure.** The roadmap's Phase 2 exit criteria: all 326 deferred suites finally dispositioned (restored,
+   retired or named deferrals under decision 3; never dropped), every
    section-4 wording row dispositioned, fresh-profile host parity proven at runtime, and the core-contract gate
    scenarios passing headless. Maintenance accounting updated.
 
@@ -235,13 +236,15 @@ retained computer controller/store/integration/provenance/policy and runtime ada
 `src/scheduler/{scheduler,history}.py`, retained integration logic from `src/web/api/integrations.py`.
 `src/notifications/outbound_webhooks.py` remains separate outbound delivery.
 
-Implement core-contracts section 8: explicitly configured lifecycle/bind policy, scoped source authentication,
-signature/replay/body bounds, durable acceptance identity and schedule/run mapping, current-policy admission,
+Implement core-contracts section 8 with Claude's step-7 D17 clarification: explicitly configured lifecycle/bind policy, scoped source authentication,
+signature/header/JSON/body bounds, unique durable identity per delivery and schedule/run mapping, current-policy admission,
 revocation and publication receipts. Trigger input does not inherit owner authority from profile ownership.
-Disabling ingress fences stale work per contract. No chat/settings/control API on this listener.
+Disabling ingress fences stale work per contract. Preserve Odin's generic/GitHub/Gitea responses and send each
+integration notice to its schedule's conversation. Identical authenticated bodies run twice; no freshness window,
+rate limits or TLS requirement. No chat/settings/control API on this listener.
 
 **Tests:** `tests/test_desktop_webhooks.py` and safe inherited authentication/persistence/text/scheduler adapters:
-duplicates, storage failure, disabled/revoked ingress, replay/size limits, unknown dispatch, parent-loss cleanup,
+duplicates run twice, storage failure, disabled/revoked ingress, parsing/size limits, unknown dispatch, parent-loss cleanup,
 using ephemeral loopback and temporary profiles only.
 
 ### Step 8: closure and later-phase handoff
@@ -253,10 +256,12 @@ installer execution or native packaging qualification.
 settings/lifecycle; `maintenance/{test-plan,case-accounting,qualification-plan,desktop-deltas,manifest,
 safety-manifest}.json`, wording/disposition table, exact adapters in `tests/desktop_adapters/`, safe gate tooling.
 
-- All **326 deferred suites** return with reviewed Desktop execution/adapter mappings and original assertions/
-  case data/budgets, never dropped or relabeled as passing. Restore named turn-loop/agent/recovery/helper/Codex
-  replay suites. Prohibited inputs require reviewed safe adapters/pure cases, not prohibited commands even mocked.
-  Native/manual requirements stay distinct and honest.
+- Each of the **326 deferred suites** ends Phase 2 with a final disposition, never dropped or relabeled as
+  passing. Restored suites carry reviewed Desktop execution/adapter mappings and original assertions/case data/
+  budgets. Retired suites carry their recorded authority. Under Aaron's decision 3 (2026-10-06) the rest are named
+  deferrals: status `deferred` with a concrete `blocked_on`. That includes the named turn-loop/agent/recovery/
+  helper/Codex replay suites not yet restored. Prohibited inputs require reviewed safe adapters/pure cases, not
+  prohibited commands even mocked. Native/manual requirements stay distinct and honest.
 - Every section-4 **NONE** wording row is removed by restored behavior or explicitly dispositioned under D19:
   mechanical swaps to Claude, behavior/instruction changes to Aaron. Include unavailable/not-implemented/readiness
   gates, attachment suffix/image URLs, skill dependencies and resume empty-read handling. No blanket approval.

@@ -507,10 +507,9 @@
     {
       "name": "neutral-subsystem-guard",
       "files": [
-        "tests/test_subsystem_guard.py"
+        "tests/test_desktop_phase2_runtime_guard.py"
       ],
-      "exclude_expression": "real_bot_guard_is_always_constructed_with_supported_thresholds",
-      "reason": "Only removed bot composition requires Phase 2; neutral guard thresholds remain direct."
+      "reason": "Complete inherited guard corpus and real Desktop constructor; no exclusions."
     },
     {
       "name": "neutral-fd-health",
@@ -1426,72 +1425,102 @@
     {
       "name": "desktop-boundary-tests",
       "files": [
+        "tests/desktop_adapters/test_phase2_runner_characterization.py",
+        "tests/test_desktop_artifacts.py",
+        "tests/test_desktop_async_controls.py",
+        "tests/test_desktop_attachment_knowledge.py",
+        "tests/test_desktop_attachments.py",
+        "tests/test_desktop_auto_resume.py",
         "tests/test_desktop_capabilities_definitions.py",
         "tests/test_desktop_capabilities_owner.py",
         "tests/test_desktop_capabilities_publication.py",
         "tests/test_desktop_capabilities_skills_hosts.py",
+        "tests/test_desktop_checkpoint_concurrency.py",
         "tests/test_desktop_ci_interpreter.py",
         "tests/test_desktop_collection_refresh.py",
-        "tests/test_desktop_async_controls.py",
         "tests/test_desktop_control_core.py",
         "tests/test_desktop_controls.py",
-        "tests/test_desktop_resume.py",
-        "tests/test_desktop_auto_resume.py",
-        "tests/test_desktop_resume_trigger.py",
-        "tests/test_desktop_resume_no_ledger.py",
-        "tests/test_desktop_artifacts.py",
-        "tests/test_desktop_attachment_knowledge.py",
-        "tests/test_desktop_attachments.py",
-        "tests/test_desktop_delivery.py",
-        "tests/test_desktop_engine_services.py",
-        "tests/test_desktop_native_history_binding.py",
-        "tests/test_desktop_request_core.py",
-        "tests/test_desktop_requests.py",
-        "tests/test_desktop_request_failures.py",
-        "tests/test_desktop_tool_details.py",
-        "tests/test_desktop_persisted_outputs.py",
-        "tests/desktop_adapters/test_phase2_runner_characterization.py",
+        "tests/test_desktop_work.py",
+        "tests/test_desktop_work_native.py",
+        "tests/test_desktop_reports.py",
+        "tests/test_desktop_schedule_recovery.py",
+        "tests/test_desktop_computer_binding.py",
+        "tests/test_desktop_background_requests.py",
+        "tests/test_desktop_background_core.py",
+        "tests/test_desktop_shared_outbound.py",
         "tests/test_desktop_conversation_core.py",
         "tests/test_desktop_conversation_search.py",
         "tests/test_desktop_conversations.py",
         "tests/test_desktop_core_computer.py",
         "tests/test_desktop_core_durability.py",
-        "tests/test_desktop_package_ownership.py",
-        "tests/test_desktop_package_ownership_entry.py",
-        "tests/test_desktop_package_state.py",
         "tests/test_desktop_core_paths.py",
         "tests/test_desktop_core_privacy.py",
         "tests/test_desktop_core_search.py",
         "tests/test_desktop_d17_governor.py",
-        "tests/test_desktop_distribution.py",
+        "tests/test_desktop_delivery.py",
         "tests/test_desktop_disposition_merge.py",
+        "tests/test_desktop_distribution.py",
+        "tests/test_desktop_engine_services.py",
         "tests/test_desktop_exception_aliases.py",
         "tests/test_desktop_executor_profile.py",
+        "tests/test_desktop_first_run.py",
         "tests/test_desktop_fixture_corpus.py",
-        "tests/test_desktop_fts_read_lock.py",
         "tests/test_desktop_foundation.py",
         "tests/test_desktop_foundation_config.py",
+        "tests/test_desktop_fts_read_lock.py",
         "tests/test_desktop_host_parity.py",
         "tests/test_desktop_isolated_runner.py",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_lifecycle_qualification.py",
         "tests/test_desktop_lint_gate.py",
         "tests/test_desktop_maintenance.py",
         "tests/test_desktop_maintenance_review.py",
+        "tests/test_desktop_native_history_binding.py",
+        "tests/test_desktop_package_ownership.py",
+        "tests/test_desktop_package_ownership_entry.py",
+        "tests/test_desktop_package_state.py",
+        "tests/test_desktop_pdf_catalog.py",
+        "tests/test_desktop_persisted_outputs.py",
+        "tests/test_desktop_pr35_round2_dispositions.py",
         "tests/test_desktop_profile_upgrade.py",
         "tests/test_desktop_qualification.py",
         "tests/test_desktop_qualified_collection.py",
         "tests/test_desktop_qualified_runner.py",
+        "tests/test_desktop_request_core.py",
+        "tests/test_desktop_request_failures.py",
+        "tests/test_desktop_requests.py",
+        "tests/test_desktop_resource_cleanup.py",
+        "tests/test_desktop_resume.py",
+        "tests/test_desktop_resume_no_ledger.py",
+        "tests/test_desktop_resume_trigger.py",
         "tests/test_desktop_round2_acceptance.py",
         "tests/test_desktop_runtime_retirement.py",
+        "tests/test_desktop_secret_domain_threads.py",
+        "tests/test_desktop_step8_part5_accounting.py",
+        "tests/test_desktop_step8_part5_app_contracts.py",
+        "tests/test_desktop_step8_part5_app_frozen.py",
+        "tests/test_desktop_step8_part5_engine.py",
+        "tests/test_desktop_step8_part5_removed.py",
+        "tests/test_desktop_step8_review_cli.py",
+        "tests/test_desktop_step8_review_codex_alternative.py",
+        "tests/test_desktop_step8_review_resume.py",
+        "tests/test_desktop_step8_review_timeout.py",
         "tests/test_desktop_strip_loop.py",
         "tests/test_desktop_strip_native.py",
         "tests/test_desktop_strip_root.py",
         "tests/test_desktop_strip_web.py",
         "tests/test_desktop_test_plan.py",
+        "tests/test_desktop_tool_details.py",
+        "tests/test_desktop_transcript.py",
         "tests/test_pdf_resources.py",
-        "tests/test_desktop_pdf_catalog.py",
-        "tests/test_desktop_transcript.py"
+        "tests/test_desktop_webhooks.py",
+        "tests/test_desktop_webhook_adapters.py",
+        "tests/test_desktop_step8_part6_accounting.py",
+        "tests/test_desktop_step8_part6_retained.py",
+        "tests/test_desktop_skill_delivery.py",
+        "tests/test_desktop_background_skill_delivery.py"
       ],
-      "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups."
+      "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups. Preserve merged onboarding/lifecycle pure temporary-profile and synthetic-driver regressions, not native/backend or active desktop qualification."
     },
     {
       "name": "direct-foundation-neutral-remainder",
@@ -1686,7 +1715,9 @@
     },
     {
       "name": "faithful-retirement-corpus",
-      "files": ["tests/test_desktop_shared_retirement.py"],
+      "files": [
+        "tests/test_desktop_shared_retirement.py"
+      ],
       "reason": "Frozen model-retirement cases keep assertions and parameter data; only exact inert transport YAML and genuine selected-profile setup are changed. Retired WebUI source inspection stays excluded."
     },
     {
@@ -1699,17 +1730,23 @@
     },
     {
       "name": "final-helper-cases",
-      "files": ["tests/test_desktop_final_helpers.py"],
+      "files": [
+        "tests/test_desktop_final_helpers.py"
+      ],
       "reason": "Exact retained schema, error, knowledge and documentation behavior; removed route/intake claims receive named effect-free boundary evidence."
     },
     {
       "name": "final-distribution-cases",
-      "files": ["tests/test_desktop_final_distribution.py"],
+      "files": [
+        "tests/test_desktop_final_distribution.py"
+      ],
       "reason": "Exact retired server packaging and native dispatch dispositions; private wheel and current disabled/unready capability boundaries verified without native input."
     },
     {
       "name": "final-config-cases",
-      "files": ["tests/test_desktop_final_config.py"],
+      "files": [
+        "tests/test_desktop_final_config.py"
+      ],
       "reason": "Exact remaining configuration, evidence digest, model identity, skill listing and timeout definitions with real profile boundaries; removed schema/intake contracts receive named replacements."
     },
     {
@@ -1731,9 +1768,17 @@
         "tests/test_local_supervisor_wrapper_r10.py",
         "tests/test_desktop_phase2_process_corpus.py",
         "tests/test_restored_process_shutdown.py",
-        "tests/test_desktop_phase2_suite_map.py"
+        "tests/test_desktop_phase2_suite_map.py",
+        "tests/test_desktop_package_status.py",
+        "tests/test_desktop_core_contracts.py",
+        "tests/test_desktop_phase2_closure.py",
+        "tests/test_desktop_fresh_profile_parity.py",
+        "tests/test_desktop_harness_deadlines.py",
+        "tests/test_desktop_step8_6a_accounting.py",
+        "tests/test_desktop_step8_6a_resume_calibration.py",
+        "tests/test_desktop_step8_6a_usage_unknown.py"
       ],
-      "reason": "Phase 2 step 1 Desktop-origin temporary-profile process, parent EOF, private framing/authentication, durable receipts and retention. Step 5 adapts lifecycle/IPC/retention to minor 3 and served management, not upstream corpus assertions. Step 8 part 1 restores eight unchanged inherited helper suites and every process-manager case through a frozen adapter with authentic temporary owner/workspace; mapping binds all 326 historical suites. No native desktop input."
+      "reason": "Phase 2 step 1 Desktop-origin temporary-profile process, parent EOF, private framing/authentication, durable receipts and retention. Step 5 adapts lifecycle/IPC/retention to minor 3 and served management, not upstream corpus assertions. Step 8 part 1 restores eight unchanged inherited helper suites and every process-manager case through a frozen adapter with authentic temporary owner/workspace; mapping binds all 326 historical suites. Step 8 closure items add real-profile notice-only package/lifecycle status, previously uncovered core seam pins, temporary-data report-only exit accounting, and pinned fresh-install D17 defaults/host parity. No native desktop input or installer execution."
     },
     {
       "name": "phase2-step5-profile-management",
@@ -1750,9 +1795,63 @@
         "tests/test_desktop_records.py",
         "tests/test_desktop_runtime.py",
         "tests/test_desktop_settings.py",
-        "tests/test_desktop_state.py"
+        "tests/test_desktop_state.py",
+        "tests/test_desktop_step5_accounting.py",
+        "tests/test_desktop_step5_completion_core.py",
+        "tests/test_desktop_step5_knowledge_corpus.py",
+        "tests/test_desktop_step5_knowledge_methods.py",
+        "tests/test_desktop_step5_llm_corpus.py",
+        "tests/test_desktop_step5_llm_methods.py",
+        "tests/test_desktop_step5_observability_http.py",
+        "tests/test_desktop_step5_observability_methods.py",
+        "tests/test_desktop_step5_observability_neutral.py",
+        "tests/test_desktop_step5_observability_turn_state.py",
+        "tests/test_desktop_step5_records_corpus.py",
+        "tests/test_desktop_step5_records_methods.py",
+        "tests/test_desktop_step5_sensitivity.py",
+        "tests/test_desktop_step5_traces_frozen.py",
+        "tests/test_desktop_step5_traces_methods.py",
+        "tests/test_desktop_phase2_runtime_a.py",
+        "tests/test_desktop_phase2_runtime_c.py",
+        "tests/test_desktop_phase2_runtime_d.py",
+        "tests/test_native_knowledge.py",
+        "tests/test_provider_shutdown_budget.py",
+        "tests/test_search_small_delivery_budget.py",
+        "tests/test_desktop_phase2_runtime_guard.py",
+        "tests/test_turn_recorder_webhook_campaign.py",
+        "tests/test_desktop_phase2_runtime_b.py",
+        "tests/test_desktop_phase2_review_integrations.py",
+        "tests/test_desktop_phase2_review_health.py",
+        "tests/test_desktop_review_provider_reload.py",
+        "tests/test_desktop_review_provider_quota.py",
+        "tests/test_desktop_review_provider_hosts.py",
+        "tests/test_desktop_review_provider_image_inherited.py",
+        "tests/test_desktop_phase2_review_llm.py",
+        "tests/test_desktop_review_audit_authority.py",
+        "tests/test_desktop_review_quota_lifecycle.py",
+        "tests/test_desktop_review_provider_hosts_provenance.py",
+        "tests/test_desktop_review_provider_image.py",
+        "tests/test_desktop_review_provider_image_provenance.py",
+        "tests/test_desktop_review_provider_llm.py",
+        "tests/test_desktop_review_provider_llm_provenance.py",
+        "tests/test_desktop_review_provider_policy_reload.py",
+        "tests/test_desktop_review_provider_quota_provenance.py",
+        "tests/test_desktop_review_provider_reload_provenance.py",
+        "tests/test_desktop_provider_round3.py",
+        "tests/test_desktop_records_round3_threads.py",
+        "tests/test_desktop_keyring_retry.py",
+        "tests/test_desktop_secret_domain_threads.py",
+        "tests/test_desktop_first_run.py",
+        "tests/test_desktop_helper_bundle.py",
+        "tests/test_packaging_models.py",
+        "tests/test_packaging_runtime.py",
+        "tests/packaging/test_chromium_runtime.py",
+        "tests/packaging/test_chromium_staging.py",
+        "tests/test_desktop_phase2_review_health_round3.py",
+        "tests/test_desktop_phase2_review_health_accounting.py",
+        "tests/test_desktop_usage_backfill.py"
       ],
-      "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification."
+      "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification. Step-five completion additionally executes all 21 requested original filenames through whole hash/corpus-bound adapters, plus named-method and authenticated transport proofs. No original selection is removed, no new skip/exclusion is added."
     },
     {
       "name": "phase2-step6a-qualified-local-services",
@@ -1767,6 +1866,84 @@
         "tests/test_desktop_workspace_diagnostics.py"
       ],
       "reason": "Step 6A real skill lifecycle/schema/dependency installation, supervised configured MCP, bundled Chromium startup, bounded local workspace diagnostics and authentic computer management/recovery. Pip, keyring, network, browser and native backends stubbed; benign disposable git only. No foreground/delivery/work/schedule implementation or native qualification claim. Immutable GI original cases run in the direct group through the worker-only resolver adapter without assertion edits. All engine suites remain isolated PID namespace with throwaway HOME."
+    },
+    {
+      "files": [
+        "tests/test_channel_history_recency.py",
+        "tests/test_channel_logger_edge_regressions.py",
+        "tests/test_desktop_step8_conversations_corpus.py",
+        "tests/test_desktop_step8_review_search_attachments_corpus.py"
+      ],
+      "name": "phase2-step2-restored-corpus",
+      "reason": "Six complete inherited transcript/search component suites: exact temporary-owner message setup for four frozen corpora and two unchanged originals. Every assertion, signature, decorator and parameter survives; full AST replay and hash safeguards. Retained ChannelLogger/FTS component evidence is not SQLite TranscriptStore wiring. Review1 adds full retained session-search corpus, with one explicit removed API-identity case."
+    },
+    {
+      "files": [
+        "tests/test_compatible_output_reserve.py",
+        "tests/test_computer_privacy_r5.py",
+        "tests/test_delivery_turn_observation.py",
+        "tests/test_desktop_step8_heartbeat_corpus.py",
+        "tests/test_desktop_step8_intake_corpus.py",
+        "tests/test_desktop_step8_review_cli_exact.py",
+        "tests/test_desktop_step8_review_codex.py",
+        "tests/test_desktop_step8_review_delivery.py",
+        "tests/test_desktop_step8_review_dispatch.py",
+        "tests/test_desktop_step8_review_helpers.py",
+        "tests/test_desktop_step8_review_search_attachments_corpus.py",
+        "tests/test_desktop_step8_runner_corpus.py"
+      ],
+      "name": "phase2-step3-restored-corpus",
+      "reason": "Six complete inherited request-execution helper suites: two actual-owner frozen shell/process corpora, unchanged reserve, privacy and observation suites. Static intake blocker safeguards do not count as restored original cases. No obsolete gateway, permissive owner shim, native desktop or traversal-archive substitution. Heartbeat uses the supplied real store and actual request worker admission. Review1 adds complete attachments with Claude-approved tmp-contained traversal fixture, failed-retention delivery and pure loop-helper corpus with exact bot-only retirements."
+    },
+    {
+      "files": [
+        "tests/test_computer_native_vision_r5.py",
+        "tests/test_desktop_step8_controls_corpus.py",
+        "tests/test_desktop_step8_review2_parity_exact.py",
+        "tests/test_desktop_step8_review_resume_exact.py",
+        "tests/test_desktop_step8_review_steer_resume.py",
+        "tests/test_desktop_step8_review_steering.py",
+        "tests/test_desktop_step8_wait_corpus.py"
+      ],
+      "name": "phase2-step4-restored-corpus",
+      "reason": "Complete synthetic vision original plus bounded-process-wait frozen corpus through authentic profile ownership, actual RequestService worker admission and real runner. Supplemental vision loader repeats the original corpus with three hash/export safeguards; executions are not unique cases. No live native backend. Review1 adds retained steering runtime and full steering checkpoint/resume corpora through authentic worker admission; exact removed multi-requester case disposition, no fabricated parity trace. Exact resume-admission corpus restored after real terminal-calibration release fix; eight explicit removed Discord cases, all original assertions unchanged."
+    },
+    {
+      "name": "phase2-step6a-tools-restored-corpus",
+      "files": [
+        "tests/test_desktop_step8_6a_tools_corpus.py"
+      ],
+      "reason": "Exact hash/corpus-bound whole inherited MCP, bundled-browser waits, freshness and replay suites through actual private OwnerAuthority, MCPService, BrowserRuntime and EngineServices. Five removed HTTP cases have exact case-level work-order dispositions. Isolated PID namespace, disposable HOME; no active desktop or live service. No support subset counts as restoration."
+    },
+    {
+      "name": "phase2-step6a-computer-restored-corpus",
+      "files": [
+        "tests/test_desktop_step8_6a_computer_corpus.py"
+      ],
+      "reason": "Ten whole inherited computer/resource/config/reviewer suites through exact frozen adapters and canonical owner/controller fixtures, plus explicitly partial support from deferred foreground suites. Full unchanged assertions/signatures/decorators/parameters and exact reverse-replay proof required. Removed web/listener cases individually recorded; no native qualification or fabricated foreground admission."
+    },
+    {
+      "name": "phase2-step6a-hyprland-restored-corpus",
+      "files": [
+        "tests/test_desktop_step8_6a_hyprland_corpus.py",
+        "tests/test_desktop_step8_6a_hyprland_support.py"
+      ],
+      "reason": "Two complete hash/corpus-bound retained Hyprland integration/discovery suites, and clearly labeled partial pure backend/parser support from deferred foreground suites. Authentic private owner and retained controller/backend logic; no native display or input startup. Exact removed web/operator cases only; missing foreground delivery/admission remains deferred."
+    },
+    {
+      "name": "phase2-step6a-campaigns-restored-corpus",
+      "files": [
+        "tests/test_tool_parity.py",
+        "tests/test_desktop_tool_parity_adaptation.py",
+        "tests/test_desktop_tool_parity_accounting.py",
+        "tests/test_desktop_d17_parity_visibility.py",
+        "tests/test_desktop_step8_6a_campaigns_corpus.py",
+        "tests/test_desktop_step8_6a_characterization_corpus.py",
+        "tests/test_desktop_step8_6a_characterization_provenance.py",
+        "tests/test_desktop_step8_6a_characterization_wiring.py",
+        "tests/test_desktop_step8_6a_empty_fields_corpus.py"
+      ],
+      "reason": "Exact whole retained campaign/privacy/catalog suites and the ten-case tool parity suite under the eight explicit PR48 round 1 reviewed bindings, with exact-byte reverse and full-export proofs. Other characterization/empty-field support remains honestly partial. Only individually removed Discord, web/listener/bearer/multi-user cases retire. Real neutral UsageRollup, knowledge/image owner publication and calibration graph wiring tested. No parameter deselection or false whole-suite coverage; authentic owner worker/service seams, isolated PID namespace and throwaway profiles."
     }
   ],
   "acceptance": {
@@ -1786,8 +1963,8 @@
       "phase2-admission-wiring": 8
     },
     "foundation_definitions": {
-      "executable": 724,
-      "removed-surface-replacement": 130,
+      "executable": 730,
+      "removed-surface-replacement": 124,
       "unmapped-neutral-blocker": 0,
       "phase2-admission-wiring": 7,
       "native-prohibited-scope": 15

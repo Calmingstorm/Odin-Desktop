@@ -1,0 +1,21 @@
+{
+  "source_gate": "79c9082126adbb196d0f38d6a44c324cdcf59b56",
+  "root": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task2",
+  "full_inventory": {
+    "path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task2/artifact-index.json",
+    "bytes": 28380,
+    "sha256": "81d9806b708d72e0340aa580b4970c0e13aea5089f08c79948a05c099408c1c1",
+    "artifacts": 120,
+    "scope": "Exact SHA-256/path/size for every retained raw artifact, including exploratory failures, screenshots and copied fresh accessibility results."
+  },
+  "authoritative_artifacts": [
+    {"path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task2/fresh-check.log", "bytes": 18189, "sha256": "b10058cc32b17106459b1d10e10a6668d656b87077095a57cb0ecab81e8bf626"},
+    {"path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task2/fresh-fixture-smoke.log", "bytes": 1153, "sha256": "9e77517c619b453efb164a2a3f6f9ec0c6057c77be0dd57c1b51fb99218c5260"},
+    {"path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task2/fresh-real-core.log", "bytes": 8248, "sha256": "9e8d7430f1f3bfd88bc4a55c88dfe262393ec0498d42403ce63e18bf46a1336a"},
+    {"path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task2/fresh-real-smoke.log", "bytes": 6339, "sha256": "292c457983b8410a6618a439f13aa2c8c61a1b981de0575bed6623aad74a21ce"},
+    {"path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task2/fresh-a11y.log", "bytes": 10464, "sha256": "41df43a3b10eddbb03e30edb340539520af43ae1ec3a0602576b4a8f6d20e4c1"},
+    {"path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task2/fresh-targeted-engine.log", "bytes": 160, "sha256": "cb912c994462625d6d23087eae4430fa5d5a7720fd232b4449375027e89e7b53"},
+    {"path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task2/fresh-real-smoke-evidence.json", "bytes": 1398791, "sha256": "3e72c7ca68d608f249105eab41c8ca559664eeeafc372a70c685597b85ef7e5a"},
+    {"path": "/mnt/storage/odin-desktop-evidence/lane5-step8p6-s6-20261006/task2/fresh-real-smoke.png", "bytes": 94291, "sha256": "fe2d4170ed2d349c5ab1e044412bb26be5d2c0ead8b72c6bec20491f6999dd29"}
+  ]
+}

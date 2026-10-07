@@ -15045,14 +15045,14 @@
         {
           "original": "tests/test_skill_context.py::TestMessaging::test_post_message_no_callback",
           "source_sha256": "b95d4cf5e4a2d0e0d60c7fec338c021123a74dd37c223e2b9ed8878082e23ab9",
-          "disposition": "removed-surface-replacement",
-          "executable": [],
-          "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_skill_missing_delivery_and_destination_fail_explicitly"
+          "disposition": "executable",
+          "executable": [
+            "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestMessaging::test_post_message_no_callback"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Specific retained guard tested through collected replacement, not old transport parity.",
+          "replacement_cases": [],
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": null,
+          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         },
         {
@@ -15071,14 +15071,14 @@
         {
           "original": "tests/test_skill_context.py::TestMessaging::test_post_file_no_callback",
           "source_sha256": "b95d4cf5e4a2d0e0d60c7fec338c021123a74dd37c223e2b9ed8878082e23ab9",
-          "disposition": "removed-surface-replacement",
-          "executable": [],
-          "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_skill_missing_delivery_and_destination_fail_explicitly"
+          "disposition": "executable",
+          "executable": [
+            "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestMessaging::test_post_file_no_callback"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Specific retained guard tested through collected replacement, not old transport parity.",
+          "replacement_cases": [],
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": null,
+          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         },
         {
@@ -15201,53 +15201,53 @@
         {
           "original": "tests/test_skill_context.py::TestDelegations::test_knowledge_and_history_disabled",
           "source_sha256": "b95d4cf5e4a2d0e0d60c7fec338c021123a74dd37c223e2b9ed8878082e23ab9",
-          "disposition": "removed-surface-replacement",
-          "executable": [],
-          "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_skill_knowledge_neutral_delegations_are_not_history_wiring"
+          "disposition": "executable",
+          "executable": [
+            "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_knowledge_and_history_disabled"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Specific retained guard tested through collected replacement, not old transport parity.",
+          "replacement_cases": [],
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": null,
+          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         },
         {
           "original": "tests/test_skill_context.py::TestDelegations::test_knowledge_enabled",
           "source_sha256": "b95d4cf5e4a2d0e0d60c7fec338c021123a74dd37c223e2b9ed8878082e23ab9",
-          "disposition": "removed-surface-replacement",
-          "executable": [],
-          "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_skill_knowledge_neutral_delegations_are_not_history_wiring"
+          "disposition": "executable",
+          "executable": [
+            "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_knowledge_enabled"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Specific retained guard tested through collected replacement, not old transport parity.",
+          "replacement_cases": [],
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": null,
+          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         },
         {
           "original": "tests/test_skill_context.py::TestDelegations::test_scheduler_disabled",
           "source_sha256": "b95d4cf5e4a2d0e0d60c7fec338c021123a74dd37c223e2b9ed8878082e23ab9",
-          "disposition": "removed-surface-replacement",
-          "executable": [],
-          "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_skill_missing_delivery_and_destination_fail_explicitly"
+          "disposition": "executable",
+          "executable": [
+            "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_scheduler_disabled"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Specific retained guard tested through collected replacement, not old transport parity.",
+          "replacement_cases": [],
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": null,
+          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         },
         {
           "original": "tests/test_skill_context.py::TestDelegations::test_scheduler_enabled",
           "source_sha256": "b95d4cf5e4a2d0e0d60c7fec338c021123a74dd37c223e2b9ed8878082e23ab9",
-          "disposition": "removed-surface-replacement",
-          "executable": [],
-          "replacement_cases": [
-            "tests/test_desktop_shared_foundation.py::test_skill_missing_delivery_and_destination_fail_explicitly"
+          "disposition": "executable",
+          "executable": [
+            "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_scheduler_enabled"
           ],
-          "collection_evidence": null,
-          "triage_source": "maintenance/foundation-suite-triage.json",
-          "reason": "Specific retained guard tested through collected replacement, not old transport parity.",
+          "replacement_cases": [],
+          "collection_evidence": ".test-state/qualification-collected.json",
+          "triage_source": null,
+          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         },
         {
@@ -61205,6 +61205,30 @@
       "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestHttp::test_post"
     },
     {
+      "original": "tests/test_skill_context.py::TestMessaging::test_post_message_no_callback",
+      "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestMessaging::test_post_message_no_callback"
+    },
+    {
+      "original": "tests/test_skill_context.py::TestMessaging::test_post_file_no_callback",
+      "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestMessaging::test_post_file_no_callback"
+    },
+    {
+      "original": "tests/test_skill_context.py::TestDelegations::test_knowledge_and_history_disabled",
+      "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_knowledge_and_history_disabled"
+    },
+    {
+      "original": "tests/test_skill_context.py::TestDelegations::test_knowledge_enabled",
+      "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_knowledge_enabled"
+    },
+    {
+      "original": "tests/test_skill_context.py::TestDelegations::test_scheduler_disabled",
+      "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_scheduler_disabled"
+    },
+    {
+      "original": "tests/test_skill_context.py::TestDelegations::test_scheduler_enabled",
+      "executable": "tests/test_desktop_shared_foundation.py::Test_test_skill_context_TestDelegations::test_scheduler_enabled"
+    },
+    {
       "original": "tests/test_desktop_shared_foundation.py::test_retained_secret_containers_remain_nonpublic[outbound_webhooks.targets]",
       "executable": "tests/test_desktop_shared_foundation.py::test_retained_secret_containers_remain_nonpublic[outbound_webhooks.targets]"
     },
@@ -61289,10 +61313,6 @@
       "executable": "tests/test_desktop_shared_foundation.py::test_skill_allowed_urls_are_instance_scoped"
     },
     {
-      "original": "tests/test_desktop_shared_foundation.py::test_skill_knowledge_neutral_delegations_are_not_history_wiring",
-      "executable": "tests/test_desktop_shared_foundation.py::test_skill_knowledge_neutral_delegations_are_not_history_wiring"
-    },
-    {
       "original": "tests/test_desktop_shared_foundation.py::test_schema_retained_container_ancestry_and_secret_facts",
       "executable": "tests/test_desktop_shared_foundation.py::test_schema_retained_container_ancestry_and_secret_facts"
     },
@@ -61311,10 +61331,6 @@
     {
       "original": "tests/test_desktop_shared_foundation.py::test_documentation_generation_is_pure_and_current_catalog_only",
       "executable": "tests/test_desktop_shared_foundation.py::test_documentation_generation_is_pure_and_current_catalog_only"
-    },
-    {
-      "original": "tests/test_desktop_shared_foundation.py::test_skill_missing_delivery_and_destination_fail_explicitly",
-      "executable": "tests/test_desktop_shared_foundation.py::test_skill_missing_delivery_and_destination_fail_explicitly"
     },
     {
       "original": "tests/test_desktop_shared_foundation.py::test_builtin_static_catalog_publishes_real_schemas",
@@ -65169,12 +65185,8 @@
       "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_conversation_callbacks_preserve_quotas"
     },
     {
-      "original": "tests/test_desktop_capabilities_skills_hosts.py::test_schedule_destination_is_not_a_free_form_scheduler_id",
-      "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_schedule_destination_is_not_a_free_form_scheduler_id"
-    },
-    {
-      "original": "tests/test_desktop_capabilities_skills_hosts.py::test_unscoped_history_store_cannot_be_used_by_skill",
-      "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_unscoped_history_store_cannot_be_used_by_skill"
+      "original": "tests/test_desktop_capabilities_skills_hosts.py::test_skill_schedule_api_names_conversations",
+      "executable": "tests/test_desktop_capabilities_skills_hosts.py::test_skill_schedule_api_names_conversations"
     },
     {
       "original": "tests/test_desktop_capabilities_skills_hosts.py::test_url_grants_are_instance_scoped_and_used_for_hardened_fetch",
@@ -66357,20 +66369,20 @@
       "executable": "tests/test_desktop_profile_upgrade.py::test_placeholders_are_not_shipped_literal_evidence"
     },
     {
-      "original": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[discord]",
-      "executable": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[discord]"
+      "original": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[discord]",
+      "executable": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[discord]"
     },
     {
-      "original": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[permissions]",
-      "executable": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[permissions]"
+      "original": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[permissions]",
+      "executable": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[permissions]"
     },
     {
-      "original": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[web]",
-      "executable": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[web]"
+      "original": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[web]",
+      "executable": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[web]"
     },
     {
-      "original": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[unknown]",
-      "executable": "tests/test_desktop_profile_upgrade.py::test_reject_obsolete_fields_before_any_migration_write[unknown]"
+      "original": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[unknown]",
+      "executable": "tests/test_desktop_profile_upgrade.py::test_unknown_sections_warn_once_and_upgrade_like_odin[unknown]"
     },
     {
       "original": "tests/test_desktop_profile_upgrade.py::test_external_supplied_config_is_runtime_only",
@@ -72899,6 +72911,70 @@
     {
       "original": "tests/test_desktop_workspace_diagnostics.py::test_cancelled_wait_does_not_cancel_or_duplicate_worker",
       "executable": "tests/test_desktop_workspace_diagnostics.py::test_cancelled_wait_does_not_cancel_or_duplicate_worker"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestToolParity::test_exact_names_and_order",
+      "executable": "tests/test_tool_parity.py::TestToolParity::test_exact_names_and_order"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestToolParity::test_no_duplicate_names",
+      "executable": "tests/test_tool_parity.py::TestToolParity::test_no_duplicate_names"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestToolParity::test_schema_deep_equality",
+      "executable": "tests/test_tool_parity.py::TestToolParity::test_schema_deep_equality"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestToolParity::test_tool_map_completeness_and_identity",
+      "executable": "tests/test_tool_parity.py::TestToolParity::test_tool_map_completeness_and_identity"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestBackendGatedVisibility::test_unconfigured_backends_are_invisible",
+      "executable": "tests/test_tool_parity.py::TestBackendGatedVisibility::test_unconfigured_backends_are_invisible"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestBackendGatedVisibility::test_analyze_pdf_follows_its_dependency",
+      "executable": "tests/test_tool_parity.py::TestBackendGatedVisibility::test_analyze_pdf_follows_its_dependency"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestBackendGatedVisibility::test_generate_image_follows_codex_auth_not_chat_provider",
+      "executable": "tests/test_tool_parity.py::TestBackendGatedVisibility::test_generate_image_follows_codex_auth_not_chat_provider"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestRegistryMutabilitySemantics::test_tool_map_static_but_defs_cache_rebuilds",
+      "executable": "tests/test_tool_parity.py::TestRegistryMutabilitySemantics::test_tool_map_static_but_defs_cache_rebuilds"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestRegistryMutabilitySemantics::test_defs_cache_identity",
+      "executable": "tests/test_tool_parity.py::TestRegistryMutabilitySemantics::test_defs_cache_identity"
+    },
+    {
+      "original": "tests/characterization/test_tool_parity.py::TestRegistryMutabilitySemantics::test_defs_shape_and_schema_identity",
+      "executable": "tests/test_tool_parity.py::TestRegistryMutabilitySemantics::test_defs_shape_and_schema_identity"
+    },
+    {
+      "original": "tests/test_desktop_tool_parity_adaptation.py::test_reviewed_bindings_reverse_to_exact_frozen_bytes",
+      "executable": "tests/test_desktop_tool_parity_adaptation.py::test_reviewed_bindings_reverse_to_exact_frozen_bytes"
+    },
+    {
+      "original": "tests/test_desktop_tool_parity_adaptation.py::test_reviewed_bindings_preserve_every_signature_decorator_and_untouched_case",
+      "executable": "tests/test_desktop_tool_parity_adaptation.py::test_reviewed_bindings_preserve_every_signature_decorator_and_untouched_case"
+    },
+    {
+      "original": "tests/test_desktop_tool_parity_adaptation.py::test_only_eleven_reviewed_hashes_are_re_pinned",
+      "executable": "tests/test_desktop_tool_parity_adaptation.py::test_only_eleven_reviewed_hashes_are_re_pinned"
+    },
+    {
+      "original": "tests/test_desktop_tool_parity_accounting.py::test_reviewed_parity_admission_is_exact_and_rejects_drift",
+      "executable": "tests/test_desktop_tool_parity_accounting.py::test_reviewed_parity_admission_is_exact_and_rejects_drift"
+    },
+    {
+      "original": "tests/test_desktop_d17_parity_visibility.py::test_knowledge_catalog_is_backed_by_durable_profile_store",
+      "executable": "tests/test_desktop_d17_parity_visibility.py::test_knowledge_catalog_is_backed_by_durable_profile_store"
+    },
+    {
+      "original": "tests/test_desktop_d17_parity_visibility.py::test_image_auth_visibility_has_real_selector_and_durable_publication",
+      "executable": "tests/test_desktop_d17_parity_visibility.py::test_image_auth_visibility_has_real_selector_and_durable_publication"
     }
   ],
   "historical_failure_blockers": [
@@ -72934,5 +73010,13 @@
     "tests/test_tool_timeouts.py::TestToolTimeoutsAPI::test_set_invalid_default_rejected",
     "tests/test_tool_timeouts.py::TestToolTimeoutsAPI::test_set_non_dict_overrides_rejected",
     "tests/test_tool_timeouts.py::TestToolTimeoutsAPI::test_list_tools_includes_timeout"
-  ]
+  ],
+  "phase2_step8_part6": {
+    "dispositions": "maintenance/phase2-step8-part6-cases.json",
+    "collection": "maintenance/phase2-step8-part6-collection.json",
+    "collection_sha256": "b40794edee22b8fac844e219b3e6995100efdd9a89ebedb7bb1adb0342dd23a8",
+    "functions": 83,
+    "expanded_cases": 108,
+    "independent_review": "pending"
+  }
 }

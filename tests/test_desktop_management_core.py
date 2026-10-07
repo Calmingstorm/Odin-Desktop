@@ -1,6 +1,7 @@
 """Named services exercised through the authenticated core transport."""
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import uuid
@@ -72,7 +73,8 @@ async def test_schema_write_event_and_stale_binding_over_transport(connected):
     params = {"expected_revision": schema["revision"],
               "changes": [{"path": "logging.level", "value": "DEBUG"}]}
     command_id = str(uuid.uuid4())
-    first = await request(reader, writer, "settings.set", params, command_id)
+    # Bound one real settings receipt under load; this IPC path has no product RPC deadline.
+    first = await request(reader, writer, "settings.set", params, command_id, timeout=15)
     assert first["ok"], first
     assert await request(reader, writer, "settings.set", params, command_id) == first
     stale = await request(reader, writer, "settings.set", params)
@@ -133,8 +135,14 @@ async def test_fresh_host_usage_and_health_are_real_reads(connected):
     service, reader, writer, _, _ = connected
     hosts = (await request(reader, writer, "hosts.list"))["result"]
     assert hosts["default_host"] == "localhost"
-    usage = (await request(reader, writer, "usage.get"))["result"]
-    assert usage["tokens"] == {"value": None, "kind": "unknown"}
+    # The core starts Odin's usage backfill at boot. An empty profile reads
+    # unknown until the first pass completes, then measured zero.
+    for _ in range(300):
+        usage = (await request(reader, writer, "usage.get"))["result"]
+        if usage["tokens"]["kind"] != "unknown":
+            break
+        await asyncio.sleep(0.05)
+    assert usage["tokens"] == {"value": 0, "kind": "measured"}
     health = (await request(reader, writer, "health.get"))["result"]
     assert health["total"] > 0
     assert any(component["name"] == "open_files" for component in health["components"])
@@ -346,7 +354,16 @@ async def test_management_governs_engine_shell_tools_and_readiness(connected):
     assert executor._builtin_policy is deps.native_tools.builtin_policy
     offered = {tool["name"] for tool in deps.tool_catalog.merged_definitions()}
     assert "parse_time" in offered
-    assert "spawn_agent" not in offered  # Management must not broaden readiness.
+    assert "spawn_agent" in offered  # Actual background admission is now composed.
+    deps.background_work_ready = False
+    deps.tool_catalog.invalidate()
+    try:
+        # Management cannot make an unbound background owner ready.
+        assert "spawn_agent" not in {
+            tool["name"] for tool in deps.tool_catalog.merged_definitions()}
+    finally:
+        deps.background_work_ready = True
+        deps.tool_catalog.invalidate()
     schema = (await request(reader, writer, "settings.schema"))["result"]
     changed = await request(reader, writer, "settings.set", {
         "expected_revision": schema["revision"],

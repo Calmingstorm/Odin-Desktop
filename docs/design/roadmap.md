@@ -60,11 +60,17 @@ integration gates, complete in Phase 2. Deferred gates are recorded explicitly; 
   - running alongside a server install with fresh data and no shared state;
   - if Aaron includes webhook triggers, the section-8 ingress acceptance cases.
 
-  **Inherited-suite closure is also a Phase 2 exit criterion.** All **326 Phase-2-deferred suites** listed in
-  `maintenance/test-plan.json` must come back in Phase 2, adapted to the Desktop transport and **never dropped**.
-  The original assertions, case data and budgets remain the behavior contract; a smoke test, a renamed exclusion
-  or an aggregate passing count is not closure. Record each suite's Desktop execution/adapter mapping and results
-  in the maintenance accounting, with no unaccounted deferred cases at the exit gate. This includes:
+  **Inherited-suite closure is also a Phase 2 exit criterion.** Each of the **326 Phase-2-deferred suites** listed
+  in `maintenance/test-plan.json` needs a final disposition at the exit gate, and none is ever dropped silently:
+  - **restored**: adapted to the Desktop transport, with its Desktop execution/adapter mapping and results;
+  - **retired** under its recorded authority;
+  - **named deferral** (Aaron's decision 3, 2026-10-06, which ended further restoration campaigns): status
+    `deferred` with a concrete `blocked_on`. A deferral is never relabeled as passing.
+
+  For a restored suite the original assertions, case data and budgets remain the behavior contract; a smoke test,
+  a renamed exclusion or an aggregate passing count is not closure. Record each disposition in the maintenance
+  accounting, with no unaccounted suites at the exit gate (`scripts/maintenance/phase2_closure.py report`). The
+  suites first planned for restoration include:
   - `tests/characterization/test_chat_tool_loop.py`: continuation, the completion judge and nudges;
   - the deferred agent suites: nested agents, completion, budgets, lifecycle, transcripts and delivery;
   - `tests/test_recovery.py` and `tests/test_tool_loop_helpers.py`;

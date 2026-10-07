@@ -299,8 +299,8 @@ describe('13.R5.2: a settings answer owns both the editor epoch and skill name',
       mounted!.root.findAll((host) => host.tag === 'button' && host.textContent() === 'Open')[1]!.fire('click')
       await flush()
       expect(store.management.editor?.name).toBe('a')
-      expect(mounted!.root.button('Save its settings').props.disabled).toBeFalsy()
-      mounted!.root.button('Save its settings').fire('click')
+      expect(mounted!.root.button('Save settings').props.disabled).toBeFalsy()
+      mounted!.root.button('Save settings').fire('click')
       await flush()
       expect(bridge.skillsConfigSet).toHaveBeenCalledExactlyOnceWith({ name: 'a', config: { units: 'imperial' } })
       const settleConfig = async () => {

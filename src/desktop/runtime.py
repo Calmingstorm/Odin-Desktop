@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 from ..config.apply_registry import flatten, is_secret
 from ..config.persistence import _load_document
-from ..config.schema import Config
+from ..config.schema import Config, _known_config_data
 from ..discord.slash_commands import (
     USAGE_RANGES,
     collect_status,
@@ -59,6 +59,7 @@ class RuntimeService:
         self.core = core
         self.settings = settings
         self.llm_gateway = llm
+        self.subsystem_guard = getattr(llm, "subsystem_guard", None)
         self.usage = usage
         self.context = context
         directory = getattr(getattr(settings.config, "context", None), "directory", None)
@@ -117,7 +118,7 @@ class RuntimeService:
             defaults = fresh_config(paths)
             document, _ = _load_document(paths.config_file)
             values = defaults.model_dump(mode="json")
-            self.settings._merge(values, dict(document))
+            self.settings._merge(values, _known_config_data(dict(document)))
             saved = Config.model_validate(values, context={"startup": True})
             desired = parse_model_ref(self.config.llm_provider.model, allow_auto=False)
             section_name = {"codex": "openai_codex", "ollama": "ollama",
@@ -207,12 +208,15 @@ class RuntimeService:
         # Never call core.status here: the core delegates back to this service.
         from .core import VERSION
 
+        deps = getattr(getattr(self.core, "engine", None), "deps", None)
         observed = SimpleNamespace(
             config=self.config, llm_gateway=self.llm_gateway,
             start_time=getattr(self.core, "start_time", None),
             tool_catalog=self.tool_catalog,
-            agent_manager=getattr(self.core, "agent_manager", None),
-            loop_manager=getattr(self.core, "loop_manager", None),
+            agent_manager=getattr(deps, "agent_manager", None)
+                          or getattr(self.core, "agent_manager", None),
+            loop_manager=getattr(deps, "loop_manager", None)
+                         or getattr(self.core, "loop_manager", None),
         )
         facts = collect_status(observed)
         facts["version"] = VERSION
@@ -234,6 +238,18 @@ class RuntimeService:
                     except Exception:
                         facts["providers"][name] = "unknown"
         limits = getattr(self.core, "limits", None) or {}
+        summary = render_status(facts)
+        ingress = getattr(self.core, "webhooks", None)
+        state = {"reason": "unavailable", "address": None,
+                 "eligible_schedules": 0, "unknown_deliveries": 0}
+        if ingress is not None:
+            state = ingress.status()
+            address = state['address']
+            location = f" at {address[0]}:{address[1]}" if address else ""
+            line = (f"Webhook ingress: {state['reason']}{location} "
+                    f"({state['eligible_schedules']} eligible schedules; "
+                    f"{state['unknown_deliveries']} unknown deliveries, never replayed)")
+            summary = [*summary, line] if isinstance(summary, list) else summary + "\n" + line
         return scrub_diagnostic({
             "phase": self.core.phase,
             "core_instance_id": getattr(getattr(self.core, "authority", None), "runtime_id", None),
@@ -245,7 +261,8 @@ class RuntimeService:
                           for name, health in facts["providers"].items()],
             "limits": {name: limits.get(name) for name in
                        ("chunk_bytes", "attachment_bytes", "attachments_per_turn")},
-            "summary": render_status(facts),
+            "summary": summary,
+            "webhook_ingress": state,
             "first_run": self._first_run(),
             "resource_cleanup": (self.core.resource_cleanup.public()
                                  if getattr(self.core, "resource_cleanup", None) else None),
@@ -303,12 +320,16 @@ class RuntimeService:
         if summary.get("available"):
             work = summary.get("work", {})
             values = [work.get(name, {}) for name in ("input_tokens", "output_tokens")]
-            if all(type(item.get("total")) is int and item["total"] >= 0
-                   and not item.get("unknown_generations") for item in values):
+            complete = summary.get("coverage", {}).get("backfill_complete", False)
+            # A newly composed writer has an empty index before backfill settles.
+            # Zero indexed facts is not evidence that actual usage was zero.
+            observed = work.get("accepted_generations", 0) > 0 or complete
+            if observed and all(type(item.get("total")) is int and item["total"] >= 0
+                                and not item.get("unknown_generations") for item in values):
                 estimated = any(item.get("estimated") or item.get("legacy_estimated")
                                 for item in values)
                 # Indexed history is not all history while backfill is incomplete.
-                estimated |= not summary.get("coverage", {}).get("backfill_complete", False)
+                estimated |= not complete
                 tokens = _number(sum(item["total"] for item in values),
                                  "estimated" if estimated else "measured")
         context = {"used": _number(), "budget": _number()}

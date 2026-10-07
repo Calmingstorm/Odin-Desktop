@@ -48,6 +48,13 @@ export class Host {
     return this.children.flatMap((child) => [...(match(child) ? [child] : []), ...child.findAll(match)])
   }
 
+  /** The button named exactly this by its aria-label, as an icon button is. */
+  named(label: string): Host {
+    const found = this.findAll((host) => host.tag === 'button' && host.props['aria-label'] === label)
+    if (found.length !== 1) throw new Error(`expected one button named "${label}", found ${found.length}`)
+    return found[0]!
+  }
+
   /** The button that reads exactly this text. */
   button(text: string): Host {
     const found = this.findAll((host) => host.tag === 'button' && host.textContent().trim() === text)

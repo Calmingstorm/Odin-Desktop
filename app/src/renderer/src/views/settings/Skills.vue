@@ -63,6 +63,7 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
     </header>
     <p v-if="management.unavailable.skills" class="capability-unavailable" role="status">{{ unavailableText('Skill management') }}</p>
     <p v-else-if="management.errors.skills" class="warn">{{ management.errors.skills }}</p>
+    <p v-if="!management.unavailable.skills && management.skillTestUnavailable" class="capability-unavailable" role="status">Test is unavailable in this core.</p>
     <ul v-if="!management.unavailable.skills" class="manage-list">
       <li v-for="skill in management.skills" :key="skill.name" :class="['manage-row', skill.status]">
         <div class="manage-line">
@@ -75,7 +76,7 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
             <button v-if="skill.status !== 'error'" class="ghost" :aria-label="`${skill.status === 'loaded' ? 'Turn off' : 'Turn on'} ${skill.name}`" :disabled="management.busy[`skill:${skill.name}`]" @click="setSkillEnabled(skill.name, skill.status !== 'loaded')">
               {{ skill.status === 'loaded' ? 'Turn off' : 'Turn on' }}
             </button>
-            <button class="ghost" :aria-label="`Test ${skill.name}`" :disabled="skill.status !== 'loaded' || management.busy[`skill:${skill.name}`]" @click="testSkill(skill.name)">Test</button>
+            <button class="ghost" :aria-label="`Test ${skill.name}`" :disabled="management.skillTestUnavailable || skill.status !== 'loaded' || management.busy[`skill:${skill.name}`]" @click="testSkill(skill.name)">Test</button>
             <button class="ghost danger-item" :aria-label="`Delete ${skill.name}…`" @click="remove(skill.name)">Delete…</button>
           </span>
         </div>
@@ -100,7 +101,7 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
       <button class="ghost" :aria-label="`${editing.create ? 'Create' : 'Save'} skill ${editing.name || 'code'}`" :disabled="!editing.name.trim() || management.busy[`skill:${editing.name.trim()}`]" @click="saveSkill">
         {{ editing.create ? 'Create' : 'Save' }}
       </button>
-      <button v-if="!editing.create" class="ghost" :aria-label="`Test ${editing.name}`" @click="testSkill(editing.name)">Test</button>
+      <button v-if="!editing.create" class="ghost" :aria-label="`Test ${editing.name}`" :disabled="management.skillTestUnavailable || management.busy[`skill:${editing.name}`]" @click="testSkill(editing.name)">Test</button>
     </div>
     <div v-if="management.validation" id="skill-validation" class="validation" role="status">
       <p v-if="management.validation.valid" class="field-saved">Valid.</p>
@@ -137,7 +138,7 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
       </label>
       <div class="panel-actions">
         <button class="ghost" :aria-label="`Save settings for ${management.skill.name}`" :disabled="management.busy[`skill-config:${management.skill.name}`]" @click="saveSkillConfig(management.skill!.name, { ...management.skillConfig })">
-          Save its settings
+          Save settings
         </button>
       </div>
       <p v-if="management.notes[`skill-config:${management.skill.name}`]" class="manage-note" role="status">

@@ -4,6 +4,9 @@ import type { CoreError, ManagementMethod } from '../shared/api'
 
 const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 
+// Neither notice action accepts a repository, URL, transport, credentials or an update command.
+export const releaseNoticeSchema = z.object({}).strict()
+
 /** Fixed safe strings only; strip extra provider/credential data at the main boundary. */
 export const firstRunStatusSchema = z.object({
   state: z.enum(['fresh', 'incomplete', 'saved', 'effective-ready', 'degraded']),
@@ -12,6 +15,20 @@ export const firstRunStatusSchema = z.object({
 })
 
 /** The window names each conversation command, so a lost answer is reconciled by its late receipt, never re-sent. */
+export const webhookIngressStatusSchema = z.object({
+  reason: z.enum(['closed', 'disabled', 'unconfigured_bind', 'no_eligible_schedule', 'accepting', 'not_bound', 'unavailable']),
+  address: z.tuple([z.string(), z.number().int().min(0).max(65535)]).rest(z.union([z.number(), z.string()])).nullable(),
+  eligible_schedules: z.number().int().nonnegative(),
+  unknown_deliveries: z.number().int().nonnegative()
+})
+
+/** Retained scheduler conditions, including GitLab even though ingress is unavailable for it. */
+export const scheduleTriggerSchema = z.object({
+  source: z.enum(['generic', 'github', 'gitea', 'gitlab', '']).nullable().optional(),
+  event: z.string().nullable().optional(),
+  repo: z.string().nullable().optional()
+}).strict().refine((value) => Object.values(value).some(Boolean), 'Trigger must have at least one condition')
+
 const commandId = z.uuid()
 
 export const createConversationSchema = z
@@ -114,9 +131,17 @@ export const workControlSchema = z
     control_command_id: z.uuid(),
     kind: workKind,
     id: coreId,
-    action: z.enum(['stop', 'cancel', 'restart', 'pause', 'resume', 'run_now'])
+    action: z.enum(['stop', 'cancel', 'restart', 'pause', 'resume', 'run_now', 'steer']),
+    manager_generation: z.string().min(1).max(512).optional(),
+    run_id: coreId.optional(),
+    generation: z.number().int().nonnegative().optional(),
+    conversation_id: coreId.optional(),
+    revision: z.number().int().nonnegative().optional(),
+    text: z.string().min(1).optional()
   })
   .strict()
+  .refine((v) => v.action !== 'steer' || (v.kind === 'agent' && Boolean(v.text)), { message: 'agent steering needs text' })
+  .refine((v) => v.text === undefined || v.action === 'steer', { message: 'text is only for agent steering' })
 
 export const toolDetailSchema = z.object({ request_id: coreId, invocation_id: coreId }).strict()
 
@@ -137,7 +162,7 @@ export const controlSchema = z
     control_command_id: z.uuid(),
     conversation_id: coreId,
     request_id: coreId,
-    generation: z.number().int().nonnegative()
+    generation: z.number().int().positive()
   })
   .strict()
 
@@ -145,6 +170,7 @@ export const controlSchema = z
 export const steerSchema = controlSchema.extend({ text: z.string().min(1).max(4_000) }).strict()
 
 export const setAutostartSchema = z.object({ enabled: z.boolean() }).strict()
+export const setAppearanceSchema = z.object({ appearance: z.enum(['system', 'dark', 'light']) }).strict()
 
 // An opaque notice token, not a path, journal record supplied by the window, or a core operation.
 export const acknowledgeCleanupSchema = z.object({ id: z.string().min(1).max(128).refine((id) => id.trim().length > 0) }).strict()
@@ -232,6 +258,7 @@ const toolName = z.string().min(1).max(128)
 const skillName = z.string().min(1).max(100)
 const skillCode = z.string().min(1).max(50_000)
 const mcpName = z.string().min(1).max(128).regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+const mcpRevision = { expected_revision: z.string().min(1).max(128).optional() }
 const text = z.string().max(16_384)
 const secretMap = z.record(z.string().min(1).max(256), text)
 const hostAlias = z.string().min(1).max(64)
@@ -250,6 +277,7 @@ const scheduleFields = {
   cron: z.string().min(1).max(256).optional(),
   run_at: z.string().min(1).max(64).optional(),
   cron_timezone: z.string().min(1).max(64).optional(),
+  trigger: scheduleTriggerSchema.optional(),
   message: z.string().max(4000).optional(),
   tool_name: z.string().min(1).max(128).optional(),
   tool_input: z.record(z.string(), z.json()).optional(),
@@ -261,6 +289,39 @@ const scheduleFields = {
 }
 
 export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
+  auditDiffs: z.object({ tool: z.string().optional(), user: z.string().optional(), date: z.string().optional(), limit: z.union([z.number(), z.string()]).optional() }).strict(),
+  auditFailures: z.object({ window: z.union([z.number(), z.string()]).optional() }).strict(),
+  auditTail: z.object({ cursor: z.string().optional(), lines: z.number().int().optional() }).strict(),
+  logsStats: empty,
+  logsTail: z.object({ cursor: z.string().optional(), lines: z.number().int().optional() }).strict(),
+  knowledgeChunks: z.object({ source: z.string().min(1) }).strict(),
+  knowledgeDuplicates: z.object({ threshold: z.union([z.number(), z.string()]).optional() }).strict(),
+  knowledgeMerge: z.object({ keep_source: knowledgeSource, remove_source: knowledgeSource }).strict(),
+  knowledgeVersion: z.object({ source: z.string().min(1), version: z.number().int().min(0) }).strict(),
+  knowledgeDiff: z.object({ source: z.string().min(1), v1: z.number().int().min(0), v2: z.number().int().min(0) }).strict(),
+  learnedList: empty,
+  learnedUpdate: z.object({ key: z.string(), content: z.string().optional(), category: z.string().optional() }).strict(),
+  learnedDelete: z.object({ key: z.string() }).strict(),
+  observabilityStats: empty,
+  observabilityRisk: empty,
+  observabilityFreshness: empty,
+  observabilityBulkheads: empty,
+  observabilityCompression: empty,
+  recoveryStats: empty,
+  recoveryRecent: z.object({ limit: z.union([z.number(), z.string()]).optional() }).strict(),
+  capacitySnapshot: empty,
+  poolsSsh: empty,
+  poolsHttp: empty,
+  poolsClose: z.object({ host: z.string().optional(), ssh_user: z.string().optional() }).strict(),
+  openrouterCatalogue: empty,
+  openrouterEndpoints: z.object({ model: z.string() }).strict(),
+  openrouterSelect: z.object({ model: z.string(), provider_tag: z.string().optional(), expected_revision: z.string().optional() }).strict(),
+  providersCompatDiagnostic: empty,
+  trajectoriesList: empty,
+  trajectoriesRead: z.object({ filename: z.string(), limit: z.union([z.number(), z.string()]).optional(), channel_id: z.string().optional(), user_id: z.string().optional(), tool_name: z.string().optional(), errors_only: z.union([z.boolean(), z.string()]).optional() }).strict(),
+  trajectoriesSearch: z.object({ limit: z.union([z.number(), z.string()]).optional(), channel_id: z.string().optional(), user_id: z.string().optional(), tool_name: z.string().optional(), errors_only: z.union([z.boolean(), z.string()]).optional() }).strict(),
+  trajectoriesMessage: z.object({ message_id: z.string() }).strict(),
+  codexRefresh: z.object({ index: z.union([z.number(), z.string()]) }).strict(),
   toolsList: empty,
   toolsSetEnabled: z.object({ name: toolName, enabled: z.boolean() }).strict(),
   toolsTimeoutsGet: empty,
@@ -280,7 +341,8 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
   mcpSave: z
     .object({
       name: mcpName,
-      create: z.boolean(),
+      create: z.boolean().optional(),
+      ...mcpRevision,
       transport: z.enum(['stdio', 'http']).optional(),
       command: text.optional(),
       args: z.array(text).max(256).optional(),
@@ -295,14 +357,15 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
       env_remove: z.array(z.string().max(256)).max(256).optional()
     })
     .strict(),
-  mcpSetEnabled: z.object({ name: mcpName, enabled: z.boolean() }).strict(),
-  mcpDelete: z.object({ name: mcpName }).strict(),
-  mcpReconnect: z.object({ name: mcpName }).strict(),
-  mcpRefreshTools: z.object({ name: mcpName }).strict(),
+  mcpSetEnabled: z.object({ name: mcpName, enabled: z.boolean(), ...mcpRevision }).strict(),
+  mcpDelete: z.object({ name: mcpName, ...mcpRevision }).strict(),
+  mcpReconnect: z.object({ name: mcpName, ...mcpRevision }).strict(),
+  mcpRefreshTools: z.object({ name: mcpName, ...mcpRevision }).strict(),
   mcpTools: z.object({ name: mcpName }).strict(),
-  mcpSetGlobalEnabled: z.object({ enabled: z.boolean() }).strict(),
+  mcpSetGlobalEnabled: z.object({ enabled: z.boolean(), ...mcpRevision }).strict(),
   mcpSetLimits: z
     .object({
+      ...mcpRevision,
       max_published_tools_per_server: z.number().int().min(0).max(1_000_000).optional(),
       max_published_tools_global: z.number().int().min(0).max(1_000_000).optional()
     })
@@ -327,6 +390,7 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
     })
     .strict(),
   hostsTest: z.object({ token: z.uuid() }).strict(),
+  hostsImportLegacy: z.object({ alias: hostAlias }).strict(),
   hostsCommit: z.object({ token: z.uuid() }).strict(),
   hostsSetEnabled: z.object({ alias: hostAlias, enabled: z.boolean() }).strict(),
   hostsReferences: z.object({ alias: hostAlias }).strict(),
@@ -401,6 +465,6 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
     .strict(),
   turnStateList: z.object({ limit: z.number().int().min(1).max(500).optional() }).strict(),
   computerStatus: empty,
-  computerReconcile: z.object({ session_id: z.string().min(1).max(128), generation: z.number().int().min(0), acknowledgment: z.string().max(300) }).strict()
+  computerReconcile: z.object({ session_id: z.string().min(1).max(128), generation: z.number().int().min(0), acknowledgment: z.string().max(300).optional() }).strict()
 }
 

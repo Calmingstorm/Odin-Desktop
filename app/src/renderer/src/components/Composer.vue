@@ -20,6 +20,7 @@ import {
 } from '../stores/composer'
 import AttachmentTray from './AttachmentTray.vue'
 import CommandPalette from './CommandPalette.vue'
+import Icon from './Icon.vue'
 
 // The box's text is its conversation's draft (stores/composer.ts); typing saves it.
 const text = computed({ get: () => box.text, set: (value: string) => edit(value) })
@@ -48,6 +49,9 @@ const uploading = computed(() => attachments.value.some((a) => a.status === 'upl
 const failedAttachment = computed(() => attachments.value.some((a) => a.status === 'failed'))
 // The status bar already owns a refused usage report; don't repeat that same message below the box.
 const notice = computed(() => state.app.link === 'ready' && status.usageUnavailable && state.notice === status.usageError ? '' : state.notice)
+// Local command reports have no chat task terminal event. Announce only
+// readiness and the structural title, never report contents or composer drafts.
+const reportAnnouncement = computed(() => state.panel ? `${state.panel.title} report ready.` : '')
 const paletteOpen = computed(() => !paletteDismissed.value && text.value.startsWith('/') && !text.value.includes('\n'))
 // Dismissing suggestions changes only their presentation, not what a completed slash command executes.
 const matches = computed(() => (text.value.startsWith('/') && !text.value.includes('\n') ? matchCommands(text.value) : []))
@@ -188,6 +192,7 @@ async function closeReport(): Promise<void> {
 </script>
 
 <template>
+  <p class="report-announcement" role="status" aria-live="polite" aria-atomic="true">{{ reportAnnouncement }}</p>
   <div v-if="state.panel" class="panel" role="region" :aria-label="state.panel.title">
     <div class="panel-head">
       <strong>{{ state.panel.title }}</strong>
@@ -213,7 +218,10 @@ async function closeReport(): Promise<void> {
       @remove="onRemove"
       @knowledge="onKnowledge"
     />
-    <div class="row">
+    <div class="row composer-box">
+      <button type="button" class="composer-icon" aria-label="Attach files" title="Attach files" :disabled="!state.activeId || chatUnavailable()" @click="attach">
+        <Icon name="attach" :size="18" />
+      </button>
       <textarea
         v-model="text"
         rows="3"
@@ -229,10 +237,11 @@ async function closeReport(): Promise<void> {
         @paste="onPaste"
       />
       <div class="buttons">
-        <button type="submit" class="primary" :disabled="!busy && !canSend && !matches.length" :aria-disabled="busy">{{ buttonLabel }}</button>
-        <button type="button" class="ghost" aria-label="Attach files" :disabled="!state.activeId || chatUnavailable()" @click="attach">Attach</button>
-        <button v-if="running" ref="stopButton" type="button" class="danger" aria-label="Stop the current task" title="Stop the current task (Ctrl+.)" :aria-disabled="stopping" @click="stopTask">
-          {{ stopping ? 'Stopping…' : 'Stop' }}
+        <button v-if="running" ref="stopButton" type="button" class="danger composer-stop" aria-label="Stop the current task" title="Stop the current task (Ctrl+.)" :aria-disabled="stopping" @click="stopTask">
+          <Icon name="stop" :size="14" :stroke="2.4" />{{ stopping ? 'Stopping…' : 'Stop' }}
+        </button>
+        <button type="submit" :class="['primary', 'composer-send', { labelled: running }]" :aria-label="buttonLabel" :title="buttonLabel" :disabled="!busy && !canSend && !matches.length" :aria-disabled="busy">
+          <Icon name="send" :size="18" :stroke="2.4" /><span v-if="running">{{ buttonLabel }}</span>
         </button>
       </div>
     </div>
@@ -251,6 +260,7 @@ async function closeReport(): Promise<void> {
 </template>
 
 <style scoped>
+.report-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .composer-help { font-size: .8rem; color: var(--muted); margin: .4rem 0; }
 textarea:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent, #91baff); outline-offset: 3px; }
 button[aria-disabled="true"] { opacity: .65; }

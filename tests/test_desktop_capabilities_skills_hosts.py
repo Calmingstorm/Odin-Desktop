@@ -67,12 +67,13 @@ def test_host_inventory_has_no_desired_config_fallback():
     assert _context(tool_executor=executor).get_hosts() == []
 
 
-async def test_unwired_conversation_delivery_is_explicitly_unavailable():
+async def test_unwired_conversation_delivery_is_explicitly_unavailable(caplog):
+    """Without a callback, posting follows v4.13.0: a logged warning, nothing sent."""
     context = _context()
-    with pytest.raises(RuntimeError, match="Phase 2"):
-        await context.post_message("hello")
-    with pytest.raises(RuntimeError, match="Phase 2"):
-        await context.post_file(b"content", "notes.txt")
+    assert await context.post_message("hello") is None
+    assert await context.post_file(b"content", "notes.txt") is None
+    assert "post_message called but no channel callback available" in caplog.text
+    assert "post_file called but no channel callback available" in caplog.text
     assert context._tracker.messages_sent == context._tracker.files_sent == 0
 
 
@@ -90,34 +91,13 @@ async def test_conversation_callbacks_preserve_quotas():
     assert tracker.files_sent == MAX_SKILL_FILES
 
 
-async def test_schedule_destination_is_not_a_free_form_scheduler_id():
-    scheduler = SimpleNamespace(
-        add=AsyncMock(), update=AsyncMock(), delete=AsyncMock(), list_all=lambda: ["foreign"]
-    )
-    context = _context(scheduler=scheduler, requester_id="owner")
+def test_skill_schedule_api_names_conversations():
+    # Approved Desktop skill API wording (docs/design/prompt-changes.md): the
+    # destination is a conversation. Destination authority lives in the composed
+    # surface (test_desktop_d19_behaviour.py proves admission and refusal).
     signature = inspect.signature(SkillContext.schedule_task)
     assert "conversation_id" in signature.parameters
     assert "channel_id" not in signature.parameters
-    with pytest.raises(RuntimeError, match="Validated conversation"):
-        await context.schedule_task(
-            "task", "reminder", "foreign", requester_id="other", message="hello"
-        )
-    with pytest.raises(RuntimeError, match="Validated conversation"):
-        await context.update_schedule("task", conversation_id="foreign")
-    with pytest.raises(RuntimeError, match="Validated conversation"):
-        await context.delete_schedule("task")
-    assert context.list_schedules() == []
-    scheduler.add.assert_not_called()
-    scheduler.update.assert_not_called()
-    scheduler.delete.assert_not_called()
-
-
-async def test_unscoped_history_store_cannot_be_used_by_skill():
-    store = SimpleNamespace(search_history=AsyncMock(return_value=[{"content": "foreign"}]))
-    context = _context(session_manager=store)
-    with pytest.raises(RuntimeError, match="Owner-scoped"):
-        await context.search_history("query")
-    store.search_history.assert_not_called()
 
 
 async def test_url_grants_are_instance_scoped_and_used_for_hardened_fetch(monkeypatch):

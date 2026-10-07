@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "branch": "phase-2/restore-steps2-4",
+  "scope": "Desktop PR35 review round1: steering resume, resume admission, executor timeout durability only",
+  "reviewer": "Claude, review of #35",
+  "status": "candidate-partial-production-blocked",
+  "evidence_mode": "Aggregate index, not qualification. Steering-resume and timeout suite documents have complete selectors/hash/setup evidence. Resume-admission evidence explicitly remains incomplete: static per-case and rule-hash materialization was not completed, and the prototype stays deferred. Retirements and observed blockers are recorded here and in its suite document.",
+  "suites": [
+    {
+      "baseline_path": "tests/test_chat_steering_resume.py",
+      "baseline_sha256": "fd1316042f023dbabdd8f2d522bff522df54328bb04d984b619bbf93cb2f7f89",
+      "adapter_path": "tests/desktop_adapters/step8_review_steer_resume.py",
+      "executable_path": "tests/test_desktop_step8_review_steer_resume.py",
+      "evidence_path": "maintenance/step8-review-steer-resume-candidates.json",
+      "disposition": "restored-candidate",
+      "inherited_executions_passed": 9,
+      "adapter_checks_passed": 6,
+      "assertions": "53 original assertions unchanged; 21 exact setup hunks and complete AST reverse replay; no assertion substitutions",
+      "retirements": [],
+      "blockers": [],
+      "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_steer_resume.py -q",
+      "results": {"passed": 15, "failed": 0, "exit_code": 0},
+      "limitations": "Snapshot/run_resumed cases reuse the actual admitted durable handle in the same RequestService worker; these are not cross-process resume proofs. Error-to-new-turn suffix runs in a second real admitted request."
+    },
+    {
+      "baseline_path": "tests/test_resume_admission.py",
+      "baseline_sha256": "995d1fb1df090aeb4ed5f5983859ae712f56de87f7f86e6e58c72ae20a8a41ce",
+      "adapter_path": "tests/desktop_adapters/step8_review_resume.py",
+      "executable_path": "tests/test_desktop_step8_review_resume.py",
+      "diagnostic_path": "tests/diagnostic_step8_review_resume.py",
+      "adapter_sha256": "d46e8c876a5d657aff1a271effdb286e85953a7edc82306cdf28e6ab8962c17b",
+      "executable_sha256": "300e95fd4788704f41346d596a2b09527239a6da9a2e82db00d940ca54458acb",
+      "diagnostic_sha256": "d4e4e3a8ab21995410ebb736bad0d1add0c343e771b8ea207aa7ab8275e7ea53",
+      "evidence_incomplete": true,
+      "restored_functions": 0,
+      "deferred_functions": 51,
+      "current_exports": "Default wrapper exports only two integrity checks. Original runtime exports are explicit diagnostic-only. Denial wording assertion substitution has been removed.",
+      "evidence_path": "maintenance/step8-review-resume-admission-candidates.json",
+      "disposition": "deferred-rejected-prototype-not-qualified",
+      "inherited_executions": 56,
+      "adapter_checks": 2,
+      "assertions": "185 original assertion nodes across 58 functions. Earlier diagnostic adapted the transport denial wording Discord to conversation. Parent rejected that assertion substitution; final admission restoration is deferred, not qualified, until unchanged original assertions can execute without a manufactured text bridge. Complete AST reverse replay checked in earlier diagnostic.",
+      "retired_cases": [
+        {"selector": "tests/test_resume_admission.py::TestExplicitResume::test_wrong_author_gets_notice", "reason": "Removed Discord multi-author intake; desktop authenticates the canonical local profile owner", "reviewer": "Claude, review of #35"},
+        {"selector": "tests/test_resume_admission.py::TestMentionAnchoredResumeTrigger::test_leading_mention_resume_triggers", "reason": "Removed Discord mention-anchored intake", "reviewer": "Claude, review of #35"},
+        {"selector": "tests/test_resume_admission.py::TestMentionAnchoredResumeTrigger::test_nickname_mention_form_triggers", "reason": "Removed Discord nickname mention-anchored intake", "reviewer": "Claude, review of #35"},
+        {"selector": "tests/test_resume_admission.py::TestMentionAnchoredResumeTrigger::test_trailing_mention_is_not_a_command", "reason": "Removed Discord mention parsing", "reviewer": "Claude, review of #35"},
+        {"selector": "tests/test_resume_admission.py::TestMentionAnchoredResumeTrigger::test_mention_plus_sentence_is_not_a_command", "reason": "Removed Discord mention parsing", "reviewer": "Claude, review of #35"},
+        {"selector": "tests/test_resume_admission.py::TestMentionAnchoredResumeTrigger::test_foreign_mention_is_not_stripped", "reason": "Removed Discord bot identity mention parsing", "reviewer": "Claude, review of #35"},
+        {"selector": "tests/test_resume_admission.py::TestMentionAnchoredResumeTrigger::test_mention_recognized_trigger_still_fails_closed", "reason": "Removed Discord mention-form trigger; retained bare recognized-trigger fail-closed cases remain executable", "reviewer": "Claude, review of #35"}
+      ],
+      "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_resume.py --tb=short",
+      "results": {"passed": 57, "failed": 1, "collected": 58, "duration_seconds": 37.51, "exit_code": 1, "scope": "Earlier exploratory run including now-rejected denial normalization; not final qualification"},
+      "blockers": [{"selector": "tests/test_resume_admission.py::TestCheckpointIntegrityRejectsSameTypeTampering::test_payload_self_heal_releases_terminal_lineage", "observed": "Original assertion at line1256 requires released_workloads == [key]; actual controls resume does not release terminal self-healed checkpoint lineage", "production_path": "src/desktop/controls.py:_resume preserved checkpoint missing branch", "required": "Release calibration for absent/terminal ledger state only; do not release an ACTIVE concurrent winner", "disposition": "production fix parent-owned; not retired"}, {"selector": "tests/test_resume_admission.py::TestExplicitResume::test_fetch_permission_failure_is_truthful_and_keeps_turn_resumable", "observed": "Original assertion expects Discord denial wording; current conversation store reports conversation wording", "disposition": "Parent rejected assertion normalization and any fabricated text bridge. Deferred diagnostic must preserve original assertion unchanged."}]
+    },
+    {
+      "baseline_path": "tests/test_executor_timeout_durability.py",
+      "baseline_sha256": "7d1ad9553f761f999f910ed7843aba30312f4cc490b22ad95d03a59245de10c2",
+      "adapter_path": "tests/desktop_adapters/step8_review_timeout.py",
+      "executable_path": "tests/diagnostic_step8_review_timeout.py",
+      "adapter_checks_path": "tests/test_desktop_step8_review_timeout.py",
+      "executable_sha256": "3d8a9bbef4ef45b39c10c378fa49d935d43ed197c92284d25f65a56a56bae881",
+      "adapter_checks_sha256": "6163dc63de4e68dfa8a03675a1e7a820f5062403f2cb0fbceb0d0d5e99784066",
+      "evidence_path": "maintenance/step8-review-timeout-candidates.json",
+      "disposition": "blocked-candidate",
+      "inherited_executions_passed": 2,
+      "inherited_executions_blocked": 4,
+      "adapter_checks_passed": 6,
+      "assertions": "19 original assertions unchanged; signatures, decorators and four-case parameter matrix unchanged; seven exact setup hunks and complete AST reverse replay",
+      "retirements": [],
+      "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_timeout.py --tb=short",
+      "command_note": "Recorded 8/4 run predates diagnostic split. Original exports now live only in explicit diagnostic_step8_review_timeout.py. Revalidation of the split is recorded separately below.",
+      "results": {"passed": 8, "failed": 4, "collected": 12, "duration_seconds": 8.87, "exit_code": 1},
+      "blockers": [{"selector": "tests/test_executor_timeout_durability.py::test_executor_timeout_effect_class_and_unstarted_failures", "parameter_executions": 4, "observed": "PermissionError: Output capability unavailable. Do not replay the tool.", "production_paths": ["src/tools/executor.py:_execute_scoped", "src/discord/tool_loop.py:2900", "src/tools/runtime_delivery.py:69"], "reason": "Actual policy readiness rejects wait_for_agents and future_dynamic_tool at executor gate; wrapper retention then refuses output before WI-3 settlement", "disposition": "blocked, not retired; no fabricated readiness, allow-all policy or bypass"}]
+    }
+  ],
+  "diagnostic_split_validation": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_timeout.py tests/test_desktop_step8_review_steer_resume.py --tb=short",
+    "results": {"passed": 21, "failed": 0, "exit_code": 0, "duration_seconds": 9.35, "process_pid": 571978},
+    "meaning": "Steering all9 frozen cases plus6 guard checks; timeout6 integrity/authenticity checks only. Blocked timeout original corpus remains explicit diagnostic-only, not qualified."
+  },
+  "resume_default_guard_validation": {
+    "command": "USER=odin .venv/bin/python scripts/run-phase1-tests.py tests/test_desktop_step8_review_resume.py --tb=short",
+    "results": {"passed": 2, "failed": 0, "exit_code": 0, "duration_seconds": 5.05, "process_pid": 603560},
+    "meaning": "Exact frozen source/setup drift guards only; no resume runtime restoration claim."
+  },
+  "boundaries": {
+    "tests": "Only explicit targeted paths through USER=odin repository run-phase1-tests.py, isolated PID and mount namespace",
+    "authority": "Real temporary_owner canonical profile owner and actual RequestService submit, seal, worker-task binding and durable admission",
+    "untouched_by_this_work": ["inherited original files", "production source", "scripts", "existing adapters", "shared maintenance ledgers", "suite maps", "qualification artifacts", "live installation", "services", "native desktop"],
+    "git": "New files remain uncommitted; no reset, stash, clean, rebase, commit or push",
+    "qualification": "No full qualification run; known failing candidates must not be presented as fully restored suites"
+  }
+}

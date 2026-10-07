@@ -1,0 +1,39 @@
+{
+  "request_id": "req-ff273868",
+  "pr": "https://github.com/Calmingstorm/Odin-Desktop/pull/62",
+  "base_main": "da2d3d4adbc7864ed78ffb972e3792f8557fbcb2",
+  "tested_source": "c077388c74893730550892cf2d38a04851adc7a8",
+  "status": "draft-partial",
+  "foreground_skill_delivery": "implemented-and-focused-qualified",
+  "independent_background_skill_delivery": "blocked-unimplemented-main-work-admission",
+  "gates": {
+    "short_gates": "passed",
+    "pid_namespace_touched_python": {"passed": 99, "failed": 0, "skipped": 0},
+    "app_check": {"passed": 747, "typecheck": "passed", "build": "passed"},
+    "real_core_contracts": {"passed": 24, "new_skill_contracts": 2, "skipped": 0},
+    "onboarding": {"passed": 6, "skipped": 0},
+    "private_xvfb_real_core_smoke": {"status": "passed", "screen_checkpoints": 40},
+    "full_classified": {
+      "status": "incomplete-supervisor-ownership-lost",
+      "invocations_started": 1,
+      "completed_groups": 5,
+      "total_groups": 31,
+      "passed": 9235,
+      "failed": 0,
+      "errors": 0,
+      "skipped": 1,
+      "tool_error": "Local command supervisor ownership lost",
+      "tool_duration_ms": 900011,
+      "final_result_json": false
+    }
+  },
+  "evidence_root": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868",
+  "artifact_manifest": "/mnt/storage/odin-desktop-evidence/skill-delivery-req-ff273868/artifact-manifest.json",
+  "unchanged": ["step8-dispositions", "inherited-test-bodies", "upstream-Odin", "live-services", "active-desktop"],
+  "notes": [
+    "Awaited foreground child callbacks are not autonomous background qualification.",
+    "Durable staging generation test does not prove end-to-end resumed checkpoint execution.",
+    "Final source review issue for late settled child publication fixed and decisively tested before final fresh gates.",
+    "Raw evidence over 100 KB is outside Git; failed development logs preserved."
+  ]
+}

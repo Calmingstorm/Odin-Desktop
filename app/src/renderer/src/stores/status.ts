@@ -6,6 +6,20 @@ import type { CoreEvent, CoreStatus, UsageResult, Result } from '../../../shared
 import { onCoreEvent, onReady, state } from '../store'
 import { isUnavailable, resultMessage } from '../capability'
 
+const LINK_LABELS: Record<string, string> = {
+  starting: 'Starting',
+  connecting: 'Connecting to Odin',
+  ready: 'Connected',
+  reconnecting: 'Reconnecting',
+  'core-restarting': 'Odin is restarting',
+  'core-failed': 'Odin stopped unexpectedly'
+}
+
+/** The connection to the core, in words: the rail's indicator and the status bar while it isn't connected. */
+export function linkLabel(link: string): string {
+  return LINK_LABELS[link] ?? link
+}
+
 export const status = reactive({
   core: null as CoreStatus | null,
   usage: null as UsageResult | null,
