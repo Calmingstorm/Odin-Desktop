@@ -7,12 +7,51 @@ import hashlib
 import re
 import threading
 from contextlib import closing
+from contextvars import ContextVar
 
 from .paths import ProfilePaths
 
 
 class SecretStoreError(RuntimeError):
     """The keyring is unavailable, locked, or rejected an operation."""
+
+
+class StartupSecretCalls:
+    """Retain startup worker settlement without weakening transactional callers."""
+
+    def __init__(self):
+        self.pending = set()
+        self.errors = set()
+        self.started = False
+        self.active = True
+
+    def track(self, future):
+        self.started = True
+        self.pending.add(future)
+
+        def settled(done):
+            self.pending.discard(done)
+            if not done.cancelled() and (error := done.exception()) is not None:
+                self.errors.add(type(error).__name__)
+
+        future.add_done_callback(settled)
+
+    async def settle(self, timeout):
+        if self.pending:
+            await asyncio.wait(self.pending, timeout=timeout)
+
+    def outcome(self):
+        if self.pending:
+            return {"state": "unknown", "pending": len(self.pending),
+                    "error_types": sorted(self.errors)}
+        # A failed read still proves worker settlement, not credential readiness.
+        return {"state": "released" if self.started else "not_started",
+                **({"error_types": sorted(self.errors)} if self.errors else {})}
+
+
+startup_secret_calls: ContextVar[StartupSecretCalls | None] = ContextVar(
+    "startup_secret_calls", default=None,
+)
 
 
 async def secret_call(function, *args, **kwargs):
@@ -23,6 +62,11 @@ async def secret_call(function, *args, **kwargs):
     """
     loop = asyncio.get_running_loop()
     future = loop.create_future()
+    startup = startup_secret_calls.get()
+    if startup is not None and not startup.active:
+        startup = None
+    if startup is not None:
+        startup.track(future)
 
     def deliver(value, error):
         if not future.done():
@@ -50,6 +94,11 @@ async def secret_call(function, *args, **kwargs):
                 raise asyncio.CancelledError
             return result
         except asyncio.CancelledError:
+            if startup is not None:
+                # Only the explicitly supervised startup scope may retire its
+                # await. The daemon and its eventual outcome remain accounted
+                # for; ordinary transaction rollback still waits for settlement.
+                raise
             if future.done():
                 if not future.cancelled():
                     # Settlement failure wins over cancellation. Merely

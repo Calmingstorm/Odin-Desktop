@@ -1,5 +1,9 @@
 # P4.4 first-draft documentation validation
 
+Current update: [2026-10-07 merged user-doc promotion](p44-user-docs-update.md).
+The watermarks, unavailable-feature statements and test results below are
+historical; do not read them as today's feature or qualification status.
+
 Date: 2026-10-06. This is documentation evidence, **not P4.5/P4.6 acceptance**, an installer/native matrix pass,
 or authorization to publish. The changes add eight user guides, a Linux release checklist and README navigation/status
 corrections. No product code, test assertions, protocol, release workflow or dependency pins changed relative to main.

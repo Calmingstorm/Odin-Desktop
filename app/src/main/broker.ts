@@ -74,6 +74,7 @@ export class Broker extends EventEmitter {
   private subscriptionId: string | null = null
   private closedByUs = false
   private quiescing = false
+  private startupShutdownWait = false
   private reconnectAttempt = 0
   private reconnectTimer: NodeJS.Timeout | null = null
   private helloTimer: NodeJS.Timeout | null = null
@@ -116,13 +117,44 @@ export class Broker extends EventEmitter {
    */
   quiesce(): void {
     this.quiescing = true
+    // Initial socket retries are connection establishment, not reconciliation.
+    // Keep only those alive until Exit's bounded readiness wait ends.
+    this.startupShutdownWait = this.welcomeFrame === null && !this.closedByUs
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.reconnectTimer = null
+    if (this.startupShutdownWait && !this.socket) this.openSocket()
+  }
+
+  /** Wait within Exit's request budget, never reconnect to a replacement core. */
+  waitForShutdownReady(timeoutMs: number, signal?: AbortSignal): Promise<boolean> {
+    if (signal?.aborted) return Promise.resolve(false)
+    if (this.link === 'ready' && !this.closedByUs) return Promise.resolve(true)
+    if (!this.startupShutdownWait || timeoutMs <= 0) return Promise.resolve(false)
+    return new Promise((resolve) => {
+      const finish = (ready: boolean): void => {
+        clearTimeout(timer)
+        this.off('state', changed)
+        this.off('shutdown-closed', closed)
+        signal?.removeEventListener('abort', closed)
+        this.startupShutdownWait = false
+        if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+        this.reconnectTimer = null
+        resolve(ready)
+      }
+      const changed = (state: LinkState): void => { if (state === 'ready') finish(true) }
+      const closed = (): void => finish(false)
+      const timer = setTimeout(() => finish(false), timeoutMs)
+      this.on('state', changed)
+      this.once('shutdown-closed', closed)
+      signal?.addEventListener('abort', closed, { once: true })
+    })
   }
 
   /** Ends the connection on purpose; no reconnect. */
   close(): void {
     this.closedByUs = true
+    this.startupShutdownWait = false
+    this.emit('shutdown-closed')
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     if (this.helloTimer) clearTimeout(this.helloTimer)
     this.reconnectTimer = null
@@ -317,13 +349,14 @@ export class Broker extends EventEmitter {
     this.socket = null
     this.subscriptionId = null // the next connection makes its own subscription
     this.settleDisconnected()
-    if (this.closedByUs || this.quiescing) return
-    const delay = this.reconnectDelaysMs[Math.min(this.reconnectAttempt, this.reconnectDelaysMs.length - 1)] ?? 1_000
+    if (this.closedByUs || (this.quiescing && !this.startupShutdownWait)) return
+    const delay = this.reconnectDelaysMs[this.startupShutdownWait ? 0
+      : Math.min(this.reconnectAttempt, this.reconnectDelaysMs.length - 1)] ?? 1_000
     this.reconnectAttempt += 1
     this.setLink(this.welcomeFrame ? 'reconnecting' : 'connecting')
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
-      if (!this.closedByUs && !this.quiescing) this.openSocket()
+      if (!this.closedByUs && (!this.quiescing || this.startupShutdownWait)) this.openSocket()
     }, delay)
   }
 
