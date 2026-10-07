@@ -14,6 +14,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import pwd
 import socket
 import subprocess
 import sys
@@ -30,8 +31,7 @@ CASES = {
     "grounding": ["tests/test_computer_freshness_r1.py",
                   "tests/test_computer_geometry_r1.py"],
     "focus_geometry_modal": ["tests/test_computer_native_gui_r5.py",
-                             "tests/test_computer_r23_wayland_native_scope.py",
-                             "tests/test_computer_hyprland_dialog_scope_r35.py"],
+                             "tests/test_desktop_computer_binding.py"],
     "actions": ["tests/test_computer_actions_r4.py",
                 "tests/test_computer_native_keyboard_focus_class.py"],
     "loss_recovery": ["tests/test_desktop_computer_binding.py",
@@ -91,6 +91,21 @@ def classify(cases, blockers):
     return "proven" if required <= measured else "limited" if measured else "blocked"
 
 
+def receiver_effect(rows, case):
+    """Measure receiver effects without interpreting controller success as delivery."""
+    if case == "text":
+        return any(row.get("event") == "text" and row.get("text") == "P35safe"
+                   for row in rows)
+    if case == "key":
+        return any(row.get("event") == "text" and row.get("text") == "P35saf"
+                   for row in rows)
+    if case == "stroke":
+        stroke = [i for i, row in enumerate(rows) if row.get("event") == "stroke"]
+        return bool(stroke) and any(row.get("event") == "button_up"
+            and row.get("buttons") == 0 for row in rows[stroke[-1] + 1:])
+    raise ValueError("unknown_receiver_case")
+
+
 def run_host(args):
     if args.output.resolve() == ROOT or ROOT in args.output.resolve().parents:
         raise ValueError("external_evidence_required")
@@ -115,6 +130,8 @@ def run_host(args):
     incus.run("exec", vm, "--", "mkdir", "-m", "755", guest_dir)
     incus.run("file", "push", str(candidate), vm + guest_dir + "/candidate.deb")
     incus.run("file", "push", str(Path(__file__).resolve()), vm + guest_dir + "/computer.py")
+    incus.run("file", "push", str(ROOT / "scripts/qualification/lab/guest/smoke.py"),
+              vm + guest_dir + "/session_environment.py")
     if args.backend == "x11":
         incus.run("file", "push", str(ROOT / "scripts/qualification/native_receiver.c"),
                   vm + guest_dir + "/receiver.c")
@@ -122,13 +139,16 @@ def run_host(args):
                   "cc -Wall -Wextra -Werror -O2 " + guest_dir + "/receiver.c "
                   "$(pkg-config --cflags --libs gtk+-3.0) -o /usr/local/lib/odq/p35-receiver")
     # Fence is the shipped package fence; do not force it or delete an install lease.
-    incus.run("exec", vm, "--", "/root/odq/sessrun", "/usr/bin/odin-desktop", "--exit")
+    incus.run("exec", vm, "--", "/usr/bin/python3", guest_dir + "/computer.py",
+              "--guest-exit", "--backend", args.backend, "--output", guest_dir)
     incus.run("exec", vm, "--", "dpkg", "-i", guest_dir + "/candidate.deb")
     incus.run("exec", vm, "--", "install", "-m", "755", guest_dir + "/computer.py",
               "/usr/local/lib/odq/p35-computer.py")
+    incus.run("exec", vm, "--", "install", "-m", "644",
+              guest_dir + "/session_environment.py", "/usr/local/lib/odq/session_environment.py")
     guest_out = "/home/odq/p35-" + uuid.uuid4().hex
-    command = [*incus.prefix, "exec", vm, "--", "/root/odq/sessrun", str(PYTHON), "-I", "-B",
-               "/usr/local/lib/odq/p35-computer.py", "--guest", "--backend", args.backend,
+    command = [*incus.prefix, "exec", vm, "--", "/usr/bin/python3",
+               "/usr/local/lib/odq/p35-computer.py", "--guest-launch", "--backend", args.backend,
                "--output", guest_out]
     with (args.output / "guest.log").open("w") as log:
         child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -158,6 +178,28 @@ def run_host(args):
     return 0 if record["verdict"] == "proven" else 2
 
 
+def guest_launch(args):
+    if (os.getuid() != 0 or socket.gethostname() != GUESTS[args.backend]
+            or Path("/etc/odin-desktop-qualification").read_text().strip()
+            != "odin-desktop-qualification-v1"):
+        raise ValueError("owned_vm_root_launcher_required")
+    # Reuse the retained lab environment discovery with a credential allowlist.
+    source = Path(__file__).with_name("session_environment.py")
+    spec = importlib.util.spec_from_file_location("guest_environment", source)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    account = pwd.getpwnam("odq")
+    environment = module.session_environment(account.pw_uid,
+        "x11" if args.backend == "x11" else "wayland")
+    if args.guest_exit:
+        command = ["/usr/bin/odin-desktop", "--exit"]
+    else:
+        command = [str(PYTHON), "-I", "-B", str(Path(__file__).resolve()), "--guest",
+                   "--backend", args.backend, "--output", str(args.output)]
+    return subprocess.call(["runuser", "-u", "odq", "--", "env", "-i",
+                            *(f"{key}={value}" for key, value in environment.items()), *command])
+
+
 def guest_guard(backend):
     # This guard is never a substitute for host-side Incus ownership validation.
     if (socket.gethostname() != GUESTS[backend] or os.getuid() == 0
@@ -176,6 +218,11 @@ async def guest_probe(args):
     out = args.output
     out.mkdir(mode=0o700, parents=False, exist_ok=False)
     cases, blockers = [], []
+    versions = subprocess.run(
+        ["dpkg-query", "-W", "-f=${Package}\t${Version}\n", "odin-desktop",
+         "gnome-shell", "mutter", "kwin-wayland", "hyprland", "cinnamon",
+         "xserver-xorg-core"], text=True, capture_output=True).stdout
+    (out / "versions.tsv").write_text(versions)
     metadata = json.loads((RESOURCES / "runtime/helpers/metadata.json").read_text())
     installed = {"python": sys.executable,
                  "controller": sys.modules[ComputerController.__module__].__file__,
@@ -198,6 +245,17 @@ async def guest_probe(args):
             plugin = list((RESOURCES / "runtime").rglob("*odinscope*.so"))
             blockers.append("candidate_has_no_exact_abi_kwin_scope_plugin" if not plugin
                             else "kde_portal_input_unqualified")
+            from src.computer.runtime.kwin_scope import KWinWaylandScopeProvider
+            provider = KWinWaylandScopeProvider(
+                bus_address=os.environ["DBUS_SESSION_BUS_ADDRESS"], expected_uid=os.getuid())
+            try:
+                identity = await provider.identity()
+                (out / "scope-identity.json").write_text(
+                    json.dumps(identity, default=str, indent=2))
+            except Exception as error:
+                blockers.append(str(error))
+            finally:
+                await provider.close()
         else:
             from src.computer.runtime.wayland_scope import GNOMEWaylandScopeProvider
             provider = GNOMEWaylandScopeProvider(
@@ -294,10 +352,10 @@ async def guest_probe(args):
                         raise RuntimeError(name + "_accepted")
                 await act("text", "type", text="P35safe")
                 rows = receiver_rows()
-                measured("text", any(r.get("text") == "P35safe" for r in rows), rows[-8:])
+                measured("text", receiver_effect(rows, "text"), rows[-8:])
                 await act("key", "key", key="BackSpace")
                 rows = receiver_rows()
-                measured("key", any(r.get("text") == "P35saf" for r in rows), rows[-8:])
+                measured("key", receiver_effect(rows, "key"), rows[-8:])
                 # Every point is translated from fresh captured source geometry.
                 obs = await observe("stroke-grounding")
                 scope = backend._scope
@@ -314,9 +372,7 @@ async def guest_probe(args):
                     raise RuntimeError("unknown_release_stop_all_input")
                 await asyncio.sleep(.2)
                 rows = receiver_rows()
-                measured("stroke", any(r.get("event") == "stroke" for r in rows)
-                    and any(r.get("event") == "button_up" and r.get("buttons") == 0
-                            for r in rows), rows[-12:])
+                measured("stroke", receiver_effect(rows, "stroke"), rows[-12:])
                 current = store.get_session(grant["session_id"])
                 paused = await controller.session(context, {"operation": "pause",
                     "session_id": current.session_id, "generation": current.generation})
@@ -357,9 +413,13 @@ def main():
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--guest", action="store_true")
+    parser.add_argument("--guest-launch", action="store_true")
+    parser.add_argument("--guest-exit", action="store_true")
     args = parser.parse_args()
     if args.guest:
         return asyncio.run(guest_probe(args))
+    if args.guest_launch or args.guest_exit:
+        return guest_launch(args)
     if args.candidate is None:
         parser.error("--candidate is required for host execution")
     return run_host(args)

@@ -57,3 +57,23 @@ def test_hash_streams_artifact_bytes(tmp_path):
     path = tmp_path / "candidate.deb"
     path.write_bytes(b"qualification artifact" * 100000)
     assert qualification.digest(path) == hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+@pytest.mark.parametrize("case,text", [("text", "P35safe"), ("key", "P35saf")])
+def test_receiver_text_effect_not_receipt(case, text):
+    assert not qualification.receiver_effect([{"status": "verified", "text": text}], case)
+    assert qualification.receiver_effect([{"event": "text", "text": text}], case)
+    assert not qualification.receiver_effect([{"event": "text", "text": "different"}], case)
+
+
+def test_stroke_requires_release_after_motion():
+    release = {"event": "button_up", "buttons": 0}
+    motion = {"event": "stroke"}
+    assert not qualification.receiver_effect([release, motion], "stroke")
+    assert not qualification.receiver_effect([motion], "stroke")
+    assert qualification.receiver_effect([motion, release], "stroke")
+
+
+def test_receiver_unknown_case_is_not_default_pass():
+    with pytest.raises(ValueError, match="unknown_receiver_case"):
+        qualification.receiver_effect([], "unmeasured")
