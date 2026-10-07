@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from test_appimage_replacement import image
 
@@ -78,17 +79,41 @@ class SharedOwnershipIntegration(unittest.TestCase):
         with self.assertRaises(ownership.OwnershipError):
             self.replace()
 
-    def test_clean_exit_then_core_quarantine_still_blocks_and_preserves_evidence(self):
+    def test_unknown_native_release_blocks_its_boot_and_preserves_evidence(self):
+        # A core lifetime ends with native input release unknown: its receipt stays running.
+        with self.lease('core') as lease:
+            core = json.loads(self.core.read_text())
+            core.update(state='unknown', at=os.urandom(16).hex(), resources={
+                'computer': {'state': 'unknown'}, 'processes': {'state': 'released'}})
+            self.core.write_text(json.dumps(core))
+            with self.assertRaises(ownership.OwnershipError):
+                lease.finish()
+        # A later lifetime exits cleanly, but the core keeps that unknown as history from this
+        # boot, so the later lifetime cannot be clean evidence before a restart either.
+        boot = ownership._boot_id()
         with self.lease() as lease:
-            self.clean_exit(lease)
-        unknown = {'version': 1, 'state': 'complete', 'resources': {},
-                   'previous_unknown': {
-                       'state': 'unknown', 'resources': {'computer': {'state': 'unknown'}}}}
-        self.core.write_text(json.dumps(unknown))
-        before = self.core.read_bytes()
-        with self.assertRaises(ownership.OwnershipError):
+            core = json.loads(self.core.read_text())
+            unknown = {'state': 'unknown', 'boot_id': boot,
+                       'resources': {'computer': {'state': 'unknown'}}}
+            clean = {'computer': {'state': 'not_started'}, 'processes': {'state': 'released'}}
+            core.update(state='complete', previous_unknown=unknown, resources=clean)
+            self.core.write_text(json.dumps(core))
+            with self.assertRaisesRegex(ownership.OwnershipError, 'Core resource cleanup'):
+                self.clean_exit(lease)
+        evidence = [self.core, self.app, *self.paths.receipts.iterdir()]
+        before = {path: path.read_bytes() for path in evidence}
+        with self.assertRaisesRegex(ownership.OwnershipError, 'Unresolved lifetime evidence'):
             self.replace()
-        self.assertEqual(self.core.read_bytes(), before)
+        self.assertEqual({path: path.read_bytes() for path in evidence}, before)
+        self.assertEqual(self.old.read_bytes()[-9:], b'old image')
+        # Nothing that lifetime held survives a restart, so the next boot may replace.
+        # The evidence itself is still never cleared.
+        later = self.root / 'next-boot'
+        later.write_text('a1b2c3d4-0000-4000-8000-00000000000b\n')
+        self.assertNotEqual(later.read_text().strip(), boot)
+        with mock.patch.object(ownership, 'BOOT_ID', later):
+            self.assertEqual(self.replace()['status'], 'replaced')
+        self.assertEqual(self.core.read_bytes(), before[self.core])
 
     def test_manual_relocation_does_not_evade_stable_lifetime_lock(self):
         with self.lease() as lease:
