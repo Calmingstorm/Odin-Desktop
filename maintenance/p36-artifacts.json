@@ -1,5 +1,11 @@
 {
   "schema_version": 1,
+  "final2_manifest": {
+    "path": "/mnt/storage/odin-desktop-evidence/p36-20261007/artifact-manifest-final2.json",
+    "sha256": "eb62016c878ad124fe89fc086eadff987621cfe691477d3748e5f090861d49bd",
+    "bytes": 40546,
+    "artifacts": 187
+  },
   "native_manifest": {
     "path": "/mnt/storage/odin-desktop-evidence/p36-20261007/artifact-manifest-native.json",
     "sha256": "ddcf34207bd0e51d1d8eea79a0d4b4d398e70aec6d7703425246625c4a50d378",

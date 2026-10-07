@@ -217,6 +217,23 @@ focused accounting tests passed 34/34. Previously recorded full gates predate
 these harness-only fixes; they are not represented as rerun final-harness gates.
 Final immutable candidate must still follow P3.5 merge; Phase 3 remains open.
 
+### Refreshed complete source gates, 19:03 UTC
+
+Fresh checkout `desktop-p36-fresh2-20261007` at
+`7f2326f069ef271856fe119b2f077c1d1e85645b`, with all guest harness fixes and
+reviewed upstream startup-Exit #96/user docs #99 merged. Full gates rerun once
+after that source merge: **1054 app tests (109 files)**, typecheck/build and
+fixture smoke pass; **66 real-core + 6 onboarding**, **2 renderer E2E** pass;
+**511 additional Desktop**, **38/38 qualification groups, 19,313 pass/3 skips**,
+and **159 offline lab fixtures/4 capability skips**. JUnit confirms zero failures
+or errors across 19,316 inherited tests. Drift/lint/ownership/D19 inventories
+clean. This supersedes the earlier source-gate watermark, not the interim
+package SHA. The earlier CI admission timeout remains retained and un-erased.
+Latest logs/JUnit/hashes in `artifact-manifest-final2.json` and `p36-artifacts.json`.
+P3.5 #98 remains open at this report; final one-candidate qualification cannot
+precede that reviewed merge. No earlier candidate's native subset becomes a
+final result merely because newer source tests pass.
+
 No extra owner approval/governor/allow-list or model instruction is introduced.
 No Aaron decision is needed to keep building/running interim evidence under the
 approved lab rules. If KDE native dialog accessibility or any required promised
