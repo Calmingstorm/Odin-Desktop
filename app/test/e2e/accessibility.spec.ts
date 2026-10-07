@@ -496,7 +496,7 @@ test('real core keyboard status usage and every real settings or unavailable ser
     if (label === 'Records') {
       const computer = page.getByRole('region', { name: 'Computer use', exact: true })
       await expect(computer).toContainText('No computer-use session is reported by this status')
-      await expect(computer).toContainText('Native input is not qualified or supported')
+      await expect(computer).toContainText('Foreground computer use is unavailable.')
       await expect(computer.getByRole('button', { name: 'Reconcile', exact: true })).toHaveCount(0)
       const usage = page.getByRole('region', { name: 'Usage', exact: true })
       await expect(usage.getByRole('combobox', { name: 'Period', exact: true })).toBeVisible()
@@ -665,10 +665,10 @@ test('real-shape service failure cards and readiness are accessible without clai
   await settingsSection('Records')
   const computer = page.getByRole('region', { name: 'Computer use', exact: true })
   await expect(computer).toContainText('No computer-use session is reported by this status')
-  await expect(computer).toContainText('Native input is not qualified or supported')
+  await expect(computer).toContainText('Foreground computer use is unavailable.')
   await expect(computer.getByRole('button', { name: 'Reconcile', exact: true })).toHaveCount(0)
   await audit('computer-unqualified-envelope')
-  expect(await ax('computer-unqualified-envelope')).toContain('Native input is not qualified or supported')
+  expect(await ax('computer-unqualified-envelope')).toContain('Foreground computer use is unavailable.')
 })
 
 test('a notification for a long reply opens it at its start, even before it rendered in this list', async () => {
