@@ -48,11 +48,12 @@ The user guides describe merged `main` behavior, with plain limitations rather
 than development provenance. Maintainer source watermarks, pinned references,
 claim checks and historical gate results live in
 [P4.4 validation](maintenance/p44-user-docs-validation.md).
-Drafted guidance for still-open integrations is kept separately in
-[pending user docs](docs/release/pending-user-docs.md), not presented as usable
-features in `docs/user/`. Ownership/upgrades/removal from #36, attachment intent
-from #46, and #28 service management are now included from merged main. Computer
-management still does not grant foreground input authority.
+The [documentation status](docs/release/pending-user-docs.md) records promoted
+guidance and remaining dependencies. Background work, schedules/reports,
+provider/knowledge/record administration, ingress and manual release notices
+now describe merged services. So do orderly shutdown/reboot/logout, fresh
+Wayland launch, boot-scoped package-change fences and bounded Exit during core
+startup (#96); native qualification and release approval remain separate gates.
 
 The upstream review remains **baseline only** at Odin v4.13.0; later changes are
 not implied. Full internal identities are in the validation and

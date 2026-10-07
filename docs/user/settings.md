@@ -1,7 +1,8 @@
 # Settings
 
-Open **Settings** in the top bar or press **Ctrl+,**. Choose **Back to chat** to
-leave. The readiness banner can open **Models and providers** or **General**.
+Open **Settings** from the left icon rail or press **Ctrl+,**. Choose a section
+in the settings navigation, then **Back to chat** to leave. The readiness banner
+can open **Models and providers** or **General**.
 
 Read a panel's availability before changing anything. **Unavailable** means it
 cannot currently be used, not that it contains zero entries. A visible switch or
@@ -44,6 +45,9 @@ when changing versions.
 
 Under **This app**:
 
+- **Theme** offers **System**, **Dark** and **Light**. The rail's theme button
+  switches to an explicit light or dark choice; choose System here to follow the
+  desktop again. Theme is an app preference, not a core restart setting.
 - **Start Odin when you log in** is initially off and optional.
 - **Desktop notifications** controls delivery. **Show message previews in
   notifications** is initially on; switch it off for a shared or visible desktop.
@@ -70,14 +74,27 @@ selection and a concrete override are different. Changes for new agents do not
 change an already-running agent's captured configuration.
 
 **Codex accounts** shows **In use**, expiry/limit warnings and reported quota.
-**Use this account**, **Label…** and **Remove…** are separate actions. Removal
-stops Odin using that account; it does not delete the provider account. **Quota
-not reported yet** is unknown, not unlimited.
+**Use this account**, **Refresh sign-in**, **Label…** and **Remove…** are separate
+actions. Refresh sign-in refreshes the listed account; it is not the keyring Retry
+or a new Add account login. Read its receipt. Removal stops Odin using that
+account; it does not delete the provider account. **Quota not reported yet** is
+unknown, not unlimited.
 
 Credentials are write-only. **Set** establishes presence, not authentication or
 generation success. **Keyring unavailable; saved value unknown** does not mean
 Not set. Use the readiness banner's explicit
 [keyring Retry](first-run.md#recover-the-keyring), not token import or data deletion.
+
+### Inspect OpenRouter models
+
+In **OpenRouter models**, choose **Reload catalogue** to read the core's models,
+profiles, eligibility, fetched/stale state and errors. Missing measurements are
+not estimates. Enter **Model ID (author/slug)** and an optional **Provider pin
+(blank uses automatic routing)**, then **Read endpoints** to inspect the route.
+**Select model** changes compatibility-provider configuration. Read its receipt
+and the main-model saved/running state; selecting does not prove generation works.
+**Read compatibility diagnostic** can report unhealthy or unavailable state. A
+failed read is not an empty catalogue or permission to read back credentials.
 
 ### Image models: follow or pin
 
@@ -142,16 +159,21 @@ to repeat a submission whose outcome is unknown.
 ### Check computer use without granting input
 
 Open **Settings → Records → Computer use → Refresh** to request current status.
-The core retains session and recovery records, but this screen does not currently
-display that retained session record. A blank panel is not proof of no session or
-verified cleanup; preserve any error and obtain operator help with the record.
+Read management availability, the foreground-unavailable reason, and any reported
+session's ID, generation, state and recovery result. **No computer-use session is
+reported** is not proof of input release or verified cleanup. A failed refresh
+may leave **Showing the last read**; that is not fresh evidence.
 
-The current core provides computer management, but not foreground mouse/keyboard
-input authority. Turning computer use on does not start a native desktop session,
-grant consent or make an unsupported backend usable. Only its enabled flag can
+The current core provides computer management, but does not publish usable
+foreground mouse/keyboard input. Turning computer use on does not start a native
+desktop session, grant consent or make an unsupported backend usable. Only its enabled flag can
 be changed through the current management service; other native configuration
 changes are refused. This screen is not a start/resume-input workflow. For a
 recovery warning, follow [Computer-input safety](recovery.md#computer-input-safety).
+
+Native input containment and quarantine qualification is **pending: #98**.
+Remaining native lifecycle rows are **pending: #59**; the final
+Phase 3 matrix is **pending: #97**. These gates do not grant foreground input.
 
 ## Skills and MCP servers
 
@@ -178,11 +200,12 @@ skill's declared package dependencies. Read its diagnostics before proceeding.
 4. Use **Turn off** or **Turn on** to change whether it is offered. **Delete…**
    requires confirmation and removes its code; it does not undo earlier effects.
 
-The visible **Test** button requests a real execution with empty input, not another
-validation. In the current core, this management test is unavailable. Do not treat
-that refusal as a failed skill run or proof the code is harmless: the button does
-not run the skill. Do not use Test to investigate an uncertain earlier effect,
-and do not assume unsaved edits were loaded or tested.
+The **Test** button executes the saved, loaded skill with empty input. It is not
+another validation or a sandbox: it can cause real effects through the available
+services and permissions. A skill requiring inputs may reject the empty object.
+The test has no chat destination, so conversation-dependent operations can fail.
+Read its returned output/error; do not assume unsaved edits were loaded or tested.
+Never use Test to investigate an uncertain earlier effect.
 
 ### Connect an MCP server
 
@@ -257,11 +280,46 @@ before retrying an unknown host change.
 
 ## Scheduled and running work
 
-The named work-list, schedule-management and report-management services are not
-available in the current real core. The visible panels are not proof a timer runs
-or no work exists.
-Use a conversation's task state and Stop/Steer controls for its running request.
-See [Background work](background-work.md).
+Open the rail's **Work** button for the running-work column beside chat. Open
+**Settings → Scheduled and running work** for saved schedules and their **Runs**.
+**New schedule**, **Pause/Resume**, **Run now**, **Edit** and **Delete…** have
+different effects: Run now executes; Runs only reads history. Unknown runs must
+not be replayed through Resume, Run now or Reset failures. Follow
+[Background work](background-work.md) for schedule creation, controls and the
+sleep/wake missed-run policy. An unavailable read is not an empty work list.
+
+### Incoming integrations
+
+**Webhook ingress** in this section is an opt-in event listener for saved trigger
+schedules, not a remote administration API or connection to another Odin install.
+
+1. Save a schedule with webhook timing and a valid reporting conversation first.
+2. Under **Inbound listener setup**, supply an explicit numeric LAN, tailnet,
+   link-local or loopback **Listen address**, not a wildcard or hostname. Set the
+   **Listen port**, opt in with **Enable inbound webhook deliveries**, then choose
+   **Save listener setup**. Read the measured status and actual listen address.
+3. Choose the **Saved webhook schedule**, matching **Inbound delivery source**
+   and a distinct **New per-trigger secret**. **Save trigger source and secret**
+   writes the source first and secret separately. The secret draft clears even
+   on failure; partial setup can leave the previous secret in use. Refresh and
+   inspect the receipt before retrying. **Clear per-trigger secret** removes that
+   trigger's authentication setup, not earlier effects.
+4. Read the selected schedule's warning, route and authentication instructions.
+   Generic, GitHub and Gitea ingress are supported. GitLab schedule matching does
+   not mean GitLab ingress is available.
+
+**Accepting deliveries** establishes listener state, not eligibility of every
+selected schedule or success of its workflow. Disabled, unconfigured, unbound,
+paused and inert states are different. A bind failure does not select a fallback
+address. **Refresh** replaces unsaved listener/source drafts and discards the
+secret draft. Exit closes the listener.
+
+Incoming payload text is untrusted data, not owner instructions. Use supported
+secret fields, not secret-bearing URLs. Check outgoing destinations and event
+choices before enabling them; outbound settings are separate from ingress.
+Never share signing secrets, raw payloads, headers or private URLs. See
+[Integration recovery](recovery.md#incoming-integration-failures) for uncertain
+deliveries and the limits of retry/deduplication.
 
 ## State: memory, lists and knowledge
 
@@ -286,9 +344,24 @@ and its items, not conversation history or provider-held data.
 4. **Re-ingest** uses the stored full-document snapshot, not a fresh read of a file
    or URL in Source. **Delete…** removes the source and chunks with confirmation.
 
-This store is separate from attachments and is **not connected to the default
-request engine's knowledge tools**. Successful Add/search here does not establish
-that a model can retrieve the document during chat.
+This is the same profile knowledge store used by the model's knowledge tools.
+Successful Add/search establishes retained content, not proof a particular chat
+retrieved it. Attachments and knowledge sources remain separate records; an
+attachment's **Add to knowledge** requests ingestion rather than guaranteeing it.
+Existing local search is not a promise every embedding, provider or tool path
+stays offline.
+
+In **Knowledge details**, **Read chunks**, **Find duplicates**, **Read version**
+and **Read diff** inspect core-reported records. Use actual listed source/version
+identifiers; unavailable or unread does not mean zero duplicates. **Merge
+sources…** keeps the named source unchanged and deletes the other with its
+chunks, **without copying its content**. This is destructive, not a document union.
+
+**Refresh learned context** reads learned entries and metadata, separate from
+explicit Memory and Knowledge. Enter an existing **Learned entry key**, select
+**Change content** and/or **Change category**, then **Update learned entry** and
+read the receipt. **Delete learned entry…** requires confirmation. An entry count
+does not prove reflection success or model training.
 
 **Context → Reload context** reloads context files and displays its result. It is
 not a model restart or installation import.
@@ -299,6 +372,13 @@ Use **Health**, **Usage**, **Audit**, **Logs** and **Preserved work** to inspect
 reported state. Read errors and timestamps. An unavailable component is not healthy;
 usage distinguishes measured, estimated and unknown data. Unavailable/unsigned
 audit verification is not a complete verified record.
+
+Records also offers runtime/recovery statistics, recent recovery, capacity-breaker
+state, SSH/HTTP pool observations, **Records extras** and **Trajectories**. These
+are reported records, not estimates or proof of an external effect. **Close host
+pool…** and **Close all pools…** close SSH connections with confirmation; HTTP
+pools are unchanged, new work can open new connections, and host trust is not
+revoked. See [Recovery](recovery.md#open-the-diagnosis-screens) for safe inspection.
 
 Preserved work records concern checkpoints, not proof an effect was rolled back.
 Computer management may report a storage or startup problem; it does not grant
