@@ -3,13 +3,14 @@
 ## Start a conversation
 
 1. Open Odin and complete [First run](first-run.md).
-2. Choose **+ New** in the sidebar. Type in **Message**, then choose **Send** or
-   press **Enter**. **Shift+Enter** inserts a newline.
+2. Choose the plus button, **New conversation**, beside **Chats** in the sidebar.
+   Type in **Message**, then choose **Send** or press **Enter**. **Shift+Enter**
+   inserts a newline.
 3. Watch the pending message and task state. Sending is not task completion.
    Replies shown as answers are committed replies, not unfinished model drafts.
-4. Choose **+ New** for another topic. Each conversation has its own history and
-   draft. Several conversations can progress independently; requests within one
-   are serialized.
+4. Choose **New conversation** for another topic. Each conversation has its own
+   history and draft. Several conversations can progress independently; requests
+   within one are serialized.
 
 The conversation **Actions** menu offers rename, archive, reset context, delete
 and notification mute. **Show archived** reveals archived rows; archiving is not
@@ -26,14 +27,13 @@ not a continuously updated copy of its parent.
    you want that attachment considered for knowledge retention.
 4. Send. While another request runs, use **Queue** for attachments, not **Steer**.
 
-**Add to knowledge** passes a request through attachment processing; it is not an
-automatic knowledge write. Actual retention depends on content handling and an
-available knowledge tool. That tool is not connected to the default request
-engine's knowledge store, so do not rely on the checkbox as a working library
-import. To retain document text directly, use
+**Add to knowledge** selects knowledge-ingestion intent for that attachment during
+processing. It is not an automatic knowledge write: the model still needs to use
+an available ingestion tool successfully. Inspect the ingestion result and the
+source list before relying on retention. To retain document text directly, use
 [Settings → State → Knowledge](settings.md#state-memory-lists-and-knowledge) and
-inspect its result. That separately stored text is not currently available to
-the model's knowledge tools either.
+inspect its result. Settings and the model's knowledge tools share the profile
+store; a retained document is not proof every later chat searched it.
 
 The normal upload service allows **10 attachments per turn**, **50 MiB per
 attachment**, with prepared upload bytes expiring after **24 hours**. The app
@@ -77,8 +77,10 @@ state can block it. A disabled Resume is not permission to start a fresh copy.
 - File cards offer **Open**, **Save as…** and **Show in folder**. Open uses the
   default local application; take care with untrusted files. Save as creates an
   independent copy at the destination you choose.
-- Expand tool activity to read its result. **Load more** reads retained evidence,
-  not another execution. Binary evidence is a file, not decoded prose.
+- Expand tool activity to read its result. Completed replies show activity beneath
+  the reply; receipts remain inspectable even when a stopped/failed request has
+  no answer. **Load more** reads retained evidence, not another execution. Binary
+  evidence is a file, not decoded prose.
 - **No longer available** means the original bytes cannot be retrieved. Save an
   important available file before expiry; you protect that saved copy yourself.
 
@@ -86,8 +88,22 @@ Tool evidence and file references have separate availability rules. Retained
 full tool evidence normally expires after **24 hours**, has storage limits, and
 is checked against current access on each read. Its **Kept until** time is the
 deadline; reading does not extend it. A summary can survive after full evidence
-is unavailable. Report paging is not available in the current real core; do not
-assume a report reference is a working download or has the same expiry.
+is unavailable.
+
+### Stored reports
+
+A report card is a stored result from its original run. **Previous**, **Next**
+and **Retry** read its stored pages; they do not rerun the producing check.
+**Copy page** copies only the displayed page. Report cards do not offer the file
+card's Save as operation. A rendering or access failure is not permission to
+repeat its producer.
+
+Report snapshots do not use tool evidence's 24-hour expiry. They are bounded,
+access-checked records removed with their conversation; invalidation or changed
+access can also make a reference unavailable. There is no promise of permanent
+retention or universal 30-day report lifetime. Preserve an important available
+page yourself and protect that private copy. A surviving summary is not proof
+the underlying report or full evidence is still available.
 
 ## Find earlier messages
 

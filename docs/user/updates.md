@@ -16,17 +16,48 @@ for `.deb` upgrades and manual replacement for AppImage. Updating standalone Odi
 does not update Desktop. Changing the bundled runtime with pip or npm is not a
 supported user update method.
 
+## Check for a release notice
+
+Open **Settings → General → App version and updates**. It starts at **Not
+checked**. Select **Check for updates** to make an anonymous GitHub request;
+there is no automatic background check.
+
+| Result | What to do |
+|---|---|
+| A new version is available | **Open release page in browser**, then check the files and follow the replacement steps below. Opening the page does not install anything. |
+| Up to date | A successful comparison found no newer published stable version. This is not a security audit. |
+| This app is newer than the latest published stable release | Your app version sorts newer; that is not release approval. |
+| No published stable release is available | No valid stable release was found. Drafts and prereleases do not count; this is not an up-to-date result. |
+| Can't check for updates | Access, connectivity, rate limiting or invalid/incomplete metadata prevented a reliable comparison. |
+
+While the repository is private, **Can't check for updates** is expected even
+when your browser can view it. The check does not use browser cookies or keyring
+credentials. Use the Releases page in your own browser instead. Do not supply a
+GitHub token. Checking or opening a page does not restart work, replay effects,
+clear quarantine, download a package or replace an executable.
+
 ## Before replacing anything
 
 1. Keep the current exact package/executable and its digest, plus private copies
    of important files you saved elsewhere. A database copied while the app writes
    is not a verified backup.
 2. Choose **Exit Odin**, not window Close, and wait for shutdown.
-3. If cleanup is unknown, quarantine remains, Exit failed or a package transaction
-   is pending, stop and use [Recovery](recovery.md). Do not delete the evidence.
+3. If cleanup is unknown or Exit failed, restart the computer before trying a
+   package change. Odin refuses changes while the app or its core runs, and an
+   unclean lifetime fences changes for the rest of that boot. The `.deb` refusal
+   says **Restart the computer, then try again**. The manual AppImage helper may
+   instead report unresolved lifetime evidence.
+4. If a package transaction is pending, evidence is unreadable, or refusal remains
+   after restarting, stop and use [Recovery](recovery.md). Do not delete records
+   or force installation. A restart does not repair an interrupted transaction.
 
 A missing PID is not proof of clean shutdown. Replacement does not undo external
 effects or clear native-resource uncertainty.
+
+After restart, valid ownership records from the previous boot no longer block
+replacement. Retained cleanup notices, effect history and native quarantine are
+not erased or declared resolved. Missing or malformed boot evidence stays fenced;
+restarting is not a blanket override for every refusal.
 
 ## Upgrade a `.deb`
 

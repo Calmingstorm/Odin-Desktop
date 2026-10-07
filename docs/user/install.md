@@ -1,8 +1,8 @@
 # Install Odin Desktop on Linux
 
 Odin Desktop is a Linux app with its own local engine and profile. Start here,
-then follow [First run](first-run.md). These guides are a first draft; a package
-being available does not mean every desktop environment is supported.
+then follow [First run](first-run.md). These guides describe the merged Linux
+implementation, not a published release or final desktop-support certificate.
 
 Based on Odin v4.13.0. Later Odin changes are included only when the release
 notes list them.
@@ -29,11 +29,12 @@ for normal use. PDF support downloads an optional component on first PDF use.
 If that download fails, a later use can retry. Online providers and network tools
 still need their respective services.
 
-AppImage startup on stock Ubuntu 24.04 and native FUSE mounting are not yet
-confirmed. If startup fails, preserve the error and ask for help. Do not run as
-root, disable the sandbox or weaken system security policy to make it start.
-If AppImage startup is blocked, use the `.deb` instead where it is supported;
-do not assume changing format resolves every startup error.
+AppImage startup refuses systems whose user-namespace policy is restricted,
+including stock Ubuntu 24.04's restriction. Its preflight does not attempt to
+prove a local exception would work. Use the `.deb` where supported instead.
+Native FUSE mounting and the exact installed sandbox paths still need final
+candidate validation. Preserve startup errors; do not run as root, disable the
+sandbox or weaken system security policy to make the app start.
 
 ## Download and check the file
 
@@ -84,6 +85,10 @@ AppImage running successfully does not show that normal mounting will work.
 Launching **Odin** again brings back the existing window, rather than starting a
 second engine. **Start Odin when you log in** is optional and initially off.
 
+A fresh manual launch shows the window, including on GNOME and KDE Wayland.
+An enabled login launch starts hidden; reopen it with the application launcher
+or tray. The hidden login start is deliberate, not a failed first window.
+
 **Closing the window hides it and leaves the app running.** Reopen from the tray,
 if present, or launch Odin again. You do not need a tray to reopen or exit.
 
@@ -91,6 +96,14 @@ To stop the app, choose **Odin → Exit Odin**, press **Ctrl+Q**, or use **Exit 
 in the tray or desktop launcher's menu. Wait for shutdown before changing files.
 If cleanup is reported as unknown, follow [Recovery](recovery.md); Exit is not
 proof that every earlier effect was undone.
+
+Computer shutdown, reboot and actual logout also request Odin's normal bounded
+Exit before the desktop session is torn down. Cancelling a logout query is not
+an Exit request. This is best effort: an abrupt power loss, crash or unavailable
+session integration can still leave unknown cleanup.
+
+**pending: #96**: Exit during the core's initial startup can still record unknown
+cleanup. Do not assume an early logout or Exit has the proposed startup fix yet.
 
 ## Your profile and privacy
 
@@ -120,8 +133,9 @@ or private history in support screenshots.
 ## Uninstall without losing recovery records
 
 1. Turn off **Start Odin when you log in** while the app is available.
-2. Choose **Exit Odin** and wait for its shutdown outcome. Resolve unknown cleanup
-   before removal; do not delete evidence to force it through.
+2. Choose **Exit Odin** and wait for its shutdown outcome. After an unclean end,
+   restart the computer before removal. If refusal remains, follow
+   [Updates](updates.md#before-replacing-anything); do not delete evidence.
 3. For `.deb`, remove or purge `odin-desktop` through the package manager. For
    AppImage, remove only the specific executable after clean Exit.
 

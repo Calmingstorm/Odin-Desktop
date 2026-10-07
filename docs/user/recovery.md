@@ -44,6 +44,23 @@ Open **Settings → Records**. Where the service is available:
 - **Preserved work → Refresh** reads checkpoints. **Needs attention** or **need
   manual resolution** differs from historical unknown diagnostics. It is not a
   general editor for resolving real-world effects.
+- **Read Runtime statistics**, **Read Recovery statistics**, **Read Recent
+  recovery**, **Read Capacity breaker**, and the SSH/HTTP pool reads expose the
+  core's reported state. An unavailable read is not zero activity or a clean bill
+  of health. **Close host pool… / Close all pools…** close SSH connections only,
+  with confirmation. HTTP pools are unchanged; new work can open new SSH
+  connections. This is not host revocation or an undo of commands.
+- **Records extras** provides **Read audit diffs**, **Read audit failures** and
+  **Read log statistics**. **Read latest audit tail / log tail** is a one-time
+  read. **Follow audit tail / log tail** reads one tail at a time, once per second
+  after the preceding read finishes; **Stop** stops following, not running work.
+  The panel keeps at most 200 lines. Read source reset/truncation metadata
+  separately from the renderer's discarded-line count. Errors stop following;
+  a retained last read is not a current successful read.
+- **Trajectories → List trajectory files**, **Read trajectory**, **Search
+  trajectories**, and **Read message trajectory** inspect stored tool trajectories.
+  Use the actual filename or message ID. These records can contain private content;
+  share only sanitized observations, not raw history, inputs or credential images.
 
 In chat, `/status` reads runtime/configuration state. `/reload` reloads context,
 not the core or cleanup state. A ready core, saved setting or usable keyring
@@ -53,17 +70,22 @@ Use [First run](first-run.md#recover-the-keyring) for keyring recovery. Skills a
 MCP management and retained computer status are supported; see
 [Settings](settings.md#skills-and-mcp-servers) for their controls. **Unavailable**
 still means a service cannot currently be used, not that there are no records or
-a clean bill of health. Work, Schedules and report management remain unavailable
-in the current core.
+a clean bill of health. For a background item, use **Work → Refresh** on the rail
+and the original schedule's **Runs** in **Scheduled and running work**. Refresh
+and Runs read existing records; Run now executes. An uncertain run remains fenced
+across restart and failure-counter reset. Ordinary missed actions after sleep
+wait for an explicit run; reminders coalesce. Neither policy authorizes repeating
+an unresolved effect. See [Background work](background-work.md).
 
 ## A skill or server will not work
 
 - In **Settings → Skills**, read the load state and diagnostics first. **Validate**
   checks code without execution; **Create/Save** loads it and can execute
   module-level code. Saving successfully is not proof the skill's external
-  operation works. The current core refuses the visible **Test** request because
-  management test execution is unavailable. Do not retry it to settle an unknown
-  earlier effect.
+  operation works. **Test** really executes the saved, loaded skill with empty
+  input and can cause effects. It is not validation or a sandbox. Input-required
+  or conversation-dependent operations can fail. Never use Test to settle an
+  unknown earlier effect, and do not assume it runs unsaved edits.
 - In **Settings → MCP servers**, read the server state, error and offered-tool
   counts. Check **MCP on** and the server's on/off state. For a known connection
   failure, correct the configuration and use **Reconnect**; use **Refresh tools**
@@ -81,6 +103,34 @@ in the current core.
   no generic browser-repair button in Records. Do not change PATH, copy personal
   browser profiles or weaken network guards as a repair. A fresh browser session
   does not authorize replaying an uncertain click, submission or navigation.
+
+### Incoming integration failures
+
+Open **Settings → Scheduled and running work → Webhook ingress → Refresh**.
+Read listener state, actual listen address, eligible-schedule count and unknown
+deliveries, then inspect the original schedule and its Runs/conversation.
+Refresh replaces unsaved listener/source drafts and discards the secret draft.
+**Enabled** is not **Accepting deliveries**; a listener accepting for one schedule
+does not establish eligibility of the selected schedule. A keyring error can
+leave stored-secret presence and eligibility unknown.
+
+Distinguish an unavailable/unbound listener from an accepted delivery whose
+handoff is unknown. Do not redeliver the payload to diagnose uncertain acceptance.
+The original internal receipt is retained without automatic replay; this does
+not pause the valid trigger or future authenticated deliveries. Each new delivery
+has a new identity: identical bodies and provider retries can execute again.
+This is not body deduplication or exactly-once external effects. An HTTP
+acknowledgment is not proof the resulting workflow succeeded at its destination.
+
+For a known configuration failure, inspect the saved source and selected schedule
+warnings. Source and secret save in separate steps; partial setup may retain the
+old secret. Correct only the known failure after checking the saved state, using
+the supported write-only field, not a credential-bearing URL. Do not publish an
+endpoint, weaken authentication or copy raw payloads/headers as a repair. This
+listener serves integrations, not remote administration. Share only sanitized
+source type, delivery time, status and record IDs. Outgoing subscriptions and
+destinations can expose conversation/result information too; redaction does not
+remove all private content.
 
 ### Workspace diagnosis
 
@@ -100,10 +150,25 @@ Reopen from the launcher after hiding the window. Use **Exit Odin** or **Ctrl+Q*
 to stop the app, not window Close. Exit attempts bounded shutdown; it may report
 unknown cleanup.
 
+System shutdown, reboot and logout use Odin's normal Exit path first. This is
+bounded settlement, not a promise that every external effect was undone or input
+release verified. Fresh launches show the window on GNOME and KDE; reopening a
+hidden window does not replay work. Exit while the core is still starting remains
+**pending: #96**; do not treat that unmerged fix as shipped behavior.
+
 Losing the window is not permission to replay submissions or restart the core.
-Core crashes have a limited restart budget, and replacement can refuse when
-ownership or cleanup is unproven. A new core process or recovered connection
-does not settle old effects. Inspect existing records before continuation.
+An unexpected loss of an already-ready core is not automatically replaced as
+though cleanup were proved. Failed starts have a bounded retry budget, and
+replacement can refuse when ownership or cleanup is unproven. A new core process
+or recovered connection does not settle old effects. Inspect existing records
+before continuation; do not repeatedly launch copies to bypass ownership.
+
+Package changes are refused while Odin runs. After an unclean end they are refused
+for the rest of that boot. The `.deb` message is **Restart the computer, then try
+again**; the AppImage helper may report unresolved lifetime evidence. Preserve
+uncertain effects before restarting; a reboot lifting the package fence does not
+resolve those effects. See [Updates](updates.md) for replacement rather than lock
+removal and for evidence that still refuses after restart.
 
 On the next start, **Cleanup unknown** shows retained reason/time and shutdown
 observations. Preserve those first. **Acknowledge** only archives the notice:
@@ -118,28 +183,33 @@ repeatedly start copies. Forced termination is not a clean shutdown receipt.
 ### Read the retained session
 
 1. Open **Settings → Records → Computer use → Refresh**. This requests status,
-   not mouse/keyboard input. The core retains session and recovery records, but
-   the current panel does not display that retained session record. A blank panel
-   or absent Release button therefore does not establish that there is no session
-   or that cleanup succeeded. Preserve any error and ask an operator to inspect
-   the retained record, including its exact session ID, generation and recovery
-   reason. A failed refresh may leave **Showing the last read**; that is not fresh
-   evidence.
-2. The current core has retained-session management but no foreground input
-   authority. An enabled value or a status read does not establish native backend
-   support, consent or permission to start/resume input. No session shown is not
-   proof that a previous application released input.
-3. **Release…** is not a usable recovery path in this version. The missing session
-   row prevents that control from appearing, and its request would be rejected
-   even if invoked. Do not use it to dismiss quarantine or establish cleanup.
-   Preserve the record and obtain operator help. If a recovery result is already
-   recorded, read it: a refused, unknown, incomplete or still-quarantined result
-   is not permission to continue.
+   not mouse/keyboard input. Read management availability and the explicit
+   foreground-unavailable state. A reported session shows its exact ID, generation,
+   state and recovery reason/result. No session reported is not proof of release
+   or cleanup. A failed refresh may leave **Showing the last read**; that is not
+   fresh evidence. Preserve those identities and errors for support.
+2. Foreground/native input remains unavailable and unqualified. The request-owner
+   binding shares the retained controller, but does not create native input or
+   publish a usable input capability. An enabled setting or a status read does
+   not establish backend support, consent or permission to start/resume input.
+3. A quarantined session can offer **Reconcile** when management is available.
+   This inspects recorded runtime recovery for that exact session/generation; it
+   does not start a session, send a release, attest that you checked the computer,
+   or replay input. Read the result. **Absence verified** is a recorded runtime
+   absence verdict, not receiving-application release proof or native qualification.
+   Unknown, refused, incomplete, still-quarantined or release-unverified results
+   require operator help, not another input attempt. The current real-core control
+   is Reconcile, not a general-purpose Release button.
 
 This screen is not a complete native recovery wizard. It does not provide a
 fresh-target/renewed-consent input workflow or permission to replay partial work.
 An acknowledgment made by an operator is not proof that the receiving application
 released input, even if a retained session is closed.
+
+Native containment/quarantine qualification is **pending: #98**;
+remaining native lifecycle rows are **pending: #59**, and the final
+Phase 3 matrix is **pending: #97**. The backend limits below explain retained
+recovery evidence; they are not a supported start-input procedure.
 
 If a resource is quarantined or its input release is unknown, stop. Do not inject
 another key press or mouse release to test it; that can interfere with a person's
