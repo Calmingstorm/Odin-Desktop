@@ -296,6 +296,29 @@ describe('a jumped-to message that has never rendered here (review #87)', () => 
     expect(placements).toEqual([{ block: 'center' }, { block: 'start' }])
   })
 
+  it('keeps a short one centred while the messages above it render', async () => {
+    await settle()
+    const doc = (globalThis as unknown as { document: { getElementById: unknown } }).document
+    const original = doc.getElementById
+    const placements: unknown[] = []
+    // Centring puts it 220 px down the 500 px view.
+    const target = { isConnected: true, offsetHeight: 60, top: 0,
+      getBoundingClientRect() { return { top: this.top } },
+      scrollIntoView(options: unknown) { placements.push(options); this.top = 220 } }
+    Object.assign(scroller, { getBoundingClientRect: () => ({ top: 0 }) })
+    try {
+      doc.getElementById = () => target
+      await searchHit('c1')
+      expect(placements).toEqual([{ block: 'center' }])
+      target.top = 40 // the estimated blocks above it rendered at their real, smaller heights
+      await settle()
+    } finally {
+      doc.getElementById = original
+    }
+    expect(placements).toEqual([{ block: 'center' }, { block: 'center' }])
+    expect(target.top).toBe(220)
+  })
+
   it('leaves the view alone when the reader scrolled before it rendered', async () => {
     await settle()
     const doc = (globalThis as unknown as { document: { getElementById: unknown } }).document

@@ -32,6 +32,8 @@ async function launch(real = false, scenario?: string, profile?: string): Promis
     XDG_CACHE_HOME: join(root, 'cache'), XDG_RUNTIME_DIR: join(root, 'run'),
     DISPLAY: process.env.DISPLAY!, XAUTHORITY: process.env.XAUTHORITY!,
     DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS!,
+    // No workstation system bus: a tested app never takes the host's logind locks.
+    DBUS_SYSTEM_BUS_ADDRESS: `unix:path=${join(root, 'run', 'no-system-bus')}`,
     PYTHONDONTWRITEBYTECODE: '1', PYTHONNOUSERSITE: '1'
   }
   if (real) {
