@@ -13,6 +13,7 @@ import pytest
 from src.desktop.controls import ControlService
 from src.discord.background_task import (
     BackgroundTask,
+    StepResult,
     _send_conversational_followup,
     _send_progress,
     _send_summary,
@@ -138,6 +139,34 @@ async def test_background_rendering_and_injected_publication():
         ("progress", task.progress_text), ("summary", task.summary_text),
         ("followup", task.followup_text),
     ]
+
+
+
+@pytest.mark.asyncio
+async def test_long_progress_and_summary_keep_every_step_without_attachment_claims():
+    """Approved D19-041/042: no 1,900-character cut and no attached-file claim."""
+    steps = [{"tool_name": "run_command", "description": f"check host {n}"} for n in range(40)]
+    task = BackgroundTask("task", "Fleet health audit", steps, "conversation", "owner")
+    task.results = [StepResult(n, "run_command", f"check host {n}", "ok",
+                               f"host-{n:02d}: disk {40 + n}% used, memory {20 + n}% used, "
+                               f"{n + 3} services healthy")
+                    for n in range(40)]
+    published = []
+
+    async def publish(kind, text):
+        published.append((kind, text))
+
+    task.publish = publish
+    progress = await _send_progress(task, None, status_override="completed")
+    await _send_summary(task, status_override="completed")
+    assert len(progress) > 1900
+    assert len(task.summary_text) > 1900
+    for n in range(40):
+        assert f"Step {n + 1} (check host {n}): host-{n:02d}: disk" in progress
+        assert f"**check host {n}**: host-{n:02d}: disk {40 + n}% used" in task.summary_text
+    assert "attached" not in progress.lower()
+    assert "attached" not in task.summary_text.lower()
+    assert published == [("progress", progress), ("summary", task.summary_text)]
 
 
 @pytest.mark.asyncio
