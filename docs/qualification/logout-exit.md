@@ -2,7 +2,7 @@
 
 Implementation scope: Cinnamon/X11, GNOME/Wayland and Plasma/KDE Wayland.
 No lab guest, live desktop, service or live installation was used during development.
-Native guest verification remains Claudia's next gate, not a claim made by this PR.
+Native verification in the lab guests followed separately; see `logout-exit-result.md`.
 
 ## Mechanisms and cancellation
 
@@ -18,6 +18,10 @@ It uses the already-selected bundled Python runtime (including `-I -B`) and the
 existing `dbus-next` dependency. No new dependency. Plasma uses the existing
 Linux coreutils `timeout` command; if it is unavailable the hook returns without
 blocking logout, rather than introducing an unbounded fallback.
+
+When there is nothing to watch (no session bus, or no GNOME-compatible session
+manager, as on Plasma), the monitor exits at once instead of idling for the app's
+lifetime; the app tolerates its absence. Plasma is covered by the hook alone.
 
 Missing bus/manager, refused registration, unwritable hook location, foreign
 hook contents or non-file hook paths fail open. There are no inhibitors and no

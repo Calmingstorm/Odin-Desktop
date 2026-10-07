@@ -122,6 +122,13 @@ async def run():
 
     monitor = SessionEndMonitor(end)
     monitor.start()
+    if monitor.startup:
+        await monitor.startup
+    if monitor.client_path is None:
+        # Nothing to watch (no session bus, or no GNOME-compatible session manager, as on
+        # Plasma): exit rather than idle for the app's whole lifetime. The app tolerates it.
+        await monitor.close()
+        return
     reader = asyncio.StreamReader()
     protocol = asyncio.StreamReaderProtocol(reader)
     transport, _ = await asyncio.get_running_loop().connect_read_pipe(lambda: protocol, sys.stdin)

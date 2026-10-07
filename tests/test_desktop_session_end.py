@@ -1,6 +1,8 @@
 """Real dbus-next behaviour on a throwaway bus inside the PID runner."""
 import asyncio
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -121,4 +123,43 @@ async def test_end_response_is_bounded_even_if_parent_never_finishes(bus_address
         assert monitor.ending
     finally:
         await monitor.close()
+        bus.disconnect()
+
+
+async def helper_process():
+    return await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "src.desktop.session_end", env=os.environ.copy(),
+        stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
+
+
+@pytest.mark.asyncio
+async def test_helper_exits_by_itself_when_there_is_no_session_manager(bus_address):
+    # As on Plasma: nothing to watch, so it must not idle for the app's whole lifetime.
+    helper = await helper_process()
+    try:
+        assert await asyncio.wait_for(helper.wait(), 10) == 0  # parent pipe still open
+    finally:
+        if helper.returncode is None:
+            helper.kill()
+            await helper.wait()
+
+
+@pytest.mark.asyncio
+async def test_registered_helper_stays_until_its_parent_pipe_closes(bus_address):
+    bus = await MessageBus(bus_address=bus_address).connect()
+    manager = Manager()
+    bus.export(PATH, manager)
+    bus.export(CLIENT_PATH, Client())
+    await bus.request_name(NAME)
+    helper = await helper_process()
+    try:
+        await until(lambda: manager.clients)
+        await asyncio.sleep(0.5)
+        assert helper.returncode is None
+        helper.stdin.close()
+        assert await asyncio.wait_for(helper.wait(), 10) == 0
+    finally:
+        if helper.returncode is None:
+            helper.kill()
+            await helper.wait()
         bus.disconnect()
