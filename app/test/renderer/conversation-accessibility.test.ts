@@ -177,7 +177,9 @@ describe('conversation and palette naming/semantics', () => {
     const trigger = view.root.findAll((node) => node.props['aria-label'] === 'Actions for First chat')[0]!
     expect(trigger.props['aria-haspopup']).toBe('menu')
     expect(trigger.props['aria-expanded']).toBe(false)
-    expect(view.root.button('+ New').props['aria-label']).toBe('New conversation')
+    const created = view.root.findAll((node) => node.tag === 'button' && node.props['aria-label'] === 'New conversation')
+    expect(created).toHaveLength(1)
+    expect(created[0]!.props.title).toBe('New conversation')
   })
 
   it('uses noninteractive listbox options with stable ids for the composer active descendant', async () => {

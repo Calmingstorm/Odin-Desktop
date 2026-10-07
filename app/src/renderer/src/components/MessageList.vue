@@ -6,6 +6,7 @@ import { chatAnnouncement, type ChatAnnouncementState } from '../chat-announceme
 import Message from './Message.vue'
 import ResumeBanner from './ResumeBanner.vue'
 import ToolActivity from './ToolActivity.vue'
+import Icon from './Icon.vue'
 
 const scroller = ref<HTMLElement | null>(null)
 const view = computed(() => (state.activeId ? state.views[state.activeId] : undefined))
@@ -247,6 +248,7 @@ async function older(): Promise<void> {
         actions
       />
       <article v-for="p in pending" :key="p.client_submission_id" class="msg user pending">
+        <span class="avatar" aria-hidden="true"><Icon name="person" :size="18" /></span>
         <div class="meta">
           <span class="who">You</span>
           <span class="state">{{

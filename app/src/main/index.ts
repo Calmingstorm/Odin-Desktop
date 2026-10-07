@@ -634,7 +634,7 @@ async function interfaceShots(win: BrowserWindow, out: string, broker: Broker): 
     const image = await win.webContents.capturePage()
     writeFileSync(out.replace(/\.png$/, `-${name}.png`), image.toPNG())
   }
-  await run(`document.querySelector('.head-actions button').click()`)
+  await run(`document.querySelector('.conv-search').click()`)
   await pause(300)
   await run(`(() => {
     const input = document.querySelector('.search-form input')
@@ -761,7 +761,7 @@ async function interfaceShots(win: BrowserWindow, out: string, broker: Broker): 
     if (!longReply()) return 'never rendered'
     await painted()
     const longButton = document.querySelector('.conversations .conv.active')
-    document.querySelector('.head-actions button + button').click()
+    document.querySelector('.new-conversation').click()
     await sleep(500)
     const reopened = []
     for (let i = 0; i < 3; i++) {
