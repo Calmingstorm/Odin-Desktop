@@ -269,12 +269,15 @@ The fence now works per lifetime and per boot:
   stay fenced.
 - A lifetime is clean when its own Exit and resource evidence are clean and the
   profile retains no core unknown from the current boot. The core journal records
-  each lifetime's boot; a retained unknown keeps the boot it happened in, and
-  history from before boots were recorded is stamped once with the boot that
-  found it. The journal also records the newest unresolved lifetime's boot
-  separately from that first notice, so an older unknown cannot mask a new one
-  (review finding R2.1). An unknown therefore fences every installation kind on
-  that profile for the rest of its boot (review finding 89.2), and a later clean
+  each lifetime's boot, and the newest unresolved lifetime's boot separately from
+  the first retained notice, so an older unknown cannot mask a new one (review
+  finding R2.1). A missing binding (history from before boots were recorded,
+  unreadable evidence, or a boot that could not be read) binds once to the boot
+  that finds it. Only history from before the binding existed may use the boot
+  stamped in its own notice, so a newer unknown never borrows an older boot
+  (R3.1). The retained notice itself is never rewritten, so the app does not
+  announce it twice. An unknown therefore fences every installation kind on that
+  profile for the rest of its boot (review finding 89.2), and a later clean
   lifetime cannot erase that.
 - Boot identities must be well-formed kernel UUIDs; a malformed one is not an
   earlier boot (review finding 89.1). Receipts are cooperative evidence the owner

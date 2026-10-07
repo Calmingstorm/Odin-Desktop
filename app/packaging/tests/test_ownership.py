@@ -215,6 +215,21 @@ class OwnershipTests(unittest.TestCase):
             finally:
                 lease.close()
 
+    def test_an_empty_binding_never_falls_back_to_the_notice_boot(self):
+        # A newer unknown whose boot could not be read must not lift with the older notice.
+        with self.boot(BOOT_B):
+            lease = self.lease()
+            try:
+                self.clean()
+                self.history(BOOT_A)
+                core = json.loads(self.core.read_text())
+                core['latest_unknown_boot_id'] = None
+                self.core.write_text(json.dumps(core))
+                with self.assertRaisesRegex(own.OwnershipError, 'Core resource cleanup'):
+                    lease.finish()
+            finally:
+                lease.close()
+
     def test_malformed_boot_identity_is_not_an_earlier_boot(self):
         self.paths.directory.mkdir(mode=0o700)
         self.paths.receipts.mkdir(mode=0o700)

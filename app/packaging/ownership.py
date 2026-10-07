@@ -129,8 +129,12 @@ def _clean(app_cleanup, core_cleanup, role):
     resources = core.get('resources')
     previous = core.get('previous_unknown')
     # The newest unresolved lifetime's boot decides; the retained notice is the first one.
-    latest = core.get('latest_unknown_boot_id') or (
-        previous.get('boot_id') if isinstance(previous, dict) else None)
+    # Only a journal written before that binding existed uses the notice's own boot: an
+    # empty binding (a boot that could not be read) stays fenced.
+    if 'latest_unknown_boot_id' in core:
+        latest = core['latest_unknown_boot_id']
+    else:
+        latest = previous.get('boot_id') if isinstance(previous, dict) else None
     if (core.get('version') != 1 or core.get('state') != 'complete'
             or (previous is not None and not _earlier_boot(latest, _boot_id()))
             or not isinstance(resources, dict)

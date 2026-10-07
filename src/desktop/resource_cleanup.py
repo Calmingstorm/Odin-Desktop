@@ -38,6 +38,8 @@ class ResourceCleanupJournal:
         self.previous_unknown = None
         self.previous_unknown_count = 0
         self.latest_unknown_boot_id = None
+        # Only history written before the fence binding existed may use its notice's own boot.
+        legacy = False
         boot = current_boot_id()
         try:
             previous = json.loads(path.read_text())
@@ -47,6 +49,7 @@ class ResourceCleanupJournal:
             self.previous_unknown = previous.get("previous_unknown")
             self.previous_unknown_count = int(previous.get("previous_unknown_count", 0))
             self.latest_unknown_boot_id = previous.get("latest_unknown_boot_id")
+            legacy = "latest_unknown_boot_id" not in previous
             if previous["state"] != "complete":
                 # Retain the first unresolved receipt, not an exponentially
                 # nested chain of every later interrupted startup.
@@ -57,19 +60,24 @@ class ResourceCleanupJournal:
                 self.previous_unknown_count += 1
                 # The first unresolved lifetime stays the notice; the newest one decides how
                 # long the package fence holds. One without a recorded boot is this boot.
+                legacy = False
                 self.latest_unknown_boot_id = previous.get("boot_id") or boot
         except FileNotFoundError:
             pass
         except (OSError, ValueError, TypeError):
+            legacy = False
             self.previous_unknown = {"state": "unknown", "reason": "cleanup_evidence_unreadable"}
             self.latest_unknown_boot_id = boot
-        # The package fence holds an unknown for the rest of the boot it happened in. One
-        # recorded before boots were, or from unreadable evidence, binds to this boot, once:
-        # it can only be from this boot or an earlier one. The retained record itself stays
-        # exactly as reported, so the app does not announce the same unknown again.
+        # The package fence holds an unknown for the rest of the boot it happened in. A
+        # missing binding (history recorded before boots were, unreadable evidence, or a boot
+        # that could not be read) binds to the boot that finds it, once: the unknown can only be
+        # from this boot or an earlier one. Only history from before the binding existed may use
+        # the boot stamped in its own notice; a newer unknown never borrows the notice's older
+        # boot. The retained record stays exactly as reported, so the app does not announce the
+        # same unknown again.
         if self.previous_unknown is not None and not self.latest_unknown_boot_id:
             recorded = (self.previous_unknown.get("boot_id")
-                        if isinstance(self.previous_unknown, dict) else None)
+                        if legacy and isinstance(self.previous_unknown, dict) else None)
             self.latest_unknown_boot_id = recorded or boot
         self.current = {"version": 1, "state": "running", "resources": {}, "boot_id": boot,
                         "latest_unknown_boot_id": self.latest_unknown_boot_id,
