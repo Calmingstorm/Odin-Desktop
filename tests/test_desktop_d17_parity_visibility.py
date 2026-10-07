@@ -132,3 +132,36 @@ async def test_image_auth_visibility_has_real_selector_and_durable_publication(g
         message=object(), user_id=requests.authority.owner_id, skill_file_delivery="send")
     assert not result.ok and result.error == "tool_unavailable"
     assert seen == ["two blue pixels"]
+
+
+async def test_generated_image_result_names_no_attachment_url(graph, monkeypatch):
+    """Approved D19-031: a durable artifact replaces Odin's Discord attachment URL."""
+    engine, requests, provider, transcript, artifacts, cid, cfg = graph
+    image = io.BytesIO()
+    Image.new("RGB", (2, 2), "green").save(image, format="PNG")
+
+    async def generate(*, prompt):
+        return ImageResult(image.getvalue(), "image/png", 2, 2, "openai", "inert-network-fixture")
+
+    monkeypatch.setattr(engine.deps.image_backend, "generate", generate)
+    owner = engine.deps.native_tools.owners["media"]
+    original = type(owner)._handle_generate_image
+    results = []
+
+    async def recorded(self, message, inp):
+        result = await original(self, message, inp)
+        results.append(result)
+        return result
+
+    monkeypatch.setattr(type(owner), "_handle_generate_image", recorded)
+    await execute(graph, [ToolCall("image", "generate_image", {"prompt": "two green pixels"})])
+    [result] = results
+    assert result.ok
+    assert result.audit_metadata["delivery_status"] == "posted"
+    assert result.audit_metadata["attachment_url_available"] is False
+    assert result.output.startswith("Image generated (2x2, ")
+    assert result.output.endswith(" and posted.")
+    assert "URL" not in result.output and "http" not in result.output
+    assert result.output in str(provider.calls[1]["messages"])
+    files = [row for row in transcript.list(cid)["items"] if row.get("artifacts")]
+    assert len(files) == 1

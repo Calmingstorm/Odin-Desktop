@@ -11,6 +11,8 @@ from __future__ import annotations
 import ast
 import asyncio
 import inspect
+import json
+import shlex
 import sys
 import textwrap
 from pathlib import Path
@@ -20,6 +22,8 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from src import restart, setup_wizard
+from src.computer.integration import ComputerIntegration
+from src.desktop.computer_binding import ComputerBindingService, ComputerForegroundBinding
 from src.discord import (
     delivery,
     intake_pipeline,
@@ -31,11 +35,13 @@ from src.discord import (
 )
 from src.discord.native_tools import media as media_tools
 from src.discord.native_tools.channel_ops import ChannelOpsTools
+from src.llm.types import LLMResponse
 from src.tools import output_authorization, runtime_delivery
 from src.tools.result_validator import ToolResult
 from src.web import api as web_api
 from src.web import websocket as web_websocket
 from src.web.api import agents_loops, config_admin, sessions_chat, skills_api
+from tests.test_desktop_core_lifecycle import request
 from tests.test_desktop_d19_behaviour import composed as composed  # shared pytest fixture
 from tests.test_desktop_d19_behaviour import (
     configure_agent_fixture,
@@ -79,6 +85,10 @@ CALLABLE_GUARDS = {
     "050-agent-trajectories": (sessions_chat, "register_agent_trajectories"),
     "050-skills": (skills_api, "register_skills"),
     "050-websocket": (web_websocket, "setup_websocket"),
+    # Batch B: Desktop composes its own computer admission and management.
+    "029": (ComputerIntegration, "_context"),
+    "030-operator": (ComputerIntegration, "_operator_context"),
+    "030-stop": (ComputerIntegration, "stop_channel"),
 }
 
 
@@ -146,12 +156,15 @@ def _raise_lines(handler, prefix):
 
 
 def _scheduled_fence_branches():
-    """Scheduled runs call these fences; only outside admission do they raise."""
+    """Scheduled runs enter these functions. Their raises fire only outside admission
+    (033, 034) or when a mis-composed report publisher refuses (035)."""
     return {
         "033": [_raise_lines(scheduled_events._require_phase2,
                              "Scheduled execution requires Phase 2")],
         "034": [_raise_lines(scheduled_events._publish_notice,
                              "Conversation publication is unavailable until Phase 2")],
+        "035": [_raise_lines(scheduled_events.ScheduledEventHandlers._on_scheduled_task_inner,
+                             "Scheduled report publication unavailable")],
     }
 
 
@@ -234,6 +247,10 @@ def guard_spies(monkeypatch):
     for row in runtime_branches:
         spies[row] = Mock(side_effect=AssertionError(f"D19-{row} runtime backstop invoked"))
         visited[row] = 0
+    # Positive paths: Desktop's own computer admission and management owners.
+    positive_codes = {ComputerForegroundBinding._context.__code__: "computer-binding",
+                      ComputerBindingService.handle.__code__: "computer-management"}
+    visited.update(dict.fromkeys(positive_codes.values(), 0))
 
     def trace(frame, event, arg):
         # An imported alias can bypass the patched module attribute. Bind
@@ -241,6 +258,9 @@ def guard_spies(monkeypatch):
         # imported by turn_resume, rather than leaving that alias unobserved.
         if event == "call" and frame.f_code in original_codes:
             original_codes[frame.f_code]()
+        if event == "call" and frame.f_code in positive_codes:
+            visited[positive_codes[frame.f_code]] += 1
+            return None
         if frame.f_code is code:
             if event == "call":
                 visited["handler"] += 1
@@ -284,7 +304,7 @@ async def guarded_core(guard_spies, composed):
 
 @pytest.mark.parametrize("flow", [
     "chat_history", "background_admission", "mcp_start_stop", "skill_delivery",
-    "scheduled_runs", "shutdown",
+    "scheduled_runs", "computer_stop", "shutdown",
 ])
 async def test_composed_flows_never_invoke_legacy_guards(guarded_core, guard_spies, flow):
     """All twelve spies are installed before CoreService.start and through close."""
@@ -353,6 +373,8 @@ async def test_composed_flows_never_invoke_legacy_guards(guarded_core, guard_spi
         from datetime import UTC, datetime, timedelta
 
         cid = await conversation(graph)
+        # Provisioning creates the local command workspace for a real profile.
+        Path(graph.core.config.tools.local_working_dir).mkdir(parents=True, mode=0o700)
         reminder = await rpc(graph, "schedules.save", {
             "description": "D19 guard reminder", "action": "reminder", "channel_id": cid,
             "run_at": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
@@ -363,19 +385,71 @@ async def test_composed_flows_never_invoke_legacy_guards(guarded_core, guard_spi
             "cron": "0 0 1 1 *", "tool_name": "run_command",
             "tool_input": {"host": "localhost", "command": "printf ran"}})
         await rpc(graph, "schedules.run", {"id": check["id"]})
+        # A report check publishes through Desktop's real report owner (035).
+        pages = json.dumps({"format": "paginated_embed_v1", "pages": [
+            {"title": "D19 stored status", "description": "All quiet"}]})
+        report = await rpc(graph, "schedules.save", {
+            "description": "D19 guard report", "action": "check", "channel_id": cid,
+            "cron": "0 0 1 1 *", "tool_name": "run_command",
+            "tool_input": {"host": "localhost", "command": "printf %s " + shlex.quote(pages)},
+            "report_format": "paginated_embed_v1"})
+        await rpc(graph, "schedules.run", {"id": report["id"]})
         scheduler = graph.core.engine.deps.scheduler
         for _ in range(500):
-            delivered = any("D19 guard reminder delivered" in str(item)
-                            for item in graph.core.transcript.list(cid)["items"])
+            items = graph.core.transcript.list(cid)["items"]
+            delivered = any("D19 guard reminder delivered" in str(item) for item in items)
             ran = any(item["id"] == check["id"] and item.get("last_run")
                       for item in scheduler.list_all())
-            if delivered and ran:
+            reported = any(artifact["kind"] == "report"
+                           for item in items for artifact in item.get("artifacts", []))
+            if delivered and ran and reported:
                 break
             await asyncio.sleep(0.02)
         assert delivered, graph.core.transcript.list(cid)["items"]
         assert ran, scheduler.list_all()
+        assert reported, graph.core.transcript.list(cid)["items"]
         assert guard_spies.visited["033"] > 0
         assert guard_spies.visited["034"] > 0
+        assert guard_spies.visited["035"] > 0
+    elif flow == "computer_stop":
+        # Desktop stops a running turn through control.stop and its own foreground
+        # binding, and serves computer management itself; Odin's operator and
+        # stop_channel admission is never entered (029, 030).
+        foreground = graph.core.computer_foreground
+        assert type(foreground) is ComputerForegroundBinding
+        assert type(foreground)._context is not ComputerIntegration._context
+        assert type(foreground)._operator_context is guard_spies.spies["030-operator"]
+        assert type(foreground).stop_channel is guard_spies.spies["030-stop"]
+        cid = await conversation(graph)
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        async def blocked(**_kwargs):
+            entered.set()
+            await release.wait()
+            return LLMResponse(text="The stopped turn has settled.")
+
+        graph.provider.chat_with_tools = blocked
+        try:
+            receipt = await rpc(graph, "submission.send", {
+                "client_submission_id": "d19-computer-stop", "conversation_id": cid,
+                "text": "Wait until stopped"})
+            await asyncio.wait_for(entered.wait(), 10)
+            stop = await rpc(graph, "control.stop", {
+                "control_command_id": "d19-computer-stop", "conversation_id": cid,
+                "request_id": receipt["request_id"], "generation": 1})
+            assert stop == {"disposition": "requested"}
+        finally:
+            release.set()
+            del graph.provider.chat_with_tools
+        await asyncio.wait_for(asyncio.gather(*graph.core.requests._tasks), timeout=20)
+        assert graph.core.requests.get_request(receipt["request_id"])["state"] == "cancelled"
+        assert guard_spies.visited["computer-binding"] > 0
+        assert (await rpc(graph, "computer.status"))["session"] is None
+        # Stop stays available while computer use is disabled (recovery).
+        missing = await request(graph.reader, graph.writer, "computer.stop", {
+            "session_id": "not-a-real-session", "generation": 1})
+        assert missing["error"]["code"] == "not_found", missing
+        assert guard_spies.visited["computer-management"] > 0
     elif flow == "mcp_start_stop":
         from src.tools.mcp.manager import MCPManager
 
@@ -559,6 +633,48 @@ async def test_image_delivery_return_spy_positive_control_and_desktop_override()
     finally:
         sys.settrace(previous)
     spy.assert_called_once()
+
+
+async def test_report_publication_backstop_positive_control(composed, monkeypatch):
+    """A refusing report publisher reaches the actual 035 raise, once."""
+    graph = composed
+    [(code, lines)] = _scheduled_fence_branches()["035"]
+    hits = []
+
+    def trace(frame, event, arg):
+        if frame.f_code is code:
+            if event == "line" and frame.f_lineno in lines:
+                hits.append(frame.f_lineno)
+            return trace
+        return None
+
+    async def refuse(*_args):
+        raise NotImplementedError("D19-035 positive control")
+
+    monkeypatch.setattr(graph.core._scheduled_handlers, "_publish_report", refuse)
+    Path(graph.core.config.tools.local_working_dir).mkdir(parents=True, mode=0o700)
+    cid = await conversation(graph)
+    saved = await rpc(graph, "schedules.save", {
+        "description": "D19 refused report", "action": "check", "channel_id": cid,
+        "cron": "0 0 1 1 *", "tool_name": "run_command",
+        "tool_input": {"host": "localhost", "command": "printf ran"},
+        "report_format": "paginated_embed_v1"})
+    scheduler = graph.core.engine.deps.scheduler
+    previous = sys.gettrace()
+    assert previous is None
+    sys.settrace(trace)
+    try:
+        await rpc(graph, "schedules.run", {"id": saved["id"]})
+        for _ in range(500):
+            if any(item["id"] == saved["id"] and item.get("last_run")
+                   for item in scheduler.list_all()):
+                break
+            await asyncio.sleep(0.02)
+    finally:
+        sys.settrace(previous)
+    assert hits, scheduler.list_all()
+    history = await rpc(graph, "schedules.history", {"id": saved["id"]})
+    assert history[-1]["status"] != "success", history
 
 
 async def test_composed_media_owner_always_has_durable_publication(composed):

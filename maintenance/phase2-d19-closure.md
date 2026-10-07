@@ -9,11 +9,11 @@ Baseline: `16e35e8f370661a2baf8e7030a27919b3e658b3b`. Section 4 of `maintenance/
 | Disposition | Rows |
 |---|---:|
 | Removed by restored behaviour | 19 |
-| Pending restoration | 6 |
-| Internal unreachable guard (Claude review) | 20 |
+| Pending restoration | 0 |
+| Internal unreachable guard (Claude review) | 23 |
 | Proposed mechanical | 0 |
 | Proposed behavioural (Aaron review) | 0 |
-| Approved behavioural (Aaron, 2026-10-06) | 5 |
+| Approved behavioural (Aaron, 2026-10-06) | 8 |
 | Total section-4 rows | 50 |
 
 ## Removed by restored behaviour
@@ -31,7 +31,7 @@ Baseline: `16e35e8f370661a2baf8e7030a27919b3e658b3b`. Section 4 of `maintenance/
 
 ## Recorded behavioural decisions and baseline context
 
-**Aaron approved D19-011, 012, 013, 016 and 026 on 2026-10-06.** Their JSON status is `approved_behavioural`, reviewer `Aaron`, with `approval_date`. No behavioural proposals remain. Rows **014 and 015** are internal mis-composition guards with never-invoked branch proofs below; **043** is pending **D17 restoration (next bridge task)** because fail-to-start is stricter than Odin's warn-and-ignore. No config code is changed here. Rarity below is an engineering estimate from guard conditions, not measured incident frequency. Baseline citations refer to the pinned `maintenance/odin-v4.13.0.tar.gz`, SHA-256 `845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0`.
+**Aaron approved D19-011, 012, 013, 016 and 026 on 2026-10-06, and D19-031, 041 and 042 later that day.** Their JSON status is `approved_behavioural`, reviewer `Aaron`, with `approval_date`. No behavioural proposals remain. Rows **014 and 015** are internal mis-composition guards with never-invoked branch proofs below; **043** is pending **D17 restoration (next bridge task)** because fail-to-start is stricter than Odin's warn-and-ignore. No config code is changed here. Rarity below is an engineering estimate from guard conditions, not measured incident frequency. Baseline citations refer to the pinned `maintenance/odin-v4.13.0.tar.gz`, SHA-256 `845d783bd4ee46cd44e63d56532512fd9cef10d08b1432e45047d155c6b348d0`.
 
 ### D19-011: permission denial propagation
 **When Odin sees it:** A requested tool or selected `invoke_skill` target is denied by authenticated owner policy or its live request scope has been revoked, producing `permission_denied`; unusual in normal single-owner use but expected when stale calls cross a policy/scope change.
@@ -60,6 +60,18 @@ Baseline: `16e35e8f370661a2baf8e7030a27919b3e658b3b`. Section 4 of `maintenance/
 ### D19-026: empty resume fetch
 **When Odin sees it:** Resume fetch returns `None` without a positive not-found result, reporting `the original message could not be fetched yet` and leaving preserved work unresolved instead of declaring deletion; rare empty-adapter/store-failure behaviour, not a normal missing-message response.
 **Baseline:** The identical phrase already covers transient/unexpected fetch exceptions, but an empty `None` read specifically marks the row rejected with `original message unavailable`, releases calibration and returns `the original message is gone`, exposed by explicit resume as `I couldn't resume the preserved work: the original message is gone. Ask again from scratch if you still need it.` (`src/discord/turn_resume.py:429-435,441-469`).
+
+### D19-031: no attachment URL for generated images
+**When Odin sees it:** Every successful `generate_image` call. Desktop stores the image as a durable conversation artifact; the result reads `Image generated (WxH, N KB) and posted.` and audit metadata records `attachment_url_available: false`.
+**Baseline:** Odin appends ` Attachment URL: <url>` and records `attachment_url_available: true` when Discord returns a safe https attachment URL (`src/discord/native_tools/media.py:351-370`).
+
+### D19-041: full background task progress
+**When Odin sees it:** A background task whose progress text exceeds 1,900 characters, usually a finished task with more than about 15 steps. Desktop keeps the full scrubbed text.
+**Baseline:** Odin cuts a finished task's long progress message to its first three lines plus `Full report attached ({n} steps).` and sends the full text as `task_<id>_report.txt`; a long running message is cut at 1,900 characters with `...` (`src/discord/background_task.py:777-796`).
+
+### D19-042: full background task summary
+**When Odin sees it:** A finished background task whose summary exceeds 1,900 characters. Desktop keeps the full scrubbed text; each step's output is still capped at 200 characters.
+**Baseline:** Odin posts the summary's first three lines plus `Full summary attached.` and attaches the full text as `task_<id>_summary.txt` (`src/discord/background_task.py:843-853`).
 
 ### D19-043: unsupported configuration keys
 **When Odin sees it:** Startup or explicit configuration loading encounters an unsupported top-level key, such as a typo or old server-only section, and stops with `Config validation failed: unsupported top-level configuration fields`; uncommon for generated fresh profiles but realistic for hand-editing/obsolete-config reuse, primarily a startup diagnostic rather than a routine tool result.
@@ -92,9 +104,14 @@ All nine cite `tests/test_desktop_d19_unreachable.py::test_composed_flows_never_
 | 047 | `src/restart.py` / `reexec` | Raising callable and original code-object spies, including shutdown; zero calls. |
 | 048 | `src/setup_wizard.py` / `is_setup_needed` | Raising callable and original code-object spies; zero calls. |
 | 050 | `src/web/api/__init__.py` / `require_phase2`, plus its 14 web registrars and `setup_websocket` | Raising callable and original code-object spies on all 16; Desktop serves no HTTP API; zero calls. |
+| 029 | `src/computer/integration.py` / `ComputerIntegration._context` | Raising callable and original code-object spies; Desktop's `ComputerForegroundBinding` overrides it and the stopped-turn flow enters the override; zero calls. |
+| 030 | `src/computer/integration.py` / `ComputerIntegration._operator_context`, `stop_channel` | Raising callable and original code-object spies; the binding inherits both; Desktop management and `control.stop` never call them; zero calls. |
+| 035 | `src/discord/scheduled_events.py` / `ScheduledEventHandlers._on_scheduled_task_inner` | Line spy on the raise; a real report check publishes through Desktop's report owner, which raises neither wrapped error; zero hits. |
 | 006 | `src/discord/native_tools/agents_tasks.py` / `AgentTaskTools._handle_spawn_agent` | Separate AST + compiled-code omission + real-owner trace proof behind the unconditional 005 fence. |
 
 **Batch A (2026-10-06):** rows 002, 033, 034, 036, 044, 047, 048 and 050 joined the guard proofs. A sixth composed flow, `scheduled_runs`, saves and runs a real reminder and a real check through `schedules.run`, so both scheduled fences are entered on the admitted path and their raises stay unreached. Each new line spy has a positive control outside admission.
+
+**Batch B (2026-10-06):** rows 029, 030 and 035 joined the guard proofs. A seventh composed flow, `computer_stop`, stops a running turn through `control.stop` and calls `computer.status` and `computer.stop` through Desktop's management service. The `scheduled_runs` flow gained a report check published through the real report owner. Mutations that route each path into its legacy guard fail the flows.
 
 **Background limitation:** no successful background task was executed. This branch has no `authenticated_scope`, `register_background`, or `background_execution` composition seam; `delegate_task` is hidden/refused before its handler, so requested successful composed-background guard coverage awaits **PR #37 (6B)**. The tests expose that pre-dispatch limitation rather than fabricating a task-owned context.
 
@@ -107,11 +124,7 @@ Rows **014/015** share the composed-flow proof and cite `test_runtime_miscomposi
 Every pending fragment must still have an active AST match in the current checkout; the gate recomputes this and fails when a merged change removes/inactivates a fragment until disposition/evidence is updated. D19-010's folded export failure retains actual expression slots, not the audit's descriptive placeholders.
 Each normal fragment binds to its recorded source path. D19-050 explicitly records its cross-module operation caller paths, so an identical string elsewhere cannot mask a restored/removed caller.
 
-| Rows | Owner | Exact pending reference | Dependency / scope |
-|---|---|---|---|
-| 031 | Odin | PR #48 (media publication) | Generated-image/browser-screenshot publication identity and durable bytes. |
-| 035, 041, 042 | Odin | PR #37 (6B) | Work/report/schedule recovery, native producers, background execution and publication. |
-| 029, 030 | Odin | PR #37 (6B) | Foreground admission/binding; **P3.5** is the separate native receiver/quarantine qualification dependency (`docs/work/phase-3-app-v1.md:238-269`). |
+None. Batch B (2026-10-06) closed the last six rows: 029, 030 and 035 as internal guards, and 031, 041 and 042 as approved behaviour.
 
 
 No pending row is assigned to **PR #42 (step 7)** or **PR #61 (step 8 closure, lane 2)** merely because scheduling/status words appear; their inspected work does not own a complete remaining row. There are no fictitious lane names.
