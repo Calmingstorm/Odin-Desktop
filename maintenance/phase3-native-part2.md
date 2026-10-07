@@ -1,5 +1,13 @@
 # P3.3 part 2: native VM continuation, gate OPEN
 
+## Current continuation, 2026-10-07
+
+The October 6 failures below are historical, not the current gate table.
+`phase3-native-part2-20261007.md` records the current rows and candidate identities.
+Main now includes the package fence, bounded poweroff, orderly logout and first
+window fixes (#89/#90/#94/#95). The branch merged main `aa3d61b3` and then
+`90d0f1df`, including startup Exit #93. No failed historical evidence was erased.
+
 ## Direction correction, 2026-10-06
 
 See `pr59-direction-r1.md` for the corrected harness and one measurement of each

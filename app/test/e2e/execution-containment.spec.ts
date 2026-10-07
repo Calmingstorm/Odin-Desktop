@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, readlinkSync, writeFileSync } from
 import { join } from 'node:path'
 import { expect, test, type TestInfo } from '@playwright/test'
 import { exitApp, isolatedEnv, launchApp, repository, snapshot, waitForCore } from './harness'
+import { admissionReceipt } from './admission-receipt'
 
 type Identity = { pid: number; ppid: number; sid: number; pgid: number; startTicks: string; namespace: string }
 function identity(pid: number): Identity {
@@ -40,8 +41,9 @@ async function admitted(root: string) {
   expect(escaped.sid).not.toBe(leader.sid)
   expect(escaped.pgid).not.toBe(leader.pgid)
   await expect.poll(() => counter(root, 'escaped')).toBeGreaterThan(2)
-  const admission = JSON.parse(readFileSync(join(root, 'admitted.json'), 'utf8'))
-  const supervisor = identity(admission.records[0].supervisorPid)
+  await expect.poll(() => admissionReceipt(join(root, 'admitted.json'))).not.toBeNull()
+  const admission = admissionReceipt(join(root, 'admitted.json')) as { records: Array<{ supervisorPid: number }> }
+  const supervisor = identity(admission.records[0]!.supervisorPid)
   expect(alive(supervisor)).toBe(true)
   return { leader, escaped, supervisor, admission }
 }
