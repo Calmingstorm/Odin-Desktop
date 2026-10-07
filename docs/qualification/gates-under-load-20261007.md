@@ -88,8 +88,10 @@ batch had lower load than the first fixed batch; both ran concurrently with work
 Raw logs, reports and traces are outside Git at
 `/mnt/storage/odin-desktop-evidence/ci-load-20261007/`.
 `gates-under-load-20261007-artifacts.json` records retained artifact paths and SHA-256.
-Hosted CI is **BLOCKED**, not passed. On 2026-10-07 at approximately 18:35 UTC,
+Hosted CI initially could not start. On 2026-10-07 at approximately 18:35 UTC,
 GitHub reported workflow `374882115` (`phase1-engine.yml`) as `disabled_manually`.
 PR #101 has no check runs, and its check watcher exited because there were none.
-The workflow was not re-enabled and no runners or another lane's CI were changed.
+At 18:40 UTC the engine workflow was re-enabled to execute the task's required
+hosted gates. No runner configuration or other lane's code changed. A fresh push
+triggers the normal pull-request workflow; no success is claimed before it ends.
 Local source gates above do not substitute for the task's required hosted pass.
