@@ -4,7 +4,7 @@ import { test, expect, type ElectronApplication } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { assertIsolated, exitApp, launchApp, repository, request, waitForCore } from './harness'
+import { assertIsolated, exitApp, launchApp, repository, request, snapshot, waitForCore } from './harness'
 import { isolatedServicesBootstrap } from '../isolated-services-bootstrap'
 import { recordCase } from './r4-cases'
 import { FILE_CONTENT, REPLY, TOOL_REPLY, startCannedProvider } from '../real-core-provider-fixture.mjs'
@@ -190,6 +190,71 @@ test('R4-05: a context reset and an app restart keep the transcript, tool outcom
     }
     await recordCase(info, 'R4-05', evidence)
     await recordCase(info, 'CC-07', evidence)
+  } finally {
+    if (application) await exitApp(application)
+    await provider.close()
+  }
+})
+
+type Hooks = { close(): void; show(): void; rendererCrash(): void }
+const hook = (application: ElectronApplication, name: keyof Hooks): Promise<void> =>
+  application.evaluate((_electron, method) => {
+    (globalThis as unknown as { __odinE2E: Hooks }).__odinE2E[method as keyof Hooks]()
+  }, name)
+
+test('R4-04: closing the window and losing the renderer never lose or repeat a running turn', async ({}, info) => {
+  assertIsolated()
+  const provider = await startCannedProvider({ root: join(process.env.ODIN_REAL_CORE_ROOT!, 'r4-provider-reopen') })
+  let application: ElectronApplication | null = null
+  try {
+    application = await launchApp({ profile: 'r4-reopen', env: memoryKeyringCore() })
+    await waitForCore(application)
+    await useCannedProvider(application, provider.baseUrl)
+    const app = application
+    const marker = `reopen-${randomUUID().slice(0, 8)}`
+    const title = `R4 reopen ${marker}`
+    const cid = (await call<{ conversation: { id: string } }>(app, 'conversations.create', { title })).conversation.id
+    const send = (text: string): Promise<{ request_id: string }> =>
+      call(app, 'submission.send', { client_submission_id: randomUUID(), conversation_id: cid, text })
+    const snap = (): Promise<Snapshot> => call(app, 'conversation.snapshot', { conversation_id: cid })
+    const calls = (text: string): number => provider.requests.filter((r) => lastUser(r).includes(text)).length
+    const page = await app.firstWindow()
+    await page.getByText(title, { exact: true }).first().click()
+    const corePid = (await snapshot(app)).corePid
+
+    // Close the window while a turn is running: the turn keeps running and the reopened window catches up.
+    const closed = await send(`[hold-stop] ${marker} closed`)
+    await expect.poll(() => calls(`${marker} closed`), { timeout: 30_000 }).toBe(1)
+    await hook(app, 'close')
+    expect((await snapshot(app)).visible).toBe(false)
+    provider.release('[hold-stop]')
+    await expect.poll(async () => replied(await snap(), closed.request_id), { timeout: 30_000 }).toBe(true)
+    await hook(app, 'show')
+    await expect(page.locator('.message-scroll')).toContainText(`${marker} closed`)
+    await expect(page.locator('.message-scroll')).toContainText(REPLY)
+
+    // Lose the renderer mid-turn: the core and the turn continue; the recovered window shows the result.
+    const crashed = await send(`[hold-resume] ${marker} crash`)
+    await expect.poll(() => calls(`${marker} crash`), { timeout: 30_000 }).toBe(1)
+    await hook(app, 'rendererCrash')
+    provider.release('[hold-resume]')
+    await expect.poll(async () => replied(await snap(), crashed.request_id), { timeout: 30_000 }).toBe(true)
+    await hook(app, 'show')
+    // The renderer recovers. Under Playwright the reloaded renderer does not answer script evaluation (the page
+    // object is reused), the same limit lifecycle.spec.ts works within: assert recovery, not its DOM.
+    await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.webContents.isCrashed()),
+      { timeout: 30_000 }).toBe(false)
+    expect((await snapshot(app)).corePid).toBe(corePid)
+    // Neither turn was sent to the model twice.
+    expect([calls(`${marker} closed`), calls(`${marker} crash`)]).toEqual([1, 1])
+
+    await recordCase(info, 'R4-04', {
+      conversation: cid, closed_window_turn: closed.request_id, renderer_loss_turn: crashed.request_id,
+      core_unchanged: true, provider_calls_per_turn: 1, renderer_recovered: true,
+      scope: 'window close/reopen catch-up asserted in the DOM; renderer loss asserted through the core and recovery',
+      not_automated: 'the recovered window\'s contents after a renderer loss (Playwright limit); check in the final manual run',
+      covered_elsewhere: 'core/app loss: lifecycle.spec.ts'
+    })
   } finally {
     if (application) await exitApp(application)
     await provider.close()
