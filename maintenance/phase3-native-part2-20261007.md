@@ -87,7 +87,7 @@ its old path to recover lab admission headroom. No cache or evidence was deleted
   warnings. Skips are not native acceptance.
 - `npm run check`: initially 1,054 passed; after adding the harness-race behavior
   regression, **1,055 passed**, typecheck and build pass.
-- Isolated real-core contracts/settings/skills/work: passed; onboarding passed;
+- Isolated real-core contracts/settings/skills/work: **66 passed**; onboarding **6 passed**;
   fixture smoke passed. The initial process spool retains these results because
   the combined command's tee covered only its final E2E subcommand.
 - Initial lifecycle E2E: **35 passed, 1 failed**. The failing admission helper read
@@ -105,3 +105,15 @@ its old path to recover lab admission headroom. No cache or evidence was deleted
 
 Final native completion still requires the rows marked pending. Other lanes
 owned the lab after GNOME; no foreign VM or lock was changed to accelerate this.
+At 18:50 UTC P33 acquired the released lock, verified all guests STOPPED, and
+requested Cinnamon start. The unchanged lab guard refused: **54.5 GiB allocated
+pool usage + 50 GiB growth/reserve exceeds the 100 GiB aggregate budget**.
+No guest started. The lock was released. The requested safety rules forbid VM
+removal or disk/snapshot changes, so completing the remaining rows is blocked
+on an operator-resolved lab capacity plan, not permission to weaken the guard.
+
+Final main synchronization: `058aca86` (documentation-only decisions G/H) merged.
+No executable source changed relative to the recorded final gates. New candidates'
+extracted sealed inventories both pass: 8,507 entries / 976,644,502 bytes, common
+manifest `b907b143efa2df1c70054e712fef591ade1dbd8ec75e074ff2cc0d01e680c575`.
+This corrects the October 6 mode-mismatch gate, not full native qualification.
