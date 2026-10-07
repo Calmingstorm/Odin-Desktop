@@ -14,6 +14,17 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
+FONTS = REPO / 'app/src/renderer/src/assets/fonts'
+
+
+def stage_font_notices(legal: Path) -> list[str]:
+    """The renderer bundles OFL fonts inside app.asar; each font's licence ships readable in legal/fonts."""
+    target = legal / 'fonts'
+    target.mkdir(exist_ok=True)
+    names = sorted(path.name for path in FONTS.glob('OFL-*.txt'))
+    for name in names:
+        shutil.copyfile(FONTS / name, target / name)
+    return names
 sys.path.insert(0, str(HERE / 'python'))
 from manifest import digest, inventory  # noqa: E402
 
@@ -42,6 +53,7 @@ def main() -> None:
     legal.mkdir(exist_ok=True)
     (legal / 'resource-provenance.json').write_text(json.dumps(inputs, indent=2, sort_keys=True) + '\n')
     shutil.copyfile(REPO / 'maintenance/UPSTREAM-LICENSE', legal / 'UPSTREAM-LICENSE')
+    stage_font_notices(legal)
     app_inputs = json.loads((HERE / 'app-inputs.json').read_text())
     electron = REPO / 'app/node_modules/electron/dist'
     if digest(electron / 'electron') != app_inputs['electron']['executable_sha256']:

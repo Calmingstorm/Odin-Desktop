@@ -22,9 +22,10 @@ test.beforeEach(async () => {
   expect(process.env.HOME).toMatch(/^\/tmp\/odrc-/)
 })
 
-async function launch(real = false, scenario?: string): Promise<void> {
-  root = mkdtempSync(join(tmpdir(), 'od-a11y-'))
-  for (const dir of ['config', 'data', 'cache', 'run']) mkdirSync(join(root, dir), { mode: 0o700 })
+async function launch(real = false, scenario?: string, profile?: string): Promise<void> {
+  // A given profile relaunches the same app state, as a restart would.
+  root = profile ?? mkdtempSync(join(tmpdir(), 'od-a11y-'))
+  if (!profile) for (const dir of ['config', 'data', 'cache', 'run']) mkdirSync(join(root, dir), { mode: 0o700 })
   const env: Record<string, string> = {
     PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C.UTF-8', HOME: root,
     XDG_CONFIG_HOME: join(root, 'config'), XDG_DATA_HOME: join(root, 'data'),
@@ -40,8 +41,9 @@ async function launch(real = false, scenario?: string): Promise<void> {
     delete env.DBUS_SESSION_BUS_ADDRESS
   }
   else if (scenario) env.ODIN_DESKTOP_CORE_CMD = JSON.stringify(['/usr/bin/python3', '-B', join(appDir, 'test/e2e/accessibility-core.py'), scenario])
+  // No colour-scheme emulation (Playwright's Electron default is light): the app's own theme drives the page.
   app = await electron.launch({ executablePath: require('electron'), args: [appDir, '--force-renderer-accessibility'],
-    cwd: appDir, env, chromiumSandbox: true })
+    cwd: appDir, env, chromiumSandbox: true, colorScheme: null })
   page = await app.firstWindow()
   await expect(page.locator('.link.ready')).toContainText('Connected')
   launchEvidence = await app.evaluate(({ BrowserWindow }) => {
@@ -71,14 +73,34 @@ test.afterEach(async () => {
   } else if (root) rmSync(root, { recursive: true, force: true })
 })
 
-async function audit(name: string): Promise<void> {
-  const findings = await page.evaluate(async () => {
-    const axe = (window as unknown as { axe: { run: (doc: Document) => Promise<{ violations: unknown[]; incomplete: unknown[] }> } }).axe
-    const result = await axe.run(document)
+async function runAxe(rules: string[] | null = null): Promise<{ violations: unknown[]; incomplete: unknown[] }> {
+  return page.evaluate(async (only) => {
+    const axe = (window as unknown as { axe: { run: (doc: Document, options?: object) => Promise<{ violations: unknown[]; incomplete: unknown[] }> } }).axe
+    const result = await axe.run(document, only ? { runOnly: { type: 'rule', values: only } } : {})
     return { violations: result.violations, incomplete: result.incomplete }
-  })
+  }, rules)
+}
+
+/** Colour contrast in the theme not in effect: the page's colour scheme drives every theme token. */
+async function contrastInOtherTheme(name: string): Promise<void> {
+  const dark = await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)
+  const other = dark ? 'light' : 'dark'
+  await page.emulateMedia({ colorScheme: other })
+  try {
+    expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(!dark)
+    const findings = await runAxe(['color-contrast'])
+    await test.info().attach(`axe-${name}-${other}`, { body: JSON.stringify(findings, null, 2), contentType: 'application/json' })
+    expect(findings.violations, `colour contrast on ${name} in the ${other} theme`).toEqual([])
+  } finally {
+    await page.emulateMedia({ colorScheme: null })
+  }
+}
+
+async function audit(name: string): Promise<void> {
+  const findings = await runAxe()
   await test.info().attach(`axe-${name}`, { body: JSON.stringify(findings, null, 2), contentType: 'application/json' })
   expect(findings.violations, `axe findings on ${name}`).toEqual([])
+  await contrastInOtherTheme(name)
 }
 
 async function tabTo(target: Locator, reverse = false): Promise<void> {
@@ -142,6 +164,39 @@ test('fixture baseline audit', async () => {
   await audit('general')
 })
 
+test('theme choice applies to the page and window, keeps focus and survives a restart', async () => {
+  await launch()
+  const pageDark = (): Promise<boolean> => page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)
+  const native = (): Promise<{ source: string; dark: boolean; background: string }> => app.evaluate(({ nativeTheme, BrowserWindow }) => ({
+    source: nativeTheme.themeSource, dark: nativeTheme.shouldUseDarkColors,
+    background: BrowserWindow.getAllWindows()[0]!.getBackgroundColor().toLowerCase()
+  }))
+  const background = (dark: boolean): string => (dark ? '#0e1115' : '#f5f7f9')
+  const initial = await native()
+  expect(initial.source).toBe('system')
+  const startDark = await pageDark()
+  expect(initial).toMatchObject({ dark: startDark, background: background(startDark) })
+  const chosen = startDark ? 'light' : 'dark'
+  await activate(page.getByRole('navigation', { name: 'Odin', exact: true })
+    .getByRole('button', { name: `Switch to ${chosen} theme`, exact: true }))
+  await expect.poll(pageDark).toBe(!startDark)
+  expect(await native()).toEqual({ source: chosen, dark: !startDark, background: background(!startDark) })
+  const back = page.getByRole('button', { name: `Switch to ${startDark ? 'dark' : 'light'} theme`, exact: true })
+  await expect(back).toBeFocused()
+  await audit(`theme-${chosen}`)
+  // The choice is saved with the app's preferences and applied before the window paints on the next start.
+  const profile = root
+  const child = app.process()
+  await app.close()
+  await expect.poll(() => child.exitCode !== null || child.signalCode !== null).toBe(true)
+  await launch(false, undefined, profile)
+  expect(await native()).toEqual({ source: chosen, dark: !startDark, background: background(!startDark) })
+  expect(await pageDark()).toBe(!startDark)
+  await activate(page.getByRole('button', { name: `Switch to ${startDark ? 'dark' : 'light'} theme`, exact: true }))
+  await expect.poll(pageDark).toBe(startDark)
+  expect((await native()).source).toBe(startDark ? 'dark' : 'light')
+})
+
 test('settings section audit inventory', async () => {
   await launch()
   await page.keyboard.press('Control+,')
@@ -152,10 +207,8 @@ test('settings section audit inventory', async () => {
     await activate(nav.getByRole('button', { name: label, exact: true }))
     await expect(page.locator('.settings-body')).toContainText(label)
     await page.waitForTimeout(200)
-    findings[label] = await page.evaluate(async () => {
-      const r = await (window as any).axe.run(document)
-      return { violations: r.violations, incomplete: r.incomplete }
-    })
+    findings[label] = await runAxe()
+    await contrastInOtherTheme(`settings-${label}`)
     await ax(`settings-${label}`)
   }
   await test.info().attach('axe-settings-inventory', { body: JSON.stringify(findings, null, 2), contentType: 'application/json' })
@@ -626,6 +679,41 @@ test('work panel keyboard controls, focus return and target names', async () => 
   await activate(openConversation)
   await expect(page.getByRole('region', { name: 'Conversation history', exact: true })).toBeFocused()
   await expect(page.locator('.work-panel')).toHaveCount(0)
+})
+
+test('narrow window: Work sits above the chat, so no covered control stays in the keyboard order', async () => {
+  await launch()
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(800, 720))
+  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(900)
+  const workButton = page.locator('.work-toggle')
+  await activate(workButton)
+  await expect(page.getByRole('button', { name: 'Refresh work', exact: true })).toBeFocused()
+  await expect(page.locator('.work-panel')).toBeVisible()
+  const message = page.getByRole('textbox', { name: 'Message', exact: true })
+  await expect(message).toBeVisible()
+  const work = (await page.locator('.work-panel').boundingBox())!
+  const chat = (await page.locator('main.main').boundingBox())!
+  expect(work.y + work.height).toBeLessThanOrEqual(chat.y + 1)
+  // Every control Tab reaches is the topmost element at its own centre: nothing focusable is under the panel.
+  for (let n = 0; n < 40; n++) {
+    await page.keyboard.press('Tab')
+    const covered = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null
+      if (!el || el === document.body) return null
+      const box = el.getBoundingClientRect()
+      if (!box.width || !box.height) return null
+      const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+      return top && (top === el || el.contains(top)) ? null : `${el.tagName} ${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 40)}`
+    })
+    expect(covered, 'a focused control is covered by another element').toBeNull()
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await audit('work-narrow')
+  await page.locator('.work-panel').getByRole('button', { name: 'Close work', exact: true }).focus()
+  await page.keyboard.press('Escape')
+  await expect(workButton).toBeFocused()
+  await expect(page.locator('.work-panel')).toHaveCount(0)
+  await expect(message).toBeVisible()
 })
 
 test('keyboard and accessibility tree preserve unknown work settlement and steer boundaries', async () => {

@@ -170,6 +170,7 @@ export const controlSchema = z
 export const steerSchema = controlSchema.extend({ text: z.string().min(1).max(4_000) }).strict()
 
 export const setAutostartSchema = z.object({ enabled: z.boolean() }).strict()
+export const setAppearanceSchema = z.object({ appearance: z.enum(['system', 'dark', 'light']) }).strict()
 
 // An opaque notice token, not a path, journal record supplied by the window, or a core operation.
 export const acknowledgeCleanupSchema = z.object({ id: z.string().min(1).max(128).refine((id) => id.trim().length > 0) }).strict()

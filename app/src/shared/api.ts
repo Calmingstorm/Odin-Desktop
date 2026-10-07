@@ -1256,9 +1256,13 @@ export interface NotificationChange {
   quietHours?: Partial<QuietHours>
 }
 
+/** The window's theme: follow the system, or always dark or light. */
+export type Appearance = 'system' | 'dark' | 'light'
+
 export interface Settings {
   autostart: boolean
   notifications: NotificationSettings
+  appearance: Appearance
 }
 
 export interface SubmitParams {
@@ -1339,6 +1343,7 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   getSettings(): Promise<Result<Settings>>
   setAutostart(enabled: boolean): Promise<Result<Settings>>
   setNotifications(change: NotificationChange): Promise<Result<Settings>>
+  setAppearance(appearance: Appearance): Promise<Result<Settings>>
   settingsSchema(): Promise<Result<ConfigMeta>>
   settingsSet(params: SettingsSetParams): Promise<Result<SettingsSetResult>>
   /** Odin's POST /api/config/image-models: follow the shipped default, or pin the value in effect. */
@@ -1424,6 +1429,7 @@ export const IPC = {
   getSettings: 'odin:settings:get',
   setAutostart: 'odin:settings:set-autostart',
   setNotifications: 'odin:settings:set-notifications',
+  setAppearance: 'odin:settings:set-appearance',
   settingsSchema: 'odin:core-settings:schema',
   settingsSet: 'odin:core-settings:set',
   imageModelIntent: 'odin:core-settings:image-intent',

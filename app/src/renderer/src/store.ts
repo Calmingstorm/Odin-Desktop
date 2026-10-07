@@ -19,6 +19,7 @@ import { images } from './artifacts'
 import { isUnavailable, resultMessage } from './capability'
 import { NAV } from './settings-form'
 import type {
+  Appearance,
   AppState,
   ControlRecord,
   Conversation,
@@ -150,6 +151,10 @@ export const state = reactive({
   setupReminderHidden: false,
   /** The app's notification settings, from the main process. */
   notifications: null as NotificationSettings | null,
+  /** The saved theme choice, from the main process. */
+  appearance: 'system' as Appearance,
+  /** Whether the theme in effect is dark: the page's prefers-color-scheme, which the main process's choice drives. */
+  dark: true,
   /** Resume requests by `request_id:generation`, until the resumed request starts or the core says no. */
   resumes: {} as Record<string, ResumeState | undefined>,
   /** Counts each move to the latest messages, so the message list scrolls there once the view is on screen. */
@@ -245,6 +250,7 @@ export function canAct(conversationId: string | null): boolean {
 }
 
 export async function init(): Promise<void> {
+  watchColorScheme()
   let pushedAppState = false
   window.odin.onAppState((app) => {
     pushedAppState = true
@@ -288,6 +294,7 @@ export async function init(): Promise<void> {
   if (settings.ok) {
     state.autostart = settings.result.autostart
     state.notifications = settings.result.notifications
+    if (settings.result.appearance) state.appearance = settings.result.appearance
   }
   if (state.app.link === 'ready') {
     notifyReady()
@@ -1076,6 +1083,19 @@ export function isBusy(conversationId: string): boolean {
 export async function setAutostart(enabled: boolean): Promise<void> {
   const result = await window.odin.setAutostart(enabled)
   if (result.ok) state.autostart = result.result.autostart
+}
+
+export async function setAppearance(appearance: Appearance): Promise<void> {
+  const result = await window.odin.setAppearance(appearance)
+  if (result.ok) state.appearance = result.result.appearance
+}
+
+/** Follows the theme in effect: a saved choice, or the system's while the choice is System. */
+function watchColorScheme(): void {
+  if (typeof window.matchMedia !== 'function') return
+  const query = window.matchMedia('(prefers-color-scheme: dark)')
+  state.dark = query.matches
+  query.addEventListener('change', (event) => { state.dark = event.matches })
 }
 
 export function applyReceipt(receipt: LateReceipt): void {
