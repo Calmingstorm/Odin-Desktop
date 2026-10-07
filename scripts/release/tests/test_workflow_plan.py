@@ -12,6 +12,8 @@ from types import SimpleNamespace
 import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
+# The candidate entry validates against the real product version, so the fixture must follow it.
+VERSION = json.loads((ROOT / 'app/package.json').read_text())['version']
 sys.path.insert(0, str(ROOT / 'scripts/release'))
 from workflow_entry import candidate_arguments  # noqa: E402 - isolated script module path
 
@@ -47,7 +49,7 @@ class WorkflowPlanTests(unittest.TestCase):
                 run_id='123',
                 run_attempt='1',
             ),
-            'inputs': SimpleNamespace(mode=mode, version='0.1.0'),
+            'inputs': SimpleNamespace(mode=mode, version=VERSION),
             'needs': SimpleNamespace(verify=SimpleNamespace(result='success')),
             'steps': SimpleNamespace(retain=SimpleNamespace(outcome='skipped')),
         }
@@ -61,12 +63,12 @@ class WorkflowPlanTests(unittest.TestCase):
             self.jobs(self.context(mode=trigger['workflow_dispatch']['inputs']['mode']['default'])),
             ['build'],
         )
-        self.assertEqual(self.jobs(self.context(event='push', ref='refs/tags/v0.1.0')), ['build'])
+        self.assertEqual(self.jobs(self.context(event='push', ref=f'refs/tags/v{VERSION}')), ['build'])
         self.assertEqual(self.jobs(self.context(mode='retain-candidate')), ['build'])
         for ctx in [
             self.context(repo='foreign/repo'),
             self.context(event='pull_request'),
-            self.context(event='push', actor='other', ref='refs/tags/v0.1.0'),
+            self.context(event='push', actor='other', ref=f'refs/tags/v{VERSION}'),
             self.context(mode='retain-candidate', actor='other'),
             self.context(ref='refs/heads/unreviewed'),
             self.context(mode='publish-approved', actor='other'),
@@ -89,7 +91,7 @@ class WorkflowPlanTests(unittest.TestCase):
         self.assertEqual(calls, ['retain-candidate'])
         self.assertFalse(
             expression(
-                upload['if'], self.context(event='push', actor='other', ref='refs/tags/v0.1.0')
+                upload['if'], self.context(event='push', actor='other', ref=f'refs/tags/v{VERSION}')
             )
         )
 
@@ -141,7 +143,7 @@ class WorkflowPlanTests(unittest.TestCase):
             self.assertIn('--build=true', calls[0])
             self.assertIn('--source=' + 'a' * 40, calls[0])
             self.assertEqual(calls[1], ['scripts/release/gates.mjs'])
-            self.assertNotIn('--tag=v0.1.0', calls[0])
+            self.assertNotIn(f'--tag=v{VERSION}', calls[0])
             (root / 'calls.jsonl').unlink()
             env['RELEASE_VERSION'] = '1.2.3'
             denied = subprocess.run(
@@ -156,7 +158,7 @@ class WorkflowPlanTests(unittest.TestCase):
             self.assertFalse((root / 'calls.jsonl').exists())
 
     def test_candidate_validation_before_builder(self):
-        ctx = self.context(event='push', ref='refs/tags/v0.1.0')
+        ctx = self.context(event='push', ref=f'refs/tags/v{VERSION}')
         step = next(
             s
             for s in self.workflow['jobs']['build']['steps']
@@ -167,7 +169,7 @@ class WorkflowPlanTests(unittest.TestCase):
             for key, value in step['env'].items()
         }
         env['GITHUB_REPOSITORY'] = 'Calmingstorm/Odin-Desktop'
-        self.assertIn('--tag=v0.1.0', candidate_arguments(env))
+        self.assertIn(f'--tag=v{VERSION}', candidate_arguments(env))
         for key, value in [
             ('RELEASE_REF', 'refs/tags/v1.2.3'),
             ('RELEASE_ATTEMPT', '2'),
