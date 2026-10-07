@@ -59,6 +59,31 @@ per-invocation ownership receipt records these duplicates; no selector is
 deleted from the plan and no failed test is retried by a later group.
 
 - Never point a test at `/opt/odin`, live config or data, or a real workspace.
+- The app real-core gate (`cd app && npm run test:real-core`) runs the same eight
+  reviewed Vitest files exactly once in four whole-file shards. Three run
+  concurrently; the workProof shard runs after those drain, avoiding competing
+  cold imports against its unchanged 12-second manager-admission deadline.
+  Each invokes the unchanged isolation launcher separately: no shared namespace,
+  HOME/XDG/profile state or Vitest result cache. Files remain sequential within
+  each shard. Cold engine startup and first-use imports make one serialized
+  suite approach the old 600-second bound under load. The scheduler retains that
+  **600-second aggregate bound**, gives each shard **300 seconds**, and aborts
+  every owned launcher on first failure, aggregate expiry or SIGINT/SIGTERM.
+  It awaits cleanup before reporting failure; it never retries a started shard.
+  The aggregate clock includes namespace permission/probe setup and both waves;
+  it is never reset between them. Bounds initiate cancellation, not fictitious
+  proof of instant exit: the unchanged launcher awaits actual owned-group exit
+  and has its existing 10-second outer cleanup allowance.
+  Existing individual test/hook/startup deadlines are unchanged. The separate
+  onboarding gate still follows all successful shards. The 120-minute full-suites
+  CI job bound is unchanged; sharding is concurrency, not extra deadline budget.
+  Shard selection is centralized in `app/scripts/real-core-shards.mjs`; config
+  rejects invalid shard IDs rather than accepting an empty gate. Do not layer
+  Vitest `--shard`, config, project, exclusion, reporters/coverage/output/cache or watch
+  overrides onto this launcher. Shared file-reporter paths are refused, including
+  implicit defaults, rather than allowing concurrent writers to lose evidence.
+  The full gate accepts only console color/silent arguments, not local test-name
+  or file filters. Use an explicit `launchIsolated` invocation for focused work.
 - The launchers first check permission for the restricted, root-owned
   `/usr/local/sbin/odin-desktop-isolate` helper with `sudo -n -l`, then probe it.
   It creates private mount/PID namespaces with a private RAM-backed `/tmp`, and drops
