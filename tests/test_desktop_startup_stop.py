@@ -10,7 +10,6 @@ import pytest
 from src.desktop import lifecycle
 from src.desktop.core import CoreService
 from src.desktop.resource_cleanup import ResourceCleanupError
-from src.desktop.secrets import StartupSecretCalls, secret_call, startup_secret_calls
 from tests.test_desktop_core_lifecycle import profile
 
 
@@ -146,6 +145,8 @@ async def test_cancellation_resistant_startup_retains_ownership_and_store(tmp_pa
 
 @pytest.mark.asyncio
 async def test_late_secret_error_is_retained_and_inactive_scope_keeps_transaction_barrier():
+    from src.desktop.secrets import StartupSecretCalls, secret_call, startup_secret_calls
+
     started, release = threading.Event(), threading.Event()
 
     def worker():

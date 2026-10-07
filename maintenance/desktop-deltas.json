@@ -7930,12 +7930,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Stop during any startup await records observed settlement and never closes persistence under a surviving producer",
+      "contract": "Never close persistence under surviving startup; IPC never inherits startup-only cancellation scope",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "No replay, no fabricated release, containment retains unresolved ownership",
+      "invariant": "No fabricated release or replay",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -7948,7 +7948,7 @@
         }
       ],
       "path": "src/desktop/core.py",
-      "reason": "Issue 93: race real startup against lifetime stop, with bounded retirement and retained profile ownership for unresolved producers",
+      "reason": "Issue93 bounded stop race, observed startup resource cleanup, retained ownership for unresolved producers",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -7958,7 +7958,7 @@
       "test_sha256": {
         "tests/test_desktop_core_lifecycle.py": "eb1a7fe3d5da5588e8100c1f2b246669c81d41301e753a201fb0f5a4d26fa056",
         "tests/test_desktop_resource_cleanup.py": "b7a0323bfd8a2b3cf4df1bdd53ea7c171e65f3d43a34de534bce3868980f2a5c",
-        "tests/test_desktop_startup_stop.py": "d4f402695726eb00ca025275a3d53776bd3c8b4cd4fed66ea0a960efa0fcc956"
+        "tests/test_desktop_startup_stop.py": "00e2828d903853d5d2a1dc3c4e0144a02a93ad03c3e672e536771270b9e43fa7"
       },
       "tests": [
         "tests/test_desktop_core_lifecycle.py",
@@ -8648,12 +8648,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Management shutdown inherits the original startup uncertainty receipt",
+      "contract": "Pending startup workers prevent complete attestation",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Pending workers never appear released",
+      "invariant": "No new teardown attempt or invented release",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -8666,7 +8666,7 @@
         }
       ],
       "path": "src/desktop/management.py",
-      "reason": "Issue 93: include startup settlement evidence in management cleanup rather than briefly attesting complete",
+      "reason": "Issue93 include startup worker uncertainty in original cleanup barrier",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -8675,7 +8675,7 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_resource_cleanup.py": "b7a0323bfd8a2b3cf4df1bdd53ea7c171e65f3d43a34de534bce3868980f2a5c",
-        "tests/test_desktop_startup_stop.py": "d4f402695726eb00ca025275a3d53776bd3c8b4cd4fed66ea0a960efa0fcc956"
+        "tests/test_desktop_startup_stop.py": "00e2828d903853d5d2a1dc3c4e0144a02a93ad03c3e672e536771270b9e43fa7"
       },
       "tests": [
         "tests/test_desktop_resource_cleanup.py",
@@ -10155,12 +10155,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Startup stop races retain pending native workers as unknown; ordinary secret_call cancellation still settles",
+      "contract": "Transactional calls retain settlement barrier, startup cancellation tracks pending workers and inert errors",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "No credential values or release claims for unobserved workers",
+      "invariant": "No credentials or exception contents in cleanup evidence",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -10173,7 +10173,7 @@
         }
       ],
       "path": "src/desktop/secrets.py",
-      "reason": "Issue 93: account for cancellable startup worker reads without abandoning transactional settlement",
+      "reason": "Issue93 startup worker settlement tracking with inactive scope fencing",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -10182,7 +10182,7 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_secret_domain_threads.py": "4ca46537fd9d7f8f13bb506b64e63735d9985072cf345d0fa5006f6c2f86d757",
-        "tests/test_desktop_startup_stop.py": "d4f402695726eb00ca025275a3d53776bd3c8b4cd4fed66ea0a960efa0fcc956"
+        "tests/test_desktop_startup_stop.py": "00e2828d903853d5d2a1dc3c4e0144a02a93ad03c3e672e536771270b9e43fa7"
       },
       "tests": [
         "tests/test_desktop_secret_domain_threads.py",
@@ -28414,12 +28414,12 @@
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Real entry and CoreService; isolated fake keyring, real transport and receipts",
+      "contract": "Real entry/core/transport, harmless withheld read, both readiness outcomes",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "No production startup hooks; isolated PID namespace and disposable HOME required",
+      "invariant": "Isolated namespace and disposable HOME only",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
@@ -28432,7 +28432,7 @@
         }
       ],
       "path": "tests/desktop_fixtures/startup_gate_core.py",
-      "reason": "Issue 93 Electron fixture holds a harmless real-core startup read until released",
+      "reason": "Issue93 real-core startup gate for Electron Exit regressions",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -28440,9 +28440,11 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/test_desktop_startup_stop.py": "d4f402695726eb00ca025275a3d53776bd3c8b4cd4fed66ea0a960efa0fcc956"
+        "app/test/e2e/startup-exit.spec.ts": "844810a200076f6dccde10d656e8ba9c251690c7d5e01aa28fbc147af4754314",
+        "tests/test_desktop_startup_stop.py": "00e2828d903853d5d2a1dc3c4e0144a02a93ad03c3e672e536771270b9e43fa7"
       },
       "tests": [
+        "app/test/e2e/startup-exit.spec.ts",
         "tests/test_desktop_startup_stop.py"
       ]
     },
@@ -37940,29 +37942,29 @@
       ]
     },
     {
-      "after_sha256": "d4f402695726eb00ca025275a3d53776bd3c8b4cd4fed66ea0a960efa0fcc956",
+      "after_sha256": "00e2828d903853d5d2a1dc3c4e0144a02a93ad03c3e672e536771270b9e43fa7",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "Prompt retirement, truthful complete versus unknown, retained lock and transaction barrier coverage",
+      "contract": "Real SIGTERM and EOF promptly retire startup with observed settlement and retained unresolved ownership",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Self-isolated only, temporary profiles, harmless read workers",
+      "invariant": "Harmless workers, isolated PID namespace, no live data",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
       "patch": [
         {
           "end": 0,
-          "new_base64": "IiIiUmVhbCBzdGFydHVwIHN0b3AgZWRnZXMsIGluc2lkZSB0aGUgcmVwb3NpdG9yeSdzIHNlbGYtaXNvbGF0aW5nIHJ1bm5lci4iIiIKaW1wb3J0IGFzeW5jaW8KaW1wb3J0IGpzb24KaW1wb3J0IG9zCmltcG9ydCBzaWduYWwKaW1wb3J0IHRocmVhZGluZwoKaW1wb3J0IHB5dGVzdAoKZnJvbSBzcmMuZGVza3RvcCBpbXBvcnQgbGlmZWN5Y2xlCmZyb20gc3JjLmRlc2t0b3AuY29yZSBpbXBvcnQgQ29yZVNlcnZpY2UKZnJvbSBzcmMuZGVza3RvcC5yZXNvdXJjZV9jbGVhbnVwIGltcG9ydCBSZXNvdXJjZUNsZWFudXBFcnJvcgpmcm9tIHNyYy5kZXNrdG9wLnNlY3JldHMgaW1wb3J0IFN0YXJ0dXBTZWNyZXRDYWxscywgc2VjcmV0X2NhbGwsIHN0YXJ0dXBfc2VjcmV0X2NhbGxzCmZyb20gdGVzdHMudGVzdF9kZXNrdG9wX2NvcmVfbGlmZWN5Y2xlIGltcG9ydCBwcm9maWxlCgoKQHB5dGVzdC5tYXJrLmFzeW5jaW8KQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKCJoeWRyYXRpb24iLCBbMSwgMl0pCkBweXRlc3QubWFyay5wYXJhbWV0cml6ZSgic2V0dGxlcyIsIFtGYWxzZSwgVHJ1ZV0pCmFzeW5jIGRlZiB0ZXN0X3NpZ3Rlcm1fcmV0aXJlc193aXRoaGVsZF9zdGFydHVwX3RydXRoZnVsbHkoCiAgICB0bXBfcGF0aCwgbW9ua2V5cGF0Y2gsIGh5ZHJhdGlvbiwgc2V0dGxlcywKKToKICAgIGZyb20gc3JjLmRlc2t0b3Auc2V0dGluZ3MgaW1wb3J0IFNldHRpbmdzU2VydmljZQoKICAgIGVudGVyZWQsIHJlbGVhc2UgPSB0aHJlYWRpbmcuRXZlbnQoKSwgdGhyZWFkaW5nLkV2ZW50KCkKICAgIG9yaWdpbmFsID0gU2V0dGluZ3NTZXJ2aWNlLmh5ZHJhdGVfc2VjcmV0cwogICAgY2FsbHMgPSAwCgogICAgZGVmIHdpdGhoZWxkKHNldHRpbmdzKToKICAgICAgICBub25sb2NhbCBjYWxscwogICAgICAgIGNhbGxzICs9IDEKICAgICAgICBpZiBjYWxscyA9PSBoeWRyYXRpb246CiAgICAgICAgICAgIGVudGVyZWQuc2V0KCkKICAgICAgICAgICAgcmVsZWFzZS53YWl0KDIwKQogICAgICAgIHJldHVybiBvcmlnaW5hbChzZXR0aW5ncykKCiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKFNldHRpbmdzU2VydmljZSwgImh5ZHJhdGVfc2VjcmV0cyIsIHdpdGhoZWxkKQogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihsaWZlY3ljbGUsICJQQVJFTlRfRVhJVF9HUkFDRV9TRUNPTkRTIiwgMC4wMSkKICAgIHBhdGhzLCBzb2NrZXRfcGF0aCwgdG9rZW5fZmlsZSA9IHByb2ZpbGUodG1wX3BhdGgpCiAgICByZWFkX2ZkLCB3cml0ZV9mZCA9IG9zLnBpcGUoKQogICAgc2VydmljZSA9IENvcmVTZXJ2aWNlKHBhdGhzLCBzb2NrZXRfcGF0aCwgdG9rZW5fZmlsZSkKICAgIHRhc2sgPSBhc3luY2lvLmNyZWF0ZV90YXNrKHNlcnZpY2UucnVuKHJlYWRfZmQpKQogICAgdHJ5OgogICAgICAgIGFzeW5jIHdpdGggYXN5bmNpby50aW1lb3V0KDE1KToKICAgICAgICAgICAgd2hpbGUgbm90IGVudGVyZWQuaXNfc2V0KCk6CiAgICAgICAgICAgICAgICBhd2FpdCBhc3luY2lvLnNsZWVwKDAuMDEpCiAgICAgICAgb3Mua2lsbChvcy5nZXRwaWQoKSwgc2lnbmFsLlNJR1RFUk0pCiAgICAgICAgYXdhaXQgYXN5bmNpby53YWl0X2ZvcihzZXJ2aWNlLmxpZmV0aW1lLndhaXQoKSwgMSkKICAgICAgICBpZiBzZXR0bGVzOgogICAgICAgICAgICBhc3luY2lvLmdldF9ydW5uaW5nX2xvb3AoKS5jYWxsX2xhdGVyKDAuMDUsIHJlbGVhc2Uuc2V0KQogICAgICAgICAgICBhc3NlcnQgYXdhaXQgYXN5bmNpby53YWl0X2Zvcihhc3luY2lvLnNoaWVsZCh0YXNrKSwgMykgPT0gMAogICAgICAgIGVsc2U6CiAgICAgICAgICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhSZXNvdXJjZUNsZWFudXBFcnJvcik6CiAgICAgICAgICAgICAgICBhd2FpdCBhc3luY2lvLndhaXRfZm9yKGFzeW5jaW8uc2hpZWxkKHRhc2spLCAzKQogICAgICAgIGV2aWRlbmNlID0ganNvbi5sb2FkcygocGF0aHMuZGF0YV9kaXIgLyAicmVzb3VyY2UtY2xlYW51cC5qc29uIikucmVhZF90ZXh0KCkpCiAgICAgICAgYXNzZXJ0IHNlcnZpY2UubGlmZXRpbWUucmVhc29uID09ICJzaWd0ZXJtIgogICAgICAgIGFzc2VydCBzZXJ2aWNlLnNlcnZlciBpcyBOb25lCiAgICAgICAgYXNzZXJ0IGV2aWRlbmNlWyJzdGF0ZSJdID09ICgiY29tcGxldGUiIGlmIHNldHRsZXMgZWxzZSAidW5rbm93biIpCiAgICAgICAgYXNzZXJ0IGV2aWRlbmNlWyJyZXNvdXJjZXMiXVsic3RhcnR1cF9zZWNyZXRzIl1bInN0YXRlIl0gPT0gKAogICAgICAgICAgICAicmVsZWFzZWQiIGlmIHNldHRsZXMgZWxzZSAidW5rbm93biIpCiAgICAgICAgYXNzZXJ0IChzZXJ2aWNlLmF1dGhvcml0eS5fcnVudGltZV9sb2NrX2ZkIGlzIE5vbmUpIGlzIHNldHRsZXMKICAgICAgICBhc3NlcnQgc2VydmljZS5fY2xvc2VfY29tcGxldGUgaXMgc2V0dGxlcwogICAgICAgIGlmIGh5ZHJhdGlvbiA9PSAxOgogICAgICAgICAgICBhc3NlcnQgZXZpZGVuY2VbInJlc291cmNlcyJdWyJjb21wdXRlciJdID09IHsic3RhdGUiOiAibm90X3N0YXJ0ZWQifQogICAgICAgICAgICBhc3NlcnQgZXZpZGVuY2VbInJlc291cmNlcyJdWyJwcm9jZXNzZXMiXSA9PSB7InN0YXRlIjogIm5vdF9zdGFydGVkIn0KICAgIGZpbmFsbHk6CiAgICAgICAgcmVsZWFzZS5zZXQoKQogICAgICAgIHRyeToKICAgICAgICAgICAgYXdhaXQgYXN5bmNpby53YWl0X2Zvcihhc3luY2lvLnNoaWVsZCh0YXNrKSwgMjApCiAgICAgICAgZXhjZXB0IFJlc291cmNlQ2xlYW51cEVycm9yOgogICAgICAgICAgICBwYXNzCiAgICAgICAgYXdhaXQgYXN5bmNpby5zbGVlcCgwLjEpCiAgICAgICAgc2VydmljZS5yZWxlYXNlX3J1bnRpbWUoKQogICAgICAgIG9zLmNsb3NlKHJlYWRfZmQpCiAgICAgICAgb3MuY2xvc2Uod3JpdGVfZmQpCgoKQHB5dGVzdC5tYXJrLmFzeW5jaW8KYXN5bmMgZGVmIHRlc3RfcGFyZW50X2VvZl9jYW5jZWxzX2FzeW5jX3N0YXJ0dXBfd2l0aG91dF9zdGFydGluZ19lbmdpbmUodG1wX3BhdGgpOgogICAgZW50ZXJlZCA9IGFzeW5jaW8uRXZlbnQoKQoKICAgIGFzeW5jIGRlZiBjb25maWcocGF0aHMpOgogICAgICAgIGVudGVyZWQuc2V0KCkKICAgICAgICBhd2FpdCBhc3luY2lvLkV2ZW50KCkud2FpdCgpCgogICAgcGF0aHMsIHNvY2tldF9wYXRoLCB0b2tlbl9maWxlID0gcHJvZmlsZSh0bXBfcGF0aCkKICAgIHJlYWRfZmQsIHdyaXRlX2ZkID0gb3MucGlwZSgpCiAgICBzZXJ2aWNlID0gQ29yZVNlcnZpY2UocGF0aHMsIHNvY2tldF9wYXRoLCB0b2tlbl9maWxlLCBjb25maWdfcHJvdmlkZXI9Y29uZmlnKQogICAgdGFzayA9IGFzeW5jaW8uY3JlYXRlX3Rhc2soc2VydmljZS5ydW4ocmVhZF9mZCkpCiAgICB0cnk6CiAgICAgICAgYXdhaXQgYXN5bmNpby53YWl0X2ZvcihlbnRlcmVkLndhaXQoKSwgMikKICAgICAgICBvcy5jbG9zZSh3cml0ZV9mZCkKICAgICAgICB3cml0ZV9mZCA9IE5vbmUKICAgICAgICBhc3NlcnQgYXdhaXQgYXN5bmNpby53YWl0X2Zvcih0YXNrLCAyKSA9PSAwCiAgICAgICAgZXZpZGVuY2UgPSBqc29uLmxvYWRzKChwYXRocy5kYXRhX2RpciAvICJyZXNvdXJjZS1jbGVhbnVwLmpzb24iKS5yZWFkX3RleHQoKSkKICAgICAgICBhc3NlcnQgZXZpZGVuY2VbInN0YXRlIl0gPT0gImNvbXBsZXRlIgogICAgICAgIGFzc2VydCBldmlkZW5jZVsicmVzb3VyY2VzIl1bInN0YXJ0dXBfc2VjcmV0cyJdID09IHsic3RhdGUiOiAibm90X3N0YXJ0ZWQifQogICAgICAgIGFzc2VydCBzZXJ2aWNlLmVuZ2luZSBpcyBOb25lCiAgICAgICAgYXNzZXJ0IHNlcnZpY2UuYXV0aG9yaXR5Ll9ydW50aW1lX2xvY2tfZmQgaXMgTm9uZQogICAgZmluYWxseToKICAgICAgICBvcy5jbG9zZShyZWFkX2ZkKQogICAgICAgIGlmIHdyaXRlX2ZkIGlzIG5vdCBOb25lOgogICAgICAgICAgICBvcy5jbG9zZSh3cml0ZV9mZCkKCgpAcHl0ZXN0Lm1hcmsuYXN5bmNpbwphc3luYyBkZWYgdGVzdF9jYW5jZWxsYXRpb25fcmVzaXN0YW50X3N0YXJ0dXBfcmV0YWluc19vd25lcnNoaXBfYW5kX3N0b3JlKHRtcF9wYXRoLCBtb25rZXlwYXRjaCk6CiAgICBmcm9tIHNyYy5kZXNrdG9wIGltcG9ydCBjb3JlCiAgICBmcm9tIHNyYy5kZXNrdG9wLmNvcmUgaW1wb3J0IHByb2ZpbGVfY29uZmlnCgogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihjb3JlLCAiU1RBUlRVUF9TRVRUTEVfU0VDT05EUyIsIDAuMDUpCiAgICBlbnRlcmVkLCByZWxlYXNlID0gYXN5bmNpby5FdmVudCgpLCBhc3luY2lvLkV2ZW50KCkKCiAgICBhc3luYyBkZWYgY29uZmlnKHBhdGhzKToKICAgICAgICBlbnRlcmVkLnNldCgpCiAgICAgICAgdHJ5OgogICAgICAgICAgICBhd2FpdCByZWxlYXNlLndhaXQoKQogICAgICAgIGV4Y2VwdCBhc3luY2lvLkNhbmNlbGxlZEVycm9yOgogICAgICAgICAgICBhd2FpdCByZWxlYXNlLndhaXQoKQogICAgICAgICAgICByYWlzZQogICAgICAgIHJldHVybiBwcm9maWxlX2NvbmZpZyhwYXRocykKCiAgICBwYXRocywgc29ja2V0X3BhdGgsIHRva2VuX2ZpbGUgPSBwcm9maWxlKHRtcF9wYXRoKQogICAgcmVhZF9mZCwgd3JpdGVfZmQgPSBvcy5waXBlKCkKICAgIHNlcnZpY2UgPSBDb3JlU2VydmljZShwYXRocywgc29ja2V0X3BhdGgsIHRva2VuX2ZpbGUsIGNvbmZpZ19wcm92aWRlcj1jb25maWcpCiAgICB0YXNrID0gYXN5bmNpby5jcmVhdGVfdGFzayhzZXJ2aWNlLnJ1bihyZWFkX2ZkKSkKICAgIHRyeToKICAgICAgICBhd2FpdCBlbnRlcmVkLndhaXQoKQogICAgICAgIHNlcnZpY2UubGlmZXRpbWUucmVxdWVzdF9zdG9wKCJ0ZXN0X3N0b3AiKQogICAgICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhSZXNvdXJjZUNsZWFudXBFcnJvcik6CiAgICAgICAgICAgIGF3YWl0IGFzeW5jaW8ud2FpdF9mb3IodGFzaywgMSkKICAgICAgICBhc3NlcnQgc2VydmljZS5hdXRob3JpdHkuX3J1bnRpbWVfbG9ja19mZCBpcyBub3QgTm9uZQogICAgICAgIGFzc2VydCBzZXJ2aWNlLnN0b3JlLmNvbm5lY3Rpb24uZXhlY3V0ZSgiU0VMRUNUIDEiKS5mZXRjaG9uZSgpWzBdID09IDEKICAgICAgICBldmlkZW5jZSA9IGpzb24ubG9hZHMoKHBhdGhzLmRhdGFfZGlyIC8gInJlc291cmNlLWNsZWFudXAuanNvbiIpLnJlYWRfdGV4dCgpKQogICAgICAgIGFzc2VydCBldmlkZW5jZVsic3RhdGUiXSA9PSAidW5rbm93biIKICAgICAgICBhc3NlcnQgZXZpZGVuY2VbInJlc291cmNlcyJdWyJzdGFydHVwIl1bInN0YXRlIl0gPT0gInVua25vd24iCiAgICAgICAgYXNzZXJ0IG5vdCBzZXJ2aWNlLl9jbG9zZV9jb21wbGV0ZQogICAgZmluYWxseToKICAgICAgICByZWxlYXNlLnNldCgpCiAgICAgICAgYXdhaXQgYXN5bmNpby5zbGVlcCgwLjEpCiAgICAgICAgc2VydmljZS5zdG9yZS5jbG9zZSgpCiAgICAgICAgc2VydmljZS5yZWxlYXNlX3J1bnRpbWUoKQogICAgICAgIG9zLmNsb3NlKHJlYWRfZmQpCiAgICAgICAgb3MuY2xvc2Uod3JpdGVfZmQpCgoKQHB5dGVzdC5tYXJrLmFzeW5jaW8KYXN5bmMgZGVmIHRlc3RfbGF0ZV9zZWNyZXRfZXJyb3JfaXNfcmV0YWluZWRfYW5kX2luYWN0aXZlX3Njb3BlX2tlZXBzX3RyYW5zYWN0aW9uX2JhcnJpZXIoKToKICAgIHN0YXJ0ZWQsIHJlbGVhc2UgPSB0aHJlYWRpbmcuRXZlbnQoKSwgdGhyZWFkaW5nLkV2ZW50KCkKCiAgICBkZWYgd29ya2VyKCk6CiAgICAgICAgc3RhcnRlZC5zZXQoKQogICAgICAgIHJlbGVhc2Uud2FpdCg1KQogICAgICAgIHJhaXNlIFZhbHVlRXJyb3IoIm5vdCByZXRhaW5lZCBpbiBldmlkZW5jZSIpCgogICAgY2FsbHMgPSBTdGFydHVwU2VjcmV0Q2FsbHMoKQogICAgdG9rZW4gPSBzdGFydHVwX3NlY3JldF9jYWxscy5zZXQoY2FsbHMpCiAgICB0cnk6CiAgICAgICAgdGFzayA9IGFzeW5jaW8uY3JlYXRlX3Rhc2soc2VjcmV0X2NhbGwod29ya2VyKSkKICAgICAgICB3aGlsZSBub3Qgc3RhcnRlZC5pc19zZXQoKToKICAgICAgICAgICAgYXdhaXQgYXN5bmNpby5zbGVlcCgwLjAxKQogICAgICAgIHRhc2suY2FuY2VsKCkKICAgICAgICB3aXRoIHB5dGVzdC5yYWlzZXMoYXN5bmNpby5DYW5jZWxsZWRFcnJvcik6CiAgICAgICAgICAgIGF3YWl0IHRhc2sKICAgICAgICBhc3NlcnQgY2FsbHMub3V0Y29tZSgpWyJzdGF0ZSJdID09ICJ1bmtub3duIgogICAgICAgIHJlbGVhc2Uuc2V0KCkKICAgICAgICBhd2FpdCBjYWxscy5zZXR0bGUoMSkKICAgICAgICBhd2FpdCBhc3luY2lvLnNsZWVwKDApCiAgICAgICAgYXNzZXJ0IGNhbGxzLm91dGNvbWUoKSA9PSB7InN0YXRlIjogInVua25vd24iLCAicGVuZGluZyI6IDAsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgImVycm9yX3R5cGVzIjogWyJWYWx1ZUVycm9yIl19CiAgICAgICAgY2FsbHMuYWN0aXZlID0gRmFsc2UKICAgICAgICBzdGFydGVkLmNsZWFyKCkKICAgICAgICByZWxlYXNlLmNsZWFyKCkKICAgICAgICB0YXNrID0gYXN5bmNpby5jcmVhdGVfdGFzayhzZWNyZXRfY2FsbCh3b3JrZXIpKQogICAgICAgIHdoaWxlIG5vdCBzdGFydGVkLmlzX3NldCgpOgogICAgICAgICAgICBhd2FpdCBhc3luY2lvLnNsZWVwKDAuMDEpCiAgICAgICAgdGFzay5jYW5jZWwoKQogICAgICAgIGF3YWl0IGFzeW5jaW8uc2xlZXAoMC4wMikKICAgICAgICBhc3NlcnQgbm90IHRhc2suZG9uZSgpCiAgICAgICAgcmVsZWFzZS5zZXQoKQogICAgICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhWYWx1ZUVycm9yKToKICAgICAgICAgICAgYXdhaXQgdGFzawogICAgZmluYWxseToKICAgICAgICByZWxlYXNlLnNldCgpCiAgICAgICAgc3RhcnR1cF9zZWNyZXRfY2FsbHMucmVzZXQodG9rZW4pCg==",
+          "new_base64": "IiIiUmVhbCBzdGFydHVwIHN0b3AgZWRnZXMsIGluc2lkZSB0aGUgcmVwb3NpdG9yeSdzIHNlbGYtaXNvbGF0aW5nIHJ1bm5lci4iIiIKaW1wb3J0IGFzeW5jaW8KaW1wb3J0IGpzb24KaW1wb3J0IG9zCmltcG9ydCBzaWduYWwKaW1wb3J0IHRocmVhZGluZwoKaW1wb3J0IHB5dGVzdAoKZnJvbSBzcmMuZGVza3RvcCBpbXBvcnQgbGlmZWN5Y2xlCmZyb20gc3JjLmRlc2t0b3AuY29yZSBpbXBvcnQgQ29yZVNlcnZpY2UKZnJvbSBzcmMuZGVza3RvcC5yZXNvdXJjZV9jbGVhbnVwIGltcG9ydCBSZXNvdXJjZUNsZWFudXBFcnJvcgpmcm9tIHRlc3RzLnRlc3RfZGVza3RvcF9jb3JlX2xpZmVjeWNsZSBpbXBvcnQgcHJvZmlsZQoKCkBweXRlc3QubWFyay5hc3luY2lvCkBweXRlc3QubWFyay5wYXJhbWV0cml6ZSgiaHlkcmF0aW9uIiwgWzEsIDJdKQpAcHl0ZXN0Lm1hcmsucGFyYW1ldHJpemUoInNldHRsZXMiLCBbRmFsc2UsIFRydWVdKQphc3luYyBkZWYgdGVzdF9zaWd0ZXJtX3JldGlyZXNfd2l0aGhlbGRfc3RhcnR1cF90cnV0aGZ1bGx5KAogICAgdG1wX3BhdGgsIG1vbmtleXBhdGNoLCBoeWRyYXRpb24sIHNldHRsZXMsCik6CiAgICBmcm9tIHNyYy5kZXNrdG9wLnNldHRpbmdzIGltcG9ydCBTZXR0aW5nc1NlcnZpY2UKCiAgICBlbnRlcmVkLCByZWxlYXNlID0gdGhyZWFkaW5nLkV2ZW50KCksIHRocmVhZGluZy5FdmVudCgpCiAgICBvcmlnaW5hbCA9IFNldHRpbmdzU2VydmljZS5oeWRyYXRlX3NlY3JldHMKICAgIGNhbGxzID0gMAoKICAgIGRlZiB3aXRoaGVsZChzZXR0aW5ncyk6CiAgICAgICAgbm9ubG9jYWwgY2FsbHMKICAgICAgICBjYWxscyArPSAxCiAgICAgICAgaWYgY2FsbHMgPT0gaHlkcmF0aW9uOgogICAgICAgICAgICBlbnRlcmVkLnNldCgpCiAgICAgICAgICAgIHJlbGVhc2Uud2FpdCgyMCkKICAgICAgICByZXR1cm4gb3JpZ2luYWwoc2V0dGluZ3MpCgogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihTZXR0aW5nc1NlcnZpY2UsICJoeWRyYXRlX3NlY3JldHMiLCB3aXRoaGVsZCkKICAgIG1vbmtleXBhdGNoLnNldGF0dHIobGlmZWN5Y2xlLCAiUEFSRU5UX0VYSVRfR1JBQ0VfU0VDT05EUyIsIDAuMDEpCiAgICBwYXRocywgc29ja2V0X3BhdGgsIHRva2VuX2ZpbGUgPSBwcm9maWxlKHRtcF9wYXRoKQogICAgcmVhZF9mZCwgd3JpdGVfZmQgPSBvcy5waXBlKCkKICAgIHNlcnZpY2UgPSBDb3JlU2VydmljZShwYXRocywgc29ja2V0X3BhdGgsIHRva2VuX2ZpbGUpCiAgICB0YXNrID0gYXN5bmNpby5jcmVhdGVfdGFzayhzZXJ2aWNlLnJ1bihyZWFkX2ZkKSkKICAgIHRyeToKICAgICAgICBhc3luYyB3aXRoIGFzeW5jaW8udGltZW91dCgxNSk6CiAgICAgICAgICAgIHdoaWxlIG5vdCBlbnRlcmVkLmlzX3NldCgpOgogICAgICAgICAgICAgICAgYXdhaXQgYXN5bmNpby5zbGVlcCgwLjAxKQogICAgICAgIG9zLmtpbGwob3MuZ2V0cGlkKCksIHNpZ25hbC5TSUdURVJNKQogICAgICAgIGF3YWl0IGFzeW5jaW8ud2FpdF9mb3Ioc2VydmljZS5saWZldGltZS53YWl0KCksIDEpCiAgICAgICAgaWYgc2V0dGxlczoKICAgICAgICAgICAgYXN5bmNpby5nZXRfcnVubmluZ19sb29wKCkuY2FsbF9sYXRlcigwLjA1LCByZWxlYXNlLnNldCkKICAgICAgICAgICAgYXNzZXJ0IGF3YWl0IGFzeW5jaW8ud2FpdF9mb3IoYXN5bmNpby5zaGllbGQodGFzayksIDMpID09IDAKICAgICAgICBlbHNlOgogICAgICAgICAgICB3aXRoIHB5dGVzdC5yYWlzZXMoUmVzb3VyY2VDbGVhbnVwRXJyb3IpOgogICAgICAgICAgICAgICAgYXdhaXQgYXN5bmNpby53YWl0X2Zvcihhc3luY2lvLnNoaWVsZCh0YXNrKSwgMykKICAgICAgICBldmlkZW5jZSA9IGpzb24ubG9hZHMoKHBhdGhzLmRhdGFfZGlyIC8gInJlc291cmNlLWNsZWFudXAuanNvbiIpLnJlYWRfdGV4dCgpKQogICAgICAgIGFzc2VydCBzZXJ2aWNlLmxpZmV0aW1lLnJlYXNvbiA9PSAic2lndGVybSIKICAgICAgICBhc3NlcnQgc2VydmljZS5zZXJ2ZXIgaXMgTm9uZQogICAgICAgIGFzc2VydCBldmlkZW5jZVsic3RhdGUiXSA9PSAoImNvbXBsZXRlIiBpZiBzZXR0bGVzIGVsc2UgInVua25vd24iKQogICAgICAgIGFzc2VydCBldmlkZW5jZVsicmVzb3VyY2VzIl1bInN0YXJ0dXBfc2VjcmV0cyJdWyJzdGF0ZSJdID09ICgKICAgICAgICAgICAgInJlbGVhc2VkIiBpZiBzZXR0bGVzIGVsc2UgInVua25vd24iKQogICAgICAgIGFzc2VydCAoc2VydmljZS5hdXRob3JpdHkuX3J1bnRpbWVfbG9ja19mZCBpcyBOb25lKSBpcyBzZXR0bGVzCiAgICAgICAgYXNzZXJ0IHNlcnZpY2UuX2Nsb3NlX2NvbXBsZXRlIGlzIHNldHRsZXMKICAgICAgICBpZiBoeWRyYXRpb24gPT0gMToKICAgICAgICAgICAgYXNzZXJ0IGV2aWRlbmNlWyJyZXNvdXJjZXMiXVsiY29tcHV0ZXIiXSA9PSB7InN0YXRlIjogIm5vdF9zdGFydGVkIn0KICAgICAgICAgICAgYXNzZXJ0IGV2aWRlbmNlWyJyZXNvdXJjZXMiXVsicHJvY2Vzc2VzIl0gPT0geyJzdGF0ZSI6ICJub3Rfc3RhcnRlZCJ9CiAgICBmaW5hbGx5OgogICAgICAgIHJlbGVhc2Uuc2V0KCkKICAgICAgICB0cnk6CiAgICAgICAgICAgIGF3YWl0IGFzeW5jaW8ud2FpdF9mb3IoYXN5bmNpby5zaGllbGQodGFzayksIDIwKQogICAgICAgIGV4Y2VwdCBSZXNvdXJjZUNsZWFudXBFcnJvcjoKICAgICAgICAgICAgcGFzcwogICAgICAgIGF3YWl0IGFzeW5jaW8uc2xlZXAoMC4xKQogICAgICAgIHNlcnZpY2UucmVsZWFzZV9ydW50aW1lKCkKICAgICAgICBvcy5jbG9zZShyZWFkX2ZkKQogICAgICAgIG9zLmNsb3NlKHdyaXRlX2ZkKQoKCkBweXRlc3QubWFyay5hc3luY2lvCmFzeW5jIGRlZiB0ZXN0X3BhcmVudF9lb2ZfY2FuY2Vsc19hc3luY19zdGFydHVwX3dpdGhvdXRfc3RhcnRpbmdfZW5naW5lKHRtcF9wYXRoKToKICAgIGVudGVyZWQgPSBhc3luY2lvLkV2ZW50KCkKCiAgICBhc3luYyBkZWYgY29uZmlnKHBhdGhzKToKICAgICAgICBlbnRlcmVkLnNldCgpCiAgICAgICAgYXdhaXQgYXN5bmNpby5FdmVudCgpLndhaXQoKQoKICAgIHBhdGhzLCBzb2NrZXRfcGF0aCwgdG9rZW5fZmlsZSA9IHByb2ZpbGUodG1wX3BhdGgpCiAgICByZWFkX2ZkLCB3cml0ZV9mZCA9IG9zLnBpcGUoKQogICAgc2VydmljZSA9IENvcmVTZXJ2aWNlKHBhdGhzLCBzb2NrZXRfcGF0aCwgdG9rZW5fZmlsZSwgY29uZmlnX3Byb3ZpZGVyPWNvbmZpZykKICAgIHRhc2sgPSBhc3luY2lvLmNyZWF0ZV90YXNrKHNlcnZpY2UucnVuKHJlYWRfZmQpKQogICAgdHJ5OgogICAgICAgIGF3YWl0IGFzeW5jaW8ud2FpdF9mb3IoZW50ZXJlZC53YWl0KCksIDIpCiAgICAgICAgb3MuY2xvc2Uod3JpdGVfZmQpCiAgICAgICAgd3JpdGVfZmQgPSBOb25lCiAgICAgICAgYXNzZXJ0IGF3YWl0IGFzeW5jaW8ud2FpdF9mb3IodGFzaywgMikgPT0gMAogICAgICAgIGV2aWRlbmNlID0ganNvbi5sb2FkcygocGF0aHMuZGF0YV9kaXIgLyAicmVzb3VyY2UtY2xlYW51cC5qc29uIikucmVhZF90ZXh0KCkpCiAgICAgICAgYXNzZXJ0IGV2aWRlbmNlWyJzdGF0ZSJdID09ICJjb21wbGV0ZSIKICAgICAgICBhc3NlcnQgZXZpZGVuY2VbInJlc291cmNlcyJdWyJzdGFydHVwX3NlY3JldHMiXSA9PSB7InN0YXRlIjogIm5vdF9zdGFydGVkIn0KICAgICAgICBhc3NlcnQgc2VydmljZS5lbmdpbmUgaXMgTm9uZQogICAgICAgIGFzc2VydCBzZXJ2aWNlLmF1dGhvcml0eS5fcnVudGltZV9sb2NrX2ZkIGlzIE5vbmUKICAgIGZpbmFsbHk6CiAgICAgICAgb3MuY2xvc2UocmVhZF9mZCkKICAgICAgICBpZiB3cml0ZV9mZCBpcyBub3QgTm9uZToKICAgICAgICAgICAgb3MuY2xvc2Uod3JpdGVfZmQpCgoKQHB5dGVzdC5tYXJrLmFzeW5jaW8KYXN5bmMgZGVmIHRlc3RfY2FuY2VsbGF0aW9uX3Jlc2lzdGFudF9zdGFydHVwX3JldGFpbnNfb3duZXJzaGlwX2FuZF9zdG9yZSh0bXBfcGF0aCwgbW9ua2V5cGF0Y2gpOgogICAgZnJvbSBzcmMuZGVza3RvcCBpbXBvcnQgY29yZQogICAgZnJvbSBzcmMuZGVza3RvcC5jb3JlIGltcG9ydCBwcm9maWxlX2NvbmZpZwoKICAgIG1vbmtleXBhdGNoLnNldGF0dHIoY29yZSwgIlNUQVJUVVBfU0VUVExFX1NFQ09ORFMiLCAwLjA1KQogICAgZW50ZXJlZCwgcmVsZWFzZSA9IGFzeW5jaW8uRXZlbnQoKSwgYXN5bmNpby5FdmVudCgpCgogICAgYXN5bmMgZGVmIGNvbmZpZyhwYXRocyk6CiAgICAgICAgZW50ZXJlZC5zZXQoKQogICAgICAgIHRyeToKICAgICAgICAgICAgYXdhaXQgcmVsZWFzZS53YWl0KCkKICAgICAgICBleGNlcHQgYXN5bmNpby5DYW5jZWxsZWRFcnJvcjoKICAgICAgICAgICAgYXdhaXQgcmVsZWFzZS53YWl0KCkKICAgICAgICAgICAgcmFpc2UKICAgICAgICByZXR1cm4gcHJvZmlsZV9jb25maWcocGF0aHMpCgogICAgcGF0aHMsIHNvY2tldF9wYXRoLCB0b2tlbl9maWxlID0gcHJvZmlsZSh0bXBfcGF0aCkKICAgIHJlYWRfZmQsIHdyaXRlX2ZkID0gb3MucGlwZSgpCiAgICBzZXJ2aWNlID0gQ29yZVNlcnZpY2UocGF0aHMsIHNvY2tldF9wYXRoLCB0b2tlbl9maWxlLCBjb25maWdfcHJvdmlkZXI9Y29uZmlnKQogICAgdGFzayA9IGFzeW5jaW8uY3JlYXRlX3Rhc2soc2VydmljZS5ydW4ocmVhZF9mZCkpCiAgICB0cnk6CiAgICAgICAgYXdhaXQgZW50ZXJlZC53YWl0KCkKICAgICAgICBzZXJ2aWNlLmxpZmV0aW1lLnJlcXVlc3Rfc3RvcCgidGVzdF9zdG9wIikKICAgICAgICB3aXRoIHB5dGVzdC5yYWlzZXMoUmVzb3VyY2VDbGVhbnVwRXJyb3IpOgogICAgICAgICAgICBhd2FpdCBhc3luY2lvLndhaXRfZm9yKHRhc2ssIDEpCiAgICAgICAgYXNzZXJ0IHNlcnZpY2UuYXV0aG9yaXR5Ll9ydW50aW1lX2xvY2tfZmQgaXMgbm90IE5vbmUKICAgICAgICBhc3NlcnQgc2VydmljZS5zdG9yZS5jb25uZWN0aW9uLmV4ZWN1dGUoIlNFTEVDVCAxIikuZmV0Y2hvbmUoKVswXSA9PSAxCiAgICAgICAgZXZpZGVuY2UgPSBqc29uLmxvYWRzKChwYXRocy5kYXRhX2RpciAvICJyZXNvdXJjZS1jbGVhbnVwLmpzb24iKS5yZWFkX3RleHQoKSkKICAgICAgICBhc3NlcnQgZXZpZGVuY2VbInN0YXRlIl0gPT0gInVua25vd24iCiAgICAgICAgYXNzZXJ0IGV2aWRlbmNlWyJyZXNvdXJjZXMiXVsic3RhcnR1cCJdWyJzdGF0ZSJdID09ICJ1bmtub3duIgogICAgICAgIGFzc2VydCBub3Qgc2VydmljZS5fY2xvc2VfY29tcGxldGUKICAgIGZpbmFsbHk6CiAgICAgICAgcmVsZWFzZS5zZXQoKQogICAgICAgIGF3YWl0IGFzeW5jaW8uc2xlZXAoMC4xKQogICAgICAgIHNlcnZpY2Uuc3RvcmUuY2xvc2UoKQogICAgICAgIHNlcnZpY2UucmVsZWFzZV9ydW50aW1lKCkKICAgICAgICBvcy5jbG9zZShyZWFkX2ZkKQogICAgICAgIG9zLmNsb3NlKHdyaXRlX2ZkKQoKCkBweXRlc3QubWFyay5hc3luY2lvCmFzeW5jIGRlZiB0ZXN0X2xhdGVfc2VjcmV0X2Vycm9yX2lzX3JldGFpbmVkX2FuZF9pbmFjdGl2ZV9zY29wZV9rZWVwc190cmFuc2FjdGlvbl9iYXJyaWVyKCk6CiAgICBmcm9tIHNyYy5kZXNrdG9wLnNlY3JldHMgaW1wb3J0IFN0YXJ0dXBTZWNyZXRDYWxscywgc2VjcmV0X2NhbGwsIHN0YXJ0dXBfc2VjcmV0X2NhbGxzCgogICAgc3RhcnRlZCwgcmVsZWFzZSA9IHRocmVhZGluZy5FdmVudCgpLCB0aHJlYWRpbmcuRXZlbnQoKQoKICAgIGRlZiB3b3JrZXIoKToKICAgICAgICBzdGFydGVkLnNldCgpCiAgICAgICAgcmVsZWFzZS53YWl0KDUpCiAgICAgICAgcmFpc2UgVmFsdWVFcnJvcigibm90IHJldGFpbmVkIGluIGV2aWRlbmNlIikKCiAgICBjYWxscyA9IFN0YXJ0dXBTZWNyZXRDYWxscygpCiAgICB0b2tlbiA9IHN0YXJ0dXBfc2VjcmV0X2NhbGxzLnNldChjYWxscykKICAgIHRyeToKICAgICAgICB0YXNrID0gYXN5bmNpby5jcmVhdGVfdGFzayhzZWNyZXRfY2FsbCh3b3JrZXIpKQogICAgICAgIHdoaWxlIG5vdCBzdGFydGVkLmlzX3NldCgpOgogICAgICAgICAgICBhd2FpdCBhc3luY2lvLnNsZWVwKDAuMDEpCiAgICAgICAgdGFzay5jYW5jZWwoKQogICAgICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhhc3luY2lvLkNhbmNlbGxlZEVycm9yKToKICAgICAgICAgICAgYXdhaXQgdGFzawogICAgICAgIGFzc2VydCBjYWxscy5vdXRjb21lKClbInN0YXRlIl0gPT0gInVua25vd24iCiAgICAgICAgcmVsZWFzZS5zZXQoKQogICAgICAgIGF3YWl0IGNhbGxzLnNldHRsZSgxKQogICAgICAgIGF3YWl0IGFzeW5jaW8uc2xlZXAoMCkKICAgICAgICBhc3NlcnQgY2FsbHMub3V0Y29tZSgpID09IHsic3RhdGUiOiAidW5rbm93biIsICJwZW5kaW5nIjogMCwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAiZXJyb3JfdHlwZXMiOiBbIlZhbHVlRXJyb3IiXX0KICAgICAgICBjYWxscy5hY3RpdmUgPSBGYWxzZQogICAgICAgIHN0YXJ0ZWQuY2xlYXIoKQogICAgICAgIHJlbGVhc2UuY2xlYXIoKQogICAgICAgIHRhc2sgPSBhc3luY2lvLmNyZWF0ZV90YXNrKHNlY3JldF9jYWxsKHdvcmtlcikpCiAgICAgICAgd2hpbGUgbm90IHN0YXJ0ZWQuaXNfc2V0KCk6CiAgICAgICAgICAgIGF3YWl0IGFzeW5jaW8uc2xlZXAoMC4wMSkKICAgICAgICB0YXNrLmNhbmNlbCgpCiAgICAgICAgYXdhaXQgYXN5bmNpby5zbGVlcCgwLjAyKQogICAgICAgIGFzc2VydCBub3QgdGFzay5kb25lKCkKICAgICAgICByZWxlYXNlLnNldCgpCiAgICAgICAgd2l0aCBweXRlc3QucmFpc2VzKFZhbHVlRXJyb3IpOgogICAgICAgICAgICBhd2FpdCB0YXNrCiAgICBmaW5hbGx5OgogICAgICAgIHJlbGVhc2Uuc2V0KCkKICAgICAgICBzdGFydHVwX3NlY3JldF9jYWxscy5yZXNldCh0b2tlbikK",
           "old_base64": "",
           "start": 0
         }
       ],
       "path": "tests/test_desktop_startup_stop.py",
-      "reason": "Issue 93 regressions using real CoreService.run, SIGTERM and EOF during withheld startup",
+      "reason": "Issue93 real startup stop regressions; deferred helper imports keep real run test executable on main",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -37970,7 +37972,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/test_desktop_startup_stop.py": "d4f402695726eb00ca025275a3d53776bd3c8b4cd4fed66ea0a960efa0fcc956"
+        "tests/test_desktop_startup_stop.py": "00e2828d903853d5d2a1dc3c4e0144a02a93ad03c3e672e536771270b9e43fa7"
       },
       "tests": [
         "tests/test_desktop_startup_stop.py"
