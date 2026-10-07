@@ -63,15 +63,22 @@ screen-reader recordings or support attachments.
 
 Keyboard navigation, enlarged layout and named controls do not guarantee Orca
 speech or that every desktop's native dialogs, keyring prompts, portals, tray and
-notifications work. Native screen-reader and Wayland support are not yet fully
-confirmed. Actual behavior can depend on desktop, screen reader and display setup.
+notifications work. The **1.0.0 app supports Cinnamon/X11, GNOME/Wayland,
+KDE/Wayland and Hyprland**, but that scope does not claim complete native
+screen-reader coverage. **Computer use is supported on X11 only, at parity with
+Odin**; Wayland computer use is planned for **1.1** and is refused with guidance
+until then. Actual accessibility behavior can depend on desktop, screen reader
+and display setup.
 
 The current Raven interface has been exercised with Orca in isolated
 Cinnamon/X11 and GNOME/Wayland sessions: all seven task groups passed in each.
 KDE/Wayland passed six of seven; the native Attach dialog was visible but its
 controls were unavailable to the screen reader. Do not assume accessible
-Attach/Save on KDE. Final candidate acceptance and a decision on that KDE
-limitation remain open. These results do not qualify every desktop or version.
+Attach/Save on KDE. This limitation remains recorded; the
+[Linux release checklist](../release/linux-v1-checklist.md) defines the current
+candidate gate rather than the earlier P3.6/D11 matrix. These observations do
+not claim every desktop or version was tested, including Hyprland screen-reader
+coverage.
 
 Report app version, package format, desktop/session (**X11** or **Wayland**),
 screen reader/version, zoom/scaling, control name, expected result and actual

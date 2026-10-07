@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.0.0]
+
+Linux v1 release notes. Publication and final candidate checks are tracked in the
+[Linux release checklist](docs/release/linux-v1-checklist.md); this section is not
+a claim that those checks have passed.
+
+- Chat with Odin's local engine, search conversations, attach files, keep knowledge,
+  and save results. Follow tool activity and use Stop, Steer or Resume with explicit
+  outcomes rather than treating a submitted request as completed work.
+- Manage providers and models, tools, managed SSH hosts, skills and MCP servers,
+  memory and records. Run background work, schedules and stored reports from the app.
+- The app is supported on **Cinnamon/X11, GNOME/Wayland, KDE/Wayland and Hyprland**.
+  Closing the window leaves Odin running; use Exit Odin to stop it. Login startup
+  is optional, and shutdown, reboot and logout request bounded orderly Exit.
+- **Computer use is supported on X11 only, at parity with Odin.** Wayland computer
+  use is planned for **1.1**; until then the app refuses it with guidance. App
+  support on a Wayland desktop does not imply mouse/keyboard automation support.
+- Linux x86-64 **unsigned `.deb` and AppImage** packages bundle the normal runtime.
+  Verify the supplied SHA-256; it is not a publisher signature. AppImage still
+  requires compatible FUSE and user-namespace/sandbox policy; use the `.deb` where
+  supported if AppImage startup is refused. Do not disable the sandbox.
+- PDF support is downloaded automatically on first use, pinned by hash. If that
+  download fails, a later use can retry.
+- Install and upgrade manually through your package manager or by replacing the
+  AppImage after clean Exit. The app can check for release notices, but does not
+  download or install updates, restart itself, or replay work after an upgrade.
+  Its profile stays separate from an existing Odin installation.
+- Planned for **1.1**: Wayland computer-use integration and the remaining native
+  harness follow-ups. See the checklist for the exact release gate and follow-ups,
+  and the [user guides](README.md#user-guide) for installation and recovery limits.
+
 ## [0.1.0]
 
 Unreleased desktop candidate. These are curated rehearsal notes, not acceptance
@@ -12,5 +43,6 @@ or publication authorization.
 - Installation and upgrades remain manual user actions. No in-app downloader,
   installer, update feed or automatic restart is introduced.
 
-Final native qualification, third-party/legal closure, P4.5 acceptance and Aaron's
-P4.6 handoff remain required before publication.
+The current publication gate is the
+[Linux release checklist](docs/release/linux-v1-checklist.md), which supersedes
+the earlier Phase 3/4 release procedure.

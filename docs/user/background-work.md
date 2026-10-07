@@ -144,11 +144,11 @@ after long downtime, so a catch-up notice is not an exact lifetime count.
 D12 is shipped. Native observations recorded on 2026-10-07 cover Cinnamon/X11,
 GNOME/Wayland and KDE/Wayland: catch-up reminders, missed checks not run, and no
 execution while exited. Those observations used earlier composed candidates,
-not one package built from current integrated main. The remaining
-[native lifecycle gate](../work/phase-3-app-v1.md#p33-native-lifecycle-trayno-tray-notifications-and-login-startup)
-is **pending: #59**; the final integrated desktop matrix is **pending: #97**.
-Those release gates do not turn an observed D12 result into qualification of
-every lifecycle path or native input backend.
+not one package built from current integrated main. The
+[Linux release checklist](../release/linux-v1-checklist.md) defines the current
+candidate gate, replacing the earlier Phase 3/native matrix. These observations
+do not prove every lifecycle path or native input backend; #97 and #98 remain
+harness follow-ups for 1.1.
 
 ## Foreground computer use is not background authority
 
@@ -157,12 +157,13 @@ request, not an agent, workflow, schedule or Work row. Background work cannot
 acquire it. A resumed request has a new input lineage; it cannot reuse old consent
 or observations.
 
-This binding is not a user-facing native-input qualification. **Settings →
-Records → Computer use** currently reports management readiness separately from
-unavailable foreground input. Its status and reconciliation controls are not a
-Start or Resume input procedure, and a configured backend does not grant consent.
-Native input qualification is **pending: #98**; the final matrix is
-**pending: #97**. Follow
+For **1.0.0**, the app supports Cinnamon/X11, GNOME/Wayland, KDE/Wayland and
+Hyprland. **Computer use is supported on X11 only, at parity with Odin**.
+Wayland computer use is planned for **1.1**; until then the app refuses it with
+guidance. **Settings → Records → Computer use** reports management readiness
+and any foreground refusal reason. Its status and reconciliation controls are
+not a Start or Resume input procedure, and a configured backend does not grant
+consent. Follow
 [Computer-input safety](recovery.md#computer-input-safety), especially when release
 is unknown. Never use background work or another backend to bypass it.
 

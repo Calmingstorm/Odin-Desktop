@@ -1,8 +1,9 @@
 # Install Odin Desktop on Linux
 
 Odin Desktop is a Linux app with its own local engine and profile. Start here,
-then follow [First run](first-run.md). These guides describe the merged Linux
-implementation, not a published release or final desktop-support certificate.
+then follow [First run](first-run.md). These guides describe the 1.0.0 scope,
+not a published release or a claim that final candidate checks passed. The
+[Linux release checklist](../release/linux-v1-checklist.md) defines that gate.
 
 Based on Odin v4.13.0. Later Odin changes are included only when the release
 notes list them.
@@ -12,6 +13,12 @@ notes list them.
 The available formats target **x86-64** computers. Windows, macOS and ARM builds
 are not supported. Mint 22 and Ubuntu 24.04-based desktops are the initial Linux
 targets, not a promise that every distribution or graphics driver works.
+
+For **1.0.0**, the app is supported on **Cinnamon/X11, GNOME/Wayland, KDE/Wayland
+and Hyprland**. **Computer use is supported on X11 only, at parity with Odin.**
+Wayland computer use is planned for **1.1**; until then the app refuses it with
+guidance. You can use the app on a supported Wayland desktop without granting
+it foreground mouse/keyboard input there.
 
 | Format | How you manage it |
 |---|---|
