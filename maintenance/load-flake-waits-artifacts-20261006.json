@@ -67,6 +67,14 @@
     {"path": "cpu-load-lifecycle-final.mjs","bytes": 1000,"sha256": "2522651c826a5590c8dcbadb818167ee2a3e3a05dd2c38c4c8f7f07605ab0a4e"},
     {"path": "final-lifecycle.log","bytes": 1864,"sha256": "733fba5f049256f4ab9b5f47906160e368cb79d5b6da63c8dcc7b3583c4f2225"},
     {"path": "final-lifecycle/playwright.json","bytes": 89570,"sha256": "ebb7bc011a42d7bad10e42618eb2c36c2d857cac9447b4489f9603f709075563"},
-    {"path": "final-lifecycle/test-results/.last-run.json","bytes": 45,"sha256": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"}
+    {"path": "final-lifecycle/test-results/.last-run.json","bytes": 45,"sha256": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"},
+    {"path": "cpu-load-merged.log","bytes": 6701,"sha256": "351635aa3df7df79edee3d71bf18cadb2f9c113b4e6fee4a2ea43675fc1b24ed"},
+    {"path": "cpu-load-merged.mjs","bytes": 1000,"sha256": "f861efded5c0e4134ac91e96091381d9757e8ecc6051e44b567566f47ecf5f0f"},
+    {"path": "merged-drift.json","bytes": 87683,"sha256": "97688617b70321b47493ed13c075d7f13b191eedb1c3ce19935eb237f85c84fd"},
+    {"path": "merged-lifecycle/playwright.json","bytes": 89972,"sha256": "c6ad3bb1bfaa4a170883d74ae543ca4b6c465c3f603b21d432629e5c62065948"},
+    {"path": "merged-lifecycle/test-results/.last-run.json","bytes": 45,"sha256": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"},
+    {"path": "merged-lifecycle.log","bytes": 1865,"sha256": "abaceb5bbdeac4a04872d446eb2dc751017a4b9f84fc76fbee85ca850945d71a"},
+    {"path": "merged-python.log","bytes": 830,"sha256": "31dcc46595e22428612dedcd8048199626e6d27221c076fb79cd4a6b1e05a0a2"},
+    {"path": "merged-real-core.log","bytes": 4876,"sha256": "016116f8c5ecf300fd3ea2ff12d23a7361c0383fa514f9b701b941decc4aaff0"}
   ]
 }
