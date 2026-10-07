@@ -280,10 +280,10 @@ def test_preflight_failure_no_guest_calls(tmp_path, running, monkeypatch):
     api = API(archive(tmp_path))
 
     def blocked(*args, **kwargs):
-        raise orca.Error("Another VM is not stopped")
+        raise orca.Error("2 other VMs are not stopped")
 
     monkeypatch.setattr(orca.lab, "preflight", blocked)
-    with pytest.raises(orca.Error, match="Another VM"):
+    with pytest.raises(orca.Error, match="other VMs are not stopped"):
         orca.run(api, "odq-cinnamon", api.artifact, tmp_path / "evidence")
     assert api.calls == []
     assert not (tmp_path / "evidence").exists()

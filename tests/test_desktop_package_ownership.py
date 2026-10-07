@@ -103,9 +103,30 @@ def test_cleanup_gracefully_stops_and_removes_exact_owned_container_only():
 
 def test_storage_budget_failure_never_creates_guest():
     api = FakeIncus()
+    used = acceptance.lab.POOL_BUDGET - 14 * acceptance.GIB + 1
     with patch.object(acceptance.lab, "storage_usage",
-                      return_value=(90 * acceptance.GIB, 200 * acceptance.GIB)):
+                      return_value=(used, 200 * acceptance.GIB)):
         with pytest.raises(acceptance.AcceptanceError, match="storage budget"):
+            acceptance.Container(api).prepare()
+    assert not api.calls
+
+
+@pytest.mark.parametrize("failure", ["budget", "floor"])
+def test_running_lab_vm_growth_counts_against_the_container(failure):
+    api = FakeIncus()
+    vm = {"name": "odq-kde", "type": "virtual-machine", "status": "Running"}
+    api.instances = lambda: [api.item, vm]
+    GIB = acceptance.GIB
+    # The container alone needs 14 GiB; the running VM at 15 GiB adds 25 + 10 GiB.
+    if failure == "budget":
+        storage = (acceptance.lab.POOL_BUDGET - 49 * GIB + 1, 200 * GIB)
+        message = "storage budget"
+    else:
+        storage = (20 * GIB, acceptance.lab.FILESYSTEM_FLOOR + 49 * GIB - 1)
+        message = "filesystem floor"
+    with patch.object(acceptance.lab, "storage_usage", return_value=storage), \
+            patch.object(acceptance.lab, "guest_usage", return_value=15 * GIB):
+        with pytest.raises(acceptance.AcceptanceError, match=message):
             acceptance.Container(api).prepare()
     assert not api.calls
 
