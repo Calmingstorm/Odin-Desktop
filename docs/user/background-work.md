@@ -117,8 +117,8 @@ independent scheduling service; start at login launches the app itself.
 Orderly system shutdown, reboot and logout also run Odin's bounded Exit first.
 This does not make a crash, power loss or unconfirmed cleanup
 an orderly stop. Unknown cleanup remains unknown on the next start and is not
-labelled undone. **Exit while the core is still starting is pending: #96**; the
-current startup case can leave an unknown cleanup outcome.
+labelled undone. Exit while the core is still starting waits up to five seconds
+for the core (#96); if it never becomes ready, the cleanup is recorded as unknown.
 
 Do not expect local work to execute while the computer is asleep or the app is
 exited. Remote effects already started may continue independently. A later

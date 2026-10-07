@@ -82,8 +82,8 @@ retain cleanup receipts. Keep these unchecked until a tester follows them:
   start at login with one core. GNOME no-tray controls/notice remain **pending: #59**.
 - [ ] **Session end:** shutdown, reboot and logout request bounded Exit; cancelling
   a logout query keeps the app alive. Query/cancel native acceptance remains
-  **pending: #59**. Initial-startup Exit fix is **pending: #96**, so record unknown
-  truthfully on current main rather than accepting the unmerged fix.
+  **pending: #59**. Exit during initial core startup is merged (#96): it waits up to
+  five seconds for a starting core; record any remaining unknown truthfully.
 - [ ] **Work/D12/results:** follow [Background work](../user/background-work.md)
   and [Chat/results](../user/chat-and-results.md). Read original-owner controls,
   paged stored reports and retained output; suspend/wake for one catch-up reminder

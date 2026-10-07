@@ -22,9 +22,9 @@ settings, current work boundaries, recovery, updates and accessibility using mer
 Source/review watermarks and claim references are in
 [P4.4 validation](../maintenance/p44-user-docs-validation.md). The
 [documentation status](../docs/release/pending-user-docs.md) records the promotion
-of merged #37/#39/#40/#42 and remaining native/startup Exit dependencies. The
+of merged #37/#39/#40/#42 and remaining native dependencies. The
 guides also cover merged #89 package fencing, #90/#94 session Exit and #95
-fresh Wayland launch; #96 is explicitly pending, not shipped.
+fresh Wayland launch and #96 bounded Exit during core startup.
 The [Linux release checklist](../docs/release/linux-v1-checklist.md) still requires P4.5,
 P4.6 and Aaron's explicit approvals. This documentation PR is not package or live acceptance.
 

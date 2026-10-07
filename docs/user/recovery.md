@@ -153,8 +153,9 @@ unknown cleanup.
 System shutdown, reboot and logout use Odin's normal Exit path first. This is
 bounded settlement, not a promise that every external effect was undone or input
 release verified. Fresh launches show the window on GNOME and KDE; reopening a
-hidden window does not replay work. Exit while the core is still starting remains
-**pending: #96**; do not treat that unmerged fix as shipped behavior.
+hidden window does not replay work. Exit while the core is still starting waits up
+to five seconds for the core, then stops it; a startup that cannot settle is
+recorded as unknown (#96).
 
 Losing the window is not permission to replay submissions or restart the core.
 An unexpected loss of an already-ready core is not automatically replaced as

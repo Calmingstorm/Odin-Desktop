@@ -20,8 +20,6 @@ watermarks and pending prose; they are not today's feature list.
 
 ## Still pending
 
-- **pending: #96**: bounded Exit during initial core startup is under review.
-  Current docs warn about unknown cleanup rather than describing the fix as shipped.
 - **pending: #59**: remaining P3.3 native notifications/click-through, GNOME
   no-tray/Exit controls, different-version upgrades and query/cancel logout rows.
   The [release checklist](linux-v1-checklist.md) lists ready-to-run procedures.

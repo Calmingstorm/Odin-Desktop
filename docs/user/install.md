@@ -102,8 +102,9 @@ Exit before the desktop session is torn down. Cancelling a logout query is not
 an Exit request. This is best effort: an abrupt power loss, crash or unavailable
 session integration can still leave unknown cleanup.
 
-**pending: #96**: Exit during the core's initial startup can still record unknown
-cleanup. Do not assume an early logout or Exit has the proposed startup fix yet.
+Exit or logout during the core's initial startup waits up to five seconds for the
+core to become ready, then stops it normally (#96). If it never becomes ready in
+that time, the cleanup is recorded as unknown.
 
 ## Your profile and privacy
 

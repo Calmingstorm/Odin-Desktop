@@ -52,8 +52,8 @@ The [documentation status](docs/release/pending-user-docs.md) records promoted
 guidance and remaining dependencies. Background work, schedules/reports,
 provider/knowledge/record administration, ingress and manual release notices
 now describe merged services. So do orderly shutdown/reboot/logout, fresh
-Wayland launch and boot-scoped package-change fences. Startup Exit remains
-pending #96; native qualification and release approval remain separate gates.
+Wayland launch, boot-scoped package-change fences and bounded Exit during core
+startup (#96); native qualification and release approval remain separate gates.
 
 The upstream review remains **baseline only** at Odin v4.13.0; later changes are
 not implied. Full internal identities are in the validation and
