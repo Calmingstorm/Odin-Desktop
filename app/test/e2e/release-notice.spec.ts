@@ -51,6 +51,7 @@ async function launch(real: boolean): Promise<void> {
   const env: Record<string, string> = { PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C.UTF-8', HOME: root,
     XDG_CONFIG_HOME: join(root, 'config'), XDG_DATA_HOME: join(root, 'data'), XDG_CACHE_HOME: join(root, 'cache'),
     XDG_RUNTIME_DIR: join(root, 'run'), DISPLAY: process.env.DISPLAY!, XAUTHORITY: process.env.XAUTHORITY!,
+    DBUS_SYSTEM_BUS_ADDRESS: `unix:path=${join(root, 'run', 'no-system-bus')}`,
     PYTHONDONTWRITEBYTECODE: '1', PYTHONNOUSERSITE: '1',
     GH_TOKEN: 'notice-test-ambient-canary', GITHUB_TOKEN: 'notice-test-ambient-canary',
     HTTPS_PROXY: 'https://fixture-user:fixture-password@127.0.0.1:1' }
