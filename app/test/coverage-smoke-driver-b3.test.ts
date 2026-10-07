@@ -217,7 +217,7 @@ function fixture(provider = false, seeded = false, fault = '') {
       Skills: 'New skill slice4_constant ' + skillRuns + ' runs', MCP: '1 of 1 servers connected 1 tools offered', 'MCP servers': 'Add server slice4_local connected',
       Hosts: 'localhost', "Odin's key": 'ssh-ed25519 inert', Memory: '0 entries', 'Named lists': 'No lists.', Knowledge: 'Knowledge',
       Health: 'healthy degraded down not set up 1 host(s) configured', Usage: 'tokens in 7d (measured)',
-      'Computer use': 'Refresh no session native unqualified', 'Browser runtime': 'unavailable', Context: 'Context reloaded context directory does not exist; nothing is loaded',
+      'Computer use': 'Refresh no session Foreground computer use is unavailable. Dispatch: none. Reason: computer disabled.', 'Browser runtime': 'unavailable', Context: 'Context reloaded context directory does not exist; nothing is loaded',
       Schedules: seeded ? 'D12 manual recovery check Recovery required No effects were replayed ' + (webhookRow?.description ?? '') : 'No schedules yet.',
       'Running work': 'Nothing is running.', Audit: 'Nothing recorded.', Logs: 'No entries.', 'Turn state': 'Preserved work',
       'OpenRouter models': 'OpenRouter endpoint not recognized', 'Audit diffs': 'Last successful read shown below.', 'Audit failures': 'Last successful read shown below.', 'Log statistics': 'Last successful read shown below.'

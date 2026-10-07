@@ -1065,7 +1065,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       const stats = JSON.parse(await text('section[aria-label="Runtime statistics"] pre')) as { risk: unknown }
       assert.deepEqual(stats.risk, observations.risk!.result, 'runtime statistics must render the actual risk summary')
       await until(async () => /no .*session|no .*task/i.test(await text('section[aria-label="Computer use"]')), 'real absent computer session')
-      assert(/unqualified|not qualified|qualification/i.test(await text('section[aria-label="Computer use"]')), 'computer input must remain explicitly unqualified')
+      assert(/Foreground computer use is unavailable\..*Dispatch: none/is.test(await text('section[aria-label="Computer use"]')), 'computer input must be explicitly unavailable while computer use is off')
       // Slice 4 reads the real envelope. No absent-session recovery/input action
       // may be invented while the retained management Refresh remains offered.
       assert.equal(await count('section[aria-label="Computer use"] .manage-name, section[aria-label="Computer use"] .manage-actions'), 0, 'fresh computer management must not invent a session or recovery action')
