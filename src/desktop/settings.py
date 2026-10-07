@@ -259,6 +259,11 @@ class SettingsService:
             payload["revision"] = self.revision
             payload["status"]["desired_revision"] = payload["revision"]
             counts = dict.fromkeys(payload["status"]["counts"], 0)
+            # Desktop v1 has one computer-use setting. Native attachment is
+            # derived from the app's session, never user-supplied platform paths.
+            payload["fields"] = [field for field in payload["fields"]
+                if not field["path"].startswith("computer.")
+                or field["path"] == "computer.enabled"]
             for field in payload["fields"]:
                 field["apply_handler"] = _handler(field["path"])
                 if field["apply_mode"] == "live_apply":
@@ -332,6 +337,8 @@ class SettingsService:
             ):
                 raise _error("Invalid setting path")
             dotted = ".".join(path)
+            if path[0] == "computer" and dotted != "computer.enabled":
+                raise _error("Computer native configuration is derived from the session")
             present = _get(current, path)
             if present is _MISSING and dotted not in facts:
                 if not any(

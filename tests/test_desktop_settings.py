@@ -51,6 +51,23 @@ async def save(service, method, changes):
     )
 
 
+def test_computer_schema_exposes_only_opt_in(service):
+    fields = [field["path"] for field in service.schema()["fields"]
+              if field["path"].startswith("computer.")]
+    assert fields == ["computer.enabled"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path,value", [("computer.display", ":32001"),
+    ("computer.platform", "wayland"), ("computer.monitor_names", ["screen"]),
+    ("computer", {"enabled": True})])
+async def test_computer_native_config_cannot_be_saved(service, path, value):
+    before = service.paths.config_file.read_bytes()
+    with pytest.raises(MethodError, match="derived from the session"):
+        await save(service, "settings.set", [{"path": path, "value": value}])
+    assert service.paths.config_file.read_bytes() == before
+
+
 def test_namespace_and_no_file_fallback(tmp_path):
     backend = MemoryKeyring()
     paths = ProfilePaths.from_xdg(home=tmp_path, environ={})

@@ -87,13 +87,25 @@ describe('real browser health, not catalog availability', () => {
 })
 
 describe('real computer management, never foreground admission', () => {
+  it('reports available X11 without granting input from the management view', async () => {
+    bridge.computerStatus!.mockImplementation(async () => ok({ session: null, readiness: {
+      ...readiness, foreground_available: true, input_supported: true,
+      dispatch: 'x11', reason: 'available_on_x11'
+    } }))
+    const v = await view('Records')
+    expect(v.root.textContent()).toContain('Foreground computer use is available on X11')
+    expect(v.root.textContent()).toContain('admitted turn, consent, and a verified target')
+    expect(v.root.textContent()).not.toContain('Foreground computer use is unavailable')
+    expect(bridge.computerReconcile).not.toHaveBeenCalled()
+  })
+
   it('renders actual nested session identity/readiness without flat enabled assumptions', async () => {
     const v = await view('Records')
     expect(v.root.textContent()).toContain('real-session')
     expect(v.root.textContent()).toContain('generation 7')
     expect(v.root.textContent()).toContain('Management: available')
     expect(v.root.textContent()).toContain('Foreground computer use is unavailable')
-    expect(v.root.textContent()).toContain('Native input is not qualified or supported')
+    expect(v.root.textContent()).not.toContain('Foreground computer use is available on X11')
     expect(v.root.textContent()).toContain('Dispatch: none')
     expect(v.root.textContent()).toContain('Input release remains unverified')
     expect(v.root.textContent()).not.toContain('Off:')
