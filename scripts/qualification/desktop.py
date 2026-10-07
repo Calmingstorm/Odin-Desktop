@@ -14,6 +14,7 @@ import json
 import re
 import subprocess
 import tarfile
+import time
 import uuid
 from pathlib import Path
 
@@ -136,7 +137,11 @@ def validate_matrix(matrix: dict, artifact_root: Path | None = None) -> dict:
     for row in rows:
         errors.extend(f'{row.get("row")}: {error}' for error in validate_row(row, candidate))
         if artifact_root is not None and row.get('artifacts'):
-            errors.extend(check_artifacts(row, artifact_root / row['row']))
+            directory = artifact_root / row.get('evidence_directory', row['row'])
+            if not directory.resolve().is_relative_to(artifact_root.resolve()):
+                errors.append('row evidence directory escapes artifact root')
+            else:
+                errors.extend(check_artifacts(row, directory))
     gates = matrix.get('gates', {})
     needed = ('ui_parity', 'p31', 'p32', 'p33', 'p34', 'p35', 'p42',
               'phase2_suites', 'd19', 'runtime_fresh_host', 'final_candidate')
@@ -182,7 +187,8 @@ def admit(vm: str) -> None:
 
 
 def validate_tools(path: Path) -> None:
-    expected = {'desktop-guest.cjs', 'desktop-probe.cjs', 'environment.py'}
+    expected = {'desktop-guest.cjs', 'desktop-probe.cjs', 'environment.py',
+                'smoke.py', 'node', 'session.py'}
     seen = set()
     with tarfile.open(path) as archive:
         for item in archive.getmembers():
@@ -193,8 +199,12 @@ def validate_tools(path: Path) -> None:
             if item.name in expected:
                 if item.name in seen:
                     raise ValueError('Duplicate runner entry')
-                source = ROOT / 'scripts/qualification' / (
-                    'desktop-environment.py' if item.name == 'environment.py' else item.name)
+                source = {
+                    'environment.py': ROOT / 'scripts/qualification/desktop-environment.py',
+                    'smoke.py': ROOT / 'scripts/qualification/lab/guest/smoke.py',
+                    'session.py': ROOT / 'scripts/qualification/desktop-session.py',
+                    'node': Path('/usr/bin/node'),
+                }.get(item.name, ROOT / 'scripts/qualification' / item.name)
                 if archive.extractfile(item).read() != source.read_bytes():
                     raise ValueError('Guest runner differs from reviewed checkout')
                 seen.add(item.name)
@@ -219,8 +229,11 @@ def pack_tools(output: Path) -> None:
             ('desktop-guest.cjs', 'desktop-guest.cjs'),
             ('desktop-probe.cjs', 'desktop-probe.cjs'),
             ('desktop-environment.py', 'environment.py'),
+            ('desktop-session.py', 'session.py'),
         ):
             archive.add(ROOT / 'scripts/qualification' / source, arcname=target)
+        archive.add(ROOT / 'scripts/qualification/lab/guest/smoke.py', arcname='smoke.py')
+        archive.add('/usr/bin/node', arcname='node')
         for package in ('playwright', 'playwright-core'):
             directory = ROOT / 'app/node_modules' / package
             if not directory.is_dir():
@@ -273,12 +286,8 @@ def collect(args) -> int:
         if transported != candidate_id['package_sha256']:
             raise ValueError('Transported candidate hash mismatch; no installation')
         execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'env',
-                'DEBIAN_FRONTEND=noninteractive', 'apt-get', 'install', '-y', 'nodejs',
+                'DEBIAN_FRONTEND=noninteractive', 'apt-get', 'install', '-y', 'nodejs', 'pciutils',
                 timeout=300)
-        execute('sudo', '-n', 'incus', 'exec', args.vm, '--', '/root/odq/sessrun',
-                'odin-desktop', '--exit')
-        execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'dpkg', '-i',
-                '/var/tmp/p36-candidate.deb', timeout=300)
         execute('sudo', '-n', 'incus', 'file', 'push', str(args.tools.resolve(strict=True)),
                 f'{args.vm}/var/tmp/p36-tools.tar', timeout=180)
         execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'mkdir', guest_root)
@@ -286,14 +295,24 @@ def collect(args) -> int:
                 '/var/tmp/p36-tools.tar', '-C', guest_root)
         execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'chown', '-R',
                 'odq:odq', guest_root)
+        execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'python3',
+                guest_root + '/session.py', args.vm[4:], 'odin-desktop', '--exit')
+        # Second-instance --exit is a notification, not a synchronous cleanup
+        # receipt. Observe a bounded settling interval; dpkg still enforces
+        # exact leases/boot evidence and any refusal remains a failed run.
+        time.sleep(8)
+        execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'dpkg', '-i',
+                '/var/tmp/p36-candidate.deb', timeout=300)
         # Guest-only package installation; no host apt, desktop capture or input.
-        env = execute('sudo', '-n', 'incus', 'exec', args.vm, '--', '/root/odq/sessrun',
-                      'python3', guest_root + '/environment.py', args.vm)
+        env = execute('sudo', '-n', 'incus', 'exec', args.vm, '--', 'python3',
+                      guest_root + '/session.py', args.vm[4:], 'python3',
+                      guest_root + '/environment.py', args.vm)
         (output / 'environment.json').write_text(env)
         # The actual candidate verifies its own sealed bundle. The helper checks
         # the manifest source against the caller's declared candidate identity.
-        probe_command = ['sudo', '-n', 'incus', 'exec', args.vm, '--', '/root/odq/sessrun',
-                         'node', guest_root + '/desktop-guest.cjs', args.source_sha]
+        probe_command = ['sudo', '-n', 'incus', 'exec', args.vm, '--', 'python3',
+                         guest_root + '/session.py', args.vm[4:], guest_root + '/node',
+                         guest_root + '/desktop-guest.cjs', args.source_sha]
         execute(*probe_command, timeout=240)
         for name in ('probe.json', 'renderer.png'):
             execute('sudo', '-n', 'incus', 'file', 'pull',
@@ -335,7 +354,9 @@ def collect(args) -> int:
             row['status'] = 'blocked'
             row['limitation'] = failure
         for name in ('electron', 'chromium'):
-            row['environment'][name] = proof.get('versions', {}).get(name, 'not measured')
+            row['environment'][name] = proof.get('versions', {}).get(
+                'chrome' if name == 'chromium' else name, 'not measured',
+            )
     elif not failure:
         failure = 'Guest probe result missing'
         row['status'] = 'blocked'

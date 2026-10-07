@@ -37,8 +37,9 @@ def main():
         'desktop': {desktop: records.get(desktop, 'not installed')},
         'compositor': {compositor: records.get(compositor, 'not installed')},
         'session': os.environ.get('XDG_SESSION_TYPE', ''),
-        'portal': {name: version for name, version in records.items()
-                   if name.startswith('xdg-desktop-portal')},
+        'portal': ({name: version for name, version in records.items()
+                    if name.startswith('xdg-desktop-portal')}
+                   or {'implementation': 'absent (dpkg inventory)', 'qualified': False}),
         'gpu': command('lspci', '-nn'), 'driver': driver or ['No DRM device driver reported'],
         'electron': 'pending measured Electron probe',
         'chromium': 'pending measured Chromium probe',

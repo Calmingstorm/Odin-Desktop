@@ -169,6 +169,54 @@ acquisition and zero guest operations. Exact final blocker is
 
 ## Decisions and remaining work
 
+### Native interim handoff, 18:28 UTC (supersedes earlier lock blocker)
+
+Lab lock finally acquired at 18:03 UTC after coordination on #59; all VMs
+were stopped before admission. Every attempted guest was gracefully stopped,
+and the exact p36 lock was released at 18:28 UTC. No other lane's VM/lock touched.
+
+- **Cinnamon limited:** actual ordinary dpkg reinstall and packaged X11
+  rendering/security probe passed (`cinnamon-final-interim/probe.json`, PNG).
+  Ubuntu 24.04.5, kernel 6.8.0-146, Cinnamon 6.0.4/Muffin 6.0.1, Virtio GPU/Mesa
+  25.2.8, Electron 44.5.1/Chromium 152.0.7977.130, Python 3.12.15. Portal was
+  actually absent. Initial accounting blocked the empty portal inventory and
+  mislabeled Electron's `versions.chrome` key; these collector defects are fixed,
+  not counted as app failures. Later reinstallation hit boot-cleanup refusal.
+- **KDE limited:** actual normal dpkg reinstall and packaged **native Wayland**
+  security/rendering probe passed. Plasma 5.27.12/KWin 5.27.11, KDE portal 5.27.11,
+  same candidate/runtime/GPU family; exact environment/helpers/artifact hashes
+  in `kde/row.json`. No Orca, SNI tray, KWallet or native chooser claim.
+- **GNOME blocked:** initial session helper omitted Wayland display and distro
+  Node18 could not run the pinned Playwright. Reused reviewed session discovery
+  and copied the host Node22 binary as guest test tooling (not installed product)
+  corrected those harness prerequisites. Normal dpkg repeatedly refused running
+  lifetime/current-boot cleanup, including after normal Exit and guest reboots.
+  No lease deletion, acknowledgment, force install or fence bypass. Logs in
+  `gnome-next-boot/runner.log`; no renderer qualification claimed.
+- **Hyprland pending:** P3.5 #98 is still unmerged/native-blocked; no unrelated
+  candidate results imported.
+
+The machine matrix's `observed_row` pointers preserve complete immutable row
+records. Its main statuses stay conservative full-row acceptance statuses,
+with `observed_status=limited` where only rendering/security passed. The initial
+resource preflight correctly refused a temporary low-storage interval; after
+unrelated scratch settled, unchanged preflight admitted without floor changes.
+
+Additional isolated installed-package alternative: `interim-installed-sandbox`
+passed three manifest/scan/bundled-core/GUI lanes, including installed dpkg
+export, with identical manifests and fresh independent clean lifetime receipts.
+It uses the existing driver's **`dpkg --force-depends` private namespace fixture**,
+so it is not dependency-resolution/P4.2 upgrade acceptance. Ordinary guest dpkg
+installation is separately observed on Cinnamon/KDE. Neither closes final
+candidate/native lifecycle acceptance. Required complete rows still missing.
+
+Actual VM findings changed only the qualification harness: owned-session
+discovery, local Node22 tooling, guest pciutils, explicit absent-portal records,
+correct Chromium version key and bounded --exit settlement interval. Updated
+focused accounting tests passed 34/34. Previously recorded full gates predate
+these harness-only fixes; they are not represented as rerun final-harness gates.
+Final immutable candidate must still follow P3.5 merge; Phase 3 remains open.
+
 No extra owner approval/governor/allow-list or model instruction is introduced.
 No Aaron decision is needed to keep building/running interim evidence under the
 approved lab rules. If KDE native dialog accessibility or any required promised

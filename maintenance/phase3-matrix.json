@@ -13,7 +13,9 @@
   "rows": [
     {
       "row": "cinnamon", "status": "pending", "candidate": null, "environment": {}, "artifacts": [],
-      "limitation": "Ubuntu 24.04 Cinnamon/X11 fallback, not Mint or physical NVIDIA qualification. Await p36 lock.",
+      "observed_status": "limited",
+      "observed_row": "/mnt/storage/odin-desktop-evidence/p36-20261007/cinnamon-final-interim/row.json",
+      "limitation": "Actual packaged X11 renderer/security passed. Collector blocked empty portal inventory and chrome-key naming; probe.json has measured Chromium. Portal absent, not qualified. Later reinstall refused boot cleanup. Full row pending.",
       "cases": {
         "rendering": {"status": "pending"}, "keyboard_orca": {"status": "pending"},
         "renderer_security": {"status": "pending"}, "tray_no_tray": {"status": "pending"},
@@ -23,8 +25,9 @@
       }
     },
     {
-      "row": "gnome", "status": "pending", "candidate": null, "environment": {}, "artifacts": [],
-      "limitation": "GNOME 46 Wayland with no tray extension. Prior hash evidence cannot qualify this candidate.",
+      "row": "gnome", "status": "blocked", "candidate": null, "environment": {}, "artifacts": [],
+      "observed_row": "/mnt/storage/odin-desktop-evidence/p36-20261007/gnome-next-boot/row.json",
+      "limitation": "Actual normal dpkg reinstall refused running lease then current-boot cleanup across guest reboots/normal Exit. No fence bypass. Earlier Node18/session collector failures retained. No renderer qualification.",
       "cases": {
         "rendering": {"status": "pending"}, "keyboard_orca": {"status": "pending"},
         "renderer_security": {"status": "pending"}, "tray_no_tray": {"status": "pending"},
@@ -36,7 +39,9 @@
     },
     {
       "row": "kde", "status": "pending", "candidate": null, "environment": {}, "artifacts": [],
-      "limitation": "Plasma 5.27 Wayland; earlier Qt native-dialog AT-SPI blocker is not waived or toolkit-substituted.",
+      "observed_status": "limited",
+      "observed_row": "/mnt/storage/odin-desktop-evidence/p36-20261007/kde/row.json",
+      "limitation": "Actual ordinary dpkg reinstall/native Wayland packaged renderer security passed. Version/hash/artifact records in observed_row. Orca/SNI/KWallet/portal dialogs not run, full row pending. Earlier Qt AT-SPI blocker not waived.",
       "cases": {
         "rendering": {"status": "pending"}, "keyboard_orca": {"status": "pending"},
         "renderer_security": {"status": "pending"}, "tray_no_tray": {"status": "pending"},
