@@ -482,9 +482,14 @@ function run(): void {
     win.webContents.on('did-start-navigation', (_event, _url, _inPlace, mainFrame) => {
       if (mainFrame) notificationRouteReady = false
     })
-    win.once('ready-to-show', () => {
-      if (pendingOpen && !lifecycle.quitting) win?.show()
-    })
+    // A hidden window may never paint under Wayland, so ready-to-show can never fire (a fresh
+    // launch on GNOME showed nothing). Show it once the page has loaded if it has not painted
+    // yet; its background already matches the theme.
+    const showWhenReady = (): void => {
+      if (pendingOpen && !lifecycle.quitting && !win?.isVisible()) win?.show()
+    }
+    win.once('ready-to-show', showWhenReady)
+    win.webContents.once('did-finish-load', showWhenReady)
     win.webContents.on('render-process-gone', (_event, details) => {
       notificationRouteReady = false
       process.stderr.write(`renderer ended reason=${details.reason}; core remains supervised\n`)
