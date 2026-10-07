@@ -77,3 +77,11 @@ def test_stroke_requires_release_after_motion():
 def test_receiver_unknown_case_is_not_default_pass():
     with pytest.raises(ValueError, match="unknown_receiver_case"):
         qualification.receiver_effect([], "unmeasured")
+
+
+def test_durable_unknown_receipt_return_does_not_mean_replay():
+    receipt = {"status": "unknown", "execution": {"released": False}}
+    rows = [{"event": "button_down", "buttons": 1}]
+    assert qualification.original_unknown_no_replay(receipt, rows, list(rows))
+    assert not qualification.original_unknown_no_replay(receipt, rows, rows + [{"event": "stroke"}])
+    assert not qualification.original_unknown_no_replay({"status": "verified"}, rows, rows)

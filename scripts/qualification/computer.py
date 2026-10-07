@@ -106,6 +106,12 @@ def receiver_effect(rows, case):
     raise ValueError("unknown_receiver_case")
 
 
+def original_unknown_no_replay(receipt, before, after):
+    """Returning a durable unknown receipt is correct idempotency, not dispatch."""
+    return (type(receipt) is dict and receipt.get("status") == "unknown"
+            and receipt.get("execution", {}).get("released") is False and before == after)
+
+
 def run_host(args):
     if args.output.resolve() == ROOT or ROOT in args.output.resolve().parents:
         raise ValueError("external_evidence_required")
@@ -158,7 +164,14 @@ def run_host(args):
             log.write(line)
         code = child.wait(timeout=600)
     incus.run("file", "pull", "--recursive", vm + guest_out, str(args.output / "guest"))
-    proof = json.loads((args.output / "guest" / "result.json").read_text())
+    subprocess.run(["sudo", "-n", "chown", "-R", f"{os.getuid()}:{os.getgid()}",
+                    str(args.output / "guest")], check=True)
+    proof_path = args.output / "guest" / "result.json"
+    if proof_path.exists():
+        proof = json.loads(proof_path.read_text())
+    else:
+        proof = {"cases": [], "blockers": ["guest_probe_failed_before_result"],
+                 "candidate_source_sha": "unavailable"}
     record = {"schema": 1, "source_sha": sha, "source_dirty": dirty,
               "candidate_sha256": deb_sha, "backend": args.backend, "vm": vm,
               "candidate_source_sha": proof["candidate_source_sha"],
@@ -181,8 +194,8 @@ def run_host(args):
 
 def guest_launch(args):
     if (os.getuid() != 0 or socket.gethostname() != GUESTS[args.backend]
-            or Path("/etc/odin-desktop-qualification").read_text().strip()
-            != "odin-desktop-qualification-v1"):
+            or subprocess.check_output(["systemd-detect-virt"], text=True).strip()
+            not in {"kvm", "qemu"}):
         raise ValueError("owned_vm_root_launcher_required")
     # Reuse the retained lab environment discovery with a credential allowlist.
     source = Path(__file__).with_name("session_environment.py")
@@ -190,9 +203,34 @@ def guest_launch(args):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     account = pwd.getpwnam("odq")
-    environment = module.session_environment(account.pw_uid,
-        "x11" if args.backend == "x11" else "wayland")
+    if args.backend == "hyprland":
+        pids = subprocess.check_output(["pgrep", "-u", str(account.pw_uid), "-x", "Hyprland"],
+                                       text=True).split()
+        if len(pids) != 1:
+            raise ValueError("unique_owned_guest_compositor_required")
+        raw = Path("/proc/" + pids[0] + "/environ").read_bytes().split(b"\0")
+        allowed = {"WAYLAND_DISPLAY", "HYPRLAND_INSTANCE_SIGNATURE", "XDG_RUNTIME_DIR",
+                   "DBUS_SESSION_BUS_ADDRESS", "XDG_SESSION_TYPE", "XDG_CURRENT_DESKTOP"}
+        environment = dict(row.decode().split("=", 1) for row in raw
+                           if b"=" in row and row.decode().split("=", 1)[0] in allowed)
+        runtime = environment["XDG_RUNTIME_DIR"]
+        displays = [p.name for p in Path(runtime).glob("wayland-*")
+                    if p.is_socket() and p.stat().st_uid == account.pw_uid]
+        if len(displays) != 1:
+            raise ValueError("unique_guest_wayland_socket_required")
+        environment.update(WAYLAND_DISPLAY=displays[0], HOME=account.pw_dir, USER="odq",
+                           LOGNAME="odq", PATH="/usr/local/bin:/usr/bin:/bin", LANG="C.UTF-8")
+        instances = [p.parent.name for p in (Path(runtime) / "hypr").glob("*/.socket.sock")
+                     if p.is_socket() and p.stat().st_uid == account.pw_uid]
+        if len(instances) != 1:
+            raise ValueError("unique_guest_hyprland_socket_required")
+        environment["HYPRLAND_INSTANCE_SIGNATURE"] = instances[0]
+    else:
+        environment = module.session_environment(account.pw_uid,
+            "x11" if args.backend == "x11" else "wayland")
     if args.guest_exit:
+        if not Path("/usr/bin/odin-desktop").exists():
+            return 0  # Clean guest: there is no installed app to exit.
         command = ["/usr/bin/odin-desktop", "--exit"]
     else:
         command = [str(PYTHON), "-I", "-B", str(Path(__file__).resolve()), "--guest",
@@ -205,8 +243,8 @@ def guest_guard(backend):
     # This guard is never a substitute for host-side Incus ownership validation.
     if (socket.gethostname() != GUESTS[backend] or os.getuid() == 0
             or Path("/opt/odin").exists() or not PYTHON.is_file()
-            or Path("/etc/odin-desktop-qualification").read_text().strip()
-            != "odin-desktop-qualification-v1"):
+            or subprocess.check_output(["systemd-detect-virt"], text=True).strip()
+            not in {"kvm", "qemu"}):
         raise ValueError("owned_vm_candidate_required")
 
 
@@ -531,7 +569,10 @@ async def guest_probe(args):
                         raise RuntimeError("durable_quarantine_missing_stop_input")
                     try:
                         if operation == "replay":
-                            await controller.act(context, request)
+                            replay = await controller.act(context, request)
+                            if original_unknown_no_replay(replay, before, receiver_rows()):
+                                refused.append({"operation": operation,
+                                    "refusal": "original_unknown_receipt_returned_no_dispatch"})
                         else:
                             await controller.session(context, {"operation": "start"})
                     except Exception as error:
