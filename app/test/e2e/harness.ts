@@ -41,7 +41,9 @@ export function isolatedEnv(profile = 'default'): Record<string, string> {
   }
   Object.assign(env, { HOME: process.env.HOME!, ODIN_APP_E2E: '1', PYTHONNOUSERSITE: '1', PYTHONDONTWRITEBYTECODE: '1',
     XDG_CONFIG_HOME: join(root, 'config'), XDG_DATA_HOME: join(root, 'data'), XDG_CACHE_HOME: join(root, 'cache'),
-    XDG_RUNTIME_DIR: join(root, 'run') })
+    XDG_RUNTIME_DIR: join(root, 'run'),
+    // No workstation system bus: a tested app never takes the host's logind locks.
+    DBUS_SYSTEM_BUS_ADDRESS: `unix:path=${join(root, 'run', 'no-system-bus')}` })
   for (const key of ['XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME', 'XDG_RUNTIME_DIR']) mkdirSync(env[key]!, { recursive: true, mode: 0o700 })
   return env
 }

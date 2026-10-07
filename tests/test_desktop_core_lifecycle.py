@@ -75,6 +75,73 @@ async def test_parent_watch_failed_registration_retains_no_state():
     assert lifetime.admitting
 
 
+async def signalled_with_parent(monkeypatch, grace):
+    from src.desktop import lifecycle
+
+    monkeypatch.setattr(lifecycle, "PARENT_EXIT_GRACE_SECONDS", grace)
+    read_fd, write_fd = os.pipe()
+    lifetime = CoreLifetime()
+    lifetime.watch_parent(read_fd)
+    lifetime.watch_signals()
+    os.kill(os.getpid(), signal.SIGTERM)
+    await asyncio.sleep(0.05)
+    return lifetime, read_fd, write_fd
+
+
+@pytest.mark.asyncio
+async def test_stop_signal_with_live_parent_lets_its_shutdown_request_win(monkeypatch):
+    lifetime, read_fd, write_fd = await signalled_with_parent(monkeypatch, 0.2)
+    try:
+        assert lifetime.admitting
+        lifetime.request_stop("runtime.shutdown")
+        await asyncio.sleep(0.3)
+        assert lifetime.reason == "runtime.shutdown"
+    finally:
+        lifetime.close()
+        os.close(read_fd)
+        os.close(write_fd)
+
+
+@pytest.mark.asyncio
+async def test_stop_signal_with_silent_parent_stops_after_the_grace(monkeypatch):
+    lifetime, read_fd, write_fd = await signalled_with_parent(monkeypatch, 0.2)
+    try:
+        assert lifetime.admitting
+        await asyncio.wait_for(lifetime.wait(), 2)
+        assert lifetime.reason == "sigterm"
+    finally:
+        lifetime.close()
+        os.close(read_fd)
+        os.close(write_fd)
+
+
+@pytest.mark.asyncio
+async def test_parent_eof_during_the_grace_is_the_stop_edge(monkeypatch):
+    lifetime, read_fd, write_fd = await signalled_with_parent(monkeypatch, 5)
+    try:
+        os.close(write_fd)
+        write_fd = None
+        await asyncio.wait_for(lifetime.wait(), 1)
+        assert lifetime.reason == "parent_eof"
+    finally:
+        lifetime.close()
+        os.close(read_fd)
+        if write_fd is not None:
+            os.close(write_fd)
+
+
+@pytest.mark.asyncio
+async def test_stop_signal_without_parent_link_stops_at_once():
+    lifetime = CoreLifetime()
+    lifetime.watch_signals()
+    try:
+        os.kill(os.getpid(), signal.SIGTERM)
+        await asyncio.wait_for(lifetime.wait(), 1)
+        assert lifetime.reason == "sigterm"
+    finally:
+        lifetime.close()
+
+
 def profile(root):
     paths = ProfilePaths.from_xdg("test", environ={}, home=root)
     paths.create_private()

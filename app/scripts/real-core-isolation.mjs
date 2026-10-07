@@ -150,6 +150,8 @@ export function createIsolationLauncher({ process: host = process, files = fs, s
         PATH: `${dirname(host.execPath)}:/usr/local/bin:/usr/bin:/bin`, LANG: 'C.UTF-8', HOME: root,
         XDG_CONFIG_HOME: join(root, 'config'), XDG_DATA_HOME: join(root, 'data'),
         XDG_CACHE_HOME: join(root, 'cache'), XDG_RUNTIME_DIR: join(root, 'run'),
+        // No workstation system bus either: a tested app never takes the host's logind locks.
+        DBUS_SYSTEM_BUS_ADDRESS: `unix:path=${join(root, 'run', 'no-system-bus')}`,
         PYTHONDONTWRITEBYTECODE: '1', PYTHONNOUSERSITE: '1',
         ...env, ODIN_DESKTOP_ENGINE_PYTHON: python, ODIN_REAL_CORE_ROOT: root,
         ODIN_REAL_CORE_UID: String(uid), ODIN_REAL_CORE_GID: String(gid),
