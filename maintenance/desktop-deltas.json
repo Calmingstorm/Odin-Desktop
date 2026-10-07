@@ -34324,6 +34324,43 @@
       ]
     },
     {
+      "after_sha256": "99c09c72d7280ff6b34408a94b66c381cf8eb03a073955c8e2568c67c849aad7",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "docs/work/phase-3-app-v1.md P3.5 CC-18",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "No workstation input; receipts and mocks cannot qualify native support",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiT2ZmbGluZSBhZG1pc3Npb24vZXZpZGVuY2UgY2hlY2tzLCBuZXZlciBuYXRpdmUgcGxhdGZvcm0gcXVhbGlmaWNhdGlvbi4iIiIKaW1wb3J0IGltcG9ydGxpYi51dGlsCmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAoKaW1wb3J0IHB5dGVzdAoKUk9PVCA9IFBhdGgoX19maWxlX18pLnJlc29sdmUoKS5wYXJlbnRzWzFdCnNwZWMgPSBpbXBvcnRsaWIudXRpbC5zcGVjX2Zyb21fZmlsZV9sb2NhdGlvbigKICAgICJuYXRpdmVfcXVhbGlmaWNhdGlvbiIsIFJPT1QgLyAic2NyaXB0cy9xdWFsaWZpY2F0aW9uL2NvbXB1dGVyLnB5IikKcXVhbGlmaWNhdGlvbiA9IGltcG9ydGxpYi51dGlsLm1vZHVsZV9mcm9tX3NwZWMoc3BlYykKc3BlYy5sb2FkZXIuZXhlY19tb2R1bGUocXVhbGlmaWNhdGlvbikKCgpkZWYgdm0obmFtZT0ib2RxLWNpbm5hbW9uIiwgc3RhdHVzPSJSdW5uaW5nIiwgbWFya2VyPSJvZGluLWRlc2t0b3AtcXVhbGlmaWNhdGlvbi12MSIpOgogICAgcmV0dXJuIHsibmFtZSI6IG5hbWUsICJzdGF0dXMiOiBzdGF0dXMsICJ0eXBlIjogInZpcnR1YWwtbWFjaGluZSIsCiAgICAgICAgICAgICJjb25maWciOiB7InVzZXIub2RxLm93bmVyIjogbWFya2VyfX0KCgpkZWYgdGVzdF9leGNsdXNpdmVfb3duZWRfdm1fYW5kX2xhbmVfbG9jaygpOgogICAgcmVzdWx0ID0gcXVhbGlmaWNhdGlvbi52YWxpZGF0ZV9sYWIoW3ZtKCksIHZtKCJvZHEta2RlIiwgIlN0b3BwZWQiKV0sICJ4MTEiLCAicDM1IHRvZGF5IikKICAgIGFzc2VydCByZXN1bHQgPT0gIm9kcS1jaW5uYW1vbiIKCgpAcHl0ZXN0Lm1hcmsucGFyYW1ldHJpemUoInJvd3Msb3duZXIiLCBbCiAgICAoW3ZtKCldLCAicDM2IHRvZGF5IiksIChbdm0obWFya2VyPSJvdGhlciIpXSwgInAzNSB0b2RheSIpLAogICAgKFt2bSgpLCB2bSgib2RxLWdub21lIildLCAicDM1IHRvZGF5IiksIChbXSwgInAzNSB0b2RheSIpLAogICAgKFt2bSgib2RxLWdub21lIildLCAicDM1IHRvZGF5IiksIChbdm0oc3RhdHVzPSJTdG9wcGVkIildLCAicDM1IHRvZGF5IiksCiAgICAoW3ZtKHN0YXR1cz0iRnJvemVuIiksIHZtKCJvZHEtZ25vbWUiKV0sICJwMzUgdG9kYXkiKSwKXSkKZGVmIHRlc3Rfd3Jvbmdfb3duZXJfb3Jfbm9uZXhjbHVzaXZlX2d1ZXN0X3JlZnVzZXMocm93cywgb3duZXIpOgogICAgd2l0aCBweXRlc3QucmFpc2VzKFZhbHVlRXJyb3IpOgogICAgICAgIHF1YWxpZmljYXRpb24udmFsaWRhdGVfbGFiKHJvd3MsICJ4MTEiLCBvd25lcikKCgpkZWYgdGVzdF9yZWNlaXB0c19hbmRfaGVhZGxlc3NfcmVncmVzc2lvbnNfbmV2ZXJfbmF0aXZlX3Byb29mKCk6CiAgICByb3dzID0gW3siY2FzZSI6ICJ0ZXh0IiwgInBhc3NlZCI6IFRydWUsICJldmlkZW5jZV9raW5kIjogInJlY2VpcHQifV0KICAgIGFzc2VydCBxdWFsaWZpY2F0aW9uLmNsYXNzaWZ5KHJvd3MsIFtdKSA9PSAiYmxvY2tlZCIKICAgIHJvd3NbMF1bImV2aWRlbmNlX2tpbmQiXSA9ICJyZWNlaXZlcl9wbGF0Zm9ybSIKICAgIGFzc2VydCBxdWFsaWZpY2F0aW9uLmNsYXNzaWZ5KHJvd3MsIFtdKSA9PSAibGltaXRlZCIKICAgIGFzc2VydCBxdWFsaWZpY2F0aW9uLmNsYXNzaWZ5KHJvd3MsIFsidW5rbm93bl9yZWxlYXNlIl0pID09ICJsaW1pdGVkIgogICAgYXNzZXJ0IHF1YWxpZmljYXRpb24uY2xhc3NpZnkoW10sIFtdKSA9PSAiYmxvY2tlZCIKCgpkZWYgdGVzdF9mdWxsX3JlY2VpdmVyX3BsYXRmb3JtX2NvcnB1c19yZXF1aXJlZCgpOgogICAgbmFtZXMgPSAoInRhcmdldF9jYXB0dXJlIHRleHQga2V5IHN0cm9rZSBzdGFsZV9vYnNlcnZhdGlvbiBzdGFsZV9nZW5lcmF0aW9uICIKICAgICAgICAgICAgICJmb2N1c19nZW9tZXRyeV9tb2RhbCBwYXVzZSBjYW5jZWwgZXhpdCBjb250cm9sbGVyX2xvc3MgZ3VhcmRpYW5fbG9zcyAiCiAgICAgICAgICAgICAicmV0aXJlbWVudF9yZWNvdmVyeSByZXN0YXJ0X3F1YXJhbnRpbmUgaGVscGVyX2Rpc2NvdmVyeSBhYmlfcmVmdXNhbCIpLnNwbGl0KCkKICAgIHJvd3MgPSBbeyJjYXNlIjogbmFtZSwgInBhc3NlZCI6IFRydWUsICJldmlkZW5jZV9raW5kIjogInJlY2VpdmVyX3BsYXRmb3JtIn0gZm9yIG5hbWUgaW4gbmFtZXNdCiAgICBhc3NlcnQgcXVhbGlmaWNhdGlvbi5jbGFzc2lmeShyb3dzLCBbXSkgPT0gInByb3ZlbiIKICAgIGFzc2VydCBxdWFsaWZpY2F0aW9uLmNsYXNzaWZ5KHJvd3MsIFsibWlzc2luZ19jYW5kaWRhdGVfcGx1Z2luIl0pID09ICJsaW1pdGVkIgogICAgcm93c1stMV1bInBhc3NlZCJdID0gRmFsc2UKICAgIGFzc2VydCBxdWFsaWZpY2F0aW9uLmNsYXNzaWZ5KHJvd3MsIFtdKSA9PSAibGltaXRlZCIKCgpkZWYgdGVzdF9oYXNoX3N0cmVhbXNfYXJ0aWZhY3RfYnl0ZXModG1wX3BhdGgpOgogICAgaW1wb3J0IGhhc2hsaWIKICAgIHBhdGggPSB0bXBfcGF0aCAvICJjYW5kaWRhdGUuZGViIgogICAgcGF0aC53cml0ZV9ieXRlcyhiInF1YWxpZmljYXRpb24gYXJ0aWZhY3QiICogMTAwMDAwKQogICAgYXNzZXJ0IHF1YWxpZmljYXRpb24uZGlnZXN0KHBhdGgpID09IGhhc2hsaWIuc2hhMjU2KHBhdGgucmVhZF9ieXRlcygpKS5oZXhkaWdlc3QoKQo=",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/test_desktop_native_qualification.py",
+      "reason": "P3.5 isolated candidate qualification admission and evidence classification",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/test_desktop_native_qualification.py": "99c09c72d7280ff6b34408a94b66c381cf8eb03a073955c8e2568c67c849aad7"
+      },
+      "tests": [
+        "tests/test_desktop_native_qualification.py"
+      ]
+    },
+    {
       "after_sha256": "3c829d7ff6203783849e262c45b2d0d693a0426f7737c6dfdcf0a149f59d4eb1",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
