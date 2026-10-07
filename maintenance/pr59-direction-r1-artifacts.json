@@ -1,0 +1,14 @@
+{
+  "schema": "external-evidence-manifest-v1",
+  "request": "req-9133fdf1",
+  "native_evidence_root": "/mnt/storage/odin-desktop-evidence/pr59-direction-req9133",
+  "sha256_manifest": "/mnt/storage/odin-desktop-evidence/pr59-direction-req9133/SHA256SUMS",
+  "sha256_manifest_sha256": "d71467b7502cb9a6ed0fad376f9fdfe3bf1ae1b31d3c5145fd3e3dd3b78ce7d7",
+  "artifact_count": 69,
+  "note": "Each raw file path and SHA256 is recorded in the verified external manifest. Original failures and interim ledger reports retained; final ledger report has zero errors. No oversized raw evidence committed.",
+  "package_evidence_root": "/mnt/storage/odin-desktop-evidence/pr59-packaging-direction-req9133",
+  "initial_corrected_qualification": "/mnt/storage/odin-desktop-evidence/pr59-packaging-direction-req9133/qualification/qualification.json",
+  "initial_corrected_qualification_sha256": "ae8c6b2a0379f984667fefa0363c7677dca12ef905c7e6cdd1e290792f55d9c1",
+  "verdict": "OPEN",
+  "limits": "Initial isolated package pass does not supersede the later native postinst directory-mode failure. D12 policy and native notification click-through remain unqualified."
+}
