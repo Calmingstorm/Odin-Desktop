@@ -88,7 +88,7 @@ retain cleanup receipts. Keep these unchecked until a tester follows them:
   and [Chat/results](../user/chat-and-results.md). Read original-owner controls,
   paged stored reports and retained output; suspend/wake for one catch-up reminder
   and no automatic missed check/workflow, then Exit and verify no local scheduling.
-- [ ] **Keyboard/Orca/privacy:** follow [Accessibility](../user/accessibility.md)
+- [ ] **Keyboard/privacy** (Orca optional, Decision G): follow [Accessibility](../user/accessibility.md)
   with harmless content, native Attach/Save, notification preview settings and
   explicit destinations. Raven evidence is Cinnamon 7/7, GNOME 7/7, KDE 6/7;
   KDE chooser accessibility still needs Aaron's disposition, not a silent pass.
