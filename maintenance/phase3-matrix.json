@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "scope": "P3.6 isolated x86-64 D11 qualification, not release or live acceptance",
+  "final_run": false,
+  "candidate": {
+    "source_sha": "243a613a00cb1751357648915dc1881b773f189b",
+    "package_sha256": "31e7baee6779f77ca2d696d0f2b097ad1da655195d93bcede28a617eb538ca5c",
+    "package_bytes": 342198876,
+    "format": "deb",
+    "architecture": "x86-64"
+  },
+  "artifact_root": "/mnt/storage/odin-desktop-evidence/p36-20261007",
+  "rows": [
+    {
+      "row": "cinnamon", "status": "pending", "candidate": null, "environment": {}, "artifacts": [],
+      "observed_status": "limited",
+      "observed_row": "/mnt/storage/odin-desktop-evidence/p36-20261007/cinnamon-final-interim/row.json",
+      "limitation": "Actual packaged X11 renderer/security passed. Collector blocked empty portal inventory and chrome-key naming; probe.json has measured Chromium. Portal absent, not qualified. Later reinstall refused boot cleanup. Full row pending.",
+      "cases": {
+        "rendering": {"status": "pending"}, "keyboard_orca": {"status": "pending"},
+        "renderer_security": {"status": "pending"}, "tray_no_tray": {"status": "pending"},
+        "notifications": {"status": "pending"}, "startup_exit_parent_loss": {"status": "pending"},
+        "content_paging": {"status": "pending"}, "focus_resize_scaling_recovery": {"status": "pending"},
+        "native_dialogs": {"status": "pending"}, "computer": {"status": "pending"}
+      }
+    },
+    {
+      "row": "gnome", "status": "blocked", "candidate": null, "environment": {}, "artifacts": [],
+      "observed_row": "/mnt/storage/odin-desktop-evidence/p36-20261007/gnome-next-boot/row.json",
+      "limitation": "Actual normal dpkg reinstall refused running lease then current-boot cleanup across guest reboots/normal Exit. No fence bypass. Earlier Node18/session collector failures retained. No renderer qualification.",
+      "cases": {
+        "rendering": {"status": "pending"}, "keyboard_orca": {"status": "pending"},
+        "renderer_security": {"status": "pending"}, "tray_no_tray": {"status": "pending"},
+        "notifications": {"status": "pending"}, "startup_exit_parent_loss": {"status": "pending"},
+        "content_paging": {"status": "pending"}, "focus_resize_scaling_recovery": {"status": "pending"},
+        "native_dialogs": {"status": "pending"}, "computer": {"status": "pending"},
+        "no_tray_reopen_exit": {"status": "pending"}
+      }
+    },
+    {
+      "row": "kde", "status": "pending", "candidate": null, "environment": {}, "artifacts": [],
+      "observed_status": "limited",
+      "observed_row": "/mnt/storage/odin-desktop-evidence/p36-20261007/kde/row.json",
+      "limitation": "Actual ordinary dpkg reinstall/native Wayland packaged renderer security passed. Version/hash/artifact records in observed_row. Orca/SNI/KWallet/portal dialogs not run, full row pending. Earlier Qt AT-SPI blocker not waived.",
+      "cases": {
+        "rendering": {"status": "pending"}, "keyboard_orca": {"status": "pending"},
+        "renderer_security": {"status": "pending"}, "tray_no_tray": {"status": "pending"},
+        "notifications": {"status": "pending"}, "startup_exit_parent_loss": {"status": "pending"},
+        "content_paging": {"status": "pending"}, "focus_resize_scaling_recovery": {"status": "pending"},
+        "native_dialogs": {"status": "pending"}, "computer": {"status": "pending"},
+        "sni_tray": {"status": "pending"}, "kwallet_secret_service": {"status": "pending"},
+        "portal_dialogs": {"status": "pending"}
+      }
+    },
+    {
+      "row": "hyprland", "status": "pending", "candidate": null, "environment": {}, "artifacts": [],
+      "limitation": "Ubuntu 26.04, Hyprland 0.53.3 lab. Await P3.5 identical-candidate evidence; not app desktop coverage.",
+      "cases": {
+        "safe_targets": {"status": "pending"}, "recovery_containment": {"status": "pending"},
+        "packaged_helpers": {"status": "pending"}, "computer": {"status": "pending"}
+      }
+    }
+  ],
+  "gates": {
+    "ui_parity": {"status": "in_progress", "evidence": ["maintenance/p31-slice6-validation.md", "maintenance/phase3-accessibility.md"], "detail": "Merged real-core/UI slices, not complete native UI parity or final candidate evidence."},
+    "p31": {"status": "in_progress", "evidence": ["maintenance/p31-slice6-validation.md", "maintenance/p31-slice5-validation.md"], "detail": "Merged source integration slices; full step 7/native acceptance remains open."},
+    "p32": {"status": "done", "evidence": ["maintenance/p32-onboarding-validation.md"], "detail": "Merged source real-core first-run-to-ready/retry contracts, not current package keyring acceptance."},
+    "p33": {"status": "in_progress", "evidence": ["maintenance/phase3-lifecycle.md", "https://github.com/Calmingstorm/Odin-Desktop/pull/59"], "detail": "Native final packaged lifecycle in progress. #89/#94/#95 merged, previous candidate evidence is not reused."},
+    "p34": {"status": "in_progress", "evidence": ["maintenance/phase3-orca-runner.md", "maintenance/phase3-accessibility.md", "docs/work/phase-3-app-v1.md#decision-g-screen-reader-support-is-not-a-v1-requirement"], "detail": "Decision G: Orca/AT-SPI no longer blocks any gate. Existing evidence retained. Required keyboard-only current-candidate native coverage still incomplete."},
+    "p35": {"status": "blocked", "evidence": ["https://github.com/Calmingstorm/Odin-Desktop/pull/98", "/mnt/storage/odin-desktop-evidence/p35-20261007/native-backend-summary.json"], "detail": "Other candidate actual X11 subset limited; GNOME scope absent, KDE/Hyprland exact ABI plugins absent/refused. No mixed-candidate reuse. Full native gate unresolved; PR98 unmerged."},
+    "p42": {"status": "in_progress", "evidence": ["maintenance/phase4-packaging.md", "https://github.com/Calmingstorm/Odin-Desktop/pull/89"], "detail": "13 earlier actual package ownership rows passed; boot-scoped fence corrected in #89. Current candidate ownership/upgrade and lifecycle rerun pending."},
+    "phase2_suites": {"status": "done", "evidence": ["maintenance/phase2-suite-map.json", "maintenance/phase2-step8-part6-cases.json", "/mnt/storage/odin-desktop-evidence/p36-20261007/phase2-closure-inventory.json"], "detail": "326 dispositions: 99 restored, 77 retired, 150 named deferrals under Aaron decision 3 (2026-10-06). Zero missing final dispositions. This does not claim deferred suites passed."},
+    "d19": {"status": "done", "evidence": ["maintenance/phase2-d19-closure.json", "/mnt/storage/odin-desktop-evidence/p36-20261007/d19-inventory.json"], "detail": "Actual section-4 inventory is 50 rows, not 52: 19 removed/restored, 23 internal unreachable, 8 Aaron-approved behavioral; zero open wording rows."},
+    "runtime_fresh_host": {"status": "in_progress", "evidence": ["maintenance/fresh-profile-parity.json", "maintenance/step8-fresh-profile-parity.md", "maintenance/phase4-packaging.md"], "detail": "Static fresh-profile parity valid and dynamic extraction contracts exist. Not current-candidate fresh-host native/helper/runtime acceptance."},
+    "final_candidate": {"status": "blocked", "evidence": ["/home/odin/reviews/desktop-p36-matrix.md", "https://github.com/Calmingstorm/Odin-Desktop/pull/59"], "detail": "Interim harness candidate only. P3.5 not merged; final one-candidate all-row run must follow that merge and packaged P4.2 rerun."}
+  }
+}

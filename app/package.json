@@ -12,6 +12,7 @@
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && vue-tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
+    "test:native-guards": "node --test scripts/native-p33-display.test.mjs",
     "check": "npm run typecheck && npm test && npm run build",
     "smoke": "electron-vite build && node scripts/smoke.mjs",
     "test:real-core": "node scripts/real-core-test.mjs && npm run test:onboarding",

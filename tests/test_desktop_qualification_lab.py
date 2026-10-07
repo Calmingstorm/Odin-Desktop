@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import copy
+import fcntl
 import hashlib
 import importlib.util
 import json
+import os
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,6 +21,7 @@ SPEC = importlib.util.spec_from_file_location(
 lab = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(lab)
 REAL_STORAGE_USAGE = lab.storage_usage
+REAL_GUEST_USAGE = lab.guest_usage
 
 
 def instance(name="odq-gnome", status="Stopped"):
@@ -66,7 +69,7 @@ class FakeIncus:
         if args[0] == "init":
             self.items.append(instance(args[2]))
         elif args[0] == "start":
-            self.items[0]["status"] = "Running"
+            lab.find(self.items, args[1])["status"] = "Running"
         elif args == ("exec", "odq-gnome", "--", "systemctl", "poweroff", "--no-block"):
             self.items[0]["status"] = "Stopped"
         return ""
@@ -81,6 +84,8 @@ def simulated_host_storage(monkeypatch, tmp_path):
     # Never inspect real storage during orchestration tests. Dedicated tests
     # exercise the measurement helper with subprocess and statvfs stubs.
     monkeypatch.setattr(lab, "storage_usage", lambda: (20 * lab.GIB, 200 * lab.GIB))
+    # An empty guest reserves its whole 40 GiB growth plus the 10 GiB reserve.
+    monkeypatch.setattr(lab, "guest_usage", lambda name: 0)
     # The PID namespace does not isolate /tmp. Tests must not contend with a
     # real provisioning operation or with another independent test checkout.
     monkeypatch.setattr(lab, "LOCK_PATH", str(tmp_path / "lab.lock"))
@@ -105,18 +110,19 @@ def test_55_gib_pool_allows_one_disk_not_four_and_preserves_bots():
     assert api.items == [{"name": "bots", "type": "container", "status": "Stopped"}]
 
 
-@pytest.mark.parametrize("used", [0, 20, 50])
+@pytest.mark.parametrize("used", [0, 20, 100])
 def test_budget_and_floor_exact_boundaries_allow_thin_disks(monkeypatch, used):
     api = FakeIncus()
-    api.available = 150 * lab.GIB  # dir resources are the shared filesystem
+    api.available = 50 * lab.GIB  # dir resources are the shared filesystem
     api.items = [instance(name) for name in lab.NAMES]
-    monkeypatch.setattr(lab, "storage_usage",
-                        lambda: (used * lab.GIB, (150 - used) * lab.GIB))
+    monkeypatch.setattr(lab, "storage_usage", lambda: (used * lab.GIB, 100 * lab.GIB))
     check = lab.preflight(api, creating=True)
     assert check["allocated_bytes"] == used * lab.GIB
     assert check["required_bytes"] == 50 * lab.GIB
-    assert check["filesystem_required_bytes"] == (150 - used) * lab.GIB
-    assert check["budget_bytes"] == 100 * lab.GIB
+    assert check["reserved_bytes"] == {"new": 50 * lab.GIB}
+    assert check["filesystem_required_bytes"] == 100 * lab.GIB
+    assert check["budget_bytes"] == 150 * lab.GIB
+    assert check["max_running_vms"] == 2
     assert all("/storage-pools/default" not in str(call) for call in api.calls)
 
 
@@ -130,16 +136,15 @@ def test_all_storage_consuming_operations_gate_before_writes(
                  [instance(status="Running" if operation in ("provision", "smoke")
                            else "Stopped")])
     if failure == "budget":
-        monkeypatch.setattr(lab, "storage_usage", lambda: (50 * lab.GIB + 1, 200 * lab.GIB))
-        message = "100 GiB aggregate budget"
+        monkeypatch.setattr(lab, "storage_usage", lambda: (100 * lab.GIB + 1, 200 * lab.GIB))
+        message = "150 GiB aggregate budget"
     elif failure == "floor":
-        # 100 GiB free would fit one guest+reserve+floor, but not the complete
-        # remaining 80 GiB pool budget. Keep that backing space protected too.
-        monkeypatch.setattr(lab, "storage_usage", lambda: (20 * lab.GIB, 100 * lab.GIB))
+        # One byte short of the floor after this guest's 40 GiB growth + reserve.
+        monkeypatch.setattr(lab, "storage_usage", lambda: (20 * lab.GIB, 100 * lab.GIB - 1))
         message = "50 GiB filesystem floor"
     else:
         api.available = 50 * lab.GIB - 1
-        message = "one thin 40 GiB disk"
+        message = "guest growth"
     target = tmp_path / "evidence"
     with pytest.raises(lab.LabError, match=message):
         if operation == "snapshot":
@@ -223,6 +228,37 @@ def test_storage_source_symlink_refuses_measurement(tmp_path, monkeypatch):
         REAL_STORAGE_USAGE()
 
 
+def test_guest_measurement_counts_only_the_owned_guest_directory(tmp_path, monkeypatch):
+    monkeypatch.setattr(lab, "POOL_SOURCE", tmp_path / "odq-lab")
+    calls = []
+    def execute(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return SimpleNamespace(returncode=0, stdout=f"4096\t{argv[-1]}\n", stderr="")
+    monkeypatch.setattr(lab.subprocess, "run", execute)
+    assert REAL_GUEST_USAGE("odq-kde") == 4096
+    assert calls[0][0] == ["sudo", "-n", "du", "-s", "-B1", "--",
+                           str(tmp_path / "odq-lab/virtual-machines/odq-kde")]
+    assert calls[0][1]["stdin"] == subprocess.DEVNULL
+    assert calls[0][1]["timeout"] == 60
+
+
+@pytest.mark.parametrize("name", ["bots", "../odq-kde", "odq-kde/../../etc", ""])
+def test_guest_measurement_refuses_names_outside_the_lab(monkeypatch, name):
+    monkeypatch.setattr(lab.subprocess, "run", lambda *a, **k: pytest.fail("no du"))
+    with pytest.raises(lab.LabError, match="Unknown lab VM name"):
+        REAL_GUEST_USAGE(name)
+
+
+@pytest.mark.parametrize("output,returncode", [("", 0), ("invalid", 0), ("-1", 0),
+                                               ("12345", 1)])
+def test_failed_or_invalid_guest_du_is_not_zero_usage(monkeypatch, output, returncode):
+    monkeypatch.setattr(lab.subprocess, "run", lambda *a, **k: SimpleNamespace(
+        returncode=returncode, stdout=output, stderr="cannot access",
+    ))
+    with pytest.raises(lab.LabError):
+        REAL_GUEST_USAGE("odq-kde")
+
+
 def test_snapshots_require_explicit_cli_opt_in():
     with pytest.raises(SystemExit):
         lab.main(["snapshot", "odq-gnome"])
@@ -253,24 +289,106 @@ def test_cli_preflight_reports_storage_policy_without_writes(monkeypatch, capsys
     assert lab.main(["preflight"]) == 0
     check = json.loads(capsys.readouterr().out)
     assert check["pool"] == "odq-lab"
-    assert check["budget_bytes"] == 100 * lab.GIB
+    assert check["budget_bytes"] == 150 * lab.GIB
     assert check["filesystem_floor_bytes"] == 50 * lab.GIB
     assert not writes(api)
 
 
 @pytest.mark.parametrize("status", ["Running", "Starting", "Frozen", "Error"])
-def test_any_other_nonstopped_vm_prevents_boot(status):
+def test_one_other_nonstopped_vm_allows_a_second_boot(status):
     api = FakeIncus()
     api.items = [instance(), instance("odq-kde", status)]
-    with pytest.raises(lab.LabError, match="Another VM"):
+    lab.start(api, "odq-gnome")
+    assert writes(api) == [("start", "odq-gnome"), ("exec", "odq-gnome", "--", "/bin/true")]
+    assert lab.find(api.items, "odq-kde")["status"] == status
+
+
+@pytest.mark.parametrize("status", ["Running", "Starting", "Frozen", "Error"])
+def test_two_other_nonstopped_vms_prevent_a_third_boot(status):
+    api = FakeIncus()
+    api.items = [instance(), instance("odq-kde", status), instance("odq-cinnamon", "Running")]
+    with pytest.raises(lab.LabError, match="2 other VMs are not stopped"):
         lab.start(api, "odq-gnome")
     assert not writes(api)
 
 
-def test_external_vm_also_blocks_boot():
+@pytest.mark.parametrize("operation", ["create", "snapshot", "provision", "smoke"])
+def test_two_running_vms_also_block_other_storage_operations(tmp_path, operation):
+    api = FakeIncus()
+    target = "odq-hyprland"
+    api.items = [instance("odq-kde", "Running"), instance("odq-cinnamon", "Running")]
+    if operation != "create":
+        status = "Running" if operation in ("provision", "smoke") else "Stopped"
+        api.items.append(instance(target, status))
+    with pytest.raises(lab.LabError, match="other VMs are not stopped"):
+        if operation == "snapshot":
+            lab.snapshot(api, target, "configured")
+        elif operation == "smoke":
+            lab.smoke(api, target, tmp_path / "evidence")
+        else:
+            getattr(lab, operation)(api, target)
+    assert not writes(api)
+
+
+@pytest.mark.parametrize("operation", ["create", "start", "snapshot"])
+def test_running_vm_outside_the_lab_blocks_lab_operations(operation):
     api = FakeIncus()
     api.items = [instance(), {"name": "other", "type": "virtual-machine", "status": "Running"}]
-    with pytest.raises(lab.LabError, match="Another VM"):
+    with pytest.raises(lab.LabError, match="VM outside the lab is not stopped: other"):
+        if operation == "snapshot":
+            lab.snapshot(api, "odq-gnome", "configured")
+        else:
+            getattr(lab, operation)(api, "odq-kde" if operation == "create" else "odq-gnome")
+    assert not writes(api)
+
+
+def test_running_container_in_the_lab_pool_blocks_lab_operations():
+    api = FakeIncus()
+    container = {"name": "odq-p42-packages", "type": "container", "status": "Running",
+                 "expanded_devices": {"root": {"type": "disk", "path": "/", "pool": lab.POOL}}}
+    api.items = [instance(), container]
+    with pytest.raises(lab.LabError, match="Container odq-p42-packages in the lab pool"):
+        lab.start(api, "odq-gnome")
+    assert not writes(api)
+    # A container on another pool does not draw on the lab pool or its floor.
+    container["expanded_devices"]["root"]["pool"] = "default"
+    lab.start(api, "odq-gnome")
+    assert ("start", "odq-gnome") in writes(api)
+
+
+def test_running_guests_reserve_their_remaining_growth(monkeypatch):
+    api = FakeIncus()
+    api.items = [instance(), instance("odq-kde", "Running")]
+    usage = {"odq-gnome": 12 * lab.GIB, "odq-kde": 15 * lab.GIB}
+    monkeypatch.setattr(lab, "guest_usage", usage.__getitem__)
+    check = lab.preflight(api, name="odq-gnome")
+    # Each guest can still grow to its 40 GiB cap, plus the 10 GiB reserve.
+    assert check["reserved_bytes"] == {"odq-kde": 35 * lab.GIB, "odq-gnome": 38 * lab.GIB}
+    assert check["required_bytes"] == 73 * lab.GIB
+    assert check["filesystem_required_bytes"] == 123 * lab.GIB
+
+
+def test_guest_at_its_cap_reserves_only_the_overhead(monkeypatch):
+    api = FakeIncus()
+    api.items = [instance()]
+    monkeypatch.setattr(lab, "guest_usage", lambda name: 41 * lab.GIB)
+    assert lab.preflight(api, name="odq-gnome")["required_bytes"] == 10 * lab.GIB
+
+
+@pytest.mark.parametrize("failure", ["budget", "floor"])
+def test_second_guest_is_refused_when_both_guests_growth_does_not_fit(monkeypatch, failure):
+    api = FakeIncus()
+    api.items = [instance(), instance("odq-kde")]
+    monkeypatch.setattr(lab, "guest_usage", lambda name: 15 * lab.GIB)
+    # Alone, odq-gnome needs 35 GiB; with odq-kde running, both need 70 GiB.
+    if failure == "budget":
+        storage, message = (80 * lab.GIB + 1, 200 * lab.GIB), "aggregate budget"
+    else:
+        storage, message = (20 * lab.GIB, 120 * lab.GIB - 1), "filesystem floor"
+    monkeypatch.setattr(lab, "storage_usage", lambda: storage)
+    assert lab.preflight(api, name="odq-gnome")["required_bytes"] == 35 * lab.GIB
+    lab.find(api.items, "odq-kde")["status"] = "Running"
+    with pytest.raises(lab.LabError, match=message):
         lab.start(api, "odq-gnome")
     assert not writes(api)
 
@@ -787,6 +905,7 @@ def test_creation_and_smoke_require_owned_names_and_running_state(tmp_path):
 
 
 def test_lock_rejects_symlink_and_concurrent_command(tmp_path, monkeypatch):
+    monkeypatch.setattr(lab, "LOCK_WAIT_SECONDS", 0)
     original_open = lab.os.open
     lock = tmp_path / "lab.lock"
     monkeypatch.setattr(lab.os, "open", lambda _, flags, mode: original_open(lock, flags, mode))
@@ -799,6 +918,37 @@ def test_lock_rejects_symlink_and_concurrent_command(tmp_path, monkeypatch):
     with pytest.raises(OSError):
         with lab.mutation_lock():
             pytest.fail("a symlink lock should not execute")
+
+
+def test_lock_waits_for_the_other_command_then_runs(tmp_path, monkeypatch):
+    holder = os.open(lab.LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o600)
+    fcntl.flock(holder, fcntl.LOCK_EX)
+    sleeps = []
+    def sleep(seconds):
+        sleeps.append(seconds)
+        os.close(holder)  # the other lane's command finishes
+    monkeypatch.setattr(lab, "time", SimpleNamespace(monotonic=lambda: 0, sleep=sleep))
+    ran = []
+    with lab.mutation_lock():
+        ran.append(True)
+    assert ran == [True]
+    assert sleeps == [2]
+
+
+def test_lock_wait_is_bounded(tmp_path, monkeypatch):
+    holder = os.open(lab.LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o600)
+    fcntl.flock(holder, fcntl.LOCK_EX)
+    times = iter((0, 0, 600, 900))
+    sleeps = []
+    monkeypatch.setattr(lab, "time", SimpleNamespace(monotonic=lambda: next(times),
+                                                     sleep=sleeps.append))
+    try:
+        with pytest.raises(lab.LabError, match="Another lab command is active after 900s"):
+            with lab.mutation_lock():
+                pytest.fail("the lock is still held")
+    finally:
+        os.close(holder)
+    assert sleeps == [2, 2]
 
 
 def test_stop_already_stopped_guest_is_read_only():

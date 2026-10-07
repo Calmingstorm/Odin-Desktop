@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "final2_manifest": {
+    "path": "/mnt/storage/odin-desktop-evidence/p36-20261007/artifact-manifest-final2.json",
+    "sha256": "eb62016c878ad124fe89fc086eadff987621cfe691477d3748e5f090861d49bd",
+    "bytes": 40546,
+    "artifacts": 187
+  },
+  "native_manifest": {
+    "path": "/mnt/storage/odin-desktop-evidence/p36-20261007/artifact-manifest-native.json",
+    "sha256": "ddcf34207bd0e51d1d8eea79a0d4b4d398e70aec6d7703425246625c4a50d378",
+    "bytes": 29266,
+    "artifacts": 136
+  },
+  "followup_manifest": {
+    "path": "/mnt/storage/odin-desktop-evidence/p36-20261007/artifact-manifest-followup.json",
+    "sha256": "93819968e8e92e269b0995a9e9294d10070ab17625ea75a06fcb0b40763c2d22",
+    "bytes": 17261,
+    "artifacts": 79
+  },
+  "manifest": {
+    "path": "/mnt/storage/odin-desktop-evidence/p36-20261007/artifact-manifest.json",
+    "sha256": "e1c53ba60439a30f3b51aaed717584696a9439b18fe5c02d29eb9352d243f0ce",
+    "bytes": 14982,
+    "artifacts": 69
+  },
+  "key_artifacts": [
+    {"path": "full-qualification.log", "sha256": "7924c65c3c9659f2ff77b5ae6dc32f069076883860268f3c5f28be5e8cbcbe84"},
+    {"path": "full-app-check.log", "sha256": "fa7a3f17c18d698b21c1b92f395192649a0bda55d40434d186225a42821bb46e"},
+    {"path": "real-core.log", "sha256": "30ba49fd634f5e732f39bbbfd329d6dee2d3c8207c81b3e17947ec0405946d4f"},
+    {"path": "final-renderer.log", "sha256": "c5c34a60724fb62d8e58d5beb9c35bc14bb26b8ea69950768cd565c0554338c6"},
+    {"path": "lab-fixtures.log", "sha256": "d23e4c2e6b626ccc1d737462bdc54d174910a17ee418b925ae3733624fc48a71"},
+    {"path": "phase2-closure-inventory.json", "sha256": "c5216cd7af4a9dbea50965d3a478832500ae6912fae784a886f5eb5ec292020d"},
+    {"path": "lab-wait-receipt.json", "sha256": "444a2f7fdd38244ca5ab84d4e42decdaceb87c7dd70053e0d185c56bc801a3d5"}
+  ],
+  "qualification_junit": {"tests": 19316, "passed": 19313, "failures": 0, "errors": 0, "skipped": 3},
+  "scope": "Source gates and interim candidate bytes. No D11 native row run. No release qualification."
+}

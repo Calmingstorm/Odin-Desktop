@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "source": "cd52a8e2b055a9c4abc051a49566b9daf3e1bd79",
+  "disposition": "partial; sealed candidate qualification failed; full corpus unfinished with observed failures",
+  "external_artifact_manifest": {
+    "path": "/mnt/storage/odin-desktop-evidence/lane7-p33-native-20261006/build-artifacts-final.json",
+    "bytes": 12115,
+    "sha256": "41e37ca07e479e5e912755db6f3492668f23fb7059b5cf86c077c7cb773101cb",
+    "artifacts": 50
+  },
+  "candidate_paths": {
+    "deb": "/mnt/storage/odin-desktop-evidence/lane7-p33-native-20261006/candidates/odin-desktop-0.1.0-candidate-amd64.deb",
+    "appimage": "/mnt/storage/odin-desktop-evidence/lane7-p33-native-20261006/candidates/odin-desktop-0.1.0-candidate-x86_64.AppImage"
+  },
+  "candidate_sha256": {
+    "deb": "b43517d5b224501ca275f7bfa963673743a4e568c23fdfe38d22e0b8675b44d2",
+    "appimage": "3205d674fd7f3b0aabdb038e9df5331ef7138d0738c1e1da929eac1c1217ecbc"
+  }
+}

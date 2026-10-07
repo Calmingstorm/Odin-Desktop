@@ -66,8 +66,8 @@ Source: [P3.6, P4.4 and R4/CC inventory](../work/phase-3-app-v1.md#p36-d11-matri
 At the 2026-10-07 documentation update, `/run/odq-lab.lock/owner` was
 `p33 2026-10-07T16:26:57Z GNOME missing rows req-7747a619` and only
 `odq-gnome` was running. No lock acquisition, VM changes or native tests by
-this documentation lane. Acquire the shared lock only when free and confirm
-all other lab VMs are stopped before testing one guest.
+this documentation lane. Acquire a free lock slot (`/run/odq-lab.lock.1` or
+`.2`); at most two lab VMs run at once (Decision H).
 
 For each procedure record candidate SHA-256, source/workflow identity, desktop,
 versions, actual outcomes and sanitized logs; stop only owned resources and

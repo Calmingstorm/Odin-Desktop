@@ -25,9 +25,15 @@ RESERVE = 10 * GIB
 POOL = "odq-lab"
 POOL_SOURCE = Path("/mnt/storage/odq-lab")
 STORAGE_PATH = Path("/mnt/storage")
-POOL_BUDGET = 100 * GIB
+POOL_BUDGET = 150 * GIB
 FILESYSTEM_FLOOR = 50 * GIB
+# Decision H: at most two lab VMs run at once. A running VM outside the lab
+# still blocks every lab operation.
+MAX_RUNNING_VMS = 2
 LOCK_PATH = "/tmp/odin-desktop-qualification.lock"
+# With two VMs, lab commands from two lanes overlap; wait for the other command
+# instead of failing, but never longer than this.
+LOCK_WAIT_SECONDS = 900
 
 
 class LabError(RuntimeError):
@@ -101,18 +107,11 @@ def find(instances, name):
     return next((item for item in instances if item["name"] == name), None)
 
 
-def storage_usage():
-    """Measure allocated pool bytes including images/snapshots, not logical caps.
-
-    Dir resources report the backing filesystem, not the lab budget. Failed or
-    partial du is a failed preflight, never zero usage. Thin disks need backing
-    space even though they have no reservation.
-    """
-    if (POOL_SOURCE.resolve() != POOL_SOURCE or not POOL_SOURCE.is_dir()
-            or POOL_SOURCE.stat().st_dev != STORAGE_PATH.stat().st_dev):
-        raise LabError("Lab dir pool must be a real directory on /mnt/storage")
+def _allocated(path):
+    """Allocated bytes under one lab path. Failed or partial du is a failed
+    preflight, never zero usage."""
     result = subprocess.run(
-        ["sudo", "-n", "du", "-s", "-B1", "--", str(POOL_SOURCE)],
+        ["sudo", "-n", "du", "-s", "-B1", "--", str(path)],
         check=False, text=True, capture_output=True, timeout=60, stdin=subprocess.DEVNULL,
     )
     if result.returncode:
@@ -121,16 +120,73 @@ def storage_usage():
         used = int(result.stdout.split()[0])
     except (IndexError, ValueError) as exc:
         raise LabError("Invalid allocated lab pool usage from du") from exc
+    if used < 0:
+        raise LabError("Invalid negative storage accounting")
+    return used
+
+
+def storage_usage():
+    """Measure allocated pool bytes including images/snapshots, not logical caps.
+
+    Dir resources report the backing filesystem, not the lab budget. Thin disks
+    need backing space even though they have no reservation.
+    """
+    if (POOL_SOURCE.resolve() != POOL_SOURCE or not POOL_SOURCE.is_dir()
+            or POOL_SOURCE.stat().st_dev != STORAGE_PATH.stat().st_dev):
+        raise LabError("Lab dir pool must be a real directory on /mnt/storage")
+    used = _allocated(POOL_SOURCE)
     filesystem = os.statvfs(STORAGE_PATH)
     free = filesystem.f_bavail * filesystem.f_frsize
-    if used < 0 or free < 0:
+    if free < 0:
         raise LabError("Invalid negative storage accounting")
     return used, free
 
 
+def guest_usage(name):
+    """Allocated bytes of one owned guest's directory in the lab pool.
+
+    The name is an owned lab name, never caller text. A missing or unreadable
+    directory fails the preflight. du does not follow a symlinked argument, so a
+    replaced directory can only read low, which reserves more growth, not less.
+    """
+    if name not in NAMES:
+        raise LabError("Unknown lab VM name")
+    return _allocated(POOL_SOURCE / "virtual-machines" / name)
+
+
+def growth_reserve(name):
+    """Room one guest can still take: up to its 40 GiB cap, plus overhead."""
+    return max(0, DISK - guest_usage(name)) + RESERVE
+
+
+def running_reserve(instances, skip=()):
+    """Reserve the remaining growth of every running lab VM.
+
+    Fail closed on any other running storage consumer whose growth has no known
+    cap: a VM outside the lab, or a container whose root is in the lab pool.
+    Callers measure this before the pool and filesystem, so a guest growing in
+    between is over-reserved, never under-reserved.
+    """
+    reserved = {}
+    for item in instances:
+        if item.get("status") == "Stopped" or item["name"] in skip:
+            continue
+        if item.get("type") == "virtual-machine":
+            if item["name"] not in NAMES:
+                raise LabError(f"A VM outside the lab is not stopped: {item['name']}")
+            owned(item)  # the 40 GiB cap is validated, never assumed
+            reserved[item["name"]] = growth_reserve(item["name"])
+        elif item.get("expanded_devices", {}).get("root", {}).get("pool") == POOL:
+            raise LabError(
+                f"Container {item['name']} in the lab pool is not stopped; "
+                "its growth has no reservation"
+            )
+    return reserved
+
+
 def preflight(api, *, creating=False, name=None):
-    # Retain creating for caller compatibility. Thin policy reserves one guest
-    # growth budget for every consuming operation, regardless of missing VMs.
+    # Retain creating for caller compatibility. Without a running guest name,
+    # an operation reserves one full guest growth budget (create, snapshot copy).
     pool = api.query(f"/1.0/storage-pools/{POOL}")
     if (pool.get("status") != "Created" or pool.get("driver") != "dir"
             or pool.get("config", {}).get("source") != str(POOL_SOURCE)):
@@ -148,48 +204,63 @@ def preflight(api, *, creating=False, name=None):
     for item in instances:
         if item["name"] in NAMES:
             owned(item)
-        # Treat Starting, Frozen and Error as occupied, not only Running.
-        if item.get("type") == "virtual-machine" and item.get("status") != "Stopped":
-            if item["name"] != name:
-                raise LabError(f"Another VM is not stopped: {item['name']}")
+    # Treat Starting, Frozen and Error as occupied, not only Running.
+    others = [item["name"] for item in instances
+              if item.get("type") == "virtual-machine" and item.get("status") != "Stopped"
+              and item["name"] != name]
+    if len(others) >= MAX_RUNNING_VMS:
+        raise LabError(
+            f"{len(others)} other VMs are not stopped ({', '.join(others)}); "
+            f"at most {MAX_RUNNING_VMS} VMs run at once"
+        )
+    # Reserve growth for every lab guest that may run during this operation:
+    # the other running guests and this one, each up to its 40 GiB cap plus
+    # overhead. Their current allocation is already in the measured pool usage.
+    # Stopped guests cannot grow, and every operation that adds data runs this
+    # preflight first. Optional snapshots get no exemption.
+    reserved = running_reserve(instances, skip=(name,))
+    if name is not None and find(instances, name):
+        reserved[name] = growth_reserve(name)
+    else:
+        reserved["new"] = DISK + RESERVE
+    required = sum(reserved.values())
     resources = api.query(f"/1.0/storage-pools/{POOL}/resources")
     space = resources["space"]
     available = int(space["total"]) - int(space["used"])
-    # One heavy guest: reserve one full disk's growth plus image/metadata/COW
-    # overhead, not four logical caps. Optional snapshots get no exemption.
-    required = DISK + RESERVE
     if available < required:
         raise LabError(
-            f"Lab pool needs {required / GIB:.1f} GiB available for one thin "
-            f"40 GiB disk plus 10 GiB reserve; has {available / GIB:.1f} GiB."
+            f"Lab pool needs {required / GIB:.1f} GiB available for guest growth "
+            f"(each thin 40 GiB disk to its cap plus 10 GiB reserve: "
+            f"{', '.join(reserved)}); has {available / GIB:.1f} GiB."
         )
     used, filesystem_free = storage_usage()
     if used + required > POOL_BUDGET:
         raise LabError(
-            f"Lab pool allocated usage {used / GIB:.1f} GiB plus 50 GiB growth/"
-            "reserve exceeds the 100 GiB aggregate budget. Rebuild/remove owned "
-            "guests instead of retaining optional snapshots."
+            f"Lab pool allocated usage {used / GIB:.1f} GiB plus {required / GIB:.1f} GiB "
+            f"growth/reserve exceeds the {POOL_BUDGET // GIB} GiB aggregate budget. "
+            "Rebuild/remove owned guests instead of retaining optional snapshots."
         )
-    # Preserve the floor even if ALL remaining budget is allocated, not merely
-    # if this particular guest stays within its logical cap.
-    filesystem_required = FILESYSTEM_FLOOR + POOL_BUDGET - used
+    # Keep the floor after the reserved growth of the guests that may run.
+    filesystem_required = FILESYSTEM_FLOOR + required
     if filesystem_free < filesystem_required:
         raise LabError(
             f"/mnt/storage has {filesystem_free / GIB:.1f} GiB free; needs "
             f"{filesystem_required / GIB:.1f} GiB to preserve the 50 GiB filesystem "
-            "floor after all remaining pool growth."
+            "floor after the running guests' growth."
         )
     host = api.query("/1.0/resources")
     memory = host["memory"]
     # Incus reports host usable headroom (cache excluded in used), not raw
-    # MemFree. Keep the original 12 GiB safety gate for a single 8 GiB guest.
+    # MemFree. Keep the 12 GiB gate for one 8 GiB guest before every operation,
+    # including a second guest's start.
     if int(memory["total"]) - int(memory["used"]) < 12 * GIB:
         raise LabError("Less than 12 GiB host memory headroom; refusing VM operation")
     return {"pool": POOL, "available_bytes": available, "required_bytes": required,
-            "allocated_bytes": used, "budget_bytes": POOL_BUDGET,
+            "reserved_bytes": reserved, "allocated_bytes": used, "budget_bytes": POOL_BUDGET,
             "filesystem_free_bytes": filesystem_free,
             "filesystem_required_bytes": filesystem_required,
-            "filesystem_floor_bytes": FILESYSTEM_FLOOR, "instances": instances}
+            "filesystem_floor_bytes": FILESYSTEM_FLOOR,
+            "max_running_vms": MAX_RUNNING_VMS, "instances": instances}
 
 
 def require_stopped(instance):
@@ -400,10 +471,18 @@ def mutation_lock():
     try:
         if os.fstat(fd).st_uid != os.getuid():
             raise LabError("Lab lock is not owned by this operator")
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        deadline = time.monotonic() + LOCK_WAIT_SECONDS
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError as exc:
+                if time.monotonic() >= deadline:
+                    raise LabError(
+                        f"Another lab command is active after {LOCK_WAIT_SECONDS}s"
+                    ) from exc
+                time.sleep(2)
         yield
-    except BlockingIOError as exc:
-        raise LabError("Another lab command is active") from exc
     finally:
         os.close(fd)
 
