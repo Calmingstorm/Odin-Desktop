@@ -354,7 +354,7 @@ def stage_runtime(bundle_root: Path, cache_dir: Path) -> dict:
               "uv_lock_sha256": sha256(REPO / "uv.lock"),
               "requirements_sha256": sha256(requirements),
               "dependencies": dependencies, "engine": engine, "elf": libc,
-              "license_blockers": [spec["engine_license_note"]]}
+              "license_blockers": [spec["engine_license_note"]] if spec.get("engine_license_note") else []}
     result["licenses"] = _stage_licenses(bundle_root, cache, spec)
     result["python_license_files"] = _license_files(bundle_root)
     (bundle_root / "python/runtime-metadata.json").write_text(json.dumps(result, indent=2) + "\n")

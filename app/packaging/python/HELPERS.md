@@ -77,6 +77,6 @@ Exact Hyprland/KWin compositor plugin ABI builds, new plugin qualification,
 X11 sandbox system binaries, GI/AT-SPI closure, xkb data and isolated native
 session qualification remain deferred. Hyprland/KWin plugin sources are shipped,
 but no plugin binary or inherited upstream runtime approval is invented.
-The Desktop product distribution-license decision is still pending; preserving
-upstream notices does not settle it. This helper subtask is therefore partial
+The Desktop product is MIT-licensed (`LICENSE`), like Odin; upstream notices
+are still preserved. This helper subtask is therefore partial
 D14 packaging evidence, not P4.1 or native computer-use acceptance.

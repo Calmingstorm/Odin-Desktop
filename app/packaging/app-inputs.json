@@ -26,5 +26,5 @@
       "cache_directory": "fpm/fpm-1.9.3-2.3.1-linux-x86_64"
     }
   ],
-  "desktop_product_license": "NOASSERTION: private unreleased candidates; owner distribution decision pending"
+  "desktop_product_license": "MIT"
 }

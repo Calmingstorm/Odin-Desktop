@@ -605,6 +605,7 @@ items. The [release checklist](../release/linux-v1-checklist.md) is the gate.
 - **Publishing.** A GitHub release on the private repository, unsigned (Decisions C and D), after Aaron's separate
   approval. PDF support stays a first-use download (Decision F): neither Odin's installer nor this package ships
   PyMuPDF.
+- **Licence.** MIT, the same as Odin (`LICENSE`).
 
 ## 7. Deliverables and authorization summary
 
