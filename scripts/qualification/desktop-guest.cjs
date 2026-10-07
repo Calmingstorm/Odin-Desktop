@@ -12,6 +12,22 @@ const { probe } = require('./desktop-probe.cjs')
   assert.equal(readFileSync('/etc/odin-desktop-qualification', 'utf8').trim(), 'odin-desktop-qualification-v1')
   assert.equal(process.getuid(), Number(execFileSync('id', ['-u', 'odq'], { encoding: 'utf8' }).trim()))
   assert.equal(statSync(__dirname).uid, process.getuid())
+  const uid = process.getuid()
+  assert.equal(process.env.XDG_RUNTIME_DIR, `/run/user/${uid}`)
+  assert.equal(statSync(process.env.XDG_RUNTIME_DIR).uid, uid)
+  assert.equal(process.env.DBUS_SESSION_BUS_ADDRESS, `unix:path=/run/user/${uid}/bus`)
+  assert.equal(statSync(`/run/user/${uid}/bus`).isSocket(), true)
+  const cinnamon = execFileSync('hostname', { encoding: 'utf8' }).trim() === 'odq-cinnamon'
+  assert.equal(process.env.XDG_SESSION_TYPE, cinnamon ? 'x11' : 'wayland')
+  if (!cinnamon) {
+    assert.match(process.env.WAYLAND_DISPLAY || '', /^[a-zA-Z0-9_-]+$/)
+    const socket = statSync(`/run/user/${uid}/${process.env.WAYLAND_DISPLAY}`)
+    assert.equal(socket.isSocket(), true); assert.equal(socket.uid, uid)
+  }
+  if (execFileSync('hostname', { encoding: 'utf8' }).trim() === 'odq-gnome') {
+    const extensions = execFileSync('gsettings', ['get', 'org.gnome.shell', 'enabled-extensions'], { encoding: 'utf8' }).trim()
+    assert.ok(extensions === '@as []' || extensions === '[]', 'GNOME no-extension row required')
+  }
   const manifest = JSON.parse(readFileSync('/opt/Odin/resources/bundle-manifest.json', 'utf8'))
   assert.equal(manifest.source.commit, process.argv[2])
   // A unique disposable candidate profile, not the lab operator's profile.
