@@ -64,13 +64,13 @@ class ResourceCleanupJournal:
             self.previous_unknown = {"state": "unknown", "reason": "cleanup_evidence_unreadable"}
             self.latest_unknown_boot_id = boot
         # The package fence holds an unknown for the rest of the boot it happened in. One
-        # recorded before boots were, or from unreadable evidence, is stamped now and only
-        # once: it can only be from this boot or an earlier one.
-        if isinstance(self.previous_unknown, dict) and "boot_id" not in self.previous_unknown:
-            self.previous_unknown = {**self.previous_unknown, "boot_id": boot}
+        # recorded before boots were, or from unreadable evidence, binds to this boot, once:
+        # it can only be from this boot or an earlier one. The retained record itself stays
+        # exactly as reported, so the app does not announce the same unknown again.
         if self.previous_unknown is not None and not self.latest_unknown_boot_id:
-            self.latest_unknown_boot_id = (self.previous_unknown.get("boot_id")
-                                           if isinstance(self.previous_unknown, dict) else boot)
+            recorded = (self.previous_unknown.get("boot_id")
+                        if isinstance(self.previous_unknown, dict) else None)
+            self.latest_unknown_boot_id = recorded or boot
         self.current = {"version": 1, "state": "running", "resources": {}, "boot_id": boot,
                         "latest_unknown_boot_id": self.latest_unknown_boot_id,
                         "previous_unknown": self.previous_unknown,

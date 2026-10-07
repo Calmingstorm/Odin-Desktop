@@ -74,22 +74,33 @@ def test_a_newer_unknown_moves_the_fence_boot_not_the_notice(tmp_path, monkeypat
     assert saved["previous_unknown_count"] == 2
 
 
-def test_history_from_before_boots_were_recorded_is_stamped_once(tmp_path, monkeypatch):
+def test_history_from_before_boots_were_recorded_binds_its_fence_once(tmp_path, monkeypatch):
     path = tmp_path / "receipt.json"
+    reported = {"state": "running", "at": "2026-10-07T12:34:11+00:00", "resources": {}}
     path.write_text(json.dumps({"version": 1, "state": "complete", "resources": {},
-                                "previous_unknown": {"state": "unknown"}}))
+                                "previous_unknown": reported}))
     boot(monkeypatch, tmp_path, BOOT_A)
-    ResourceCleanupJournal(path)
+    first = ResourceCleanupJournal(path)
+    first.finish({"computer": {"state": "not_started"}, "processes": {"state": "released"}})
+    assert json.loads(path.read_text())["latest_unknown_boot_id"] == BOOT_A
     boot(monkeypatch, tmp_path, BOOT_B)
-    assert ResourceCleanupJournal(path).public()["previous_unknown"]["boot_id"] == BOOT_A
+    later = ResourceCleanupJournal(path)
+    # The app keys its notice on this record: it must stay exactly as already shown.
+    assert later.public()["previous_unknown"] == reported
+    assert json.loads(path.read_text())["latest_unknown_boot_id"] == BOOT_A
 
 
-def test_unreadable_evidence_is_stamped_with_the_boot_that_found_it(tmp_path, monkeypatch):
+def test_unreadable_evidence_binds_the_fence_to_the_boot_that_found_it(tmp_path, monkeypatch):
     path = tmp_path / "receipt.json"
     path.write_text("not json")
     boot(monkeypatch, tmp_path, BOOT_A)
-    found = ResourceCleanupJournal(path).public()["previous_unknown"]
-    assert found == {"state": "unknown", "reason": "cleanup_evidence_unreadable", "boot_id": BOOT_A}
+    found = ResourceCleanupJournal(path)
+    found.finish({"computer": {"state": "not_started"}, "processes": {"state": "released"}})
+    reported = {"state": "unknown", "reason": "cleanup_evidence_unreadable"}
+    assert found.public()["previous_unknown"] == reported
+    boot(monkeypatch, tmp_path, BOOT_B)
+    assert ResourceCleanupJournal(path).public()["previous_unknown"] == reported
+    assert json.loads(path.read_text())["latest_unknown_boot_id"] == BOOT_A
 
 
 def test_unknown_cleanup_is_durable_before_error(tmp_path):
