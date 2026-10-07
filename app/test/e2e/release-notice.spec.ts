@@ -9,6 +9,9 @@ import type { OdinApi } from '../../src/shared/api'
 declare global { interface Window { odin: OdinApi } }
 
 const appDir = resolve(__dirname, '../..')
+// The notice compares against the app's own version, so the fixture releases follow it.
+const VERSION = (JSON.parse(readFileSync(join(appDir, 'package.json'), 'utf8')) as { version: string }).version
+const NEWER = `v${Number(VERSION.split('.')[0]) + 1}.0.0`
 let app: ElectronApplication | undefined
 let page: Page
 let root: string
@@ -171,10 +174,10 @@ for (const real of [false, true]) test(`${real ? 'real core' : 'fixture core'}: 
     [{ status: 200, body: '{' }, 'malformed', 'invalid release metadata'],
     [{ status: 200, body: ' '.repeat(1024 * 1024 + 1) }, 'malformed', 'invalid release metadata'],
     [{ status: 200, body: '[]' }, 'no-release', 'No published stable release'],
-    [{ status: 200, body: JSON.stringify([release('v0.1.0')]) }, 'equal', 'Up to date'],
+    [{ status: 200, body: JSON.stringify([release(`v${VERSION}`)]) }, 'equal', 'Up to date'],
     [{ status: 200, body: JSON.stringify([release('v0.0.9')]) }, 'older', 'This app is newer'],
-    [{ status: 200, body: JSON.stringify([release('v1.0.0'), release('v9.0.0', { draft: true }), release('v8.0.0', { prerelease: true })]) }, 'newer', 'A new version is available'],
-    [{ status: 200, body: JSON.stringify([release('v1.0.0', { html_url: 'https://example.com/' })]) }, 'malformed', 'invalid release metadata']
+    [{ status: 200, body: JSON.stringify([release(NEWER), release('v99.0.0', { draft: true }), release('v98.0.0', { prerelease: true })]) }, 'newer', 'A new version is available'],
+    [{ status: 200, body: JSON.stringify([release(NEWER, { html_url: 'https://example.com/' })]) }, 'malformed', 'invalid release metadata']
   ] as const
   for (const [response, state, text] of cases) {
     await fixture(response)
@@ -186,7 +189,7 @@ for (const real of [false, true]) test(`${real ? 'real core' : 'fixture core'}: 
       expect(axe.violations).toEqual([])
       await test.info().attach('axe-newer-with-release-link', { body: JSON.stringify({ violations: axe.violations, incomplete: axe.incomplete }), contentType: 'application/json' })
       await keyboardActivate('Open release page in browser', 'link')
-      expect(await app!.evaluate(() => (globalThis as any).__noticeAudit.opens)).toEqual([release('v1.0.0').html_url])
+      expect(await app!.evaluate(() => (globalThis as any).__noticeAudit.opens)).toEqual([release(NEWER).html_url])
     }
     if (!['equal', 'older', 'newer'].includes(state)) {
       expect((await page.evaluate(() => window.odin.openRelease())).ok).toBe(false)
@@ -203,7 +206,7 @@ for (const real of [false, true]) test(`${real ? 'real core' : 'fixture core'}: 
   const audit = await app!.evaluate(() => (globalThis as any).__noticeAudit)
   expect(audit.writes).toEqual([])
   expect(audit.spawns).toEqual([])
-  expect(audit.opens).toEqual([release('v1.0.0').html_url])
+  expect(audit.opens).toEqual([release(NEWER).html_url])
   noticeDispatches.push(...audit.noticeChannels)
   expect(noticeDispatches).toContain('odin:check-releases')
   expect(noticeDispatches).toContain('odin:open-release')
