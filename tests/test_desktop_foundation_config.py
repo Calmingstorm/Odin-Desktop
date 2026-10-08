@@ -4,6 +4,8 @@ from pydantic import ValidationError
 
 from src.config.schema import Config, ToolHost, load_config, set_active_config_path
 from src.config.workspace_paths import WORKSPACE_PROTECTED_CONFIG_PATH_NAMES
+from src.desktop.ssh_sockets import socket_directory
+from src.runtime_paths import runtime_profile_paths
 
 
 @pytest.mark.parametrize("key", ["discord", "permissions", "web"])
@@ -24,7 +26,8 @@ def test_config_defaults_use_profile_and_explicit_hosts(tmp_path, monkeypatch):
     assert str(tmp_path) in cfg.sessions.persist_directory
     assert str(tmp_path) in cfg.computer.storage_dir
     assert str(tmp_path) in cfg.tools.local_working_dir
-    assert str(tmp_path) in cfg.tools.ssh_pool.socket_dir
+    # SSH control sockets use the profile's short private runtime directory.
+    assert cfg.tools.ssh_pool.socket_dir == socket_directory(runtime_profile_paths())
     assert "permissions.overrides_path" not in WORKSPACE_PROTECTED_CONFIG_PATH_NAMES
     assert "computer.storage_dir" in WORKSPACE_PROTECTED_CONFIG_PATH_NAMES
     assert "tools.ssh_key_path" in WORKSPACE_PROTECTED_CONFIG_PATH_NAMES
