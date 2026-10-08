@@ -339,11 +339,13 @@ def test_committed_publication_capture_discards_transaction_and_savepoint_rollba
 
 
 def test_default_config_storage_paths_bound_to_selected_profile(tmp_path):
+    from src.desktop.ssh_sockets import socket_directory
+
     paths, _socket_path, _token_file = profile(tmp_path)
     cfg = profile_config(paths)
     assert cfg.context.directory == str(paths.data_dir / "context")
     assert cfg.sessions.persist_directory == str(paths.data_dir / "sessions")
-    assert cfg.tools.ssh_pool.socket_dir == str(paths.cache_dir / "ssh-sockets")
+    assert cfg.tools.ssh_pool.socket_dir == socket_directory(paths)
     assert cfg.openai_codex.credentials_path == str(paths.secrets_dir / "codex_auth.json")
     assert cfg.attachments.temp_directory == str(paths.cache_dir / "attachments")
     assert not cfg.openai_compatible.api_key

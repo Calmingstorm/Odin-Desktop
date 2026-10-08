@@ -282,8 +282,10 @@ class ToolExecutor:
         self._branch_freshness_enabled = self.config.branch_freshness.enabled
         self.bulkheads = _build_bulkhead_registry(self.config)
         pool_cfg = self.config.ssh_pool
+        from ..desktop.ssh_pool import SSHConnectionPool as DesktopSSHConnectionPool
+
         self.ssh_pool: SSHConnectionPool | None = (
-            SSHConnectionPool(
+            DesktopSSHConnectionPool(
                 control_persist=pool_cfg.control_persist,
                 socket_dir=pool_cfg.socket_dir,
             )

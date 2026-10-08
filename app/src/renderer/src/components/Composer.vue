@@ -290,5 +290,7 @@ async function closeReport(): Promise<void> {
   .composer-box textarea { max-height: max(38px, calc(100dvh - 282px)); }
 }
 textarea:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent, #91baff); outline-offset: 3px; }
+/* The outer frame owns the message field's focus cue; buttons keep their own ring. */
+.composer-box textarea:focus-visible { outline: none; box-shadow: none; }
 button[aria-disabled="true"] { opacity: .65; }
 </style>

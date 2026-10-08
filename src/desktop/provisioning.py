@@ -14,6 +14,7 @@ from ..config.schema import Config, load_config
 from ..permissions.persistence import write_private_atomic
 from .authority import OwnerAuthority
 from .paths import ProfilePaths
+from .ssh_sockets import normalize_config_sockets, socket_directory
 
 
 def system_timezone() -> str:
@@ -64,7 +65,7 @@ def fresh_config_document(paths: ProfilePaths) -> dict:
             "local_working_dir": str(workspace),
             "ssh_key_path": str(secrets / "id_ed25519"),
             "ssh_known_hosts_path": str(secrets / "known_hosts"),
-            "ssh_pool": {"socket_dir": str(cache / "ssh-sockets")},
+            "ssh_pool": {"socket_dir": socket_directory(paths)},
             "audit_log_path": str(data / "audit.jsonl"),
             "trajectory_path": str(data / "trajectories"),
             "skill_allowed_urls": ["http://localhost:8188"],
@@ -156,7 +157,7 @@ def ensure_profile(paths: ProfilePaths, *, authority: OwnerAuthority | None = No
             return config
     # Selected-profile migrations construct an authority of their own. Never
     # load config while holding its non-reentrant cross-process identity lock.
-    config = load_config(paths.config_file)
+    config = normalize_config_sockets(load_config(paths.config_file), paths)
     with authority._locked():
         _ensure_ssh_key(paths, authority, config)
     return config

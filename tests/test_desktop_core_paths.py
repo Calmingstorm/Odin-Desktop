@@ -300,7 +300,8 @@ def test_configured_relative_socket_directory_preserves_upstream_path(tmp_path, 
 
 def test_default_socket_directory_created_private_under_group_umask(tmp_path, monkeypatch):
     from src.config.schema import SSHPoolConfig
-    from src.tools.ssh_pool import SSHConnectionPool
+    from src.desktop.ssh_pool import SSHConnectionPool
+    from src.desktop.ssh_sockets import socket_directory
 
     paths = set_xdg(monkeypatch, tmp_path)
     tmp_path.chmod(0o775)
@@ -309,8 +310,9 @@ def test_default_socket_directory_created_private_under_group_umask(tmp_path, mo
         pool = SSHConnectionPool(socket_dir=SSHPoolConfig().socket_dir)
     finally:
         os.umask(previous)
-    assert Path(pool.socket_dir) == paths.cache_dir / "ssh-sockets"
-    for path in (Path(pool.socket_dir), paths.cache_dir, paths.cache_dir.parent):
+    assert pool.socket_dir == socket_directory(paths)
+    for path in (Path(pool.socket_dir), Path(pool.socket_dir).parent,
+                 Path(pool.socket_dir).parent.parent):
         assert stat.S_IMODE(path.stat().st_mode) == 0o700
     assert stat.S_IMODE(tmp_path.stat().st_mode) == 0o775
 

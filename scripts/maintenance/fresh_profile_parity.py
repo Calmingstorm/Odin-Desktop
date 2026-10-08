@@ -12,8 +12,8 @@ GENERATOR = "scripts/maintenance/fresh_profile_parity.py"
 TEST = "tests/test_desktop_fresh_profile_parity.py"
 CITATIONS = ("docs/design/00-brief.md", "docs/design/prompt-changes.md")
 BASELINE_OBSERVATION_SHA256 = "73649ce984d9d1564d54a38010af2d98124911779d708acfca0adced90df73e8"
-DESKTOP_OBSERVATION_SHA256 = "fd705fd055b4af81c3bdee0a775dea89828de1fe3864ed9bd5de1fa4fae7936c"
-DELTA_SHA256 = "76035be1e5267c2bc2ae6e51a02a478b98da2fb556ee46fe1a6f93068723b1b0"
+DESKTOP_OBSERVATION_SHA256 = "f137caea1fc2a7d162390d0bca8304f251701e9f69bbdaf93e90b9b7a6ff5b8b"
+DELTA_SHA256 = "7de8ebd512be626adc16053ac4db9bdeccfcb714b9a8433f4d030b212bc31419"
 ABSENT = {"absent": True}
 
 
@@ -40,6 +40,7 @@ def source_paths(root):
     directories = ("src/config", "src/permissions", "src/tools/hosts", "src/tools/handlers")
     explicit = ("src/desktop/authority.py", "src/desktop/paths.py", "src/desktop/provisioning.py",
                 "src/desktop/settings.py", "src/desktop/secrets.py", "src/runtime_paths.py",
+                "src/desktop/ssh_sockets.py", "src/desktop/ssh_pool.py",
                 "src/reasoning.py", "src/tools/executor.py", "src/tools/builtin_policy.py",
                 "src/tools/http_probe_ops.py", "src/tools/risk_classifier.py",
                 "src/llm/model_ref.py",
@@ -57,6 +58,21 @@ def _unique(pairs):
             raise ValueError(f"duplicate key: {key}")
         result[key] = value
     return result
+
+
+def normalize_socket_directory(value, *, profile_id, uid, runtime_dir):
+    """Canonicalize only exact UID/profile-scoped default runtime spellings.
+
+    A verified XDG root and the private /tmp fallback are equivalent D5 runtime
+    namespaces. Their environment/UID bytes are not profile behavior. Preserve
+    every other spelling so a custom, legacy, or wrongly scoped path still
+    changes the observation rather than being laundered into the default.
+    Selection/security/length checks remain the runtime selector's responsibility.
+    """
+    candidates = {str(Path(f"/tmp/odin-desktop-{uid}") / profile_id / "ssh")}
+    if runtime_dir:
+        candidates.add(str(Path(runtime_dir) / "odin-desktop" / profile_id / "ssh"))
+    return f"$PROFILE_RUNTIME/{profile_id}/ssh" if value in candidates else value
 
 
 def approval_for(path):
@@ -293,6 +309,10 @@ def collect(root):
                 config = ensure_profile(paths, authority=authority)
             service = SettingsService(paths, None, config=config)
             desktop = flatten(service.config.model_dump(mode="json"))
+            socket_key = "settings.tools.ssh_pool.socket_dir"
+            desktop[socket_key] = normalize_socket_directory(
+                desktop[socket_key], profile_id=paths.profile_id, uid=os.geteuid(),
+                runtime_dir=os.environ.get("XDG_RUNTIME_DIR"))
             for key, value in desktop.items():
                 if isinstance(value, str) and value.startswith(str(work / "desktop")):
                     desktop[key] = value.replace(str(work / "desktop"), "$PROFILE_HOME", 1)

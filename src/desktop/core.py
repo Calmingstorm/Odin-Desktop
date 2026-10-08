@@ -34,6 +34,7 @@ from .resource_cleanup import (
 from .search import TranscriptSearch
 from .secrets import StartupSecretCalls, secret_call, startup_secret_calls
 from .services import build_engine_services
+from .ssh_sockets import socket_directory
 from .tool_details import ToolDetailsStore
 from .transcript import TranscriptStore
 
@@ -128,7 +129,7 @@ def profile_config(paths: ProfilePaths):
             "trajectory_path": str(paths.data_dir / "trajectories"),
             "local_working_dir": str(paths.data_dir.parent.parent / "odin-desktop-workspaces"
                                      / paths.profile_id),
-            "ssh_pool": {"socket_dir": str(paths.cache_dir / "ssh-sockets")},
+            "ssh_pool": {"socket_dir": socket_directory(paths)},
         },
         "logging": {"directory": str(paths.data_dir / "logs")},
         "usage": {"directory": str(paths.data_dir / "usage")},

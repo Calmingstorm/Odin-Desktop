@@ -111,11 +111,28 @@ async function tabTo(target: Locator, reverse = false): Promise<void> {
     if (await target.evaluate((el) => el === document.activeElement)) {
       const focus = await target.evaluate((el) => {
         const s = getComputedStyle(el)
-        return { visible: el.matches(':focus-visible'), outline: s.outlineStyle, width: s.outlineWidth }
+        const frame = el.matches('.composer-box textarea') ? el.closest('.composer-box') : null
+        const frameStyle = frame ? getComputedStyle(frame) : null
+        const line = getComputedStyle(document.documentElement).getPropertyValue('--line').trim()
+        const idleRgb = /^#[0-9a-f]{6}$/i.test(line)
+          ? `rgb(${[1, 3, 5].map((offset) => parseInt(line.slice(offset, offset + 2), 16)).join(', ')})` : null
+        return { visible: el.matches(':focus-visible'), outline: s.outlineStyle, width: s.outlineWidth,
+          composer: frame ? { focused: frame.matches(':focus-within'), border: frameStyle!.borderTopColor,
+            width: frameStyle!.borderTopWidth, shadow: s.boxShadow, idleRgb } : null }
       })
       expect(focus.visible).toBe(true)
-      expect(focus.outline).not.toBe('none')
-      expect(parseFloat(focus.width)).toBeGreaterThanOrEqual(2)
+      if (focus.composer) {
+        // Only Message delegates focus to its outer frame. All other controls retain rings.
+        expect(focus.outline).toBe('none')
+        expect(focus.composer.shadow).toBe('none')
+        expect(focus.composer.focused).toBe(true)
+        expect(focus.composer.idleRgb).not.toBeNull()
+        expect(focus.composer.border).not.toBe(focus.composer.idleRgb)
+        expect(parseFloat(focus.composer.width)).toBeGreaterThanOrEqual(1)
+      } else {
+        expect(focus.outline).not.toBe('none')
+        expect(parseFloat(focus.width)).toBeGreaterThanOrEqual(2)
+      }
       return
     }
     await page.keyboard.press(reverse ? 'Shift+Tab' : 'Tab')

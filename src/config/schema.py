@@ -341,11 +341,17 @@ class AgentsConfig(BaseModel):
         return v
 
 
+def _desktop_socket_directory() -> str:
+    from ..desktop.ssh_sockets import socket_directory
+
+    return socket_directory(runtime_profile_paths())
+
+
 class SSHPoolConfig(BaseModel):
     enabled: bool = True
     control_persist: int = 60
     socket_dir: str = Field(
-        default_factory=lambda: str(runtime_profile_paths().cache_dir / "ssh-sockets")
+        default_factory=_desktop_socket_directory
     )
 
 
