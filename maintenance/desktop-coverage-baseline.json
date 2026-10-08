@@ -1441,6 +1441,16 @@
         "missing": 17,
         "total": 195
       },
+      "src/desktop/ssh_pool.py": {
+        "covered": 15,
+        "missing": 0,
+        "total": 15
+      },
+      "src/desktop/ssh_sockets.py": {
+        "covered": 99,
+        "missing": 2,
+        "total": 101
+      },
       "src/desktop/state.py": {
         "covered": 115,
         "missing": 3,
@@ -2873,6 +2883,8 @@
     "src/desktop/session_end.py",
     "src/desktop/settings.py",
     "src/desktop/skills.py",
+    "src/desktop/ssh_pool.py",
+    "src/desktop/ssh_sockets.py",
     "src/desktop/state.py",
     "src/desktop/tool_catalog.py",
     "src/desktop/tool_details.py",
