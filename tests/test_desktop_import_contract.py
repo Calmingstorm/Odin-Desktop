@@ -324,6 +324,194 @@ async def test_a_second_delete_of_a_name_being_deleted_is_refused(graph, monkeyp
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["updated", "name_mismatch", "load_failure"])
+async def test_an_edit_holds_its_skill_against_delete_and_reimport(graph, monkeypatch, outcome):  # noqa: F811
+    await graph.service.start()
+    token = owner(graph)
+    manager = graph.service.skill_manager
+    writing, resume = threading.Event(), threading.Event()
+    real_write = Path.write_text
+    source = manager.skills_dir / "quiet.py"
+    original = code(name="quiet")
+    edit = {"updated": code(name="quiet", body="return 'edited'"),
+            "name_mismatch": code(name="other"), "load_failure": "VALUE = 1\n"}[outcome]
+
+    def write(path, content, *args, **kwargs):
+        # Hold the native edit after it captured its skill, before it writes.
+        if path == source and content == edit and not writing.is_set():
+            writing.set()
+            assert resume.wait(10)
+        return real_write(path, content, *args, **kwargs)
+
+    imported = code(name="quiet", body="return 'imported'")
+    request = {"name": "quiet", "code": imported, "create": True, "enabled": False}
+    editing = restarted = None
+    try:
+        await graph.service.handle("skills.save", {"name": "quiet", "code": original})
+        monkeypatch.setattr(Path, "write_text", write)
+        editing = asyncio.create_task(asyncio.to_thread(manager.edit_skill, "quiet", edit))
+        assert await asyncio.to_thread(writing.wait, 10)
+        # While the edit holds the name nothing else changes that skill.
+        assert manager.delete_skill("quiet") == "Skill 'quiet' is busy; try again."
+        for params in ({"name": "quiet"}, {"name": "quiet", "code": imported}):
+            method = "skills.delete" if "code" not in params else "skills.save"
+            with pytest.raises(MethodError) as error:
+                await graph.service.handle(method, params)
+            assert error.value.code == "busy"
+        with pytest.raises(MethodError) as error:
+            await graph.service.handle("skills.save", request)
+        assert error.value.code == "conflict"
+        resume.set()
+        result = await editing
+        kept = edit if outcome == "updated" else original
+        assert ("updated" in result) is (outcome == "updated")
+        assert source.read_text() == kept
+        assert manager.get_skill_info("quiet")["code"] == kept
+        # Once the edit is done, delete and re-import work, and the import stays off.
+        assert manager.delete_skill("quiet") == "Skill 'quiet' deleted."
+        await graph.service.handle("skills.save", request)
+        assert source.read_text() == imported
+        assert disabled_record(manager) == ["quiet"]
+        restarted = SkillManager(str(manager.skills_dir), graph.executor)
+        assert restarted.get_skill_info("quiet")["code"] == imported
+        assert not restarted.is_enabled("quiet")
+    finally:
+        resume.set()
+        if editing is not None:
+            await editing
+        if restarted is not None:
+            restarted.close()
+        PermissionManager.reset_request_owner(token)
+        await graph.service.close()
+
+
+@pytest.mark.asyncio
+async def test_a_reload_waits_for_changes_and_never_shows_disabled_skills_on(graph, monkeypatch):  # noqa: F811
+    await graph.service.start()
+    token = owner(graph)
+    manager = graph.service.skill_manager
+    loading, resume = threading.Event(), threading.Event()
+    seen = []
+    real_load = manager._load_skill
+
+    def load(path):
+        if path.stem == "zzz_late" and not loading.is_set():
+            loading.set()  # the native create of zzz_late, held after writing its source
+            assert resume.wait(10)
+        elif path.stem == "bbb_live":
+            seen.append(manager.is_enabled("aaa_quiet"))
+        return real_load(path)
+
+    creating = reloading = None
+    try:
+        await graph.service.handle("skills.save", {
+            "name": "aaa_quiet", "code": code(name="aaa_quiet"), "create": True, "enabled": False})
+        live = {"name": "bbb_live", "code": code(name="bbb_live")}
+        await graph.service.handle("skills.save", live)
+        monkeypatch.setattr(manager, "_load_skill", load)
+        creating = asyncio.create_task(
+            asyncio.to_thread(manager.create_skill, "zzz_late", code(name="zzz_late")))
+        assert await asyncio.to_thread(loading.wait, 10)
+        reloading = asyncio.create_task(asyncio.to_thread(manager.reload))
+        done, _ = await asyncio.wait({reloading}, timeout=0.5)
+        assert not done  # it waits for the create in progress
+        # Nothing new starts while the reload waits.
+        busy = "is busy; try again."
+        assert manager.edit_skill("bbb_live", code(name="bbb_live")).endswith(busy)
+        assert manager.delete_skill("bbb_live").endswith(busy)
+        assert manager.create_skill("ccc_new", code(name="ccc_new")).endswith(busy)
+        resume.set()
+        assert "created" in await creating
+        await reloading
+        # The reload republished aaa_quiet before it loaded bbb_live, already off.
+        assert seen and not any(seen)
+        names = {row["name"] for row in manager.list_skills()}
+        assert names >= {"aaa_quiet", "bbb_live", "zzz_late"}
+        assert not manager.is_enabled("aaa_quiet") and manager.is_enabled("bbb_live")
+        assert not manager.has_skill("ccc_new")
+    finally:
+        resume.set()
+        for task in (creating, reloading):
+            if task is not None:
+                await task
+        PermissionManager.reset_request_owner(token)
+        await graph.service.close()
+
+
+@pytest.mark.asyncio
+async def test_reloads_run_one_at_a_time(graph, monkeypatch):  # noqa: F811
+    await graph.service.start()
+    token = owner(graph)
+    manager = graph.service.skill_manager
+    loading, resume = threading.Event(), threading.Event()
+    real_load = manager._load_skill
+
+    def load(path):
+        if not loading.is_set():
+            loading.set()  # the first reload, held while it loads
+            assert resume.wait(10)
+        return real_load(path)
+
+    first = second = None
+    try:
+        await graph.service.handle("skills.save", {"name": "demo", "code": code()})
+        monkeypatch.setattr(manager, "_load_skill", load)
+        first = asyncio.create_task(asyncio.to_thread(manager.reload))
+        assert await asyncio.to_thread(loading.wait, 10)
+        second = asyncio.create_task(asyncio.to_thread(manager.reload))
+        done, _ = await asyncio.wait({second}, timeout=0.5)
+        assert not done
+        resume.set()
+        await first
+        await second
+        assert manager.is_enabled("demo")
+    finally:
+        resume.set()
+        for task in (first, second):
+            if task is not None:
+                await task
+        PermissionManager.reset_request_owner(token)
+        await graph.service.close()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_module_delete_waits_for_a_create_of_its_name(graph, monkeypatch):  # noqa: F811
+    await graph.service.start()
+    token = owner(graph)
+    manager = graph.service.skill_manager
+    loading, resume = threading.Event(), threading.Event()
+    real_load = manager._load_skill
+
+    def load(path):
+        if path.stem == "broken" and not loading.is_set() and "execute" in path.read_text():
+            loading.set()
+            assert resume.wait(10)
+        return real_load(path)
+
+    creating = None
+    try:
+        (manager.skills_dir / "broken.py").write_text("VALUE = 1\n")
+        await graph.service.reload()
+        assert any(row["name"] == "broken" for row in manager.list_skills())
+        monkeypatch.setattr(manager, "_load_skill", load)
+        # The native create replaces the failed module; the failed-module delete must not race it.
+        creating = asyncio.create_task(
+            asyncio.to_thread(manager.create_skill, "broken", code(name="broken")))
+        assert await asyncio.to_thread(loading.wait, 10)
+        assert manager.delete_failed_skill("broken") == "Skill 'broken' is busy; try again."
+        resume.set()
+        assert "created" in await creating
+        assert manager.delete_failed_skill("broken") == "Skill 'broken' not found."
+        assert manager.is_enabled("broken")
+    finally:
+        resume.set()
+        if creating is not None:
+            await creating
+        PermissionManager.reset_request_owner(token)
+        await graph.service.close()
+
+
+@pytest.mark.asyncio
 async def test_create_only_and_native_create_never_write_over_each_other(graph, monkeypatch):  # noqa: F811
     await graph.service.start()
     token = owner(graph)

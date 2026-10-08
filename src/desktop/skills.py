@@ -25,6 +25,12 @@ METHODS = frozenset({
 READ_METHODS = frozenset({"skills.list", "skills.get", "skills.config.get"})
 
 
+def _refuse_busy(name, result):
+    """The manager refuses a change while another one, or a reload, holds the name."""
+    if result == f"Skill '{name}' is busy; try again.":
+        raise MethodError("busy", "the skill is being changed; try again")
+
+
 class _ConfigStore:
     """One profile-keyring blob per skill, never plaintext credential fallback."""
 
@@ -250,6 +256,7 @@ class SkillsService:
                 result = await to_thread_settled(operation, name, code)
             finally:
                 self._changed()
+            _refuse_busy(name, result)
             if create_only and str(result).startswith(f"Skill '{name}' already exists"):
                 raise MethodError("conflict", "a skill with this name already exists")
             if not manager.has_skill(name) or manager.get_skill_info(name)["code"] != code:
@@ -268,6 +275,7 @@ class SkillsService:
                 result = await to_thread_settled(operation, name)
             finally:
                 self._changed()
+            _refuse_busy(name, result)
             return {"result": _deep_scrub_strings(result)}
         if not manager.has_skill(name):
             raise MethodError("not_found", "skill not found")

@@ -707,12 +707,15 @@ class SkillManager:
         self._skill_memory_lock = threading.Lock()
         self._disabled: set[str] = self._load_disabled_set()
         # Every writer of the disabled-name ledger derives, persists and
-        # publishes its candidate under this lock. A create or delete also
-        # reserves its name under it for the whole operation, so no other
-        # create can write over it or have its disabled record cleared by
-        # it. Never held while skill code loads or runs.
+        # publishes its candidate under this lock. A create, edit or delete
+        # also reserves its name under it for the whole operation, so no
+        # other one can work on that name meanwhile; a reload waits for those
+        # to finish and refuses new ones until it is done. Never held while
+        # skill code loads or runs.
         self._activation_lock = threading.Lock()
+        self._settled = threading.Condition(self._activation_lock)
         self._reserved: set[str] = set()
+        self._reloading = False
         # Optional service references — set after construction via set_services()
         self._knowledge_store = None
         self._embedder = None
@@ -764,11 +767,11 @@ class SkillManager:
         for path in sorted(self.skills_dir.glob("*.py")):
             skill = self._load_skill(path)
             if skill:
-                self._skills[skill.name] = skill
-        # Apply persisted disabled state
-        for name in self._disabled:
-            if name in self._skills:
-                self._skills[name].status = SkillStatus.DISABLED
+                with self._activation_lock:
+                    # Persisted disabled state applies before publication.
+                    if skill.name in self._disabled:
+                        skill.status = SkillStatus.DISABLED
+                    self._skills[skill.name] = skill
         if self._skills:
             log.info("Loaded %d skill(s): %s", len(self._skills), ", ".join(self._skills))
 
@@ -912,6 +915,8 @@ class SkillManager:
         with self._activation_lock:
             if name in self._skills or name in self._reserved:
                 return f"Skill '{name}' already exists. Use edit_skill to modify it."
+            if self._reloading:
+                return f"Skill '{name}' is busy; try again."
             recorded = not enabled and name not in self._disabled
             if recorded:
                 candidate = self._disabled | {name}
@@ -925,7 +930,6 @@ class SkillManager:
             return self._create_claimed(name, code, enabled=enabled, exclusive=exclusive)
         finally:
             with self._activation_lock:
-                self._reserved.discard(name)
                 if recorded and name not in self._skills:
                     candidate = self._disabled - {name}
                     try:
@@ -933,6 +937,19 @@ class SkillManager:
                         self._disabled = candidate
                     except Exception:
                         log.warning("Could not clear the disabled record of %s", name)
+            self._release(name)
+
+    def _reserve(self, name: str) -> bool:
+        """Claim a name for one edit or delete. The caller holds the lock."""
+        if name in self._reserved or self._reloading:
+            return False
+        self._reserved.add(name)
+        return True
+
+    def _release(self, name: str) -> None:
+        with self._activation_lock:
+            self._reserved.discard(name)
+            self._settled.notify_all()
 
     def _create_claimed(self, name: str, code: str, *, enabled: bool, exclusive: bool) -> str:
         path = self.skills_dir / f"{name}.py"
@@ -975,10 +992,19 @@ class SkillManager:
 
     def edit_skill(self, name: str, code: str) -> str:
         """Replace a skill's code and reload it."""
-        if name not in self._skills:
-            return f"Skill '{name}' not found."
+        with self._activation_lock:
+            if name not in self._skills:
+                return f"Skill '{name}' not found."
+            if not self._reserve(name):
+                return f"Skill '{name}' is busy; try again."
+            previous_skill = self._skills[name]
+        try:
+            return self._edit_reserved(name, code, previous_skill)
+        finally:
+            self._release(name)
 
-        path = self._skills[name].file_path
+    def _edit_reserved(self, name: str, code: str, previous_skill: LoadedSkill) -> str:
+        path = previous_skill.file_path
         old_code = path.read_text() if path.exists() else ""
 
         try:
@@ -986,7 +1012,6 @@ class SkillManager:
         except Exception as e:
             return f"Failed to write skill file: {e}"
 
-        previous_skill = self._skills[name]
         previous_module = sys.modules.get(previous_skill.module_name)
         skill = self._load_skill(path)
         if not skill:
@@ -1004,9 +1029,10 @@ class SkillManager:
                 f"('{name}'). They must be identical. Reverted to previous version."
             )
 
-        if name in self._disabled or previous_skill.status == SkillStatus.DISABLED:
-            skill.status = SkillStatus.DISABLED
-        self._skills[name] = skill
+        with self._activation_lock:
+            if name in self._disabled or previous_skill.status == SkillStatus.DISABLED:
+                skill.status = SkillStatus.DISABLED
+            self._skills[name] = skill
         return f"Skill '{name}' updated and reloaded successfully."
 
     def delete_skill(self, name: str) -> str:
@@ -1014,15 +1040,13 @@ class SkillManager:
         with self._activation_lock:
             if name not in self._skills:
                 return f"Skill '{name}' not found."
-            if name in self._reserved:
+            if not self._reserve(name):
                 return f"Skill '{name}' is busy; try again."
-            self._reserved.add(name)
             path = self._skills[name].file_path
         try:
             return self._delete_reserved(name, path)
         finally:
-            with self._activation_lock:
-                self._reserved.discard(name)
+            self._release(name)
 
     def _delete_reserved(self, name: str, path: Path) -> str:
         if self._config_store is not None:
@@ -1045,6 +1069,15 @@ class SkillManager:
         Resolve by the recorded filename, not a user-supplied filesystem path.
         Keep the diagnostic if unlink fails so the operator can retry.
         """
+        with self._activation_lock:
+            if not self._reserve(name):
+                return f"Skill '{name}' is busy; try again."
+        try:
+            return self._delete_failed_reserved(name)
+        finally:
+            self._release(name)
+
+    def _delete_failed_reserved(self, name: str) -> str:
         loaded_files = {skill.file_path.name for skill in self._skills.values()}
         filename = next((filename for filename in self.definition_errors
                          if Path(filename).stem == name and filename not in loaded_files), None)
@@ -1237,12 +1270,25 @@ class SkillManager:
 
     def reload(self) -> None:
         """Requalify disk modules, fencing stale definitions before publication."""
-        for name in tuple(self._skills):
-            self._unload_skill(name)
-        self.definition_errors.clear()
         with self._activation_lock:
-            self._disabled = self._load_disabled_set()
-        self._load_all()
+            # One reload at a time. Creates, edits and deletes in progress
+            # finish first, and none starts until this reload is done.
+            while self._reloading:
+                self._settled.wait()
+            self._reloading = True
+            while self._reserved:
+                self._settled.wait()
+        try:
+            for name in tuple(self._skills):
+                self._unload_skill(name)
+            self.definition_errors.clear()
+            with self._activation_lock:
+                self._disabled = self._load_disabled_set()
+            self._load_all()
+        finally:
+            with self._activation_lock:
+                self._reloading = False
+                self._settled.notify_all()
 
     def close(self) -> None:
         """Retire only this profile's imported modules."""
