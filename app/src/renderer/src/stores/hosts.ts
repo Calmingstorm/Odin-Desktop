@@ -4,7 +4,7 @@
 import { reactive } from 'vue'
 import type { HostCandidate, HostList, HostPrepare, HostReference, HostRow, HostTest, PublicKeyInfo, Result } from '../../../shared/api'
 import { act, failure, management } from './management'
-import { isUnavailable, resultMessage, unavailableText } from '../capability'
+import { isUnavailable, settingsResultMessage as resultMessage, settingsUnavailableText as unavailableText } from '../capability'
 
 export interface HostForm {
   alias: string

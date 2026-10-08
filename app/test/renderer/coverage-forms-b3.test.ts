@@ -35,7 +35,8 @@ async function component(name: string) {
   mounted.push(v); await flush(); return v
 }
 function field(root: Host, label: string, tag = 'input'): Host {
-  const control = root.findAll((h) => h.tag === 'label' && (h.textContent().trim() === label || h.children.some((child) => child.props.class === 'config-key' && child.textContent() === label)))[0]?.find(tag)
+  const namedLabel = root.findAll((h) => h.tag === 'label' && (h.textContent().trim() === label || h.children.some((child) => child.props.class === 'config-key' && child.textContent() === label)))[0]
+  const control = namedLabel?.find(tag) ?? root.findAll((h) => h.tag === tag && !!namedLabel?.props.for && h.props.id === namedLabel.props.for)[0]
   if (!control) throw new Error(`No ${tag} labelled ${label}`)
   return control
 }
@@ -115,10 +116,11 @@ describe('B3 Hosts: settings, confirmation and enrollment controls', () => {
     await v.root.named('Delete host build…').fire('click'); expect(actions.deleteHost).toHaveBeenCalledWith('build')
     ask.mockResolvedValueOnce(false); await v.root.named('Force revoke host build…').fire('click'); expect(actions.forceRevoke).not.toHaveBeenCalled()
     await v.root.named('Force revoke host build…').fire('click'); expect(actions.forceRevoke).toHaveBeenCalledWith('build')
-    v.root.named('Turn off host build').fire('click'); expect(actions.setHostEnabled).toHaveBeenCalledWith('build', false)
+    const availability = v.root.findAll((n) => n.props.role === 'switch' && n.props['aria-label'] === 'Turn off host build')[0]!
+    availability.fire('change', { target: { checked: false } }); expect(actions.setHostEnabled).toHaveBeenCalledWith('build', false)
     v.root.named('Enroll trusted key for host build').fire('click'); expect(actions.importLegacy).toHaveBeenCalledWith(row)
     v.root.named('Edit host build').fire('click'); await flush(); expect(hosts.enrollment.form.alias).toBe('build')
-    v.root.button('Close').fire('click'); await flush(); expect(hosts.enrollment).toBeNull()
+    v.root.button('Cancel').fire('click'); await flush(); expect(hosts.enrollment).toBeNull()
     v.root.button('Add host').fire('click'); await flush()
     field(v.root, 'Alias').type('new'); field(v.root, 'Address').type('host.lan'); await flush()
     v.root.button('Next').fire('click'); await flush(); expect(hosts.enrollment.step).toBe(2)
@@ -138,7 +140,8 @@ describe('B3 MCP: patches and form ownership', () => {
   }
   it('routes server actions, loads tools only on expansion, and respects delete cancellation', async () => {
     const v = await fixture()
-    v.root.named('Turn off tools').fire('click'); expect(actions.setMcpEnabled).toHaveBeenCalledWith('tools', false)
+    const availability = v.root.findAll((n) => n.props.role === 'switch' && n.props['aria-label'] === 'Turn off tools')[0]!
+    availability.fire('change', { target: { checked: false } }); expect(actions.setMcpEnabled).toHaveBeenCalledWith('tools', false)
     v.root.named('Reconnect tools').fire('click'); expect(actions.reconnectMcp).toHaveBeenCalledWith('tools')
     v.root.named('Refresh tools for tools').fire('click'); expect(actions.refreshMcpTools).toHaveBeenCalledWith('tools')
     v.root.named('Tools for tools').fire('click'); await flush(); expect(actions.loadMcpTools).toHaveBeenCalledTimes(1)
@@ -184,11 +187,12 @@ describe('B3 Skills: typed configuration and action routing', () => {
     v.root.named('Validate skill fixture').fire('click'); expect(actions.validateSkill).toHaveBeenCalledWith('original')
     v.root.named('Save skill fixture').fire('click'); expect(actions.saveSkill).toHaveBeenCalled()
     v.root.named('Open fixture').fire('click'); expect(actions.openSkill).toHaveBeenCalledWith('fixture')
-    v.root.named('Turn off fixture').fire('click'); expect(actions.setSkillEnabled).toHaveBeenCalledWith('fixture', false)
+    const availability = v.root.findAll((n) => n.props.role === 'switch' && n.props['aria-label'] === 'Turn off fixture')[0]!
+    availability.fire('change', { target: { checked: false } }); expect(actions.setSkillEnabled).toHaveBeenCalledWith('fixture', false)
     v.root.findAll((h) => h.tag === 'button' && h.props['aria-label'] === 'Test fixture')[0]!.fire('click'); expect(actions.testSkill).toHaveBeenCalledWith('fixture')
     ask.mockResolvedValueOnce(false); await v.root.named('Delete fixture…').fire('click'); expect(actions.deleteSkill).not.toHaveBeenCalled()
     await v.root.named('Delete fixture…').fire('click'); expect(actions.deleteSkill).toHaveBeenCalledWith('fixture')
-    v.root.named('Close skill editor').fire('click'); await flush(); expect(management.editor).toBeNull()
+    v.root.named('Cancel skill changes').fire('click'); await flush(); expect(management.editor).toBeNull()
     v.root.button('New skill').fire('click'); await flush(); expect(management.editor.create).toBe(true)
     const code = v.root.findAll((h) => h.props.id === 'skill-code')[0]!; code.type('edited fixture code'); await flush()
     v.root.named('Validate skill code').fire('click'); expect(actions.validateSkill).toHaveBeenLastCalledWith('edited fixture code')

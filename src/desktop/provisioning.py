@@ -5,6 +5,7 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 
@@ -13,6 +14,30 @@ from ..config.schema import Config, load_config
 from ..permissions.persistence import write_private_atomic
 from .authority import OwnerAuthority
 from .paths import ProfilePaths
+
+
+def system_timezone() -> str:
+    """Use a valid system IANA zone for new Desktop profiles only."""
+    candidates = [os.environ.get("TZ", "").removeprefix(":")]
+    try:
+        resolved = str(Path("/etc/localtime").resolve(strict=True))
+        if "/zoneinfo/" in resolved:
+            candidates.append(resolved.split("/zoneinfo/", 1)[1])
+    except OSError:
+        pass
+    try:
+        candidates.append(Path("/etc/timezone").read_text(encoding="utf-8").strip())
+    except (OSError, UnicodeError):
+        pass
+    for candidate in candidates:
+        if not candidate or candidate.startswith("/") or candidate.startswith(("posix/", "right/")):
+            continue
+        try:
+            ZoneInfo(candidate)
+        except (ZoneInfoNotFoundError, ValueError):
+            continue
+        return candidate
+    return "UTC"
 
 
 def fresh_config_document(paths: ProfilePaths) -> dict:
@@ -26,6 +51,7 @@ def fresh_config_document(paths: ProfilePaths) -> dict:
     # Leading dot cannot collide with a valid profile identifier.
     workspace = paths.data_dir.parent / ".odin-desktop-workspaces" / paths.profile_id
     return {
+        "timezone": system_timezone(),
         "context": {"directory": str(data / "context")},
         "sessions": {"persist_directory": str(data / "sessions")},
         "tools": {
@@ -115,13 +141,14 @@ def ensure_profile(paths: ProfilePaths, *, authority: OwnerAuthority | None = No
     paths.create_private()
     with authority._locked():
         if not (paths.config_file.exists() or paths.config_file.is_symlink()):
-            config = fresh_config(paths)
+            document = fresh_config_document(paths)
+            config = Config.model_validate(document)
             _ensure_ssh_key(paths, authority, config)
             # Workspace is independent of protected profile state. Existing modes
             # are accepted, as in Odin; command execution validates its own fence.
             Path(config.tools.local_working_dir).mkdir(parents=True, exist_ok=True, mode=0o700)
             durable = write_private_atomic(
-                paths.config_file, yaml.safe_dump(fresh_config_document(paths), sort_keys=False)
+                paths.config_file, yaml.safe_dump(document, sort_keys=False)
             )
             authority.durability_degraded = authority.durability_degraded or not durable
             return config
@@ -143,11 +170,12 @@ def provision_fresh_profile(paths: ProfilePaths) -> OwnerAuthority:
     with authority._locked():
         if paths.config_file.exists() or paths.config_file.is_symlink():
             raise FileExistsError("profile configuration already exists")
-        config = fresh_config(paths)
+        document = fresh_config_document(paths)
+        config = Config.model_validate(document)
         _ensure_ssh_key(paths, authority, config)
         Path(config.tools.local_working_dir).mkdir(parents=True, exist_ok=True, mode=0o700)
         durable = write_private_atomic(
-            paths.config_file, yaml.safe_dump(fresh_config_document(paths), sort_keys=False)
+            paths.config_file, yaml.safe_dump(document, sort_keys=False)
         )
         authority.durability_degraded = authority.durability_degraded or not durable
     return authority

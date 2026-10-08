@@ -2,7 +2,7 @@
 // /api/personality, /api/memory and /api/knowledge routes, plus named lists and reloading context.
 import { reactive } from 'vue'
 import type { KnowledgeHit, KnowledgeIngest, KnowledgeSource, KnowledgeVersion, MemoryIndex, NamedList, Personality, PersonalitySet, Result } from '../../../shared/api'
-import { isUnavailable, resultMessage } from '../capability'
+import { isUnavailable, settingsResultMessage as resultMessage } from '../capability'
 import { act, management } from './management'
 
 type StateResource = 'personality' | 'memory' | 'lists' | 'knowledge' | 'context'

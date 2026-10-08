@@ -107,7 +107,7 @@ SETTINGS = [
           apply_handler="providers.compat.set"),
     field("openai_compatible.base_url", "string", "Base URL", "https://openrouter.ai/api/v1", apply_mode="live_apply",
           apply_handler="providers.compat.set"),
-    field("openai_compatible.api_key", "string", "API key", None, sensitivity="sensitive",
+    field("openai_compatible.api_key", "string", "API key", None, sensitivity="sensitive", secret_route="secrets.set",
           apply_handler="providers.compat.set"),
     field("image.openai.image_model", "string", "Image model", "gpt-image-2.5-flare",
           "Follows Odin's default unless pinned.", "live_read"),

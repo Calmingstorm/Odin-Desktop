@@ -117,7 +117,12 @@ describe('real step-5 hosts', () => {
     mounted = mount((await import('../../src/renderer/src/views/settings/Hosts.vue')).default)
     await flush()
     mounted.setup.allowTofu = true
-    await (mounted.setup.saveSettings as () => Promise<void>)()
+    const saving = (mounted.setup.saveSettings as () => Promise<void>)()
+    const { dialog } = await import('../../src/renderer/src/dialog')
+    expect(dialog.current?.title).toBe('Allow trust on first use?')
+    expect(bridge.hostsSettings).not.toHaveBeenCalled()
+    dialog.current!.resolve(true)
+    await saving
     expect(bridge.hostsSettings).toHaveBeenCalledExactlyOnceWith({ allow_host_tofu: true })
     const { management } = await import('../../src/renderer/src/stores/management')
     expect(management.notes.hosts).toBe('Saved. Default host build is not currently targetable.')
@@ -132,6 +137,9 @@ describe('real step-5 hosts', () => {
     await flush()
     mounted.setup.allowTofu = true
     const saving = (mounted.setup.saveSettings as () => Promise<void>)()
+    const { dialog } = await import('../../src/renderer/src/dialog')
+    dialog.current!.resolve(true)
+    await flush()
     mounted.setup.allowTofu = false
     receipt.resolve(ok({ saved: true }))
     await saving
@@ -149,7 +157,7 @@ describe('real step-5 hosts', () => {
     store.hosts.enrollment!.expected = 'not an SSH fingerprint'
     store.goTo(2)
     await flush()
-    expect(mounted.root.textContent()).toContain('No SSH key installation is needed')
+    expect(mounted.root.textContent()).toContain('Local commands do not need an SSH key')
     store.goTo(3)
     await flush()
     expect(mounted.root.findAll((node) => node.props['aria-label'] === 'Expected fingerprints')).toHaveLength(0)
@@ -192,6 +200,7 @@ describe('real step-5 tools and timeout responses', () => {
   })
 
   it('protects newer timeout input while a save receipt is held', async () => {
+    bridge.computerStatus = vi.fn().mockResolvedValue(ok({ readiness: { management_available: true, foreground_available: false, dispatch: 'none', reason: 'not_enabled' }, session: null }))
     const receipt = deferred<Result<ToolTimeouts>>()
     bridge.toolsTimeoutsSet!.mockReturnValueOnce(receipt.promise)
     mounted = mount((await import('../../src/renderer/src/views/settings/Tools.vue')).default)

@@ -3,12 +3,13 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import ObservabilityDetails from '../../components/ObservabilityDetails.vue'
 import TrajectoryDetails from '../../components/TrajectoryDetails.vue'
 import RecordDetails from '../../components/RecordDetails.vue'
-import { ask } from '../../dialog'
-import { unavailableText } from '../../capability'
+import SettingsSection from '../../components/settings/SettingsSection.vue'
+import SettingsRow from '../../components/settings/SettingsRow.vue'
+import { settingsUnavailableText as unavailableText } from '../../capability'
 import { basis, count, percent } from '../../format'
 import { state } from '../../store'
 import { management } from '../../stores/management'
-import { auditVerificationNote, computerGeneration, computerReadiness, computerReleaseUncertain, computerSession, isDesktopComputer, legacyComputer, loadAudit, loadComputer, loadHealth, loadRecords, loadTurns, loadUsage, logLevel, logMessage, reasonText, reconcileComputer, records, searchLogs, verifyAudit } from '../../stores/records'
+import { auditVerificationNote, computerGeneration, computerReadiness, computerReleaseUncertain, computerSession, legacyComputer, loadAudit, loadComputer, loadHealth, loadRecords, loadTurns, loadUsage, logLevel, logMessage, reasonText, records, searchLogs, verifyAudit } from '../../stores/records'
 
 onMounted(loadRecords)
 
@@ -35,39 +36,22 @@ const fullyVerified = computed(() => {
     check.verified === check.total && !check.unsigned_prefix
 })
 
-async function reconcile(): Promise<void> {
-  const status = records.computer
-  if (!status) return
-  if (isDesktopComputer(status)) {
-    await reconcileComputer(status)
-    return
-  }
-  const confirmed = await ask({
-    title: 'Release this session?',
-    message: `Odin couldn't verify that session ${status.session_id} let go of the mouse and keyboard. Check the computer first. Releasing it records that you checked; Odin still treats the cleanup as unverified.`,
-    confirmLabel: 'Release',
-    danger: true
-  })
-  if (confirmed) await reconcileComputer(status)
-}
 </script>
 
 <template>
   <ObservabilityDetails />
   <TrajectoryDetails />
   <RecordDetails />
-  <section v-if="records.unavailable.health" class="panel" aria-label="Health">
-    <h3>Health</h3><p class="manage-desc" role="status">{{ unavailableText('Health') }}</p>
-  </section>
-  <section v-else class="panel" aria-label="Health">
-    <header class="panel-head">
-      <h3>Health</h3>
+  <SettingsSection title="Health" aria-label="Health">
+    <p v-if="records.unavailable.health" class="manage-desc" role="status">{{ unavailableText('Health') }}</p>
+    <template v-else>
+    <SettingsRow label="Service status">
       <span v-if="records.health" class="panel-hint">
         {{ records.health.overall }}: {{ records.health.healthy_count }} healthy, {{ records.health.degraded_count }} degraded,
         {{ records.health.down_count }} down, {{ records.health.unconfigured_count }} not set up. Checked {{ at(records.health.checked_at) }}.
       </span>
       <button class="ghost" @click="loadHealth">Check again</button>
-    </header>
+    </SettingsRow>
     <p v-if="records.errors.health" class="warn">Couldn't check: {{ records.errors.health }}{{ records.health ? ' Showing the last check.' : '' }}</p>
     <ul class="manage-list">
       <li v-for="c in records.health?.components ?? []" :key="c.name" class="manage-row">
@@ -78,21 +62,20 @@ async function reconcile(): Promise<void> {
         </div>
       </li>
     </ul>
-  </section>
+    </template>
+  </SettingsSection>
 
-  <section v-if="records.unavailable.usage" class="panel" aria-label="Usage">
-    <h3>Usage</h3><p class="manage-desc" role="status">{{ unavailableText('Usage') }}</p>
-  </section>
-  <section v-else class="panel" aria-label="Usage">
-    <header class="panel-head">
-      <h3>Usage</h3>
+  <SettingsSection title="Usage" aria-label="Usage">
+    <p v-if="records.unavailable.usage" class="manage-desc" role="status">{{ unavailableText('Usage') }}</p>
+    <template v-else>
+    <SettingsRow label="Reported usage">
       <label class="limit">Period <select v-model="period" :aria-describedby="records.errors.usage ? 'records-usage-error' : undefined" @change="loadUsage(period)">
         <option value="24h">Last 24 hours</option>
         <option value="7d">Last 7 days</option>
         <option value="30d">Last 30 days</option>
         <option value="all">All time</option>
       </select></label>
-    </header>
+    </SettingsRow>
     <p v-if="records.errors.usage" id="records-usage-error" class="warn" role="status">Couldn't read usage: {{ records.errors.usage }}{{ records.usage ? ' Showing the last read.' : '' }}</p>
     <template v-if="records.usage">
       <p class="manage-desc" :title="basis(records.usage.tokens)">
@@ -104,17 +87,15 @@ async function reconcile(): Promise<void> {
       </p>
       <pre v-if="records.usage.summary" class="manage-json">{{ records.usage.summary }}</pre>
     </template>
-  </section>
+    </template>
+  </SettingsSection>
 
-  <section v-if="records.unavailable.audit" class="panel" aria-label="Audit">
-    <h3>Audit</h3><p class="manage-desc" role="status">{{ unavailableText('Audit') }}</p>
-  </section>
-  <section v-else class="panel" aria-label="Audit">
-    <header class="panel-head">
-      <h3>Audit</h3>
-      <span class="panel-hint">Every tool call, with its input (secrets scrubbed) and result.</span>
+  <SettingsSection title="Audit" aria-label="Audit">
+    <p v-if="records.unavailable.audit" class="manage-desc" role="status">{{ unavailableText('Audit') }}</p>
+    <template v-else>
+    <SettingsRow label="Tool call record" description="Tool calls, with their input (secrets removed) and result.">
       <button v-if="!records.unavailable.verify" class="ghost" @click="verifyAudit">Verify the record</button>
-    </header>
+    </SettingsRow>
     <p v-if="records.unavailable.verify" class="manage-desc" role="status">{{ unavailableText('Audit verification') }}</p>
     <p v-else-if="records.errors.verify" class="warn">Couldn't check the record: {{ records.errors.verify }}. It is neither verified nor known to be broken.</p>
     <p v-else-if="records.verify" :class="fullyVerified ? 'field-saved' : 'warn'">
@@ -145,21 +126,20 @@ async function reconcile(): Promise<void> {
         <tr v-if="records.loaded.audit && !records.audit.length"><td>Nothing recorded.</td></tr>
       </tbody>
     </table>
-  </section>
+    </template>
+  </SettingsSection>
 
-  <section v-if="records.unavailable.logs" class="panel" aria-label="Logs">
-    <h3>Logs</h3><p class="manage-desc" role="status">{{ unavailableText('Log search') }}</p>
-  </section>
-  <section v-else class="panel" aria-label="Logs">
-    <header class="panel-head">
-      <h3>Logs</h3>
+  <SettingsSection title="Logs" aria-label="Logs">
+    <p v-if="records.unavailable.logs" class="manage-desc" role="status">{{ unavailableText('Log search') }}</p>
+    <template v-else>
+    <SettingsRow label="Find log entries">
       <label class="limit">Level <select v-model="logs.level" :aria-describedby="records.errors.logs ? 'records-logs-error' : undefined" @change="searchLogs(logs)">
         <option value="all">Everything</option>
         <option value="info">Information</option>
         <option value="error">Errors</option>
       </select></label>
       <label class="limit">Search the logs <input v-model="logs.q" type="search" class="panel-filter" placeholder="Search" :aria-describedby="records.errors.logs ? 'records-logs-error' : undefined" @keydown.enter="searchLogs(logs)" /></label>
-    </header>
+    </SettingsRow>
     <p v-if="records.errors.logs" id="records-logs-error" class="warn" role="status">Couldn't search the logs: {{ records.errors.logs }}{{ records.loaded.logs ? ' Showing the last search.' : '' }}</p>
     <table class="runs">
       <tbody>
@@ -171,20 +151,18 @@ async function reconcile(): Promise<void> {
         <tr v-if="records.loaded.logs && !records.logs.length"><td>No entries.</td></tr>
       </tbody>
     </table>
-  </section>
+    </template>
+  </SettingsSection>
 
-  <section v-if="records.unavailable.turns" class="panel" aria-label="Turn state">
-    <h3>Preserved work</h3><p class="manage-desc" role="status">{{ unavailableText('Preserved work') }}</p>
-  </section>
-  <section v-else class="panel" aria-label="Turn state">
-    <header class="panel-head">
-      <h3>Preserved work</h3>
-      <span class="panel-hint">Requests Odin kept so they can resume, and any that need your attention.</span>
+  <SettingsSection title="Preserved work" aria-label="Turn state">
+    <p v-if="records.unavailable.turns" class="manage-desc" role="status">{{ unavailableText('Preserved work') }}</p>
+    <template v-else>
+    <SettingsRow label="Saved requests" description="Requests kept so they can resume, including any that need your attention.">
       <button class="ghost" aria-label="Refresh preserved work" @click="loadTurns">Refresh</button>
-    </header>
+    </SettingsRow>
     <p v-if="records.errors.turns" class="warn">Couldn't read preserved work: {{ records.errors.turns }}{{ records.turns ? ' Showing the last read.' : '' }}</p>
     <p v-if="records.turns && records.turns.availability !== 'available'" class="manage-desc">
-      {{ records.turns.availability === 'not_enabled' ? 'Turn state is off.' : 'Turn state is unavailable right now.' }}
+      {{ records.turns.availability === 'not_enabled' ? 'Preserving work is off.' : 'Preserved work is unavailable right now.' }}
     </p>
     <ul v-else class="manage-list">
       <li v-for="t in records.turns?.data.turns ?? []" :key="`${t.source}:${t.channel_id}:${t.message_id}:${t.turn_generation}`" class="manage-row">
@@ -199,41 +177,38 @@ async function reconcile(): Promise<void> {
       </li>
       <li v-if="records.turns && !(records.turns.data.turns ?? []).length" class="manage-desc">Nothing preserved.</li>
     </ul>
-  </section>
+    </template>
+  </SettingsSection>
 
-  <section v-if="records.unavailable.computer" class="panel" aria-label="Computer use">
-    <h3>Computer use</h3><p class="manage-desc" role="status">{{ unavailableText('Computer use') }}</p>
-  </section>
-  <section v-else class="panel" aria-label="Computer use">
-    <header class="panel-head">
-      <h3>Computer use</h3>
+  <SettingsSection title="Computer use report" aria-label="Computer use">
+    <p v-if="records.unavailable.computer" class="manage-desc" role="status">{{ unavailableText('Computer use') }}</p>
+    <template v-else>
+    <SettingsRow label="Session report" description="Read-only status. Manage computer use and check recovery in Tools.">
       <span v-if="legacy" class="panel-hint">{{ legacy.enabled ? 'On' : 'Off' }}: {{ legacy.state }}.</span>
       <button class="ghost" aria-label="Refresh computer use" @click="loadComputer">Refresh</button>
-    </header>
+      <button class="ghost" @click="state.settingsSection = 'tools'">Go to Tools</button>
+    </SettingsRow>
     <p v-if="records.errors.computer" class="warn">Couldn't read computer use: {{ records.errors.computer }}{{ records.computer ? ' Showing the last read.' : '' }}</p>
     <template v-if="readiness">
       <p class="manage-desc">Management: {{ readiness.management_available ? 'available' : 'unavailable' }}.</p>
-      <p v-if="readiness.foreground_available" role="status">Foreground computer use is available on X11. Input still requires an admitted turn, consent, and a verified target.</p>
-      <p v-else class="capability-unavailable" role="status">Foreground computer use is unavailable. Dispatch: {{ readiness.dispatch }}. Reason: {{ reasonText(readiness.reason) }}.</p>
-      <p v-if="!session" class="manage-desc">No computer-use session is reported by this status. This is not proof of input release or cleanup.</p>
-      <p v-else class="manage-desc">Reconciliation checks recorded recovery only. It does not start a session, send input, or assert that you checked the computer.</p>
+      <p v-if="readiness.foreground_available" role="status">Desktop input is available on X11. Each request still needs consent and a verified target. Odin must also accept the request before sending input.</p>
+      <p v-else class="capability-unavailable" role="status">Desktop input is unavailable. Input route: {{ readiness.dispatch }}. Reason: {{ reasonText(readiness.reason) }}.</p>
+      <p v-if="!session" class="manage-desc">No computer-use session is reported. This does not confirm that mouse and keyboard input was released.</p>
+      <p v-else class="manage-desc">Checking recovery in Tools only reviews the recorded session. It does not start a session, send input, or confirm that you checked the computer.</p>
     </template>
     <template v-if="session?.session_id">
       <div class="manage-line">
         <code class="manage-name">{{ session.session_id }}</code>
         <span class="manage-count">generation {{ records.computer ? computerGeneration(records.computer) : '' }}</span>
         <span :class="['state-chip', session.state === 'quarantined' ? 'failed' : 'disabled']">{{ session.state }}</span>
-        <span v-if="session.state === 'quarantined'" class="manage-actions">
-          <button v-if="readiness" class="ghost" :aria-label="`Reconcile session ${session.session_id}`" :disabled="management.busy[computerKey] || !readiness.management_available" @click="reconcile">Reconcile</button>
-          <button v-else class="ghost danger-item" :aria-label="`Release session ${session.session_id}…`" :disabled="management.busy[computerKey]" @click="reconcile">Release…</button>
-        </span>
       </div>
       <p v-if="session.recovery" :class="session.recovery.complete ? 'manage-desc' : 'warn'">
         Recovery: {{ session.recovery.status.replace(/_/g, ' ') }}, because {{ reasonText(session.recovery.reason) }}.
-        {{ session.recovery.complete ? 'Core records recovery complete; native input remains unqualified.' : 'Not complete: the cleanup is unverified.' }}
+        {{ session.recovery.complete ? 'Recovery is recorded as complete; this does not confirm input is safe to resume.' : 'Recovery is incomplete. Do not resume desktop input.' }}
       </p>
       <p v-if="computerReleaseUncertain(session)" class="warn">Input release remains unverified.</p>
       <p v-if="management.notes[computerKey]" class="manage-note" role="status">{{ management.notes[computerKey] }}</p>
     </template>
-  </section>
+    </template>
+  </SettingsSection>
 </template>

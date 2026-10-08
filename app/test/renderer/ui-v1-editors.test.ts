@@ -6,10 +6,12 @@ import SettingsRow from '../../src/renderer/src/components/settings/SettingsRow.
 import SettingsSection from '../../src/renderer/src/components/settings/SettingsSection.vue'
 import SettingsSwitch from '../../src/renderer/src/components/settings/SettingsSwitch.vue'
 import { settingsControlId } from '../../src/renderer/src/settings-accessibility'
+import { ask } from '../../src/renderer/src/dialog'
 import { saveField, resetField, settings } from '../../src/renderer/src/stores/settings'
 import { flush, mount, type Host, type Mounted } from './component-host'
 
 // Real compiled components and shared FieldDrafts; only the network-facing store writes are held.
+vi.mock('../../src/renderer/src/dialog', () => ({ ask: vi.fn() }))
 vi.mock('../../src/renderer/src/stores/settings', async () => {
   const { reactive } = await import('vue')
   return {
@@ -257,7 +259,7 @@ describe('SettingEditor writes only deliberate drafts', () => {
       const root = editor(field({ apply_state }))
       expect(root.textContent()).not.toContain('Ready')
       expect(root.find('input')).toBeDefined()
-      expect(root.textContent()).toMatch(/Correct it|Check the value|Check the core connection/)
+      expect(root.textContent()).toMatch(/Correct it|Check the value|Check the connection/)
       if (apply_state === 'invalid') expect(root.find('input')!.props['aria-invalid']).toBe(true)
     }
   })
@@ -294,7 +296,7 @@ describe('SettingEditor writes only deliberate drafts', () => {
   it('does not invent edits for unknown metadata or fields owned by dedicated controls', () => {
     const unknown = editor(field({ type: 'future-shape' }))
     expect(unknown.find('input')).toBeUndefined()
-    expect(unknown.textContent()).toContain('metadata is unsupported')
+    expect(unknown.textContent()).toContain('Editing is unavailable')
     expect(unknown.textContent()).not.toContain('Ready')
     const readonly = editor(field({ apply_handler: 'future.dedicated.method', desired: 'Managed elsewhere' }))
     expect(readonly.find('input')).toBeUndefined()
@@ -311,5 +313,158 @@ describe('SettingEditor writes only deliberate drafts', () => {
     expect(root.textContent()).toContain('Secret support unavailable')
     expect(root.textContent()).toContain('dedicated secret controls')
     expect(saveField).not.toHaveBeenCalled()
+  })
+
+  it('stages explicitly saved short fields without blur or change writes', async () => {
+    const root = editor(field({ path: 'email.smtp.host', desired: 'old.example' }), { commit: 'explicit' })
+    const input = root.find('input')!
+    input.type('new.example'); key(input, 'Enter'); input.fire('blur'); await flush()
+    expect(saveField).not.toHaveBeenCalled()
+    root.button('Save').fire('click'); await land()
+    expect(saveField).toHaveBeenLastCalledWith(expect.objectContaining({ path: 'email.smtp.host' }), 'new.example')
+  })
+
+  it('edits structured budget rows explicitly and preserves newer drafts', async () => {
+    const root = editor(field({ path: 'sessions.context_budget_overrides', type: 'object', desired: { model: 100 } }))
+    expect(root.find('textarea')).toBeUndefined()
+    const input = root.findAll((node) => node.tag === 'input')[0]!
+    input.type('200'); await flush()
+    expect(input.props.onBlur).toBeUndefined(); expect(input.props.onKeydown).toBeUndefined()
+    expect(saveField).not.toHaveBeenCalled()
+    root.button('Save').fire('click'); input.type('300'); await land()
+    expect(saveField).toHaveBeenLastCalledWith(expect.objectContaining({ path: 'sessions.context_budget_overrides' }), { model: 200 })
+    expect(root.findAll((node) => node.tag === 'input')[0]!.props.value).toBe(300)
+    expect(root.textContent()).toContain('Unsaved changes')
+    root.button('Save').fire('click'); await land()
+    expect(saveField).toHaveBeenLastCalledWith(expect.anything(), { model: 300 })
+  })
+
+  it('does not save invalid structured drafts and requires policy confirmation', async () => {
+    const root = editor(field({ path: 'openai_codex.context_budget_overrides', type: 'object', desired: { model: 100 } }))
+    root.findAll((node) => node.tag === 'input')[0]!.type('not a number'); await flush()
+    root.button('Save').fire('click'); await flush()
+    expect(saveField).not.toHaveBeenCalled()
+    expect(root.textContent()).toContain('Enter a whole number')
+    const policy = editor(field({ path: 'tools.governor.host_overrides', type: 'object', desired: { server: 'strict' } }))
+    vi.mocked(ask).mockResolvedValue(null)
+    policy.findAll((node) => node.tag === 'input')[0]!.type(''); await flush()
+    policy.button('Save').fire('click'); await flush()
+    expect(ask).toHaveBeenCalledTimes(1)
+    expect(saveField).not.toHaveBeenCalled()
+    vi.mocked(ask).mockResolvedValue(true)
+    policy.button('Save').fire('click'); await flush(); await land()
+    expect(saveField).toHaveBeenLastCalledWith(expect.objectContaining({ path: 'tools.governor.host_overrides' }), { server: '' })
+  })
+
+  it('asks before mail verification exceptions and fences changed revisions during confirmation', async () => {
+    const root = editor(field({ path: 'email.tls_verify', type: 'boolean', desired: true }))
+    let confirm!: (answer: true | null) => void
+    vi.mocked(ask).mockImplementation(() => new Promise((resolve) => { confirm = resolve }))
+    root.find('input')!.fire('change', { target: { checked: false } }); await flush()
+    expect(saveField).not.toHaveBeenCalled()
+    expect(ask).toHaveBeenCalledWith(expect.objectContaining({ danger: true }))
+    settings.meta!.revision = '2'
+    confirm(true); await flush()
+    expect(saveField).not.toHaveBeenCalled()
+    expect(root.textContent()).toContain('Settings changed')
+    root.button('Cancel').fire('click'); await flush()
+    expect(root.find('input')!.props.checked).toBe(true)
+  })
+
+  it('never confirms a newer draft in place of the one shown in the access dialog', async () => {
+    const root = editor(field({ path: 'email.allowed_attachment_dirs', type: 'array', desired: ['/saved'], default: [] }))
+    let confirm!: (answer: true | null) => void
+    vi.mocked(ask).mockImplementation(() => new Promise((resolve) => { confirm = resolve }))
+    root.find('textarea')!.type('/saved\n/new'); await flush()
+    root.button('Save').fire('click'); await flush()
+    root.find('textarea')!.type('/saved\n/different'); await flush()
+    confirm(true); await flush()
+    expect(saveField).not.toHaveBeenCalled()
+    expect(root.find('textarea')!.props.value).toBe('/saved\n/different')
+    expect(root.textContent()).toContain('Unsaved changes')
+  })
+
+  it('edits profile records using member constraints and preserves other records', async () => {
+    const profile = { total_window_tokens: 1000, max_output_tokens: 100, supports_reasoning: true }
+    const record = field({ path: 'openai_compatible.model_profiles', type: 'object', desired: { first: profile, second: profile }, apply_handler: 'providers.compat.set' })
+    const root = editor(record)
+    settings.meta!.fields.push(
+      field({ path: 'openai_compatible.model_profiles.first.total_window_tokens', type: 'integer', desired: 1000, constraints: { minimum: 1 } }),
+      field({ path: 'openai_compatible.model_profiles.first.max_output_tokens', type: 'integer', desired: 100, constraints: { minimum: 1 } }),
+      field({ path: 'openai_compatible.model_profiles.first.supports_reasoning', type: 'boolean', desired: true })
+    )
+    await flush()
+    expect(root.find('textarea')).toBeUndefined()
+    const input = root.findAll((node) => node.tag === 'input' && node.props.type === 'number')[0]!
+    expect(input.props.min).toBe(1)
+    input.type('0'); await flush(); root.button('Save').fire('click'); await flush()
+    expect(saveField).not.toHaveBeenCalled()
+    expect(root.textContent()).toContain('The lowest is 1')
+    input.type('2000'); await flush(); root.button('Save').fire('click'); await land()
+    expect(saveField).toHaveBeenLastCalledWith(expect.objectContaining({ apply_handler: 'providers.compat.set' }), {
+      first: { ...profile, total_window_tokens: 2000 }, second: profile
+    })
+    expect(root.textContent()).not.toContain('total_window_tokens')
+    expect(root.textContent()).not.toContain('supports_reasoning')
+  })
+
+  it('adds, removes and cancels budget records without hidden saves', async () => {
+    const root = editor(field({ path: 'sessions.context_budget_overrides', type: 'object', desired: {} }))
+    expect(root.textContent()).toContain('No entries yet')
+    root.find('input')!.type('new-model'); await flush(); root.button('Add entry').fire('click'); await flush()
+    expect(root.textContent()).toContain('new-model')
+    expect(root.textContent()).toContain('Enter a whole number')
+    root.findAll((node) => node.tag === 'input' && node.props.type === 'number')[0]!.type('500'); await flush()
+    root.findAll((node) => node.tag === 'input' && node.props.type === 'text')[0]!.type('new-model'); await flush()
+    root.button('Add entry').fire('click'); await flush()
+    expect(root.textContent()).toContain('Enter a new, unique name')
+    root.button('Remove entry').fire('click'); await flush()
+    expect(saveField).not.toHaveBeenCalled()
+    root.find('input')!.type('another-model'); await flush(); root.button('Add entry').fire('click'); await flush()
+    root.button('Cancel').fire('click'); await flush()
+    expect(root.textContent()).toContain('No entries yet')
+    expect(root.textContent()).not.toContain('Enter a whole number')
+  })
+
+  it('does not invent member schemas for empty custom profiles', async () => {
+    const root = editor(field({ path: 'openai_compatible.model_profiles', type: 'object', desired: {} }))
+    expect(root.button('Add entry').props.disabled).toBe(true)
+    expect(saveField).not.toHaveBeenCalled()
+  })
+
+  it('creates the first profile from authoritative member facts without child records', async () => {
+    const root = editor(field({ path: 'openai_compatible.model_profiles', type: 'object', desired: {}, apply_handler: 'providers.compat.set', record_members: [
+      { path: 'openai_compatible.model_profiles.total_window_tokens', type: 'integer', enum: null, constraints: { minimum: 1 }, default: null, nullable: false, sensitivity: 'public' },
+      { path: 'openai_compatible.model_profiles.max_output_tokens', type: 'integer', enum: null, constraints: { minimum: 1 }, default: null, nullable: false, sensitivity: 'public' }
+    ] }))
+    expect(root.button('Add entry').props.disabled).toBe(false)
+    root.find('input')!.type('first-model'); await flush(); root.button('Add entry').fire('click'); await flush()
+    const inputs = root.findAll((node) => node.tag === 'input' && node.props.type === 'number')
+    inputs[0]!.type('1000'); inputs[1]!.type('100'); await flush()
+    root.button('Save').fire('click'); await land()
+    expect(saveField).toHaveBeenLastCalledWith(expect.objectContaining({ apply_handler: 'providers.compat.set' }), { 'first-model': { total_window_tokens: 1000, max_output_tokens: 100 } })
+  })
+
+  it('stages a new profile with all member controls and validates required numeric members', async () => {
+    const root = editor(field({ path: 'openai_compatible.model_profiles', type: 'object', desired: {} }))
+    settings.meta!.fields.push(
+      field({ path: 'openai_compatible.model_profiles.sample.total_window_tokens', type: 'integer', constraints: { minimum: 1 }, desired: 100 }),
+      field({ path: 'openai_compatible.model_profiles.sample.max_output_tokens', type: 'integer', constraints: { minimum: 1 }, desired: 10 }),
+      field({ path: 'openai_compatible.model_profiles.sample.selection_hint', nullable: true, desired: null }),
+      field({ path: 'openai_compatible.model_profiles.sample.supports_thinking_mode', type: 'boolean', desired: false }),
+      field({ path: 'openai_compatible.model_profiles.sample.supported_efforts', type: 'array', default: [], desired: ['low'] }),
+      field({ path: 'openai_compatible.model_profiles.sample.supports_reasoning', type: 'string', enum: ['yes', 'no'], desired: 'no' })
+    )
+    await flush(); root.find('input')!.type('new-model'); await flush(); root.button('Add entry').fire('click'); await flush()
+    expect(root.textContent()).toContain('Enter a number')
+    const numbers = root.findAll((node) => node.tag === 'input' && node.props.type === 'number')
+    numbers[0]!.type('200'); await flush(); numbers[1]!.type('20'); await flush()
+    root.findAll((node) => node.tag === 'input' && node.props.type === 'checkbox')[0]!.fire('change', { target: { checked: true } }); await flush()
+    root.find('textarea')!.type('low\nhigh'); await flush()
+    root.find('select')!.fire('change', { target: { value: 'yes' } }); await flush()
+    root.button('Save').fire('click'); await land()
+    expect(saveField).toHaveBeenLastCalledWith(expect.anything(), { 'new-model': {
+      total_window_tokens: 200, max_output_tokens: 20, supports_thinking_mode: true, supported_efforts: ['low', 'high'], supports_reasoning: 'yes'
+    } })
   })
 })

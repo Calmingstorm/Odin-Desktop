@@ -377,6 +377,11 @@ class SettingsService:
                         raise _error(f"{leaf}: a secret; use secrets.set or secrets.clear")
                 right = _handler(leaf)
                 allowed = method == right
+                if method == "models.main.set" and leaf in {
+                    "openai_codex.reasoning_effort", "openai_compatible.reasoning_effort"
+                }:
+                    # Dependent model/effort pairs share the main switch transaction.
+                    allowed = True
                 if right == "hosts.settings" and method.startswith("hosts."):
                     allowed = True
                 if right.startswith("webhooks.outbound.") and method.startswith(

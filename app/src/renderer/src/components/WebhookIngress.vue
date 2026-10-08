@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import SettingsSection from './settings/SettingsSection.vue'
+import SettingsSwitch from './settings/SettingsSwitch.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { ConfigMeta, CoreStatus, Result, SettingsChange } from '../../../shared/api'
 import { state } from '../store'
@@ -53,7 +55,7 @@ const selectedWarning = computed(() => {
   if (row.value.inert_reason) return 'Selected schedule is inert; it cannot receive deliveries.'
   if (row.value.trigger?.source === 'gitlab') return 'GitLab ingress is unavailable.'
   if (row.value.trigger?.source && row.value.trigger.source !== savedSource) return 'Saved inbound source does not match the selected schedule filter; it cannot receive deliveries.'
-  return 'This route is not proof that the selected schedule is eligible. The core also requires a distinct secret and a valid reporting conversation. Listener acceptance may belong to another schedule.'
+  return 'This route does not confirm that this schedule accepts deliveries. It needs its own secret and reporting conversation; another schedule may be using the listener.'
 })
 const authentication = computed(() => {
   const saved = field(`${prefix.value}.source`)?.desired
@@ -71,7 +73,7 @@ watch(selected, chooseSource, { flush: 'sync' })
 watch(rows, () => {
   if (selected.value && !row.value) selected.value = ''
 })
-const failure = <T,>(): Result<T> => ({ ok: false, error: { code: 'unavailable', message: 'The core could not be reached.' } })
+const failure = <T,>(): Result<T> => ({ ok: false, error: { code: 'unavailable', message: 'Odin could not be reached.' } })
 async function read<T>(request: () => Promise<Result<T>>): Promise<Result<T>> {
   try { return await request() } catch { return failure<T>() }
 }
@@ -168,7 +170,7 @@ async function saveTrigger(): Promise<void> {
     pendingSecret = ''
     const result = await submission
     if (!alive || mine !== generation) return
-    notice.value = result.ok ? 'Source and secret saved. Eligibility and acceptance are reported by the core.'
+    notice.value = result.ok ? 'Source and secret saved. Check the status to confirm deliveries are accepted.'
       : 'Partial setup: source saved, but secret storage was not confirmed. The previous secret, if any, may still be in use. Refresh before retrying.'
     await refreshProjection()
   } finally { pendingSecret = ''; busy.value = false }
@@ -199,22 +201,22 @@ onBeforeUnmount(() => { alive = false; generation += 1; secret.value = ''; pendi
 </script>
 
 <template>
-  <section class="panel" aria-label="Webhook ingress" data-testid="webhook-ingress" :aria-busy="busy || loading">
-    <header class="panel-head"><h3>Webhook ingress</h3><button class="ghost" aria-label="Refresh webhook ingress" aria-describedby="ingress-refresh-help" :disabled="busy" @click="refresh">Refresh</button></header>
+  <SettingsSection title="Incoming webhooks" aria-label="Webhook ingress" data-testid="webhook-ingress" :aria-busy="busy || loading">
+    <button class="ghost" aria-label="Refresh webhook ingress" aria-describedby="ingress-refresh-help" :disabled="busy" @click="refresh">Refresh</button>
     <p id="ingress-refresh-help" class="manage-desc">Refresh replaces unsaved listener and source drafts with saved settings and discards any secret draft.</p>
     <p role="status" aria-atomic="true" data-testid="webhook-ingress-status">{{ statusText }}<template v-if="ingress">. Eligible schedules: {{ ingress.eligible_schedules }}. Unknown deliveries: {{ ingress.unknown_deliveries }}.</template></p>
     <p v-if="ingress?.address" class="manage-desc">Actual listen address: {{ ingress.address[0] }}:{{ ingress.address[1] }}</p>
     <p v-if="error" id="ingress-error" class="warn" role="alert">{{ error }}</p>
     <p v-if="notice" role="status">{{ notice }}</p>
     <p v-if="meta?.status?.keyring_error" class="warn" role="status">Secret storage is unavailable. Keyring error: {{ meta.status.keyring_error }}. Stored-secret presence and eligibility may be unknown.</p>
-    <p v-if="!available && !loading" role="status">Webhook settings unavailable from this core. No setup can be changed here.</p>
+    <p v-if="!available && !loading" role="status">Webhook settings are unavailable. No setup can be changed here.</p>
     <template v-if="available">
       <p class="manage-desc">Opt-in only. The listener stays off until at least one unpaused webhook schedule has a valid conversation and a distinct stored secret. Enabled does not mean accepting.</p>
       <fieldset :disabled="busy || loading || stale">
         <legend>Inbound listener setup</legend>
-        <label class="toggle-inline"><input v-model="enabled" type="checkbox" data-testid="webhook-ingress-enabled" /> Enable inbound webhook deliveries</label>
+        <label class="toggle-inline">Enable inbound webhook deliveries <SettingsSwitch id="webhook-ingress-enabled" label="Enable inbound webhook deliveries" :checked="enabled" data-testid="webhook-ingress-enabled" @change="enabled = $event" /></label>
         <label class="field-input">Listen address <input v-model="bind" data-testid="webhook-ingress-bind" :aria-describedby="error ? 'ingress-error ingress-bind-help' : 'ingress-bind-help'" spellcheck="false" /></label>
-        <p id="ingress-bind-help" class="manage-desc">Explicit numeric LAN, tailnet, link-local or loopback address. No wildcard or hostname. The core validates the address.</p>
+        <p id="ingress-bind-help" class="manage-desc">Use a numeric LAN, tailnet or loopback address, not a wildcard or hostname.</p>
         <label class="field-input">Listen port <input v-model="port" type="number" min="0" max="65535" data-testid="webhook-ingress-port" :aria-describedby="error ? 'ingress-error' : undefined" /></label>
         <button class="ghost" :disabled="busy || loading || stale" @click="saveListener">Save listener setup</button>
       </fieldset>
@@ -241,5 +243,5 @@ onBeforeUnmount(() => { alive = false; generation += 1; secret.value = ''; pendi
         </template>
       </fieldset>
     </template>
-  </section>
+  </SettingsSection>
 </template>

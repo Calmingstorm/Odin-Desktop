@@ -276,6 +276,11 @@
         "missing": 12,
         "total": 94
       },
+      "app/src/renderer/src/components/OutboundWebhooks.vue": {
+        "covered": 93,
+        "missing": 12,
+        "total": 105
+      },
       "app/src/renderer/src/components/RecordDetails.vue": {
         "covered": 82,
         "missing": 1,
@@ -336,6 +341,11 @@
         "missing": 1,
         "total": 15
       },
+      "app/src/renderer/src/components/settings/SecretControl.vue": {
+        "covered": 23,
+        "missing": 0,
+        "total": 23
+      },
       "app/src/renderer/src/components/settings/SettingEditor.vue": {
         "covered": 43,
         "missing": 0,
@@ -355,6 +365,11 @@
         "covered": 3,
         "missing": 0,
         "total": 3
+      },
+      "app/src/renderer/src/components/settings/StructuredSetting.vue": {
+        "covered": 58,
+        "missing": 0,
+        "total": 58
       },
       "app/src/renderer/src/conversation-menu-keys.ts": {
         "covered": 7,
@@ -2685,6 +2700,7 @@
     "app/src/renderer/src/components/MessageList.vue",
     "app/src/renderer/src/components/ObservabilityDetails.vue",
     "app/src/renderer/src/components/OpenRouterAdmin.vue",
+    "app/src/renderer/src/components/OutboundWebhooks.vue",
     "app/src/renderer/src/components/RecordDetails.vue",
     "app/src/renderer/src/components/ReleaseNotice.vue",
     "app/src/renderer/src/components/ReportViewer.vue",
@@ -2698,9 +2714,11 @@
     "app/src/renderer/src/components/WorkList.vue",
     "app/src/renderer/src/components/WorkPanel.vue",
     "app/src/renderer/src/components/settings/SettingEditor.vue",
+    "app/src/renderer/src/components/settings/SecretControl.vue",
     "app/src/renderer/src/components/settings/SettingsRow.vue",
     "app/src/renderer/src/components/settings/SettingsSection.vue",
     "app/src/renderer/src/components/settings/SettingsSwitch.vue",
+    "app/src/renderer/src/components/settings/StructuredSetting.vue",
     "app/src/renderer/src/conversation-menu-keys.ts",
     "app/src/renderer/src/dialog.ts",
     "app/src/renderer/src/format.ts",

@@ -121,7 +121,7 @@ describe('review round 4: records say what they know', () => {
     expect(management.notes['computer:s1']).toBe('Not released: a process the session started is still running. The session stays quarantined.')
     answer = ok(status({ state: 'closed', recovery: { status: 'operator_acknowledged_unverified', reason: 'operator_verified_external_cleanup', complete: false } }))
     await records.reconcileComputer(status({}) as never)
-    expect(management.notes['computer:s1']).toBe('Acknowledged: Odin closed the session on your word. Its cleanup stays unverified.')
+    expect(management.notes['computer:s1']).toBe('Acknowledged: Odin closed the session on your word. Mouse and keyboard release stays unverified.')
     expect(records.reconcileOutcome(status({ state: 'closed', recovery: { status: 'absence_verified', reason: 'recorded_processes_gone', complete: true } }) as never)).toBe(
       'Released: Odin verified nothing of the session remains.'
     )

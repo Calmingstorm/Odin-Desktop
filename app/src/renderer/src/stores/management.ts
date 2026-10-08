@@ -16,7 +16,7 @@ import type {
 import { adoptSkill, type Loaded, type SkillEditor } from '../skill-editor'
 import { isUnknownOutcome, onLateReceipt } from '../store'
 import { busy } from './locks'
-import { isUnavailable, resultMessage } from '../capability'
+import { isUnavailable, settingsResultMessage as resultMessage } from '../capability'
 import { loadSettings, settings } from './settings'
 
 type Resource = 'tools' | 'timeouts' | 'skills' | 'mcp'

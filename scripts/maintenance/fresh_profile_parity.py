@@ -244,6 +244,7 @@ def collect(root):
     import sys
     import tarfile
     import tempfile
+    from unittest.mock import patch
 
     if os.geteuid() == 0:
         raise RuntimeError("collect requires non-root isolated test runner")
@@ -285,7 +286,11 @@ def collect(root):
         paths = ProfilePaths.from_xdg(home=work / "desktop", environ={})
         authority = OwnerAuthority(paths)
         try:
-            config = ensure_profile(paths, authority=authority)
+            # Fresh timezone is machine-dependent; pin this parity fixture's
+            # system zone, just as its HOME/credentials are pinned above. Actual
+            # detection and existing-profile preservation have provisioning tests.
+            with patch.dict(os.environ, {"TZ": "UTC"}):
+                config = ensure_profile(paths, authority=authority)
             service = SettingsService(paths, None, config=config)
             desktop = flatten(service.config.model_dump(mode="json"))
             for key, value in desktop.items():

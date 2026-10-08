@@ -241,7 +241,11 @@ export const LEAF_EDITORS = ['models.main.set', 'models.agents.set'] as const
 export const editLeafSchema = z
   .object({ method: z.enum(LEAF_EDITORS), params: z.record(z.string().regex(/^[A-Za-z0-9_]+$/), leafValue) })
   .strict()
-  .refine((v) => Object.keys(v.params).filter((key) => key !== 'expected_revision').length === 1, 'one leaf at a time')
+  .refine((v) => {
+    const keys = Object.keys(v.params).filter((key) => key !== 'expected_revision')
+    const allowed = v.method === 'models.main.set' ? ['model', 'reasoning_effort'] : ['model', 'thinking_mode', 'auto_model_allowlist', 'model_selection_hints']
+    return keys.length > 0 && keys.every((key) => allowed.includes(key)) && (v.method !== 'models.main.set' || typeof v.params.model === 'string')
+  }, 'unsupported model settings')
   .refine((v) => v.params.expected_revision === undefined ||
     (typeof v.params.expected_revision === 'string' && v.params.expected_revision.length > 0 && v.params.expected_revision.length <= 128),
   'invalid settings revision')
@@ -304,6 +308,18 @@ const scheduleFields = {
 }
 
 export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
+  outboundWebhooksList: empty,
+  outboundWebhooksSave: z.object({
+    expected_revision: z.string().min(1).max(128), id: coreId.optional(),
+    name: z.string().max(128).optional(), url: z.string().min(1).max(2048).optional(),
+    secret: z.string().max(256).optional(),
+    events: z.array(z.enum(['all', 'tool_execution', 'alert', 'schedule', 'agent', 'loop', 'health', 'web_action', 'custom'])).max(8).optional(),
+    enabled: z.boolean().optional(), scrub_secrets: z.boolean().optional(), verify_ssl: z.boolean().optional()
+  }).strict().refine((v) => Boolean(v.id) || Boolean(v.url), 'New target requires URL')
+    .refine((v) => Boolean(v.id) || (v.name?.length ?? 0) <= 100, 'New name exceeds 100 characters')
+    .refine((v) => !v.events?.includes('all') || v.events.length === 1, 'All must be selected alone'),
+  outboundWebhooksDelete: z.object({ id: coreId, expected_revision: z.string().min(1).max(128) }).strict(),
+  outboundWebhooksTest: z.object({ id: coreId, expected_revision: z.string().min(1).max(128) }).strict(),
   auditDiffs: z.object({ tool: z.string().optional(), user: z.string().optional(), date: z.string().optional(), limit: z.union([z.number(), z.string()]).optional() }).strict(),
   auditFailures: z.object({ window: z.union([z.number(), z.string()]).optional() }).strict(),
   auditTail: z.object({ cursor: z.string().optional(), lines: z.number().int().optional() }).strict(),
@@ -329,6 +345,7 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
   poolsHttp: empty,
   poolsClose: z.object({ host: z.string().optional(), ssh_user: z.string().optional() }).strict(),
   openrouterCatalogue: empty,
+  modelsStatus: empty,
   openrouterEndpoints: z.object({ model: z.string() }).strict(),
   openrouterSelect: z.object({ model: z.string(), provider_tag: z.string().optional(), expected_revision: z.string().optional() }).strict(),
   providersCompatDiagnostic: empty,

@@ -2216,6 +2216,55 @@ def build_meta_payload(
         for path, value in flatten(config_dump)
     ]
 
+    # Populated maps flatten into entry leaves. Grouped Desktop editors need
+    # canonical parent authority and complete values, never inferred parents.
+    grouped_maps = (
+        "openai_compatible.model_profiles",
+        "openai_codex.context_budget_overrides",
+        "sessions.context_budget_overrides",
+        "tools.governor.host_overrides",
+    )
+    missing = object()
+
+    def map_value(dump: dict[str, Any], path: str) -> Any:
+        value: Any = dump
+        for segment in path.split("."):
+            if not isinstance(value, dict) or segment not in value:
+                return missing
+            value = value[segment]
+        return value
+
+    facts = schema_facts()
+    for path in grouped_maps:
+        desired = map_value(config_dump, path)
+        if not isinstance(desired, dict):
+            continue
+        record = next((item for item in fields if item["path"] == path), None)
+        if record is None:
+            boot = map_value(boot_dump, path) if boot_dump is not None else missing
+            record = build_field_record(
+                path, desired, boot_value=None if boot is missing else boot,
+                has_boot=has_boot and boot is not missing,
+            )
+            fields.append(record)
+        # Empty maps still publish Pydantic shape, not invented runtime values
+        # or independent member write authority.
+        if path == "openai_compatible.model_profiles":
+            record["record_members"] = [
+                {
+                    "path": member_path,
+                    "type": member_facts["type"],
+                    "enum": member_facts.get("enum"),
+                    "constraints": dict(member_facts.get("constraints") or {}),
+                    "default": member_facts.get("default"),
+                    "nullable": bool(member_facts.get("nullable")),
+                    "sensitivity": spec_for(member_path).sensitivity or "public",
+                }
+                for member_path, member_facts in facts.items()
+                if member_path.startswith(f"{path}.")
+                and "." not in member_path[len(path) + 1:]
+            ]
+
     counts = dict.fromkeys(HEALTH_STATES, 0)
     for record in fields:
         state = record["apply_state"]

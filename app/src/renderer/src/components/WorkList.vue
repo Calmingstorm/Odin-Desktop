@@ -7,7 +7,7 @@ import { changedWorkNotices, workAnnouncement, workName } from '../work-accessib
 import { detailFields, settlementFields, workStartedLabel } from '../work-format'
 
 /** `sections`: running, scheduled and finished work, as the Work column shows it; otherwise grouped by kind. */
-const props = defineProps<{ kinds?: WorkKind[]; emptyText?: string; sections?: boolean }>()
+const props = defineProps<{ kinds?: WorkKind[]; emptyText?: string; sections?: boolean; unavailableMessage?: string }>()
 
 const groups = computed<Array<{ kind: string; label: string; items: WorkItem[] }>>(() => props.sections
   ? bySection()
@@ -102,7 +102,7 @@ async function open(conversationId: string, event: MouseEvent): Promise<void> {
 
 <template>
   <p class="work-announcement" role="status" aria-live="polite" aria-atomic="true">{{ announcement }}</p>
-  <p v-if="work.error" :class="work.unavailable ? 'capability-unavailable' : 'warn'" :role="work.unavailable ? 'status' : 'alert'">{{ work.error }}</p>
+  <p v-if="work.error" :class="work.unavailable ? 'capability-unavailable' : 'warn'" :role="work.unavailable ? 'status' : 'alert'">{{ work.unavailable && unavailableMessage ? unavailableMessage : work.error }}</p>
   <p v-else-if="work.loaded && !groups.length" class="work-empty">{{ emptyText ?? 'No work is listed.' }}</p>
   <div v-for="group in groups" :key="group.kind" class="work-group">
     <h2>{{ group.label }} <span class="work-count">{{ group.items.length }}</span></h2>

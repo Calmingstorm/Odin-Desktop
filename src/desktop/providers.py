@@ -532,7 +532,9 @@ class ProviderOwner(LLMGateway):
             raise ValueError("Use the dedicated profile settings transaction")
         return await self._reload(auxiliary=True)
 
-    async def switch_provider(self, provider, persist=False, *, model_ref=None):
+    async def switch_provider(
+        self, provider, persist=False, *, model_ref=None, reasoning_effort=None
+    ):
         provider = "compat" if provider == "kimi" else provider
         if provider not in _ATTRS:
             return {"error": "Unknown provider"}
@@ -559,6 +561,11 @@ class ProviderOwner(LLMGateway):
                     return {"error": "Model reference does not match provider"}
                 config.llm_provider.model = ref.render()
                 config.llm_provider.active_provider = provider
+                if reasoning_effort is not None:
+                    if provider not in {"codex", "compat"}:
+                        return {"error": "This provider does not accept reasoning effort"}
+                    section.reasoning_effort = reasoning_effort
+                config = type(config).model_validate(config.model_dump())
                 change = await self._prepare_graph_async(config, {provider}, require=provider)
                 await change.qualify()
                 if callable(persist):

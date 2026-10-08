@@ -866,6 +866,9 @@ label.field-input > input:not([type='checkbox']):not([type='radio']), label.fiel
 .settings-row-control { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .settings-row-control input:not([type=checkbox]), .settings-row-control select, .settings-row-control textarea { width: 100%; min-width: 0; max-width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; }
 .settings-row-control textarea { resize: vertical; }
+.settings-segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.settings-segmented button { border: 0; background: transparent; color: var(--muted); padding: 7px 12px; border-radius: 5px; }
+.settings-segmented button[aria-pressed=true] { background: var(--accent); color: var(--bg); }
 .settings-row-note { grid-column: 1 / -1; font-size: 12px; }
 .settings-row-note p { margin: 0; line-height: 1.5; }
 .settings-row-full-width .settings-row-control { grid-column: 1 / -1; }

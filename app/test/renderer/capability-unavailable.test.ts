@@ -62,6 +62,18 @@ async function screen(name: string): Promise<Mounted> {
 }
 
 describe('step-1 capability refusals in mounted renderer screens', () => {
+  it('scopes settings refusal copy without changing global copy or diagnostic failures', async () => {
+    const { settingsUnavailableText, settingsResultMessage, unavailableText, resultMessage } = await import('../../src/renderer/src/capability')
+    expect(settingsUnavailableText('Knowledge')).toBe('Knowledge is unavailable.')
+    expect(settingsUnavailableText('Settings')).toBe('Settings are unavailable.')
+    expect(settingsUnavailableText('Codex accounts')).toBe('Codex accounts are unavailable.')
+    expect(settingsResultMessage(refused(), 'Knowledge')).toBe('Knowledge is unavailable.')
+    expect(unavailableText('Chat')).toBe('Chat is unavailable in this core.')
+    expect(resultMessage(refused(), 'Chat')).toBe('Chat is unavailable in this core.')
+    expect(settingsResultMessage({ ok: true, result: [] }, 'Knowledge')).toBe('')
+    expect(settingsResultMessage({ ok: false, error: { code: 'read_failed', message: 'Original diagnostic: metadata unavailable' } }, 'Knowledge')).toBe('Original diagnostic: metadata unavailable')
+  })
+
   it('does not replace a pushed ready state with an older initial app-state reply', async () => {
     let answer!: (value: AppState) => void
     api.getAppState.mockImplementationOnce(() => new Promise((resolve) => { answer = resolve }))

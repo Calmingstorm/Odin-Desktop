@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { join, resolve, sep } from 'node:path'
-import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
+import { expect, test, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 import { exitApp, launchApp, repository, snapshot, waitForCore } from './harness'
 
 type Variant = { key: string; width: number; height: number; theme: 'dark' | 'light' }
@@ -11,6 +11,7 @@ if (process.env.ODIN_APP_UI_CAPTURE !== '1' || !process.env.ODIN_APP_UI_PLAN) {
 }
 const plan = JSON.parse(readFileSync(process.env.ODIN_APP_UI_PLAN, 'utf8')) as {
   epoch: string; navigation: string[]; variants: Variant[]; bounds: BoundsVariant[]; command: string[]
+  requiredStates: string[]; advancedCategories: string[]
 }
 const { epoch: CAPTURE_EPOCH, navigation: PRIMARY_NAV, variants: CAPTURE_VARIANTS, bounds: BOUNDS_VARIANTS } = plan
 function sha256(bytes: Buffer): string { return createHash('sha256').update(bytes).digest('hex') }
@@ -63,7 +64,7 @@ async function bounds(page: Page): Promise<unknown> {
       navClientWidth: nav.clientWidth, navScrollWidth: nav.scrollWidth, outOfBounds }
   })
   expect(measured.documentScrollWidth, 'Document must not scroll horizontally').toBeLessThanOrEqual(measured.documentWidth + 1)
-  expect(measured.bodyScrollWidth, 'General content must not overflow horizontally').toBeLessThanOrEqual(measured.bodyClientWidth + 1)
+  expect(measured.bodyScrollWidth, 'Settings content must not overflow horizontally').toBeLessThanOrEqual(measured.bodyClientWidth + 1)
   expect(measured.navScrollWidth, 'Settings navigation must not overflow horizontally').toBeLessThanOrEqual(measured.navClientWidth + 1)
   expect(measured.outOfBounds, 'Settings controls must remain within horizontal viewport bounds').toEqual([])
   for (const box of [measured.shell, measured.settings, measured.nav, measured.body]) {
@@ -82,7 +83,7 @@ test.beforeEach(() => {
 })
 
 for (const variant of CAPTURE_VARIANTS as Variant[]) {
-  test(`UI B ${variant.key}: General, About and representative settings shell`, async ({}, info) => {
+  test(`UI C ${variant.key}: every settings page, full scroll coverage and expanded workflows`, async ({}, info) => {
     test.setTimeout(180_000)
     const output = externalOutput(process.env.ODIN_APP_E2E_OUT)
     mkdirSync(output, { recursive: true, mode: 0o700 })
@@ -92,18 +93,18 @@ for (const variant of CAPTURE_VARIANTS as Variant[]) {
     expect(command[0]).toBe(python)
     expect(command.at(-1)).toBe(fixture)
     const outcome: Record<string, unknown> = {
-      variant, outcome: 'running', screenshots: [], checks: [],
+      variant, outcome: 'running', screenshots: [], checks: [], pages: [],
       fixture: { path: fixture, sha256: sha256(readFileSync(fixture)), command, realCore: false },
       provenance: { epoch: CAPTURE_EPOCH, uid: process.getuid?.(), gid: process.getgid?.(),
         pidNamespace: readlinkSync('/proc/self/ns/pid'), outerPidNamespace: process.env.ODIN_REAL_CORE_OUTER_PID_NS,
         home: process.env.HOME, display: process.env.DISPLAY, privateDbus: Boolean(process.env.DBUS_SESSION_BUS_ADDRESS) },
-      limitation: 'Source-build fixture renderer evidence only. Other settings pages are staged, not converted or qualified.'
+      limitation: 'Source-build synthetic fixture renderer evidence only, not engine adoption or platform qualification.'
     }
     const checks = outcome.checks as unknown[]
     const screenshots = outcome.screenshots as unknown[]
     let application: ElectronApplication | undefined
     try {
-      application = await launchApp({ profile: `ui-b-${variant.key}`, realCore: false,
+      application = await launchApp({ profile: `ui-c-${variant.key}`, realCore: false,
         env: { ODIN_DESKTOP_CORE_CMD: JSON.stringify(command) } })
       await waitForCore(application)
       const page = await application.firstWindow()
@@ -114,7 +115,7 @@ for (const variant of CAPTURE_VARIANTS as Variant[]) {
       await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'no-preference' })
       await size(application, page, variant.width, variant.height)
       await page.getByRole('button', { name: 'New conversation', exact: true }).click()
-      const draft = 'UI B retained draft. Never sent.'
+      const draft = 'UI C retained draft. Never sent.'
       const composer = page.getByRole('textbox', { name: 'Message', exact: true })
       await expect(composer).toBeVisible()
       await composer.fill(draft)
@@ -150,9 +151,14 @@ for (const variant of CAPTURE_VARIANTS as Variant[]) {
       for (const name of ['Quiet hours start', 'Quiet hours end']) {
         await expect(page.getByLabel(name, { exact: true })).toHaveAccessibleName(name)
       }
-      await expect(page.getByRole('radio', { name: 'Dark', exact: true })).toHaveAccessibleName('Dark')
-      await expect(page.getByRole('radio', { name: 'Light', exact: true })).toHaveAccessibleName('Light')
-      await page.getByRole('radio', { name: variant.theme === 'dark' ? 'Dark' : 'Light', exact: true }).check()
+      const theme = page.getByRole('group', { name: 'Theme', exact: true })
+      await expect(theme.getByRole('button', { name: 'Dark', exact: true })).toHaveAccessibleName('Dark')
+      await expect(theme.getByRole('button', { name: 'Light', exact: true })).toHaveAccessibleName('Light')
+      const choice = theme.getByRole('button', { name: variant.theme === 'dark' ? 'Dark' : 'Light', exact: true })
+      await choice.focus()
+      await choice.press('Space')
+      await expect(choice).toHaveAttribute('aria-pressed', 'true')
+      await expect(choice).toBeFocused()
       await expect.poll(async () => page.evaluate(async () => {
         const response = await window.odin.getSettings()
         return response.ok ? response.result.appearance : null
@@ -169,33 +175,148 @@ for (const variant of CAPTURE_VARIANTS as Variant[]) {
       checks.push({ name: 'settings-sidebar-hidden-and-chat-draft-restored', outcome: 'passed' })
       await page.getByRole('button', { name: 'Settings', exact: true }).click()
       const body = page.locator('.settings-body')
-      const screenshot = async (label: string) => {
+      const screenshot = async (label: string, scroller: Locator = body) => {
         await settled(page)
         const path = join(output, `${variant.key}-${label}.png`)
         await page.screenshot({ path, fullPage: false, animations: 'disabled', caret: 'hide', scale: 'css' })
-        screenshots.push({ path, sha256: sha256(readFileSync(path)), label,
-          scroll: await body.evaluate((element) => ({ top: element.scrollTop, height: element.scrollHeight, client: element.clientHeight })) })
+        const record = { path, sha256: sha256(readFileSync(path)), label,
+          ...await scroller.evaluate((element) => ({ top: element.scrollTop, height: element.scrollHeight, client: element.clientHeight })) }
+        screenshots.push(record)
         await info.attach(label, { path, contentType: 'image/png' })
-        console.log(`UI B screenshot: ${path}`)
+        console.log(`UI C screenshot: ${path}`)
+        return record
       }
-      await expect(page.getByRole('heading', { name: 'About', exact: true })).toHaveCount(1)
+      const destination = async (name: string): Promise<void> => {
+        if (name === 'Advanced settings') {
+          await destination('General')
+          await page.getByRole('button', { name, exact: true }).click()
+        } else {
+          const selected = nav.getByRole('button', { name, exact: true })
+          await selected.click()
+          await expect(selected).toHaveAttribute('aria-current', 'page')
+        }
+        await expect(page.locator('#settings-section-title')).toHaveText(name)
+        await expect(body.locator('[role="status"]', { hasText: /^Loading / })).toHaveCount(0)
+        await settled(page)
+      }
+      const fullScroll = async (label: string, scroller: Locator = body) => {
+        const frames: Awaited<ReturnType<typeof screenshot>>[] = []
+        await scroller.evaluate((element) => { element.scrollTop = 0 })
+        for (let index = 0; index < 40; index++) {
+          const frame = await screenshot(`${label}-scroll-${String(index + 1).padStart(2, '0')}`, scroller)
+          frames.push(frame)
+          if (frame.top + frame.client >= frame.height - 1) return frames
+          const target = Math.min(frame.height - frame.client, frame.top + Math.floor(frame.client * 0.8))
+          await scroller.evaluate((element, top) => { element.scrollTop = top }, target)
+          await expect.poll(() => scroller.evaluate((element) => element.scrollTop)).toBeCloseTo(target, 0)
+        }
+        throw new Error(`Scroll capture exceeded bounded 40 frames: ${label}`)
+      }
+      const pages = outcome.pages as unknown[]
+      for (const name of [...PRIMARY_NAV, 'Advanced settings']) {
+        await destination(name)
+        if (name === 'Models and providers') {
+          await expect(page.locator('.accounts .account')).toHaveCount(2)
+          await expect(page.getByRole('combobox', { name: 'Model', exact: true })).toContainText('Capture main model')
+          await expect(page.getByRole('combobox', { name: 'Reasoning effort', exact: true })).toBeEnabled()
+        }
+        if (name === 'Advanced settings') {
+          const categories = await body.locator('.settings-section-header > h3').allTextContents()
+          expect(categories).toEqual(plan.advancedCategories)
+          outcome.advancedCategories = categories
+        }
+        if (name === 'Work') {
+          await expect(page.getByRole('region', { name: 'Outgoing webhooks', exact: true })).toContainText('Capture event target')
+        }
+        const label = name === 'Models and providers' ? 'models' : name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+        const frames = await fullScroll(label)
+        if (name !== 'Models and providers') {
+          const disclosures = body.locator('details > summary').filter({ hasText: 'More options' })
+          for (const disclosure of await disclosures.all()) await disclosure.click()
+          if (await disclosures.count()) {
+            frames.push(...await fullScroll(`${label}-more-options`))
+            for (const disclosure of await disclosures.all()) await disclosure.click()
+          }
+        }
+        pages.push({ name, frames })
+        checks.push({ name: `full-scroll-${name}`, outcome: 'passed', bounds: await bounds(page) })
+      }
+
+      await destination('Models and providers')
+      const modelsMore = body.locator('details.settings-more-options')
+      await modelsMore.locator('summary').click()
+      await expect(modelsMore).toHaveAttribute('open', '')
+      await fullScroll('models-more-options')
+      await modelsMore.locator('summary').click()
+      for (const provider of ['codex', 'ollama', 'compat']) {
+        const configure = page.getByTestId(`configure-${provider}`)
+        await configure.click()
+        await expect(configure).toHaveAttribute('aria-expanded', 'true')
+        await fullScroll(`provider-${provider}-configure`)
+        await configure.click()
+      }
+
+      await destination('MCP servers')
+      await page.getByRole('button', { name: 'Add server', exact: true }).click()
+      const add = page.getByRole('dialog', { name: 'Add MCP server', exact: true })
+      await expect(add).toBeVisible()
+      await add.locator('details > summary').click()
+      await fullScroll('mcp-add', add)
+      await add.getByRole('button', { name: 'Cancel MCP server changes', exact: true }).click()
+      await expect(add).toHaveCount(0)
+      await page.getByRole('button', { name: 'Edit LMMS', exact: true }).click()
+      const edit = page.getByRole('dialog', { name: 'Edit MCP server LMMS', exact: true })
+      await expect(edit).toBeVisible()
+      await edit.locator('details > summary').click()
+      await fullScroll('mcp-edit', edit)
+      await edit.getByRole('button', { name: 'Cancel MCP server changes', exact: true }).click()
+      await expect(edit).toHaveCount(0)
+
+      await destination('Work')
+      await page.getByRole('button', { name: 'Add outbound webhook', exact: true }).click()
+      const outboundAdd = page.getByRole('dialog', { name: 'Add outbound target', exact: true })
+      await expect(outboundAdd).toBeVisible()
+      await fullScroll('outbound-add', outboundAdd)
+      await outboundAdd.getByRole('button', { name: 'Cancel outbound edit', exact: true }).click()
+      await expect(outboundAdd).toHaveCount(0)
+      await page.getByRole('button', { name: 'Edit outbound webhook Capture event target', exact: true }).click()
+      const outboundEdit = page.getByRole('dialog', { name: 'Edit outbound target', exact: true })
+      await expect(outboundEdit).toBeVisible()
+      await fullScroll('outbound-edit', outboundEdit)
+      await outboundEdit.getByRole('button', { name: 'Cancel outbound edit', exact: true }).click()
+      await expect(outboundEdit).toHaveCount(0)
+
+      await destination('Data and privacy')
+      const dataNav = page.getByRole('navigation', { name: 'Data and privacy subsections', exact: true })
+      for (const [name, label] of [['Memory and knowledge', 'data-memory'], ['Conversations', 'data-conversations'], ['Usage, logs and audit', 'data-records']] as const) {
+        const tab = dataNav.getByRole('button', { name, exact: true })
+        await tab.click()
+        await expect(tab).toHaveAttribute('aria-current', 'page')
+        await fullScroll(label)
+      }
+
+      await destination('Advanced settings')
+      const search = page.getByRole('searchbox', { name: 'Search Advanced settings', exact: true })
+      await search.fill('Command shell')
+      await expect(body.getByRole('heading', { level: 3 })).toHaveText(['Tool execution'])
       await body.evaluate((element) => { element.scrollTop = 0 })
-      await screenshot('general-upper')
-      await page.getByRole('heading', { name: 'This app', exact: true }).evaluate((element) => element.scrollIntoView({ block: 'start' }))
-      await expect(page.getByRole('switch', { name: 'Desktop notifications', exact: true })).toBeInViewport()
-      await expect(page.getByLabel('Quiet hours end', { exact: true })).toBeInViewport()
-      await screenshot('general-notifications')
-      await body.evaluate((element) => { element.scrollTop = element.scrollHeight })
-      await screenshot('general-lower')
-      await page.getByRole('heading', { name: 'About', exact: true }).scrollIntoViewIfNeeded()
-      await expect(page.getByRole('heading', { name: 'About', exact: true })).toBeVisible()
-      await screenshot('general-about')
-      await nav.getByRole('button', { name: 'Models and providers', exact: true }).click()
-      await expect(page.getByRole('heading', { name: 'Models and providers', exact: true })).toBeVisible()
-      await expect(page.getByRole('heading', { name: 'Codex accounts', exact: true })).toBeVisible()
-      await expect(page.locator('.accounts .account')).toHaveCount(2)
+      await screenshot('advanced-search')
+      await search.fill('zzzz-no-matching-setting')
+      await expect(body.getByRole('status')).toContainText('No matching Advanced settings. Clear the search to browse all categories.')
+      await screenshot('advanced-no-results')
+      await search.fill('Attachment retention')
+      const retention = page.getByLabel('Attachment retention', { exact: true })
+      await retention.fill('48')
+      await retention.press('Enter')
+      const restart = page.getByRole('complementary', { name: 'Changes requiring restart', exact: true })
+      await expect(restart).toContainText('Some changes need Odin to restart. Exit Odin, then open it again.')
+      await expect(restart.getByRole('button', { name: 'Attachment retention', exact: true })).toBeVisible()
       await body.evaluate((element) => { element.scrollTop = 0 })
-      await screenshot('models-and-providers-shell')
+      await screenshot('pending-restart')
+      await restart.getByRole('button', { name: 'Attachment retention', exact: true }).click()
+      await expect(search).toHaveValue('')
+      await expect(retention).toBeFocused()
+      checks.push({ name: 'pending-restart-field-and-Advanced-search-clearing-link', outcome: 'passed', field: 'attachments.retention_hours' })
 
       await nav.getByRole('button', { name: 'General', exact: true }).click()
       for (const check of BOUNDS_VARIANTS as BoundsVariant[]) {
@@ -223,7 +344,7 @@ for (const variant of CAPTURE_VARIANTS as Variant[]) {
       }
       const path = join(output, `${variant.key}.json`)
       writeFileSync(path, JSON.stringify(outcome, null, 2) + '\n', { mode: 0o600 })
-      console.log(`UI B receipt: ${path} (${outcome.outcome})`)
+      console.log(`UI C receipt: ${path} (${outcome.outcome})`)
     }
   })
 }

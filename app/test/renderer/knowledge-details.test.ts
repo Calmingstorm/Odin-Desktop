@@ -53,6 +53,18 @@ async function answerDialog(value: true | null): Promise<void> {
 }
 
 describe('State knowledge details and learned context', () => {
+  it('places headings outside cards without explanatory copy or internal terminology', async () => {
+    const v = await view()
+    for (const title of ['Knowledge details', 'Learned context']) {
+      const section = v.root.findAll((node) => node.tag === 'section' && node.props['aria-label'] === title)[0]!
+      expect(section.find('h3')!.textContent()).toBe(title)
+      const card = section.findAll((node) => node.props.class === 'settings-card')[0]!
+      expect(card.findAll((node) => node.tag === 'h3')).toHaveLength(0)
+      expect(section.findAll((node) => node.tag === 'p' && node.textContent() !== 'Not read yet.')).toHaveLength(0)
+    }
+    expect(v.root.textContent()).not.toMatch(/\b(core|owner|transaction|cleanup|metadata)\b/i)
+  })
+
   it('shows the exact learned envelope, including null unknowns, without synthetic counts', async () => {
     const v = await view()
     expect(odin.learnedList).toHaveBeenCalledWith({})
@@ -120,7 +132,7 @@ describe('State knowledge details and learned context', () => {
     resolve(ok([{ content: 'STALE' }]))
     await old
     await flush()
-    expect(v.root.textContent()).toContain('Knowledge chunks is unavailable in this core.')
+    expect(v.root.textContent()).toContain('Knowledge chunks is unavailable.')
     expect(v.root.textContent()).not.toContain('STALE')
     odin.learnedList!.mockImplementation(async () => ({ ok: false, error: { code: 'read_failed', message: 'Store could not be read' } }))
     await (v.setup.learned as () => Promise<void>)()
@@ -192,7 +204,7 @@ describe('State knowledge details and learned context', () => {
   it('handles an older missing bridge as unavailable, rather than inventing an empty envelope', async () => {
     delete odin.learnedList
     const v = await view()
-    expect(v.root.textContent()).toContain('Learned context is unavailable in this core.')
+    expect(v.root.textContent()).toContain('Learned context is unavailable.')
     expect(v.root.findAll((node) => node.props['aria-label'] === 'Learned context JSON')).toHaveLength(0)
     expect(v.root.button('Update learned entry').props.disabled).toBe(true)
   })
@@ -226,8 +238,8 @@ describe('State knowledge details and learned context', () => {
     odin.learnedUpdate!.mockImplementation(async () => refused)
     await (v.setup.updateLearned as () => Promise<void>)()
     await flush()
-    expect(v.root.textContent()).toContain('Knowledge merge is unavailable in this core.')
-    expect(v.root.textContent()).toContain('Learned context changes is unavailable in this core.')
+    expect(v.root.textContent()).toContain('Knowledge merge is unavailable.')
+    expect(v.root.textContent()).toContain('Learned context changes is unavailable.')
     expect(v.root.textContent()).not.toContain('"status": "merged"')
     expect(v.root.textContent()).not.toContain('"status": "updated"')
     expect([management.busy.knowledge, management.busy['knowledge:a'], management.busy['knowledge:b'], management.busy['learned:lesson']]).toEqual([false, false, false, false])

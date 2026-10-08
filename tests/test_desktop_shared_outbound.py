@@ -47,6 +47,64 @@ class Transport:
         self.closed = True
 
 
+async def test_reviewed_test_revision_refuses_changed_owner_before_http(graph):
+    owner = graph.management.integrations.dispatcher
+    transport = Transport()
+    owner._session = transport
+    saved = await graph.management.invoke("webhooks.outbound.save", {
+        "name": "reviewed", "url": "https://example.invalid/reviewed",
+    })
+    ident = saved["result"]["id"]
+    baseline = graph.management.settings.revision
+    await graph.management.invoke("webhooks.outbound.save", {
+        "id": ident, "url": "https://example.invalid/changed",
+    })
+    result = await graph.management.invoke("webhooks.outbound.test", {
+        "id": ident, "expected_revision": baseline,
+    })
+    assert not result["ok"]
+    assert result["error"]["code"] == "stale_binding"
+    assert not transport.requests
+
+
+async def test_reviewed_test_uses_qualified_target_not_later_id_lookup(graph, monkeypatch):
+    service = graph.management.integrations
+    owner = service.dispatcher
+    transport = Transport()
+    owner._session = transport
+    saved = await graph.management.invoke("webhooks.outbound.save", {
+        "name": "reviewed", "url": "https://example.invalid/reviewed",
+    })
+    ident = saved["result"]["id"]
+    baseline = graph.management.settings.revision
+    admitted = asyncio.Event()
+    release = asyncio.Event()
+    deliver = owner._deliver_one
+
+    async def pause(target, *args):
+        admitted.set()
+        await release.wait()
+        return await deliver(target, *args)
+
+    monkeypatch.setattr(owner, "_deliver_one", pause)
+    pending = asyncio.create_task(graph.management.invoke("webhooks.outbound.test", {
+        "id": ident, "expected_revision": baseline,
+    }))
+    await asyncio.wait_for(admitted.wait(), 2)
+    # Re-adopt this ID after admission. HTTP retains the reviewed copy,
+    # and external I/O must not hold settings/file locks.
+    def change():
+        with owner._target_lock, graph.management.settings._lock:
+            graph.management.settings.config.outbound_webhooks.targets[0].url = "https://example.invalid/later"
+            owner._sync()
+    await asyncio.wait_for(asyncio.to_thread(change), 2)
+    release.set()
+    result = await pending
+    assert result["ok"] and result["result"]["success"]
+    assert transport.requests[0][0] == "https://example.invalid/reviewed"
+    assert owner.get(ident).url == "https://example.invalid/later"
+
+
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch):
     import aiohttp

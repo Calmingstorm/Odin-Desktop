@@ -10,6 +10,19 @@ import type { ConversationSnapshot, ScheduleRow, WebhookIngressStatus } from '..
 const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 interface SmokeMessage { id: string; role: string; text: string; request_id?: string; attachments?: unknown[]; artifacts?: unknown[] }
 
+// Structured members edit their enclosing schema record, not invented scalar leaves.
+export function renderedSettingPath(id: string, ownerId: string | null): string {
+  const prefix = 'settings-curated-'
+  const recordPrefix = `${prefix}record-`
+  assert(id.startsWith(prefix), 'expected a curated settings control')
+  if (!id.startsWith(recordPrefix)) return decodeURIComponent(id.slice(prefix.length))
+  assert(ownerId && ownerId.startsWith(prefix) && !ownerId.startsWith(recordPrefix), 'structured control must have an authoritative parent')
+  const parent = decodeURIComponent(ownerId.slice(prefix.length))
+  const child = decodeURIComponent(id.slice(recordPrefix.length))
+  assert(child.startsWith(`${parent}.`), 'structured control must retain its parent ownership')
+  return parent
+}
+
 // Reviewed conversation/request, management and background surface; never derive expectations from welcome.
 export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
   'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
@@ -821,11 +834,11 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   const servicePanels: Record<string, string[]> = {
   }
   const servedPanels: Record<string, Array<[string, RegExp]>> = {
-    'Models and providers': [['.codex-accounts', seededWorkProof ? /Codex isn't configured\./ : /keyring.*(?:locked|unavailable)/i]],
+    'Models and providers': [['.codex-accounts', seededWorkProof ? /No accounts\. Add an account to use Codex\./ : /keyring.*(?:locked|unavailable)/i]],
     Personality: [['section[aria-label="Personality"]', /preset|personality/i]],
     Tools: [['section[aria-label="Built-in tools"]', /run_command/], ['section[aria-label="Tool timeouts"]', /Default|seconds/i]],
     Skills: [['section[aria-label="Skills"]', /New skill/]],
-    'MCP servers': [['section[aria-label="MCP"]', /1 of 1 servers connected.*1 tools offered/s], ['section[aria-label="MCP servers"]', /Add server/]],
+    'MCP servers': [['section[aria-label="MCP"]', /1 of 1 servers connected.*1 tools available/s], ['section[aria-label="MCP servers"]', /Add server/]],
     'Hosts and access': [['section[aria-label="Hosts"]', /localhost/]],
     'Data and privacy': [['section[aria-label="Memory"]', /0 entries/], ['section[aria-label="Named lists"]', /No lists\./], ['section[aria-label="Knowledge"]', /Knowledge/]],
     'Usage, logs and audit': [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /tokens in .*\(measured\)/], ['section[aria-label="Computer use"]', /Refresh/]]
@@ -946,7 +959,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   for (let i = 0; i < destinations.length; i++) {
     const destination = destinations[i]!
     if (i < sections.length) await click(`.settings-nav-item:nth-of-type(${i + 2})`)
-    else if (destination === 'Usage, logs and audit') await click('.settings-subnav button:nth-of-type(2)')
+    else if (destination === 'Usage, logs and audit') await click('.settings-subnav button:nth-of-type(3)')
     else {
       await click('.settings-nav-item:nth-of-type(2)')
       await run(`(() => { const buttons = Array.from(document.querySelectorAll('.settings-body button')).filter(b => b.textContent.trim() === 'Advanced settings'); if (buttons.length !== 1 || buttons[0].disabled) throw new Error('Expected one enabled Advanced settings button'); buttons[0].click(); })()`)
@@ -957,7 +970,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       await until(async () => !(await text('.codex-accounts')).includes('Loading'), 'real account observation')
       assert(!/not (?:yet )?available|not served/i.test(await text('.codex-accounts')), 'served account management must not remain capability-unavailable')
       assert.equal(await run('document.querySelectorAll(".account").length'), 0, 'real session must not display fixture accounts')
-      await until(async () => (await run<number>('document.querySelectorAll(".schema-form").length')) > 0, 'real provider settings')
+      await until(async () => (await count('[data-testid="configure-compat"]')) === 1, 'real curated provider configuration')
+      await click('[data-testid="configure-compat"]')
+      await until(async () => (await count('#provider-compat-setup')) === 1, 'expanded compatible-provider setup')
       await until(async () => /OpenRouter endpoint not recognized/i.test(await text('section[aria-label="OpenRouter models"]')), 'honest unconfigured OpenRouter panel')
       assert.equal(await count('section[aria-label="OpenRouter models"] li'), 0, 'unconfigured OpenRouter must not invent models')
     }
@@ -966,6 +981,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     }
     if (destination === 'Tools') {
       await until(async () => (await count('section[aria-label="Built-in tools"] .manage-row')) > 0, 'real built-in tools')
+      await run(`(() => { const timeout = document.querySelector('section[aria-label="Tool timeouts"]'); const details = timeout?.closest('details'); if (!details) throw new Error('Timeouts must remain reachable under More options'); details.open = true; })()`)
       assert((await text('section[aria-label="Tool timeouts"]')).includes('Timeouts'))
       const tools = (observations.tools!.result as { tools: Array<{ name: string; cost?: string | null; risk?: string | null }> }).tools
       const rows = await run<string[]>('Array.from(document.querySelectorAll("section[aria-label=\\"Built-in tools\\"] .manage-row"), row => row.innerText)')
@@ -1028,7 +1044,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       if (selector === 'section[aria-label="Computer use"]') {
         // Served management and unqualified native input are separate claims.
         await until(async () => (await count(selector + ' .capability-unavailable')) === 1, 'computer use foreground refusal')
-        assert.match(await text(selector + ' .capability-unavailable'), /Foreground computer use is unavailable\..*Dispatch: none\./s)
+        assert.match(await text(selector + ' .capability-unavailable'), /Desktop input is unavailable\..*Input route: none\./s)
         assert.equal(await run(`document.querySelector(${JSON.stringify('button[aria-label="Refresh computer use"]')})?.disabled`), false)
       } else {
         assert.equal(await count(selector + ' .capability-unavailable'), 0, `${selector} must not claim its served capability unavailable`)
@@ -1075,7 +1091,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       const stats = JSON.parse(await text('section[aria-label="Runtime statistics"] pre')) as { risk: unknown }
       assert.deepEqual(stats.risk, observations.risk!.result, 'runtime statistics must render the actual risk summary')
       await until(async () => /no .*session|no .*task/i.test(await text('section[aria-label="Computer use"]')), 'real absent computer session')
-      assert(/Foreground computer use is unavailable\..*Dispatch: none/is.test(await text('section[aria-label="Computer use"]')), 'computer input must be explicitly unavailable while computer use is off')
+      assert(/Desktop input is unavailable\..*Input route: none/is.test(await text('section[aria-label="Computer use"]')), 'computer input must be explicitly unavailable while computer use is off')
       // Slice 4 reads the real envelope. No absent-session recovery/input action
       // may be invented while the retained management Refresh remains offered.
       assert.equal(await count('section[aria-label="Computer use"] .manage-name, section[aria-label="Computer use"] .manage-actions'), 0, 'fresh computer management must not invent a session or recovery action')
@@ -1089,9 +1105,15 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     const fixtureRows = seededWorkProof && destination === 'Work'
       ? '.settings-body .account' : '.settings-body .work-item, .settings-body .account'
     assert.equal(await run(`document.querySelectorAll(${JSON.stringify(fixtureRows)}).length`), 0, `${destination} must not display fixture accounts/work`)
-    const renderedPaths = await run<string[]>(`Array.from(document.querySelectorAll('.settings-body .field-path, .settings-body :is(input, select, textarea, output)[id^="settings-curated-"]'), e => e.id.startsWith('settings-curated-') ? decodeURIComponent(e.id.slice('settings-curated-'.length)) : e.textContent)`)
+    const renderedControls = await run<Array<{ id: string; ownerId: string | null }>>(`Array.from(document.querySelectorAll('.settings-body :is(input, select, textarea, output)[id^="settings-curated-"]'), e => ({ id: e.id, ownerId: e.parentElement?.closest('[id^="settings-curated-"]:not([id^="settings-curated-record-"])')?.id ?? null }))`)
+    const renderedPaths = renderedControls.map(({ id, ownerId }) => renderedSettingPath(id, ownerId))
     const fields = (reads['settings.schema'] as { fields: Array<{ path: string }> }).fields
     for (const path of renderedPaths) assert(fields.some((field) => field.path === path), `rendered field ${path} must belong to the served schema`)
+    assert.equal(await count('.settings-body .schema-form'), 0, 'ordinary settings must not render automatic schema groups')
+    if (destination === 'Models and providers') {
+      assert(fields.some((field) => field.path === 'llm_provider.model'), 'main-model control must have a served configuration field')
+      assert.equal(await count('[id="settings-curated-llm_provider.model"]'), 1, 'Models must render its dedicated main-model control')
+    }
     if (destination === 'General') assert(renderedPaths.includes('timezone'), 'General must render the real curated time zone schema field')
     if (destination === 'Advanced settings') assert(renderedPaths.includes('logging.level'), 'Advanced must render real log detail from the schema')
     assert(!(await text('.settings-body')).includes('Service is not available yet'), `${destination} must not leak a generic capability refusal`)

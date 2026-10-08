@@ -11,6 +11,9 @@ it('announces check progress/errors and exposes a keyboard-native release link w
   const Component = (await import('../../src/renderer/src/components/ReleaseNotice.vue')).default
   const { root, unmount } = mount(Component)
   expect(checkReleases).not.toHaveBeenCalled()
+  expect(root.textContent()).toContain('Updates')
+  expect(root.textContent()).toContain('Not checked yet')
+  expect(root.textContent()).not.toContain('App version and updates')
   const status = () => root.findAll((node) => node.props.role === 'status')[0]!
   expect(status().props['aria-live']).toBe('polite')
   expect(status().props['aria-atomic']).toBe('true')

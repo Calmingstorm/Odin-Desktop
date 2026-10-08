@@ -51,7 +51,7 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     writeFileSync(controlFile, JSON.stringify({ ...previous, ...change }), { mode: 0o600 })
   }
   // Use the renderer's collision-free ID contract without importing renderer modules into main.
-  const fieldId = (path: string): string => `[id=${JSON.stringify(`settings-${path === 'logging.level' ? 'curated' : 'field'}-${encodeURIComponent(path)}`)}]`
+  const fieldId = (path: string): string => `[id=${JSON.stringify(`settings-curated-${encodeURIComponent(path)}`)}]`
   const fieldText = (path: string): Promise<string> => run(`document.querySelector(${JSON.stringify(fieldId(path))})?.closest('.field, .setting-editor')?.innerText ?? ''`)
   const edit = async (path: string, value: string | boolean): Promise<void> => {
     const id = fieldId(path)
@@ -62,12 +62,20 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
       else if (input.tagName === 'SELECT') { input.value = ${JSON.stringify(value)}; input.dispatchEvent(new Event('change', { bubbles: true })); }
       else { input.value = ${JSON.stringify(value)}; input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }
     })()`)
+    if (path === 'openai_compatible.api_key') await button('#provider-compat-setup', 'Store key')
+    if (path === 'openai_codex.enabled' && value === false) {
+      if (await count('[role="dialog"]')) await button('[role="dialog"]', 'Disable')
+    }
   }
   const schema = (): Promise<Meta> => request('settings.schema')
   const savedValue = async (path: string): Promise<unknown> => (await schema()).fields.find((field) => field.path === path)?.desired
   const section = async (label: string): Promise<void> => {
     await button('.settings-nav', label)
     await until(async () => await text('.settings-body h2') === label, `section ${label}`)
+  }
+  const compatibleSetup = async (): Promise<void> => {
+    if (!await count('#provider-compat-setup')) await click('[data-testid="configure-compat"]')
+    await until(async () => await count(fieldId('openai_compatible.api_key')) === 1, 'compatible-provider credential owner')
   }
   const openSettings = async (): Promise<void> => {
     if (!await count('.settings')) await click('button[title="Settings (Ctrl+,)"]')
@@ -109,8 +117,32 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     await until(async () => (await count('.account')) === 1, 'real persisted account')
   }
   const model = async (value: string): Promise<void> => {
-    await edit('llm_provider.model', value)
-    await until(async () => (await savedValue('llm_provider.model')) === value, 'saved main model')
+    // Choices are supplied by the current model owner, not a retired test list.
+    const selected = await run<string>(`(() => {
+      const select = document.querySelector(${JSON.stringify(fieldId('llm_provider.model'))});
+      const options = Array.from(select.options).filter(option => !option.disabled);
+      const requested = ${JSON.stringify(value)}.replace(/^codex:/, '');
+      const sameProvider = option => requested.includes(':') ? option.value.startsWith(requested.split(':')[0] + ':') : !option.value.includes(':');
+      const option = options.find(option => option.value === requested) ?? options.find(option => sameProvider(option) && option.value !== select.value);
+      if (!option) throw new Error('No served model choice for requested provider');
+      return option.value;
+    })()`)
+    await edit('llm_provider.model', selected)
+    // The new owner saves the model/effort pair together. Explicitly select a
+    // served effort if switching providers made the previous effort invalid.
+    const effortPath = selected.startsWith('compat:') ? 'openai_compatible.reasoning_effort' : 'openai_codex.reasoning_effort'
+    const effort = await run<string | null>(`(() => {
+      const select = document.querySelector(${JSON.stringify(fieldId(effortPath))});
+      if (!select || select.disabled) return null;
+      const options = Array.from(select.options).filter(option => !option.disabled);
+      if (options.some(option => option.value === select.value)) return null;
+      if (!options.length) throw new Error('No served effort for selected model');
+      return options[0].value;
+    })()`)
+    if (effort !== null) await edit(effortPath, effort)
+    await until(async () => await run(`Array.from(document.querySelectorAll('.settings-body button')).some(button => button.innerText.trim() === 'Save main model' && !button.disabled)`), `valid main-model draft ${selected}`)
+    await button('.settings-body', 'Save main model')
+    await until(async () => (await savedValue('llm_provider.model')) === selected, 'saved main model')
   }
   const preferences = async (second: boolean): Promise<void> => {
     await section('General')
@@ -166,6 +198,7 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     await until(async () => /keyring/i.test(await text('.first-run-banner')), 'visible keyring failure')
     await openSettings()
     await section('Models and providers')
+    await compatibleSetup()
     await edit('openai_compatible.api_key', 'E2E-WRITE-ONLY-NEVER-RENDER')
     await until(async () => await run(`document.querySelector(${JSON.stringify(fieldId('openai_compatible.api_key'))}).value === ''`), 'failed secret clears')
     assert.equal((await request<{ first_run: FirstRun }>('status.get')).first_run.state, 'degraded')
@@ -237,6 +270,7 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     await until(async () => await savedValue('logging.level') === 'ERROR', 'connection retry')
     checks.push('connection-retry')
     await section('Models and providers')
+    await compatibleSetup()
     await edit('openai_compatible.api_key', 'E2E-WRITE-ONLY-NEVER-RENDER')
     await until(async () => await run(`document.querySelector(${JSON.stringify(fieldId('openai_compatible.api_key'))}).value === ''`), 'secret clears after submit')
     await until(async () => Boolean(await savedValue('openai_compatible.api_key')), 'write-only credential present')
@@ -245,7 +279,7 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     // fixing the external service allows the same rendered control to retry.
     control({ probe_failure: true })
     await edit('openai_compatible.enabled', true)
-    await until(async () => (await run<string>(`document.querySelector(${JSON.stringify(fieldId('openai_compatible.enabled'))})?.closest('.field')?.querySelector('.warn')?.innerText ?? ''`)).length > 0, 'qualification save failure')
+    await until(async () => (await text('#provider-compat-setup .warn')).length > 0, 'qualification save failure')
     assert.equal(await savedValue('openai_compatible.enabled'), false, 'failed save restored durable provider configuration')
     await observeState('effective-ready')
     control({ probe_failure: false })

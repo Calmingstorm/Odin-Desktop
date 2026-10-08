@@ -58,6 +58,54 @@ async function view(name: 'State' | 'Records'): Promise<Mounted> {
 }
 
 describe('Step 5 renderer integration shapes', () => {
+  it('puts record section headings outside their cards, including capability refusals', async () => {
+    const v = await view('Records')
+    for (const label of ['Health', 'Usage', 'Audit', 'Logs', 'Turn state', 'Computer use']) {
+      const section = v.root.findAll((n) => n.props['aria-label'] === label)[0]!
+      expect(String(section.props.class)).toContain('settings-section')
+      const card = section.findAll((n) => String(n.props.class).split(' ').includes('settings-card'))[0]!
+      expect(section.findAll((n) => n.tag === 'h3')).toHaveLength(1)
+      expect(card.findAll((n) => n.tag === 'h3')).toHaveLength(0)
+    }
+  })
+
+  it('keeps Data computer status read-only and links to its single management screen', async () => {
+    const session = { session_id: 'record-session', generation: 9, state: 'quarantined', recovery: { status: 'unknown', reason: 'owned_input_release_unproven', complete: false, unknown_release: true, receiver_release_verified: false } }
+    odin.computerStatus!.mockImplementation(async () => ok({ session, readiness: { management_available: true, foreground_available: false, native_qualified: false, input_supported: false, dispatch: 'none', reason: 'foreground_binding_and_native_qualification_pending' } }))
+    odin.computerReconcile = vi.fn(async () => ok({}))
+    const v = await view('Records')
+    const report = v.root.findAll((n) => n.props['aria-label'] === 'Computer use')[0]!
+    expect(report.textContent()).toContain('record-session')
+    expect(report.textContent()).toContain('generation 9')
+    expect(report.textContent()).toContain('quarantined')
+    expect(report.textContent()).toContain('Input release remains unverified.')
+    expect(report.textContent()).toContain('Recovery is incomplete. Do not resume desktop input.')
+    expect(report.findAll((n) => n.tag === 'button').map((n) => n.textContent())).toEqual(['Refresh', 'Go to Tools'])
+    await report.button('Refresh').fire('click')
+    await flush()
+    expect(odin.computerStatus).toHaveBeenCalledTimes(2)
+    expect(odin.computerReconcile).not.toHaveBeenCalled()
+    await report.button('Go to Tools').fire('click')
+    const { state } = await import('../../src/renderer/src/store')
+    expect(state.settingsSection).toBe('tools')
+    expect(odin.computerReconcile).not.toHaveBeenCalled()
+  })
+
+  it('never treats no session or recorded recovery as proof that desktop input was released', async () => {
+    const readiness = { management_available: true, foreground_available: true, native_qualified: false, input_supported: true, dispatch: 'x11', reason: 'available_on_x11' }
+    odin.computerStatus!.mockImplementation(async () => ok({ session: null, readiness }))
+    const v = await view('Records')
+    expect(v.root.textContent()).toContain('Each request still needs consent and a verified target.')
+    expect(v.root.textContent()).toContain('Odin must also accept the request before sending input.')
+    expect(v.root.textContent()).toContain('does not confirm that mouse and keyboard input was released')
+    odin.computerStatus!.mockImplementation(async () => ok({ readiness, session: { session_id: 'closed', generation: 10, state: 'closed', recovery: { status: 'complete', reason: 'recorded_recovery', complete: true, unknown_release: true, receiver_release_verified: false } } }))
+    const store = await import('../../src/renderer/src/stores/records')
+    await store.loadComputer()
+    await flush()
+    expect(v.root.textContent()).toContain('Recovery is recorded as complete; this does not confirm input is safe to resume.')
+    expect(v.root.textContent()).toContain('Input release remains unverified.')
+  })
+
   it('styles the real checker ok status as healthy without labeling unavailable backends failed', async () => {
     odin.healthGet!.mockImplementation(async () => ok({
       overall: 'healthy', healthy_count: 1, degraded_count: 0, down_count: 0, unconfigured_count: 0,

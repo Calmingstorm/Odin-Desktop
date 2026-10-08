@@ -314,7 +314,7 @@ describe('B3 messages and resume', () => {
 describe('B3 release and trajectory controls', () => {
   it.each([
     ['cannot-check-private', 'private'], ['offline', 'Offline'], ['rate-limited', 'rate-limited'],
-    ['malformed', 'invalid release metadata'], ['unavailable', 'unavailable or incomplete'],
+    ['malformed', 'invalid release information'], ['unavailable', 'unavailable or incomplete'],
     ['invalid-current-version', 'stable version number'], ['no-release', 'not an up-to-date check'],
     ['equal', 'Up to date'], ['older', 'newer than'], ['newer', 'new version is available']
   ])('explains the actual release state %s', async (releaseState, expected) => {
@@ -322,7 +322,7 @@ describe('B3 release and trajectory controls', () => {
     const view = await screen('ReleaseNotice')
     expect(view.root.textContent()).toContain('Not checked')
     await view.root.button('Check for updates').fire('click'); await flush()
-    expect(view.root.textContent()).toContain(expected); expect(view.root.textContent()).toContain('Installed app version: 1.0.0')
+    expect(view.root.textContent()).toContain(expected); expect(view.root.textContent()).toContain('Version 1.0.0')
     await view.root.find('a')!.fire('click', { preventDefault() {} }); expect(api.openRelease).toHaveBeenCalledWith()
   })
 

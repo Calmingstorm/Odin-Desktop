@@ -250,8 +250,8 @@ describe('P3.2 core-authoritative first run', () => {
     const previews = v.root.findAll((n) => n.props['data-testid'] === 'notification-previews')[0]!
     expect(startup.checked).toBe(false)
     expect(previews.checked).toBe(true)
-    expect(v.root.textContent()).toContain('Exit stops Odin')
-    expect(v.root.textContent()).toContain('mute a conversation')
+    expect(v.root.textContent()).toContain('Closing the window keeps Odin running in the tray. Exit stops it.')
+    expect(v.root.textContent()).toContain('Mute or unmute one from its')
     startup.checked = true
     await startup.fire('change')
     previews.checked = false

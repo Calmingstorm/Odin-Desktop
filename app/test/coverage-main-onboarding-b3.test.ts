@@ -13,11 +13,12 @@ afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs() })
 function fixture(scenario: string) {
   vi.stubEnv('ODIN_SMOKE_ONBOARDING', scenario);
   let state = scenario === 'ready-second' ? 'effective-ready' : scenario === 'saved-second' ? 'saved' : ['locked', 'missing'].includes(scenario) ? 'degraded' : 'fresh';
-  let section = '', settingsOpen = false, model = 'codex:gpt-5.4';
+  let section = '', settingsOpen = false, model = 'gpt-6.1-sol';
   let accounts = 0, auth = 'pending', keyring = state === 'degraded' ? scenario : 'healthy', unlockCalls = 0;
   let autostart = scenario.endsWith('-second') && scenario !== 'fresh-second', previews = !autostart;
   let enabled = true, compatEnabled = false, credential = false, level = 'INFO', conflict = false, disconnected = false;
   let probeFailure = false, guardDegraded = false, localRevision = false;
+  let compatibleOpen = false, modelDraft: string | undefined, secretDraft = '', disablePending = false;
   const controls: any[] = [];
   disk.read.mockImplementation(() => JSON.stringify({ retained: true, unlock_calls: unlockCalls }));
   disk.write.mockImplementation((path: string, bytes: string) => {
@@ -47,14 +48,18 @@ function fixture(scenario: string) {
       if (selector === '.settings') return settingsOpen ? 1 : 0;
       if (selector === '.settings-nav-item') return 3;
       if (selector === '.msg') return 0;
+      if (selector === '[role="dialog"]') return disablePending ? 1 : 0;
       if (selector === '.account') return accounts;
       if (selector === '#start-at-login, #notifications-enabled, #notification-previews') return section === 'General' && settingsOpen ? 3 : 0;
       if (selector.includes('settings-curated-logging.level')) return settingsOpen && section === 'Advanced settings' ? 1 : 0;
-      if (selector === '.codex-accounts' || selector.includes('settings-field-') || selector === 'button[title="Settings (Ctrl+,)"]' || selector === '.settings-nav .back') return 1;
+      if (selector === '#provider-compat-setup') return compatibleOpen && section === 'Models and providers' ? 1 : 0;
+      if (selector.includes('settings-curated-openai_compatible.api_key')) return compatibleOpen && section === 'Models and providers' ? 1 : 0;
+      if (selector.includes('settings-curated-llm_provider.model') || selector.includes('settings-curated-openai_codex.enabled') || selector.includes('settings-curated-openai_compatible.enabled') || selector === '.codex-accounts') return section === 'Models and providers' ? 1 : 0;
+      if (selector === '[data-testid="configure-compat"]' || selector === 'button[title="Settings (Ctrl+,)"]' || selector === '.settings-nav .back') return 1;
       throw new Error(`Unmodeled count ${selector}`);
     }
     if (script.startsWith('document.querySelector(') && script.includes('?.innerText')) {
-      if (script.includes('openai_compatible.enabled') && script.includes("querySelector('.warn')")) return probeFailure ? 'Qualification rejected' : '';
+      if (script.includes('#provider-compat-setup .warn')) return probeFailure ? 'Qualification rejected' : '';
       if (script.includes('.settings-body h2')) return section;
       if (script.includes('.first-run-banner')) return settingsOpen ? '' : keyring !== 'healthy' ? 'Keyring unavailable' : 'Ready';
       if (script.includes('.login-code')) return 'TEST-CODE';
@@ -65,15 +70,19 @@ function fixture(scenario: string) {
     if (script.startsWith('document.querySelector(') && script.endsWith('.click()')) {
       if (script.includes('Settings (Ctrl+,)')) settingsOpen = true;
       else if (script.includes('.settings-nav .back')) settingsOpen = false;
+      else if (script.includes('configure-compat')) compatibleOpen = !compatibleOpen;
       else throw new Error(`Unmodeled click ${script}`);
       clicked.push(script); return undefined;
     }
     if (script.includes('const buttons = Array.from')) {
       const label = JSON.parse(script.match(/b\.innerText\.trim\(\) === ("(?:[^"\\]|\\.)*")/)![1]!);
-      if (script.includes('.settings-nav button')) { section = label; sections.push(label) }
+      if (script.includes('.settings-nav button')) { section = label; compatibleOpen = false; sections.push(label) }
       else if (label === 'Advanced settings' && section === 'General') { section = label; sections.push(label) }
       else if (label === 'Add account') { if (auth === 'success') accounts = 1 }
       else if (label === 'Retry') { if (keyring === 'locked') unlockCalls++; keyring = 'healthy'; state = 'fresh' }
+      else if (label === 'Save main model') { expect(modelDraft).toBeDefined(); model = modelDraft!; modelDraft = undefined; state = guardDegraded ? 'degraded' : 'effective-ready' }
+      else if (label === 'Store key') { expect(compatibleOpen).toBe(true); expect(secretDraft).not.toBe(''); credential = keyring === 'healthy'; secretDraft = '' }
+      else if (label === 'Disable') { expect(disablePending).toBe(true); disablePending = false; enabled = false; state = 'incomplete' }
       else if (!['Set up later', 'Stop waiting'].includes(label)) throw new Error(`Unmodeled button ${label}`);
       clicked.push(label); return undefined;
     }
@@ -81,18 +90,25 @@ function fixture(scenario: string) {
       const expected = script.match(/data-state="([^"]+)"/)?.[1];
       return !settingsOpen && expected === state;
     }
+    if (script.includes("button.innerText.trim() === 'Save main model'")) return modelDraft !== undefined;
     if (script.startsWith('Array.from(document.querySelectorAll')) return [autostart, true, previews];
     if (script.includes("querySelector('#start-at-login')")) { autostart = true; return undefined }
     if (script.includes("querySelector('#notification-previews')")) { previews = false; return undefined }
     if (script.includes('await window.odin.getSettings()')) return autostart && !previews;
-    if (script.includes('openai_compatible.api_key') && script.includes(".value === ''")) return true;
+    if (script.includes('settings-curated-openai_compatible.api_key') && script.includes(".value === ''")) return secretDraft === '';
+    if (script.includes('const select = document.querySelector') && script.includes('No served model choice')) {
+      const requested = JSON.parse(script.match(/const requested = ("(?:[^"\\]|\\.)*")/)![1]!).replace(/^codex:/, '');
+      const offered = ['gpt-6.1-sol', 'gpt-6-luna', 'compat:qualified'];
+      return offered.includes(requested) ? requested : offered.find(ref => (requested.includes(':') ? ref.startsWith(requested.split(':')[0] + ':') : !ref.includes(':')) && ref !== model);
+    }
+    if (script.includes('No served effort for selected model')) return null;
     if (script.includes('openai_compatible.enabled') && script.includes("querySelector('.warn')")) return probeFailure ? 'Qualification rejected' : '';
     if (script.includes('input.type ===')) {
       const value = JSON.parse(script.match(/input\.checked = ("(?:[^"\\]|\\.)*"|true|false)/)![1]!);
-      if (script.includes('settings-field-llm_provider.model')) { model = value; state = guardDegraded ? 'degraded' : 'effective-ready' }
-      else if (script.includes('settings-field-openai_codex.enabled')) { enabled = value; state = value ? 'effective-ready' : 'incomplete' }
-      else if (script.includes('settings-field-openai_compatible.api_key')) { credential = keyring === 'healthy' }
-      else if (script.includes('settings-field-openai_compatible.enabled')) { if (!probeFailure) compatEnabled = value }
+      if (script.includes('settings-curated-llm_provider.model')) modelDraft = value;
+      else if (script.includes('settings-curated-openai_codex.enabled')) { if (!value) disablePending = true; else { enabled = true; state = 'effective-ready' } }
+      else if (script.includes('settings-curated-openai_compatible.api_key')) secretDraft = value;
+      else if (script.includes('settings-curated-openai_compatible.enabled')) { if (!probeFailure) compatEnabled = value }
       else if (script.includes('settings-curated-logging.level')) {
         await core.request('settings.set', { changes: [{ path: 'logging.level', value }] });
         if (disconnected) level = 'WARNING';
@@ -127,7 +143,8 @@ describe('onboarding smoke orchestration without a display', () => {
     expect(disk.write).toHaveBeenCalledExactlyOnceWith('/mock/result.json', JSON.stringify({ scenario: 'ready-second', passed: true, states: ['effective-ready'], checks: ['preferences-persisted', 'startup-provider-adopted', 'secret-readback-absent'] }), { mode: 0o600 });
   })
   it('retries a saved provider through a changed model and retains unrelated adapter-control keys', async () => {
-    const f = await runScenario('saved-second'); expect(f.edits).toEqual(['codex:gpt-5.3-codex']);
+    const f = await runScenario('saved-second'); expect(f.edits).toEqual(['gpt-6-luna']);
+    expect(f.clicked).toContain('Save main model');
     expect(disk.write).toHaveBeenCalledWith('/mock/control.json', '{"retained":true,"unlock_calls":0,"startup_provider_unavailable":false}', { mode: 0o600 });
     expect(disk.write).toHaveBeenCalledWith('/mock/result.json', JSON.stringify({ scenario: 'saved-second', passed: true, states: ['saved', 'effective-ready'], checks: ['preferences-persisted', 'saved-not-effective', 'secret-readback-absent'] }), { mode: 0o600 });
   })
@@ -138,7 +155,8 @@ describe('onboarding smoke orchestration without a display', () => {
   })
   it.each(['locked', 'missing'])('keeps %s keyring failure degraded until owner Retry, then completes login/model', async scenario => {
     const f = await runScenario(scenario); expect(f.clicked).toContain('Retry'); expect(f.clicked).toContain('Add account');
-    expect(f.edits).toEqual(['E2E-WRITE-ONLY-NEVER-RENDER', 'codex:gpt-5.4']);
+    expect(f.clicked).toContain('Store key'); expect(f.clicked).toContain('Save main model');
+    expect(f.edits).toEqual(['E2E-WRITE-ONLY-NEVER-RENDER', 'gpt-6-luna']);
     expect(disk.write).toHaveBeenCalledWith('/mock/result.json', JSON.stringify({ scenario, passed: true, states: ['degraded', 'fresh', 'effective-ready'], checks: ['keyring-retry', 'secret-readback-absent', 'secret-readback-absent'] }), { mode: 0o600 });
     expect(f.controls.some(control => control.keyring === 'healthy')).toBe(scenario === 'missing');
   })
@@ -146,6 +164,7 @@ describe('onboarding smoke orchestration without a display', () => {
     const f = await runScenario('ready');
     expect(f.sections).toContain('Advanced settings'); expect(f.sections).not.toContain('Records');
     expect(f.clicked.filter(label => label === 'Add account')).toHaveLength(3); expect(f.clicked).toContain('Stop waiting');
+    expect(f.clicked).toContain('Disable'); expect(f.clicked).toContain('Store key');
     expect(f.core.close).toHaveBeenCalledOnce(); expect(f.core.connect).toHaveBeenCalledOnce(); expect(f.core.startEvents).toHaveBeenCalledOnce();
     const result = JSON.parse(disk.write.mock.calls.find(([path]) => path === '/mock/result.json')![1] as string);
     expect(result).toEqual({ scenario: 'ready', passed: true, states: ['fresh', 'incomplete', 'effective-ready', 'degraded'], checks: [

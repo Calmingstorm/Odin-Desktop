@@ -8,6 +8,7 @@ let bridge: Record<string, unknown>
 beforeEach(() => {
   vi.resetModules()
   bridge = {
+    computerStatus: async () => ok({ readiness: { management_available: true, foreground_available: false, dispatch: 'none', reason: 'not_enabled' }, session: null }),
     toolsList: async () => ok({ tools: [{ name: 'read_file', description: 'Read', enabled: true, state: 'available', input_schema: {} }], disabled_count: 0 }),
     toolsTimeoutsGet: async () => ok({ default_timeout: 30, overrides: { read_file: 10 } }),
     mcpStatus: async () => ok({ enabled: true, servers: [{ name: 'docs', transport: 'stdio', state: 'connected', enabled: true, header_keys: [], env_keys: [], discovered_count: 1, published_count: 1 }], connected_count: 1, server_count: 1, published_tool_count: 1, max_published_tools_per_server: 10, max_published_tools_global: 20 }),
@@ -86,7 +87,9 @@ describe('P3.4 management settings structural accessibility', () => {
     const { root } = await view('Mcp')
     expect(root.button('Edit').props['aria-label']).toBe('Edit docs')
     expect(root.button('Remove…').props['aria-label']).toBe('Remove docs…')
-    expect(root.button('Turn off').props['aria-label']).toBe('Turn off docs')
+    const availability = root.findAll((n) => n.props.role === 'switch' && n.props['aria-label'] === 'Turn off docs')
+    expect(availability).toHaveLength(1)
+    expect(availability[0]!.props.checked).toBe(true)
     expect(root.button('Reconnect').props['aria-label']).toBe('Reconnect docs')
     expect(root.button('Refresh tools').props['aria-label']).toBe('Refresh tools for docs')
     const disclosure = root.button('Tools')

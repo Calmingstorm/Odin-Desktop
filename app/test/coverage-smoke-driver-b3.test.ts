@@ -4,7 +4,7 @@
 import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { dialog } from 'electron'
-import { realCoreCapabilities, realCoreSmoke } from '../src/main/real-core-smoke'
+import { realCoreCapabilities, realCoreSmoke, renderedSettingPath } from '../src/main/real-core-smoke'
 
 const ports = vi.hoisted(() => ({ files: new Map<string, string | Buffer>(), read: vi.fn(), write: vi.fn(), exists: vi.fn(), link: vi.fn(), open: vi.fn(), save: vi.fn() }))
 vi.mock('node:fs', () => ({ readFileSync: ports.read, writeFileSync: ports.write, existsSync: ports.exists, readlinkSync: ports.link }))
@@ -49,7 +49,7 @@ function fixture(provider = false, seeded = false, fault = '') {
     for (const name of ['background', 'report']) ports.files.set(root + '/' + name + '-effects', 'one\n')
   }
   let section = '', input = '', search = '', mode = 'normal', dialogKind = '', title = 'Chat'
-  let compat = false, modelConfigured = false, resumePending = provider, attached = false
+  let compat = false, modelConfigured = false, resumePending = provider, attached = false, compatibleSetupOpen = false
   let skill = false, skillRuns = 0, mcp = false, mcpEnabled = false, revision = 0
   let outputPages = 0, reportPage = 0, cancelled = false, ingressEnabled = false, secret = '', sourceSecret = ''
   let webhookRow: any, nextId = 0
@@ -57,7 +57,7 @@ function fixture(provider = false, seeded = false, fault = '') {
   const messages: any[] = provider ? [{ id: 'm_seed', role: 'user', text: 'Preserved request', request_id: 'r_seed' }] : []
   const recent: any[] = [], histories: any[] = [], webhookMessages: any[] = [], clicks: string[] = [], operations: any[] = [], journal = new Map<string, any>()
   const conversations = [{ id: 'c_chat', title: 'Chat' }]
-  const schema = () => ({ revision: String(revision), fields: [{ path: 'timezone' }, ...(fault === 'unknown-curated-log' ? [] : [{ path: 'logging.level' }])] })
+  const schema = () => ({ revision: String(revision), fields: [{ path: 'timezone' }, { path: 'llm_provider.model' }, ...(fault === 'unknown-curated-log' ? [] : [{ path: 'logging.level' }]), ...(fault === 'unknown-record-owner' ? [] : [{ path: 'context.model_profiles', type: 'object' }])] })
   const computer = { session: null, readiness: { management_available: true, foreground_available: false, native_qualified: false, input_supported: false, dispatch: 'none' } }
   const mcpStatus = () => ({ revision: String(revision), servers: mcp ? [{ name: 'slice4_local', state: mcpEnabled ? 'connected' : 'disabled', published_count: 1 }] : [], configured_servers: mcp ? ['slice4_local'] : [], server_count: mcp ? 1 : 0, configured_server_count: mcp ? 1 : 0, connected_count: mcp && mcpEnabled ? 1 : 0, published_tool_count: mcp && mcpEnabled ? 1 : 0, started: true, closed: false })
   const ingress = () => ({ reason: !ingressEnabled ? 'disabled' : sourceSecret ? 'accepting' : 'no_eligible_schedule', address: ingressEnabled && sourceSecret ? ['127.0.0.1', 43211] : null, eligible_schedules: sourceSecret ? 1 : 0, unknown_deliveries: 0 })
@@ -204,7 +204,7 @@ function fixture(provider = false, seeded = false, fault = '') {
     if (selector === '.msg .file-card') return 'Saved contract.txt.'
     if (selector === '.search-panel .search-note') return messages.length ? '1 results.' : 'No matches.'
     if (selector === '.search-hits .hit-snippet') return submission
-    if (selector === '.codex-accounts') return 'Add account ' + (seeded ? "Codex isn't configured." : 'keyring unavailable')
+    if (selector === '.codex-accounts') return 'Add account ' + (seeded ? 'No accounts. Add an account to use Codex.' : 'keyring unavailable')
     if (selector === '.skill-editor .manage-json') return 'harmless constant'
     if (selector === '.mcp-tools') return 'constant'
     if (selector === 'pre[aria-label="Learned context JSON"]') return JSON.stringify({ entries: [] })
@@ -215,10 +215,10 @@ function fixture(provider = false, seeded = false, fault = '') {
     if (selector === '[data-testid="webhook-ingress-endpoint"]') return 'http://127.0.0.1:43211/webhook/generic/s_webhook'
     const panels: Record<string, string> = {
       Personality: 'preset personality', 'Built-in tools': 'run_command Cost: not reported. Risk: not reported.', 'Tool timeouts': 'Default seconds Timeouts',
-      Skills: 'New skill slice4_constant ' + skillRuns + ' runs', MCP: '1 of 1 servers connected 1 tools offered', 'MCP servers': 'Add server slice4_local connected',
+      Skills: 'New skill slice4_constant ' + skillRuns + ' runs', MCP: '1 of 1 servers connected 1 tools available', 'MCP servers': 'Add server slice4_local connected',
       Hosts: 'localhost', "Odin's key": 'ssh-ed25519 inert', Memory: '0 entries', 'Named lists': 'No lists.', Knowledge: 'Knowledge',
       Health: 'healthy degraded down not set up 1 host(s) configured', Usage: 'tokens in 7d (measured)',
-      'Computer use': 'Refresh no session Foreground computer use is unavailable. Dispatch: none. Reason: computer disabled.', 'Browser runtime': 'unavailable', Context: 'Context reloaded context directory does not exist; nothing is loaded',
+      'Computer use': 'Refresh no session Desktop input is unavailable. Input route: none. Reason: computer disabled.', 'Browser runtime': 'unavailable', Context: 'Context reloaded context directory does not exist; nothing is loaded',
       Schedules: seeded ? 'D12 manual recovery check Recovery required No effects were replayed ' + (webhookRow?.description ?? '') : 'No schedules yet.',
       'Running work': 'Nothing is running.', Audit: 'Nothing recorded.', Logs: 'No entries.', 'Turn state': 'Preserved work',
       'OpenRouter models': 'OpenRouter endpoint not recognized', 'Audit diffs': 'Last successful read shown below.', 'Audit failures': 'Last successful read shown below.', 'Log statistics': 'Last successful read shown below.'
@@ -227,7 +227,7 @@ function fixture(provider = false, seeded = false, fault = '') {
     if (panel && panel in panels) {
       if (['Memory', 'Named lists', 'Knowledge', 'Context'].includes(panel) && section !== 'Data and privacy') throw new Error('State panel outside its Data and privacy owner')
       if (['Health', 'Usage', 'Computer use', 'Audit', 'Logs', 'Turn state', 'Audit diffs', 'Audit failures', 'Log statistics', 'Runtime statistics'].includes(panel) && section !== 'Usage, logs and audit') throw new Error('Records panel outside its Data and privacy subsection')
-      if (selector.endsWith('.capability-unavailable')) return 'Foreground computer use is unavailable. Dispatch: none. Reason: computer disabled.'
+      if (selector.endsWith('.capability-unavailable')) return 'Desktop input is unavailable. Input route: none. Reason: computer disabled.'
       return panels[panel]!
     }
     if (selector === '.settings-body') return section === 'General' ? 'Start Odin when you log in' : section
@@ -244,7 +244,11 @@ function fixture(provider = false, seeded = false, fault = '') {
     if (selector === '.settings-nav-item') return sections.length
     if (selector === '[id="settings-curated-timezone"]') return section === 'General' && fault !== 'missing-curated-timezone' ? 1 : 0
     if (selector === '[id="settings-curated-logging.level"]') return section === 'Advanced settings' ? 1 : 0
-    if (selector === '.settings-subnav button:nth-of-type(2)') return section === 'Data and privacy' && fault !== 'missing-records-owner' ? 1 : 0
+    if (selector === '[id="settings-curated-llm_provider.model"]') return section === 'Models and providers' ? 1 : 0
+    if (selector === '[data-testid="configure-compat"]') return section === 'Models and providers' ? 1 : 0
+    if (selector === '#provider-compat-setup') return section === 'Models and providers' && compatibleSetupOpen ? 1 : 0
+    if (selector === '.settings-subnav button:nth-of-type(3)') return section === 'Data and privacy' && fault !== 'missing-records-owner' ? 1 : 0
+    if (selector === '.settings-body .schema-form') return 0
     if (selector === '.work-item') return seeded ? 6 : 0
     if (selector === '.composer button.danger') return running ? 1 : 0
     if (selector === '.first-run button') return 0
@@ -264,6 +268,7 @@ function fixture(provider = false, seeded = false, fault = '') {
       get checked() { return checked }, set checked(v: boolean) { checked = v },
       get disabled() { return selector === '.composer button[type=submit]' ? !input : false }, complete: true, naturalWidth: 1,
       classList: { contains: () => false }, getAttribute: () => 'false', append: () => {},
+      closest: (selector: string) => selector === 'details' ? { open: false } : null,
       dispatchEvent: (e: any) => { if (e.type === 'submit' && selector === '.composer form') submit() },
       click: async () => {
         clicks.push(selector)
@@ -281,7 +286,8 @@ function fixture(provider = false, seeded = false, fault = '') {
         else if (selector === '.menu button:first-child') dialogKind = 'rename'
         else if (selector === '.dialog button[type=submit]') { if (dialogKind === 'reset') messages.push({ id: 'reset', role: 'notice', text: 'Model context reset.' }); else title = node('.dialog input').value }
         else if (selector.startsWith('.settings-nav-item:nth-of-type')) section = sections[Number(selector.match(/\((\d+)\)/)![1]) - 2]!
-        else if (selector === '.settings-subnav button:nth-of-type(2)' && section === 'Data and privacy') section = 'Usage, logs and audit'
+        else if (selector === '[data-testid="configure-compat"]') compatibleSetupOpen = !compatibleSetupOpen
+        else if (selector === '.settings-subnav button:nth-of-type(3)' && section === 'Data and privacy') section = 'Usage, logs and audit'
         else if (selector === 'Advanced settings' && section === 'General') section = 'Advanced settings'
         else if (selector === 'button[aria-label="Test slice4_constant"]' || selector.includes('Test slice4_constant')) await bridge('skillsTest')
         else if (selector === '[data-testid="webhook-ingress-enabled"]') checked = !checked
@@ -295,7 +301,7 @@ function fixture(provider = false, seeded = false, fault = '') {
     querySelector: node,
     querySelectorAll: (selector: string): any[] => {
       if (selector === '.settings-nav-item') return sections.map(label => ({ innerText: label }))
-      if (selector.includes('.settings-body .field-path')) return section === 'General' ? [{ id: 'settings-curated-timezone' }] : section === 'Advanced settings' ? [{ id: 'settings-curated-logging.level' }] : []
+      if (selector.includes('.settings-body :is(input, select, textarea, output)[id^="settings-curated-"]')) return section === 'General' ? [{ id: 'settings-curated-timezone' }] : section === 'Advanced settings' ? [{ id: 'settings-curated-logging.level' }, { id: 'settings-curated-record-context.model_profiles.custom.total_window_tokens', parentElement: { closest: () => ({ id: 'settings-curated-context.model_profiles' }) } }] : section === 'Models and providers' ? [{ id: 'settings-curated-llm_provider.model' }] : []
       if (selector === '.settings-body button') return section === 'General' ? [node('Advanced settings')] : []
       if (selector === '.msg.user .body') return messages.filter(m => m.role === 'user').map(m => ({ textContent: m.text }))
       if (selector === '[data-testid="webhook-ingress"] button') return ['Save listener setup', 'Save trigger source and secret', 'Clear per-trigger secret'].map(node)
@@ -323,6 +329,14 @@ async function execute(f: ReturnType<typeof fixture>) {
 }
 
 describe('real-core driver with entirely inert stateful ports', () => {
+  it('maps encoded structured children only to their authoritative enclosing owner', () => {
+    expect(renderedSettingPath('settings-curated-timezone', null)).toBe('timezone')
+    expect(renderedSettingPath('settings-curated-record-context.model_profiles.compat%3Amy.model.total_window_tokens', 'settings-curated-context.model_profiles')).toBe('context.model_profiles')
+    expect(() => renderedSettingPath('settings-curated-record-context.model_profiles.new.value', null)).toThrow('authoritative parent')
+    expect(() => renderedSettingPath('settings-curated-record-context.model_profiles.new.value', 'settings-curated-record-context.model_profiles')).toThrow('authoritative parent')
+    expect(() => renderedSettingPath('settings-curated-record-tools.policy.new.value', 'settings-curated-context.model_profiles')).toThrow('parent ownership')
+    expect(() => renderedSettingPath('other-control', null)).toThrow('curated settings control')
+  })
   it('runs fresh management, named bridge mutations, fenced controls, failure and committed search', async () => {
     const f = fixture(); const evidence = await execute(f)
     expect(evidence.phase).toBe('production entry / fresh real profile')
@@ -335,7 +349,7 @@ describe('real-core driver with entirely inert stateful ports', () => {
       'production entry / fresh real profile / Settings / Usage, logs and audit',
       'production entry / fresh real profile / Settings / Advanced settings'
     ]))
-    expect(f.clicks).toContain('.settings-subnav button:nth-of-type(2)')
+    expect(f.clicks).toContain('.settings-subnav button:nth-of-type(3)')
     expect(f.clicks).toContain('Advanced settings')
     expect(f.core.listenerCount('event')).toBe(0)
     expect(dialog.showOpenDialog).toBe(ports.open); expect(dialog.showSaveDialog).toBe(ports.save)
@@ -381,8 +395,9 @@ describe('real-core driver with entirely inert stateful ports', () => {
   })
   it.each([
     ['missing-curated-timezone', 'real curated time zone before enumerating all sections'],
-    ['missing-records-owner', 'missing UI control .settings-subnav button:nth-of-type(2)'],
-    ['unknown-curated-log', 'rendered field logging.level must belong to the served schema']
+    ['missing-records-owner', 'missing UI control .settings-subnav button:nth-of-type(3)'],
+    ['unknown-curated-log', 'rendered field logging.level must belong to the served schema'],
+    ['unknown-record-owner', 'rendered field context.model_profiles must belong to the served schema']
   ])('rejects %s instead of passing a stale or nonexistent selector', async (fault, expected) => {
     const f = fixture(false, false, fault)
     await expect(execute(f)).rejects.toThrow(expected)

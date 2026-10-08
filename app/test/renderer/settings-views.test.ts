@@ -73,7 +73,12 @@ describe('review round 4: Records says what it knows', () => {
   it('says a release left the session quarantined when Odin says so (16.R4.1)', async () => {
     const remaining = { available: true, state: 'quarantined', session_id: 's1', generation: 1, session_generation: 3, recovery: { status: 'unknown', reason: 'owned_process_remaining', complete: false } }
     odin.computerReconcile = async () => ok(remaining)
-    const v = await view('Records')
+    Object.assign(odin, {
+      toolsList: async () => ok({ tools: [] }),
+      toolsTimeoutsGet: async () => ok({ default_timeout: 30, overrides: {} }),
+      browserStatus: async () => ok({ state: 'unavailable', ready: false, retry_available: false })
+    })
+    const v = await view('Tools')
     odin.computerStatus = async () => ok(remaining)
     v.root.button('Release…').fire('click')
     await flush()
@@ -116,8 +121,7 @@ describe('review round 4: Personality keeps newer edits (16.R4.2)', () => {
     void call(v, 'save')
     await flush()
     await choose('custom')
-    const identityLabel = v.root.findAll((node) => node.tag === 'label' && node.textContent().trim() === 'Identity')[0]!
-    const identity = identityLabel.find('textarea')!
+    const identity = v.root.findAll((node) => node.tag === 'textarea' && node.props.id === 'personality-identity')[0]!
     identity.type('UNSAVED NEW IDENTITY')
     await flush()
     core = 'professional'
@@ -146,6 +150,20 @@ describe('review round 4: Personality keeps newer edits (16.R4.2)', () => {
     held.personalityPresetsSave!.shift()!()
     await flush()
     expect(draft).toMatchObject({ name: 'second', identity: 'second identity' })
+  })
+
+  it('cancels custom text and preset drafts without writing', async () => {
+    const v = await view('Personality')
+    const choice = v.setup.choice as Record<string, string>
+    Object.assign(choice, { preset: 'custom', custom_identity: 'UNSAVED' })
+    v.root.named('Cancel personality changes').fire('click')
+    Object.assign(v.setup.draft as object, { name: 'unsaved', identity: 'UNSAVED' })
+    v.root.named('Cancel preset draft').fire('click')
+    await flush()
+    expect(choice).toMatchObject({ preset: 'default', custom_identity: '' })
+    expect(v.setup.draft).toMatchObject({ name: '', identity: '' })
+    expect(held.personalitySet ?? []).toHaveLength(0)
+    expect(held.personalityPresetsSave ?? []).toHaveLength(0)
   })
 })
 

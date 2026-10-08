@@ -84,11 +84,11 @@ function noControls(node: Host): void {
 describe('per-resource state capability handling', () => {
   it('renders explicit refusal panels, not editor controls or empty datasets', async () => {
     const p = await view('Personality')
-    expect(panel(p, 'Personality').textContent()).toContain('Personality is unavailable in this core.')
+    expect(panel(p, 'Personality').textContent()).toContain('Personality is unavailable.')
     noControls(panel(p, 'Personality'))
     const v = await view('State')
     for (const [label, feature] of [['Memory', 'Memory'], ['Named lists', 'Named list management'], ['Knowledge', 'Knowledge']]) {
-      expect(panel(v, label!).textContent()).toContain(`${feature} is unavailable in this core.`)
+      expect(panel(v, label!).textContent()).toContain(`${feature} is unavailable.`)
       noControls(panel(v, label!))
     }
   })
@@ -131,7 +131,7 @@ describe('per-resource state capability handling', () => {
   it('recovers on success and restores controls while keeping personality edit intent and preset draft', async () => {
     serve('personalityGet')
     const v = await view('Personality')
-    const identity = panel(v, 'Personality').findAll((n) => n.tag === 'label' && n.textContent().trim() === 'Identity')[0]!.find('textarea')!
+    const identity = panel(v, 'Personality').findAll((n) => n.props.id === 'personality-identity')[0]!
     identity.type('UNSAVED IDENTITY')
     Object.assign(v.setup.draft as object, { name: 'unsaved', identity: 'UNSAVED PRESET' })
     odin.personalityGet!.mockImplementation(async () => refused)
@@ -257,8 +257,8 @@ describe('per-resource state capability handling', () => {
     await flush()
     expect(odin.settingsSchema).toHaveBeenCalledTimes(1)
     for (const method of ['personalityGet', 'memoryList', 'listsList', 'knowledgeList', 'auditQuery', 'usage', 'healthGet', 'logsSearch', 'turnStateList', 'computerStatus']) expect(odin[method]).toHaveBeenCalledTimes(1)
-    expect(v.root.textContent()).toContain('Core settings are unavailable in this core.')
-    expect(panel(v, 'Computer use').textContent()).toContain('Computer use is unavailable in this core.')
+    expect(v.root.textContent()).toContain('Settings are unavailable.')
+    expect(panel(v, 'Computer use').textContent()).toContain('Computer use is unavailable.')
   })
 })
 
@@ -275,7 +275,7 @@ describe('per-section records capability handling', () => {
     await records.verifyAudit()
     const v = await view('Records')
     for (const [label, feature] of [['Health', 'Health'], ['Usage', 'Usage'], ['Audit', 'Audit'], ['Logs', 'Log search'], ['Turn state', 'Preserved work'], ['Computer use', 'Computer use']]) {
-      expect(panel(v, label!).textContent()).toContain(`${feature} is unavailable in this core.`)
+      expect(panel(v, label!).textContent()).toContain(`${feature} is unavailable.`)
       noControls(panel(v, label!))
     }
     expect(records.records).toMatchObject({ audit: [], verify: null, usage: null, health: null, logs: [], turns: null, computer: null, errors: {}, loaded: {} })
@@ -301,7 +301,7 @@ describe('per-section records capability handling', () => {
     odin.auditVerify!.mockImplementation(async () => refused)
     await records.verifyAudit()
     await flush()
-    expect(panel(v, 'Audit').textContent()).toContain('Audit verification is unavailable in this core.')
+    expect(panel(v, 'Audit').textContent()).toContain('Audit verification is unavailable.')
     expect(panel(v, 'Audit').findAll((n) => n.tag === 'button' && n.textContent() === 'Verify the record')).toHaveLength(0)
     expect(panel(v, 'Audit').textContent()).not.toContain('Intact')
   })
@@ -343,6 +343,6 @@ describe('per-section records capability handling', () => {
     store.applyReceipt({ id: 'reconcile-1', settled: ok({ ...computer, state: 'closed', recovery: { status: 'operator_acknowledged_unverified', complete: false } }) })
     await flush()
     expect(management.busy['computer:s1']).toBe(false)
-    expect(management.notes['computer:s1']).toContain('cleanup stays unverified')
+    expect(management.notes['computer:s1']).toContain('Mouse and keyboard release stays unverified')
   })
 })

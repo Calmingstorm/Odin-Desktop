@@ -8,6 +8,7 @@ the profile keyring; dispatcher adoption follows durable configuration writes.
 from __future__ import annotations
 
 import asyncio
+import json
 import threading
 import uuid
 from contextlib import nullcontext
@@ -15,9 +16,9 @@ from copy import deepcopy
 from typing import Any
 from urllib.parse import urlparse
 
-from ..config.persistence import _load_document
+from ..config.persistence import _config_file_lock, _load_document
 from ..config.schema import OutboundWebhookTarget
-from ..notifications.outbound_webhooks import OutboundWebhookDispatcher
+from ..notifications.outbound_webhooks import OutboundWebhookDispatcher, build_event_payload
 from .management import MethodError
 from .secrets import secret_call
 
@@ -247,7 +248,27 @@ class IntegrationsService:
                 return await secret_call(dispatcher.get_status)
             if method == "webhooks.outbound.test":
                 ident = self._identifier(params)
-                result = await dispatcher.send_test_event(ident)
+                if "expected_revision" in params:
+                    target = await secret_call(self._test_target, dispatcher, ident, params)
+                    # Deliver the qualified target, never look up its ID again.
+                    # No settings/file lock spans external HTTP I/O.
+                    payload = build_event_payload("test", {
+                        "message": "This is a test event from Odin.", "webhook_id": ident,
+                    })
+                    task = asyncio.current_task()
+                    deliveries = getattr(dispatcher, "_deliveries", set())
+                    deliveries.add(task)
+                    try:
+                        if getattr(dispatcher, "_closed", False):
+                            raise MethodError("unavailable", "outbound webhook owner is closed")
+                        result = await dispatcher._deliver_one(
+                            target, json.dumps(payload, default=str).encode(), "test")
+                        dispatcher._stats.record(result)
+                    finally:
+                        deliveries.discard(task)
+                else:
+                    # Existing non-desktop callers retain their ID-only contract.
+                    result = await dispatcher.send_test_event(ident)
                 if result is None:
                     raise MethodError("not_found", "webhook not found")
                 return result.to_dict()
@@ -255,6 +276,26 @@ class IntegrationsService:
             # one settled worker transaction. Cancellation cannot release the
             # service gate with an unfinished signing-key write behind it.
             return await secret_call(self._mutate, dispatcher, method, params)
+
+    def _test_target(self, dispatcher, ident, params):
+        expected = params.get("expected_revision")
+        if not isinstance(expected, str) or not expected:
+            raise MethodError("bad_request", "expected_revision is required")
+        with getattr(dispatcher, "_target_lock", nullcontext()):
+            with self.settings._lock, _config_file_lock(self.settings.paths.config_file):
+                self.settings._check_revision(expected)
+                sync = getattr(dispatcher, "_sync", None)
+                if callable(sync):
+                    sync()
+                skipped = next((row for row in getattr(dispatcher, "_skipped_targets", [])
+                                if row["id"] == ident), None)
+                if skipped:
+                    raise MethodError("unavailable", skipped["reason"])
+                target = deepcopy(dispatcher.get(ident))
+                self.settings._check_revision(expected)
+                if target is None:
+                    raise MethodError("not_found", "webhook not found")
+                return target
 
     @staticmethod
     def _identifier(params):

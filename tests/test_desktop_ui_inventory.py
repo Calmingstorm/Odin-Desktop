@@ -573,9 +573,11 @@ def test_core_methods_without_preload_are_explicitly_retained_not_fabricated():
     data = management_data()
     methods = {r["id"] for r in data["management_actions"]}
     forwarded = set().union(*(set(r.get("core_methods", [])) for r in data["app_actions"]))
-    # These are composed capabilities, not current app calls.
+    # Outbound workflows now have reviewed named bridges. Email remains a
+    # composed capability, not an invented app call.
     for method in {"webhooks.outbound.list", "webhooks.outbound.save",
-                   "webhooks.outbound.delete", "webhooks.outbound.test",
-                   "integrations.email.get"}:
+                   "webhooks.outbound.delete", "webhooks.outbound.test"}:
         assert method in methods
-        assert method not in forwarded
+        assert method in forwarded
+    assert "integrations.email.get" in methods
+    assert "integrations.email.get" not in forwarded

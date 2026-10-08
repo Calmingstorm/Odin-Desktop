@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { nextTick, onMounted, reactive, ref, watch } from 'vue'
 import type { McpServer } from '../../../../shared/api'
 import { blank, mcpBody, type Form } from '../../mcp-form'
 import { ask } from '../../dialog'
-import { unavailableText } from '../../capability'
+import { settingsUnavailableText as unavailableText } from '../../capability'
+import SettingsSection from '../../components/settings/SettingsSection.vue'
+import SettingsRow from '../../components/settings/SettingsRow.vue'
+import SettingsSwitch from '../../components/settings/SettingsSwitch.vue'
 import {
   deleteMcp,
   loadMcp,
@@ -21,9 +24,15 @@ onMounted(loadMcp)
 
 const shownTools = reactive<Record<string, boolean | undefined>>({})
 const limits = reactive<{ perServer: string | number; global: string | number }>({ perServer: '', global: '' })
+const limitsError = ref('')
 
 
 const form = ref<Form | null>(null)
+const editorDialog = ref<HTMLDialogElement | null>(null)
+watch(() => !!form.value, async (open) => {
+  await nextTick()
+  if (open) editorDialog.value?.showModal?.()
+})
 const formError = ref('')
 watch(form, () => { formError.value = '' }, { deep: true })
 
@@ -59,44 +68,42 @@ async function remove(server: McpServer): Promise<void> {
 }
 
 async function saveLimits(): Promise<void> {
+  limitsError.value = ''
+  if ([limits.perServer, limits.global].some((value) => String(value).trim() && (!Number.isInteger(Number(value)) || Number(value) < 0))) {
+    limitsError.value = 'Use whole numbers, zero or more.'
+    return
+  }
   const change: { max_published_tools_per_server?: number; max_published_tools_global?: number } = {}
   if (String(limits.perServer).trim()) change.max_published_tools_per_server = Number(limits.perServer)
   if (String(limits.global).trim()) change.max_published_tools_global = Number(limits.global)
+  if (!Object.keys(change).length) return
+  const sent = { ...limits }
   await setMcpLimits(change)
+  if (management.notes['mcp-limits'] === 'Saved.') {
+    if (limits.perServer === sent.perServer) limits.perServer = ''
+    if (limits.global === sent.global) limits.global = ''
+  }
 }
 </script>
 
 <template>
-  <section v-if="management.mcp && !management.unavailable.mcp" class="panel" aria-label="MCP">
-    <header class="panel-head">
-      <h3>MCP</h3>
-      <span class="panel-hint">
-        {{ management.mcp.connected_count }} of {{ management.mcp.server_count }} servers connected,
-        {{ management.mcp.published_tool_count }} tools offered to Odin.
-      </span>
-      <label class="toggle-inline">
-        <input type="checkbox" :checked="management.mcp.enabled" @change="setMcpGlobal(($event.target as HTMLInputElement).checked)" />
-        MCP on
-      </label>
-    </header>
-    <div class="limits">
-      <span class="panel-hint">Most tools offered to Odin:</span>
-      <label class="limit">Maximum tools per server <input v-model="limits.perServer" type="number" min="0" :placeholder="String(management.mcp.max_published_tools_per_server)" /></label>
-      <label class="limit">Maximum tools in all <input v-model="limits.global" type="number" min="0" :placeholder="String(management.mcp.max_published_tools_global)" /></label>
-      <button class="ghost" @click="saveLimits">Save limits</button>
-    </div>
-    <p v-if="management.notes.mcp || management.notes['mcp-limits']" class="manage-note" role="status">
-      {{ management.notes.mcp ?? management.notes['mcp-limits'] }}
-    </p>
-  </section>
+  <SettingsSection v-if="management.mcp && !management.unavailable.mcp" title="Availability" aria-label="MCP">
+    <SettingsRow label="MCP servers" description="Make server tools available; each action still needs permission." control-id="mcp-enabled">
+      <SettingsSwitch id="mcp-enabled" label="MCP servers" :checked="management.mcp.enabled" :disabled="management.busy.mcp" described-by="mcp-enabled-description" @change="setMcpGlobal" />
+      <template #note><p class="manage-desc">{{ management.mcp.connected_count }} of {{ management.mcp.server_count }} servers connected · {{ management.mcp.published_tool_count }} tools available</p></template>
+    </SettingsRow>
+    <p v-if="management.notes.mcp" class="manage-note" role="status">{{ management.notes.mcp }}</p>
+  </SettingsSection>
 
-  <section class="panel" aria-label="MCP servers">
+  <SettingsSection title="Servers" aria-label="MCP servers">
     <header class="panel-head">
-      <h3>Servers</h3>
       <button v-if="!management.unavailable.mcp" class="ghost" @click="form = blank()">Add server</button>
     </header>
     <p v-if="management.unavailable.mcp" class="capability-unavailable" role="status">{{ unavailableText('MCP management') }}</p>
     <p v-else-if="management.errors.mcp" class="warn">{{ management.errors.mcp }}</p>
+    <p v-else-if="!management.mcp" class="manage-desc" role="status">Loading servers…</p>
+    <p v-else-if="!management.mcp.servers.length" class="manage-desc">No servers yet. Add a server to connect its tools.</p>
+    <p class="manage-desc">Enabling a local server runs its program on this computer.</p>
     <ul v-if="!management.unavailable.mcp" class="manage-list">
       <li v-for="server in management.mcp?.servers ?? []" :key="server.name" :class="['manage-row', server.state]">
         <div class="manage-line">
@@ -105,9 +112,9 @@ async function saveLimits(): Promise<void> {
           <span :class="['state-chip', server.state]">{{ server.state }}</span>
           <span class="manage-count">{{ server.published_count }} of {{ server.discovered_count }} tools offered</span>
           <span class="manage-actions">
-            <button class="ghost" :aria-label="`${server.enabled ? 'Turn off' : 'Turn on'} ${server.name}`" :disabled="management.busy[`mcp:${server.name}`]" @click="setMcpEnabled(server.name, !server.enabled)">
-              {{ server.enabled ? 'Turn off' : 'Turn on' }}
-            </button>
+            <label class="toggle-inline" :for="`mcp-enabled-${encodeURIComponent(server.name)}`">Available
+              <SettingsSwitch :id="`mcp-enabled-${encodeURIComponent(server.name)}`" :label="`${server.enabled ? 'Turn off' : 'Turn on'} ${server.name}`" :checked="server.enabled" :disabled="management.busy[`mcp:${server.name}`]" @change="setMcpEnabled(server.name, $event)" />
+            </label>
             <button class="ghost" :aria-label="`Reconnect ${server.name}`" :disabled="!server.enabled || management.busy[`mcp:${server.name}`]" @click="reconnectMcp(server.name)">Reconnect</button>
             <button class="ghost" :aria-label="`Refresh tools for ${server.name}`" :disabled="!server.enabled || management.busy[`mcp:${server.name}`]" @click="refreshMcpTools(server.name)">Refresh tools</button>
             <button class="ghost" :aria-label="`${shownTools[server.name] ? 'Hide tools' : 'Tools'} for ${server.name}`" :aria-expanded="!!shownTools[server.name]" :aria-controls="`mcp-tools-${encodeURIComponent(server.name)}`" @click="toggleTools(server.name)">{{ shownTools[server.name] ? 'Hide tools' : 'Tools' }}</button>
@@ -131,13 +138,13 @@ async function saveLimits(): Promise<void> {
         <p v-if="management.notes[`mcp:${server.name}`]" class="manage-note" role="status">{{ management.notes[`mcp:${server.name}`] }}</p>
       </li>
     </ul>
-  </section>
+  </SettingsSection>
 
-  <section v-if="form && !management.unavailable.mcp" class="panel" aria-label="MCP server form">
+  <dialog v-if="form && !management.unavailable.mcp" ref="editorDialog" class="mcp-editor-dialog" :aria-label="form.create ? 'Add MCP server' : `Edit MCP server ${form.name}`" @cancel.prevent="form = null">
+  <SettingsSection :title="form.create ? 'Add a server' : `Edit ${form.name}`" aria-label="MCP server form">
     <header class="panel-head">
-      <h3>{{ form.create ? 'Add a server' : `Edit ${form.name}` }}</h3>
       <span v-if="!form.create" class="panel-hint">Leave a field blank to keep what is stored.</span>
-      <button class="ghost" aria-label="Close MCP server form" @click="form = null">Close</button>
+      <button class="ghost" aria-label="Cancel MCP server changes" @click="form = null">Cancel</button>
     </header>
     <label v-if="form.create" class="field-input">Name <input v-model="form.name" placeholder="Letters, digits, underscores" /></label>
     <label class="field-input">
@@ -151,15 +158,18 @@ async function saveLimits(): Promise<void> {
       <label class="field-input">Executable <input v-model="form.command" placeholder="/usr/local/bin/my-mcp-server" /></label>
       <label class="field-input">Arguments, one per line <textarea v-model="form.args" rows="3" :disabled="form.clearArgs" /></label>
       <label v-if="!form.create" class="toggle-inline"><input v-model="form.clearArgs" type="checkbox" /> Clear its arguments</label>
-      <label class="field-input">Working directory <input v-model="form.cwd" /></label>
     </template>
     <label v-else class="field-input">URL <input v-model="form.url" placeholder="https://…" /></label>
+    <details class="settings-more-options">
+      <summary>More options</summary>
+      <label v-if="form.transport === 'stdio'" class="field-input">Working directory <input v-model="form.cwd" /></label>
     <label class="field-input">Timeout, in seconds <input :value="form.timeout" @input="form.timeout = ($event.target as HTMLInputElement).value" type="number" min="1" :aria-invalid="!!formError || undefined" :aria-describedby="formError ? 'mcp-timeout-error' : undefined" /></label>
     <label class="field-input">
       Only these tools, one per line ({{ form.create ? 'blank: all' : 'blank keeps the current list' }})
       <textarea v-model="form.allowlist" rows="3" :disabled="form.allTools" />
     </label>
     <label v-if="!form.create" class="toggle-inline"><input v-model="form.allTools" type="checkbox" /> Offer all its tools again</label>
+    </details>
     <fieldset class="secret-set">
       <legend>Headers and environment</legend>
       <p class="panel-hint">Values are stored for the server and never read back. To change one, enter it again.</p>
@@ -187,5 +197,29 @@ async function saveLimits(): Promise<void> {
     </div>
     <p v-if="formError" id="mcp-timeout-error" class="warn" role="alert">{{ formError }}</p>
     <p v-else-if="management.notes[`mcp:${form.name}`]" class="manage-note" role="status">{{ management.notes[`mcp:${form.name}`] }}</p>
-  </section>
+  </SettingsSection>
+
+  </dialog>
+  <details v-if="management.mcp && !management.unavailable.mcp" class="settings-more-options">
+    <summary>More options</summary>
+    <SettingsSection title="Tool limits">
+      <SettingsRow label="Maximum tools per server" control-id="mcp-limit-server">
+        <input id="mcp-limit-server" v-model="limits.perServer" type="number" min="0" :placeholder="String(management.mcp.max_published_tools_per_server)" :aria-invalid="!!limitsError || undefined" :aria-describedby="limitsError ? 'mcp-limits-error' : undefined" />
+      </SettingsRow>
+      <SettingsRow label="Maximum tools in all" control-id="mcp-limit-global">
+        <input id="mcp-limit-global" v-model="limits.global" type="number" min="0" :placeholder="String(management.mcp.max_published_tools_global)" :aria-invalid="!!limitsError || undefined" :aria-describedby="limitsError ? 'mcp-limits-error' : undefined" />
+      </SettingsRow>
+      <div class="panel-actions">
+        <button class="ghost" :disabled="management.busy['mcp-limits']" @click="saveLimits">Save limits</button>
+        <button class="ghost" @click="limits.perServer = ''; limits.global = ''; limitsError = ''">Cancel limits</button>
+      </div>
+      <p v-if="limitsError" id="mcp-limits-error" class="warn" role="status">{{ limitsError }}</p>
+      <p v-else-if="management.notes['mcp-limits']" class="manage-note" role="status">{{ management.notes['mcp-limits'] }}</p>
+    </SettingsSection>
+  </details>
 </template>
+
+<style scoped>
+.mcp-editor-dialog { width: min(760px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow: auto; padding: 0 20px; border: 1px solid var(--border); border-radius: 12px; color: var(--text); background: var(--bg); }
+.mcp-editor-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+</style>

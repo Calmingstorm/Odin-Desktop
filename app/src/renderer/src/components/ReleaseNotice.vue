@@ -2,20 +2,22 @@
 import { computed, ref } from 'vue'
 import type { ReleaseNotice } from '../../../shared/api'
 import { state } from '../store'
+import SettingsSection from './settings/SettingsSection.vue'
+import SettingsRow from './settings/SettingsRow.vue'
 
 const notice = ref<ReleaseNotice | null>(null)
 const busy = ref(false)
 const error = ref('')
 const text = computed(() => {
   if (busy.value) return 'Checking for updates…'
-  if (!notice.value) return 'Not checked. Check GitHub for published stable versions.'
+  if (!notice.value) return 'Not checked yet'
   const n = notice.value
   switch (n.state) {
     case 'cannot-check-private': return "Can't check for updates. The repository may be private or access is denied. Anonymous checks cannot read private releases."
     case 'offline': return "Can't check for updates. Offline or GitHub could not be reached."
     case 'rate-limited': return "Can't check for updates. GitHub has rate-limited anonymous requests. Try again later."
-    case 'malformed': return "Can't check for updates. GitHub returned invalid release metadata."
-    case 'unavailable': return "Can't check for updates. GitHub release metadata is unavailable or incomplete."
+    case 'malformed': return "Can't check for updates. GitHub returned invalid release information."
+    case 'unavailable': return "Can't check for updates. Release information is unavailable or incomplete."
     case 'invalid-current-version': return "Can't check for updates. This app does not have a stable version number."
     case 'no-release': return 'No published stable release is available. This is not an up-to-date check.'
     case 'equal': return `Up to date with the latest published stable release (${n.latestVersion}).`
@@ -46,13 +48,13 @@ async function open(): Promise<void> {
 </script>
 
 <template>
-  <section class="panel" aria-label="App version and updates">
-    <h3>App version and updates</h3>
-    <p>Installed app version: {{ notice?.currentVersion ?? state.app.appVersion ?? 'Unavailable' }}</p>
-    <p id="release-notice-status" role="status" aria-live="polite" aria-atomic="true">{{ error || text }}</p>
-    <button class="ghost" :disabled="busy" aria-describedby="release-notice-status" @click="check">Check for updates</button>
-    <a v-if="notice?.releaseUrl && !busy" :href="notice.releaseUrl" @click.prevent="open">Open release page in browser</a>
-    <p class="panel-hint">Checks are anonymous and manual. No credentials, download, installer or automatic update.
-      Upgrade .deb through your package manager or replace the AppImage yourself.</p>
-  </section>
+  <SettingsSection title="Updates">
+    <SettingsRow :label="`Version ${notice?.currentVersion ?? state.app.appVersion ?? 'unavailable'}`" description="Check manually; updates are not downloaded or installed automatically.">
+      <button class="ghost" :disabled="busy" aria-describedby="release-notice-status" @click="check">Check for updates</button>
+      <template #note>
+        <p id="release-notice-status" role="status" aria-live="polite" aria-atomic="true">{{ error || text }}</p>
+        <a v-if="notice?.releaseUrl && !busy" :href="notice.releaseUrl" @click.prevent="open">Open release page in browser</a>
+      </template>
+    </SettingsRow>
+  </SettingsSection>
 </template>

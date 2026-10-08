@@ -103,9 +103,10 @@ reviewer's explicit choices to Advanced or internal merely to meet a quota.
 Advanced now exceeds 30 fields. Its UI **requires search and category
 headings**: Models and context, Tool execution, Hosts and access, Work and recovery,
 and Data and retention. The requirement is explicit in the owner inventory and
-tested. Slice 2 implements search and categories with ordinary metadata-backed
-editors. Four structured editors remain explicitly read-only for conversion in
-slice 4: model profiles, both model-budget maps and per-host governor overrides.
+tested. Slice 2 implemented search and categories with ordinary metadata-backed
+editors. Slice 4 converts the four structured editors: model profiles, both
+model-budget maps and per-host governor overrides. Canonical parent records and
+schema member facts come from the core; permission expansion is confirmed.
 Review-A's correction commit itself remains data/engine-only.
 Each path still has a supported write owner and user-change reason, and Advanced
 is an explicit allowlist, never a dump of schema leftovers. Normal pages must not
@@ -133,17 +134,21 @@ distinctions, native qualification and unknown-effect/quarantine boundaries.
 
 Inventorying an existing core method is not proof that the current preload
 publishes it. The two exhaustive action arrays deliberately remain separate.
-For example, `webhooks.outbound.*` and `integrations.email.get` are composed core
-management methods but have no named bridge entry today. Their supported core
-capability is retained in the inventory, not fabricated as an existing app call.
-Converting those workflows later requires a reviewed named IPC/schema/preload
-addition. Similarly, a visible field describes its intended single workflow;
-this slice does not claim that every such workflow is already implemented.
+The four `webhooks.outbound.*` methods now have reviewed named MANAGEMENT
+IPC/schema entries, published by the generated preload bridge. The outgoing
+Work editor uses their existing target-only owner contract, write-only credential
+transactions and settings revisions; unsupported global settings have no editor.
+`integrations.email.get` remains a composed core management method without a
+named bridge entry. Its supported capability is retained in the inventory, not
+fabricated as an app call. Similarly, a visible field describes its intended
+single workflow; this slice does not claim every workflow is implemented.
 
 Slice 2's General exemplar uses three new app-local bridge actions for public
 build information, fixed current-profile folder access and acceptance of orderly
 Exit. The bridge inventory now contains 171 actions. Copy diagnostics uses the
-existing clipboard owner with an explicit public-data projection. No engine
+existing clipboard owner with an explicit public-data projection. Slice 3 adds
+the existing models.status projection and slice 4 adds four named outgoing
+webhook bridges, bringing the app action inventory to 176. No engine
 restart or unrestricted path-opening method has been introduced.
 
 The tests compare the actual composed `METHODS` plus direct `CAPABILITIES` with

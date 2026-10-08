@@ -363,6 +363,7 @@ export interface ConfigField {
   default: unknown
   nullable: boolean
   sensitivity: 'public' | 'sensitive' | 'secret_container'
+  secret_route?: string | null
   apply_mode: ApplyMode
   /** Where Odin applies the field: a dedicated desktop method (for example `models.main.set`), or null. */
   apply_handler: string | null
@@ -378,6 +379,8 @@ export interface ConfigField {
   configured: boolean | null
   pending_restart: boolean
   apply_state: ApplyState
+  /** Canonical schema member shape for record-map editors, including empty maps. */
+  record_members?: Array<Pick<ConfigField, 'path' | 'type' | 'enum' | 'constraints' | 'default' | 'nullable' | 'sensitivity'>>
 }
 
 export type ImageLeaf = 'image_model' | 'outer_model'
@@ -967,8 +970,31 @@ export interface TraceFilter {
   errors_only?: boolean | string
 }
 
+/** Outbound owner projections. Credentials are never editable readback. */
+export interface OutboundWebhookTarget {
+  id: string; name: string; url: string; has_secret: boolean; events: string[]
+  enabled: boolean; scrub_secrets: boolean; verify_ssl: boolean; created_at: string
+}
+export interface OutboundWebhookStatus {
+  webhook_count: number; enabled_count: number; scrub_secrets: boolean; rate_limit_seconds: number
+  webhooks: OutboundWebhookTarget[]; stats: Record<string, unknown>
+  skipped_webhooks?: Array<{ id: string; reason: string }>
+}
+export interface OutboundWebhookSave {
+  expected_revision: string; id?: string; name?: string; url?: string; secret?: string; events?: string[]
+  enabled?: boolean; scrub_secrets?: boolean; verify_ssl?: boolean
+}
+export interface OutboundWebhookDelivery {
+  webhook_id: string; webhook_name: string; event_type: string; status_code: number; success: boolean
+  attempt: number; latency_ms: number; timestamp: string; error?: string
+}
+
 /** Each management bridge method: its params and its answer. */
 export interface ManagementCalls {
+  outboundWebhooksList: [Empty, OutboundWebhookStatus]
+  outboundWebhooksSave: [OutboundWebhookSave, OutboundWebhookTarget]
+  outboundWebhooksDelete: [{ id: string; expected_revision: string }, { status: string; webhook_id: string }]
+  outboundWebhooksTest: [{ id: string; expected_revision: string }, OutboundWebhookDelivery]
   auditDiffs: [{ tool?: string; user?: string; date?: string; limit?: number | string }, ManagementRecord]
   auditFailures: [{ window?: number | string }, ManagementRecord]
   auditTail: [{ cursor?: string; lines?: number }, FollowRead]
@@ -994,6 +1020,7 @@ export interface ManagementCalls {
   poolsHttp: [Empty, ManagementRecord]
   poolsClose: [{ host?: string; ssh_user?: string }, { closed?: boolean; closed_count?: number; host?: string }]
   openrouterCatalogue: [Empty, ManagementRecord]
+  modelsStatus: [Empty, ManagementRecord]
   openrouterEndpoints: [{ model: string }, ManagementRecord]
   openrouterSelect: [{ model: string; provider_tag?: string; expected_revision?: string }, ManagementRecord]
   providersCompatDiagnostic: [Empty, ManagementRecord]
@@ -1081,6 +1108,10 @@ export type ManagementApi = {
  * (schemas.ts, MANAGEMENT_SCHEMAS): there is no generic passthrough.
  */
 export const MANAGEMENT: { [K in ManagementMethod]: { channel: string; core: string; command: boolean } } = {
+  outboundWebhooksList: { channel: 'odin:manage:webhooks.outbound.list', core: 'webhooks.outbound.list', command: false },
+  outboundWebhooksSave: { channel: 'odin:manage:webhooks.outbound.save', core: 'webhooks.outbound.save', command: true },
+  outboundWebhooksDelete: { channel: 'odin:manage:webhooks.outbound.delete', core: 'webhooks.outbound.delete', command: true },
+  outboundWebhooksTest: { channel: 'odin:manage:webhooks.outbound.test', core: 'webhooks.outbound.test', command: true },
   auditDiffs: { channel: 'odin:manage:audit.diffs', core: 'audit.diffs', command: false },
   auditFailures: { channel: 'odin:manage:audit.failures', core: 'audit.failures', command: false },
   auditTail: { channel: 'odin:manage:audit.tail', core: 'audit.tail', command: false },
@@ -1106,6 +1137,7 @@ export const MANAGEMENT: { [K in ManagementMethod]: { channel: string; core: str
   poolsHttp: { channel: 'odin:manage:pools.http', core: 'pools.http', command: false },
   poolsClose: { channel: 'odin:manage:pools.close', core: 'pools.close', command: true },
   openrouterCatalogue: { channel: 'odin:manage:openrouter.catalogue', core: 'openrouter.catalogue', command: false },
+  modelsStatus: { channel: 'odin:manage:models.status', core: 'models.status', command: false },
   openrouterEndpoints: { channel: 'odin:manage:openrouter.endpoints', core: 'openrouter.endpoints', command: false },
   openrouterSelect: { channel: 'odin:manage:openrouter.select', core: 'openrouter.select', command: true },
   providersCompatDiagnostic: { channel: 'odin:manage:providers.compat.diagnostic', core: 'providers.compat.diagnostic', command: false },

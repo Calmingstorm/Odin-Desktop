@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { ConfigField } from '../../../../shared/api'
 import { settingsControlId } from '../../settings-accessibility'
-import { editableHere, FieldDrafts, isSecret } from '../../settings-form'
+import { editableHere, FieldDrafts, fromInput, isSecret } from '../../settings-form'
+import { ask } from '../../dialog'
 import { resetField, saveField, settings } from '../../stores/settings'
 import SettingsRow from './SettingsRow.vue'
 import SettingsSwitch from './SettingsSwitch.vue'
+import StructuredSetting from './StructuredSetting.vue'
 
-const props = defineProps<{ field: ConfigField; label: string; help?: string; editor?: 'short' | 'long' }>()
+const props = defineProps<{ field: ConfigField; label: string; help?: string; editor?: 'short' | 'long'; commit?: 'automatic' | 'explicit' }>()
+const structuredError = ref('')
+const structuredKind = computed(() => props.field.path === 'openai_compatible.model_profiles' ? 'profiles'
+  : props.field.path === 'tools.governor.host_overrides' ? 'host-policy'
+  : ['openai_codex.context_budget_overrides', 'sessions.context_budget_overrides'].includes(props.field.path) ? 'budgets' : undefined)
 const form = new FieldDrafts({
   save: saveField,
   reset: resetField,
@@ -24,17 +30,17 @@ const current = computed(() => form.current(field.value))
 const dirty = computed(() => editable.value && form.changed(field.value))
 const state = computed(() => settings.fields[field.value.path])
 const saving = computed(() => state.value?.status === 'saving')
-const error = computed(() => form.errors[field.value.path]
+const error = computed(() => structuredError.value || form.errors[field.value.path]
   || (state.value?.status === 'error' ? state.value.message || 'The change could not be saved. Try again.' : ''))
 const invalid = computed(() => Boolean(error.value) || field.value.apply_state === 'invalid')
 const note = computed(() => {
   if (secret.value) return 'Secret editing is unavailable here. Use the dedicated secret controls.'
-  if (!supported.value) return 'Editing is unavailable because this setting’s metadata is unsupported.'
+  if (!supported.value) return 'Editing is unavailable for this setting. Refresh settings to check for support.'
   if (!editable.value) return 'Read-only here. Use this setting’s dedicated controls.'
   if (field.value.apply_state === 'invalid') return 'This value is invalid. Correct it and save again.'
-  if (field.value.apply_state === 'drift') return 'The running value differs from the saved value. Check the value and the core before making another change.'
-  if (field.value.apply_state === 'unknown') return 'The running value is unknown. Check the core connection before relying on this setting.'
-  if (field.value.apply_state === 'pending_restart') return field.value.restart_reason || 'The saved change needs a core restart.'
+  if (field.value.apply_state === 'drift') return 'The running value differs from the saved value. Check the value before making another change.'
+  if (field.value.apply_state === 'unknown') return 'The running value is unknown. Check the connection before relying on this setting.'
+  if (field.value.apply_state === 'pending_restart') return 'The saved change needs Odin to restart.'
   return ''
 })
 const describedBy = computed(() => [
@@ -47,25 +53,48 @@ function edit(value: string | boolean): void {
   if (editable.value) form.edit(field.value, value)
 }
 async function save(): Promise<void> {
-  if (editable.value) await form.save(field.value)
+  if (!editable.value || structuredError.value) return
+  const parsed = fromInput(field.value, current.value)
+  if (!parsed.ok) { await form.save(field.value); return }
+  const addsEntries = (value: unknown, saved: unknown): boolean => Array.isArray(value) && value.some((entry) => !Array.isArray(saved) || !saved.includes(entry))
+  const expands = (structuredKind.value === 'host-policy' && dirty.value)
+    || (field.value.path === 'email.tls_verify' && field.value.desired !== false && parsed.value === false)
+    || (['browser.allow_private_targets', 'email.allowed_attachment_dirs', 'tools.skill_allowed_urls'].includes(field.value.path) && addsEntries(parsed.value, field.value.desired))
+  if (expands) {
+    const revision = settings.meta?.revision
+    const authority = field.value
+    const draft = current.value
+    const confirmed = await ask({ title: 'Change access policy?', message: structuredKind.value === 'host-policy'
+      ? 'Changing per-host command safety can allow commands that were blocked.'
+      : field.value.path === 'email.tls_verify' ? 'Mail connections will no longer verify server certificates.'
+      : 'These changes allow access to additional destinations or folders.', confirmLabel: 'Save access changes', danger: true })
+    if (!confirmed) return
+    if (settings.meta?.revision !== revision || field.value !== authority) {
+      structuredError.value = 'Settings changed. Refresh and check before saving again.'
+      return
+    }
+    if (current.value !== draft) return
+  }
+  await form.save(field.value)
 }
 async function pick(value: string | boolean): Promise<void> {
   if (!editable.value) return
   edit(value)
-  await save()
+  if (props.commit !== 'explicit') await save()
 }
 function cancel(): void {
   form.cancel(field.value.path)
+  structuredError.value = ''
 }
 function enter(event: KeyboardEvent): void {
-  if (event.key !== 'Enter' || event.isComposing || long.value) return
+  if (event.key !== 'Enter' || event.isComposing || long.value || props.commit === 'explicit') return
   event.preventDefault()
   void save()
 }
 function blur(event: FocusEvent): void {
   // Cancel and explicit Save own their intent. Leaving the input for either must not start a hidden write.
   if ((event.relatedTarget as HTMLElement | null)?.dataset?.settingsDraftAction) return
-  if (!long.value) void save()
+  if (!long.value && props.commit !== 'explicit') void save()
 }
 </script>
 
@@ -79,6 +108,18 @@ function blur(event: FocusEvent): void {
   >
     <span v-if="secret" class="settings-editor-readonly">Secret support unavailable</span>
     <output v-else-if="!editable" :id="controlId" :aria-describedby="describedBy" class="settings-editor-readonly">{{ supported ? String(current) : 'Support unavailable' }}</output>
+    <StructuredSetting
+      v-else-if="structuredKind"
+      :id="controlId"
+      tabindex="-1"
+      :field="field"
+      :dirty="dirty"
+      :value="String(current)"
+      :fields="settings.meta?.fields ?? []"
+      :kind="structuredKind"
+      @input="edit"
+      @invalid="structuredError = $event"
+    />
     <SettingsSwitch
       v-else-if="field.type === 'boolean'"
       :id="controlId"

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import CompletionResult from './CompletionResult.vue'
+import SettingsSection from './settings/SettingsSection.vue'
 import { completion, readCompletion } from '../stores/completion'
 const filename = ref('')
 const api = window.odin
@@ -16,8 +17,8 @@ async function readTrace(search: boolean): Promise<void> {
 }
 </script>
 <template>
-  <section class="panel" aria-label="Trajectories">
-    <header class="panel-head"><h3>Trajectories</h3><button class="ghost" @click="readCompletion('trace-files', () => api.trajectoriesList({}))">List trajectory files</button></header>
+  <SettingsSection title="Trajectories" aria-label="Trajectories">
+    <button class="ghost" @click="readCompletion('trace-files', () => api.trajectoriesList({}))">List trajectory files</button>
     <CompletionResult resource="trace-files" feature="Trajectory listing" />
     <template v-if="!completion['trace-files']?.unavailable">
       <label>Trajectory filename <input v-model="filename" placeholder="trace.jsonl" /></label>
@@ -33,5 +34,5 @@ async function readTrace(search: boolean): Promise<void> {
       <button class="ghost" :disabled="!messageId" @click="readCompletion('trace-message', () => api.trajectoriesMessage({ message_id: messageId }), messageId)">Read message trajectory</button>
       <CompletionResult resource="trace-message" feature="Message trajectory" />
     </template>
-  </section>
+  </SettingsSection>
 </template>

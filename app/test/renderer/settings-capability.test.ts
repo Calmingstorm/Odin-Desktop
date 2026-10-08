@@ -58,11 +58,11 @@ describe('settings on a core without configuration capabilities', () => {
     const navButtons = () => root.findAll((host) => host.tag === 'button' && String(host.props.class).includes('settings-nav-item'))
     expect(navButtons().length).toBeGreaterThan(2)
     expect(root.textContent()).toContain('Start Odin when you log in')
-    expect(root.textContent()).toContain('Local app settings')
-    expect(root.textContent()).toContain('Core settings are unavailable in this core.')
+    expect(root.textContent()).toContain('Startup and notifications')
+    expect(root.textContent()).toContain('Settings are unavailable.')
     expect(root.textContent()).not.toContain('internal protocol text')
 
-    // The app's checkboxes in order: start at login, then desktop notifications (the theme radios come first).
+    // Native switches in order: start at login, then desktop notifications.
     const inputs = root.findAll((host) => host.tag === 'input' && host.props.type === 'checkbox')
     inputs[0]!.fire('change', { target: { checked: true } })
     inputs[1]!.fire('change', { target: { checked: false } })
@@ -76,13 +76,13 @@ describe('settings on a core without configuration capabilities', () => {
     for (const section of navButtons().map((button) => button.textContent().trim())) {
       navButtons().find((button) => button.textContent().trim() === section)!.fire('click')
       await flush()
-      expect(root.textContent()).toContain('Core settings are unavailable in this core.')
+      expect(root.textContent()).toContain('Settings are unavailable.')
       expect(root.textContent()).not.toContain('Try again')
     }
 
     navButtons().find((button) => button.textContent().trim() === 'Models and providers')!.fire('click')
     await flush()
-    expect(root.textContent()).toContain('Codex accounts are unavailable in this core.')
+    expect(root.textContent()).toContain('Codex accounts are unavailable.')
     expect(root.textContent()).not.toContain('internal protocol text')
     expect(schemaCalls).toBe(1)
   })
@@ -100,7 +100,7 @@ describe('settings on a core without configuration capabilities', () => {
     expect(settings.codex.status).toBeNull()
     expect(root.textContent()).not.toContain('fixture-secret')
     expect(root.textContent()).not.toContain('stale@example.com')
-    expect(root.textContent()).toContain('Codex accounts are unavailable in this core.')
+    expect(root.textContent()).toContain('Codex accounts are unavailable.')
     expect(root.textContent()).not.toContain('internal protocol text')
     expect(root.textContent()).not.toContain('Try again')
   })

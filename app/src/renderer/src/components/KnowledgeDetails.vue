@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import type { Result } from '../../../shared/api'
-import { isUnavailable, unavailableText } from '../capability'
+import { isUnavailable, settingsUnavailableText as unavailableText } from '../capability'
+import SettingsSection from './settings/SettingsSection.vue'
 import { ask } from '../dialog'
 import { act, management } from '../stores/management'
 import { loadKnowledge } from '../stores/state'
@@ -100,7 +101,7 @@ async function merge(): Promise<void> {
   if (!keep_source || !remove_source || keep_source === remove_source || mergeUnavailable.value || mergeConfirming.value || mergeLocked(keep_source, remove_source)) return
   mergeConfirming.value = true
   try {
-    const confirmed = await ask({ title: 'Merge these knowledge sources?', message: `Keep ${keep_source} unchanged and delete ${remove_source} with all its chunks. The core removes the duplicate source; it does not copy its content into the kept source.`, confirmLabel: 'Merge', danger: true })
+    const confirmed = await ask({ title: 'Merge these knowledge sources?', message: `Keep ${keep_source} unchanged and delete ${remove_source} with all its chunks. This removes the duplicate source; it does not copy its content into the kept source.`, confirmLabel: 'Merge', danger: true })
     if (!confirmed || mergeLocked(keep_source, remove_source)) return
     // Existing State controls act per source. Hold both source locks as well as the global merge lock,
     // including while an unanswered command waits for its late receipt.
@@ -172,8 +173,7 @@ onMounted(() => void learned())
 </script>
 
 <template>
-  <section class="panel" aria-label="Knowledge details">
-    <header class="panel-head"><h3>Knowledge details</h3><span class="panel-hint">Inspect the core's chunks, duplicates and version records. Results are shown as returned.</span></header>
+  <SettingsSection title="Knowledge details" aria-label="Knowledge details">
     <form aria-label="Read knowledge chunks" @submit.prevent="chunks">
       <label class="field-input">Chunk source <input v-model="chunkSource" required /></label>
       <button class="ghost" type="submit" :disabled="!chunkSource.trim() || reads.chunks.busy">Read chunks</button>
@@ -206,17 +206,15 @@ onMounted(() => void learned())
     </div>
     <form aria-label="Merge knowledge sources" @submit.prevent="merge">
       <h4 class="sub-head">Merge sources</h4>
-      <p class="manage-desc">Keeps one source unchanged and deletes the other. No content is copied.</p>
       <label class="field-input">Keep source <input v-model="keepSource" required /></label>
       <label class="field-input">Remove source <input v-model="removeSource" required /></label>
       <button class="ghost danger-item" type="submit" :disabled="!keepSource.trim() || !removeSource.trim() || keepSource.trim() === removeSource.trim() || mergeLocked() || mergeConfirming || mergeUnavailable">Merge sources…</button>
     </form>
     <p v-if="mergeUnavailable" role="status">{{ unavailableText('Knowledge merge') }}</p>
     <pre v-if="management.notes.knowledge" class="manage-json" role="status" aria-label="Knowledge command receipt">{{ management.notes.knowledge }}</pre>
-  </section>
+  </SettingsSection>
 
-  <section class="panel" aria-label="Learned context">
-    <header class="panel-head"><h3>Learned context</h3><span class="panel-hint">The core's entries, counts, categories and reflection metadata, without inferred values.</span></header>
+  <SettingsSection title="Learned context" aria-label="Learned context">
     <button class="ghost" :disabled="reads.learned.busy" @click="learned">Refresh learned context</button>
     <p v-if="reads.learned.busy" role="status">Reading…</p>
     <p v-else-if="reads.learned.unavailable" role="status">{{ unavailableText('Learned context') }}</p>
@@ -234,5 +232,5 @@ onMounted(() => void learned())
     </form>
     <p v-if="learnedUnavailable" role="status">{{ unavailableText('Learned context changes') }}</p>
     <pre v-if="learnedNoteKey && management.notes[learnedNoteKey]" class="manage-json" role="status" aria-label="Learned command receipt">{{ management.notes[learnedNoteKey] }}</pre>
-  </section>
+  </SettingsSection>
 </template>

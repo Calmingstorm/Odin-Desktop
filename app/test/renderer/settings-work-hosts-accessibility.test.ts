@@ -27,7 +27,8 @@ function visibleLabels(root: Host): void {
   for (const control of root.findAll((n) => ['input', 'textarea', 'select'].includes(n.tag))) {
     let label = control.parent
     while (label && label.tag !== 'label') label = label.parent
-    expect(label?.textContent().trim(), `${control.tag} needs a visible wrapping label`).toBeTruthy()
+    const explicit = root.findAll((n) => n.tag === 'label' && n.props.for === control.props.id && !!control.props.id)[0]
+    expect((label ?? explicit)?.textContent().trim(), `${control.tag} needs a visible label`).toBeTruthy()
   }
 }
 

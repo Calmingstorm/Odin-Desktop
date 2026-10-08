@@ -3,17 +3,35 @@ import { computed, ref, onMounted, reactive } from 'vue'
 import type { Appearance, NotificationChange, DesktopInfo } from '../../../../shared/api'
 import ReleaseNotice from '../../components/ReleaseNotice.vue'
 import { state } from '../../store'
-import SettingEditor from '../../components/settings/SettingEditor.vue'
 import SettingsSection from '../../components/settings/SettingsSection.vue'
 import SettingsRow from '../../components/settings/SettingsRow.vue'
 import SettingsSwitch from '../../components/settings/SettingsSwitch.vue'
 import { settings } from '../../stores/settings'
 import { status, linkLabel } from '../../stores/status'
 import { GENERAL_TIMEZONE } from '../../settings-presentation'
+import { FieldDrafts, editableHere } from '../../settings-form'
+import { saveField, resetField } from '../../stores/settings'
 
 const desktop = ref<DesktopInfo | null>(null)
 const support = reactive({ info: '', folder: '', diagnostics: '' })
 const timezone = computed(() => settings.meta?.fields.find((field) => field.path === 'timezone'))
+const zoneSearch = ref('')
+const zoneForm = new FieldDrafts({ save: saveField, reset: resetField, latest: (path) => settings.meta?.fields.find((field) => field.path === path) })
+const systemZone = (() => {
+  try { const zone = Intl.DateTimeFormat().resolvedOptions().timeZone; new Intl.DateTimeFormat('en', { timeZone: zone }); return zone }
+  catch { return '' }
+})()
+const zoneNames = (() => { try { return Intl.supportedValuesOf('timeZone') } catch { return [] } })()
+const zoneValue = computed(() => timezone.value ? String(zoneForm.current(timezone.value)) : '')
+const zoneOptions = computed(() => [...new Set([systemZone, zoneValue.value, 'UTC', ...zoneNames].filter(Boolean))]
+  .filter((zone) => zone === systemZone || zone === zoneValue.value || zone.toLowerCase().includes(zoneSearch.value.trim().toLowerCase())))
+const zoneEditable = computed(() => Boolean(timezone.value && editableHere(timezone.value)))
+const zoneStatus = computed(() => settings.fields.timezone)
+async function pickZone(value: string): Promise<void> {
+  if (!timezone.value || !zoneEditable.value || !zoneOptions.value.includes(value)) return
+  zoneForm.edit(timezone.value, value)
+  await zoneForm.save(timezone.value)
+}
 const core = computed(() => status.epoch === state.recoveryEpoch && state.app.link === 'ready' && status.core?.core_instance_id === state.app.coreInstanceId ? status.core : null)
 async function readInfo(): Promise<void> {
   try { const result = await window.odin.getDesktopInfo(); desktop.value = result.ok ? result.result : null; support.info = result.ok ? '' : result.error.message }
@@ -97,25 +115,44 @@ async function quiet(key: 'start' | 'end'): Promise<void> {
 <template>
   <ReleaseNotice />
   <SettingsSection title="Time">
-    <SettingEditor v-if="timezone" :field="timezone" :label="GENERAL_TIMEZONE.label" :help="GENERAL_TIMEZONE.help" />
-    <p v-else role="status">{{ settings.unavailable ? 'Time zone is unavailable in this core.' : settings.error ? 'Time zone could not be read.' : 'Loading time zone.' }}</p>
+    <SettingsRow v-if="timezone" :label="GENERAL_TIMEZONE.label" description="Used for schedules and dates." control-id="settings-curated-timezone">
+      <input aria-label="Find a time zone" type="search" :value="zoneSearch" :disabled="!zoneEditable" @input="zoneSearch = ($event.target as HTMLInputElement).value" />
+      <select id="settings-curated-timezone" :value="zoneValue" :disabled="!zoneEditable" @change="pickZone(($event.target as HTMLSelectElement).value)">
+        <option v-for="zone in zoneOptions" :key="zone" :value="zone">{{ zone === systemZone ? `System: ${zone}` : zone }}</option>
+      </select>
+      <template #note>
+        <div v-if="zoneForm.changed(timezone)" class="settings-editor-actions">
+          <span>Unsaved changes</span>
+          <button type="button" :disabled="zoneStatus?.status === 'saving'" @click="pickZone(zoneValue)">Save time zone</button>
+          <button type="button" @click="zoneForm.cancel('timezone')">Cancel time zone change</button>
+        </div>
+        <p v-if="zoneForm.errors.timezone || zoneStatus?.status === 'error'" role="status">{{ zoneForm.errors.timezone || zoneStatus?.message }}</p>
+        <p v-else-if="zoneStatus?.status === 'saving'" role="status">Saving…</p>
+        <p v-else-if="zoneStatus?.status === 'saved' && !zoneForm.changed(timezone)" role="status">Saved</p>
+        <p v-if="!zoneEditable" role="status">Time zone cannot be changed right now.</p>
+        <p v-if="timezone.apply_state === 'invalid'" role="status">Choose a valid time zone and save again.</p>
+        <p v-else-if="timezone.apply_state === 'drift'" role="status">The saved and running time zones differ. Refresh before changing it.</p>
+        <p v-else-if="timezone.apply_state === 'unknown'" role="status">The running time zone is not confirmed. Check the connection.</p>
+        <p v-else-if="timezone.pending_restart" role="status">The saved time zone needs Odin to restart.</p>
+      </template>
+    </SettingsRow>
+    <p v-else role="status">{{ settings.unavailable ? 'Time zone is unavailable.' : settings.error ? 'Time zone could not be read.' : 'Loading time zone.' }}</p>
   </SettingsSection>
-  <SettingsSection title="This app" description="Local app settings, kept on this computer and available independently of core settings.">
-    <p class="panel-hint">Start at login is opt-in and initially off. Closing the window keeps work running. Exit stops Odin.</p>
-    <p class="panel-hint">Notification previews are on by default. Change previews or quiet hours below, or mute a conversation from its menu.</p>
-    <fieldset class="theme-choice">
-      <legend>Theme</legend>
-      <label v-for="theme in THEMES" :key="theme.value" class="theme-option">
-        <input type="radio" name="appearance" :value="theme.value" :checked="state.appearance === theme.value" @change="appearance(theme.value)" />
-        {{ theme.label }}
-      </label>
-    </fieldset>
-    <SettingsRow label="Start Odin when you log in" control-id="start-at-login">
+  <SettingsSection title="Appearance">
+    <SettingsRow label="Theme">
+      <div class="settings-segmented" role="group" aria-label="Theme">
+        <button v-for="theme in THEMES" :key="theme.value" type="button" :aria-pressed="state.appearance === theme.value" @click="appearance(theme.value)">{{ theme.label }}</button>
+      </div>
+      <template #note><p v-if="preferenceState.theme" role="status">{{ preferenceState.theme }}</p></template>
+    </SettingsRow>
+  </SettingsSection>
+  <SettingsSection title="Startup and notifications">
+    <SettingsRow label="Start Odin when you log in" description="Closing the window keeps Odin running in the tray. Exit stops it." control-id="start-at-login">
       <SettingsSwitch id="start-at-login" label="Start Odin when you log in" data-testid="start-at-login" :checked="state.autostart" @change="autostart" />
     </SettingsRow>
     <template v-if="notifications">
       <SettingsRow label="Desktop notifications" control-id="notifications-enabled"><SettingsSwitch id="notifications-enabled" label="Desktop notifications" :checked="notifications.enabled" @change="(enabled) => change({ enabled })" /></SettingsRow>
-      <SettingsRow label="Show message previews in notifications" control-id="notification-previews"><SettingsSwitch id="notification-previews" label="Show message previews in notifications" data-testid="notification-previews" :checked="notifications.previews" :disabled="!notifications.enabled" @change="(previews) => change({ previews })" /></SettingsRow>
+      <SettingsRow label="Show message previews in notifications" description="Include message text; turn off to keep notification content private." control-id="notification-previews"><SettingsSwitch id="notification-previews" label="Show message previews in notifications" data-testid="notification-previews" :checked="notifications.previews" :disabled="!notifications.enabled" @change="(previews) => change({ previews })" /></SettingsRow>
       <SettingsRow label="Quiet hours" control-id="quiet-hours-enabled">
         <SettingsSwitch
           id="quiet-hours-enabled"
@@ -134,9 +171,8 @@ async function quiet(key: 'start' | 'end'): Promise<void> {
       <p class="panel-hint">Muted conversations: {{ notifications.muted.length }}. Mute or unmute one from its ⋯ menu.</p>
     </template>
   </SettingsSection>
-  <p v-if="preferenceState.theme" role="status">{{ preferenceState.theme }}</p>
   <p v-if="preferenceState.autostart" role="status">{{ preferenceState.autostart }}</p>
-  <SettingsSection title="About" description="Desktop release and engine build are separate versions.">
+  <SettingsSection title="About">
     <SettingsRow label="Desktop release"><span>{{ desktop?.appVersion ?? state.app.appVersion ?? 'Unavailable' }}</span></SettingsRow>
     <SettingsRow label="Engine build"><span>{{ core?.version ?? 'Unavailable' }}</span></SettingsRow>
     <SettingsRow label="Runtime"><span v-if="desktop">Electron {{ desktop.electronVersion }} · Chromium {{ desktop.chromiumVersion }} · Node {{ desktop.nodeVersion }}</span><span v-else>Unavailable</span></SettingsRow>
@@ -145,7 +181,7 @@ async function quiet(key: 'start' | 'end'): Promise<void> {
     <p v-if="support.info" class="warn" role="status">{{ support.info }} <button class="ghost" @click="readInfo">Read build information again</button></p>
   </SettingsSection>
   <SettingsSection title="Support and advanced">
-    <SettingsRow label="Settings folder" description="Exit Odin before editing and open it again to load changes. Store credentials through the app; do not edit identity, ownership or cleanup files."><button class="ghost" @click="folder">Open settings folder</button><template #note><p v-if="support.folder" role="status">{{ support.folder }}</p></template></SettingsRow>
+    <SettingsRow label="Settings folder" description="Exit before editing, then reopen Odin; manage credentials in the app and leave app-managed files unchanged."><button class="ghost" @click="folder">Open settings folder</button><template #note><p v-if="support.folder" role="status">{{ support.folder }}</p></template></SettingsRow>
     <SettingsRow label="Advanced settings" description="Search compatibility, execution limits and retention policies."><button class="ghost" @click="state.settingsSection = 'advanced'">Advanced settings</button></SettingsRow>
   </SettingsSection>
 </template>

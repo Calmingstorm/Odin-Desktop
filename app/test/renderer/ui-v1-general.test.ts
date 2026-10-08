@@ -25,7 +25,7 @@ describe('UI v1 General and explicit Advanced presentation', () => {
     odin.setNotifications = vi.fn(async () => ok({ notifications: { enabled: true, previews: true, muted: [], quietHours: { enabled: false, start: '22:00', end: '08:00' } } }))
     const { root, state } = await general()
     const previous = state.appearance
-    root.findAll((node) => node.props.name === 'appearance' && node.props.value === 'light')[0]!.fire('change')
+    root.button('Light').fire('click')
     root.findAll((node) => node.props.id === 'start-at-login')[0]!.fire('change', { target: { checked: true } })
     await flush()
     expect(state.appearance).toBe(previous)
@@ -46,7 +46,7 @@ describe('UI v1 General and explicit Advanced presentation', () => {
     odin.setNotifications = vi.fn(async () => failure)
     const { root, state } = await general()
     const previous = state.appearance
-    root.findAll((node) => node.tag === 'input' && node.props.value === 'light')[0]!.fire('change')
+    root.button('Light').fire('click')
     await flush()
     expect(root.textContent()).toContain('Preferences could not be persisted.')
     expect(root.textContent()).not.toContain('Saved.')
@@ -72,7 +72,7 @@ describe('UI v1 General and explicit Advanced presentation', () => {
     expect(focus).toHaveBeenCalled()
     expect(mounted.root.textContent()).toContain('Advanced settings')
     mounted.root.button('Exit Odin').fire('click'); await flush()
-    expect(mounted.root.textContent()).toContain('Cleanup completion is not yet confirmed.')
+    expect(mounted.root.textContent()).toContain('Odin is closing…')
     odin.exitOdin = async () => ({ ok: false, error: { message: 'Exit refused.' } })
     mounted.root.button('Exit Odin').fire('click'); await flush()
     expect(mounted.root.textContent()).toContain('Exit refused.')
@@ -186,7 +186,7 @@ describe('UI v1 General and explicit Advanced presentation', () => {
     odin.setAutostart = vi.fn(() => new Promise((resolve) => { land = resolve }))
     const { root, state } = await general()
     root.findAll((node) => node.props.id === 'start-at-login')[0]!.fire('change', { target: { checked: true } })
-    root.findAll((node) => node.props.name === 'appearance' && node.props.value === 'light')[0]!.fire('change')
+    root.button('Light').fire('click')
     await flush()
     expect(odin.setAppearance).not.toHaveBeenCalled()
     expect(root.textContent()).toContain('Saving')
@@ -194,7 +194,7 @@ describe('UI v1 General and explicit Advanced presentation', () => {
     expect(odin.setAppearance).not.toHaveBeenCalled()
     expect(state.autostart).toBe(false)
     expect(root.textContent()).toContain('Outcome unknown.')
-    root.findAll((node) => node.props.name === 'appearance' && node.props.value === 'dark')[0]!.fire('change'); await flush()
+    root.button('Dark').fire('click'); await flush()
     expect(odin.setAppearance).toHaveBeenCalledWith('dark')
     expect(root.textContent()).toContain('Saved.')
   })
@@ -212,7 +212,7 @@ describe('UI v1 General and explicit Advanced presentation', () => {
     expect(root.textContent()).toContain('Enter a time in HH:MM format.')
     expect(odin.setNotifications).toHaveBeenCalledTimes(1)
   })
-  it('retains searchable staged map entries with concrete-child metadata', async () => {
+  it('retains searchable maps with child-only facts without inventing writable parent settings', async () => {
     const { settings } = await import('../../src/renderer/src/stores/settings')
     settings.meta = { fields: [{ path: 'openai_compatible.model_profiles.demo.max_output_tokens' }] } as never
     mounted = mount((await import('../../src/renderer/src/views/settings/Advanced.vue')).default)
@@ -222,7 +222,8 @@ describe('UI v1 General and explicit Advanced presentation', () => {
     input.type('not-existing'); await flush()
     expect(mounted.root.textContent()).toContain('No matching Advanced settings')
     input.type('host'); await flush()
-    expect(mounted.root.textContent()).toContain('explicit permission-change confirmation')
+    expect(mounted.root.textContent()).toContain('No matching Advanced settings')
+    expect(mounted.root.textContent()).not.toContain('Per-host command safety')
     settings.meta = null; await flush()
     expect(mounted.root.textContent()).toContain('Loading Advanced settings.')
     settings.unavailable = true; await flush()

@@ -105,6 +105,18 @@ beforeEach(async () => {
 })
 
 describe('saving a setting', () => {
+  it('rejects queued structured saves when member facts change', async () => {
+    const profile = field('openai_compatible.model_profiles', { type: 'object', desired: {}, apply_handler: 'providers.compat.set', record_members: [
+      { path: 'openai_compatible.model_profiles.total_window_tokens', type: 'integer', enum: null, constraints: { minimum: 1 }, default: null, nullable: false, sensitivity: 'public' }
+    ] })
+    store.settings.meta!.fields.push(profile)
+    const binding = store.settings.meta!.fields.find((f) => f.path === profile.path)!
+    const saving = store.saveField(binding, { model: { total_window_tokens: 100 } })
+    binding.record_members![0]!.constraints.minimum = 200
+    expect(await saving).toBe(false)
+    expect(calls.shaped).toEqual([])
+    expect(store.settings.fields[profile.path]?.message).toContain('changed')
+  })
   it('treats a rejected bridge promise as unknown and fences queued intent until an explicit successful refresh', async () => {
     const write = vi.fn<(...args: unknown[]) => Promise<Result<unknown>>>(async () => { throw new Error('lost transport') })
     ;(window.odin as unknown as Record<string, unknown>).settingsSet = write
