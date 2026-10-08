@@ -11,6 +11,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import Mapping
+from pathlib import Path
 
 from ..llm.secret_scrubber import scrub_output_secrets
 from ..web.api._agent_display import agent_display_policy
@@ -250,7 +251,14 @@ class WorkService:
             self._watch(item)
         else:
             result = dict(record, actions=[])
-            if record["settlement"]["state"] not in {"settled", "definition"}:
+            if (record["kind"] == "schedule" and item is None and self.scheduler is not None
+                    and record["state"] in {"scheduled", "paused"}):
+                # The scheduler drops a one-time schedule after its run and any
+                # schedule the owner deletes. Neither is still scheduled.
+                result.update(state=self._ended_schedule_state(record),
+                              settlement={"state": "settled",
+                                          "last_run": record["settlement"].get("last_run")})
+            elif record["settlement"]["state"] not in {"settled", "definition"}:
                 result.update(state="interrupted", settlement={"state": "unknown",
                               "resource_release": "unproven"})
         if result != record:
@@ -262,6 +270,25 @@ class WorkService:
                 self.events.append("work.updated",
                                    {"kind": result["kind"], "id": result["id"]}, result)
         return json.loads(canonical_json(result))
+
+    def _ended_schedule_state(self, record):
+        """The last recorded run of this schedule generation, or cancelled if it never ran."""
+        path = getattr(getattr(self.scheduler, "history", None), "path", None)
+        try:
+            lines = Path(path).read_text(encoding="utf-8").splitlines() if path else []
+        except (OSError, UnicodeError, TypeError):
+            lines = []
+        for line in reversed(lines):
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if (type(entry) is dict and entry.get("schedule_id") == record["manager_id"]
+                    and type(entry.get("run_binding")) is dict
+                    and entry["run_binding"].get("generation") == record["manager_generation"]):
+                return {"success": "completed", "failure": "failed"}.get(entry.get("status"),
+                                                                         "unknown")
+        return "cancelled"
 
     def refresh_all(self):
         with self.store.transaction() as connection:

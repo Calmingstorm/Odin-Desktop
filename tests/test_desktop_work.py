@@ -315,6 +315,63 @@ def test_unqualified_schedule_controls_not_advertised(work):
     assert service.register_schedule(schedule)["actions"] == []
 
 
+
+def _ended_schedule(work, tmp_path, history_lines):
+    """A registered schedule its scheduler then no longer holds, with a harmless history file."""
+    service, message, _context = work
+    schedule = {"id": "s", "_generation": "g1", "created_at": "fixed",
+                "requester_id": message.owner_id, "channel_id": message.conversation_id,
+                "description": "harmless", "settlement": {"state": "running"}}
+    held = [schedule]
+    history = tmp_path / "schedule_history.jsonl"
+    history.write_text("".join(line + "\n" for line in history_lines))
+    service.scheduler = SimpleNamespace(list_all=lambda: list(held),
+                                        history=SimpleNamespace(path=history))
+    record = service.register_schedule(schedule)
+    assert record["state"] == "scheduled"
+    held.clear()
+    return service
+
+
+def _run(status, generation="g1", schedule_id="s"):
+    import json as _json
+    return _json.dumps({"schedule_id": schedule_id, "status": status,
+                        "run_binding": {"generation": generation}})
+
+
+@pytest.mark.parametrize(("history", "expected"), [
+    ([_run("success")], "completed"),
+    ([_run("failure")], "failed"),
+    ([_run("unknown")], "unknown"),
+    ([_run("failure"), _run("success")], "completed"),
+    ([], "cancelled"),
+    ([_run("success", generation="g0"), _run("success", schedule_id="other")], "cancelled"),
+    (["not json", _run("success")], "completed"),
+])
+def test_schedule_the_scheduler_dropped_ends_with_its_last_run(work, tmp_path, history, expected):
+    service = _ended_schedule(work, tmp_path, history)
+    item = service.list({"kind": "schedule"})["items"][0]
+    assert item["state"] == expected
+    assert item["settlement"]["state"] == "settled"
+    assert item["actions"] == []
+
+
+def test_schedule_is_not_ended_without_a_scheduler_or_while_it_is_held(work, tmp_path):
+    service = _ended_schedule(work, tmp_path, [_run("success")])
+    scheduler = service.scheduler
+    service.scheduler = None  # not loaded: nothing can be concluded about its schedules
+    assert service.list({"kind": "schedule"})["items"][0]["state"] == "scheduled"
+    service.scheduler = scheduler
+    assert service.list({"kind": "schedule"})["items"][0]["state"] == "completed"
+
+
+def test_ended_schedule_keeps_its_state_after_later_history(work, tmp_path):
+    service = _ended_schedule(work, tmp_path, [])
+    assert service.list({"kind": "schedule"})["items"][0]["state"] == "cancelled"
+    service.scheduler.history.path.write_text(_run("success") + "\n")
+    assert service.list({"kind": "schedule"})["items"][0]["state"] == "cancelled"
+
+
 @pytest.mark.asyncio
 async def test_runtime_owner_revocation_denies_existing_control(work):
     service, message, context = work
