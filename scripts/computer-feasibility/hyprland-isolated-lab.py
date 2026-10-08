@@ -32,7 +32,7 @@ def inside():
     assert not Path('/run/dbus/system_bus_socket').exists()
     assert not Path('/dev/input').exists()
     assert not list(Path('/dev/dri').glob('card*'))
-    assert not Path('/opt/Odin').exists()
+    assert not Path('/opt/odin-desktop').exists()
     assert not os.environ.get('DISPLAY')
     write_json(root / 'namespace.json', {
         'supervisor': identity(os.getpid()),

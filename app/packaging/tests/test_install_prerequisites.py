@@ -102,20 +102,20 @@ class InstallPrerequisiteBehaviour(unittest.TestCase):
                 'Description: disposable Python hook prerequisite test\n')
             old_umask = os.umask(0o002)
             try:
-                package.joinpath('opt/Odin/resources').mkdir(parents=True)
+                package.joinpath('opt/odin-desktop/resources').mkdir(parents=True)
             finally:
                 os.umask(old_umask)
             # /opt is fpm-created, while these two roots come from afterPack.
             package.joinpath('opt').chmod(0o755)
-            shutil.copy2('/bin/true', package / 'opt/Odin/odin-desktop')
-            package.joinpath('opt/Odin/resources/apparmor-profile').write_text(
-                'profile odin-desktop /opt/Odin/odin-desktop { userns, }\n')
-            package.joinpath('opt/Odin/resources/apparmor-profile').chmod(0o644)
-            package.joinpath('opt/Odin/resources/bundle-manifest.json').write_text('{"schema":1}')
+            shutil.copy2('/bin/true', package / 'opt/odin-desktop/odin-desktop')
+            package.joinpath('opt/odin-desktop/resources/apparmor-profile').write_text(
+                'profile odin-desktop /opt/odin-desktop/odin-desktop { userns, }\n')
+            package.joinpath('opt/odin-desktop/resources/apparmor-profile').chmod(0o644)
+            package.joinpath('opt/odin-desktop/resources/bundle-manifest.json').write_text('{"schema":1}')
             subprocess.run(['node', '-e',
                 'process.umask(0o002);require(process.argv[1])({appOutDir:process.argv[2]})'
                 '.catch(e=>{console.error(e);process.exit(1)})',
-                str(here / 'after-pack.cjs'), str(package / 'opt/Odin')], check=True)
+                str(here / 'after-pack.cjs'), str(package / 'opt/odin-desktop')], check=True)
             # Trace hook execution without replacing the generated Python hooks.
             preinst = control / 'preinst'
             preinst.write_text(preinst.read_text().replace('set -eu\n', 'set -eu\nprintf preinst > /hook-proof\n'))
@@ -124,17 +124,17 @@ class InstallPrerequisiteBehaviour(unittest.TestCase):
             log = qualify.install_deb(deb, package, installed, account.pw_name)
             self.assertIn('Setting up odin-desktop', log)
             self.assertIn('AppArmor postinst profile/receipt/root-directory audit: PASS', log)
-            for relative in ('opt', 'opt/Odin', 'opt/Odin/resources'):
+            for relative in ('opt', 'opt/odin-desktop', 'opt/odin-desktop/resources'):
                 self.assertEqual(stat.S_IMODE((installed / relative).stat().st_mode), 0o755)
             self.assertEqual(installed.joinpath('etc/apparmor.d/odin-desktop').read_bytes(),
-                             package.joinpath('opt/Odin/resources/apparmor-profile').read_bytes())
+                             package.joinpath('opt/odin-desktop/resources/apparmor-profile').read_bytes())
             receipt = json.loads(installed.joinpath(
                 'var/lib/odin-desktop/package-ownership/apparmor-profile.json').read_text())
             self.assertEqual(len(receipt['sha256']), 64)
             self.assertEqual(installed.joinpath('hook-proof').read_text(), 'preinst')
             self.assertTrue(installed.joinpath('var/lib/odin-desktop/package-ownership/lease').is_file())
             self.assertFalse(installed.joinpath('var/lib/odin-desktop/package-ownership/transaction.json').exists())
-            self.assertEqual(os.readlink(installed / 'usr/bin/odin-desktop'), '/opt/Odin/odin-desktop')
+            self.assertEqual(os.readlink(installed / 'usr/bin/odin-desktop'), '/opt/odin-desktop/odin-desktop')
             self.assertIn('Status: install ok installed', installed.joinpath('var/lib/dpkg/status').read_text())
             self.assertFalse(installed.joinpath('usr/bin/python3').exists())
             self.assertFalse(list(installed.joinpath('usr').rglob('*.py')))
@@ -155,7 +155,7 @@ class InstallPrerequisiteBehaviour(unittest.TestCase):
             sandbox = qualify.sandbox
             def stale_root(*args, **kwargs):
                 work = args[1]
-                for relative in ('opt/Odin', 'opt/Odin/resources'):
+                for relative in ('opt/odin-desktop', 'opt/odin-desktop/resources'):
                     path = work / 'root' / relative
                     path.mkdir(parents=True, exist_ok=True)
                     path.chmod(0o777)

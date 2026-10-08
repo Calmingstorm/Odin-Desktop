@@ -1,5 +1,5 @@
 appId: net.calmingstorm.odin.desktop
-productName: Odin
+productName: odin-desktop
 executableName: odin-desktop
 asar: true
 npmRebuild: false

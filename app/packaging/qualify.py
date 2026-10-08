@@ -349,10 +349,10 @@ def install_deb(deb, source, destination, user):
         account = pwd.getpwuid(os.getuid())
         # Postinst must install the profile even when no kernel parser is in the
         # tiny chroot. Audit before export/chown, while root ownership is real.
-        # Never precreate/chmod /opt/Odin: dpkg retains stale directory modes.
+        # Never precreate/chmod /opt/odin-desktop: dpkg retains stale directory modes.
         profile_audit = (
             'import hashlib, json, os, stat; from pathlib import Path; '
-            'install=Path("/opt/Odin"); '
+            'install=Path("/opt/odin-desktop"); '
             'parents=[install.parent, install, install/"resources"]; '
             'assert all(stat.S_ISDIR(p.lstat().st_mode) and '
             'p.lstat().st_uid == 0 and p.lstat().st_gid == 0 and '

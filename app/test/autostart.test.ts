@@ -11,8 +11,9 @@ afterEach(() => {
 
 describe('start at login (R2)', () => {
   it('starts Odin minimized to the tray', () => {
-    const entry = autostartEntry(['/opt/Odin/odin-desktop'])
-    expect(entry).toContain('Exec=/opt/Odin/odin-desktop --hidden')
+    const entry = autostartEntry(['/opt/odin-desktop/odin-desktop'])
+    expect(entry).toContain('Exec=/opt/odin-desktop/odin-desktop --hidden')
+    expect(entry).toContain('\nName=Odin\n')
     expect(entry).toContain('X-GNOME-Autostart-enabled=true')
   })
 
@@ -28,9 +29,9 @@ describe('start at login (R2)', () => {
     dirs.push(home)
     const path = autostartPath({ XDG_CONFIG_HOME: home })
     expect(isAutostartEnabled(path)).toBe(false)
-    expect(setAutostart(true, ['/opt/Odin/odin-desktop'], path)).toBe(true)
+    expect(setAutostart(true, ['/opt/odin-desktop/odin-desktop'], path)).toBe(true)
     expect(readFileSync(path, 'utf8')).toContain('--hidden')
-    expect(setAutostart(false, ['/opt/Odin/odin-desktop'], path)).toBe(false)
+    expect(setAutostart(false, ['/opt/odin-desktop/odin-desktop'], path)).toBe(false)
   })
 
   it('detects AppImage relocation without mutating the launcher, then repairs on explicit enable', () => {

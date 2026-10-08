@@ -1,6 +1,6 @@
 {
   "name": "odin-desktop",
-  "productName": "Odin",
+  "productName": "odin-desktop",
   "desktopName": "odin-desktop.desktop",
   "version": "1.0.0",
   "private": true,

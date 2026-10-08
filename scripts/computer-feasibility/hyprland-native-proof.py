@@ -11,7 +11,7 @@ import time
 
 ROOT = Path("/proof")
 assert Path(__file__).resolve() == ROOT / "harness.py"
-assert not Path("/opt/Odin").exists()
+assert not Path("/opt/odin-desktop").exists()
 assert not Path("/dev/input").exists()
 assert not list(Path("/dev/dri").glob("card*"))
 assert os.environ["XDG_RUNTIME_DIR"] == "/proof/runtime"

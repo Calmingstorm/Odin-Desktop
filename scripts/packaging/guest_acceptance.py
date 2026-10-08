@@ -23,7 +23,7 @@ ROOT = Path("/p42-evidence")
 INPUTS = Path("/p42-inputs")
 HOME = Path("/home/packageowner")
 ACCOUNT = pwd.getpwnam("packageowner")
-INSTALL = Path("/opt/Odin")
+INSTALL = Path("/opt/odin-desktop")
 
 
 def run(command, *, owner=False, expected=0, timeout=180):

@@ -41,12 +41,24 @@ describe('independent packaged app lifetime', () => {
   it('managed deb root cannot be redirected by environment kind', async () => {
     const process = child()
     mocked.spawn.mockReturnValue(process)
-    const pending = acquirePackagedApp(paths, '/opt/Odin/resources', {
+    const pending = acquirePackagedApp(paths, '/opt/odin-desktop/resources', {
       ODIN_DESKTOP_OWNERSHIP_KIND: 'appimage'
     })
     process.stdout.write('READY\n')
     await pending
     expect(mocked.spawn.mock.calls[0]![1]).toContain('deb')
+    process.stdin.end()
+  })
+
+  it.each(['/opt/Odin/resources', '/opt/odin/resources', '/opt/odin-desktop-copy/resources',
+    '/tmp/.mount_odin-desktop/resources'])('does not classify %s as the managed deb root', async (resources) => {
+    const process = child()
+    mocked.spawn.mockReturnValue(process)
+    const pending = acquirePackagedApp(paths, resources, { ODIN_DESKTOP_OWNERSHIP_KIND: 'deb' })
+    process.stdout.write('READY\n')
+    await pending
+    const args = mocked.spawn.mock.calls[0]![1] as string[]
+    expect(args[args.indexOf('--kind') + 1]).toBe('appimage')
     process.stdin.end()
   })
 

@@ -37,10 +37,18 @@ def test_installed_package_cannot_load_symlinked_ownership(tmp_path):
             object(), source_file=resources / "runtime" / "src" / "core.py")
 
 
-@pytest.mark.parametrize("kind", ["appimage", "deb"])
+@pytest.mark.parametrize("install_root,kind", [
+    (None, "appimage"),
+    ("/opt/odin-desktop", "deb"),
+    ("/opt/odin-desktop-other", "appimage"),
+])
 def test_installed_core_uses_shipped_module_and_provisional_cleanup_lease(
-        tmp_path, monkeypatch, kind):
-    resources = Path("/opt/Odin/resources") if kind == "deb" else tmp_path / "resources"
+        tmp_path, monkeypatch, install_root, kind):
+    resources = Path(install_root) / "resources" if install_root else tmp_path / "resources"
+    # Installed paths are synthetic. Do not resolve or inspect a host install,
+    # even when checking exact Debian versus lookalike-directory classification.
+    monkeypatch.setattr(package_ownership.Path, "resolve", lambda path: path)
+    monkeypatch.setattr(package_ownership.Path, "is_symlink", lambda path: False)
     paths = SimpleNamespace(config_dir=tmp_path / "config" / "default",
                             data_dir=tmp_path / "data", profile_id="default")
     acquire = Mock(return_value="lease")

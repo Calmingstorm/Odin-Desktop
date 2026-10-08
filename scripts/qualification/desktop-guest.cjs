@@ -28,7 +28,7 @@ const { probe } = require('./desktop-probe.cjs')
     const extensions = execFileSync('gsettings', ['get', 'org.gnome.shell', 'enabled-extensions'], { encoding: 'utf8' }).trim()
     assert.ok(extensions === '@as []' || extensions === '[]', 'GNOME no-extension row required')
   }
-  const manifest = JSON.parse(readFileSync('/opt/Odin/resources/bundle-manifest.json', 'utf8'))
+  const manifest = JSON.parse(readFileSync('/opt/odin-desktop/resources/bundle-manifest.json', 'utf8'))
   assert.equal(manifest.source.commit, process.argv[2])
   // A unique disposable candidate profile, not the lab operator's profile.
   const profile = join(__dirname, 'profile')
@@ -38,7 +38,7 @@ const { probe } = require('./desktop-probe.cjs')
     XDG_DATA_HOME: join(profile, 'data'), XDG_CACHE_HOME: join(profile, 'cache') }
   for (const field of ['XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME']) mkdirSync(env[field], { mode: 0o700 })
   // RUNTIME stays the owned guest compositor runtime, profile files stay private.
-  const application = await _electron.launch({ executablePath: '/opt/Odin/odin-desktop',
+  const application = await _electron.launch({ executablePath: '/opt/odin-desktop/odin-desktop',
     args: ['--force-renderer-accessibility', `--ozone-platform=${env.XDG_SESSION_TYPE === 'x11' ? 'x11' : 'wayland'}`],
     chromiumSandbox: true, env, timeout: 60000 })
   let result

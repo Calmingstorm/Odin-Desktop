@@ -27,8 +27,8 @@ def main():
              'odq-gnome': ('gnome-shell', 'mutter-common'),
              'odq-kde': ('plasma-workspace', 'kwin-wayland')}
     desktop, compositor = names[vm]
-    manifest = json.loads(Path('/opt/Odin/resources/bundle-manifest.json').read_text())
-    python = command('/opt/Odin/resources/runtime/python/bin/python3', '-I', '-B', '--version')
+    manifest = json.loads(Path('/opt/odin-desktop/resources/bundle-manifest.json').read_text())
+    python = command('/opt/odin-desktop/resources/runtime/python/bin/python3', '-I', '-B', '--version')
     driver = []
     for path in Path('/sys/class/drm').glob('card*/device/driver'):
         driver.append(path.resolve().name)
