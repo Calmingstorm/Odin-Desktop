@@ -149,7 +149,7 @@ function answerNote(action: WorkAction, result: Result<WorkControlReceipt>): str
   if (!result.ok) return resultMessage(result, 'Work controls')
   const receipt = result.result
   if (action === 'steer' && receipt.disposition === 'queued') {
-    return `Steer: queued${receipt.sequence === undefined ? '' : ` (sequence ${receipt.sequence})`}. Queued is not consumed.`
+    return `Steer queued; the agent hasn't read it yet.${receipt.sequence === undefined ? '' : ` (sequence ${receipt.sequence})`}`
   }
   return `${actionLabel(action)}: ${DISPOSITIONS[receipt.disposition] ?? receipt.disposition}${receipt.reason ? ` (${receipt.reason})` : ''}`
 }

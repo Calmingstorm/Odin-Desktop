@@ -28,7 +28,7 @@ function report(name: 'status' | 'usage'): void {
     <button v-for="p in problems" :key="p.name" class="status-item warn" :title="`Review ${p.name} in Models and providers`" @click="openSettings('models')">{{ p.name }} {{ p.health }}</button>
     <span v-if="state.app.link === 'ready' && status.usageError" :class="{ warn: !status.usageUnavailable }" role="status">{{ status.usageError }}</span>
     <span v-if="state.app.unreceipted" class="warn">{{ state.app.unreceipted }} awaiting receipt</span>
-    <span v-if="unknownEffects" class="warn">{{ unknownEffects }} unknown effects</span>
+    <span v-if="unknownEffects" class="warn">{{ unknownEffects }} {{ unknownEffects === 1 ? 'action with an unknown outcome' : 'actions with unknown outcomes' }}</span>
     <span v-if="state.app.cleanupWarning" class="warn">Cleanup needs attention</span>
   </footer>
 </template>

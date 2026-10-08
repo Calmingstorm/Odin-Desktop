@@ -206,6 +206,8 @@ export const controlSchema = z
   .strict()
 
 // 4,000 characters per steer item is Odin's existing steering limit.
+// Acknowledgement only dismisses a bound outcome warning; it does not replay or undo work.
+export const effectsAcknowledgeSchema = controlSchema
 export const steerSchema = controlSchema.extend({ text: z.string().min(1).max(4_000) }).strict()
 
 export const setAutostartSchema = z.object({ enabled: z.boolean() }).strict()

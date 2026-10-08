@@ -278,6 +278,27 @@ beforeEach(async () => {
 })
 
 describe('snapshots and held events', () => {
+  it('records invocation start timing, preserves it only for the exact live snapshot binding, and does not invent it', async () => {
+    const running = { request_id: 'run', generation: 1, started_at: '2026-10-03T00:00:00Z' }
+    await start(snapshot({ watermark: '1', running }))
+    // The engine's tool events carry request/invocation identity, but omit generation.
+    emit(event(2, 'tool.started', { request_id: 'run', invocation_id: 'call', tool: 'run_command' }))
+    expect(store.state.views.c1!.tools.run![0]).toMatchObject({ started_at: '2026-10-04T00:00:00Z', generation: 1 })
+    // Replay cannot reset the observed invocation age.
+    emit({ ...event(3, 'tool.started', { request_id: 'run', generation: 1, invocation_id: 'call', tool: 'run_command' }), at: '2026-10-04T01:00:00Z' })
+    const tool = { invocation_id: 'call', tool: 'run_command', summary: '' }
+    const refresh = store.retry()
+    await until(() => bridge.control.snapshots.length === 2)
+    bridge.control.snapshots[1]!.resolve(snapshot({ watermark: '4', running, tools: { run: [tool] } }))
+    await refresh
+    expect(store.state.views.c1!.tools.run![0]!.started_at).toBe('2026-10-04T00:00:00Z')
+    const nextGeneration = store.retry()
+    await until(() => bridge.control.snapshots.length === 3)
+    bridge.control.snapshots[2]!.resolve(snapshot({ watermark: '5', running: { ...running, generation: 2 }, tools: { run: [tool] } }))
+    await nextGeneration
+    expect(store.state.views.c1!.tools.run![0]!.started_at).toBeUndefined()
+  })
+
   it('never lets an older snapshot erase a newer committed message', async () => {
     const done = store.init()
     await until(() => bridge.control.snapshots.length === 1)

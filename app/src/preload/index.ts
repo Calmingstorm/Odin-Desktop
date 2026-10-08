@@ -56,6 +56,7 @@ const api: OdinApi = {
   snapshotConversation: (params) => ipcRenderer.invoke(IPC.snapshotConversation, params),
   submit: (params) => ipcRenderer.invoke(IPC.submit, params),
   stop: (params) => ipcRenderer.invoke(IPC.stop, params),
+  acknowledgeEffects: (params) => ipcRenderer.invoke(IPC.acknowledgeEffects, params),
   steer: (params) => ipcRenderer.invoke(IPC.steer, params),
   usage: (period) => ipcRenderer.invoke(IPC.usage, { period }),
   reload: (scope) => ipcRenderer.invoke(IPC.reload, { scope }),

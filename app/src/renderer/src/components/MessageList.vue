@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { backToLatest, chatUnavailable, loadFailure, loadOlder, resumeTarget, retry, select, state, steersFor, stopPending, type SteerLine } from '../store'
+import { acknowledgeEffects, effectAcknowledgement, backToLatest, chatUnavailable, loadFailure, loadOlder, resumeTarget, retry, select, state, steersFor, type SteerLine } from '../store'
+import { useStoppingLabel } from '../stopping-label'
 import { unavailableText } from '../capability'
 import { chatAnnouncement, type ChatAnnouncementState } from '../chat-announcements'
 import { assistantName } from '../assistant-name'
@@ -24,7 +25,7 @@ const jump = computed(() => (state.jump && state.jump.conversationId === state.a
 const steers = computed(() =>
   running.value && state.activeId ? steersFor(state.activeId, running.value.request_id, running.value.generation) : []
 )
-const stopping = computed(() => Boolean(running.value && stopPending(running.value.request_id, running.value.generation)))
+const { stopping, label: stoppingLabel } = useStoppingLabel()
 /** A failure or stop need not produce an assistant reply. Its tool receipts must remain inspectable. */
 const terminalTools = computed(() => {
   const v = view.value
@@ -34,16 +35,16 @@ const terminalTools = computed(() => {
     entries.length && id !== v.running?.request_id && !v.queued.some((q) => q.request_id === id) && !withReply.has(id)
   )
 })
-/** Keep settled Stop/Steer receipts visible even when the running task card disappears. */
+/** Controls belong only to the running binding, not to the chat transcript. */
 const controlReceipts = computed(() => {
   const v = view.value
-  if (!v) return []
+  if (!v?.running) return []
   const receipts = new Map(Object.values(v.controls).map((c) => [c.control_command_id, c]))
   for (const local of state.controls.filter((c) => c.conversation_id === state.activeId)) {
     if (!receipts.has(local.control_command_id)) receipts.set(local.control_command_id, local)
   }
   return [...receipts.values()].filter((c) =>
-    c.kind === 'stop' || c.request_id !== v.running?.request_id || c.generation !== v.running?.generation
+    c.kind === 'stop' && c.request_id === v.running?.request_id && c.generation === v.running?.generation
   ).slice(-20)
 })
 
@@ -99,14 +100,22 @@ const outcomeLine = computed(() => {
   const v = view.value
   const last = v?.recent[v.recent.length - 1]
   if (!v || !last || v.running || last.outcome === 'completed' || resumeTarget(v)) return ''
+  if (last.outcome === 'cancelled' && v.messages.some((m) => m.role === 'assistant' && m.request_id === last.request_id)) return ''
   return OUTCOME_TEXT[last.outcome] ?? `The task ended: ${last.outcome}.`
 })
 
 /** Every task whose unknown effects aren't reconciled yet, however long ago it ran. */
 const unresolvedLines = computed(() =>
-  (view.value?.unresolved ?? []).map(
-    (o) => `A task from ${time(o.at)} has ${o.unknown_effects} action(s) with an unknown outcome. They will not be repeated.`
-  )
+  (view.value?.unresolved ?? []).map((outcome) => {
+    const acknowledgement = state.activeId ? effectAcknowledgement(state.activeId, outcome) : undefined
+    return {
+      key: `${outcome.request_id}:${outcome.generation}`, outcome, conversationId: state.activeId,
+      text: `A task from ${time(outcome.at)} has ${outcome.unknown_effects} action${outcome.unknown_effects === 1 ? '' : 's'} with an unknown outcome. ${outcome.unknown_effects === 1 ? 'It' : 'They'} will not be repeated.`,
+      busy: Boolean(acknowledgement && acknowledgement.status !== 'failed'),
+      label: acknowledgement?.status === 'sending' ? 'Dismissing…' : acknowledgement && acknowledgement.status !== 'failed' ? 'Waiting for confirmation' : 'Dismiss',
+      error: acknowledgement?.error
+    }
+  })
 )
 
 const steerText = (name = assistantName()): Record<string, string> => ({
@@ -363,7 +372,7 @@ async function older(): Promise<void> {
         </ul>
         <div class="working-line">
           <span class="spinner" aria-hidden="true" />
-          <span>{{ stopping ? 'Stopping…' : `${assistantName()} is working…` }}</span>
+          <span>{{ stopping ? stoppingLabel : `${assistantName()} is working…` }}</span>
           <span v-if="queuedCount" class="queued">{{ queuedCount }} follow-up{{ queuedCount === 1 ? '' : 's' }} queued</span>
         </div>
       </div>
@@ -378,7 +387,11 @@ async function older(): Promise<void> {
         <ToolActivity :entries="entries" :request-id="requestId" />
       </div>
       <ResumeBanner v-if="state.activeId" :conversation-id="state.activeId" />
-      <p v-for="(line, index) in unresolvedLines" :key="index" class="outcome unresolved">{{ line }}</p>
+      <div v-for="line in unresolvedLines" :key="line.key" class="outcome unresolved">
+        <span>{{ line.text }}</span>
+        <button class="ghost" :disabled="line.busy" @click="line.conversationId && acknowledgeEffects(line.conversationId, line.outcome)">{{ line.label }}</button>
+        <p v-if="line.error" class="notice error" role="status">{{ line.error }}</p>
+      </div>
     </template>
     </div>
   </section>

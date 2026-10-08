@@ -70,6 +70,21 @@ describe('Exit admission boundary', () => {
     expect(deps.broker.request).toHaveBeenCalledWith('status.get')
   })
 
+  it('acknowledges only an exact bound effect target, carrying the idempotency ID through the broker', async () => {
+    const { deps, call, stop } = fixture()
+    const target = { control_command_id: '11111111-1111-4111-8111-111111111111', conversation_id: 'c1', request_id: 'r1', generation: 1 }
+    deps.broker.request.mockResolvedValueOnce({ ok: true, result: { disposition: 'acknowledged', remaining: 0 } })
+    expect(await call('odin:effects:acknowledge', target)).toEqual({ ok: true, result: { disposition: 'acknowledged', remaining: 0 } })
+    expect(deps.broker.request).toHaveBeenCalledExactlyOnceWith('effects.acknowledge', target, target.control_command_id)
+    for (const raw of [undefined, {}, { ...target, generation: 0 }, { ...target, generation: 1.5 },
+      { ...target, control_command_id: 'not-a-uuid' }, { ...target, request_id: '' }, { ...target, replay: true }]) {
+      expect(await call('odin:effects:acknowledge', raw)).toMatchObject({ ok: false })
+    }
+    stop()
+    expect(await call('odin:effects:acknowledge', target)).toMatchObject({ ok: false, error: { disposition: 'not_dispatched' } })
+    expect(deps.broker.request).toHaveBeenCalledTimes(1)
+  })
+
   it('applies a valid theme choice locally and refuses anything else before the handler', async () => {
     const { deps, call } = fixture()
     expect(await call(IPC.setAppearance, { appearance: 'light' })).toEqual({ ok: true, result: { appearance: 'light' } })

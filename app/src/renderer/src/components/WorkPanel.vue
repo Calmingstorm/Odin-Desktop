@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { loadWork, work } from '../stores/work'
 import WorkList from './WorkList.vue'
+import { loadWork, work } from '../stores/work'
 
 const panel = ref<HTMLElement | null>(null)
 const refresh = ref<HTMLButtonElement | null>(null)
@@ -32,7 +32,7 @@ onBeforeUnmount(() => {
   <section ref="panel" class="work-panel" aria-label="Work" @keydown.esc.prevent.stop="close">
     <header class="work-head">
       <strong>Work</strong>
-      <span class="work-hint">Agents, tasks, workflows, loops, processes and schedules. Controls and settlement are reported by the core; unknown release stays unknown.</span>
+      <span class="work-hint">Agents, tasks, workflows, loops, processes and schedules started from your chats.</span>
       <button ref="refresh" class="ghost" aria-label="Refresh work" title="Fetch the list again" @click="loadWork">Refresh</button>
       <button class="ghost" aria-label="Close work" title="Close work" @click="close"><span aria-hidden="true">✕</span></button>
     </header>

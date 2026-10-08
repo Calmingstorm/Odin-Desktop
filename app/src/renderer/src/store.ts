@@ -30,16 +30,21 @@ import type {
   LateReceipt,
   Message,
   NotificationSettings,
+  OdinApi,
   QueuedRequest,
   Result,
   SearchHit,
   RunningRequest,
   TerminalKind,
   TerminalOutcome,
-  ToolEntry
+  ToolEntry as ApiToolEntry
 } from '../../shared/api'
 
-export type { ToolEntry } from '../../shared/api'
+/** Event-only timing. Snapshots without invocation timestamps must not invent an elapsed time. */
+export interface ToolEntry extends ApiToolEntry {
+  started_at?: string
+  generation?: number
+}
 
 export interface PendingSubmission {
   client_submission_id: string
@@ -113,6 +118,17 @@ export interface ConversationView {
 
 export type ComposerMode = 'steer' | 'queue'
 
+export interface EffectAcknowledgement {
+  commandId: string
+  epoch: number
+  conversationId: string
+  requestId: string
+  generation: number
+  status: 'sending' | 'awaiting-receipt' | 'unknown' | 'failed'
+  error?: string
+}
+type EffectAnswer = Awaited<ReturnType<OdinApi['acknowledgeEffects']>>
+
 const RECENT_LIMIT = 20
 const CONTROL_LIMIT = 200
 
@@ -134,6 +150,7 @@ export const state = reactive({
   busy: {} as Record<string, string[] | undefined>,
   pending: [] as PendingSubmission[],
   controls: [] as ControlItem[],
+  effectsAcknowledgements: {} as Record<string, EffectAcknowledgement | undefined>,
   notice: '',
   autostart: false,
   showArchived: false,
@@ -514,11 +531,23 @@ function applySnapshot(conversationId: string, view: ConversationView, snapshot:
   }
   view.messages = [...snapshot.messages.items]
   view.hasMore = snapshot.messages.has_more
+  const previousRunning = view.running
+  const previousTools = view.tools
   view.running = snapshot.running
   view.queued = [...snapshot.queued]
   view.recent = [...snapshot.recent].slice(-RECENT_LIMIT)
   view.unresolved = [...(snapshot.unresolved ?? [])]
-  view.tools = Object.fromEntries(Object.entries(snapshot.tools).map(([id, entries]) => [id, entries.map((e) => ({ ...e }))]))
+  for (const [key, attempt] of Object.entries(state.effectsAcknowledgements)) {
+    if (attempt?.conversationId === conversationId && !view.unresolved.some((o) =>
+      o.request_id === attempt.requestId && o.generation === attempt.generation)) delete state.effectsAcknowledgements[key]
+  }
+  view.tools = Object.fromEntries(Object.entries(snapshot.tools).map(([id, entries]) => [id, entries.map((e) => {
+    // Retain observed timing across a refresh only for the same live binding and invocation.
+    const sameRun = snapshot.running && previousRunning?.request_id === snapshot.running.request_id &&
+      previousRunning?.generation === snapshot.running.generation && id === snapshot.running.request_id
+    const observed = sameRun ? previousTools[id]?.find((t) => t.invocation_id === e.invocation_id) : undefined
+    return { ...e, ...(observed?.started_at ? { started_at: observed.started_at, generation: observed.generation } : {}) }
+  })]))
   view.controls = Object.fromEntries(snapshot.controls.map((record) => [record.control_command_id, projection(record)]))
   view.watermark = watermark
   view.hasData = true
@@ -1012,6 +1041,68 @@ export async function send(
   return false
 }
 
+const effectKey = (conversationId: string, requestId: string, generation: number): string =>
+  JSON.stringify([conversationId, requestId, generation])
+
+export function effectAcknowledgement(conversationId: string, outcome: Pick<TerminalOutcome, 'request_id' | 'generation'>): EffectAcknowledgement | undefined {
+  return state.effectsAcknowledgements[effectKey(conversationId, outcome.request_id, outcome.generation)]
+}
+
+function settleEffectAcknowledgement(attempt: EffectAcknowledgement, answer: EffectAnswer): void {
+  const key = effectKey(attempt.conversationId, attempt.requestId, attempt.generation)
+  if (state.effectsAcknowledgements[key]?.commandId !== attempt.commandId) return
+  if (!answer.ok) {
+    if (isUnknownOutcome(answer.error)) attempt.status = 'awaiting-receipt'
+    else { attempt.status = 'failed'; attempt.error = answer.error.message }
+    return
+  }
+  if (!['acknowledged', 'already_acknowledged', 'not_found'].includes(answer.result.disposition) ||
+      !Number.isInteger(answer.result.remaining) || answer.result.remaining < 0) {
+    attempt.status = 'unknown'
+    attempt.error = 'Dismissal has not been confirmed.'
+    return
+  }
+  // Do not mutate the view from a receipt taken before a recovery. Its fresh snapshot owns the warning.
+  const view = state.views[attempt.conversationId]
+  if (attempt.epoch === state.recoveryEpoch && canAct(attempt.conversationId) && isAuthoritative(view)) {
+    const index = view.unresolved.findIndex((o) => o.request_id === attempt.requestId && o.generation === attempt.generation)
+    if (index >= 0) {
+      if (answer.result.disposition !== 'not_found' && answer.result.remaining === 0) view.unresolved.splice(index, 1)
+      else if (answer.result.remaining > 0) view.unresolved[index]!.unknown_effects = answer.result.remaining
+    }
+  }
+  delete state.effectsAcknowledgements[key]
+  if (answer.result.disposition === 'not_found') {
+    // A missing target is not proof of acknowledgement. Ask the core for the authoritative listing.
+    void loadConversation(attempt.conversationId)
+  }
+}
+
+/** Dismiss a warning, never replay its actions. A lost receipt stays bound to the original command ID. */
+export async function acknowledgeEffects(conversationId: string, outcome: Pick<TerminalOutcome, 'request_id' | 'generation'>): Promise<void> {
+  const view = state.views[conversationId]
+  if (!canAct(conversationId) || !view?.unresolved.some((o) => o.request_id === outcome.request_id && o.generation === outcome.generation)) return
+  const key = effectKey(conversationId, outcome.request_id, outcome.generation)
+  const previous = state.effectsAcknowledgements[key]
+  if (previous && previous.status !== 'failed') return
+  state.effectsAcknowledgements[key] = {
+    commandId: crypto.randomUUID(), epoch: state.recoveryEpoch, conversationId, requestId: outcome.request_id,
+    generation: outcome.generation, status: 'sending'
+  }
+  const attempt = state.effectsAcknowledgements[key]!
+  try {
+    const answer = await window.odin.acknowledgeEffects({
+      control_command_id: attempt.commandId, conversation_id: conversationId,
+      request_id: attempt.requestId, generation: attempt.generation
+    })
+    settleEffectAcknowledgement(attempt, answer)
+  } catch {
+    // An IPC rejection is not evidence that the core refused admission.
+    attempt.status = 'unknown'
+    attempt.error = 'Dismissal has not been confirmed.'
+  }
+}
+
 async function steer(conversationId: string, running: RunningRequest, text: string): Promise<boolean> {
   const item = addControl({
     control_command_id: crypto.randomUUID(),
@@ -1080,7 +1171,7 @@ export async function stop(): Promise<void> {
 export function stopPending(requestId: string, generation: number): boolean {
   const matches = (c: { kind: string; request_id: string; generation: number }): boolean =>
     c.kind === 'stop' && c.request_id === requestId && c.generation === generation
-  if (state.controls.some((c) => matches(c) && UNRECEIPTED.has(c.status))) return true
+  if (state.controls.some((c) => matches(c) && (UNRECEIPTED.has(c.status) || c.status === 'requested'))) return true
   return Object.values(state.views).some((view) =>
     Object.values(view?.controls ?? {}).some((c) => matches(c) && c.status === 'requested')
   )
@@ -1129,6 +1220,11 @@ function watchColorScheme(): void {
 }
 
 export function applyReceipt(receipt: LateReceipt): void {
+  const acknowledgement = Object.values(state.effectsAcknowledgements).find((attempt) => attempt?.commandId === receipt.id)
+  if (acknowledgement) {
+    settleEffectAcknowledgement(acknowledgement, receipt.settled as EffectAnswer)
+    return
+  }
   for (const listener of receiptListeners) listener(receipt)
   for (const [key, attempt] of Object.entries(state.resumes)) {
     if (attempt?.status !== 'unknown' || attempt.commandId !== receipt.id) continue
@@ -1329,6 +1425,9 @@ function applyToView(view: ConversationView, event: CoreEvent): void {
       list.push({
         invocation_id: invocationId,
         tool: String(p.tool),
+        started_at: event.at,
+        // The current core's tool events omit generation; bind timing to the live request when available.
+        generation: typeof p.generation === 'number' ? generation : view.running?.request_id === requestId ? view.running.generation : undefined,
         target: typeof p.target === 'string' ? p.target : undefined,
         summary: String(p.summary ?? '')
       })
@@ -1365,6 +1464,7 @@ function applyToView(view: ConversationView, event: CoreEvent): void {
     }
     case 'effects.resolved': {
       const remaining = Number(p.remaining) || 0
+      if (remaining <= 0) delete state.effectsAcknowledgements[effectKey(String(p.conversation_id), requestId, generation)]
       const index = view.unresolved.findIndex((o) => o.request_id === requestId && o.generation === generation)
       if (index < 0) return
       if (remaining <= 0) view.unresolved.splice(index, 1)

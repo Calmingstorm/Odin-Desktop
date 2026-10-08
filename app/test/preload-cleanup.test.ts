@@ -5,8 +5,21 @@ const bridge = vi.hoisted(() => ({ invoke: vi.fn(), expose: vi.fn() }))
 vi.mock('electron', () => ({ ipcRenderer: { invoke: bridge.invoke }, contextBridge: { exposeInMainWorld: bridge.expose } }))
 
 describe('cleanup preload bridge', () => {
+  it('exposes the narrow effect acknowledgement bridge without generic IPC access', async () => {
+    await import('../src/preload/index')
+    const [, api] = bridge.expose.mock.calls[0] as [string, OdinApi]
+    bridge.invoke.mockClear()
+    const target = { control_command_id: '11111111-1111-4111-8111-111111111111', conversation_id: 'c1', request_id: 'r1', generation: 1 }
+    const result = { ok: true, result: { disposition: 'already_acknowledged', remaining: 0 } }
+    bridge.invoke.mockResolvedValueOnce(result)
+    expect(await api.acknowledgeEffects(target)).toBe(result)
+    expect(IPC.acknowledgeEffects).toBe('odin:effects:acknowledge')
+    expect(bridge.invoke).toHaveBeenCalledExactlyOnceWith(IPC.acknowledgeEffects, target)
+    expect((api as unknown as Record<string, unknown>).ipcRenderer).toBeUndefined()
+  })
   it('exposes only a named acknowledgment method with a token payload', async () => {
     await import('../src/preload/index')
+    bridge.invoke.mockClear()
     const [name, api] = bridge.expose.mock.calls[0] as [string, OdinApi]
     expect(name).toBe('odin')
     const result = { ok: true, result: { cleanupWarning: null } }
