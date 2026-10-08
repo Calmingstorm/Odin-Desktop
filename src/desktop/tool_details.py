@@ -19,6 +19,15 @@ TOOL_DETAIL_SCHEMA = {
 }
 
 
+def _plain(value):
+    """Dict subclasses as plain dicts, for the strict canonical JSON encoder."""
+    if isinstance(value, dict):
+        return {key: _plain(child) for key, child in value.items()}
+    if type(value) is list:
+        return [_plain(child) for child in value]
+    return value
+
+
 def _scrub_json(value):
     # Use the copied lexical scrubber, preserving JSON framing and scalar types.
     return json.loads(scrub_output_secrets(canonical_json(value)))
@@ -93,9 +102,12 @@ class ToolDetailsStore:
         service never retains a delivered preview as though it were full evidence.
         """
         ArtifactStore._binding(owner, conversation_id, request_id)
-        if (not invocation_id or type(arguments) is not dict
+        # Adapter-validated arguments arrive as a dict subclass (ValidatedNestedPayload,
+        # e.g. schedule_task); they are stored and scrubbed as their JSON.
+        if (not invocation_id or not isinstance(arguments, dict)
                 or not isinstance(delivered_output, str)):
             raise ValueError("Expected an invocation receipt")
+        arguments = _plain(arguments)
         if not self._allowed(tool, hosts, owner):
             raise ResultReadError("unauthorized", "Originating output scope is not authorized")
         previews, inferred, inferred_attachments = _preview(delivered_output)
