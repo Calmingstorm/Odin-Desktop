@@ -22,7 +22,7 @@ from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
 from .management import ManagementService
 from .package_state import PackageUpgrade, inspect_profile
-from .package_status import PackageStatus
+from .package_status import PackageStatus, product_version
 from .paths import ProfilePaths
 from .reports import ReportBinding, ReportDelivery, ReportService
 from .requests import RequestService
@@ -38,7 +38,7 @@ from .ssh_sockets import socket_directory
 from .tool_details import ToolDetailsStore
 from .transcript import TranscriptStore
 
-VERSION = "0.1.0.dev1"
+VERSION = product_version()
 CONVERSATION_METHODS = frozenset({
     "conversations.list", "conversations.create", "conversations.update",
     "conversations.delete", "conversations.reset_context", "conversations.mark_read",

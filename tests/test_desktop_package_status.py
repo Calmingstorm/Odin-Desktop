@@ -274,3 +274,50 @@ async def test_failed_package_commit_keeps_pending_startup_status(tmp_path, monk
         await core.close()
         os.close(read_fd)
         os.close(write_fd)
+
+
+def _app_version():
+    import json
+    from pathlib import Path
+    package = Path(__file__).resolve().parents[1] / "app" / "package.json"
+    return json.loads(package.read_text())["version"]
+
+
+def test_product_version_reads_the_launched_bundle_manifest(tmp_path, monkeypatch):
+    import json
+
+    from src.desktop.package_status import product_version
+    runtime = tmp_path / "resources" / "runtime"
+    runtime.mkdir(parents=True)
+    (tmp_path / "resources" / "bundle-manifest.json").write_text(json.dumps(
+        {"product": {"name": "odin-desktop", "version": "9.8.7"}}))
+    monkeypatch.setenv("ODIN_DESKTOP_BUNDLE_ROOT", str(runtime))
+    assert product_version() == "9.8.7"
+
+
+@pytest.mark.parametrize("manifest", [
+    '{"product": {"version": "not a version"}}', "{", '{"product": 1}', None])
+def test_product_version_falls_back_to_the_app_package(tmp_path, monkeypatch, manifest):
+    from src.desktop.package_status import product_version
+    runtime = tmp_path / "runtime"
+    runtime.mkdir()
+    if manifest is not None:
+        (tmp_path / "bundle-manifest.json").write_text(manifest)
+    monkeypatch.setenv("ODIN_DESKTOP_BUNDLE_ROOT", str(runtime))
+    assert product_version() == _app_version()
+    monkeypatch.delenv("ODIN_DESKTOP_BUNDLE_ROOT")
+    assert product_version() == _app_version()
+
+
+def test_product_version_last_resort_is_the_engine_version(tmp_path, monkeypatch):
+    import src.desktop.package_status as package_status
+    from src.version import get_version
+    monkeypatch.delenv("ODIN_DESKTOP_BUNDLE_ROOT", raising=False)
+    elsewhere = tmp_path / "a" / "b" / "package_status.py"
+    monkeypatch.setattr(package_status, "__file__", str(elsewhere))
+    assert package_status.product_version() == get_version()
+
+
+def test_core_reports_the_product_version_not_the_engine_build():
+    from src.desktop.core import VERSION
+    assert VERSION == _app_version()

@@ -6,10 +6,40 @@ finalization barrier and P4.2 app/core package leases remain authoritative.
 """
 from __future__ import annotations
 
+import json
+import os
+import re
 from copy import deepcopy
+from pathlib import Path
 
 from ..version import get_version
 from .package_state import compatibility
+
+_PRODUCT_VERSION = re.compile(r"\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.]+)?")
+
+
+def product_version() -> str:
+    """The one version a person sees: the release this engine shipped in.
+
+    Packaged: the bundle manifest beside the runtime the app launched
+    (ODIN_DESKTOP_BUNDLE_ROOT). Source checkout: the app's package.json. The
+    engine's own distribution version (package state records) is not this.
+    """
+    candidates = []
+    bundle = os.environ.get("ODIN_DESKTOP_BUNDLE_ROOT")
+    if bundle:
+        candidates.append((Path(bundle).parent / "bundle-manifest.json", ("product", "version")))
+    candidates.append((Path(__file__).resolve().parents[2] / "app" / "package.json", ("version",)))
+    for path, keys in candidates:
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+            for key in keys:
+                value = value[key]
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if type(value) is str and _PRODUCT_VERSION.fullmatch(value):
+            return value
+    return get_version()
 
 
 class PackageStatus:

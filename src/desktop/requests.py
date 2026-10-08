@@ -17,6 +17,7 @@ from ..turn_state.store import TurnKey, TurnStatus
 from .commands import canonical_json, response_error
 from .conversations import ConversationError, domain_transaction, now, require_string
 from .errors import NoLLMProviderError
+from .package_status import product_version
 
 REQUEST_SCHEMA = {
     "desktop_requests": {"request_id", "conversation_id", "message_id", "owner", "generation",
@@ -722,7 +723,7 @@ class RequestService:
             return hashlib.sha256(text.encode("utf-8")).hexdigest()
         lease, disposition = await asyncio.to_thread(
             store.admit_turn_sync, message.turn_key, guild_id=None, user_id=message.owner_id,
-            content_digest=compute_content_digest(message.content), code_version="0.1.0.dev1",
+            content_digest=compute_content_digest(message.content), code_version=product_version(),
             prompt_policy_hash=digest(system_prompt),
             tool_catalog_hash=digest(",".join(sorted(
                 tool.get("name", "") for tool in (tools or [])))),
