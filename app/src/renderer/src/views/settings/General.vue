@@ -6,6 +6,7 @@ import { state } from '../../store'
 import SettingsSection from '../../components/settings/SettingsSection.vue'
 import SettingsRow from '../../components/settings/SettingsRow.vue'
 import SettingsSwitch from '../../components/settings/SettingsSwitch.vue'
+import OdinImport from '../../components/settings/OdinImport.vue'
 import { settings } from '../../stores/settings'
 import { status, linkLabel } from '../../stores/status'
 import { GENERAL_TIMEZONE } from '../../settings-presentation'
@@ -183,6 +184,7 @@ async function quiet(key: 'start' | 'end'): Promise<void> {
   </SettingsSection>
   <SettingsSection title="Support and advanced">
     <SettingsRow label="Settings folder" description="Exit before editing, then reopen Odin; manage credentials in the app and leave app-managed files unchanged."><button class="ghost" @click="folder">Open settings folder</button><template #note><p v-if="support.folder" role="status">{{ support.folder }}</p></template></SettingsRow>
+    <SettingsRow label="Import from Odin" description="Bring memory, skills, MCP servers, personality, hosts and settings over from an Odin install."><OdinImport /></SettingsRow>
     <SettingsRow label="Advanced settings" description="Search compatibility, execution limits and retention policies."><button class="ghost" @click="state.settingsSection = 'advanced'">Advanced settings</button></SettingsRow>
   </SettingsSection>
 </template>

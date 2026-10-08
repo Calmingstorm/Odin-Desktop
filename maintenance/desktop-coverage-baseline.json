@@ -91,6 +91,11 @@
         "missing": 0,
         "total": 73
       },
+      "app/src/main/odin-import.ts": {
+        "covered": 257,
+        "missing": 0,
+        "total": 257
+      },
       "app/src/main/onboarding-smoke.ts": {
         "covered": 238,
         "missing": 0,
@@ -371,6 +376,11 @@
         "missing": 0,
         "total": 41
       },
+      "app/src/renderer/src/components/settings/OdinImport.vue": {
+        "covered": 91,
+        "missing": 0,
+        "total": 91
+      },
       "app/src/renderer/src/components/settings/SecretControl.vue": {
         "covered": 23,
         "missing": 0,
@@ -431,15 +441,15 @@
         "missing": 6,
         "total": 71
       },
-      "app/src/renderer/src/model-picker.ts": {
-        "covered": 22,
-        "missing": 0,
-        "total": 22
-      },
       "app/src/renderer/src/mcp-form.ts": {
         "covered": 20,
         "missing": 0,
         "total": 20
+      },
+      "app/src/renderer/src/model-picker.ts": {
+        "covered": 22,
+        "missing": 0,
+        "total": 22
       },
       "app/src/renderer/src/schedule-form.ts": {
         "covered": 94,
@@ -2703,6 +2713,7 @@
     "app/src/main/lifecycle.ts",
     "app/src/main/native-notifications.ts",
     "app/src/main/notifications.ts",
+    "app/src/main/odin-import.ts",
     "app/src/main/onboarding-smoke.ts",
     "app/src/main/package-ownership.ts",
     "app/src/main/package-state.ts",
@@ -2759,6 +2770,7 @@
     "app/src/renderer/src/components/settings/AccountMoreMenu.vue",
     "app/src/renderer/src/components/settings/ContextUse.vue",
     "app/src/renderer/src/components/settings/McpMoreMenu.vue",
+    "app/src/renderer/src/components/settings/OdinImport.vue",
     "app/src/renderer/src/components/settings/SecretControl.vue",
     "app/src/renderer/src/components/settings/SettingEditor.vue",
     "app/src/renderer/src/components/settings/SettingsRow.vue",

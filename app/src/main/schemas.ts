@@ -7,6 +7,29 @@ const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 // Local app actions never accept paths, arguments, configuration or diagnostics.
 export const localAppSchema = z.object({}).strict()
 export const setupReminderSchema = z.object({ hidden: z.boolean() }).strict()
+// Import from Odin: an http(s) address for Odin's API with no credentials in it, and a token used for this call only.
+const odinImportUrl = z.string().min(1).max(2048).refine((value) => {
+  try {
+    const url = new URL(value)
+    return (url.protocol === 'http:' || url.protocol === 'https:') && !url.username && !url.password
+  } catch {
+    return false
+  }
+}, 'Enter an http:// or https:// address')
+const odinImportSource = { url: odinImportUrl, token: z.string().min(1).max(4096) }
+export const odinImportPreviewSchema = z.object(odinImportSource).strict()
+export const odinImportApplySchema = z
+  .object({
+    ...odinImportSource,
+    picks: z
+      .array(z.object({
+        category: z.enum(['memory', 'skills', 'mcp', 'personality', 'hosts', 'models']),
+        id: z.string().min(1).max(256)
+      }).strict())
+      .min(1)
+      .max(2048)
+  })
+  .strict()
 const runtimeLabel = z.string().min(1).max(100)
 /** Project only these fields, even if an owner accidentally supplies extra metadata. */
 export const desktopInfoSchema = z.object({

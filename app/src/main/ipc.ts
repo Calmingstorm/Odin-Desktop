@@ -43,6 +43,8 @@ import {
   draftGetSchema,
   draftSetSchema,
   desktopInfoSchema,
+  odinImportApplySchema,
+  odinImportPreviewSchema,
   localAppSchema,
   setupReminderSchema,
   reloadSchema,
@@ -74,6 +76,7 @@ import {
   submitSchema
 } from './schemas'
 import { withCommandId } from './command-id'
+import { applyOdinImport, previewOdinImport, type FetchLike } from './odin-import'
 import { DeviceLoginBoundary } from './device-login'
 import { isSameFrame, isTrustedSender, type FrameIdentity } from './security-policy'
 
@@ -87,6 +90,8 @@ export interface IpcDeps {
   openSettingsFolder?: () => Promise<string>
   /** Schedules the existing bounded shutdown after the acceptance receipt is queued. */
   exitOdin?: () => void
+  /** Import from Odin's HTTP client; tests inject one. Defaults to the runtime's fetch. */
+  odinFetch?: FetchLike
   releases: ReleaseNoticeService
   broker: Broker
   /** Exit quiesces local app writes as well as core requests before persistence. */
@@ -208,6 +213,12 @@ export function registerIpc(deps: IpcDeps): void {
     deps.exitOdin()
     return { ok: true, result: { accepted: true } }
   })
+  // Import from Odin: Odin's API is read with the user's token for this call only; writes use the core's own methods.
+  const odinFetch: FetchLike = deps.odinFetch ?? ((url, init) => fetch(url, init))
+  handle(IPC.odinImportPreview, odinImportPreviewSchema, (v) => previewOdinImport(v, deps.broker, odinFetch))
+  handle(IPC.odinImportApply, odinImportApplySchema, (v) =>
+    applyOdinImport({ url: v.url, token: v.token }, v.picks, deps.broker, odinFetch)
+  )
   handle(IPC.openRelease, releaseNoticeSchema, () => deps.releases.open())
   handle(IPC.listConversations, null, async () => fromSettled(await deps.broker.request('conversations.list')))
   // Conversation commands carry the window's command ID, so their late receipts can be matched (store.ts).

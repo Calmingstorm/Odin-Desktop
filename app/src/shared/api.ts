@@ -1325,6 +1325,52 @@ export interface ControlTarget {
   generation: number
 }
 
+/** Odin's own HTTP API and an admin token, used for one import and never stored. */
+export interface OdinImportSource {
+  url: string
+  token: string
+}
+
+export type OdinImportCategory = 'memory' | 'skills' | 'mcp' | 'personality' | 'hosts' | 'models'
+
+/** One thing Odin has that Odin Desktop can import. */
+export interface OdinImportItem {
+  category: OdinImportCategory
+  /** Stable within its category: a memory scope, skill, server, preset, host alias or model setting. */
+  id: string
+  label: string
+  detail: string
+  /** Already in Odin Desktop; importing it is skipped. */
+  exists: boolean
+  /** What the user has to finish by hand, in plain words. */
+  notes: string[]
+  /** Suggested choice: new things on, anything that replaces a current choice off. */
+  selected: boolean
+}
+
+export interface OdinImportPreview {
+  items: OdinImportItem[]
+}
+
+export interface OdinImportPick {
+  category: OdinImportCategory
+  id: string
+}
+
+export interface OdinImportOutcome {
+  category: OdinImportCategory
+  id: string
+  label: string
+  status: 'imported' | 'skipped' | 'needs_attention' | 'failed'
+  message: string
+}
+
+export interface OdinImportReport {
+  outcomes: OdinImportOutcome[]
+  /** Odin Desktop's SSH public key, when a host still needs it. */
+  public_key?: string
+}
+
 /** The API the preload bridge exposes as `window.odin`. Nothing else crosses the bridge. */
 export interface OdinApi extends ManagementApi, SettingsShapedApi {
   /** Profile-local app preference, not a provider readiness/completion flag. */
@@ -1335,6 +1381,10 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   openSettingsFolder(): Promise<Result<{ opened: true }>>
   /** Accepts an orderly, bounded app/core shutdown, not proof that shutdown completed. */
   exitOdin(): Promise<Result<{ accepted: true }>>
+  /** Reads what an Odin install has, through its API, without changing anything. */
+  odinImportPreview(source: OdinImportSource): Promise<Result<OdinImportPreview>>
+  /** Imports the picked items through Odin Desktop's own save paths, one outcome per item. */
+  odinImportApply(params: OdinImportSource & { picks: OdinImportPick[] }): Promise<Result<OdinImportReport>>
   checkReleases(): Promise<Result<ReleaseNotice>>
   openRelease(): Promise<Result<{ opened: true }>>
   status(): Promise<Result<CoreStatus>>
@@ -1447,6 +1497,8 @@ export const IPC = {
   getDesktopInfo: 'odin:get-desktop-info',
   openSettingsFolder: 'odin:open-settings-folder',
   exitOdin: 'odin:exit-odin',
+  odinImportPreview: 'odin:import-odin:preview',
+  odinImportApply: 'odin:import-odin:apply',
   checkReleases: 'odin:check-releases',
   openRelease: 'odin:open-release',
   status: 'odin:status',
