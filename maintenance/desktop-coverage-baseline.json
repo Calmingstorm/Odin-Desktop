@@ -92,9 +92,9 @@
         "total": 73
       },
       "app/src/main/odin-import.ts": {
-        "covered": 257,
+        "covered": 288,
         "missing": 0,
-        "total": 257
+        "total": 288
       },
       "app/src/main/onboarding-smoke.ts": {
         "covered": 238,
@@ -377,9 +377,9 @@
         "total": 41
       },
       "app/src/renderer/src/components/settings/OdinImport.vue": {
-        "covered": 91,
+        "covered": 108,
         "missing": 0,
-        "total": 91
+        "total": 108
       },
       "app/src/renderer/src/components/settings/SecretControl.vue": {
         "covered": 23,

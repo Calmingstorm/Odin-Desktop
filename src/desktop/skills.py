@@ -231,6 +231,9 @@ class SkillsService:
         if method == "skills.save":
             code = self._code(params)
             existing = manager.has_skill(name)
+            # create: true never replaces an existing skill (checked under the service lock).
+            if params.get("create") is True and existing:
+                raise MethodError("conflict", "a skill with this name already exists")
             operation = manager.edit_skill if existing else manager.create_skill
             try:
                 result = await to_thread_settled(operation, name, code)

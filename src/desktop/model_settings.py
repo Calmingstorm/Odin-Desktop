@@ -220,6 +220,9 @@ class ModelSettingsService:
                     raise _error("bad_request", f"cannot overwrite built-in preset '{name}'")
                 if not params.get("identity") and not params.get("voice"):
                     raise _error("bad_request", "identity or voice is required")
+                # create: true never replaces a saved preset (checked under the settings lock).
+                if params.get("create") is True and name in presets:
+                    raise _error("conflict", "a preset with this name already exists")
                 presets[name] = PersonalityPreset(
                     name=params.get("display_name", name),
                     identity=params.get("identity", ""), voice=params.get("voice", ""),

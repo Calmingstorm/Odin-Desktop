@@ -1,6 +1,10 @@
 // Import from Odin: read an Odin install through its own HTTP API with the user's admin token, then write each
 // picked item through Odin Desktop's ordinary core methods, so their validation, owners and revisions all apply.
 // The token is sent to the given address for these requests only; it is never stored or logged.
+//
+// "Already in Odin Desktop" is kept, not replaced: every create is either create-only in its owner (skills,
+// presets, memory) or bound to the revision it was checked against (MCP servers, host commits), so something
+// added while the import runs is never overwritten. A change the core doesn't confirm stops the import.
 import { createHash } from 'node:crypto'
 import type {
   OdinImportCategory,
@@ -19,6 +23,9 @@ export const ODIN_REDACTED = '•'.repeat(8)
 const REQUEST_TIMEOUT_MS = 15_000
 const MCP_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
 const LOCAL_ADDRESS = /^(localhost|127\.\d+\.\d+\.\d+|::1|\[::1\])$/i
+/** The current-personality action; saved presets use `preset:<name>`, so the two can never collide. */
+const CURRENT_PERSONALITY = 'current'
+const PRESET = 'preset:'
 /** The settings the "Settings" group offers, each written through the handler the core names for it. */
 const SETTING_PATHS = {
   agent_effort: 'openai_codex.agent_reasoning_effort',
@@ -40,6 +47,8 @@ export type FetchLike = (
 ) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>
 
 class ImportError extends Error {}
+/** A change was sent but the core didn't confirm it; nothing after it may run. */
+class Unconfirmed extends Error {}
 
 type Json = Record<string, unknown>
 const record = (value: unknown): Json =>
@@ -50,11 +59,18 @@ const plural = (count: number, one: string, many: string): string => `${count} $
 
 /** Odin's API lives at the root, so a pasted WebUI link such as http://host:3002/ui/ still works. */
 function origin(source: OdinImportSource): string {
+  let url: URL
   try {
-    return new URL(source.url.trim()).origin
+    url = new URL(source.url.trim())
   } catch {
     throw new ImportError('Enter an http:// or https:// address.')
   }
+  if (url.protocol === 'http:' && !LOCAL_ADDRESS.test(url.hostname) && source.allow_insecure_http !== true) {
+    throw new ImportError(
+      "This address isn't encrypted, so the token would cross the network in plain text. Use https://, or confirm unencrypted HTTP for a network you trust."
+    )
+  }
+  return url.origin
 }
 
 async function odinGet(source: OdinImportSource, path: string, fetchImpl: FetchLike): Promise<unknown> {
@@ -101,6 +117,7 @@ interface OdinSnapshot {
 }
 
 async function readOdin(source: OdinImportSource, fetchImpl: FetchLike): Promise<OdinSnapshot> {
+  origin(source)
   const [memory, skills, config, personality] = await Promise.all([
     odinGet(source, '/api/memory', fetchImpl),
     odinGet(source, '/api/skills', fetchImpl),
@@ -111,16 +128,17 @@ async function readOdin(source: OdinImportSource, fetchImpl: FetchLike): Promise
 }
 
 interface DesktopSnapshot {
-  memoryKeys: Set<string>
   skills: Set<string>
   mcp: Set<string>
   presets: Set<string>
   hosts: Set<string>
 }
 
+const mcpNames = (status: Json): Set<string> => new Set(list(status.servers).map((row) => text(record(row).name)))
+const hostNames = (hosts: Json): Set<string> => new Set(list(hosts.hosts).map((row) => text(record(row).alias)))
+
 async function readDesktop(broker: ImportBroker): Promise<DesktopSnapshot> {
-  const [memory, skills, mcp, personality, hosts] = await Promise.all([
-    desktopCall(broker, 'memory.list'),
+  const [skills, mcp, personality, hosts] = await Promise.all([
     broker.request('skills.list', {}),
     desktopCall(broker, 'mcp.status'),
     desktopCall(broker, 'personality.get'),
@@ -128,11 +146,10 @@ async function readDesktop(broker: ImportBroker): Promise<DesktopSnapshot> {
   ])
   if (!skills.ok) throw new ImportError(skills.error.message || 'Odin Desktop could not list its skills.')
   return {
-    memoryKeys: new Set(list(record(memory.global).keys).map(text)),
     skills: new Set(list(skills.result).map((row) => text(record(row).name))),
-    mcp: new Set(list(mcp.servers).map((row) => text(record(row).name))),
+    mcp: mcpNames(mcp),
     presets: new Set([...list(personality.user_presets).map(text), ...list(personality.builtin_presets).map(text)]),
-    hosts: new Set(list(hosts.hosts).map((row) => text(record(row).alias)))
+    hosts: hostNames(hosts)
   }
 }
 
@@ -172,8 +189,10 @@ function userPresets(personality: Json): Array<[string, Json]> {
   return list(personality.user_presets).map(text).filter(Boolean).map((name): [string, Json] => [name, record(presets[name])])
 }
 
+/** Only the providers that take a reasoning effort get one: Codex and OpenAI-compatible, never Ollama. */
 function mainEffort(config: Json): string {
   const model = text(record(config.llm_provider).model)
+  if (model.startsWith('ollama:')) return ''
   const section = model.startsWith('compat:') ? config.openai_compatible : config.openai_codex
   return text(record(section).reasoning_effort)
 }
@@ -204,8 +223,11 @@ function previewItems(odin: OdinSnapshot, desktop: DesktopSnapshot): OdinImportI
     const name = text(skill.name)
     if (!name) continue
     const exists = desktop.skills.has(name)
-    items.push({ category: 'skills', id: name, label: name, detail: text(skill.description).slice(0, 160), exists,
-      notes: text(skill.status) === 'error' ? ["It doesn't load in Odin, so it may fail here too."] : [], selected: !exists })
+    const status = text(skill.status)
+    const notes = status === 'error' ? ["It doesn't load in Odin, so it may fail here too."]
+      : status === 'disabled' ? ["It's off in Odin and stays off here."] : []
+    items.push({ category: 'skills', id: name, label: name, detail: text(skill.description).slice(0, 160), exists, notes,
+      selected: !exists && status !== 'disabled' })
   }
   for (const [name, server] of mcpServers(odin.config)) {
     const exists = desktop.mcp.has(name)
@@ -220,15 +242,17 @@ function previewItems(odin: OdinSnapshot, desktop: DesktopSnapshot): OdinImportI
   }
   for (const [name, preset] of userPresets(odin.personality)) {
     const exists = desktop.presets.has(name)
-    items.push({ category: 'personality', id: name, label: text(preset.name) || name, detail: 'Saved personality preset',
-      exists, notes: [], selected: !exists })
+    items.push({ category: 'personality', id: `${PRESET}${name}`, label: text(preset.name) || name,
+      detail: 'Saved personality preset', exists, notes: [], selected: !exists })
   }
   const preset = text(odin.personality.preset)
   if (preset) {
     const current = preset === 'custom' ? `Custom: ${text(odin.personality.custom_name) || 'unnamed'}`
       : text(record(record(odin.personality.presets)[preset]).name) || preset
-    items.push({ category: 'personality', id: 'active', label: "Odin's current personality", detail: current,
-      exists: false, notes: ['Replaces the personality Odin Desktop uses now.'], selected: false })
+    const notes = ['Replaces the personality Odin Desktop uses now.']
+    if (preset !== 'custom' && desktop.presets.has(preset)) notes.push("Uses Odin Desktop's own preset of the same name.")
+    items.push({ category: 'personality', id: CURRENT_PERSONALITY, label: "Odin's current personality", detail: current,
+      exists: false, notes, selected: false })
   }
   for (const [alias, host] of remoteHosts(odin.config)) {
     const exists = desktop.hosts.has(alias)
@@ -292,7 +316,12 @@ const done = (message: string): Outcome => ({ status: 'imported', message })
 const skipped = (message: string): Outcome => ({ status: 'skipped', message })
 const attention = (message: string): Outcome => ({ status: 'needs_attention', message })
 const failed = (message: string): Outcome => ({ status: 'failed', message })
+const ALREADY = 'Already in Odin Desktop.'
+const CHANGED = "Odin Desktop's settings changed during the import. Import this again."
 const refusal = (settled: Settled, fallback: string): string => (!settled.ok && settled.error.message) || fallback
+const conflict = (settled: Settled): boolean => !settled.ok && settled.error.code === 'conflict'
+/** The core refuses a write bound to a revision that has since moved on. */
+const stale = (settled: Settled): boolean => !settled.ok && settled.error.code === 'stale_binding'
 
 class Importer {
   needsKey = false
@@ -301,9 +330,15 @@ class Importer {
     private readonly source: OdinImportSource,
     private readonly broker: ImportBroker,
     private readonly fetchImpl: FetchLike,
-    private readonly odin: OdinSnapshot,
-    private readonly desktop: DesktopSnapshot
+    private readonly odin: OdinSnapshot
   ) {}
+
+  /** A change the core may have made without confirming it: stop, so nothing builds on it or repeats it. */
+  private async change(method: string, params: Record<string, unknown>): Promise<Settled> {
+    const settled = await this.broker.request(method, params)
+    if (!settled.ok && settled.error.disposition === 'outcome_unknown') throw new Unconfirmed(method)
+    return settled
+  }
 
   async memory(scope: string): Promise<Outcome> {
     const body = record(await odinGet(this.source, `/api/memory/${encodeURIComponent(scope)}`, this.fetchImpl))
@@ -311,15 +346,10 @@ class Importer {
     let kept = 0
     let refused = 0
     for (const [key, value] of Object.entries(record(body.entries))) {
-      if (this.desktop.memoryKeys.has(key)) {
-        kept++
-        continue
-      }
-      const settled = await this.broker.request('memory.set', { scope: 'global', key, value })
-      if (settled.ok) {
-        added++
-        this.desktop.memoryKeys.add(key)
-      } else refused++
+      const settled = await this.change('memory.set', { scope: 'global', key, value, if_absent: true })
+      if (!settled.ok) refused++
+      else if (record(settled.result).status === 'exists') kept++
+      else added++
     }
     const parts = [`${plural(added, 'entry', 'entries')} added`]
     if (kept) parts.push(`${kept} already there`)
@@ -329,80 +359,84 @@ class Importer {
     return added ? done(message) : skipped(message)
   }
 
-  async skill(name: string): Promise<Outcome> {
-    if (this.desktop.skills.has(name)) return skipped('Already in Odin Desktop.')
+  async skill(name: string, status: string): Promise<Outcome> {
     const detail = record(await odinGet(this.source, `/api/skills/${encodeURIComponent(name)}`, this.fetchImpl))
     const code = text(detail.code)
     if (!code.trim()) return failed("Odin didn't return this skill's code.")
-    const saved = await this.broker.request('skills.save', { name, code, create: true })
+    // create: true makes the core refuse a name that exists, even one added after the preview.
+    const saved = await this.change('skills.save', { name, code, create: true })
+    if (conflict(saved)) return skipped(ALREADY)
     if (!saved.ok) return failed(refusal(saved, "Odin Desktop didn't accept this skill."))
-    this.desktop.skills.add(name)
+    const notes: string[] = []
+    if (status === 'disabled') {
+      const off = await this.change('skills.set_enabled', { name, enabled: false })
+      if (!off.ok) return attention(`Imported, but it couldn't be switched off as it is in Odin: ${refusal(off, 'refused')}`)
+      notes.push('Switched off, as in Odin.')
+    }
     const hidden = hiddenKeys(detail.config)
     const config = Object.fromEntries(Object.entries(record(detail.config)).filter(([, value]) => value !== ODIN_REDACTED))
     if (Object.keys(config).length) {
-      const set = await this.broker.request('skills.config.set', { name, config })
+      const set = await this.change('skills.config.set', { name, config })
       if (!set.ok) return attention(`Imported, but its settings weren't: ${refusal(set, 'refused')}`)
     }
-    return hidden.length ? attention(`Imported. Re-enter in Skills → its settings: ${hidden.join(', ')}`) : done('Imported.')
+    if (hidden.length) return attention(['Imported.', ...notes, `Re-enter in Skills → its settings: ${hidden.join(', ')}`].join(' '))
+    return done(['Imported.', ...notes].join(' '))
   }
 
   async mcp(name: string, server: Json): Promise<Outcome> {
-    if (this.desktop.mcp.has(name)) return skipped('Already in Odin Desktop.')
     if (!MCP_NAME.test(name)) return failed('Odin Desktop server names use letters, digits and underscores only.')
     const http = text(server.transport) === 'http'
     const url = text(server.url)
     if (http && (!url || url === ODIN_REDACTED)) {
       return attention("Odin doesn't share this server's address. Add it in MCP servers → Add server with its URL.")
     }
+    // Checked and saved against one revision: if anything changes in between, the core refuses the save.
     const status = await desktopCall(this.broker, 'mcp.status')
+    if (mcpNames(status).has(name)) return skipped(ALREADY)
     const timeout = typeof server.timeout_seconds === 'number' && server.timeout_seconds > 0 ? server.timeout_seconds : undefined
     const env = shownValues(server.env)
     const headers = shownValues(server.headers)
-    const params: Record<string, unknown> = {
+    const saved = await this.change('mcp.save', {
       name,
-      create: true,
       transport: http ? 'http' : 'stdio',
       enabled: false,
       tool_allowlist: list(server.tool_allowlist).map(text).filter(Boolean),
       ...(text(status.revision) ? { expected_revision: text(status.revision) } : {}),
       ...(timeout ? { timeout_seconds: timeout } : {}),
       ...(http
-        ? { ...(url && url !== ODIN_REDACTED ? { url } : {}), ...(Object.keys(headers).length ? { headers_set: headers } : {}) }
+        ? { url, ...(Object.keys(headers).length ? { headers_set: headers } : {}) }
         : {
             command: text(server.command),
             args: list(server.args).map(text),
             ...(text(server.cwd) ? { cwd: text(server.cwd) } : {}),
             ...(Object.keys(env).length ? { env_set: env } : {})
           })
-    }
-    const saved = await this.broker.request('mcp.save', params)
+    })
+    if (stale(saved)) return failed("Odin Desktop's MCP settings changed during the import. Import this server again.")
     if (!saved.ok) return failed(refusal(saved, "Odin Desktop didn't accept this server."))
-    this.desktop.mcp.add(name)
-    const hidden = [...hiddenKeys(server.env), ...hiddenKeys(server.headers), ...(url === ODIN_REDACTED ? ['URL'] : [])]
+    const hidden = [...hiddenKeys(server.env), ...hiddenKeys(server.headers)]
     return hidden.length
       ? attention(`Imported switched off. Re-enter in MCP servers → Edit: ${hidden.join(', ')}, then switch it on.`)
       : done('Imported switched off. Switch it on in MCP servers when you want it.')
   }
 
   async preset(name: string, preset: Json): Promise<Outcome> {
-    if (this.desktop.presets.has(name)) return skipped('Already in Odin Desktop.')
-    const saved = await this.broker.request('personality.presets.save', {
-      name, display_name: text(preset.name) || name, identity: text(preset.identity), voice: text(preset.voice)
+    const saved = await this.change('personality.presets.save', {
+      name, display_name: text(preset.name) || name, identity: text(preset.identity), voice: text(preset.voice), create: true
     })
-    if (!saved.ok) return failed(refusal(saved, "Odin Desktop didn't accept this preset."))
-    this.desktop.presets.add(name)
-    return done('Imported.')
+    if (conflict(saved)) return skipped(ALREADY)
+    return saved.ok ? done('Imported.') : failed(refusal(saved, "Odin Desktop didn't accept this preset."))
   }
 
-  async activePersonality(): Promise<Outcome> {
+  async currentPersonality(): Promise<Outcome> {
     const personality = this.odin.personality
     const preset = text(personality.preset)
     const user = userPresets(personality).find(([name]) => name === preset)
-    if (user && !this.desktop.presets.has(preset)) {
+    if (user) {
       const saved = await this.preset(user[0], user[1])
       if (saved.status === 'failed') return saved
     }
-    const set = await this.broker.request('personality.set', {
+    const set = await this.change('personality.set', {
       preset,
       ...(preset === 'custom' ? {
         custom_name: text(personality.custom_name),
@@ -414,7 +448,7 @@ class Importer {
   }
 
   async host(alias: string, host: Json): Promise<Outcome> {
-    if (this.desktop.hosts.has(alias)) return skipped('Already in Odin Desktop.')
+    if (hostNames(await desktopCall(this.broker, 'hosts.list')).has(alias)) return skipped(ALREADY)
     const fingerprints = list(host.host_keys).map(text).map(fingerprintOf).filter((value): value is string => value !== null)
     if (!fingerprints.length) return attention('Odin has no pinned key for this host. Add it in Hosts and access instead.')
     const user = text(host.ssh_user) || 'root'
@@ -433,13 +467,18 @@ class Importer {
     if (!prepared.ok) return failed(refusal(prepared, "Odin Desktop couldn't check this host's key."))
     const token = text(record(prepared.result).candidate_token)
     const tested = await this.broker.request('hosts.test', { token })
+    if (!tested.ok && tested.error.disposition === 'outcome_unknown') {
+      return attention("The connection test didn't answer in time. Nothing was saved; import this host again.")
+    }
     if (!tested.ok || record(tested.result).tested !== true) {
       this.needsKey = true
-      return attention(`Couldn't sign in to ${user}@${address}. Add Odin Desktop's key there, then import this host again.`)
+      return attention(`Couldn't sign in to ${user}@${address}. Add Odin Desktop's key there, then retry.`)
     }
-    const committed = await this.broker.request('hosts.commit', { token })
+    // An alias added between the first check and prepare would make this candidate an update: keep it instead.
+    // From prepare on, commit itself refuses if the alias changes.
+    if (hostNames(await desktopCall(this.broker, 'hosts.list')).has(alias)) return skipped(ALREADY)
+    const committed = await this.change('hosts.commit', { token })
     if (!committed.ok) return failed(refusal(committed, "Odin Desktop couldn't save this host."))
-    this.desktop.hosts.add(alias)
     return done('Added and tested.')
   }
 
@@ -454,7 +493,8 @@ class Importer {
     if (!field) return failed("Odin Desktop doesn't have this setting.")
     const method = text(field.apply_handler) || 'settings.set'
     if (!SETTINGS_WRITERS.has(method)) return failed("Odin Desktop changes this setting elsewhere.")
-    const settled = await this.broker.request(method, { expected_revision: revision, changes: [{ path, value }] })
+    const settled = await this.change(method, { expected_revision: revision, changes: [{ path, value }] })
+    if (stale(settled)) return failed(CHANGED)
     return settled.ok ? done('Set.') : failed(refusal(settled, "Odin Desktop didn't accept this value."))
   }
 
@@ -463,20 +503,22 @@ class Importer {
     if (id === 'main') {
       const { revision } = await this.revision()
       const effort = mainEffort(config)
-      const settled = await this.broker.request('models.main.set', {
+      const settled = await this.change('models.main.set', {
         model: text(record(config.llm_provider).model), ...(effort ? { reasoning_effort: effort } : {}), expected_revision: revision
       })
+      if (stale(settled)) return failed(CHANGED)
       return settled.ok ? done('Set.') : failed(refusal(settled, 'Odin Desktop could not use this model. Set up its provider first.'))
     }
     if (id === 'agents') {
       const agents = record(config.agents)
       const { revision } = await this.revision()
-      const settled = await this.broker.request('models.agents.set', {
+      const settled = await this.change('models.agents.set', {
         model: agents.model ?? null,
         ...(agents.model === 'auto' ? { auto_model_allowlist: list(agents.auto_model_allowlist) } : {}),
         ...(Object.keys(record(agents.model_selection_hints)).length ? { model_selection_hints: agents.model_selection_hints } : {}),
         expected_revision: revision
       })
+      if (stale(settled)) return failed(CHANGED)
       return settled.ok ? done('Set.') : failed(refusal(settled, "Odin Desktop didn't accept these agent settings."))
     }
     // Ids come from previewItems, so every other id names one of these settings.
@@ -498,28 +540,42 @@ export async function applyOdinImport(
   try {
     const [odin, desktop] = await Promise.all([readOdin(source, fetchImpl), readDesktop(broker)])
     const available = previewItems(odin, desktop)
-    const importer = new Importer(source, broker, fetchImpl, odin, desktop)
+    const importer = new Importer(source, broker, fetchImpl, odin)
     const wanted = new Set(picks.map((pick) => `${pick.category}\u0000${pick.id}`))
     const outcomes: OdinImportOutcome[] = []
     const servers = new Map(mcpServers(odin.config))
     const hosts = new Map(remoteHosts(odin.config))
     const presets = new Map(userPresets(odin.personality))
-    for (const category of ORDER) {
-      for (const item of available.filter((row) => row.category === category && wanted.has(`${category}\u0000${row.id}`))) {
-        let outcome: Outcome
-        try {
-          if (category === 'memory') outcome = await importer.memory(item.id)
-          else if (category === 'skills') outcome = await importer.skill(item.id)
-          else if (category === 'mcp') outcome = await importer.mcp(item.id, servers.get(item.id) ?? {})
-          else if (category === 'personality') {
-            outcome = item.id === 'active' ? await importer.activePersonality() : await importer.preset(item.id, presets.get(item.id) ?? {})
-          } else if (category === 'hosts') outcome = await importer.host(item.id, hosts.get(item.id) ?? {})
-          else outcome = await importer.model(item.id)
-        } catch (error) {
+    const skillStatus = new Map(odin.skills.map((row) => [text(row.name), text(row.status)]))
+    const queue = ORDER.flatMap((category) =>
+      available.filter((row) => row.category === category && wanted.has(`${category}\u0000${row.id}`)))
+    let stopped = false
+    for (const item of queue) {
+      const { category, id, label } = item
+      if (stopped) {
+        outcomes.push({ category, id, label, status: 'not_attempted', message: 'Not attempted: an earlier change was not confirmed.' })
+        continue
+      }
+      let outcome: Outcome
+      try {
+        if (item.exists) outcome = skipped(ALREADY)
+        else if (category === 'memory') outcome = await importer.memory(id)
+        else if (category === 'skills') outcome = await importer.skill(id, skillStatus.get(id) ?? '')
+        else if (category === 'mcp') outcome = await importer.mcp(id, servers.get(id) ?? {})
+        else if (category === 'personality') {
+          outcome = id === CURRENT_PERSONALITY ? await importer.currentPersonality()
+            : await importer.preset(id.slice(PRESET.length), presets.get(id.slice(PRESET.length)) ?? {})
+        } else if (category === 'hosts') outcome = await importer.host(id, hosts.get(id) ?? {})
+        else outcome = await importer.model(id)
+      } catch (error) {
+        if (error instanceof Unconfirmed) {
+          stopped = true
+          outcome = { status: 'unknown', message: "Odin Desktop didn't confirm this change in time, so the import stopped. Check it before importing it again." }
+        } else {
           outcome = failed(error instanceof ImportError ? error.message : 'Something went wrong with this item.')
         }
-        outcomes.push({ category, id: item.id, label: item.label, ...outcome })
       }
+      outcomes.push({ category, id, label, ...outcome })
     }
     // Picks Odin no longer has are reported, never silently dropped.
     for (const pick of picks) {

@@ -16,7 +16,7 @@ const odinImportUrl = z.string().min(1).max(2048).refine((value) => {
     return false
   }
 }, 'Enter an http:// or https:// address')
-const odinImportSource = { url: odinImportUrl, token: z.string().min(1).max(4096) }
+const odinImportSource = { url: odinImportUrl, token: z.string().min(1).max(4096), allow_insecure_http: z.boolean().optional() }
 export const odinImportPreviewSchema = z.object(odinImportSource).strict()
 export const odinImportApplySchema = z
   .object({

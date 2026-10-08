@@ -125,6 +125,9 @@ class StateService:
                     await to_thread_settled(backend._save_all_memory, data)
                 return {"status": "deleted", "count": count}
             if method == "memory.set":
+                # if_absent: true keeps an existing entry, under the lock the memory tools use.
+                if params.get("if_absent") is True and key in data.get(scope, {}):
+                    return {"status": "exists", "scope": scope, "key": key}
                 # Odin's web route stringifies values without the tool-only cap.
                 data.setdefault(scope, {})[key] = str(params["value"])
                 status = "saved"

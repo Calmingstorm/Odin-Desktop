@@ -1329,6 +1329,8 @@ export interface ControlTarget {
 export interface OdinImportSource {
   url: string
   token: string
+  /** The user's explicit choice to send the token to a non-loopback http:// address. */
+  allow_insecure_http?: boolean
 }
 
 export type OdinImportCategory = 'memory' | 'skills' | 'mcp' | 'personality' | 'hosts' | 'models'
@@ -1361,7 +1363,8 @@ export interface OdinImportOutcome {
   category: OdinImportCategory
   id: string
   label: string
-  status: 'imported' | 'skipped' | 'needs_attention' | 'failed'
+  /** unknown: a change was sent but not confirmed, so the import stopped; not_attempted: picks after it. */
+  status: 'imported' | 'skipped' | 'needs_attention' | 'failed' | 'unknown' | 'not_attempted'
   message: string
 }
 

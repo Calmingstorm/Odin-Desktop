@@ -11,11 +11,14 @@ const GROUPS: Array<{ category: OdinImportCategory; title: string }> = [
   { category: 'models', title: 'Settings' }
 ]
 const STATUS_TITLES: Record<OdinImportOutcome['status'], string> = {
+  unknown: 'Not confirmed',
   needs_attention: 'Needs your attention',
   failed: "Couldn't import",
+  not_attempted: 'Not attempted',
   imported: 'Imported',
   skipped: 'Already there'
 }
+const LOOPBACK = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/i
 
 const dialog = ref<HTMLDialogElement | null>(null)
 // Rendered only while open, so its controls never mix with the page's own.
@@ -25,7 +28,9 @@ const busy = ref(false)
 const error = ref('')
 const copied = ref('')
 // The token lives only in this dialog, for this import, and is cleared when it closes.
-const form = reactive({ url: 'http://localhost:3002', token: '' })
+const form = reactive({ url: 'http://localhost:3002', token: '', insecure: false })
+// Each open starts a new session; an answer from an earlier session is ignored, never shown in this one.
+let session = 0
 const items = ref<OdinImportItem[]>([])
 const picked = ref<string[]>([])
 const report = ref<OdinImportReport | null>(null)
@@ -43,8 +48,23 @@ const outcomeGroups = computed(() => (Object.keys(STATUS_TITLES) as Array<OdinIm
 const retryHosts = computed<OdinImportPick[]>(() => (report.value?.outcomes ?? [])
   .filter((row) => row.category === 'hosts' && row.status === 'needs_attention')
   .map((row) => ({ category: row.category, id: row.id })))
+/** A remote http:// address would carry the token unencrypted, so it needs the user's explicit choice. */
+const plainRemote = computed(() => {
+  try {
+    const url = new URL(form.url.trim())
+    return url.protocol === 'http:' && !LOOPBACK.test(url.hostname)
+  } catch {
+    return false
+  }
+})
+const source = () => ({
+  url: form.url.trim(),
+  token: form.token.trim(),
+  ...(plainRemote.value && form.insecure ? { allow_insecure_http: true } : {})
+})
 
 async function open(): Promise<void> {
+  session++
   step.value = 'connect'
   error.value = ''
   report.value = null
@@ -54,7 +74,11 @@ async function open(): Promise<void> {
 }
 
 function close(): void {
+  // Escape behaves like the disabled buttons: a running request finishes and its results are shown first.
+  if (busy.value) return
+  session++
   form.token = ''
+  form.insecure = false
   items.value = []
   picked.value = []
   report.value = null
@@ -72,8 +96,10 @@ async function look(): Promise<void> {
     return
   }
   busy.value = true
+  const mine = session
   try {
-    const answer = await window.odin.odinImportPreview({ url: form.url.trim(), token: form.token.trim() })
+    const answer = await window.odin.odinImportPreview(source())
+    if (mine !== session) return
     if (!answer.ok) {
       error.value = answer.error.message
       return
@@ -82,7 +108,7 @@ async function look(): Promise<void> {
     picked.value = answer.result.items.filter((item) => item.selected && !item.exists).map(key)
     step.value = 'choose'
   } catch {
-    error.value = "Couldn't ask Odin. Try again."
+    if (mine === session) error.value = "Couldn't ask Odin. Try again."
   } finally {
     busy.value = false
   }
@@ -92,8 +118,10 @@ async function run(selection: OdinImportPick[]): Promise<void> {
   if (busy.value || !selection.length) return
   error.value = ''
   busy.value = true
+  const mine = session
   try {
-    const answer = await window.odin.odinImportApply({ url: form.url.trim(), token: form.token.trim(), picks: selection })
+    const answer = await window.odin.odinImportApply({ ...source(), picks: selection })
+    if (mine !== session) return
     if (!answer.ok) {
       error.value = answer.error.message
       return
@@ -101,7 +129,7 @@ async function run(selection: OdinImportPick[]): Promise<void> {
     report.value = answer.result
     step.value = 'results'
   } catch {
-    error.value = "The import didn't finish. Nothing more was changed."
+    if (mine === session) error.value = "Couldn't get the import's result. Some items may already be imported: look before importing again."
   } finally {
     busy.value = false
   }
@@ -132,6 +160,13 @@ defineExpose({ open })
             <input v-model="form.token" type="password" autocomplete="off" placeholder="From Odin's WebUI" />
           </label>
           <p class="panel-hint">Used for this import only and never saved.</p>
+          <label v-if="plainRemote" class="odin-import-item">
+            <input v-model="form.insecure" type="checkbox" />
+            <span class="odin-import-copy">
+              <span class="odin-import-label">Send the token over unencrypted HTTP</span>
+              <span class="odin-import-detail">Only on a network you trust, such as your home network or a VPN. Prefer https:// when Odin offers it.</span>
+            </span>
+          </label>
         </fieldset>
       </template>
 
@@ -140,6 +175,7 @@ defineExpose({ open })
         <p v-if="!groups.length" class="panel-hint">Odin has nothing to import.</p>
         <fieldset v-for="group in groups" :key="group.category" class="odin-import-group" :disabled="busy">
           <legend>{{ group.title }}</legend>
+          <p v-if="group.category === 'skills'" class="panel-hint">Skills run code on this computer. Import only skills you trust.</p>
           <label v-for="item in group.items" :key="key(item)" class="odin-import-item">
             <input v-model="picked" type="checkbox" :value="key(item)" :disabled="item.exists" />
             <span class="odin-import-copy">
