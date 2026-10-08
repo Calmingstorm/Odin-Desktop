@@ -1,7 +1,7 @@
 # Odin Desktop app (Electron)
 
 The desktop app: tray lifecycle (D3), the chat window, and the main-process broker that talks to Odin's core over
-the protocol in [`../docs/design/protocol.md`](../docs/design/protocol.md). Current `main` composes real conversations,
+the protocol in [`../docs/design/protocol.md`](../docs/design/protocol.md). Current `master` composes real conversations,
 search, requests, attachments, result delivery and Stop/Steer/Resume, plus provider/model configuration,
 device-code accounts, tools/timeouts, personality, hosts/trust, memory/lists/knowledge and records.
 P3.1 slice 3 connects the existing chat to them: transcript/search, guarded replies, tool activity and retained
@@ -49,7 +49,7 @@ for the final candidate and the 1.1 follow-ups.
 ## User documentation and review status
 
 The [user guide](../README.md#user-guide) covers installation, first run, chat/results,
-settings, current work boundaries, recovery, updates and accessibility using merged `main` behavior only.
+settings, current work boundaries, recovery, updates and accessibility using merged `master` behavior only.
 Source/review watermarks and claim references are in
 [P4.4 validation](../maintenance/p44-user-docs-validation.md). The
 [documentation status](../docs/release/pending-user-docs.md) records the promotion
@@ -256,7 +256,7 @@ system Node 22. Missing interpreters fail with a provisioning error, never an in
 jobs select their Python explicitly; build gates also disable uv interpreter downloads. Release and app
 launchers probe the restricted namespace helper first and verify isolation before running suites. A failed
 suite is not replayed through another launcher. The first actual Actions dry-run remains an owner/reviewer
-`workflow_dispatch` on reviewed `main`, not a lane action.
+`workflow_dispatch` on reviewed `master`, not a lane action.
 
 General shows the installed **desktop product** version, separate from the engine version, and a manual
 **Check for updates** control. It performs one named `checkReleases` main-process operation against the fixed
@@ -326,7 +326,7 @@ a new unknown event raises a fresh notice. Hidden login starts never open a clea
 Notification tests exercise actual Electron D-Bus requests, acceptance/refusal and native `ActionInvoked`, then
 inspect the exact older conversation/message in the renderer, including renderer loss. Their conversation and
 acknowledgement service is explicitly a fixture: those notification tests do not qualify real delivery or requests,
-even though `main` now composes their core services. Background work and foreground computer
+even though `master` now composes their core services. Background work and foreground computer
 binding are composed; backend-specific native qualification is still separate.
 The current final installed-candidate gate is the
 [Linux release checklist](../docs/release/linux-v1-checklist.md), not the historical
