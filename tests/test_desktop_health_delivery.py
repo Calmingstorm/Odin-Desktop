@@ -94,6 +94,20 @@ async def test_health_delivery_ready_after_startup_and_real_guarded_turn(compose
     assert_ready(after["result"])
 
 
+
+async def test_health_reads_the_composed_engine_parts_not_odin_bot_names(composed):
+    """Sessions, knowledge, scheduler, loops and agents are composed; none is "not initialised"."""
+    core, _provider, reader, writer = composed
+    health = await request(reader, writer, "health.get")
+    assert health["ok"], health
+    components = {item["name"]: item for item in health["result"]["components"]}
+    for name in ("sessions", "knowledge", "scheduler", "loops", "agents"):
+        assert components[name]["status"] == "ok", components[name]
+        assert "not initialised" not in components[name]["detail"]
+    deps = core.engine.deps
+    assert components["scheduler"]["metadata"]["count"] == len(deps.scheduler.list_all())
+    assert components["agents"]["metadata"]["total"] == len(deps.agent_manager._agents)
+
 @pytest.mark.parametrize("owner,attribute,replacement,reason", [
     ("core", "delivery", None, "delivery_not_composed"),
     ("delivery", "store", None, "delivery_store_unbound"),
