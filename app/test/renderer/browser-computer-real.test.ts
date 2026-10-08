@@ -65,6 +65,9 @@ describe('real browser health, not catalog availability', () => {
     bridge.healthGet!.mockImplementation(async () => ok(health(undefined)))
     const v = await view('Tools')
     expect(v.root.textContent()).toContain('Browser status is not available here.')
+    const unavailable = v.root.findAll((n) => n.tag === 'p' && n.textContent() === 'Browser status is not available here.')[0]!
+    expect(unavailable.props.class).toContain('settings-help')
+    expect(unavailable.props.role).toBe('status')
     expect(v.root.textContent()).not.toContain('Ready for browser requests.')
   })
 

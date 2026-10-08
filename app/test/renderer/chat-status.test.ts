@@ -7,6 +7,7 @@ import IconRail from '../../src/renderer/src/components/IconRail.vue'
 import StatusBar from '../../src/renderer/src/components/StatusBar.vue'
 import { state } from '../../src/renderer/src/store'
 import { status } from '../../src/renderer/src/stores/status'
+import { readFileSync } from 'node:fs'
 
 const measured = (value: number) => ({ value, kind: 'measured' as const })
 
@@ -15,6 +16,13 @@ function buttons(root: Host): string[] {
 }
 
 describe('status in the chat header, the status bar and the rail', () => {
+  it('uses success for ready, warning for reconnecting and error for failed connection text', () => {
+    const css = readFileSync(new URL('../../src/renderer/src/styles.css', import.meta.url), 'utf8')
+    expect(css).toContain('.link-text { color: var(--muted); }')
+    expect(css).toContain('.link-text.ready { color: var(--ok); }')
+    expect(css).toContain('.link-text.reconnecting { color: var(--warn); }')
+    expect(css).toContain('.link-text.core-failed { color: var(--bad); }')
+  })
   beforeEach(() => {
     vi.stubGlobal('window', { odin: {} })
     state.app = { link: 'ready', coreInstanceId: 'core-1234567890', noTray: false, unreceipted: 0, cleanupWarning: null }

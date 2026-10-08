@@ -480,7 +480,9 @@ textarea:focus { border-color: var(--accent-dim); }
   max-height: 25vh;
   overflow: auto;
 }
-.link-text { color: var(--warn); }
+.link-text { color: var(--muted); }
+.link-text.ready { color: var(--ok); }
+.link-text.reconnecting { color: var(--warn); }
 .link-text.core-failed { color: var(--bad); }
 /* The rail's connection indicator: a dot, its state in words for screen readers and on hover. */
 .rail-link { flex: none; display: grid; place-items: center; width: 44px; height: 24px; color: var(--faint); }

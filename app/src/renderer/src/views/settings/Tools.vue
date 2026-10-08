@@ -119,7 +119,7 @@ onMounted(async () => {
       <p v-if="browser.status.reason" class="manage-desc">Reason: {{ browser.status.reason }}</p>
       <p class="manage-desc" role="status">{{ browser.status.ready ? 'Refresh only checks status; it does not open the browser.' : browser.status.retry_available ? 'The next browser request can check availability again; this does not mean the browser is ready. Refresh does not open it.' : 'No next-use retry is reported. Refresh only checks status. Open Configure to review setup.' }}</p>
     </template>
-    <p v-else-if="browser.loaded" class="capability-unavailable" role="status">Browser status is not available here.</p>
+    <p v-else-if="browser.loaded" class="capability-unavailable settings-help" role="status">Browser status is not available here.</p>
     <p v-else-if="!browser.error" class="manage-desc" role="status">Browser status has not been read.</p>
     <div v-if="browserSetup" id="browser-setup">
       <SettingEditor v-for="entry in browserMore" :key="entry.key" :field="entry.field!" :label="entry.label" :help="entry.help" commit="explicit" />

@@ -17,6 +17,7 @@ import SettingsRow from './settings/SettingsRow.vue'
 import SettingsSection from './settings/SettingsSection.vue'
 import SettingsSwitch from './settings/SettingsSwitch.vue'
 import ContextUse from './settings/ContextUse.vue'
+import AccountMoreMenu from './settings/AccountMoreMenu.vue'
 import { settingsControlId } from '../settings-accessibility'
 
 type ModelRow = { ref: string; name?: string; capability?: string; effort_capabilities?: { values: string[] | null; restrictions_known: boolean; source: string } }
@@ -441,9 +442,7 @@ async function remove(account: CodexAccount): Promise<void> {
               <button v-if="!account.is_current && !account.error" class="ghost" :aria-label="`Use this account: ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale" @click="activateAccount(account)">
                 Use this account
               </button>
-              <button class="ghost" :aria-label="`Refresh sign-in: ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale || management.busy[refreshKey] || refreshUnavailable" @click="refreshAccount(account)">Refresh sign-in</button>
-              <button v-if="!account.error" class="ghost" :aria-label="`Rename ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale" @click="rename(account)">Rename</button>
-              <button class="ghost danger-item" :aria-label="`Remove ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale" @click="remove(account)">Remove…</button>
+              <AccountMoreMenu :account-id="account.index" :name="accountName(account)" :busy="settings.codex.busy || settings.codex.stale" :refresh-disabled="Boolean(management.busy[refreshKey] || refreshUnavailable)" :can-rename="!account.error" @action="$event === 'refresh' ? refreshAccount(account) : $event === 'rename' ? rename(account) : remove(account)" />
             </div>
             </div>
         </li>
@@ -525,7 +524,8 @@ async function remove(account: CodexAccount): Promise<void> {
 .account-details { flex: 1 1 45%; min-width: 0; }
 .account-controls { flex: 1 1 50%; min-width: 0; text-align: right; }
 .account-status, .account-actions { display: flex; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; }
-.account-actions { margin-top: .5rem; }
+.account-actions { margin-top: .5rem; flex-wrap: nowrap; }
+.account-actions > button { white-space: nowrap; }
 .account-meta { overflow-wrap: anywhere; }
 @media (max-width: 760px) {
   .account { flex-direction: column; align-items: stretch; }

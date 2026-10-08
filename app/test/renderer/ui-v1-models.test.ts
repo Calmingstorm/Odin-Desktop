@@ -103,6 +103,9 @@ describe('UI v1 curated Models', () => {
     expect(account.children[0]!.textContent()).toContain('person@example.test')
     const controls = account.findAll((item) => item.props.class === 'account-controls')[0]!
     expect(controls.textContent()).toContain('In use')
+    expect(controls.button('More').props['aria-haspopup']).toBe('menu')
+    expect(controls.button('Refresh sign-in').props.role).toBe('menuitem')
+    expect(controls.button('Rename').props.role).toBe('menuitem')
     expect(controls.button('Refresh sign-in')).toBeTruthy()
     expect(controls.button('Rename')).toBeTruthy()
     expect(root.textContent()).toContain('Signed in · 1 account')
