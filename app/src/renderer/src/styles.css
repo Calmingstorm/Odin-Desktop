@@ -848,17 +848,22 @@ label.field-input > input:not([type='checkbox']):not([type='radio']), label.fiel
 .shell.settings-open { grid-template-columns: 64px minmax(0, 1fr); }
 .shell.settings-open > .main { grid-column: 2; }
 .settings { grid-template-columns: 220px minmax(0, 1fr); }
-.settings-body { min-width: 0; overflow-x: hidden; container-type: inline-size; }
-.settings-content { max-width: 880px; min-width: 0; margin: 0; }
-.settings-content .panel, .settings-content .settings-group { max-width: none; margin-left: 0; margin-right: 0; width: 100%; }
+.settings-body { min-width: 0; overflow-x: hidden; scrollbar-gutter: stable; container-type: inline-size; }
+.settings-content { width: 100%; max-width: 880px; min-width: 0; margin: 0; --settings-padding: 18px; }
+.settings-content *, .settings-form-dialog, .settings-form-dialog * { box-sizing: border-box; }
+.settings-content .panel, .settings-content .settings-group { max-width: none; margin-left: 0; margin-right: 0; width: 100%; padding: 16px var(--settings-padding); }
 .settings-content > h2 { font-size: 24px; margin-bottom: 12px; }
 .settings-intro, .settings-help { color: var(--muted); font-size: 13px; line-height: 1.55; }
 .settings-section { margin: 22px 0; min-width: 0; }
-.settings-section-header h3 { font-size: 15px; margin: 0 0 6px; }
-.settings-section-header p { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+.settings-section-header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.settings-section-header h3 { font-size: 15px; margin: 0; }
+.settings-section-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+.settings-section-header p { flex-basis: 100%; margin: 0; color: var(--muted); font-size: 13px; }
 .settings-card { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--panel); min-width: 0; overflow-wrap: anywhere; }
-.settings-card > p, .settings-card > header, .settings-card > fieldset { margin: 12px 18px; }
-.settings-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 40%); column-gap: 24px; row-gap: 8px; padding: 16px 18px; min-width: 0; }
+.settings-card > p, .settings-card > header, .settings-card > fieldset { margin: 12px var(--settings-padding); }
+.settings-content .settings-card > .manage-list > .manage-row { padding: 16px var(--settings-padding); }
+.settings-content .settings-card > .panel-actions, .settings-content .settings-card > .field-input { margin: 12px var(--settings-padding); }
+.settings-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 40%); column-gap: 24px; row-gap: 8px; padding: 16px var(--settings-padding, 18px); min-width: 0; }
 .settings-row + .settings-row, .setting-editor + .setting-editor { border-top: 1px solid var(--line); }
 .settings-row-copy { min-width: 0; }
 .settings-row-copy label, .settings-row-copy > span { font-weight: 600; font-size: 13px; }
@@ -870,6 +875,7 @@ label.field-input > input:not([type='checkbox']):not([type='radio']), label.fiel
 .settings-segmented button { border: 0; background: transparent; color: var(--muted); padding: 7px 12px; border-radius: 5px; }
 .settings-segmented button[aria-pressed=true] { background: var(--accent); color: var(--bg); }
 .settings-row-note { grid-column: 1 / -1; font-size: 12px; }
+.settings-row-note:empty { display: none; }
 .settings-row-note p { margin: 0; line-height: 1.5; }
 .settings-row-full-width .settings-row-control { grid-column: 1 / -1; }
 .settings-switch { appearance: none; position: relative; width: 38px; height: 22px; border-radius: 999px; border: 1px solid var(--muted); background: var(--raise); cursor: pointer; flex: none; margin: 0; }
@@ -879,6 +885,28 @@ label.field-input > input:not([type='checkbox']):not([type='radio']), label.fiel
 .settings-switch:disabled { opacity: .5; cursor: default; }
 .settings-editor-actions, .settings-actions, .settings-subnav { display: flex; gap: 8px; flex-wrap: wrap; }
 .settings-editor-error { color: var(--bad); }
+.settings-subnav button[aria-current=page] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.settings-card > .computer-session-details { margin: 12px var(--settings-padding); font-size: 12px; }
+.settings-timezone { display: grid; width: 100%; gap: 0; }
+.settings-timezone input { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.settings-timezone select { border-top-left-radius: 0; border-top-right-radius: 0; margin-top: -1px; }
+/* Management dialogs use the same labelled, single-column form, never a nested card. */
+.settings-form-dialog { width: min(760px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow: auto; padding: 24px; border: 1px solid var(--line); border-radius: 12px; color: var(--fg); background: var(--bg); }
+.settings-form-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.settings-form-dialog h3 { margin: 0 0 16px; }
+.settings-form label:not(.toggle-inline):not(.settings-row-label) { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin: 0 0 14px; max-width: none; font-size: 13px; }
+.settings-form input:not([type=checkbox]), .settings-form select, .settings-form textarea { width: 100%; min-width: 0; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; }
+.settings-form fieldset { min-width: 0; padding: 0; margin: 0 0 14px; border: 0; }
+.settings-form legend { font-weight: 600; margin-bottom: 10px; }
+.settings-form .secret-set { border-top: 1px solid var(--line); padding-top: 16px; }
+.settings-form .field-input { max-width: none; }
+.settings-form .settings-row { padding-left: 0; padding-right: 0; }
+.settings-form .settings-row-label { margin: 0; }
+.settings-form .settings-form-options { display: flex; flex-wrap: wrap; gap: 12px; }
+.settings-form .toggle-inline { margin-bottom: 10px; }
+.settings-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.settings-form-actions .primary { background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent); border-radius: 7px; padding: 8px 12px; }
+.settings-form p { color: var(--muted); font-size: 12px; line-height: 1.5; }
 .settings-editor-status, .settings-editor-readonly { color: var(--muted); font-size: 12px; }
 .settings-restart { border: 1px solid var(--warn); border-radius: var(--radius-lg); padding: 12px 16px; margin: 16px 0; }
 .settings-restart p { margin: 0 0 8px; }

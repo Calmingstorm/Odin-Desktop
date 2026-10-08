@@ -27,7 +27,7 @@ import {
 
 onMounted(() => void Promise.all([loadMemory(), loadKnowledge()]))
 
-const scopeName = (scope: string): string => scope === 'global' ? 'Everywhere' : scope.startsWith('user_') ? 'Yours' : scope
+const scopeName = (scope: string): string => scope === 'global' ? 'Everywhere' : scope === 'owner' || scope.startsWith('user_') ? 'You' : scope
 const show = (value: unknown): string => (typeof value === 'string' ? value : JSON.stringify(value))
 const listItem = (value: unknown): string => {
   if (value && typeof value === 'object' && 'name' in value && typeof value.name === 'string') {

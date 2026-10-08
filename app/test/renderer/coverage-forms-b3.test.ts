@@ -142,8 +142,8 @@ describe('B3 MCP: patches and form ownership', () => {
     const v = await fixture()
     const availability = v.root.findAll((n) => n.props.role === 'switch' && n.props['aria-label'] === 'Turn off tools')[0]!
     availability.fire('change', { target: { checked: false } }); expect(actions.setMcpEnabled).toHaveBeenCalledWith('tools', false)
-    v.root.named('Reconnect tools').fire('click'); expect(actions.reconnectMcp).toHaveBeenCalledWith('tools')
-    v.root.named('Refresh tools for tools').fire('click'); expect(actions.refreshMcpTools).toHaveBeenCalledWith('tools')
+    await v.root.named('Reconnect tools').fire('click'); expect(actions.reconnectMcp).toHaveBeenCalledWith('tools')
+    await v.root.named('Refresh tools for tools').fire('click'); expect(actions.refreshMcpTools).toHaveBeenCalledWith('tools')
     v.root.named('Tools for tools').fire('click'); await flush(); expect(actions.loadMcpTools).toHaveBeenCalledTimes(1)
     v.root.named('Hide tools for tools').fire('click'); await flush(); expect(actions.loadMcpTools).toHaveBeenCalledTimes(1)
     ask.mockResolvedValueOnce(false); await v.root.named('Remove tools…').fire('click'); expect(actions.deleteMcp).not.toHaveBeenCalled()
@@ -258,7 +258,7 @@ describe('B3 Codex accounts: refresh admission, login and confirmation', () => {
   }
   it('trims account labels, asks before removing, copies only waiting login codes and records verification failures', async () => {
     const { v, settings, account } = await fixture()
-    ask.mockResolvedValueOnce('  Work  '); await v.root.named('Label First').fire('click'); expect(actions.labelAccount).toHaveBeenCalledWith(account, 'Work')
+    ask.mockResolvedValueOnce('  Work  '); await v.root.named('Rename First').fire('click'); expect(actions.labelAccount).toHaveBeenCalledWith(account, 'Work')
     ask.mockResolvedValueOnce(false); await v.root.named('Remove First').fire('click'); expect(actions.removeAccount).not.toHaveBeenCalled()
     await v.root.named('Remove First').fire('click'); expect(actions.removeAccount).toHaveBeenCalledWith(account)
     v.root.named('Use this account: First').fire('click'); expect(actions.activateAccount).toHaveBeenCalledWith(account)

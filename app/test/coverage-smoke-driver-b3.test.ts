@@ -5,6 +5,8 @@ import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { dialog } from 'electron'
 import { realCoreCapabilities, realCoreSmoke, renderedSettingPath } from '../src/main/real-core-smoke'
+import { ADVANCED_CATEGORIES, ADVANCED_FIELDS } from '../src/renderer/src/settings-presentation'
+import type { ConfigField } from '../src/shared/api'
 
 const ports = vi.hoisted(() => ({ files: new Map<string, string | Buffer>(), read: vi.fn(), write: vi.fn(), exists: vi.fn(), link: vi.fn(), open: vi.fn(), save: vi.fn() }))
 vi.mock('node:fs', () => ({ readFileSync: ports.read, writeFileSync: ports.write, existsSync: ports.exists, readlinkSync: ports.link }))
@@ -16,6 +18,18 @@ const submission = 'real-core smoke unavailable provider check'
 const skillCode = 'inert constant fixture, never evaluated'
 const ok = (result: any) => ({ ok: true, result })
 const rejected = (code: string, message = code) => ({ ok: false, error: { code, message } })
+// Full public Advanced owner metadata, not a two-field stand-in. Values remain
+// inert: this driver model never qualifies Vue rendering or the real engine.
+const recordPaths = new Set(['openai_codex.context_budget_overrides', 'openai_compatible.model_profiles', 'sessions.context_budget_overrides', 'tools.governor.host_overrides'])
+const stringPaths = new Set(['timezone', 'llm_provider.model', 'openai_compatible.reasoning_dialect', 'tools.command_shell', 'logging.level'])
+function publicField(path: string): ConfigField {
+  const type = recordPaths.has(path) ? 'object' : stringPaths.has(path) ? 'string' : path === 'openai_compatible.glm_clear_thinking' ? 'boolean' : 'integer'
+  const value = type === 'object' ? {} : type === 'string' ? '' : type === 'boolean' ? false : 1
+  return { path, label: path, description: '', type, enum: null, constraints: {}, default: value, nullable: false,
+    sensitivity: 'public', secret_route: null, apply_mode: 'live_read', apply_handler: 'settings.set', restart_reason: null,
+    activation_policy: null, consumers: [], save_effect: 'Inert model only.', runtime_effect: null, desired: value,
+    effective: value, configured: true, pending_restart: false, apply_state: 'applied' }
+}
 
 beforeEach(() => {
   vi.clearAllMocks(); vi.useFakeTimers(); ports.files.clear()
@@ -57,7 +71,14 @@ function fixture(provider = false, seeded = false, fault = '') {
   const messages: any[] = provider ? [{ id: 'm_seed', role: 'user', text: 'Preserved request', request_id: 'r_seed' }] : []
   const recent: any[] = [], histories: any[] = [], webhookMessages: any[] = [], clicks: string[] = [], operations: any[] = [], journal = new Map<string, any>()
   const conversations = [{ id: 'c_chat', title: 'Chat' }]
-  const schema = () => ({ revision: String(revision), fields: [{ path: 'timezone' }, { path: 'llm_provider.model' }, ...(fault === 'unknown-curated-log' ? [] : [{ path: 'logging.level' }]), ...(fault === 'unknown-record-owner' ? [] : [{ path: 'context.model_profiles', type: 'object' }])] })
+  const advancedPaths = ADVANCED_FIELDS.map(({ path }) => path)
+  const advancedObservations: Array<{ kind: string; values: string[] }> = []
+  const schema = () => ({ revision: String(revision), fields: [
+    publicField('timezone'), publicField('llm_provider.model'),
+    ...advancedPaths.filter(path => !(fault === 'unknown-curated-log' && path === 'logging.level') && !(fault === 'unknown-record-owner' && path === 'openai_compatible.model_profiles'))
+      .map(path => ({ ...publicField(path), ...(fault === 'sensitive-advanced-owner' && path === advancedPaths[0] ? { sensitivity: 'sensitive', secret_route: 'secrets.set' } : {}) })),
+    ...(fault === 'unknown-record-owner' ? [] : [{ ...publicField('openai_compatible.model_profiles.total_window_tokens'), type: 'integer' }])
+  ] })
   const computer = { session: null, readiness: { management_available: true, foreground_available: false, native_qualified: false, input_supported: false, dispatch: 'none' } }
   const mcpStatus = () => ({ revision: String(revision), servers: mcp ? [{ name: 'slice4_local', state: mcpEnabled ? 'connected' : 'disabled', published_count: 1 }] : [], configured_servers: mcp ? ['slice4_local'] : [], server_count: mcp ? 1 : 0, configured_server_count: mcp ? 1 : 0, connected_count: mcp && mcpEnabled ? 1 : 0, published_tool_count: mcp && mcpEnabled ? 1 : 0, started: true, closed: false })
   const ingress = () => ({ reason: !ingressEnabled ? 'disabled' : sourceSecret ? 'accepting' : 'no_eligible_schedule', address: ingressEnabled && sourceSecret ? ['127.0.0.1', 43211] : null, eligible_schedules: sourceSecret ? 1 : 0, unknown_deliveries: 0 })
@@ -301,7 +322,20 @@ function fixture(provider = false, seeded = false, fault = '') {
     querySelector: node,
     querySelectorAll: (selector: string): any[] => {
       if (selector === '.settings-nav-item') return sections.map(label => ({ innerText: label }))
-      if (selector.includes('.settings-body :is(input, select, textarea, output)[id^="settings-curated-"]')) return section === 'General' ? [{ id: 'settings-curated-timezone' }] : section === 'Advanced settings' ? [{ id: 'settings-curated-logging.level' }, { id: 'settings-curated-record-context.model_profiles.custom.total_window_tokens', parentElement: { closest: () => ({ id: 'settings-curated-context.model_profiles' }) } }] : section === 'Models and providers' ? [{ id: 'settings-curated-llm_provider.model' }] : []
+      if (selector === '.settings-body :is(input, select, textarea, output, div)[id^="settings-curated-"]:not([id^="settings-curated-record-"])') {
+        const paths = section === 'Advanced settings' ? advancedPaths.filter(path => !(fault === 'missing-advanced-owner' && path === advancedPaths[0])) : []
+        advancedObservations.push({ kind: 'owners', values: paths })
+        return paths.map(path => ({ id: 'settings-curated-' + encodeURIComponent(path) }))
+      }
+      if (selector === '.settings-body .settings-section-header > h3') {
+        const categories = section === 'Advanced settings' ? [...ADVANCED_CATEGORIES].filter((_, index) => !(fault === 'missing-advanced-category' && index === 0)) : []
+        advancedObservations.push({ kind: 'categories', values: categories })
+        return categories.map(textContent => ({ textContent }))
+      }
+      if (selector === '.settings-body :is(input, select, textarea, output)[id^="settings-curated-"]') return section === 'General' ? [{ id: 'settings-curated-timezone' }] : section === 'Advanced settings' ? [
+        ...advancedPaths.filter(path => !recordPaths.has(path)).map(path => ({ id: 'settings-curated-' + encodeURIComponent(path) })),
+        { id: 'settings-curated-record-openai_compatible.model_profiles.custom.total_window_tokens', parentElement: { closest: () => ({ id: 'settings-curated-openai_compatible.model_profiles' }) } }
+      ] : section === 'Models and providers' ? [{ id: 'settings-curated-llm_provider.model' }] : []
       if (selector === '.settings-body button') return section === 'General' ? [node('Advanced settings')] : []
       if (selector === '.msg.user .body') return messages.filter(m => m.role === 'user').map(m => ({ textContent: m.text }))
       if (selector === '[data-testid="webhook-ingress"] button') return ['Save listener setup', 'Save trigger source and secret', 'Clear per-trigger secret'].map(node)
@@ -318,7 +352,7 @@ function fixture(provider = false, seeded = false, fault = '') {
     // and named-bridge ports. Unknown reads/methods fail rather than rubber-stamp.
     return new AsyncFunction('document', 'window', 'Event', 'return (' + script + ')')(document, window, class { constructor(public type: string, public options: any) {} })
   }) } }
-  return { core, win, operations, clicks, messages, recent, journal, get skillRuns() { return skillRuns }, get mcp() { return mcp }, get sourceSecret() { return sourceSecret }, get outputPages() { return outputPages } }
+  return { core, win, operations, clicks, messages, recent, journal, advancedObservations, get skillRuns() { return skillRuns }, get mcp() { return mcp }, get sourceSecret() { return sourceSecret }, get outputPages() { return outputPages } }
 }
 
 async function execute(f: ReturnType<typeof fixture>) {
@@ -351,6 +385,14 @@ describe('real-core driver with entirely inert stateful ports', () => {
     ]))
     expect(f.clicks).toContain('.settings-subnav button:nth-of-type(3)')
     expect(f.clicks).toContain('Advanced settings')
+    expect(ADVANCED_FIELDS.length).toBeGreaterThan(30)
+    expect(f.advancedObservations).toEqual([
+      { kind: 'owners', values: ADVANCED_FIELDS.map(({ path }) => path) },
+      { kind: 'categories', values: [...ADVANCED_CATEGORIES] }
+    ])
+    const fields = evidence.reads['settings.schema'].fields
+    expect(fields.filter((field: ConfigField) => ADVANCED_FIELDS.some(({ path }) => path === field.path))).toHaveLength(ADVANCED_FIELDS.length)
+    expect(fields.find((field: ConfigField) => field.path === 'openai_compatible.model_profiles.total_window_tokens')).toMatchObject({ type: 'integer', sensitivity: 'public', secret_route: null })
     expect(f.core.listenerCount('event')).toBe(0)
     expect(dialog.showOpenDialog).toBe(ports.open); expect(dialog.showSaveDialog).toBe(ports.save)
     expect(f.core.request.mock.calls.filter(([method]: any[]) => method.startsWith('control.'))).toHaveLength(3)
@@ -397,7 +439,10 @@ describe('real-core driver with entirely inert stateful ports', () => {
     ['missing-curated-timezone', 'real curated time zone before enumerating all sections'],
     ['missing-records-owner', 'missing UI control .settings-subnav button:nth-of-type(3)'],
     ['unknown-curated-log', 'rendered field logging.level must belong to the served schema'],
-    ['unknown-record-owner', 'rendered field context.model_profiles must belong to the served schema']
+    ['unknown-record-owner', 'rendered field openai_compatible.model_profiles must belong to the served schema'],
+    ['missing-advanced-owner', 'full rendered Advanced inventory'],
+    ['missing-advanced-category', 'every Advanced category'],
+    ['sensitive-advanced-owner', 'must not expose secrets']
   ])('rejects %s instead of passing a stale or nonexistent selector', async (fault, expected) => {
     const f = fixture(false, false, fault)
     await expect(execute(f)).rejects.toThrow(expected)

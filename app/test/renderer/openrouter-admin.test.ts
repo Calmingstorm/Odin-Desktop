@@ -180,7 +180,7 @@ describe('OpenRouter honest minimum', () => {
     await flush()
     expect(root.textContent()).toContain('Codex sign-in refresh is unavailable.')
     expect(root.textContent()).toContain('person@example.com')
-    expect(root.button('Label…').props.disabled).toBe(false)
+    expect(root.button('Rename').props.disabled).toBe(false)
     expect(root.button('Refresh sign-in').props.disabled).toBe(true)
   })
 
@@ -242,7 +242,7 @@ describe('Codex per-account refresh', () => {
     await receipt('refused-refresh', refused())
     expect(root.textContent()).toContain('Codex sign-in refresh is unavailable.')
     expect(root.textContent()).toContain('person@example.com')
-    expect(root.button('Label…').props.disabled).toBe(false)
+    expect(root.button('Rename').props.disabled).toBe(false)
     expect(root.button('Refresh sign-in').props.disabled).toBe(true)
   })
 })

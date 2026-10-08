@@ -42,7 +42,7 @@ async function reconcile(): Promise<void> {
   const status = records.computer
   if (!status) return
   if (isDesktopComputer(status)) { await reconcileComputer(status); return }
-  const confirmed = await ask({ title: 'Release this session?', message: `Odin couldn't verify that session ${status.session_id} let go of the mouse and keyboard. Check the computer first. Releasing it records that you checked; input release still remains unverified.`, confirmLabel: 'Release', danger: true })
+  const confirmed = await ask({ title: 'Release this session?', message: 'Odin could not confirm that it let go of the mouse and keyboard. Check the computer first. Releasing this session only records that you checked; input release still remains unverified. Do not resume computer use until cleanup is verified.', confirmLabel: 'Release', danger: true })
   if (confirmed) await reconcileComputer(status)
 }
 const expanded = reactive<Record<string, boolean | undefined>>({})
@@ -104,7 +104,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <SettingsSection title="Availability">
+  <SettingsSection v-if="availability.length" title="Availability">
     <SettingEditor v-for="entry in availability" :key="entry.key" :field="entry.field!" :label="entry.label" :help="entry.help" />
   </SettingsSection>
   <SettingsSection title="Browser" aria-label="Browser runtime">
@@ -115,7 +115,7 @@ onMounted(async () => {
     </SettingsRow>
     <p v-if="browser.error" class="warn" role="status">Couldn't read browser status: {{ browser.error }}{{ browser.status ? ' Showing the last read.' : '' }}</p>
     <template v-if="browser.status">
-      <p class="manage-desc">{{ browser.status.state }}. {{ browser.status.ready ? 'Ready for browser requests.' : 'Not ready.' }}</p>
+      <p class="settings-help">{{ browser.status.state }}. {{ browser.status.ready ? 'Ready for browser requests.' : 'Not ready.' }}</p>
       <p v-if="browser.status.reason" class="manage-desc">Reason: {{ browser.status.reason }}</p>
       <p class="manage-desc" role="status">{{ browser.status.ready ? 'Refresh only checks status; it does not open the browser.' : browser.status.retry_available ? 'The next browser request can check availability again; this does not mean the browser is ready. Refresh does not open it.' : 'No next-use retry is reported. Refresh only checks status. Open Configure to review setup.' }}</p>
     </template>
@@ -156,10 +156,11 @@ onMounted(async () => {
     </template>
     <p v-if="legacy" class="manage-desc">{{ legacy.enabled ? 'On' : 'Off' }}: {{ legacy.state }}.</p>
     <template v-if="session?.session_id">
-      <SettingsRow :label="session.session_id" :description="`Session state: ${session.state}`">
+      <SettingsRow label="Computer-use session" :description="session.state === 'quarantined' ? 'Odin lost track of a computer-use session. Check recovery before using computer use again.' : `Session state: ${session.state}`">
         <button v-if="session.state === 'quarantined' && readiness" class="ghost" :aria-label="`Check recovery for session ${session.session_id}`" :disabled="management.busy[computerKey] || !readiness.management_available" @click="reconcile">Check recovery</button>
         <button v-else-if="session.state === 'quarantined'" class="ghost danger-item" :aria-label="`Release session ${session.session_id}…`" :disabled="management.busy[computerKey]" @click="reconcile">Release…</button>
       </SettingsRow>
+      <details class="computer-session-details"><summary>Session details</summary><p class="manage-desc">Session: {{ session.session_id }} · State: {{ session.state }}</p></details>
       <p v-if="session.recovery" :class="session.recovery.complete ? 'manage-desc' : 'warn'">Recovery: {{ session.recovery.status.replace(/_/g, ' ') }}, because {{ reasonText(session.recovery.reason) }}. {{ session.recovery.complete ? 'Recovery is recorded as complete; this does not grant desktop input.' : 'Recovery is incomplete. Do not resume desktop input.' }}</p>
       <p v-if="computerReleaseUncertain(session)" class="warn">Input release remains unverified.</p>
       <p v-if="management.notes[computerKey]" class="manage-note" role="status">{{ management.notes[computerKey] }}</p>
@@ -192,7 +193,7 @@ onMounted(async () => {
           </button>
         </div>
         <p class="manage-desc">{{ tool.description }}</p>
-        <p class="panel-hint">Cost: {{ tool.cost ?? 'not reported' }}. Risk: {{ tool.risk ?? 'not reported' }}.</p>
+        <p v-if="tool.cost || tool.risk" class="panel-hint"><template v-if="tool.cost">Cost: {{ tool.cost }}.</template> <template v-if="tool.risk">Risk: {{ tool.risk }}.</template></p>
         <div :id="`tool-parameters-${encodeURIComponent(tool.name)}`"><pre v-if="expanded[tool.name]" class="manage-json">{{ JSON.stringify(tool.input_schema, null, 2) }}</pre></div>
         <p v-if="management.notes[`tool:${tool.name}`]" class="manage-note" role="status">{{ management.notes[`tool:${tool.name}`] }}</p>
       </li>

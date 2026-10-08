@@ -1,0 +1,44 @@
+{
+  "entries": [
+    {
+      "path": "src/desktop/provisioning.py",
+      "owner": "Odin Desktop UI campaign C corrections",
+      "reason": "Review C E1: shared defaults must not silently move existing profiles without timezone from UTC; write system timezone only when creating a new profile file.",
+      "contract": "Profile-bound path defaults retain schema UTC. Both config creation entrypoints resolve and persist the system zone once; existing files, load/save/reload/delete and runtime default merges never detect the system zone.",
+      "invariant": "No existing config rewrite, schedule timezone shift, key/trust weakening or live installation access.",
+      "tests": ["tests/test_desktop_provisioning.py", "tests/test_desktop_settings.py", "tests/test_desktop_first_run.py", "tests/test_desktop_fresh_profile_parity.py"]
+    },
+    {
+      "path": "src/desktop/integrations.py",
+      "owner": "Odin Desktop UI campaign C corrections",
+      "reason": "Review C E2: outbound Test must use public dispatcher behavior, not copied private delivery/statistics/shutdown internals with fail-open fallbacks.",
+      "contract": "Check optional reviewed revision under settings/file locks, release before calling public send_test_event(id); public get_status qualifies owners. Existing ID-only callers are unchanged. A concurrent edit after admission may be adopted before the public owner's ID lookup; no immutable target-snapshot guarantee.",
+      "invariant": "Public owner owns credential qualification, closed-owner refusal, cancellation and statistics; no external I/O under settings/file lock, secret readback or automatic replay.",
+      "tests": ["tests/test_desktop_integrations.py", "tests/test_desktop_shared_outbound.py", "tests/test_desktop_phase2_review_integrations.py"]
+    },
+    {
+      "path": "tests/test_desktop_provisioning.py",
+      "owner": "Odin Desktop UI campaign C corrections",
+      "reason": "Review C E1 regression: real existing document without timezone resolves UTC despite America/New_York system environment and is not rewritten.",
+      "contract": "Real profile load, settings merge, shared defaults and ensure preserve UTC, while both new-file entrypoints detect and persist the system zone exactly once.",
+      "invariant": "Temporary profiles, no live config or privileged/plain test execution.",
+      "tests": ["tests/test_desktop_provisioning.py"]
+    },
+    {
+      "path": "tests/test_desktop_settings.py",
+      "owner": "Odin Desktop UI campaign C corrections",
+      "reason": "Review C E1 regression: absent timezone remains UTC through ordinary settings save and reload; deleting explicit timezone restores UTC rather than system zone.",
+      "contract": "Real SettingsService transactions and reload exercise the stable shared defaults; explicit timezone still changes deliberately and delete removes it from persisted document.",
+      "invariant": "No guard relaxation, live state or privileged/plain test execution.",
+      "tests": ["tests/test_desktop_settings.py"]
+    },
+    {
+      "path": "tests/test_desktop_shared_outbound.py",
+      "owner": "Odin Desktop UI campaign C corrections",
+      "reason": "Review C E2 regressions: public-only dispatcher works without private attributes; revisions reject before public delivery; retained owner still refuses closed/locked credentials and cancels in-flight Test.",
+      "contract": "Temporary real core plus injected HTTP verifies public owner semantics, not immutable target snapshots. Explicit race proves supported concurrent-edit window and no settings/file lock across external I/O; reviewed and ID-only paths retain credential refusal.",
+      "invariant": "No network, live services, credential readback or isolation weakening; no automatic retry.",
+      "tests": ["tests/test_desktop_shared_outbound.py"]
+    }
+  ]
+}

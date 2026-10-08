@@ -116,10 +116,12 @@ async function quiet(key: 'start' | 'end'): Promise<void> {
   <ReleaseNotice />
   <SettingsSection title="Time">
     <SettingsRow v-if="timezone" :label="GENERAL_TIMEZONE.label" description="Used for schedules and dates." control-id="settings-curated-timezone">
-      <input aria-label="Find a time zone" type="search" :value="zoneSearch" :disabled="!zoneEditable" @input="zoneSearch = ($event.target as HTMLInputElement).value" />
+      <div class="settings-timezone" role="group" aria-label="Time zone selection">
+      <input aria-label="Find a time zone" placeholder="Search time zones" type="search" :value="zoneSearch" :disabled="!zoneEditable" @input="zoneSearch = ($event.target as HTMLInputElement).value" />
       <select id="settings-curated-timezone" :value="zoneValue" :disabled="!zoneEditable" @change="pickZone(($event.target as HTMLSelectElement).value)">
         <option v-for="zone in zoneOptions" :key="zone" :value="zone">{{ zone === systemZone ? `System: ${zone}` : zone }}</option>
       </select>
+      </div>
       <template #note>
         <div v-if="zoneForm.changed(timezone)" class="settings-editor-actions">
           <span>Unsaved changes</span>
@@ -143,7 +145,7 @@ async function quiet(key: 'start' | 'end'): Promise<void> {
       <div class="settings-segmented" role="group" aria-label="Theme">
         <button v-for="theme in THEMES" :key="theme.value" type="button" :aria-pressed="state.appearance === theme.value" @click="appearance(theme.value)">{{ theme.label }}</button>
       </div>
-      <template #note><p v-if="preferenceState.theme" role="status">{{ preferenceState.theme }}</p></template>
+      <template v-if="preferenceState.theme" #note><p role="status">{{ preferenceState.theme }}</p></template>
     </SettingsRow>
   </SettingsSection>
   <SettingsSection title="Startup and notifications">

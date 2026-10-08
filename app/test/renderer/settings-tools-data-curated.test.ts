@@ -105,6 +105,8 @@ describe('curated Tools', () => {
     expect(v.root.textContent()).toContain('not consent')
     expect(v.root.textContent()).toContain('Wayland input is not supported')
     expect(v.root.textContent()).toContain('Input release remains unverified.')
+    expect(v.root.textContent()).toContain('Odin lost track of a computer-use session.')
+    expect(v.root.findAll(n => n.props.class === 'settings-row-label').map(n => n.textContent())).not.toContain('s1')
     v.root.named('Check recovery for session s1').fire('click')
     await flush()
     expect(bridge.computerReconcile).toHaveBeenCalledWith({ session_id: 's1', generation: 3 })
@@ -120,6 +122,14 @@ describe('curated Tools', () => {
     await flush()
     expect(v.setup.defaultTimeout).toBe('30')
     expect(bridge.toolsTimeoutsSet).not.toHaveBeenCalled()
+  })
+  it('hides empty Availability and missing cost/risk facts, but retains reported facts', async () => {
+    bridge.toolsList!.mockResolvedValue(ok({ tools: [{ name: 'priced', description: 'Reported facts.', enabled: true, state: 'available', cost: 'low', input_schema: {} }], disabled_count: 0 }))
+    const v = await view('Tools')
+    expect(v.root.findAll(n => n.tag === 'h3').map(n => n.textContent())).not.toContain('Availability')
+    expect(v.root.textContent()).toContain('Cost: low.')
+    expect(v.root.textContent()).not.toContain('Risk:')
+    expect(v.root.textContent()).not.toContain('not reported')
   })
 })
 

@@ -11,7 +11,7 @@ const fields = () => [
   make('llm_provider.model', 'gpt-6.1-sol', 'models.main.set'),
   make('openai_codex.enabled', true, 'providers.codex.set'),
   make('openai_codex.reasoning_effort', 'high', 'providers.codex.set', { enum: ['low', 'high'] }),
-  make('openai_codex.context_utilization', .8, 'providers.codex.set'),
+  make('openai_codex.context_utilization', 60, 'providers.codex.set', { type: 'integer', constraints: { minimum: 30, maximum: 100 } }),
   make('openai_codex.agent_reasoning_effort', 'high', 'providers.codex.set'),
   make('openai_codex.auxiliary.model', 'gpt-6.1-sol', 'providers.codex.set'),
   make('openai_codex.auxiliary.enabled', false, 'providers.codex.set'),
@@ -59,6 +59,15 @@ async function models(custom?: (items: ConfigField[]) => void, props?: Record<st
 const control = (root: Host, id: string) => root.findAll((node) => node.props.id === id)[0]!
 const choose = (root: Host, path: string, value: string) => control(root, settingsControlId('curated', path)).fire('change', { target: { value } })
 describe('Models canonical references, ownership and negative paths', () => {
+  it('labels automatic agent effort plainly and preserves its canonical immediate owner', async () => {
+    const { root } = await models()
+    const select = control(root, settingsControlId('curated', 'openai_codex.agent_reasoning_effort'))
+    expect(select.findAll((node) => node.tag === 'option' && node.props.value === 'auto').map((node) => node.textContent())).toEqual(['Automatic'])
+    expect(root.textContent()).toContain('Automatic lets Odin choose the effort for each task.')
+    expect(root.textContent()).not.toContain('Fixed effort must work')
+    select.fire('change', { target: { value: 'auto' } }); await flush()
+    expect(bridge.providersCodexSet).toHaveBeenCalledExactlyOnceWith({ expected_revision: 'rev-1', changes: [{ path: 'openai_codex.agent_reasoning_effort', value: 'auto' }] })
+  })
   it('restart links reveal and focus unique curated provider, auxiliary, agent and image controls', async () => {
     const { settings } = await models()
     mounted!.unmount()
@@ -91,11 +100,11 @@ describe('Models canonical references, ownership and negative paths', () => {
   it('cancels main drafts, selects a fixed agent model and handles a rejected catalogue read', async () => {
     const { root } = await models()
     choose(root, 'openai_codex.reasoning_effort', 'low'); await flush()
-    root.button('Cancel main model changes').fire('click'); await flush()
+    control(root, 'main-model-actions').button('Cancel').fire('click'); await flush()
     expect(control(root, settingsControlId('curated', 'openai_codex.reasoning_effort')).value).toBe('high')
     choose(root, 'agents.model', 'fixed'); await flush()
     control(root, settingsControlId('curated', 'agents.model')).fire('change', { target: { value: 'compat:reasoner' } }); await flush()
-    root.button('Save agent policy').fire('click'); await flush()
+    control(root, 'agent-model-actions').button('Save').fire('click'); await flush()
     expect(bridge.editLeaf).toHaveBeenCalledExactlyOnceWith({ method: 'models.agents.set', params: { model: 'compat:reasoner', expected_revision: 'rev-1' } })
     bridge.modelsStatus.mockRejectedValue(new Error('test-only transport failure'))
     root.button('Refresh model choices').fire('click'); await flush()
@@ -106,7 +115,7 @@ describe('Models canonical references, ownership and negative paths', () => {
     const { root } = await models()
     expect(control(root, settingsControlId('curated', 'agents.auto_model_allowlist.0.thinking_mode')).props.disabled).toBe(true)
     choose(root, 'openai_codex.reasoning_effort', 'low'); await flush()
-    root.button('Save main model').fire('click'); await flush()
+    control(root, 'main-model-actions').button('Save').fire('click'); await flush()
     expect(bridge.editLeaf).toHaveBeenCalledExactlyOnceWith({ method: 'models.main.set', params: { model: 'gpt-6.1-sol', reasoning_effort: 'low', expected_revision: 'rev-1' } })
     choose(root, 'openai_codex.agent_reasoning_effort', 'low'); await flush()
     expect(bridge.providersCodexSet).toHaveBeenCalledWith({ expected_revision: 'rev-1', changes: [{ path: 'openai_codex.agent_reasoning_effort', value: 'low' }] })
@@ -124,16 +133,16 @@ describe('Models canonical references, ownership and negative paths', () => {
     const { root } = await models()
     choose(root, 'llm_provider.model', 'compat:deepseek-v4-flash'); await flush()
     expect(root.findAll((node) => node.props.id === settingsControlId('curated', 'openai_compatible.reasoning_effort'))).toHaveLength(0)
-    expect(root.button('Save main model').props.disabled).toBe(false)
-    root.button('Save main model').fire('click'); await flush()
+    expect(control(root, 'main-model-actions').button('Save').props.disabled).toBe(false)
+    control(root, 'main-model-actions').button('Save').fire('click'); await flush()
     expect(bridge.editLeaf).toHaveBeenCalledExactlyOnceWith({ method: 'models.main.set', params: { model: 'compat:deepseek-v4-flash', expected_revision: 'rev-1' } })
   })
   it('warns about unknown effort capabilities without blocking canonical validation', async () => {
     const { root } = await models()
     choose(root, 'llm_provider.model', 'compat:unknown'); await flush()
     expect(root.textContent()).toContain('Supported effort choices are not known')
-    expect(root.button('Save main model').props.disabled).toBe(false)
-    root.button('Save main model').fire('click'); await flush()
+    expect(control(root, 'main-model-actions').button('Save').props.disabled).toBe(false)
+    control(root, 'main-model-actions').button('Save').fire('click'); await flush()
     expect(bridge.editLeaf).toHaveBeenCalledWith({ method: 'models.main.set', params: { model: 'compat:unknown', reasoning_effort: 'high', expected_revision: 'rev-1' } })
   })
   it('preserves unsent main effort while provider group saves only its owned address', async () => {
@@ -143,25 +152,25 @@ describe('Models canonical references, ownership and negative paths', () => {
     root.button('Save OpenAI-compatible setup').fire('click'); await flush()
     expect(bridge.providersCompatSet).toHaveBeenCalledExactlyOnceWith({ expected_revision: 'rev-1', changes: [{ path: 'openai_compatible.base_url', value: 'https://new.test/v1' }] })
     expect(control(root, settingsControlId('curated', 'openai_compatible.reasoning_effort')).value).toBe('low')
-    expect(root.button('Save main model').props.disabled).toBe(false)
+    expect(control(root, 'main-model-actions').button('Save').props.disabled).toBe(false)
   })
   it('blocks blank and incompatible automatic candidates, edits mixed policy, and cancels locally', async () => {
     const { root } = await models()
     root.button('Add automatic candidate').fire('click'); await flush()
-    root.button('Save agent policy').fire('click'); await flush()
+    control(root, 'agent-model-actions').button('Save').fire('click'); await flush()
     expect(root.textContent()).toContain('Enter a model for every automatic candidate')
     expect(bridge.editLeaf).not.toHaveBeenCalled()
     control(root, settingsControlId('curated', 'agents.auto_model_allowlist.2.model')).fire('change', { target: { value: 'gpt-6.1-sol' } })
     control(root, settingsControlId('curated', 'agents.auto_model_allowlist.2.reasoning_effort')).fire('change', { target: { value: 'unsupported' } }); await flush()
-    root.button('Save agent policy').fire('click'); await flush()
+    control(root, 'agent-model-actions').button('Save').fire('click'); await flush()
     expect(root.textContent()).toContain('Choose supported reasoning efforts')
     control(root, settingsControlId('curated', 'agents.auto_model_allowlist.2.reasoning_effort')).fire('change', { target: { value: 'low' } })
     control(root, settingsControlId('curated', 'agents.auto_model_allowlist.1.thinking_mode')).fire('change', { target: { value: 'enabled' } }); await flush()
     root.named('Move model 1 down').fire('click'); await flush()
     root.named('Remove model 3').fire('click'); await flush()
-    root.button('Save agent policy').fire('click'); await flush()
+    control(root, 'agent-model-actions').button('Save').fire('click'); await flush()
     expect(bridge.editLeaf).toHaveBeenCalledWith({ method: 'models.agents.set', params: { model: 'auto', auto_model_allowlist: [{ model: 'compat:reasoner', reasoning_effort: 'high', thinking_mode: 'enabled' }, 'gpt-6.1-sol'], expected_revision: 'rev-1' } })
-    choose(root, 'agents.model', 'main'); await flush(); root.button('Cancel agent changes').fire('click'); await flush()
+    choose(root, 'agents.model', 'main'); await flush(); control(root, 'agent-model-actions').button('Cancel').fire('click'); await flush()
     expect(control(root, settingsControlId('curated', 'agents.model')).value).toBe('auto')
   })
   it('validates agent JSON locally and saves explicit thinking/hints together', async () => {

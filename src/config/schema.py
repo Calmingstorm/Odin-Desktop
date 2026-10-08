@@ -902,7 +902,7 @@ class OpenAICodexConfig(BaseModel):
     # targets (quality/latency/cost posture — NOT a capability claim). The
     # resolver never lets utilization reduce budgets at or below 272K, so
     # changing this may have no effect on smaller models by design.
-    context_utilization: int = 60
+    context_utilization: int = Field(default=60, ge=30, le=100)
 
     @field_validator("context_utilization")
     @classmethod

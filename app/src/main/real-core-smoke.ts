@@ -6,6 +6,8 @@ import { join } from 'node:path'
 import { dialog, type BrowserWindow } from 'electron'
 import type { Broker } from './broker'
 import type { ConversationSnapshot, ScheduleRow, WebhookIngressStatus } from '../shared/api'
+import type { ConfigField } from '../shared/api'
+import { assertAdvancedInventory, advancedPresentation } from './advanced-capture-contract'
 
 const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 interface SmokeMessage { id: string; role: string; text: string; request_id?: string; attachments?: unknown[]; artifacts?: unknown[] }
@@ -1115,7 +1117,11 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert.equal(await count('[id="settings-curated-llm_provider.model"]'), 1, 'Models must render its dedicated main-model control')
     }
     if (destination === 'General') assert(renderedPaths.includes('timezone'), 'General must render the real curated time zone schema field')
-    if (destination === 'Advanced settings') assert(renderedPaths.includes('logging.level'), 'Advanced must render real log detail from the schema')
+    if (destination === 'Advanced settings') {
+      const owners = await run<string[]>(`Array.from(document.querySelectorAll('.settings-body :is(input, select, textarea, output, div)[id^="settings-curated-"]:not([id^="settings-curated-record-"])'), e => decodeURIComponent(e.id.slice('settings-curated-'.length)))`)
+      const categories = await run<string[]>(`Array.from(document.querySelectorAll('.settings-body .settings-section-header > h3'), e => e.textContent.trim())`)
+      assertAdvancedInventory(fields as ConfigField[], owners, categories, advancedPresentation)
+    }
     assert(!(await text('.settings-body')).includes('Service is not available yet'), `${destination} must not leak a generic capability refusal`)
     screens.push({ screen: `Settings / ${destination}`, text: await text('.settings-body') })
     if (i === 0) {

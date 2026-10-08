@@ -16,24 +16,30 @@ import SettingEditor from './settings/SettingEditor.vue'
 import SettingsRow from './settings/SettingsRow.vue'
 import SettingsSection from './settings/SettingsSection.vue'
 import SettingsSwitch from './settings/SettingsSwitch.vue'
+import ContextUse from './settings/ContextUse.vue'
 import { settingsControlId } from '../settings-accessibility'
 
 type ModelRow = { ref: string; name?: string; capability?: string; effort_capabilities?: { values: string[] | null; restrictions_known: boolean; source: string } }
+type ProviderStatus = { configured?: boolean; base_url?: string; model?: string; preset?: string; openrouter_recognized?: boolean }
+type ModelStatus = { model_catalogue?: Record<string, ModelRow[]>; serving_provider?: string | null; active_provider?: string; codex?: ProviderStatus; ollama?: ProviderStatus; openai_compatible?: ProviderStatus }
 const props = defineProps<{ reveal?: string }>()
 const modelCatalogue = ref<ModelRow[]>([])
+const providerStatus = ref<ModelStatus | null>(null)
 const modelReadError = ref('')
 let modelRead = 0
 const modelId = (path: string): string => settingsControlId('curated', path)
 async function loadModels(): Promise<void> {
   const mine = ++modelRead
   modelCatalogue.value = []
-  const read = (window.odin as unknown as { modelsStatus?: (params: Record<string, never>) => Promise<Result<{ model_catalogue: Record<string, ModelRow[]> }>> }).modelsStatus
+  providerStatus.value = null
+  const read = (window.odin as unknown as { modelsStatus?: (params: Record<string, never>) => Promise<Result<ModelStatus>> }).modelsStatus
   if (!read) { modelReadError.value = 'Model choices are unavailable. Refresh after updating Odin.'; return }
   const epoch = state.recoveryEpoch, instance = state.app.coreInstanceId
   try {
     const answer = await read({})
     if (mine !== modelRead || epoch !== state.recoveryEpoch || instance !== state.app.coreInstanceId) return
     if (!answer.ok) { modelReadError.value = answer.error.message; return }
+    providerStatus.value = answer.result
     modelCatalogue.value = Object.values(answer.result.model_catalogue ?? {}).flat().filter((row) => typeof row.ref === 'string')
     modelReadError.value = ''
   } catch { if (mine === modelRead) modelReadError.value = 'Model choices could not be read. Try again.' }
@@ -58,7 +64,7 @@ type Provider = keyof typeof providerNames
 const providerPaths: Record<Provider, string[]> = {
   codex: ['openai_codex.enabled'],
   ollama: ['ollama.enabled', 'ollama.base_url', 'ollama.model', 'ollama.api_key'],
-  compat: ['openai_compatible.enabled', 'openai_compatible.preset', 'openai_compatible.base_url', 'openai_compatible.model', 'openai_compatible.reasoning_effort', 'openai_compatible.api_key']
+  compat: ['openai_compatible.enabled', 'openai_compatible.preset', 'openai_compatible.base_url', 'openai_compatible.model', 'openai_compatible.reasoning_effort', 'openai_compatible.context_utilization', 'openai_compatible.api_key']
 }
 const providers = Object.keys(providerNames) as Provider[]
 const expanded = reactive<Record<Provider, boolean>>({ codex: false, ollama: false, compat: false })
@@ -77,7 +83,26 @@ const dirty = (paths: string[]): boolean => paths.some((path) => field(path) && 
 const edit = (path: string, raw: string | boolean): void => { drafts[path] = raw; errors[path] = ''; notes[path] = '' }
 function cancel(paths: string[]): void { for (const path of paths) { delete drafts[path]; delete errors[path] } }
 function present(paths: string[]): ConfigField[] { return paths.flatMap((path) => entry(path) && field(path) ? [field(path)!] : []) }
-function providerFields(provider: Provider): ConfigField[] { return present(providerPaths[provider].slice(1)).filter((item) => item.path !== mainEffort.value) }
+function providerFields(provider: Provider): ConfigField[] { return present(providerPaths[provider].slice(1)).filter((item) => item.path !== mainEffort.value && item.path !== 'openai_compatible.context_utilization') }
+// The core owns provider identity. An unsaved model choice must not redirect context edits.
+const activeProvider = computed(() => providerStatus.value?.serving_provider ?? field('llm_provider.active_provider')?.effective ?? providerStatus.value?.active_provider)
+const activeContext = computed(() => activeProvider.value === 'codex' ? field('openai_codex.context_utilization') : activeProvider.value === 'compat' ? field('openai_compatible.context_utilization') : undefined)
+function providerSummary(provider: Provider): string {
+  if (provider === 'codex') {
+    if (settings.codex.stale || settings.codex.error) return 'Account status unavailable'
+    if (!settings.codex.status) return settings.codex.unavailable ? 'Account status unavailable' : 'Loading accounts…'
+    const accounts = settings.codex.status.accounts
+    if (!accounts.length) return 'Not set up'
+    const signedIn = accounts.filter((account) => !account.error && !account.expired).length
+    return `${signedIn ? 'Signed in' : 'Sign-in needed'} · ${accounts.length} ${accounts.length === 1 ? 'account' : 'accounts'}`
+  }
+  const status = providerStatus.value?.[provider === 'compat' ? 'openai_compatible' : 'ollama']
+  if (!status) return 'Provider status unavailable'
+  if (!status.model || !status.base_url) return 'Not set up'
+  if (provider === 'compat' && status.openrouter_recognized) return `OpenRouter · ${status.model}`
+  // A constructed provider client is not evidence of a successful connection probe.
+  return `${status.configured ? 'Configured' : 'Setup saved'} · ${status.base_url}`
+}
 function stateNote(item: ConfigField): string {
   if (item.apply_state === 'invalid') return 'This saved value is invalid. Correct it and save again.'
   if (item.apply_state === 'drift') return 'The running value differs from the saved value.'
@@ -101,6 +126,7 @@ async function groupSave(key: string, paths: string[], enable?: boolean): Promis
     if (await saveFields(changes)) {
       for (const { field: item } of changes) if (value(item.path) === snapshot[item.path]) delete drafts[item.path]
       notes[key] = 'Saved.'
+      if (providers.includes(key as Provider)) void loadModels()
     }
   } finally { busy[key] = false }
 }
@@ -140,7 +166,7 @@ async function saveMain(): Promise<void> {
   if (mainEffort.value && field(mainEffort.value)) params.reasoning_effort = value(mainEffort.value)
   const snapshot = Object.fromEntries(mainPaths.map((path) => [path, value(path)]))
   busy.main = true; notes.main = ''
-  try { if (await saveModelSettings('models.main.set', params)) { for (const path of mainPaths) if (value(path) === snapshot[path]) delete drafts[path]; notes.main = 'Saved.' } }
+  try { if (await saveModelSettings('models.main.set', params)) { for (const path of mainPaths) if (value(path) === snapshot[path]) delete drafts[path]; notes.main = 'Saved.'; void loadModels() } }
   finally { busy.main = false }
 }
 const agentPaths = ['agents.model', 'agents.auto_model_allowlist', 'agents.thinking_mode', 'agents.model_selection_hints']
@@ -171,13 +197,13 @@ async function saveAgents(): Promise<void> {
   try { if (await saveModelSettings('models.agents.set', params)) { if (snapshot === JSON.stringify({ model: value('agents.model'), candidates: candidates.value, drafts: agentPaths.map((path) => value(path)) })) { cancel(agentPaths); allowlistDraft.value = null }; notes.agents = 'Saved.' } }
   finally { busy.agents = false }
 }
-const contextPaths = ['openai_codex.context_utilization', 'openai_compatible.context_utilization']
 const independentAgentPaths = ['agents.max_concurrent_agents']
 const agentEffortModels = computed(() => (agentMode.value === 'auto' ? candidates.value.map(candidateModel) : [agentMode.value === 'main' ? String(value('llm_provider.model')) : String(value('agents.model'))]).filter((model) => modelProvider(model) === 'codex'))
 const agentEfforts = computed(() => {
   if (!agentEffortModels.value.length || agentEffortModels.value.some((model) => modelEfforts(model) === null)) return null
   return modelEfforts(agentEffortModels.value[0]!)!.filter((effort) => agentEffortModels.value.every((model) => modelEfforts(model)!.includes(effort)))
 })
+const agentDirty = computed(() => dirty(agentPaths) || (allowlistDraft.value !== null && JSON.stringify(allowlistDraft.value) !== JSON.stringify(field('agents.auto_model_allowlist')?.desired ?? [])))
 async function pickAgentEffort(effort: string): Promise<void> {
   const item = field('openai_codex.agent_reasoning_effort')
   if (!item || (effort !== '' && effort !== 'auto' && agentEfforts.value?.includes(effort) !== true)) return
@@ -289,6 +315,7 @@ async function remove(account: CodexAccount): Promise<void> {
         <option v-if="!modelRow(String(value('llm_provider.model')))" :value="value('llm_provider.model')" disabled>{{ value('llm_provider.model') }} (choices unavailable)</option>
         <option v-for="row in modelCatalogue" :key="row.ref" :value="row.ref">{{ row.name ?? row.ref }} · {{ row.ref }}</option>
       </select>
+      <button class="ghost model-refresh" @click="loadModels">Refresh model choices</button>
     </SettingsRow>
     <SettingsRow v-if="mainEffort && field(mainEffort)" label="Reasoning effort" description="Choose how much reasoning the model uses." :control-id="modelId(mainEffort)">
       <select :id="modelId(mainEffort)" :value="value(mainEffort)" :disabled="!modelEfforts(String(value('llm_provider.model')))?.length" @change="edit(mainEffort, ($event.target as HTMLSelectElement).value)">
@@ -298,17 +325,17 @@ async function remove(account: CodexAccount): Promise<void> {
       <template #note><p v-if="modelEfforts(String(value('llm_provider.model'))) === null" class="settings-help">Supported effort choices are not known for this model.</p><p v-else-if="!validMainPair" class="warn">Choose an effort supported by this model. The saved effort is not changed automatically.</p></template>
     </SettingsRow>
     <p v-if="modelReadError" role="status" class="warn">{{ modelReadError }}</p>
-    <button class="ghost" @click="loadModels">Refresh model choices</button>
-    <div class="settings-editor-actions model-actions">
-      <span v-if="dirty(mainPaths)">Unsaved changes</span>
-      <button :disabled="!dirty(mainPaths) || busy.main || !validMainPair" @click="saveMain">Save main model</button>
-      <button class="ghost" :disabled="!dirty(mainPaths)" @click="cancel(mainPaths)">Cancel main model changes</button>
-    </div>
     <p v-if="busy.main" role="status">Saving…</p><p v-else-if="notes.main" role="status">{{ notes.main }}</p>
     <p v-for="item in present(mainPaths)" :key="item.path" class="warn" role="status">{{ errors[item.path] || (settings.fields[item.path]?.status === 'error' ? settings.fields[item.path]?.message : '') || stateNote(item) }}</p>
+    <div v-if="dirty(mainPaths)" id="main-model-actions" class="settings-editor-actions model-actions" data-testid="main-model-actions">
+      <span>Unsaved changes</span>
+      <button :disabled="busy.main || !validMainPair" @click="saveMain">Save</button>
+      <button class="ghost" @click="cancel(mainPaths)">Cancel</button>
+    </div>
   </SettingsSection>
-  <SettingsSection v-if="present(contextPaths).length" title="Context">
-    <SettingEditor v-for="item in present(contextPaths)" :key="item.path" :field="item" :label="label(item.path)" :help="help(item.path)" />
+  <SettingsSection title="Context">
+    <ContextUse v-if="activeContext" :key="activeContext.path" :field="activeContext" />
+    <p v-else class="settings-help context-unavailable">{{ activeProvider === 'ollama' ? 'Ollama context limits are under More options.' : 'Context use is unavailable until the active provider is known.' }}</p>
   </SettingsSection>
   <SettingsSection v-if="field('agents.model')" title="Agents">
     <SettingsRow label="Agent model" description="Agents can follow main chat or use a separate model." :control-id="modelId(agentMode === 'fixed' ? 'agents.model.mode' : 'agents.model')">
@@ -344,29 +371,29 @@ async function remove(account: CodexAccount): Promise<void> {
       </div>
       <button class="ghost" @click="allowlistDraft = [...candidates, '']">Add automatic candidate</button>
     </div>
-    <div class="model-actions settings-editor-actions">
-      <button :disabled="(!dirty(agentPaths) && !allowlistDraft) || busy.agents" @click="saveAgents">Save agent policy</button>
-      <button class="ghost" :disabled="!dirty(agentPaths) && !allowlistDraft" @click="cancel(agentPaths); allowlistDraft = null">Cancel agent changes</button>
-    </div>
     <p v-if="errors.agents" role="status" class="warn">{{ errors.agents }}</p>
     <p v-if="busy.agents" role="status">Saving…</p><p v-else-if="notes.agents" role="status">{{ notes.agents }}</p>
     <p v-for="item in present(agentPaths)" :key="item.path" class="warn" role="status">{{ settings.fields[item.path]?.status === 'error' ? settings.fields[item.path]?.message : stateNote(item) }}</p>
-    <SettingsRow v-if="field('openai_codex.agent_reasoning_effort')" label="Agent reasoning effort" description="Fixed effort must work with every eligible automatic candidate." :control-id="modelId('openai_codex.agent_reasoning_effort')">
+    <SettingsRow v-if="field('openai_codex.agent_reasoning_effort')" label="Agent reasoning effort" description="Automatic lets Odin choose the effort for each task." :control-id="modelId('openai_codex.agent_reasoning_effort')">
       <select :id="modelId('openai_codex.agent_reasoning_effort')" :value="String(field('openai_codex.agent_reasoning_effort')?.desired ?? '')" @change="pickAgentEffort(($event.target as HTMLSelectElement).value)">
-        <option value="">Same as main</option><option value="auto">Choose automatically</option>
+        <option value="">Same as main</option><option value="auto">Automatic</option>
         <option v-if="field('openai_codex.agent_reasoning_effort')?.desired && field('openai_codex.agent_reasoning_effort')?.desired !== 'auto' && !agentEfforts?.includes(String(field('openai_codex.agent_reasoning_effort')?.desired))" :value="String(field('openai_codex.agent_reasoning_effort')?.desired)" disabled>{{ field('openai_codex.agent_reasoning_effort')?.desired }} (not supported by these models)</option>
         <option v-for="effort in agentEfforts ?? []" :key="effort" :value="effort">{{ effort }}</option>
       </select>
       <template #note><p v-if="agentEfforts === null" class="settings-help">Fixed effort choices are unavailable until model capabilities are known.</p><p v-if="settings.fields['openai_codex.agent_reasoning_effort']?.status === 'error'" class="warn" role="status">{{ settings.fields['openai_codex.agent_reasoning_effort']?.message }}</p></template>
     </SettingsRow>
     <SettingEditor v-for="item in present(independentAgentPaths)" :key="item.path" :field="item" :label="label(item.path)" :help="help(item.path)" />
+    <div v-if="agentDirty" id="agent-model-actions" class="model-actions settings-editor-actions" data-testid="agent-model-actions">
+      <span>Unsaved changes</span>
+      <button :disabled="busy.agents" @click="saveAgents">Save</button>
+      <button class="ghost" @click="cancel(agentPaths); allowlistDraft = null">Cancel</button>
+    </div>
   </SettingsSection>
   <SettingsSection title="Accounts and quota">
-  <section class="codex-accounts" aria-label="Codex accounts">
-    <header class="panel-head">
-      <h4>Codex accounts</h4>
+    <template #actions>
       <button v-if="!settings.codex.unavailable" data-testid="codex-add-account" class="ghost" :disabled="settings.codex.busy || settings.codex.beginning || settings.codex.login?.status === 'waiting'" @click="beginLogin">Add account</button>
-    </header>
+    </template>
+  <section class="codex-accounts" aria-label="Codex accounts">
     <p v-if="settings.codex.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Codex accounts') }}</p>
     <template v-else>
       <div v-if="settings.codex.login" class="login">
@@ -396,27 +423,29 @@ async function remove(account: CodexAccount): Promise<void> {
       <p v-if="!settings.codex.status && !settings.codex.error && !settings.codex.unavailable" role="status">Loading accounts…</p>
       <ul class="accounts">
         <li v-for="account in settings.codex.status?.accounts ?? []" :key="account.index" :class="['account', { current: account.is_current }]">
-          <button class="ghost" :aria-label="`Refresh sign-in: ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale || management.busy[refreshKey] || refreshUnavailable" @click="refreshAccount(account)">Refresh sign-in</button>
-          <p v-if="account.error" class="warn">Account {{ account.index + 1 }}: {{ account.error }}</p>
-          <template v-else>
-            <div class="account-line">
+            <div class="account-details">
               <strong>{{ accountName(account) }}</strong>
-              <span class="account-meta">{{ account.email }} · {{ account.plan_type }}</span>
+              <div class="account-meta">{{ account.email }}<template v-if="account.plan_type"> · {{ account.plan_type }}</template></div>
+              <div class="account-meta">{{ quota(account) }}</div>
+              <p v-if="account.error" class="warn">Account {{ account.index + 1 }}: {{ account.error }}</p>
+              <p v-if="settings.codex.notes[accountIdentity(account)]" class="account-note" role="status">{{ settings.codex.notes[accountIdentity(account)] }}</p>
+            </div>
+            <div class="account-controls">
+              <div class="account-status">
               <span v-if="account.is_current" class="in-use">In use</span>
               <span v-if="account.limit_reached" class="warn">Limit reached</span>
               <span v-if="account.quota_check_failed" class="warn">Quota check failed</span>
               <span v-if="account.expired" class="warn">Sign-in expired</span>
             </div>
-            <div class="account-meta">{{ quota(account) }}</div>
             <div class="account-actions">
-              <button v-if="!account.is_current" class="ghost" :aria-label="`Use this account: ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale" @click="activateAccount(account)">
+              <button v-if="!account.is_current && !account.error" class="ghost" :aria-label="`Use this account: ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale" @click="activateAccount(account)">
                 Use this account
               </button>
-              <button class="ghost" :aria-label="`Label ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale" @click="rename(account)">Label…</button>
+              <button class="ghost" :aria-label="`Refresh sign-in: ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale || management.busy[refreshKey] || refreshUnavailable" @click="refreshAccount(account)">Refresh sign-in</button>
+              <button v-if="!account.error" class="ghost" :aria-label="`Rename ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale" @click="rename(account)">Rename</button>
               <button class="ghost danger-item" :aria-label="`Remove ${accountName(account)}`" :disabled="settings.codex.busy || settings.codex.stale" @click="remove(account)">Remove…</button>
             </div>
-            <p v-if="settings.codex.notes[accountIdentity(account)]" class="account-note" role="status">{{ settings.codex.notes[accountIdentity(account)] }}</p>
-          </template>
+            </div>
         </li>
       </ul>
     </template>
@@ -424,8 +453,7 @@ async function remove(account: CodexAccount): Promise<void> {
   </SettingsSection>
   <SettingsSection v-if="providers.some((provider) => field(providerPaths[provider][0]!))" title="Providers">
     <template v-for="provider in providers" :key="provider">
-      <SettingsRow v-if="field(providerPaths[provider][0]!)" :label="providerNames[provider]" description="Configure first; enabling is a separate choice.">
-        <span>{{ field(providerPaths[provider][0]!)?.desired === true ? 'Enabled' : 'Disabled' }}</span>
+      <SettingsRow v-if="field(providerPaths[provider][0]!)" :label="providerNames[provider]" :description="providerSummary(provider)">
         <SettingsSwitch :id="modelId(providerPaths[provider][0]!)" :label="`Enable ${providerNames[provider]}`" :checked="field(providerPaths[provider][0]!)?.desired === true" :disabled="busy[provider]" @change="toggleProvider(provider, $event)" />
         <button class="ghost" :data-testid="`configure-${provider}`" :aria-label="`Configure ${providerNames[provider]}`" :aria-expanded="expanded[provider]" :aria-controls="`provider-${provider}-setup`" @click="expanded[provider] = !expanded[provider]">Configure</button>
       </SettingsRow>
@@ -443,6 +471,8 @@ async function remove(account: CodexAccount): Promise<void> {
           <input v-else :id="modelId(item.path)" :value="value(item.path)" @input="edit(item.path, ($event.target as HTMLInputElement).value)" />
           <template #note><p v-if="errors[item.path] || settings.fields[item.path]?.status === 'error' || stateNote(item)" class="warn" role="status">{{ errors[item.path] || settings.fields[item.path]?.message || stateNote(item) }}</p></template>
         </SettingsRow>
+        <ContextUse v-if="provider === 'compat' && field('openai_compatible.context_utilization') && activeContext?.path !== 'openai_compatible.context_utilization'" :field="field('openai_compatible.context_utilization')!" />
+        <ContextUse v-if="provider === 'codex' && field('openai_codex.context_utilization') && activeContext?.path !== 'openai_codex.context_utilization'" :field="field('openai_codex.context_utilization')!" />
         <div v-if="provider !== 'codex'" class="settings-editor-actions model-actions">
           <span v-if="dirty(providerPaths[provider])">Unsaved changes</span>
           <button :disabled="!dirty(providerPaths[provider]) || busy[provider]" @click="groupSave(provider, providerPaths[provider])">Save {{ providerNames[provider] }} setup</button>
@@ -485,10 +515,21 @@ async function remove(account: CodexAccount): Promise<void> {
 <style scoped>
 .codex-accounts, .provider-setup, .model-candidates { padding: 1rem; }
 .provider-setup { border-bottom: 1px solid var(--border); }
-.model-actions { padding: .75rem 1rem; flex-wrap: wrap; }
+.model-actions { padding: .75rem 1rem; flex-wrap: wrap; justify-content: flex-end; }
+.model-refresh { font-size: 12px; }
+.context-unavailable { padding: 1rem; margin: 0; }
 .model-candidate { display: grid; gap: .5rem; padding: .75rem 0; border-bottom: 1px solid var(--border); }
 .model-candidate input, .model-candidate select { width: 100%; min-width: 0; }
 .model-candidates h4, .provider-setup h4 { margin-top: 0; }
-.account-line, .account-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.account { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.account-details { flex: 1 1 45%; min-width: 0; }
+.account-controls { flex: 1 1 50%; min-width: 0; text-align: right; }
+.account-status, .account-actions { display: flex; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; }
+.account-actions { margin-top: .5rem; }
 .account-meta { overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .account { flex-direction: column; align-items: stretch; }
+  .account-controls { text-align: left; }
+  .account-status, .account-actions { justify-content: flex-start; }
+}
 </style>

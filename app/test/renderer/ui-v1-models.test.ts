@@ -9,7 +9,8 @@ const make = (path: string, desired: unknown, owner = 'settings.set', type: stri
 const fields = () => [
   make('llm_provider.model', 'codex:first', 'models.main.set'), make('llm_provider.active_provider', 'codex', 'models.main.set'),
   make('openai_codex.reasoning_effort', 'high', 'providers.codex.set', 'string', { enum: ['low', 'high', 'xhigh'] }),
-  make('openai_codex.enabled', true, 'providers.codex.set'), make('openai_codex.context_utilization', .8, 'providers.codex.set', 'number'),
+  make('openai_codex.enabled', true, 'providers.codex.set'), make('openai_codex.context_utilization', 60, 'providers.codex.set', 'integer', { constraints: { minimum: 30, maximum: 100 } }),
+  make('openai_compatible.context_utilization', 75, 'providers.compat.set', 'integer', { constraints: { minimum: 30, maximum: 100 } }),
   make('openai_compatible.enabled', false, 'providers.compat.set'), make('openai_compatible.base_url', 'https://example.test/v1', 'providers.compat.set'), make('openai_compatible.model', 'old', 'providers.compat.set'),
   make('openai_compatible.api_key', '[redacted]', 'providers.compat.set', 'string', { sensitivity: 'sensitive', secret_route: 'secrets.set', configured: true }),
   make('ollama.enabled', false, 'providers.ollama.set'), make('ollama.base_url', 'http://localhost:11434', 'providers.ollama.set'), make('ollama.model', 'old-local', 'providers.ollama.set'),
@@ -21,7 +22,7 @@ beforeEach(() => {
   bridge = {
     codexAccounts: vi.fn(async () => ok({ configured: true, accounts: [{ index: 0, email: 'person@example.test', is_current: true, quota: { primary: { used_percent: 0, window_minutes: 300, resets_at: 0 } } }] })),
     openrouterCatalogue: vi.fn(async () => ok({ recognized: true, models: [], quick_add: [] })),
-    modelsStatus: vi.fn(async () => ok({ model_catalogue: { codex: ['first', 'second', 'new-second'].map((name) => ({ ref: `codex:${name}`, name, effort_capabilities: { values: name === 'first' ? ['low', 'high'] : ['high', 'xhigh'], restrictions_known: true, source: 'core_validation' } })) } })),
+    modelsStatus: vi.fn(async () => ok({ active_provider: 'codex', serving_provider: 'codex', ollama: { configured: true, base_url: 'http://127.0.0.1:11434', model: 'local' }, openai_compatible: { configured: false, model: 'openrouter/auto', base_url: 'https://openrouter.ai/api/v1', openrouter_recognized: true }, model_catalogue: { codex: ['first', 'second', 'new-second'].map((name) => ({ ref: `codex:${name}`, name, effort_capabilities: { values: name === 'first' ? ['low', 'high'] : ['high', 'xhigh'], restrictions_known: true, source: 'core_validation' } })) } })),
     settingsSchema: vi.fn(), status: vi.fn(async () => ({ ok: false, error: { code: 'unavailable', message: 'Not available' } })),
     providersCompatSet: vi.fn(), providersOllamaSet: vi.fn(), providersCodexSet: vi.fn(), settingsSet: vi.fn(), editLeaf: vi.fn(), secretsSet: vi.fn(), secretsClear: vi.fn()
   }
@@ -45,6 +46,108 @@ async function models() {
 }
 const control = (root: Host, id: string) => root.findAll((item) => item.props.id === id)[0]!
 describe('UI v1 curated Models', () => {
+  it('shows main and agent draft actions only when dirty, as the last card content', async () => {
+    const { root } = await models()
+    expect(root.findAll((item) => item.props.id === 'main-model-actions' || item.props.id === 'agent-model-actions')).toHaveLength(0)
+    const refresh = root.button('Refresh model choices')
+    expect(refresh.parent?.findAll((item) => item.props.id === settingsControlId('curated', 'llm_provider.model'))).toHaveLength(1)
+    control(root, settingsControlId('curated', 'openai_codex.reasoning_effort')).fire('change', { target: { value: 'low' } })
+    control(root, settingsControlId('curated', 'agents.model')).fire('change', { target: { value: 'main' } }); await flush()
+    for (const id of ['main-model-actions', 'agent-model-actions']) {
+      const actions = control(root, id)
+      expect(actions.findAll((item) => item.tag === 'button').map((item) => item.textContent())).toEqual(['Save', 'Cancel'])
+      expect(actions.parent!.children.filter((item) => item.tag !== '#comment' && item.tag !== '#text').at(-1)).toBe(actions)
+      actions.button('Cancel').fire('click'); await flush()
+      expect(root.findAll((item) => item.props.id === id)).toHaveLength(0)
+    }
+    expect(bridge.editLeaf).not.toHaveBeenCalled()
+  })
+  it('uses canonical serving provider, not a model draft, and places inactive context in Configure', async () => {
+    const { root } = await models()
+    const codexId = settingsControlId('curated', 'openai_codex.context_utilization')
+    const compatId = settingsControlId('curated', 'openai_compatible.context_utilization')
+    expect(root.findAll((item) => item.props.id === codexId)).toHaveLength(1)
+    expect(root.findAll((item) => item.props.id === compatId)).toHaveLength(0)
+    control(root, settingsControlId('curated', 'llm_provider.model')).fire('change', { target: { value: 'compat:unsaved' } }); await flush()
+    expect(root.findAll((item) => item.props.id === codexId)).toHaveLength(1)
+    root.named('Configure OpenAI-compatible').fire('click'); await flush()
+    expect(control(root, 'provider-compat-setup').findAll((item) => item.props.id === compatId)).toHaveLength(1)
+    const previous = await bridge.modelsStatus({})
+    bridge.modelsStatus.mockResolvedValue(ok({ ...previous.result, serving_provider: 'compat' }))
+    root.button('Refresh model choices').fire('click'); await flush()
+    expect(root.findAll((item) => item.props.id === codexId)).toHaveLength(0)
+    expect(root.findAll((item) => item.props.id === compatId)).toHaveLength(1)
+    expect(control(root, 'provider-compat-setup').findAll((item) => item.props.id === compatId)).toHaveLength(0)
+    expect(bridge.providersCompatSet).not.toHaveBeenCalled()
+  })
+  it('renders percent and core bounds, rejects invalid context and saves through its owner', async () => {
+    const { root } = await models()
+    const input = control(root, settingsControlId('curated', 'openai_codex.context_utilization'))
+    expect(input.props).toMatchObject({ type: 'number', min: 30, max: 100, step: 1 })
+    expect(root.textContent()).toContain('30% to 100%')
+    expect(input.parent!.textContent()).toContain('%')
+    input.type('29'); await flush()
+    input.parent!.parent!.parent!.button('Save').fire('click'); await flush()
+    expect(bridge.providersCodexSet).not.toHaveBeenCalled()
+    expect(root.textContent()).toContain('The lowest is 30')
+    input.type('80'); await flush()
+    input.parent!.parent!.parent!.button('Save').fire('click'); await flush()
+    expect(bridge.providersCodexSet).toHaveBeenCalledExactlyOnceWith({ expected_revision: 'rev-1', changes: [{ path: 'openai_codex.context_utilization', value: 80 }] })
+  })
+  it('keeps one account heading, details left, status/actions right and truthful provider summaries', async () => {
+    const { root } = await models()
+    expect(root.findAll((item) => item.tag === 'h4' && item.textContent() === 'Codex accounts')).toHaveLength(0)
+    expect(root.button('Add account').parent?.parent?.props.class).toContain('settings-section-header')
+    const account = root.findAll((item) => item.tag === 'li' && String(item.props.class).includes('account'))[0]!
+    expect(account.children.filter((item) => item.tag === 'div').map((item) => item.props.class)).toEqual(['account-details', 'account-controls'])
+    expect(account.children[0]!.textContent()).toContain('person@example.test')
+    const controls = account.findAll((item) => item.props.class === 'account-controls')[0]!
+    expect(controls.textContent()).toContain('In use')
+    expect(controls.button('Refresh sign-in')).toBeTruthy()
+    expect(controls.button('Rename')).toBeTruthy()
+    expect(root.textContent()).toContain('Signed in · 1 account')
+    expect(root.textContent()).toContain('Configured · http://127.0.0.1:11434')
+    expect(root.textContent()).toContain('OpenRouter · openrouter/auto')
+    expect(root.textContent()).not.toContain('Configure first')
+    expect(root.findAll((item) => item.tag === 'span' && ['Enabled', 'Disabled'].includes(item.textContent()))).toHaveLength(0)
+    for (const provider of ['Codex', 'Ollama', 'OpenAI-compatible']) expect(root.findAll((item) => item.props['aria-label'] === `Enable ${provider}`)).toHaveLength(1)
+  })
+  it('renders unavailable provider metadata honestly and retains disabled configuration', async () => {
+    const { root, settings } = await models()
+    settings.meta!.fields = settings.meta!.fields.filter((item) => item.path !== 'llm_provider.active_provider')
+    bridge.modelsStatus.mockResolvedValue(ok({}))
+    root.button('Refresh model choices').fire('click'); await flush()
+    expect(root.textContent()).toContain('Context use is unavailable until the active provider is known')
+    expect(root.textContent()).toContain('Provider status unavailable')
+    expect(root.findAll((item) => item.props.id === settingsControlId('curated', 'openai_codex.context_utilization'))).toHaveLength(0)
+    root.named('Configure OpenAI-compatible').fire('click'); await flush()
+    expect(control(root, 'provider-compat-setup').findAll((item) => item.props.id === settingsControlId('curated', 'openai_compatible.context_utilization'))).toHaveLength(1)
+    bridge.modelsStatus.mockResolvedValue(ok({ serving_provider: 'ollama' }))
+    root.button('Refresh model choices').fire('click'); await flush()
+    expect(root.textContent()).toContain('Ollama context limits are under More options')
+    expect(bridge.providersCompatSet).not.toHaveBeenCalled()
+  })
+  it('clears account readiness claims after read problems and avoids fake provider connection claims', async () => {
+    const { root, settings } = await models()
+    settings.codex.stale = true; await flush()
+    expect(root.textContent()).toContain('Account status unavailable')
+    expect(root.textContent()).not.toContain('Signed in · 1 account')
+    settings.codex.stale = false
+    settings.codex.status!.accounts = []; await flush()
+    expect(root.textContent()).toContain('Not set up')
+    bridge.modelsStatus.mockResolvedValue(ok({ serving_provider: 'codex', ollama: { configured: false, model: 'local', base_url: 'http://saved.test:11434' }, openai_compatible: { configured: false } }))
+    root.button('Refresh model choices').fire('click'); await flush()
+    expect(root.textContent()).toContain('Setup saved · http://saved.test:11434')
+    expect(root.textContent()).not.toContain('Connected to')
+  })
+  it('hides agent actions when candidate changes return to the saved order', async () => {
+    const { root } = await models()
+    root.named('Move model 2 up').fire('click'); await flush()
+    expect(control(root, 'agent-model-actions')).toBeTruthy()
+    root.named('Move model 1 down').fire('click'); await flush()
+    expect(root.findAll((item) => item.props.id === 'agent-model-actions')).toHaveLength(0)
+    expect(bridge.editLeaf).not.toHaveBeenCalled()
+  })
   it('keeps context immediately after main, quota zero, explicit owners and no schema paths', async () => {
     const { root } = await models()
     expect(root.findAll((item) => item.tag === 'h3').map((item) => item.textContent()).slice(0, 5)).toEqual(['Main model', 'Context', 'Agents', 'Accounts and quota', 'Providers'])
@@ -83,7 +186,7 @@ describe('UI v1 curated Models', () => {
     control(root, settingsControlId('curated', 'llm_provider.model')).fire('change', { target: { value: 'codex:second' } }); await flush()
     control(root, settingsControlId('curated', 'openai_codex.reasoning_effort')).fire('change', { target: { value: 'xhigh' } }); await flush()
     expect(bridge.editLeaf).not.toHaveBeenCalled()
-    root.button('Save main model').fire('click'); await flush()
+    control(root, 'main-model-actions').button('Save').fire('click'); await flush()
     expect(bridge.editLeaf).toHaveBeenCalledExactlyOnceWith({ method: 'models.main.set', params: { model: 'codex:second', reasoning_effort: 'xhigh', expected_revision: 'rev-1' } })
   })
   it('uses projected per-model efforts and leaves incompatible drafts unsaved without downgrade', async () => {
@@ -92,8 +195,8 @@ describe('UI v1 curated Models', () => {
     expect(effort.findAll((item) => item.tag === 'option').map((item) => item.props.value)).toEqual(['low', 'high'])
     effort.fire('change', { target: { value: 'xhigh' } }); await flush()
     expect(effort.value).toBe('xhigh')
-    expect(root.button('Save main model').props.disabled).toBe(true)
-    root.button('Save main model').fire('click'); await flush()
+    expect(control(root, 'main-model-actions').button('Save').props.disabled).toBe(true)
+    control(root, 'main-model-actions').button('Save').fire('click'); await flush()
     expect(bridge.editLeaf).not.toHaveBeenCalled()
     expect(root.textContent()).toContain('not changed automatically')
   })
@@ -102,7 +205,7 @@ describe('UI v1 curated Models', () => {
     control(root, settingsControlId('curated', 'agents.auto_model_allowlist.1.model')).fire('change', { target: { value: 'codex:new-second' } })
     root.named('Move model 2 up').fire('click'); await flush()
     expect(bridge.editLeaf).not.toHaveBeenCalled()
-    root.button('Save agent policy').fire('click'); await flush()
+    control(root, 'agent-model-actions').button('Save').fire('click'); await flush()
     expect(bridge.editLeaf).toHaveBeenCalledExactlyOnceWith({ method: 'models.agents.set', params: { model: 'auto', auto_model_allowlist: [{ model: 'codex:new-second', reasoning_effort: 'high' }, 'codex:first'], expected_revision: 'rev-1' } })
   })
   it('stores keys only explicitly, never reads secrets or includes them in provider saves', async () => {
@@ -211,6 +314,6 @@ describe('UI v1 curated Models', () => {
     // Refresh remains available even after a successful read.
     root.button('Refresh model choices').fire('click'); await flush()
     expect(effort.props.disabled).toBe(true)
-    expect(root.button('Save main model').props.disabled).toBe(true)
+    expect(root.findAll((item) => item.props['data-testid'] === 'main-model-actions')).toHaveLength(0)
   })
 })

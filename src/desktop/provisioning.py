@@ -43,6 +43,8 @@ def system_timezone() -> str:
 def fresh_config_document(paths: ProfilePaths) -> dict:
     """Bind every path default to the explicit profile, not the process HOME.
 
+    These defaults also merge into existing profiles, so timezone keeps the
+    schema's UTC default. Only file creation selects the system timezone.
     The local inventory/default match Odin's pinned config template. Local is
     already trusted: provisioning is not remote enrollment or owner consent.
     """
@@ -51,7 +53,6 @@ def fresh_config_document(paths: ProfilePaths) -> dict:
     # Leading dot cannot collide with a valid profile identifier.
     workspace = paths.data_dir.parent / ".odin-desktop-workspaces" / paths.profile_id
     return {
-        "timezone": system_timezone(),
         "context": {"directory": str(data / "context")},
         "sessions": {"persist_directory": str(data / "sessions")},
         "tools": {
@@ -142,6 +143,7 @@ def ensure_profile(paths: ProfilePaths, *, authority: OwnerAuthority | None = No
     with authority._locked():
         if not (paths.config_file.exists() or paths.config_file.is_symlink()):
             document = fresh_config_document(paths)
+            document["timezone"] = system_timezone()
             config = Config.model_validate(document)
             _ensure_ssh_key(paths, authority, config)
             # Workspace is independent of protected profile state. Existing modes
@@ -171,6 +173,7 @@ def provision_fresh_profile(paths: ProfilePaths) -> OwnerAuthority:
         if paths.config_file.exists() or paths.config_file.is_symlink():
             raise FileExistsError("profile configuration already exists")
         document = fresh_config_document(paths)
+        document["timezone"] = system_timezone()
         config = Config.model_validate(document)
         _ensure_ssh_key(paths, authority, config)
         Path(config.tools.local_working_dir).mkdir(parents=True, exist_ok=True, mode=0o700)

@@ -36,6 +36,14 @@ export const CAPTURE_MODEL_CATALOGUE = {
     available: false, unavailable_reason: 'Synthetic compatible provider disabled', hint_metadata: {}, efforts: [], effort_capabilities: {
     values: [], restrictions_known: true, source: 'synthetic_capture_fixture' } }]
 }
+// Metadata-shaped synthetic status, not a successful connection probe.
+export const CAPTURE_MODEL_STATUS = {
+  model_catalogue: CAPTURE_MODEL_CATALOGUE, serving_provider: 'codex', active_provider: 'codex',
+  codex: { configured: true },
+  ollama: { configured: false, base_url: 'http://127.0.0.1:11434', model: 'fixture-local' },
+  openai_compatible: { configured: false, base_url: 'https://openrouter.ai/api/v1',
+    model: 'openai/fixture-chat', openrouter_recognized: true }
+}
 export const CAPTURE_OUTBOUND_WEBHOOKS = {
   webhook_count: 1, enabled_count: 0, scrub_secrets: true, rate_limit_seconds: 1,
   webhooks: [{ id: 'capture-target', name: 'Capture event target', url: 'https://capture.invalid/events',
@@ -139,7 +147,11 @@ export function fixtureCommand(python, fixture, fields = []) {
   // single printable line; Python exec receives escaped newlines as data.
   const augmented = fields.length ? bootstrap.replace("runpy.run_path(fixture, run_name='__main__')",
     `import asyncio, json\nmodule = runpy.run_path(fixture, run_name='capture_fixture')\nfor row in json.loads(${JSON.stringify(JSON.stringify(fields))}):\n    existing = module['SETTINGS_FIELDS'].get(row[0])\n    record = dict(existing) if existing else module['field'](*row[:4], apply_mode=row[4] if len(row) > 4 else 'live_read')\n    record['default'] = row[3]\n    module['SETTINGS_FIELDS'][row[0]] = record\nfor path, metadata in json.loads(${JSON.stringify(JSON.stringify(CAPTURE_FIELD_METADATA))}).items():\n    if path in module['SETTINGS_FIELDS']:\n        module['SETTINGS_FIELDS'][path] = {**module['SETTINGS_FIELDS'][path], **metadata}\ncapture_catalogue = json.loads(${JSON.stringify(JSON.stringify(CAPTURE_MODEL_CATALOGUE))})\nmodule['METHODS']['models.status'] = lambda core, params, writer: {'model_catalogue': capture_catalogue}\ncapture_outbound = json.loads(${JSON.stringify(JSON.stringify(CAPTURE_OUTBOUND_WEBHOOKS))})\nmodule['METHODS']['webhooks.outbound.list'] = lambda core, params, writer: capture_outbound\nsys.exit(asyncio.run(module['main']()))`) : bootstrap
-  return [python, '-B', '-P', '-c', `exec(${JSON.stringify(augmented)})`, fixture]
+  const statusBootstrap = fields.length ? augmented.replace(
+    "sys.exit(asyncio.run(module['main']()))",
+    `capture_status = json.loads(${JSON.stringify(JSON.stringify(CAPTURE_MODEL_STATUS))})\nmodule['METHODS']['models.status'] = lambda core, params, writer: capture_status\nsys.exit(asyncio.run(module['main']()))`
+  ) : augmented
+  return [python, '-B', '-P', '-c', `exec(${JSON.stringify(statusBootstrap)})`, fixture]
 }
 
 async function bounded(command, args, cwd, timeoutMs = 180_000) {

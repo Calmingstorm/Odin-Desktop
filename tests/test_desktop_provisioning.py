@@ -65,6 +65,28 @@ def test_group_writable_parent_is_not_refused(profile, tmp_path):
     assert tmp_path.stat().st_mode & 0o777 == 0o775
 
 
+def test_existing_profile_without_timezone_keeps_utc_on_load(profile, monkeypatch):
+    import src.desktop.provisioning as provisioning
+    from src.desktop.secrets import ProfileSecretStore
+    from src.desktop.settings import SettingsService
+
+    monkeypatch.setenv("TZ", "America/New_York")
+    detect = Mock(return_value="America/New_York")
+    monkeypatch.setattr(provisioning, "system_timezone", detect)
+    profile.paths.config_file.write_text("# existing 1.0.0 profile\npersonality: {}\n")
+    profile.paths.config_file.chmod(0o600)
+    saved = profile.paths.config_file.read_bytes()
+    assert fresh_config(profile.paths).timezone == "UTC"
+    assert load_config(profile.paths.config_file).timezone == "UTC"
+    assert ensure_profile(profile.paths, authority=profile.authority).timezone == "UTC"
+    settings = SettingsService(
+        profile.paths, ProfileSecretStore(profile.paths, backend=SimpleNamespace())
+    )
+    assert settings.config.timezone == "UTC"
+    assert profile.paths.config_file.read_bytes() == saved
+    detect.assert_not_called()
+
+
 @pytest.mark.parametrize("entrypoint", ["ensure", "provision"])
 def test_new_profile_uses_system_zone_once_existing_zone_is_preserved(
     profile, monkeypatch, entrypoint

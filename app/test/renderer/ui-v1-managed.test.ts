@@ -36,8 +36,14 @@ describe('UI v1 curated managed destinations', () => {
   })
   it('keeps Add/Edit credentials write-only and Cancel performs no server mutation', async () => {
     const { root } = await view('Mcp')
+    expect(root.textContent()).toContain('Saved securely: Authorization, TOKEN')
+    const actions = root.findAll(n => n.props.class === 'mcp-server-actions')[0]!
+    expect(actions.children.filter(n => n.tag === 'button').map(n => n.textContent())).toEqual(['Edit', 'More'])
+    expect(root.named('More actions for docs').props['aria-haspopup']).toBe('menu')
     root.button('Edit').fire('click'); await flush()
     expect(root.find('dialog')!.props['aria-label']).toBe('Edit MCP server docs')
+    expect(root.find('dialog')!.props.class).toBe('settings-form-dialog')
+    expect(root.find('dialog')!.findAll(n => n.props.class === 'settings-card')).toHaveLength(0)
     expect(root.textContent()).toContain('Leave a field blank to keep what is stored')
     expect(root.textContent()).toContain('Remove header Authorization')
     root.button('Add a header').fire('click'); await flush()
@@ -63,6 +69,17 @@ describe('UI v1 curated managed destinations', () => {
     control.type('6'); settle(ok({ ...mcp, revision: 'm2' })); await flush()
     expect(String(control.value)).toBe('6')
     root.button('Cancel limits').fire('click'); await flush(); expect(control.value).toBe('')
+  })
+  it('locks MCP dialog cancel and submission while a receipt is pending', async () => {
+    const { root } = await view('Mcp')
+    root.named('Edit docs').fire('click'); await flush()
+    const { management } = await import('../../src/renderer/src/stores/management')
+    management.busy['mcp:docs'] = true; await flush()
+    expect(root.named('Cancel MCP server changes').props.disabled).toBe(true)
+    root.named('Cancel MCP server changes').fire('click')
+    root.named('Save MCP server docs').fire('click'); await flush()
+    expect(root.find('dialog')).toBeTruthy(); expect(bridge.mcpSave).not.toHaveBeenCalled()
+    management.busy['mcp:docs'] = false
   })
   it('Skills exposes one curated endpoint editor with explicit multiline save and a real enablement switch', async () => {
     const path = 'tools.skill_allowed_urls'

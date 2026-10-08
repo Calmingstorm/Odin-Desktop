@@ -22,9 +22,9 @@ async function removeConversation(id: string, title: string): Promise<void> {
 </script>
 <template>
   <nav class="settings-subnav" aria-label="Data and privacy subsections">
-    <button class="ghost" :aria-current="active === 'memory' ? 'page' : undefined" @click="active = 'memory'">Memory and knowledge</button>
-    <button class="ghost" :aria-current="active === 'conversations' ? 'page' : undefined" @click="active = 'conversations'">Conversations</button>
-    <button class="ghost" :aria-current="active === 'records' ? 'page' : undefined" @click="active = 'records'">Usage, logs and audit</button>
+    <button class="ghost" :aria-pressed="active === 'memory'" :aria-current="active === 'memory' ? 'page' : undefined" @click="active = 'memory'">Memory and knowledge</button>
+    <button class="ghost" :aria-pressed="active === 'conversations'" :aria-current="active === 'conversations' ? 'page' : undefined" @click="active = 'conversations'">Conversations</button>
+    <button class="ghost" :aria-pressed="active === 'records'" :aria-current="active === 'records' ? 'page' : undefined" @click="active = 'records'">Usage, logs and audit</button>
   </nav>
   <template v-if="active === 'memory'">
     <SettingsSection v-if="primary.length" title="Learning and search">

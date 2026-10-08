@@ -111,7 +111,7 @@ describe('P3.4 management settings structural accessibility', () => {
     const timeout = root.findAll((n) => n.tag === 'input' && n.props.min === '1')[0]!
     timeout.type('0')
     await flush()
-    root.button('Add').fire('click')
+    root.named('Add MCP server').fire('click')
     await flush()
     expect(invalidFields(root)).toEqual([timeout])
     linkedError(root, timeout, 'The timeout')

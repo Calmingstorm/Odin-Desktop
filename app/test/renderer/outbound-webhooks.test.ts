@@ -47,9 +47,14 @@ describe('outbound webhook owner workflow', () => {
   it('uses native Add/Edit dialog and row/switch semantics', async () => {
     const v = await open(); await invoke(v, 'edit')
     expect(v.root.findAll(n => n.tag === 'dialog' && n.props['aria-label'] === 'Add outbound target')).toHaveLength(1)
+    expect(v.root.find('dialog')!.props.class).toBe('settings-form-dialog')
+    expect(v.root.find('dialog')!.find('form')!.props.class).toBe('settings-form')
+    const footer = v.root.findAll(n => n.props.class === 'settings-form-actions')[0]!
+    expect(footer.children.filter(n => n.tag === 'button').map(n => n.textContent())).toEqual(['Cancel', 'Add target'])
     await invoke(v, 'cancel'); await invoke(v, 'edit', target())
     expect(v.root.findAll(n => n.tag === 'dialog' && n.props['aria-label'] === 'Edit outbound target')).toHaveLength(1)
     expect(v.root.findAll(n => n.props.role === 'switch')).toHaveLength(3)
+    expect(v.root.named('Save outbound webhook').textContent()).toBe('Save')
   })
   it('locks all actions during confirmation, preserves cancelled drafts and rejects programmatic mutation', async () => {
     const v = await open(); await invoke(v, 'edit', target()); v.setup.draft.tls = false; v.setup.draft.urlIntent = 'replace'; await flush()

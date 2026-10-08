@@ -156,7 +156,8 @@ describe('Step 5 renderer integration shapes', () => {
 
   it('labels the authorized user scope while sending its exact identifier, and shows list item names/completion', async () => {
     const v = await view('State')
-    expect(v.root.textContent()).toContain('Yours')
+    expect(v.root.findAll((n) => n.tag === 'strong').map((n) => n.textContent())).toContain('You')
+    expect(v.root.textContent()).not.toContain('Yours')
     expect(v.root.textContent()).not.toContain('Invalid Date')
     await (v.setup.editEntry as (scope: string, key: string, value: string) => void)('user_profile_owner', 'new', 'new value')
     await (v.setup.saveEntry as (scope: string) => Promise<void>)('user_profile_owner')

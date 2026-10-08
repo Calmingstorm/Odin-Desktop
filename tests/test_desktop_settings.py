@@ -51,10 +51,42 @@ async def save(service, method, changes):
     )
 
 
+async def test_existing_missing_timezone_stays_utc_for_save_reload_and_delete(service, monkeypatch):
+    monkeypatch.setenv("TZ", "America/New_York")
+    assert service.config.timezone == "UTC"
+    await save(service, "settings.set", [
+        {"path": "personality.custom_name", "value": "Odin revised"},
+    ])
+    assert service.config.timezone == "UTC"
+    assert "timezone" not in yaml.safe_load(service.paths.config_file.read_text())
+    await service.reload()
+    assert service.config.timezone == "UTC"
+    await save(service, "settings.set", [{"path": "timezone", "value": "Europe/Paris"}])
+    assert service.config.timezone == "Europe/Paris"
+    await save(service, "settings.set", [{"path": "timezone", "delete": True}])
+    assert service.config.timezone == "UTC"
+    assert "timezone" not in yaml.safe_load(service.paths.config_file.read_text())
+
+
 def test_computer_schema_exposes_only_opt_in(service):
     fields = [field["path"] for field in service.schema()["fields"]
               if field["path"].startswith("computer.")]
     assert fields == ["computer.enabled"]
+
+
+def test_codex_context_utilization_schema_matches_core_validator(service):
+    field = next(field for field in service.schema()["fields"]
+                 if field["path"] == "openai_codex.context_utilization")
+    assert field["default"] == 60
+    assert field["constraints"] == {"minimum": 30, "maximum": 100}
+    minimum = field["constraints"]["minimum"]
+    maximum = field["constraints"]["maximum"]
+    for value in (minimum, 60, maximum):
+        config = Config.model_validate({"openai_codex": {"context_utilization": value}})
+        assert config.openai_codex.context_utilization == value
+    for value in (minimum - 1, maximum + 1):
+        with pytest.raises(ValueError, match="context_utilization"):
+            Config.model_validate({"openai_codex": {"context_utilization": value}})
 
 
 @pytest.mark.asyncio

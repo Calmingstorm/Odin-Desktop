@@ -67,7 +67,7 @@ async def test_reviewed_test_revision_refuses_changed_owner_before_http(graph):
     assert not transport.requests
 
 
-async def test_reviewed_test_uses_qualified_target_not_later_id_lookup(graph, monkeypatch):
+async def test_reviewed_test_public_owner_may_adopt_edit_after_revision_check(graph, monkeypatch):
     service = graph.management.integrations
     owner = service.dispatcher
     transport = Transport()
@@ -79,30 +79,137 @@ async def test_reviewed_test_uses_qualified_target_not_later_id_lookup(graph, mo
     baseline = graph.management.settings.revision
     admitted = asyncio.Event()
     release = asyncio.Event()
-    deliver = owner._deliver_one
+    send = owner.send_test_event
 
-    async def pause(target, *args):
+    async def pause(webhook_id):
         admitted.set()
         await release.wait()
-        return await deliver(target, *args)
+        return await send(webhook_id)
 
-    monkeypatch.setattr(owner, "_deliver_one", pause)
+    monkeypatch.setattr(owner, "send_test_event", pause)
     pending = asyncio.create_task(graph.management.invoke("webhooks.outbound.test", {
         "id": ident, "expected_revision": baseline,
     }))
     await asyncio.wait_for(admitted.wait(), 2)
-    # Re-adopt this ID after admission. HTTP retains the reviewed copy,
-    # and external I/O must not hold settings/file locks.
+    # Revision admission intentionally does not hold settings/file locks across
+    # public delivery. The owner may select a newer target before its ID lookup.
     def change():
-        with owner._target_lock, graph.management.settings._lock:
-            graph.management.settings.config.outbound_webhooks.targets[0].url = "https://example.invalid/later"
-            owner._sync()
+        graph.management.settings.save_changes([
+            (("outbound_webhooks", "targets"), [
+                graph.management.settings.config.outbound_webhooks.targets[0].model_dump()
+                | {"url": "https://example.invalid/later"},
+            ]),
+        ], method="webhooks.outbound.save", expected_revision=baseline)
     await asyncio.wait_for(asyncio.to_thread(change), 2)
     release.set()
     result = await pending
     assert result["ok"] and result["result"]["success"]
-    assert transport.requests[0][0] == "https://example.invalid/reviewed"
+    assert transport.requests[0][0] == "https://example.invalid/later"
     assert owner.get(ident).url == "https://example.invalid/later"
+
+
+@pytest.mark.parametrize("reviewed", [False, True])
+async def test_outbound_test_uses_only_public_dispatcher_api(graph, monkeypatch, reviewed):
+    service = graph.management.integrations
+    calls = []
+
+    class PublicOnlyDispatcher:
+        def __getattr__(self, name):
+            raise AssertionError(f"Unexpected dispatcher implementation access: {name}")
+
+        def get_status(self):
+            return {}
+
+        async def send_test_event(self, webhook_id):
+            calls.append(webhook_id)
+            return SimpleNamespace(to_dict=lambda: {"success": True})
+
+    monkeypatch.setattr(service, "dispatcher", PublicOnlyDispatcher())
+    params = {"id": "public-api"}
+    if reviewed:
+        params["expected_revision"] = graph.management.settings.revision
+    result = await service.handle("webhooks.outbound.test", params)
+    assert result == {"success": True}
+    assert calls == ["public-api"]
+    if reviewed:
+        params["expected_revision"] = "stale-revision"
+        with pytest.raises(MethodError) as error:
+            await service.handle("webhooks.outbound.test", params)
+        assert error.value.code == "stale_binding"
+        assert calls == ["public-api"]
+
+
+@pytest.mark.parametrize("revision", [None, "", 0])
+async def test_reviewed_test_invalid_revision_never_sends(graph, revision):
+    owner = graph.management.integrations.dispatcher
+    transport = Transport()
+    owner._session = transport
+    with pytest.raises(MethodError) as error:
+        await graph.management.integrations.handle("webhooks.outbound.test", {
+            "id": "missing", "expected_revision": revision,
+        })
+    assert error.value.code == "bad_request"
+    assert not transport.requests
+
+
+async def test_reviewed_test_missing_target_is_public_owner_not_found(graph):
+    result = await graph.management.invoke("webhooks.outbound.test", {
+        "id": "missing", "expected_revision": graph.management.settings.revision,
+    })
+    assert not result["ok"] and result["error"]["code"] == "not_found"
+
+
+async def test_reviewed_test_owner_close_after_revision_admission_never_sends(graph, monkeypatch):
+    service = graph.management.integrations
+    owner = service.dispatcher
+    transport = Transport()
+    owner._session = transport
+    saved = await graph.management.invoke("webhooks.outbound.save", {
+        "name": "closed", "url": "https://example.invalid/closed",
+    })
+    send = owner.send_test_event
+
+    async def close_then_send(webhook_id):
+        await owner.close()
+        return await send(webhook_id)
+
+    monkeypatch.setattr(owner, "send_test_event", close_then_send)
+    result = await graph.management.invoke("webhooks.outbound.test", {
+        "id": saved["result"]["id"], "expected_revision": graph.management.settings.revision,
+    })
+    assert not result["ok"] and result["error"]["code"] == "unavailable"
+    assert not transport.requests
+    assert transport.closes == 1
+
+
+async def test_reviewed_test_shutdown_cancels_inflight_public_delivery(graph):
+    service = graph.management.integrations
+    owner = service.dispatcher
+    entered = asyncio.Event()
+
+    class BlockingResponse(Response):
+        async def __aenter__(self):
+            entered.set()
+            await asyncio.Event().wait()
+
+    class BlockingTransport(Transport):
+        def post(self, *_args, **_kwargs):
+            return BlockingResponse()
+
+    transport = BlockingTransport()
+    owner._session = transport
+    saved = await graph.management.invoke("webhooks.outbound.save", {
+        "name": "in-flight", "url": "https://example.invalid/in-flight",
+    })
+    pending = asyncio.create_task(service.handle("webhooks.outbound.test", {
+        "id": saved["result"]["id"], "expected_revision": graph.management.settings.revision,
+    }))
+    await asyncio.wait_for(entered.wait(), 2)
+    await asyncio.wait_for(owner.close(), 2)
+    with pytest.raises(asyncio.CancelledError):
+        await pending
+    assert transport.closes == 1
+    assert not owner._deliveries and not owner._in_flight
 
 
 @pytest.fixture(autouse=True)
@@ -304,7 +411,8 @@ async def test_constructor_is_inert_and_close_cancels_delivery():
         await borrowed.handle("webhooks.outbound.list", {})
 
 
-async def test_locked_keyring_delivers_public_targets_and_reports_credentialed_skips(graph):
+@pytest.mark.parametrize("reviewed", [False, True])
+async def test_locked_keyring_delivers_public_targets_and_reports_credentialed_skips(graph, reviewed):
     owner = graph.engine.deps.outbound_webhook_dispatcher
     transport = Transport()
     owner._session = transport
@@ -340,8 +448,13 @@ async def test_locked_keyring_delivers_public_targets_and_reports_credentialed_s
     assert all("keyring" in row["reason"] for row in skipped)
     assert "fixture-signing" not in json.dumps(listed)
     assert "fixture-password" not in json.dumps(listed)
-    tested = await graph.management.invoke("webhooks.outbound.test", {"id": signed_id})
+    params = {"id": signed_id}
+    if reviewed:
+        params["expected_revision"] = graph.management.settings.revision
+    requests = list(transport.requests)
+    tested = await graph.management.invoke("webhooks.outbound.test", params)
     assert not tested["ok"] and tested["error"]["code"] == "unavailable"
+    assert transport.requests == requests
     graph.settings.secrets._backend.locked = False
     assert len(await owner.dispatch("health", {})) == 4
     assert "skipped_webhooks" not in owner.get_status()

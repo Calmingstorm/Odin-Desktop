@@ -172,11 +172,11 @@ onMounted(() => readProjection())
       </li>
       <li v-for="row in snapshot.skipped_webhooks" :key="`skipped:${row.id}`" class="warn">Target {{ row.id }} unavailable: {{ row.reason }}</li>
     </ul>
-    <dialog v-if="draft" ref="editorDialog" class="outbound-editor-dialog" :aria-label="draft.original ? 'Edit outbound target' : 'Add outbound target'" @cancel.prevent="cancel">
-    <form aria-label="Outbound webhook editor" @submit.prevent="save">
+    <dialog v-if="draft" ref="editorDialog" class="settings-form-dialog" :aria-label="draft.original ? 'Edit outbound target' : 'Add outbound target'" @cancel.prevent="cancel">
+    <form class="settings-form" aria-label="Outbound webhook editor" @submit.prevent="save">
+      <h3>{{ draft.original ? 'Edit outbound target' : 'Add outbound target' }}</h3>
       <p v-if="error" role="alert">{{ error }}</p>
       <fieldset :disabled="locked">
-        <legend>{{ draft.original ? 'Edit outbound target' : 'Add outbound target' }}</legend>
         <label>Name <input v-model="draft.name" data-testid="outbound-name" :maxlength="draft.original ? 128 : 100" /></label>
         <label>Endpoint action <select v-model="draft.urlIntent" data-testid="outbound-url-intent">
           <option v-if="draft.original" value="keep">Keep current endpoint unchanged</option><option value="replace">Replace endpoint</option><option v-if="draft.original" value="remove">Strip endpoint userinfo, query and fragment</option>
@@ -187,26 +187,14 @@ onMounted(() => readProjection())
         <SettingsRow label="Enable this target" control-id="outbound-enabled"><SettingsSwitch id="outbound-enabled" label="Enable this outbound target" :checked="draft.enabled" :disabled="locked" data-testid="outbound-enabled" @change="draft.enabled = $event" /></SettingsRow>
         <SettingsRow label="Scrub secrets for this target" control-id="outbound-scrub"><SettingsSwitch id="outbound-scrub" label="Scrub secrets for this outbound target" :checked="draft.scrub" :disabled="locked" data-testid="outbound-scrub" @change="draft.scrub = $event" /></SettingsRow>
         <SettingsRow label="Verify TLS certificates for this target" control-id="outbound-tls"><SettingsSwitch id="outbound-tls" label="Verify TLS certificates for this outbound target" :checked="draft.tls" :disabled="locked" data-testid="outbound-tls" @change="draft.tls = $event" /></SettingsRow>
-        <fieldset><legend>Event subscriptions (none selected means all)</legend><label v-for="event in EVENTS" :key="event"><input v-model="draft.events" type="checkbox" :value="event" /> {{ event }}</label></fieldset>
-        <button type="submit">Save outbound webhook</button>
+        <fieldset><legend>Event subscriptions (none selected means all)</legend><div class="settings-form-options"><label v-for="event in EVENTS" :key="event" class="toggle-inline"><input v-model="draft.events" type="checkbox" :value="event" /> {{ event }}</label></div></fieldset>
       </fieldset>
-      <button type="button" class="ghost" :disabled="busy || confirming" @click="cancel">Cancel outbound edit</button>
       <p>Refresh replaces this draft. Credentials are never read back. Save is explicit; Cancel writes nothing.</p>
+      <div class="settings-form-actions">
+        <button type="button" class="ghost" aria-label="Cancel outbound edit" :disabled="busy || confirming" @click="cancel">Cancel</button>
+        <button type="button" class="primary" aria-label="Save outbound webhook" :disabled="locked" @click="save">{{ draft.original ? 'Save' : 'Add target' }}</button>
+      </div>
     </form>
     </dialog>
   </SettingsSection>
 </template>
-
-<style scoped>
-.outbound-editor-dialog { width: min(760px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow: auto; padding: 20px; border: 1px solid var(--line); border-radius: 12px; color: var(--fg); background: var(--bg); }
-.outbound-editor-dialog::backdrop { background: rgb(0 0 0 / 55%); }
-.outbound-editor-dialog fieldset { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin: 0 0 12px; }
-.outbound-editor-dialog legend { font-weight: 600; }
-.outbound-editor-dialog fieldset > label { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 45%); align-items: center; gap: 12px; margin-bottom: 12px; }
-.outbound-editor-dialog input:not([type=checkbox]), .outbound-editor-dialog select { width: 100%; min-width: 0; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; }
-.outbound-editor-dialog fieldset > fieldset { display: flex; flex-wrap: wrap; gap: 12px; }
-.outbound-editor-dialog fieldset > fieldset > label { display: flex; gap: 6px; margin: 0; }
-.outbound-editor-dialog button { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; }
-.outbound-editor-dialog p { color: var(--muted); font-size: 12px; }
-@media (max-width: 640px) { .outbound-editor-dialog fieldset > label { grid-template-columns: minmax(0, 1fr); } }
-</style>
