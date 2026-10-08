@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   short-gates:
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: github.repository == 'Calmingstorm/Odin-Desktop' && ((github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == 'Calmingstorm/Odin-Desktop'))
     name: short-gates (${{ matrix.lane }})
     strategy:
       fail-fast: false
@@ -25,7 +25,7 @@ jobs:
     runs-on: ${{ matrix.labels }}
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # The merged accounting gates read pinned historical Git objects.
           fetch-depth: 0
@@ -48,7 +48,7 @@ jobs:
           actual="$("$RUNNER_TOOL_CACHE/Python/$version/x64/bin/python" -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
           [[ "$actual" == "$version" ]] || { echo "::error::Cached Python version mismatch"; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ steps.cached-python.outputs.version }}
           architecture: x64
@@ -73,7 +73,7 @@ jobs:
       - name: Hermetic Cinnamon and GNOME fixtures (no graphical session)
         run: .venv/bin/python scripts/run-phase1-tests.py tests/test_lab_cinnamon.py tests/test_lab_gnome.py -rs
   full-suites:
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: github.repository == 'Calmingstorm/Odin-Desktop' && ((github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == 'Calmingstorm/Odin-Desktop'))
     runs-on: [self-hosted, odin-desktop-ci]
     # Plan groups run once with their original JUnit receipts; the additional
     # Desktop step covers only files outside that plan. Keep master's existing bound.
@@ -81,7 +81,7 @@ jobs:
     env:
       ODIN_COVERAGE: '1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
       - name: Require the runner's cached Python 3.12
@@ -103,7 +103,7 @@ jobs:
           actual="$("$RUNNER_TOOL_CACHE/Python/$version/x64/bin/python" -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
           [[ "$actual" == "$version" ]] || { echo "::error::Cached Python version mismatch"; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ steps.cached-python.outputs.version }}
           architecture: x64
@@ -150,7 +150,7 @@ jobs:
         run: rm -rf "/dev/shm/odin-ci-$RUNNER_NAME"
       - name: Upload full-suite coverage evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-full-suites
           include-hidden-files: true
@@ -163,7 +163,7 @@ jobs:
       ODIN_COVERAGE: '1'
     # Each job preserves its own coverage data; combine happens only after success.
     name: qualification (${{ matrix.shard }}/5)
-    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    if: github.repository == 'Calmingstorm/Odin-Desktop' && ((github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == 'Calmingstorm/Odin-Desktop'))
     runs-on: [self-hosted, odin-desktop-ci]
     # Whole qualification groups split by measured duration into parallel
     # shards; together they run the plan exactly once, each group intact.
@@ -173,7 +173,7 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4, 5]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
       - name: Require the runner's cached Python 3.12
@@ -195,7 +195,7 @@ jobs:
           actual="$("$RUNNER_TOOL_CACHE/Python/$version/x64/bin/python" -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
           [[ "$actual" == "$version" ]] || { echo "::error::Cached Python version mismatch"; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ steps.cached-python.outputs.version }}
           architecture: x64
@@ -224,7 +224,7 @@ jobs:
         run: rm -rf "/dev/shm/odin-ci-$RUNNER_NAME"
       - name: Upload qualification coverage evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-qualification-${{ matrix.shard }}
           include-hidden-files: true
@@ -233,10 +233,11 @@ jobs:
   coverage:
     name: coverage no-drop ratchet
     needs: [full-suites, qualification]
+    if: github.repository == 'Calmingstorm/Odin-Desktop' && ((github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == 'Calmingstorm/Odin-Desktop'))
     runs-on: [self-hosted, odin-desktop-short]
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
       - name: Require the runner's cached Python 3.12
@@ -258,7 +259,7 @@ jobs:
           actual="$("$RUNNER_TOOL_CACHE/Python/$version/x64/bin/python" -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')"
           [[ "$actual" == "$version" ]] || { echo "::error::Cached Python version mismatch"; exit 1; }
           echo "version=$version" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ steps.cached-python.outputs.version }}
           architecture: x64
@@ -266,7 +267,7 @@ jobs:
         run: |
           python -m venv --copies .venv
           .venv/bin/python -m pip install coverage==7.16.2
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: coverage-*
           path: coverage-input
@@ -277,7 +278,7 @@ jobs:
           .venv/bin/python scripts/ci/desktop_coverage_gate.py --combine coverage-input --output coverage --app-json coverage-input/coverage-full-suites/app/coverage/coverage-final.json
       - name: Upload coverage reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-reports
           if-no-files-found: error

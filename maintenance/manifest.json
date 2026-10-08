@@ -234,7 +234,7 @@
       "fixtures_closure": null,
       "owner": "Odin",
       "path": "LICENSE",
-      "reason": "Notice preserved in maintenance/UPSTREAM-LICENSE and frozen archive; private product license decision pending.",
+      "reason": "Notice preserved in maintenance/UPSTREAM-LICENSE and frozen archive; Desktop adopts the MIT license in LICENSE.",
       "reuse_verdict": "strip",
       "selected": false,
       "selection_override": null,

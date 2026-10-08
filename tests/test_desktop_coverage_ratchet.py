@@ -147,7 +147,8 @@ def test_ci_measurements_use_all_classified_shards_and_upload_even_on_failure():
         job = jobs[name]
         assert job["env"]["ODIN_COVERAGE"] == "1"
         upload = next(step for step in job["steps"]
-                      if step.get("uses") == "actions/upload-artifact@v4")
+                      if step.get("uses", "").startswith("actions/upload-artifact@"))
+        assert len(upload["uses"].split("@", 1)[1]) == 40
         assert upload["if"] == "always()"
         assert upload["with"]["include-hidden-files"] is True
         assert upload["with"]["if-no-files-found"] == "error"

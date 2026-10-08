@@ -1,0 +1,44 @@
+name: Bug report
+description: Report a reproducible Odin Desktop problem with sanitized details.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not paste credentials, tokens, private keys, profile data, databases or private conversations.
+        Report security vulnerabilities privately through https://github.com/Calmingstorm/Odin-Desktop/security/advisories/new.
+  - type: input
+    id: version
+    attributes:
+      label: Odin Desktop version
+      description: Exact app version, including whether this is a development build.
+    validations:
+      required: true
+  - type: input
+    id: session
+    attributes:
+      label: Distribution and desktop session
+      placeholder: "Linux Mint 22, Cinnamon/X11"
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package format
+      options: [".deb", "AppImage", "Source/development build"]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps using synthetic data. Do not retry an action with unknown external effects.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: Include sanitized error text if relevant, not a complete profile or log dump.
+    validations:
+      required: true

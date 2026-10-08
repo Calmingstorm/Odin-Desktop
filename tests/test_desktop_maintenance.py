@@ -56,6 +56,14 @@ def test_frozen_archive_and_copy_identity(frozen):
     )
     assert frozen["LICENSE"] == (REPO / "maintenance/UPSTREAM-LICENSE").read_bytes()
 
+def test_upstream_license_provenance_is_separate_from_product_license(frozen):
+    manifest, _ = inventory.manifests(REPO, frozen)
+    entry = next(row for row in manifest["entries"] if row["path"] == "LICENSE")
+    assert entry["selected"] is False
+    assert entry["reuse_verdict"] == "strip"
+    assert entry["upstream_sha256"] == inventory.digest(frozen["LICENSE"])
+    assert "Desktop adopts the MIT license in LICENSE" in entry["reason"]
+
 @pytest.mark.parametrize("path", ["src/llm/system_prompt.py", "src/discord/response_guards.py"])
 def test_exact_approved_wording_protects_surroundings(frozen, path, tmp_path):
     before = frozen[path]

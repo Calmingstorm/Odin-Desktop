@@ -2,14 +2,14 @@
 
 The lean v1 gate from [Decision I](../work/phase-3-app-v1.md#decision-i-lean-v1-release-gate), 2026-10-07. It
 replaces the earlier checklist (in git history before this change). Check an item only when its evidence is recorded
-here. Publication needs Aaron's separate approval. The repository stays private unless Aaron approves a change.
+here. Publication needs Aaron's separate approval. Repository visibility is a separate operator action after release.
 
 ## Scope: 1.0.0
 
 - **App:** Cinnamon/X11, GNOME/Wayland, KDE/Wayland and Hyprland.
 - **Computer use:** X11 only, at parity with Odin. Wayland computer use is planned for 1.1; until then the app
   refuses it there with guidance.
-- **Packages:** x86-64 `.deb` and AppImage, unsigned, published as a GitHub release on the private repository.
+- **Packages:** x86-64 `.deb` and AppImage, unsigned, published through this repository's GitHub Releases.
 - **Licence:** MIT, the same as Odin (`LICENSE`).
 - **PDF support:** downloaded on first use, pinned by hash ([Decision F](../work/phase-3-app-v1.md#decision-f-pdf-support-downloads-automatically-on-first-use)).
 

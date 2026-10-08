@@ -241,7 +241,7 @@ def manifests(root, blobs):
             elif path == "LICENSE":
                 reason = (
                     "Notice preserved in maintenance/UPSTREAM-LICENSE and frozen "
-                    "archive; private product license decision pending."
+                    "archive; Desktop adopts the MIT license in LICENSE."
                 )
             else:
                 reason = (

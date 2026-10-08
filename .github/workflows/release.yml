@@ -50,7 +50,7 @@ defaults:
 jobs:
   build:
     name: Build candidate
-    if: github.repository == 'Calmingstorm/Odin-Desktop' && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.actor == 'Calmingstorm') || (github.event_name == 'workflow_dispatch' && inputs.mode != 'publish-approved' && github.ref == 'refs/heads/master' && (inputs.mode == 'dry-run' || github.actor == 'Calmingstorm')))
+    if: github.repository == 'Calmingstorm/Odin-Desktop' && github.actor == 'Calmingstorm' && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'dry-run' || inputs.mode == 'retain-candidate') && github.ref == 'refs/heads/master'))
     runs-on: [self-hosted, odin-desktop-ci]
     timeout-minutes: 90
     permissions:

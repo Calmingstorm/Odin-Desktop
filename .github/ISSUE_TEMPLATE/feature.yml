@@ -1,0 +1,44 @@
+name: Feature request
+description: Describe a use case or improvement to Odin Desktop.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include credentials, tokens, private keys, profile data, databases or private conversations.
+        Use a synthetic example rather than real personal or infrastructure data.
+  - type: input
+    id: version
+    attributes:
+      label: Odin Desktop version
+      description: Exact version where you encountered the limitation.
+    validations:
+      required: true
+  - type: input
+    id: session
+    attributes:
+      label: Distribution and desktop session
+      placeholder: "Ubuntu 24.04, GNOME/Wayland"
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package format
+      options: [".deb", "AppImage", "Source/development build"]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Current steps and use case
+      description: What are you trying to do, and what steps currently fall short?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed improvement and alternatives
+      description: Describe the desired behavior and any workarounds you have considered.
+    validations:
+      required: true
