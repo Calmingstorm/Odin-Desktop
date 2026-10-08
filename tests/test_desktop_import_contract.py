@@ -3,6 +3,10 @@
 Temporary profiles, stubbed MCP connections and in-memory credentials only.
 """
 
+import asyncio
+import json
+import threading
+
 import pytest
 
 from src.desktop.management import MethodError
@@ -66,11 +70,157 @@ async def test_skill_create_never_replaces_an_existing_skill(graph):  # noqa: F8
             )
         assert error.value.code == "conflict"
         assert (await graph.service.handle("skills.get", {"name": "demo"}))["code"] == local
-        fresh = code(name="fresh")
-        await graph.service.handle("skills.save", {"name": "fresh", "code": fresh, "create": True})
-        await graph.service.handle("skills.set_enabled", {"name": "fresh", "enabled": False})
-        assert (await graph.service.handle("skills.get", {"name": "fresh"}))["status"] == "disabled"
+        # A source file that never loaded is the user's too, and a refused create records nothing.
+        manager = graph.service.skill_manager
+        draft = manager.skills_dir / "draft.py"
+        draft.write_text("work in progress")
+        with pytest.raises(MethodError) as error:
+            await graph.service.handle(
+                "skills.save",
+                {"name": "draft", "code": code(name="draft"), "create": True, "enabled": False},
+            )
+        assert error.value.code == "conflict"
+        assert draft.read_text() == "work in progress"
+        assert "draft" not in disabled_record(manager)
+        # Without create, saving still writes over a source that never loaded, as before.
+        await graph.service.handle("skills.save", {"name": "draft", "code": code(name="draft")})
+        assert manager.is_enabled("draft")
     finally:
+        PermissionManager.reset_request_owner(token)
+        await graph.service.close()
+
+
+def disabled_record(manager):
+    """The durable disabled list a restarted manager loads."""
+    path = manager.skills_dir / ".disabled.json"
+    return json.loads(path.read_text()) if path.exists() else []
+
+
+def pause_loading(manager, monkeypatch, name, inspect=None):
+    """Hold the first load of ``name`` (after its source is written, before it is published)."""
+    loading, resume = threading.Event(), threading.Event()
+    real_load = manager._load_skill
+
+    def load(path):
+        if path.stem == name and not loading.is_set():
+            if inspect:
+                inspect()
+            loading.set()
+            assert resume.wait(10)
+        return real_load(path)
+
+    monkeypatch.setattr(manager, "_load_skill", load)
+    return loading, resume
+
+
+@pytest.mark.asyncio
+async def test_skill_created_switched_off_is_never_enabled_even_mid_create(graph, monkeypatch):  # noqa: F811
+    await graph.service.start()
+    token = owner(graph)
+    manager = graph.service.skill_manager
+    seen = {}
+
+    def inspect():
+        seen["recorded"] = "quiet" in disabled_record(manager)
+        seen["listed"] = [row["name"] for row in graph.service.get_tool_definitions()]
+
+    loading, resume = pause_loading(manager, monkeypatch, "quiet", inspect)
+    try:
+        save = asyncio.create_task(graph.service.handle(
+            "skills.save",
+            {"name": "quiet", "code": code(name="quiet"), "create": True, "enabled": False},
+        ))
+        assert await asyncio.to_thread(loading.wait, 10)
+        # Before the save is answered: recorded off durably, and offered to no one.
+        assert seen == {"recorded": True, "listed": []}
+        resume.set()
+        await save
+        assert (await graph.service.handle("skills.get", {"name": "quiet"}))["status"] == "disabled"
+        assert graph.service.get_tool_definitions() == []
+        assert "disabled" in await manager.execute(
+            "quiet", {}, requester_id=graph.authority.owner_id)
+        # A create that doesn't load leaves no disabled record behind.
+        with pytest.raises(MethodError):
+            await graph.service.handle(
+                "skills.save",
+                {"name": "broken", "code": code(name="other"), "create": True, "enabled": False},
+            )
+        assert "broken" not in disabled_record(manager)
+        assert disabled_record(manager) == ["quiet"]
+    finally:
+        resume.set()
+        PermissionManager.reset_request_owner(token)
+        await graph.service.close()
+
+
+@pytest.mark.asyncio
+async def test_a_disabled_record_that_cannot_be_written_creates_nothing(graph, monkeypatch, caplog):  # noqa: F811
+    await graph.service.start()
+    token = owner(graph)
+    manager = graph.service.skill_manager
+    real_save = manager._save_disabled_set
+
+    def full_disk(disabled=None):
+        raise OSError("disk full")
+
+    try:
+        monkeypatch.setattr(manager, "_save_disabled_set", full_disk)
+        with pytest.raises(MethodError):
+            await graph.service.handle(
+                "skills.save",
+                {"name": "quiet", "code": code(name="quiet"), "create": True, "enabled": False},
+            )
+        assert not (manager.skills_dir / "quiet.py").exists() and not manager.has_skill("quiet")
+        # Recorded, then the create fails and the record can't be cleared: it stays, logged.
+        saves = iter([real_save, full_disk])
+        monkeypatch.setattr(
+            manager, "_save_disabled_set", lambda disabled=None: next(saves)(disabled))
+        with pytest.raises(MethodError):
+            await graph.service.handle(
+                "skills.save",
+                {"name": "broken", "code": code(name="other"), "create": True, "enabled": False},
+            )
+        assert disabled_record(manager) == ["broken"]
+        assert "Could not clear the disabled record of broken" in caplog.text
+    finally:
+        PermissionManager.reset_request_owner(token)
+        await graph.service.close()
+
+
+@pytest.mark.asyncio
+async def test_create_only_and_native_create_never_write_over_each_other(graph, monkeypatch):  # noqa: F811
+    await graph.service.start()
+    token = owner(graph)
+    manager = graph.service.skill_manager
+    try:
+        # The native create_skill tool's own call, held after writing its source.
+        local = code(name="race", body="return 'local user content'")
+        loading, resume = pause_loading(manager, monkeypatch, "race")
+        native = asyncio.create_task(asyncio.to_thread(manager.create_skill, "race", local))
+        assert await asyncio.to_thread(loading.wait, 10)
+        with pytest.raises(MethodError) as error:
+            await graph.service.handle(
+                "skills.save",
+                {"name": "race", "code": code(name="race", body="return 'new'"), "create": True},
+            )
+        assert error.value.code == "conflict"
+        resume.set()
+        assert "created" in await native
+        assert (await graph.service.handle("skills.get", {"name": "race"}))["code"] == local
+        # The other way round: an import in flight makes the native create report that it exists.
+        imported = code(name="other", body="return 'imported'")
+        loading, resume = pause_loading(manager, monkeypatch, "other")
+        save = asyncio.create_task(graph.service.handle(
+            "skills.save", {"name": "other", "code": imported, "create": True}))
+        assert await asyncio.to_thread(loading.wait, 10)
+        refused = await asyncio.to_thread(
+            manager.create_skill, "other", code(name="other", body="return 'local'"))
+        assert refused.startswith("Skill 'other' already exists")
+        resume.set()
+        await save
+        assert (await graph.service.handle("skills.get", {"name": "other"}))["code"] == imported
+    finally:
+        resume.set()
         PermissionManager.reset_request_owner(token)
         await graph.service.close()
 

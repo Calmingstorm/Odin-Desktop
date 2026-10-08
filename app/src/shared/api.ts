@@ -1366,6 +1366,8 @@ export interface OdinImportOutcome {
   /** unknown: a change was sent but not confirmed, so the import stopped; not_attempted: picks after it. */
   status: 'imported' | 'skipped' | 'needs_attention' | 'failed' | 'unknown' | 'not_attempted'
   message: string
+  /** For an unconfirmed change: the command the core may still settle. */
+  command_id?: string
 }
 
 export interface OdinImportReport {

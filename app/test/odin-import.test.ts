@@ -1,6 +1,10 @@
 // Import from Odin: a fake Odin API and a fake core that keeps the real contracts (create-only refusals, if_absent,
 // revisions and unconfirmed outcomes), so every read and write the importer makes is visible and judged.
+import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
+const handlers = vi.hoisted(() => new Map<string, Function>())
+vi.mock('electron', () => ({ ipcMain: { handle: (name: string, handler: Function) => handlers.set(name, handler) } }))
+import { registerIpc, type IpcDeps } from '../src/main/ipc'
 import {
   ODIN_REDACTED,
   applyOdinImport,
@@ -10,6 +14,7 @@ import {
   type ImportBroker
 } from '../src/main/odin-import'
 import { odinImportApplySchema, odinImportPreviewSchema } from '../src/main/schemas'
+import { IPC } from '../src/shared/api'
 
 // A throwaway public key and the fingerprint `ssh-keygen -lf` printed for it.
 const KEY = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPGfYwFXBev5NmLvSwQEC8gDGxBDSmS3iNsSbtLWXxJB import-test'
@@ -95,11 +100,13 @@ function desktop(answers: Record<string, Answer> = {}) {
     ] },
     ...answers
   }
-  const requests: Array<{ method: string; params: Record<string, unknown> }> = []
+  const requests: Array<{ method: string; params: Record<string, unknown>; id?: string }> = []
   const seen: Record<string, number> = {}
+  const receipts = new EventEmitter()
   const broker: ImportBroker = {
-    request: vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
-      requests.push({ method, params })
+    on: (event, listener) => receipts.on(event, listener),
+    request: vi.fn(async (method: string, params: Record<string, unknown> = {}, id?: string) => {
+      requests.push({ method, params, id })
       seen[method] = (seen[method] ?? 0) + 1
       const raw = method in defaults ? defaults[method] : { ok: true }
       const answer = typeof raw === 'function' ? (raw as (p: Record<string, unknown>, n: number) => unknown)(params, seen[method]!) : raw
@@ -108,7 +115,7 @@ function desktop(answers: Record<string, Answer> = {}) {
       return { ok: true as const, result: answer }
     })
   }
-  return { broker, requests }
+  return { broker, requests, receipts }
 }
 
 describe('fingerprintOf', () => {
@@ -255,13 +262,11 @@ describe('applyOdinImport', () => {
     const { broker, requests } = desktop()
     const report = await applyOdinImport(SOURCE, [pick('skills', 'quiet'), pick('personality', 'preset:active')], broker, odinApi().fetchImpl)
     if (!report.ok) throw new Error(report.error.message)
-    expect(requests.find((r) => r.method === 'skills.set_enabled')?.params).toEqual({ name: 'quiet', enabled: false })
+    expect(requests.find((r) => r.method === 'skills.save')?.params).toEqual({ name: 'quiet', code: 'def run():\n    return 2\n', create: true, enabled: false })
+    expect(requests.some((r) => r.method === 'skills.set_enabled')).toBe(false)
     expect(report.result.outcomes[0]).toMatchObject({ status: 'imported', message: 'Imported. Switched off, as in Odin.' })
     expect(requests.some((r) => r.method === 'personality.set')).toBe(false)
     expect(requests.find((r) => r.method === 'personality.presets.save')?.params).toMatchObject({ name: 'active', create: true })
-    const offFails = await applyOdinImport(SOURCE, [pick('skills', 'quiet')], desktop({ 'skills.set_enabled': refuse('bad_request', 'no') }).broker, odinApi().fetchImpl)
-    if (!offFails.ok) throw new Error(offFails.error.message)
-    expect(offFails.result.outcomes[0]).toMatchObject({ status: 'needs_attention' })
     const configFails = await applyOdinImport(SOURCE, [pick('skills', 'weather')], desktop({ 'skills.config.set': refuse('bad_request', 'no') }).broker, odinApi().fetchImpl)
     if (!configFails.ok) throw new Error(configFails.error.message)
     expect(configFails.result.outcomes[0]).toMatchObject({ status: 'needs_attention', message: expect.stringMatching(/settings weren't/) })
@@ -340,13 +345,58 @@ describe('applyOdinImport', () => {
     expect(report.result.outcomes.map((o) => [o.id, o.status])).toEqual([
       ['global', 'imported'], ['weather', 'unknown'], ['Grafana', 'not_attempted'], ['server', 'not_attempted']
     ])
-    expect(requests.filter((r) => r.method === 'skills.save')).toHaveLength(1)
+    const sent = requests.filter((r) => r.method === 'skills.save')
+    expect(sent).toHaveLength(1)
+    expect(sent[0]!.id).toMatch(/^[0-9a-f-]{36}$/)
+    expect(report.result.outcomes[1]!.command_id).toBe(sent[0]!.id)
     expect(requests.some((r) => r.method === 'mcp.save' || r.method === 'hosts.prepare')).toBe(false)
     const testLate = await applyOdinImport(SOURCE, [pick('hosts', 'server')],
       desktop({ 'hosts.test': refuse('no_receipt', 'No receipt yet.', 'outcome_unknown') }).broker, odinApi().fetchImpl)
     if (!testLate.ok) throw new Error(testLate.error.message)
     expect(testLate.result.outcomes[0]).toMatchObject({ status: 'needs_attention', message: expect.stringMatching(/didn't answer in time/) })
     expect(testLate.result.public_key).toBeUndefined()
+  })
+
+  it('refuses to send an unconfirmed change again until its late receipt arrives', async () => {
+    let lost = true
+    const { broker, requests, receipts } = desktop({ 'models.main.set': () => (lost ? refuse('no_receipt', 'No receipt yet.', 'outcome_unknown') : { ok: true }) })
+    const first = await applyOdinImport(SOURCE, [pick('models', 'main')], broker, odinApi().fetchImpl)
+    if (!first.ok) throw new Error(first.error.message)
+    const original = first.result.outcomes[0]!.command_id
+    expect(first.result.outcomes[0]).toMatchObject({ status: 'unknown' })
+    // Importing it again while it is unresolved sends nothing and names the original command.
+    const again = await applyOdinImport(SOURCE, [pick('models', 'main'), pick('models', 'timezone')], broker, odinApi().fetchImpl)
+    if (!again.ok) throw new Error(again.error.message)
+    expect(again.result.outcomes.map((o) => [o.id, o.status])).toEqual([['main', 'unknown'], ['timezone', 'imported']])
+    expect(again.result.outcomes[0]!.command_id).toBe(original)
+    expect(requests.filter((r) => r.method === 'models.main.set')).toHaveLength(1)
+    // An unrelated receipt changes nothing; the original command's late receipt clears it.
+    receipts.emit('receipt', { id: 'someone-else' })
+    lost = false
+    const still = await applyOdinImport(SOURCE, [pick('models', 'main')], broker, odinApi().fetchImpl)
+    if (!still.ok) throw new Error(still.error.message)
+    expect(still.result.outcomes[0]).toMatchObject({ status: 'unknown' })
+    receipts.emit('receipt', { id: original })
+    const settled = await applyOdinImport(SOURCE, [pick('models', 'main')], broker, odinApi().fetchImpl)
+    if (!settled.ok) throw new Error(settled.error.message)
+    expect(settled.result.outcomes[0]).toMatchObject({ status: 'imported' })
+    expect(requests.filter((r) => r.method === 'models.main.set')).toHaveLength(2)
+  })
+
+  it('refuses a second import while one is still running, and runs again once it has finished', async () => {
+    const { broker } = desktop()
+    const odin = odinApi()
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const slow: FetchLike = async (url, init) => { await gate; return odin.fetchImpl(url, init) }
+    const first = applyOdinImport(SOURCE, [pick('models', 'timezone')], broker, slow)
+    expect(await applyOdinImport(SOURCE, [pick('models', 'timezone')], broker, odin.fetchImpl))
+      .toMatchObject({ ok: false, error: { code: 'busy' } })
+    release()
+    expect(await first).toMatchObject({ ok: true })
+    const failing = odinApi({ '/api/config': new Error('offline') })
+    expect(await applyOdinImport(SOURCE, [pick('models', 'timezone')], broker, failing.fetchImpl)).toMatchObject({ ok: false })
+    expect(await applyOdinImport(SOURCE, [pick('models', 'timezone')], broker, odin.fetchImpl)).toMatchObject({ ok: true })
   })
 
   it('sets model choices through the methods and revisions the core names, with only the effort a provider takes', async () => {
@@ -430,5 +480,49 @@ describe('import schemas', () => {
     expect(odinImportApplySchema.safeParse({ url: 'http://host', token: 't', picks: [{ category: 'skills', id: 'x' }] }).success).toBe(true)
     expect(odinImportApplySchema.safeParse({ url: 'http://host', token: 't', picks: [{ category: 'other', id: 'x' }] }).success).toBe(false)
     expect(odinImportApplySchema.safeParse({ url: 'http://host', token: 't', picks: [] }).success).toBe(false)
+  })
+})
+
+describe('the import IPC handlers', () => {
+  const event = { sender: { id: 7 }, senderFrame: { url: 'app://odin/index.html', processId: 10, routingId: 20 } }
+  const register = (broker: ImportBroker, odinFetch: FetchLike) => {
+    const forbidden = vi.fn(() => { throw new Error('import reached an unrelated dependency') })
+    registerIpc({ broker, odinFetch, windowId: () => 7, mainFrame: () => ({ processId: 10, routingId: 20 }),
+      drafts: { set: forbidden, flush: forbidden }, artifacts: { saveAs: forbidden, open: forbidden },
+      setAutostart: forbidden, setNotifications: forbidden, setConversationMuted: forbidden } as unknown as IpcDeps)
+  }
+  const apply = (params: Record<string, unknown>) => handlers.get(IPC.odinImportApply)!(event, params)
+
+  it('keeps the choice to send the token over unencrypted HTTP for the import itself', async () => {
+    const odin = odinApi()
+    register(desktop().broker, odin.fetchImpl)
+    const remote = { url: 'http://192.168.1.13:3002', token: 't', picks: [{ category: 'models', id: 'timezone' }] }
+    expect(await apply(remote)).toMatchObject({ ok: false })
+    expect(odin.fetchImpl).not.toHaveBeenCalled()
+    const report = await apply({ ...remote, allow_insecure_http: true })
+    expect(report).toMatchObject({ ok: true, result: { outcomes: [{ id: 'timezone', status: 'imported' }] } })
+  })
+
+  it("never sends a change again whose answer the window lost, until the core's late receipt settles it", async () => {
+    let lost = true
+    const { broker, requests, receipts } = desktop({ 'settings.set': () => (lost ? refuse('no_receipt', 'No receipt yet.', 'outcome_unknown') : { ok: true }) })
+    const odin = odinApi()
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    register(broker, async (url, init) => { await gate; return odin.fetchImpl(url, init) })
+    const timezone = { ...SOURCE, picks: [{ category: 'models', id: 'timezone' }] }
+    // The window's dialog closes and reopens while its import runs; the first answer is never read.
+    const unread = apply(timezone)
+    expect(await apply(timezone)).toMatchObject({ ok: false, error: { code: 'busy' } })
+    release()
+    const original = (await unread).result.outcomes[0].command_id
+    expect(original).toEqual(requests.find((r) => r.method === 'settings.set')!.id)
+    // A fresh import from the reopened dialog is refused, naming the original command.
+    expect(await apply(timezone)).toMatchObject({ ok: true, result: { outcomes: [{ status: 'unknown', command_id: original }] } })
+    expect(requests.filter((r) => r.method === 'settings.set')).toHaveLength(1)
+    lost = false
+    receipts.emit('receipt', { id: original })
+    expect(await apply(timezone)).toMatchObject({ ok: true, result: { outcomes: [{ status: 'imported' }] } })
+    expect(requests.filter((r) => r.method === 'settings.set')).toHaveLength(2)
   })
 })

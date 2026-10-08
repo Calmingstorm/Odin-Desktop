@@ -706,6 +706,10 @@ class SkillManager:
         # would let concurrent remember() calls race and collide on the .tmp.
         self._skill_memory_lock = threading.Lock()
         self._disabled: set[str] = self._load_disabled_set()
+        # Names whose create is in progress. A create claims its name before
+        # writing, so a concurrent create of that name can't write over it.
+        self._create_lock = threading.Lock()
+        self._creating: set[str] = set()
         # Optional service references — set after construction via set_services()
         self._knowledge_store = None
         self._embedder = None
@@ -886,22 +890,56 @@ class SkillManager:
             return f"Name '{name}' conflicts with a built-in tool."
         return None
 
-    def create_skill(self, name: str, code: str) -> str:
-        """Write a new skill file and hot-load it."""
+    def create_skill(
+        self, name: str, code: str, *, enabled: bool = True, exclusive: bool = False
+    ) -> str:
+        """Write a new skill file and hot-load it.
+
+        The name is claimed for the whole create, so a concurrent create of the
+        same name reports that it exists instead of writing over it.
+        ``exclusive`` also never replaces a source file already on disk, loaded
+        or not. ``enabled=False`` records the skill as disabled before its
+        source is written, so it is never published, or loaded after a
+        restart, enabled.
+        """
         error = self._validate_name(name)
         if error:
             return error
 
-        if name in self._skills:
-            return f"Skill '{name}' already exists. Use edit_skill to modify it."
+        with self._create_lock:
+            if name in self._skills or name in self._creating:
+                return f"Skill '{name}' already exists. Use edit_skill to modify it."
+            recorded = not enabled and name not in self._disabled
+            if recorded:
+                try:
+                    self._save_disabled_set(self._disabled | {name})
+                except Exception as e:
+                    return f"Failed to record the skill as disabled: {e}"
+                self._disabled = self._disabled | {name}
+            self._creating.add(name)
+        try:
+            return self._create_claimed(name, code, enabled=enabled, exclusive=exclusive)
+        finally:
+            with self._create_lock:
+                self._creating.discard(name)
+                if recorded and name not in self._skills:
+                    try:
+                        self._save_disabled_set(self._disabled - {name})
+                        self._disabled = self._disabled - {name}
+                    except Exception:
+                        log.warning("Could not clear the disabled record of %s", name)
 
+    def _create_claimed(self, name: str, code: str, *, enabled: bool, exclusive: bool) -> str:
         path = self.skills_dir / f"{name}.py"
         try:
             # Owner-authored Python may contain credentials; make new source
             # files private before writing, without changing authoring policy.
-            fd = os.open(path, os.O_CREAT | os.O_WRONLY, 0o600)
+            flags = os.O_CREAT | os.O_WRONLY | (os.O_EXCL if exclusive else 0)
+            fd = os.open(path, flags, 0o600)
             os.close(fd)
             path.write_text(code)
+        except FileExistsError:
+            return f"Skill '{name}' already exists. Use edit_skill to modify it."
         except Exception as e:
             return f"Failed to write skill file: {e}"
 
@@ -923,6 +961,10 @@ class SkillManager:
                 f"('{name}'). They must be identical."
             )
 
+        if not enabled:
+            skill.status = SkillStatus.DISABLED
+            self._skills[name] = skill
+            return f"Skill '{name}' created and loaded, disabled until it is enabled."
         self._skills[name] = skill
         return f"Skill '{name}' created and loaded successfully. It's now available as a tool."
 

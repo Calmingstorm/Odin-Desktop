@@ -216,8 +216,8 @@ export function registerIpc(deps: IpcDeps): void {
   // Import from Odin: Odin's API is read with the user's token for this call only; writes use the core's own methods.
   const odinFetch: FetchLike = deps.odinFetch ?? ((url, init) => fetch(url, init))
   handle(IPC.odinImportPreview, odinImportPreviewSchema, (v) => previewOdinImport(v, deps.broker, odinFetch))
-  handle(IPC.odinImportApply, odinImportApplySchema, (v) =>
-    applyOdinImport({ url: v.url, token: v.token }, v.picks, deps.broker, odinFetch)
+  handle(IPC.odinImportApply, odinImportApplySchema, ({ picks, ...source }) =>
+    applyOdinImport(source, picks, deps.broker, odinFetch)
   )
   handle(IPC.openRelease, releaseNoticeSchema, () => deps.releases.open())
   handle(IPC.listConversations, null, async () => fromSettled(await deps.broker.request('conversations.list')))

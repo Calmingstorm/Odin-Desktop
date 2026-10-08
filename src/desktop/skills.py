@@ -7,6 +7,7 @@ The retained manager is the catalog's schema owner and dispatch boundary.
 from __future__ import annotations
 
 import asyncio
+import functools
 import hashlib
 import json
 
@@ -231,14 +232,26 @@ class SkillsService:
         if method == "skills.save":
             code = self._code(params)
             existing = manager.has_skill(name)
-            # create: true never replaces an existing skill (checked under the service lock).
-            if params.get("create") is True and existing:
+            # create: true never replaces a skill, loaded or only on disk; the manager claims
+            # the name and creates the source exclusively. enabled: false starts it disabled.
+            create_only = params.get("create") is True
+            if create_only and existing:
                 raise MethodError("conflict", "a skill with this name already exists")
-            operation = manager.edit_skill if existing else manager.create_skill
+            if existing:
+                operation = manager.edit_skill
+            elif create_only:
+                operation = functools.partial(
+                    manager.create_skill, enabled=params.get("enabled") is not False,
+                    exclusive=True,
+                )
+            else:
+                operation = manager.create_skill
             try:
                 result = await to_thread_settled(operation, name, code)
             finally:
                 self._changed()
+            if create_only and str(result).startswith(f"Skill '{name}' already exists"):
+                raise MethodError("conflict", "a skill with this name already exists")
             if not manager.has_skill(name) or manager.get_skill_info(name)["code"] != code:
                 raise MethodError(
                     "bad_request", "skill could not be loaded; previous version retained",

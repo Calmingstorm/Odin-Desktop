@@ -5,7 +5,7 @@
 // "Already in Odin Desktop" is kept, not replaced: every create is either create-only in its owner (skills,
 // presets, memory) or bound to the revision it was checked against (MCP servers, host commits), so something
 // added while the import runs is never overwritten. A change the core doesn't confirm stops the import.
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import type {
   OdinImportCategory,
   OdinImportItem,
@@ -39,6 +39,30 @@ const SETTINGS_WRITERS = new Set([
 
 export interface ImportBroker {
   request(method: string, params?: Record<string, unknown>, id?: string): Promise<Settled>
+  /** The real broker emits a late 'receipt' for a command it could not confirm in time. */
+  on?(event: 'receipt', listener: (receipt: { id?: string }) => void): unknown
+}
+
+interface Unresolved {
+  id: string
+  method: string
+}
+
+/** Per broker, the picks whose last change the core has not confirmed. Only its late receipt clears one; until
+ * then importing that pick again is refused, so an earlier write can't land on top of a newer one. */
+const unresolvedByBroker = new WeakMap<ImportBroker, Map<string, Unresolved>>()
+
+function unresolvedFor(broker: ImportBroker): Map<string, Unresolved> {
+  let pending = unresolvedByBroker.get(broker)
+  if (!pending) {
+    const created = new Map<string, Unresolved>()
+    pending = created
+    unresolvedByBroker.set(broker, created)
+    broker.on?.('receipt', (receipt) => {
+      for (const [key, entry] of created) if (entry.id === receipt?.id) created.delete(key)
+    })
+  }
+  return pending
 }
 
 export type FetchLike = (
@@ -48,7 +72,11 @@ export type FetchLike = (
 
 class ImportError extends Error {}
 /** A change was sent but the core didn't confirm it; nothing after it may run. */
-class Unconfirmed extends Error {}
+class Unconfirmed extends Error {
+  constructor(readonly commandId: string) {
+    super('unconfirmed change')
+  }
+}
 
 type Json = Record<string, unknown>
 const record = (value: unknown): Json =>
@@ -325,6 +353,8 @@ const stale = (settled: Settled): boolean => !settled.ok && settled.error.code =
 
 class Importer {
   needsKey = false
+  /** The pick being imported, for recording an unconfirmed change against it. */
+  current = ''
 
   constructor(
     private readonly source: OdinImportSource,
@@ -335,8 +365,12 @@ class Importer {
 
   /** A change the core may have made without confirming it: stop, so nothing builds on it or repeats it. */
   private async change(method: string, params: Record<string, unknown>): Promise<Settled> {
-    const settled = await this.broker.request(method, params)
-    if (!settled.ok && settled.error.disposition === 'outcome_unknown') throw new Unconfirmed(method)
+    const id = randomUUID()
+    const settled = await this.broker.request(method, params, id)
+    if (!settled.ok && settled.error.disposition === 'outcome_unknown') {
+      unresolvedFor(this.broker).set(this.current, { id, method })
+      throw new Unconfirmed(id)
+    }
     return settled
   }
 
@@ -363,16 +397,13 @@ class Importer {
     const detail = record(await odinGet(this.source, `/api/skills/${encodeURIComponent(name)}`, this.fetchImpl))
     const code = text(detail.code)
     if (!code.trim()) return failed("Odin didn't return this skill's code.")
-    // create: true makes the core refuse a name that exists, even one added after the preview.
-    const saved = await this.change('skills.save', { name, code, create: true })
+    // create: true makes the core refuse a name that exists, even one being created at the same moment;
+    // enabled: false publishes it already off, so a skill that is off in Odin is never callable here.
+    const off = status === 'disabled'
+    const saved = await this.change('skills.save', { name, code, create: true, ...(off ? { enabled: false } : {}) })
     if (conflict(saved)) return skipped(ALREADY)
     if (!saved.ok) return failed(refusal(saved, "Odin Desktop didn't accept this skill."))
-    const notes: string[] = []
-    if (status === 'disabled') {
-      const off = await this.change('skills.set_enabled', { name, enabled: false })
-      if (!off.ok) return attention(`Imported, but it couldn't be switched off as it is in Odin: ${refusal(off, 'refused')}`)
-      notes.push('Switched off, as in Odin.')
-    }
+    const notes = off ? ['Switched off, as in Odin.'] : []
     const hidden = hiddenKeys(detail.config)
     const config = Object.fromEntries(Object.entries(record(detail.config)).filter(([, value]) => value !== ODIN_REDACTED))
     if (Object.keys(config).length) {
@@ -531,7 +562,29 @@ class Importer {
 
 const ORDER: OdinImportCategory[] = ['memory', 'skills', 'mcp', 'personality', 'hosts', 'models']
 
+/** Brokers with an import running. A window that lost an import's answer (a reload, a crash) can't start a second
+ * import on top of the first: its changes are still on their way to the core. */
+const importing = new WeakSet<ImportBroker>()
+
 export async function applyOdinImport(
+  source: OdinImportSource,
+  picks: OdinImportPick[],
+  broker: ImportBroker,
+  fetchImpl: FetchLike
+): Promise<Result<OdinImportReport>> {
+  if (importing.has(broker)) {
+    return { ok: false, error: { code: 'busy', disposition: 'rejected',
+      message: 'An import is still running. When it finishes, check what it imported before importing again.' } }
+  }
+  importing.add(broker)
+  try {
+    return await importPicks(source, picks, broker, fetchImpl)
+  } finally {
+    importing.delete(broker)
+  }
+}
+
+async function importPicks(
   source: OdinImportSource,
   picks: OdinImportPick[],
   broker: ImportBroker,
@@ -549,13 +602,22 @@ export async function applyOdinImport(
     const skillStatus = new Map(odin.skills.map((row) => [text(row.name), text(row.status)]))
     const queue = ORDER.flatMap((category) =>
       available.filter((row) => row.category === category && wanted.has(`${category}\u0000${row.id}`)))
+    const unresolved = unresolvedFor(broker)
     let stopped = false
     for (const item of queue) {
       const { category, id, label } = item
+      const key = `${category}\u0000${id}`
       if (stopped) {
         outcomes.push({ category, id, label, status: 'not_attempted', message: 'Not attempted: an earlier change was not confirmed.' })
         continue
       }
+      const waiting = unresolved.get(key)
+      if (waiting) {
+        outcomes.push({ category, id, label, status: 'unknown', command_id: waiting.id,
+          message: "Odin Desktop hasn't confirmed an earlier import of this yet, so it isn't sent again. If it doesn't clear, restart Odin Desktop and check it before importing it again." })
+        continue
+      }
+      importer.current = key
       let outcome: Outcome
       try {
         if (item.exists) outcome = skipped(ALREADY)
@@ -570,7 +632,8 @@ export async function applyOdinImport(
       } catch (error) {
         if (error instanceof Unconfirmed) {
           stopped = true
-          outcome = { status: 'unknown', message: "Odin Desktop didn't confirm this change in time, so the import stopped. Check it before importing it again." }
+          outcome = { status: 'unknown', command_id: error.commandId,
+            message: "Odin Desktop didn't confirm this change in time, so the import stopped. It isn't sent again until Odin Desktop confirms it." }
         } else {
           outcome = failed(error instanceof ImportError ? error.message : 'Something went wrong with this item.')
         }
