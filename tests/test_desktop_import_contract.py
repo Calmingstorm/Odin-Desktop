@@ -6,6 +6,7 @@ Temporary profiles, stubbed MCP connections and in-memory credentials only.
 import asyncio
 import json
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -236,6 +237,88 @@ async def test_disabled_import_and_native_toggle_survive_a_restart(graph, monkey
         resume.set()
         if restarted is not None:
             restarted.close()
+        PermissionManager.reset_request_owner(token)
+        await graph.service.close()
+
+
+@pytest.mark.asyncio
+async def test_a_disabled_import_cannot_reuse_a_name_a_native_delete_holds(graph, monkeypatch):  # noqa: F811
+    await graph.service.start()
+    token = owner(graph)
+    manager = graph.service.skill_manager
+    unlinking, resume = threading.Event(), threading.Event()
+    real_unlink = Path.unlink
+    config = manager.skills_dir / "config" / "quiet.json"
+
+    def unlink(path, *args, **kwargs):
+        # Hold the delete after it removed the source and unpublished the skill, before its
+        # disabled-record cleanup.
+        if path == config and not unlinking.is_set():
+            unlinking.set()
+            assert resume.wait(10)
+        return real_unlink(path, *args, **kwargs)
+
+    imported = code(name="quiet", body="return 'imported'")
+    request = {"name": "quiet", "code": imported, "create": True, "enabled": False}
+    deleting = restarted = None
+    try:
+        await graph.service.handle("skills.save", {"name": "quiet", "code": code(name="quiet")})
+        monkeypatch.setattr(Path, "unlink", unlink)
+        # The native delete_skill tool's own manager call.
+        deleting = asyncio.create_task(asyncio.to_thread(manager.delete_skill, "quiet"))
+        assert await asyncio.to_thread(unlinking.wait, 10)
+        assert not manager.has_skill("quiet")
+        with pytest.raises(MethodError) as error:
+            await graph.service.handle("skills.save", request)
+        assert error.value.code == "conflict"
+        resume.set()
+        assert await deleting == "Skill 'quiet' deleted."
+        assert not (manager.skills_dir / "quiet.py").exists()
+        # Once the delete is done, the import goes through and stays off across a restart.
+        await graph.service.handle("skills.save", request)
+        assert (manager.skills_dir / "quiet.py").read_text() == imported
+        assert disabled_record(manager) == ["quiet"]
+        restarted = SkillManager(str(manager.skills_dir), graph.executor)
+        assert restarted.has_skill("quiet") and not restarted.is_enabled("quiet")
+    finally:
+        resume.set()
+        if deleting is not None:
+            await deleting
+        if restarted is not None:
+            restarted.close()
+        PermissionManager.reset_request_owner(token)
+        await graph.service.close()
+
+
+@pytest.mark.asyncio
+async def test_a_second_delete_of_a_name_being_deleted_is_refused(graph, monkeypatch):  # noqa: F811
+    await graph.service.start()
+    token = owner(graph)
+    manager = graph.service.skill_manager
+    unlinking, resume = threading.Event(), threading.Event()
+    real_unlink = Path.unlink
+    source = manager.skills_dir / "quiet.py"
+
+    def unlink(path, *args, **kwargs):
+        if path == source and not unlinking.is_set():
+            unlinking.set()
+            assert resume.wait(10)
+        return real_unlink(path, *args, **kwargs)
+
+    deleting = None
+    try:
+        await graph.service.handle("skills.save", {"name": "quiet", "code": code(name="quiet")})
+        monkeypatch.setattr(Path, "unlink", unlink)
+        deleting = asyncio.create_task(asyncio.to_thread(manager.delete_skill, "quiet"))
+        assert await asyncio.to_thread(unlinking.wait, 10)
+        assert manager.delete_skill("quiet") == "Skill 'quiet' is busy; try again."
+        resume.set()
+        assert await deleting == "Skill 'quiet' deleted."
+        assert manager.delete_skill("quiet") == "Skill 'quiet' not found."
+    finally:
+        resume.set()
+        if deleting is not None:
+            await deleting
         PermissionManager.reset_request_owner(token)
         await graph.service.close()
 

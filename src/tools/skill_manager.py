@@ -707,11 +707,12 @@ class SkillManager:
         self._skill_memory_lock = threading.Lock()
         self._disabled: set[str] = self._load_disabled_set()
         # Every writer of the disabled-name ledger derives, persists and
-        # publishes its candidate under this lock, and a create claims its
-        # name under it (so a concurrent create of that name can't write over
-        # it). Never held while skill code loads or runs.
+        # publishes its candidate under this lock. A create or delete also
+        # reserves its name under it for the whole operation, so no other
+        # create can write over it or have its disabled record cleared by
+        # it. Never held while skill code loads or runs.
         self._activation_lock = threading.Lock()
-        self._creating: set[str] = set()
+        self._reserved: set[str] = set()
         # Optional service references — set after construction via set_services()
         self._knowledge_store = None
         self._embedder = None
@@ -909,7 +910,7 @@ class SkillManager:
             return error
 
         with self._activation_lock:
-            if name in self._skills or name in self._creating:
+            if name in self._skills or name in self._reserved:
                 return f"Skill '{name}' already exists. Use edit_skill to modify it."
             recorded = not enabled and name not in self._disabled
             if recorded:
@@ -919,12 +920,12 @@ class SkillManager:
                 except Exception as e:
                     return f"Failed to record the skill as disabled: {e}"
                 self._disabled = candidate
-            self._creating.add(name)
+            self._reserved.add(name)
         try:
             return self._create_claimed(name, code, enabled=enabled, exclusive=exclusive)
         finally:
             with self._activation_lock:
-                self._creating.discard(name)
+                self._reserved.discard(name)
                 if recorded and name not in self._skills:
                     candidate = self._disabled - {name}
                     try:
@@ -1010,10 +1011,20 @@ class SkillManager:
 
     def delete_skill(self, name: str) -> str:
         """Delete a skill file and unload it."""
-        if name not in self._skills:
-            return f"Skill '{name}' not found."
+        with self._activation_lock:
+            if name not in self._skills:
+                return f"Skill '{name}' not found."
+            if name in self._reserved:
+                return f"Skill '{name}' is busy; try again."
+            self._reserved.add(name)
+            path = self._skills[name].file_path
+        try:
+            return self._delete_reserved(name, path)
+        finally:
+            with self._activation_lock:
+                self._reserved.discard(name)
 
-        path = self._skills[name].file_path
+    def _delete_reserved(self, name: str, path: Path) -> str:
         if self._config_store is not None:
             self._config_store.delete(name)
         path.unlink(missing_ok=True)
