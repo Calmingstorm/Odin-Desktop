@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs'
 import { execFileSync, spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { expect, test, type ElectronApplication, type TestInfo } from '@playwright/test'
@@ -371,7 +371,10 @@ test('exit-only with no app constructs neither core nor Odin profile', async () 
   const env = isolatedEnv('exit-only')
   env.ODIN_DESKTOP_CORE_CMD = 'invalid: coreCommand must never be called'
   expect((await launchRaw(env, ['--exit'])).code).toBe(0)
-  expect(existsSync(join(env.XDG_CONFIG_HOME!, 'odin-desktop'))).toBe(false)
+  // --exit needs Electron's single-instance lock, kept in its userData (odin-desktop/electron).
+  // Nothing else may appear there: no Odin profile is constructed.
+  const config = join(env.XDG_CONFIG_HOME!, 'odin-desktop')
+  expect((existsSync(config) ? readdirSync(config) : []).filter((name) => name !== 'electron')).toEqual([])
   expect(existsSync(join(env.XDG_DATA_HOME!, 'odin-desktop'))).toBe(false)
 })
 
