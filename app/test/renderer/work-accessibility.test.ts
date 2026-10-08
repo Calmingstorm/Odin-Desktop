@@ -109,7 +109,7 @@ describe('work names, associations and controls', () => {
     workStore.work.items[0]!.state = 'completed'
     await flush()
     await vi.advanceTimersByTimeAsync(150)
-    expect(status[0]!.textContent()).toBe('agent: Check disks. completed.')
+    expect(status[0]!.textContent()).toBe('agent: Check disks. Done.')
   })
 
   it('names the child conversation target with its originating work', async () => {
@@ -233,6 +233,20 @@ describe('inline work panel focus contract', () => {
     expect(stopPropagation).toHaveBeenCalledOnce()
     expect(workStore.work.open).toBe(false)
     expect(opener.focus).toHaveBeenCalledOnce()
+  })
+
+  it.each([true, false])('restores its opener on unmount only while focus is inside the wrapper (inside=%s)', async (inside) => {
+    const opener = { isConnected: true, focus: vi.fn() }
+    Object.assign(document, { activeElement: opener })
+    view = mount((await import('../../src/renderer/src/components/WorkPanel.vue')).default)
+    await flush()
+    const active = { elsewhere: !inside }
+    const panel = view.root.find('section')!
+    Object.assign(panel, { contains: vi.fn((node) => inside && node === active) })
+    Object.assign(document, { activeElement: active })
+    view.unmount()
+    view = undefined
+    expect(opener.focus).toHaveBeenCalledTimes(inside ? 1 : 0)
   })
 })
 

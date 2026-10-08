@@ -30,6 +30,7 @@ import type {
   LateReceipt,
   Message,
   NotificationSettings,
+  OdinApi,
   QueuedRequest,
   Result,
   SearchHit,
@@ -126,10 +127,7 @@ export interface EffectAcknowledgement {
   status: 'sending' | 'awaiting-receipt' | 'unknown' | 'failed'
   error?: string
 }
-type EffectAnswer = Result<{ disposition: 'acknowledged' | 'already_acknowledged' | 'not_found'; remaining: number }>
-type EffectsBridge = { acknowledgeEffects(params: {
-  control_command_id: string; conversation_id: string; request_id: string; generation: number
-}): Promise<EffectAnswer> }
+type EffectAnswer = Awaited<ReturnType<OdinApi['acknowledgeEffects']>>
 
 const RECENT_LIMIT = 20
 const CONTROL_LIMIT = 200
@@ -1093,7 +1091,7 @@ export async function acknowledgeEffects(conversationId: string, outcome: Pick<T
   }
   const attempt = state.effectsAcknowledgements[key]!
   try {
-    const answer = await (window.odin as typeof window.odin & EffectsBridge).acknowledgeEffects({
+    const answer = await window.odin.acknowledgeEffects({
       control_command_id: attempt.commandId, conversation_id: conversationId,
       request_id: attempt.requestId, generation: attempt.generation
     })

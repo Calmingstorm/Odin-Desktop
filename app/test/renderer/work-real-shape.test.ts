@@ -33,7 +33,7 @@ beforeEach(async () => {
 afterEach(() => { view?.unmount(); view = undefined })
 
 describe('Work real-core projections and steering', () => {
-  it('renders structured details and unknown resource release, not object stringification or inferred success', async () => {
+  it('keeps unknown outcomes honest without rendering developer metadata or inferred success', async () => {
     listed = [
       agent(),
       { kind: 'task', id: 'task01', title: 'Task', state: 'completed', actions: [], detail: { current_step: 1, steps: 2, results: 1, progress: 'Finished' }, settlement: { state: 'settled', resource_release: 'manager_task_finished', remote_effects: 'not_undone' } },
@@ -45,9 +45,9 @@ describe('Work real-core projections and steering', () => {
     await work.loadWork()
     view = mount((await import('../../src/renderer/src/components/WorkList.vue')).default)
     const text = view.root.textContent()
-    for (const value of ['Iteration count', 'Last consumed sequence', 'Unsettled descendants', 'Current step', 'Interval seconds', 'Session confirmed empty', 'Resource release', 'unknown', 'not_undone', 'Last run / Resource release']) expect(text).toContain(value)
+    for (const value of ['Iteration count', 'Last consumed sequence', 'Unsettled descendants', 'Current step', 'Interval seconds', 'Session confirmed empty', 'Resource release', 'Settlement', 'not_undone', 'Last run / Resource release', 'unproven', 'manager_task_finished']) expect(text).not.toContain(value)
     expect(text).not.toContain('[object Object]')
-    expect(text).toContain('Resource release is not confirmed')
+    expect(view.root.findAll((node) => node.tag === 'article' && node.textContent().includes('The outcome is not confirmed.'))).toHaveLength(2)
     expect(view.root.findAll((node) => node.tag === 'button').map((node) => node.textContent().trim())).not.toContain('Restart')
   })
 
@@ -70,7 +70,7 @@ describe('Work real-core projections and steering', () => {
     land!({ ok: true, result: { disposition: 'queued', consumed: false, sequence: 3, settlement: { state: 'pending' } } })
     await pending
     await flush()
-    expect(work.work.notes['agent:public01']).toBe('Steer: queued (sequence 3). Queued is not consumed.')
+    expect(work.work.notes['agent:public01']).toBe("Steer queued; the agent hasn't read it yet. (sequence 3)")
     expect(textarea.value).toBe('')
     expect((await import('../../src/renderer/src/dialog')).dialog.current).toBeNull()
   })
@@ -88,7 +88,14 @@ describe('Work real-core projections and steering', () => {
     expect(work.work.busy['agent:public01']).toBe(true)
     store.applyReceipt({ id: String(controls[0]!.control_command_id), settled: { ok: true, result: { disposition: 'queued', consumed: false, sequence: 3 } } })
     expect(work.work.busy['agent:public01']).toBe(false)
-    expect(work.work.notes['agent:public01']).toContain('Queued is not consumed')
+    expect(work.work.notes['agent:public01']).toContain("Steer queued; the agent hasn't read it yet.")
+  })
+
+  it('uses the same plain queued receipt when the core omits a sequence', async () => {
+    const pending = work.controlWork(listed[0]!, 'steer', 'One correction')
+    land!({ ok: true, result: { disposition: 'queued', consumed: false } })
+    await pending
+    expect(work.work.notes['agent:public01']).toBe("Steer queued; the agent hasn't read it yet.")
   })
 
   it('shares schedule manager locks with Settings, submits immutable ID and exact listed revision', async () => {

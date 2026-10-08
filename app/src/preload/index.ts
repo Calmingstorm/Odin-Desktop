@@ -9,7 +9,6 @@ import {
   type AppState,
   type AttachmentProgress,
   type CoreEvent,
-  type ControlTarget,
   type LateReceipt,
   type ManagementApi,
   type ManagementMethod,
@@ -32,13 +31,7 @@ const settingsShaped = Object.fromEntries(
   Object.values(SETTINGS_SHAPED).map(({ call, channel }) => [call, (params: unknown) => ipcRenderer.invoke(channel, params)])
 ) as SettingsShapedApi
 
-// Keep this lane's new bridge method local until the campaign's shared API integration.
-export interface EffectsApi {
-  acknowledgeEffects(params: ControlTarget): Promise<Result<{
-    disposition: 'acknowledged' | 'already_acknowledged' | 'not_found'; remaining: number
-  }>>
-}
-const api: OdinApi & EffectsApi = {
+const api: OdinApi = {
   getSetupReminderHidden: () => ipcRenderer.invoke(IPC.getSetupReminderHidden, {}),
   setSetupReminderHidden: (hidden) => ipcRenderer.invoke(IPC.setSetupReminderHidden, { hidden }),
   getDesktopInfo: () => ipcRenderer.invoke(IPC.getDesktopInfo, {}),
@@ -63,7 +56,7 @@ const api: OdinApi & EffectsApi = {
   snapshotConversation: (params) => ipcRenderer.invoke(IPC.snapshotConversation, params),
   submit: (params) => ipcRenderer.invoke(IPC.submit, params),
   stop: (params) => ipcRenderer.invoke(IPC.stop, params),
-  acknowledgeEffects: (params) => ipcRenderer.invoke('odin:effects:acknowledge', params),
+  acknowledgeEffects: (params) => ipcRenderer.invoke(IPC.acknowledgeEffects, params),
   steer: (params) => ipcRenderer.invoke(IPC.steer, params),
   usage: (period) => ipcRenderer.invoke(IPC.usage, { period }),
   reload: (scope) => ipcRenderer.invoke(IPC.reload, { scope }),

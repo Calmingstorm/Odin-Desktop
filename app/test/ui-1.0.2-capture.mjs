@@ -66,6 +66,7 @@ def fixture_action(core, params, writer):
             core.schedules.clear()
             for kind, title, state, detail in [('agent', 'Inspect disks', 'running', {'result': 'All fixture disks have room.'}), ('task', 'Capture review', 'completed', {'result': 'Review saved.'}), ('schedule', 'Evening report', 'scheduled', {'next_run': '2026-10-08T23:45:00Z', 'last_run': '2026-10-08T21:25:00Z', 'last_error': 'Synthetic endpoint timed out.'})]:
                 core.work[kind] = {'kind': kind, 'id': kind, 'manager_id': 'hidden-manager', 'manager_generation': 'hidden-owner', 'run_id': 'hidden-run', 'generation': 71, 'conversation_id': cid, 'title': title, 'state': state, 'started_at': '2026-10-08T21:25:00Z', 'detail': dict(detail, revision=9), 'settlement': {'state': 'settled', 'resource_release': 'fixture_finished'}, 'actions': []}
+            core.work['ended-schedule'] = dict(core.work['schedule'], id='ended-schedule', title='Finished report', state='completed', detail={'next_run': '2026-10-08T23:45:00Z', 'last_run': '2026-10-08T21:25:00Z', 'result': 'Final report saved.'})
         return {'conversation_id': cid, 'request_id': rid, 'title': conv['title']}
     if action == 'tool':
         cid, rid = params['conversation_id'], params['request_id']

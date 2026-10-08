@@ -1,4 +1,4 @@
-// U7: the chat Work column renders a deliberately small projection. Control bindings stay intact but invisible.
+// U7: shared Work cards render a deliberately small projection. Control bindings stay intact but invisible.
 // Vue's object renderer proves rendered content and control wiring, not pixels or native keyboard behaviour.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Result, WorkControlReceipt, WorkItem } from '../../src/shared/api'
@@ -48,7 +48,7 @@ beforeEach(async () => {
 
 afterEach(() => { view?.unmount(); view = undefined; vi.useRealTimers(); vi.unstubAllGlobals() })
 async function render(): Promise<void> {
-  view = mount((await import('../../src/renderer/src/components/WorkPanel.vue')).default)
+  view = mount((await import('../../src/renderer/src/components/WorkList.vue')).default, { sections: true })
   await flush()
 }
 const row = (): Host => view!.root.find('article')!
@@ -65,7 +65,6 @@ describe('U7: clean Work cards', () => {
     const text = row().textContent()
     for (const expected of ['Agent', 'Inspect disks', 'Running', `Started Today ${localTime(started)}`, 'Result: All disks have room.', 'Cancel', 'Steer', 'Open conversation Disk chat']) expect(text).toContain(expected)
     for (const forbidden of ['Revision', '71', '91', '73', 'run_binding', 'Run binding', 'Settlement', 'Resource release', 'Not reported', 'None reported', 'manager_task_finished', 'unproven', 'public-binding', 'manager-binding', 'run-binding', 'immutable-generation', 'hidden-', started.toISOString()]) expect(text).not.toContain(forbidden)
-    expect(view!.root.textContent()).toContain('started from your chats.')
     expect(view!.root.textContent()).not.toContain('reported by the core')
     expect(view!.root.findAll((node) => node.tag === 'dl')).toHaveLength(0)
   })
@@ -82,6 +81,61 @@ describe('U7: clean Work cards', () => {
     for (const expected of ['Schedule', 'Scheduled', `Created Yesterday ${localTime(yesterday)}`, `Next run Today ${localTime(next)}`, `Last run Today ${localTime(started)}`, 'Last error: The endpoint timed out.', 'Result: Previous report saved.']) expect(text).toContain(expected)
     expect(text).not.toContain(next.toISOString())
     expect(text).not.toContain('outcome is not confirmed')
+  })
+
+  it.each(['scheduled', 'paused'])('shows a populated Next run only for a %s schedule', async (state) => {
+    listed = [agent({ kind: 'schedule', state, actions: [], detail: { next_run: next.toISOString() } })]
+    await workStore.loadWork()
+    await render()
+    expect(row().textContent()).toContain(`Next run Today ${localTime(next)}`)
+  })
+
+  it.each(['completed', 'failed', 'unknown', 'cancelled', 'active', 'running'])('omits stale Next run for a %s schedule in both list groupings', async (state) => {
+    listed = [agent({ kind: 'schedule', state, actions: [], detail: { next_run: next.toISOString(), last_run: started.toISOString() } })]
+    await workStore.loadWork()
+    const WorkList = (await import('../../src/renderer/src/components/WorkList.vue')).default
+    for (const sections of [true, false]) {
+      view = mount(WorkList, { sections })
+      await flush()
+      expect(row().textContent()).not.toContain('Next run')
+      expect(row().textContent()).not.toContain(localTime(next))
+      expect(row().textContent()).toContain(`Last run Today ${localTime(started)}`)
+      view.unmount()
+      view = undefined
+    }
+  })
+
+  it('renders identical clean cards and steer help through the panel and Settings Work', async () => {
+    Object.assign(window.odin, { schedulesList: vi.fn(async () => ({ ok: true, result: [] })) })
+    listed = [agent(), ...(['task', 'loop', 'process', 'workflow'] as const).map((kind) => agent({
+      kind, id: `${kind}-binding`, title: `${kind} report`, state: kind === 'process' ? 'exited' : 'completed', actions: [],
+      detail: { result: `${kind} output saved.`, run_binding: { owner_id: 'hidden-owner' }, exit_code: 2 },
+      settlement: { state: 'unknown', resource_release: 'unproven' }
+    }))]
+    await workStore.loadWork()
+    const Panel = (await import('../../src/renderer/src/components/WorkPanel.vue')).default
+    const SettingsWork = (await import('../../src/renderer/src/views/settings/Work.vue')).default
+    let panelCards: string[] = []
+    let panelHelp = ''
+    for (const component of [Panel, SettingsWork]) {
+      view = mount(component)
+      await flush()
+      const cards = view.root.findAll((node) => node.tag === 'article').map((card) => card.textContent()).sort()
+      expect(cards).toHaveLength(5)
+      for (const text of cards) expect(text).not.toMatch(/Settlement|Resource release|run_binding|hidden-owner|unproven/)
+      if (component === Panel) {
+        expect(view.root.textContent()).toContain('started from your chats.')
+        panelCards = cards
+      } else expect(cards).toEqual(panelCards)
+      await view.root.named('Steer agent: Inspect disks').fire('click')
+      await flush()
+      const help = row().findAll((node) => String(node.props.id).endsWith('-steer-help'))[0]!.textContent()
+      expect(help).toBe('The agent reads this at its next step.')
+      if (component === Panel) panelHelp = help
+      else expect(help).toBe(panelHelp)
+      view.unmount()
+      view = undefined
+    }
   })
 
   it.each([
@@ -184,6 +238,7 @@ describe('U7: existing actions remain bound and safe', () => {
     await view!.root.named('Steer agent: Inspect disks').fire('click')
     await flush()
     expect(controls).toEqual([])
+    expect(row().textContent()).toContain('The agent reads this at its next step.')
     const textarea = view!.root.find('textarea')!
     textarea.type('Keep this exact correction.\nNo replacement run.')
     const form = view!.root.find('form')!
@@ -196,7 +251,7 @@ describe('U7: existing actions remain bound and safe', () => {
     await sending
     await flush()
     expect(textarea.value).toBe('')
-    expect(row().textContent()).toContain('Queued is not consumed.')
+    expect(row().textContent()).toContain("Steer queued; the agent hasn't read it yet. (sequence 5)")
   })
 
   it('opens the associated conversation and only moves focus if the initiating action still owns it', async () => {
@@ -275,7 +330,8 @@ describe('U7: existing actions remain bound and safe', () => {
   it('restores the work toggle when its opener no longer exists', async () => {
     const focus = vi.fn()
     Object.assign(document, { activeElement: { isConnected: false }, querySelector: vi.fn(() => ({ focus })) })
-    await render()
+    view = mount((await import('../../src/renderer/src/components/WorkPanel.vue')).default)
+    await flush()
     view!.root.named('Close work').fire('click')
     expect(document.querySelector).toHaveBeenCalledWith('.work-toggle')
     expect(focus).toHaveBeenCalledOnce()

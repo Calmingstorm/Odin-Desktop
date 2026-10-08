@@ -45,7 +45,7 @@ describe('the Work column groups work by what it is doing', () => {
     await flush()
     const groups = settings.root.findAll((host) => host.tag === 'h2').map((h) => h.textContent().replace(/\s+/g, ' ').trim())
     expect(groups).toEqual(grouped().map((g) => `${g.label} ${g.items.length}`))
-    expect(settings.root.findAll((host) => String(host.props.class ?? '') === 'work-kind')).toHaveLength(0)
+    expect(settings.root.findAll((host) => String(host.props.class ?? '') === 'work-kind')).toHaveLength(work.items.length)
     settings.unmount()
   })
 })

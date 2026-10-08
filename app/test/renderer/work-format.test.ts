@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { detailFields, settlementFields, workStartedLabel, workStartedMillis } from '../../src/renderer/src/work-format'
+import { detailFields, settlementFields, workFields, workStartedLabel, workStartedMillis } from '../../src/renderer/src/work-format'
 
 describe('real Work projection formatting', () => {
+  it('preserves mixed retained arrays and empty nested objects without stringifying objects implicitly', () => {
+    expect(workFields({ results: [{ text: 'Retained report' }, 'plain', 0, null], last_run: {} })).toEqual([
+      { key: 'results', label: 'Results', value: '{"text":"Retained report"}, plain, 0, null' },
+      { key: 'last_run', label: 'Last run', value: 'None reported' }
+    ])
+  })
   it('accepts real manager epoch seconds and legacy ISO timestamps without invalid dates', () => {
     expect(workStartedMillis(1791264600)).toBe(Date.parse('2026-10-06T05:30:00Z'))
     expect(workStartedMillis('2026-10-06T05:30:00Z')).toBe(1791264600000)
