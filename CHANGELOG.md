@@ -10,6 +10,8 @@
   and the tray still say Odin.
 - Settings, Personality lists saved presets by their own names, so presets that share a display name can be told
   apart.
+- Settings, Models: each automatic agent candidate has a description field, as in Odin's own settings. It tells
+  automatic selection which tasks suit that model, and it saves with the other agent settings.
 
 ## [1.0.0]
 
