@@ -92,9 +92,9 @@
         "total": 73
       },
       "app/src/main/odin-import.ts": {
-        "covered": 255,
+        "covered": 257,
         "missing": 0,
-        "total": 255
+        "total": 257
       },
       "app/src/main/onboarding-smoke.ts": {
         "covered": 238,

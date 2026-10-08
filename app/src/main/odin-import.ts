@@ -184,7 +184,10 @@ function effortLabel(value: unknown): string {
 
 function previewItems(odin: OdinSnapshot, desktop: DesktopSnapshot): OdinImportItem[] {
   const items: OdinImportItem[] = []
-  for (const [scope, info] of Object.entries(odin.memory)) {
+  // Shared memory first, then personal scopes largest first: the person's own is usually the biggest.
+  const scopes = Object.entries(odin.memory).sort(([a, x], [b, y]) =>
+    Number(b === 'global') - Number(a === 'global') || Number(record(y).count ?? 0) - Number(record(x).count ?? 0))
+  for (const [scope, info] of scopes) {
     const keys = list(record(info).keys).map(text).filter(Boolean)
     const count = typeof record(info).count === 'number' ? (record(info).count as number) : keys.length
     if (!count) continue

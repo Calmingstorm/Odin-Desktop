@@ -17,7 +17,7 @@ const SOURCE = { url: 'http://odin.test:3002/ui/', token: 'tok-123' }
 
 function odinApi(overrides: Record<string, unknown> = {}) {
   const routes: Record<string, unknown> = {
-    '/api/memory': { global: { keys: ['shared_a', 'shared_b'], count: 2 }, user_42: { keys: ['mine'], count: 1 } },
+    '/api/memory': { user_7: { keys: [], count: 0 }, user_42: { keys: ['mine'], count: 1 }, global: { keys: ['shared_a', 'shared_b'], count: 2 } },
     '/api/memory/global': { scope: 'global', entries: { shared_a: 'A', shared_b: 'B' } },
     '/api/memory/user_42': { scope: 'user_42', entries: { mine: 'M' } },
     '/api/skills': [
@@ -124,6 +124,7 @@ describe('previewOdinImport', () => {
     const item = (category: string, id: string) => preview.result.items.find((i) => i.category === category && i.id === id)!
     expect(item('memory', 'global')).toMatchObject({ selected: true, detail: '2 entries' })
     expect(item('memory', 'user_42')).toMatchObject({ selected: false })
+    expect(preview.result.items.filter((i) => i.category === 'memory').map((i) => i.id)).toEqual(['global', 'user_42'])
     expect(item('skills', 'weather')).toMatchObject({ selected: true, exists: false })
     expect(item('skills', 'existing_skill')).toMatchObject({ selected: false, exists: true })
     expect(item('mcp', 'Grafana').notes.join(' ')).toContain('GRAFANA_URL')
