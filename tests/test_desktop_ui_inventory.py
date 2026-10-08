@@ -445,7 +445,8 @@ def test_every_preload_action_is_explicitly_classified_and_correctly_routed():
 
 def test_app_local_bridge_actions_are_explicit_and_never_fabricated_core_methods():
     actions = {row["id"]: row for row in management_data()["app_actions"]}
-    expected = {"getDesktopInfo": True, "openSettingsFolder": False, "exitOdin": False}
+    expected = {"getDesktopInfo": True, "openSettingsFolder": False, "exitOdin": False,
+                "getSetupReminderHidden": True, "setSetupReminderHidden": False}
     for name, read in expected.items():
         assert actions[name]["read"] is read
         assert actions[name]["core_methods"] == []
@@ -476,13 +477,15 @@ def test_app_inventory_rejects_new_missing_or_fabricated_actions(mutation, messa
     elif mutation == "duplicate":
         actions.append(dict(actions[0]))
     else:
-        row = next(r for r in actions if r["id"] == "mcpSave")
-        row["core_methods"] = ["settings.set"]
+        table, shaped, _ = bridge_contract()
+        routes = table | shaped
+        row = next(r for r in actions if r["id"] in routes)
+        row["core_methods"] = ["runtime.restart"]
     with pytest.raises(AssertionError, match=message):
         validate_app(actions)
 
 
-def test_app_preferences_match_real_persisted_fields_and_mark_planned_work():
+def test_app_preferences_match_real_persisted_fields_and_implemented_slices():
     # Compiler AST extraction is a contract test of executable persistence, not
     # an assertion on docs/comments. Never evaluate the Electron entry point.
     extraction = r"""
@@ -520,8 +523,13 @@ console.log(JSON.stringify(result));
     persisted = {p["id"] for p in prefs if p["status"] == "persisted"}
     assert persisted == actual | {"autostart", "drafts[conversation_id]"}
     planned = {p["id"] for p in prefs if p["status"] == "planned"}
-    assert planned == {"setupReminderDismissed", "window.normalBounds", "window.maximized"}
+    assert planned == set()
     assert not (planned & actual)
+    by_id = {p["id"]: p for p in prefs}
+    assert by_id["setupReminderHidden"]["app_method"] == "setSetupReminderHidden"
+    assert by_id["windowState"]["user_editable"] is False
+    assert "app_method" not in by_id["windowState"], "native geometry has no renderer route"
+    assert not ({"setupReminderDismissed", "window.normalBounds", "window.maximized"} & set(ids))
     available = {r["id"] for r in management_data()["app_actions"]}
     for pref in prefs:
         assert pref["reason"] and pref["owner"] and pref["source"] and pref["storage"]

@@ -99,9 +99,10 @@ describe('real app/core first-run onboarding', () => {
 
   it('fresh launch supports setup later, section re-entry and a second launch without a local readiness flag', async () => {
     const fresh = await launch('fresh', 'onboarding-fresh', { keyring: 'healthy', auth: 'pending' })
-    expect(fresh.states).toEqual(['fresh'])
+    expect(fresh.states).toEqual(['fresh', 'incomplete'])
     const second = await launch('fresh-second', 'onboarding-fresh', { keyring: 'healthy', auth: 'pending' })
-    expect(second.states).toEqual(['fresh'])
+    expect(second.states).toEqual(['incomplete'])
+    expect(second.checks).toEqual(expect.arrayContaining(['dismissal-persisted', 'dismissal-after-incomplete']))
   })
 
   it('real saves stay retryable after stale revision/disconnection, login cancellation/expiry and write-only credentials', async () => {
@@ -116,6 +117,7 @@ describe('real app/core first-run onboarding', () => {
     expect(second.states).toContain('effective-ready')
     expect(second.checks).toContain('preferences-persisted')
     expect(second.checks).toContain('startup-provider-adopted')
+    expect(second.checks).toContain('effective-ready-no-banner')
   })
 
   it('failed startup provider construction stays saved until the real owner adopts a retry', async () => {

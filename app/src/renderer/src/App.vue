@@ -70,7 +70,7 @@ const workOpen = computed(() => state.view === 'chat' && work.open)
         <h1>{{ active?.title ?? 'Odin' }}</h1>
         <ChatStatus />
       </header>
-      <FirstRunBanner v-if="!state.setupReminderHidden" dismissible />
+      <FirstRunBanner dismissible />
       <SearchPanel v-if="state.search.open" />
       <MessageList class="messages" />
       <div class="composer">

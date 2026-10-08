@@ -6,6 +6,7 @@ const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 
 // Local app actions never accept paths, arguments, configuration or diagnostics.
 export const localAppSchema = z.object({}).strict()
+export const setupReminderSchema = z.object({ hidden: z.boolean() }).strict()
 const runtimeLabel = z.string().min(1).max(100)
 /** Project only these fields, even if an owner accidentally supplies extra metadata. */
 export const desktopInfoSchema = z.object({

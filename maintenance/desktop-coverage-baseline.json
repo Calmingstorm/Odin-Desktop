@@ -1,6 +1,11 @@
 {
   "app": {
     "files": {
+      "app/src/main/advanced-capture-contract.ts": {
+        "covered": 28,
+        "missing": 0,
+        "total": 28
+      },
       "app/src/main/appearance.ts": {
         "covered": 11,
         "missing": 0,
@@ -62,14 +67,14 @@
         "total": 4
       },
       "app/src/main/index.ts": {
-        "covered": 421,
+        "covered": 462,
         "missing": 0,
-        "total": 421
+        "total": 462
       },
       "app/src/main/ipc.ts": {
-        "covered": 157,
+        "covered": 182,
         "missing": 0,
-        "total": 157
+        "total": 182
       },
       "app/src/main/lifecycle.ts": {
         "covered": 12,
@@ -87,9 +92,9 @@
         "total": 73
       },
       "app/src/main/onboarding-smoke.ts": {
-        "covered": 201,
+        "covered": 238,
         "missing": 0,
-        "total": 201
+        "total": 238
       },
       "app/src/main/package-ownership.ts": {
         "covered": 34,
@@ -107,9 +112,9 @@
         "total": 23
       },
       "app/src/main/real-core-smoke.ts": {
-        "covered": 808,
+        "covered": 851,
         "missing": 16,
-        "total": 824
+        "total": 867
       },
       "app/src/main/release-notice.ts": {
         "covered": 61,
@@ -117,9 +122,9 @@
         "total": 61
       },
       "app/src/main/schemas.ts": {
-        "covered": 85,
+        "covered": 94,
         "missing": 0,
-        "total": 85
+        "total": 94
       },
       "app/src/main/security-policy.ts": {
         "covered": 28,
@@ -146,10 +151,15 @@
         "missing": 0,
         "total": 19
       },
+      "app/src/main/window-state.ts": {
+        "covered": 86,
+        "missing": 2,
+        "total": 88
+      },
       "app/src/preload/index.ts": {
-        "covered": 97,
+        "covered": 102,
         "missing": 0,
-        "total": 97
+        "total": 102
       },
       "app/src/renderer/src/App.vue": {
         "covered": 32,
@@ -162,9 +172,9 @@
         "total": 60
       },
       "app/src/renderer/src/capability.ts": {
-        "covered": 4,
+        "covered": 7,
         "missing": 0,
-        "total": 4
+        "total": 7
       },
       "app/src/renderer/src/chat-announcements.ts": {
         "covered": 11,
@@ -187,9 +197,9 @@
         "total": 18
       },
       "app/src/renderer/src/components/ChatStatus.vue": {
-        "covered": 13,
+        "covered": 15,
         "missing": 0,
-        "total": 13
+        "total": 15
       },
       "app/src/renderer/src/components/CleanupNotice.vue": {
         "covered": 18,
@@ -197,9 +207,9 @@
         "total": 18
       },
       "app/src/renderer/src/components/CodexAccounts.vue": {
-        "covered": 67,
-        "missing": 3,
-        "total": 70
+        "covered": 279,
+        "missing": 2,
+        "total": 281
       },
       "app/src/renderer/src/components/CommandPalette.vue": {
         "covered": 5,
@@ -212,9 +222,9 @@
         "total": 2
       },
       "app/src/renderer/src/components/Composer.vue": {
-        "covered": 101,
-        "missing": 9,
-        "total": 110
+        "covered": 110,
+        "missing": 7,
+        "total": 117
       },
       "app/src/renderer/src/components/ConfirmDialog.vue": {
         "covered": 44,
@@ -237,9 +247,9 @@
         "total": 26
       },
       "app/src/renderer/src/components/FirstRunBanner.vue": {
-        "covered": 28,
+        "covered": 41,
         "missing": 2,
-        "total": 30
+        "total": 43
       },
       "app/src/renderer/src/components/Icon.vue": {
         "covered": 7,
@@ -252,9 +262,9 @@
         "total": 12
       },
       "app/src/renderer/src/components/KnowledgeDetails.vue": {
-        "covered": 122,
+        "covered": 124,
         "missing": 3,
-        "total": 125
+        "total": 127
       },
       "app/src/renderer/src/components/Message.vue": {
         "covered": 54,
@@ -267,29 +277,29 @@
         "total": 147
       },
       "app/src/renderer/src/components/ObservabilityDetails.vue": {
-        "covered": 28,
-        "missing": 6,
-        "total": 34
+        "covered": 30,
+        "missing": 5,
+        "total": 35
       },
       "app/src/renderer/src/components/OpenRouterAdmin.vue": {
-        "covered": 82,
-        "missing": 12,
-        "total": 94
+        "covered": 98,
+        "missing": 3,
+        "total": 101
       },
       "app/src/renderer/src/components/OutboundWebhooks.vue": {
-        "covered": 93,
+        "covered": 116,
         "missing": 12,
-        "total": 105
+        "total": 128
       },
       "app/src/renderer/src/components/RecordDetails.vue": {
-        "covered": 82,
+        "covered": 83,
         "missing": 1,
-        "total": 83
+        "total": 84
       },
       "app/src/renderer/src/components/ReleaseNotice.vue": {
-        "covered": 33,
+        "covered": 36,
         "missing": 0,
-        "total": 33
+        "total": 36
       },
       "app/src/renderer/src/components/ReportViewer.vue": {
         "covered": 44,
@@ -312,9 +322,9 @@
         "total": 45
       },
       "app/src/renderer/src/components/StatusBar.vue": {
-        "covered": 6,
+        "covered": 8,
         "missing": 1,
-        "total": 7
+        "total": 9
       },
       "app/src/renderer/src/components/ToolActivity.vue": {
         "covered": 51,
@@ -341,15 +351,25 @@
         "missing": 1,
         "total": 15
       },
+      "app/src/renderer/src/components/settings/ContextUse.vue": {
+        "covered": 24,
+        "missing": 0,
+        "total": 24
+      },
+      "app/src/renderer/src/components/settings/McpMoreMenu.vue": {
+        "covered": 41,
+        "missing": 0,
+        "total": 41
+      },
       "app/src/renderer/src/components/settings/SecretControl.vue": {
         "covered": 23,
         "missing": 0,
         "total": 23
       },
       "app/src/renderer/src/components/settings/SettingEditor.vue": {
-        "covered": 43,
+        "covered": 62,
         "missing": 0,
-        "total": 43
+        "total": 62
       },
       "app/src/renderer/src/components/settings/SettingsRow.vue": {
         "covered": 3,
@@ -370,6 +390,11 @@
         "covered": 58,
         "missing": 0,
         "total": 58
+      },
+      "app/src/renderer/src/composer-geometry.ts": {
+        "covered": 47,
+        "missing": 0,
+        "total": 47
       },
       "app/src/renderer/src/conversation-menu-keys.ts": {
         "covered": 7,
@@ -422,14 +447,14 @@
         "total": 1
       },
       "app/src/renderer/src/settings-form.ts": {
-        "covered": 102,
-        "missing": 1,
-        "total": 103
+        "covered": 113,
+        "missing": 0,
+        "total": 113
       },
       "app/src/renderer/src/settings-presentation.ts": {
-        "covered": 9,
+        "covered": 21,
         "missing": 0,
-        "total": 9
+        "total": 21
       },
       "app/src/renderer/src/skill-config.ts": {
         "covered": 4,
@@ -442,9 +467,9 @@
         "total": 4
       },
       "app/src/renderer/src/store.ts": {
-        "covered": 575,
-        "missing": 60,
-        "total": 635
+        "covered": 603,
+        "missing": 53,
+        "total": 656
       },
       "app/src/renderer/src/stores/browser.ts": {
         "covered": 19,
@@ -487,9 +512,9 @@
         "total": 50
       },
       "app/src/renderer/src/stores/settings.ts": {
-        "covered": 148,
-        "missing": 21,
-        "total": 169
+        "covered": 331,
+        "missing": 9,
+        "total": 340
       },
       "app/src/renderer/src/stores/state.ts": {
         "covered": 115,
@@ -512,9 +537,9 @@
         "total": 12
       },
       "app/src/renderer/src/views/Settings.vue": {
-        "covered": 13,
-        "missing": 2,
-        "total": 15
+        "covered": 36,
+        "missing": 1,
+        "total": 37
       },
       "app/src/renderer/src/views/settings/Advanced.vue": {
         "covered": 9,
@@ -522,54 +547,54 @@
         "total": 9
       },
       "app/src/renderer/src/views/settings/DataPrivacy.vue": {
-        "covered": 3,
+        "covered": 15,
         "missing": 0,
-        "total": 3
+        "total": 15
       },
       "app/src/renderer/src/views/settings/General.vue": {
-        "covered": 20,
-        "missing": 2,
-        "total": 22
+        "covered": 98,
+        "missing": 1,
+        "total": 99
       },
       "app/src/renderer/src/views/settings/Hosts.vue": {
-        "covered": 77,
-        "missing": 9,
-        "total": 86
+        "covered": 116,
+        "missing": 6,
+        "total": 122
       },
       "app/src/renderer/src/views/settings/Mcp.vue": {
-        "covered": 67,
-        "missing": 9,
-        "total": 76
+        "covered": 91,
+        "missing": 5,
+        "total": 96
       },
       "app/src/renderer/src/views/settings/Personality.vue": {
-        "covered": 60,
+        "covered": 72,
         "missing": 2,
-        "total": 62
+        "total": 74
       },
       "app/src/renderer/src/views/settings/Records.vue": {
         "covered": 56,
-        "missing": 5,
-        "total": 61
+        "missing": 3,
+        "total": 59
       },
       "app/src/renderer/src/views/settings/Skills.vue": {
-        "covered": 41,
+        "covered": 49,
         "missing": 0,
-        "total": 41
+        "total": 49
       },
       "app/src/renderer/src/views/settings/State.vue": {
-        "covered": 87,
+        "covered": 91,
         "missing": 4,
-        "total": 91
+        "total": 95
       },
       "app/src/renderer/src/views/settings/Tools.vue": {
-        "covered": 53,
-        "missing": 5,
-        "total": 58
+        "covered": 95,
+        "missing": 1,
+        "total": 96
       },
       "app/src/renderer/src/views/settings/Work.vue": {
-        "covered": 92,
+        "covered": 105,
         "missing": 22,
-        "total": 114
+        "total": 127
       },
       "app/src/renderer/src/work-accessibility.ts": {
         "covered": 12,
@@ -588,9 +613,9 @@
       }
     },
     "total": {
-      "covered": 6967,
-      "missing": 364,
-      "total": 7331
+      "covered": 8396,
+      "missing": 330,
+      "total": 8726
     }
   },
   "exceptions": {},
@@ -1052,9 +1077,9 @@
         "total": 33
       },
       "src/config/apply_registry.py": {
-        "covered": 349,
-        "missing": 11,
-        "total": 360
+        "covered": 382,
+        "missing": 8,
+        "total": 390
       },
       "src/config/environment.py": {
         "covered": 258,
@@ -1217,9 +1242,9 @@
         "total": 233
       },
       "src/desktop/integrations.py": {
-        "covered": 336,
-        "missing": 15,
-        "total": 351
+        "covered": 343,
+        "missing": 14,
+        "total": 357
       },
       "src/desktop/ipc.py": {
         "covered": 222,
@@ -1262,9 +1287,9 @@
         "total": 478
       },
       "src/desktop/model_settings.py": {
-        "covered": 262,
-        "missing": 7,
-        "total": 269
+        "covered": 277,
+        "missing": 2,
+        "total": 279
       },
       "src/desktop/notifications.py": {
         "covered": 52,
@@ -1277,9 +1302,9 @@
         "total": 203
       },
       "src/desktop/openrouter_admin.py": {
-        "covered": 246,
+        "covered": 276,
         "missing": 10,
-        "total": 256
+        "total": 286
       },
       "src/desktop/package_ownership.py": {
         "covered": 26,
@@ -1312,14 +1337,14 @@
         "total": 68
       },
       "src/desktop/providers.py": {
-        "covered": 316,
-        "missing": 32,
-        "total": 348
+        "covered": 325,
+        "missing": 28,
+        "total": 353
       },
       "src/desktop/provisioning.py": {
-        "covered": 67,
+        "covered": 93,
         "missing": 3,
-        "total": 70
+        "total": 96
       },
       "src/desktop/records.py": {
         "covered": 318,
@@ -1382,9 +1407,9 @@
         "total": 101
       },
       "src/desktop/settings.py": {
-        "covered": 489,
-        "missing": 30,
-        "total": 519
+        "covered": 492,
+        "missing": 29,
+        "total": 521
       },
       "src/desktop/skills.py": {
         "covered": 178,
@@ -1957,8 +1982,8 @@
         "total": 0
       },
       "src/runtime/pdf_resources.py": {
-        "covered": 138,
-        "missing": 13,
+        "covered": 139,
+        "missing": 12,
         "total": 151
       },
       "src/runtime_paths.py": {
@@ -2327,8 +2352,8 @@
         "total": 47
       },
       "src/tools/model_hints.py": {
-        "covered": 97,
-        "missing": 1,
+        "covered": 98,
+        "missing": 0,
         "total": 98
       },
       "src/tools/nested_payload.py": {
@@ -2638,13 +2663,14 @@
       }
     },
     "total": {
-      "covered": 64542,
-      "missing": 9956,
-      "total": 74498
+      "covered": 64667,
+      "missing": 9940,
+      "total": 74607
     }
   },
   "schema_version": 1,
   "target_files": [
+    "app/src/main/advanced-capture-contract.ts",
     "app/src/main/appearance.ts",
     "app/src/main/artifacts.ts",
     "app/src/main/attachments.ts",
@@ -2674,6 +2700,7 @@
     "app/src/main/session-logout.ts",
     "app/src/main/shutdown.ts",
     "app/src/main/tray.ts",
+    "app/src/main/window-state.ts",
     "app/src/preload/index.ts",
     "app/src/renderer/src/App.vue",
     "app/src/renderer/src/artifacts.ts",
@@ -2713,12 +2740,15 @@
     "app/src/renderer/src/components/WebhookIngress.vue",
     "app/src/renderer/src/components/WorkList.vue",
     "app/src/renderer/src/components/WorkPanel.vue",
-    "app/src/renderer/src/components/settings/SettingEditor.vue",
+    "app/src/renderer/src/components/settings/ContextUse.vue",
+    "app/src/renderer/src/components/settings/McpMoreMenu.vue",
     "app/src/renderer/src/components/settings/SecretControl.vue",
+    "app/src/renderer/src/components/settings/SettingEditor.vue",
     "app/src/renderer/src/components/settings/SettingsRow.vue",
     "app/src/renderer/src/components/settings/SettingsSection.vue",
     "app/src/renderer/src/components/settings/SettingsSwitch.vue",
     "app/src/renderer/src/components/settings/StructuredSetting.vue",
+    "app/src/renderer/src/composer-geometry.ts",
     "app/src/renderer/src/conversation-menu-keys.ts",
     "app/src/renderer/src/dialog.ts",
     "app/src/renderer/src/format.ts",

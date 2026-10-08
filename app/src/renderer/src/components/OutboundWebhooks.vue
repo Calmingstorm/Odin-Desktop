@@ -192,7 +192,7 @@ onMounted(() => readProjection())
       <p>Refresh replaces this draft. Credentials are never read back. Save is explicit; Cancel writes nothing.</p>
       <div class="settings-form-actions">
         <button type="button" class="ghost" aria-label="Cancel outbound edit" :disabled="busy || confirming" @click="cancel">Cancel</button>
-        <button type="button" class="primary" aria-label="Save outbound webhook" :disabled="locked" @click="save">{{ draft.original ? 'Save' : 'Add target' }}</button>
+        <button type="button" class="primary" :aria-label="draft.original ? 'Save outbound webhook' : 'Add target (outbound webhook)'" :disabled="locked" @click="save">{{ draft.original ? 'Save' : 'Add target' }}</button>
       </div>
     </form>
     </dialog>

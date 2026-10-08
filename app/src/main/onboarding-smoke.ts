@@ -1,6 +1,7 @@
 // Development-only driver: actual BrowserWindow/preload/Vue over the real
 // framed transport. Determinism belongs only to the external test adapter.
 import { strict as assert } from 'node:assert'
+import { randomUUID } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import type { BrowserWindow } from 'electron'
 import type { Broker } from './broker'
@@ -29,7 +30,7 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     }
   }
   const request = async <T>(method: string, params: Record<string, unknown> = {}): Promise<T> => {
-    const result = await broker.request(method, params)
+    const result = await broker.request(method, params, method === 'settings.set' ? randomUUID() : undefined)
     assert(result.ok, `${method} must succeed (${result.ok ? '' : result.error.code})`)
     return result.result as T
   }
@@ -91,7 +92,13 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     // destination after checking the actual banner, without changing core state.
     const settingsOpen = await count('.settings') === 1
     if (settingsOpen) await click('.settings-nav .back')
-    await until(async () => await run(`Boolean(document.querySelector('.first-run-banner[data-state=${JSON.stringify(expected)}]'))`), `rendered ${expected}`)
+    const reminder = await run<{ ok: boolean; result?: { hidden: boolean } }>('window.odin.getSetupReminderHidden()')
+    assert(reminder.ok, 'profile app preference available')
+    const absent = expected === 'effective-ready' ||
+      ((expected === 'fresh' || expected === 'incomplete') && reminder.result?.hidden)
+    await until(async () => absent ? await count('.first-run-banner') === 0 :
+      await run(`Boolean(document.querySelector('.first-run-banner[data-state=${JSON.stringify(expected)}]'))`), `rendered ${expected}${absent ? ' without banner' : ''}`)
+    if (expected === 'effective-ready') checks.push('effective-ready-no-banner')
     if (settingsOpen) await openSettings()
     if (!states.includes(expected)) states.push(expected)
     return observed!
@@ -107,7 +114,7 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     checks.push('secret-readback-absent')
   }
   const login = async (): Promise<void> => {
-    await button('.codex-accounts', 'Add account')
+    await click('[data-testid="codex-add-account"]')
     await until(async () => (await text('.login-code')) === 'TEST-CODE', 'intended verification code')
     await noSecrets()
   }
@@ -140,8 +147,8 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
       return options[0].value;
     })()`)
     if (effort !== null) await edit(effortPath, effort)
-    await until(async () => await run(`Array.from(document.querySelectorAll('.settings-body button')).some(button => button.innerText.trim() === 'Save main model' && !button.disabled)`), `valid main-model draft ${selected}`)
-    await button('.settings-body', 'Save main model')
+    await until(async () => await run(`Array.from(document.querySelectorAll('#main-model-actions button')).some(button => button.innerText.trim() === 'Save' && !button.disabled)`), `valid main-model draft ${selected}`)
+    await button('#main-model-actions', 'Save')
     await until(async () => (await savedValue('llm_provider.model')) === selected, 'saved main model')
   }
   const preferences = async (second: boolean): Promise<void> => {
@@ -161,13 +168,19 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
   await until(async () => broker.linkState === 'ready' && !win.webContents.isLoading(), 'app/core handshake', 25_000)
   await openSettings()
   if (scenario === 'fresh' || scenario === 'fresh-second') {
-    await observeState('fresh')
+    await observeState(scenario === 'fresh' ? 'fresh' : 'incomplete')
     await section('General')
     const defaults = await run<boolean[]>('Array.from(document.querySelectorAll("#start-at-login, #notifications-enabled, #notification-previews"), e => e.checked)')
     assert.equal(defaults[0], false)
     assert.equal(defaults[2], true)
     await click('.settings-nav .back')
-    await button('.first-run-banner', 'Set up later')
+    if (scenario === 'fresh') {
+      await button('.first-run-banner', 'Set up later')
+      await until(async () => await run('(async () => { const r=await window.odin.getSetupReminderHidden(); return r.ok && r.result.hidden; })()'), 'durable setup dismissal')
+    } else {
+      assert.equal(await count('.first-run-banner'), 0, 'second launch keeps fresh invitation dismissed')
+      checks.push('dismissal-persisted')
+    }
     assert.equal(await count('.settings'), 0, 'setup later leaves chat navigable')
     await openSettings()
     for (let i = 0; i < 3; i++) {
@@ -176,7 +189,15 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
       assert.equal(await count(fieldId('llm_provider.model')), 1, 'no duplicate model form')
       await section('General')
     }
-    assert.equal((await request<{ first_run: FirstRun }>('status.get')).first_run.state, 'fresh', 'setup later never marks provider complete')
+    assert.equal((await request<{ first_run: FirstRun }>('status.get')).first_run.state, scenario === 'fresh' ? 'fresh' : 'incomplete', 'setup later never marks provider complete')
+    // Later incompleteness does not reset a durable invitation preference.
+    await section('Models and providers')
+    if (scenario === 'fresh') {
+      await edit('openai_codex.enabled', false)
+      await until(async () => await savedValue('openai_codex.enabled') === false, 'later incomplete provider save')
+    }
+    await observeState('incomplete')
+    checks.push('dismissal-after-incomplete')
     checks.push('setup-later', 'section-reentry', 'defaults')
   } else if (scenario === 'ready-second') {
     await observeState('effective-ready')

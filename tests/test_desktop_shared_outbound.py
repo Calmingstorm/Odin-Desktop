@@ -412,7 +412,8 @@ async def test_constructor_is_inert_and_close_cancels_delivery():
 
 
 @pytest.mark.parametrize("reviewed", [False, True])
-async def test_locked_keyring_delivers_public_targets_and_reports_credentialed_skips(graph, reviewed):
+async def test_locked_keyring_delivers_public_targets_and_reports_credentialed_skips(
+        graph, reviewed):
     owner = graph.engine.deps.outbound_webhook_dispatcher
     transport = Transport()
     owner._session = transport

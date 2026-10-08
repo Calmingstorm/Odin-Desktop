@@ -12,6 +12,19 @@
    history and draft. Several conversations can progress independently; requests
    within one are serialized.
 
+**Message** starts at one line and grows with wrapping and inserted newlines up
+to eight visible lines, then scrolls internally. At high zoom or in a short window,
+the visible height can be capped sooner to leave room for other controls. The
+short hint reads **Enter to send · Shift+Enter for a new line · / for commands**.
+Resizing changes the draft's layout, not its text or the selected conversation.
+
+The chat header shows the current core's reported model/effort and available usage
+facts. It omits context percentage when context measurement is unknown; missing
+status is not filled with guesses. Model and usage controls open their full reports.
+The bottom **Odin status** bar keeps connection state, **Status/Usage** report
+buttons and actionable warnings, including awaiting receipts, unknown effects and
+cleanup attention. A connected core is not proof a request or external effect succeeded.
+
 The conversation **Actions** menu offers rename, archive, reset context, delete
 and notification mute. **Show archived** reveals archived rows; archiving is not
 deletion. Read the confirmation before resetting context or deleting history.
@@ -31,7 +44,7 @@ not a continuously updated copy of its parent.
 processing. It is not an automatic knowledge write: the model still needs to use
 an available ingestion tool successfully. Inspect the ingestion result and the
 source list before relying on retention. To retain document text directly, use
-[Settings → State → Knowledge](settings.md#state-memory-lists-and-knowledge) and
+[Settings → Data and privacy → Memory and knowledge → Knowledge](settings.md#state-memory-lists-and-knowledge) and
 inspect its result. Settings and the model's knowledge tools share the profile
 store; a retained document is not proof every later chat searched it.
 

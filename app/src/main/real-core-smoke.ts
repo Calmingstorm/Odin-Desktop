@@ -430,7 +430,15 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
 
   let conversationId = ''
   if (!process.env.ODIN_SMOKE_PROVIDER_BASE_URL) {
-  await until(async () => (await text('.status')).includes(status.version), 'real core status bar')
+  await until(async () => (await text('.status')).includes('Connected') &&
+    await run<boolean>(`['Status', 'Usage'].every(label => Array.from(document.querySelectorAll('.status button')).some(e => e.textContent.trim() === label && !e.disabled))`), 'connected status bar and report actions')
+  const compactStatus = await text('.status')
+  assert(!compactStatus.includes(status.version), 'engine version belongs in General About, not the compact status bar')
+  for (const provider of status.providers) {
+    if (['degraded', 'unavailable', 'error', 'failed'].includes(provider.health)) {
+      assert(compactStatus.includes(`${provider.name} ${provider.health}`), 'status bar must retain actionable provider failures')
+    } else assert(!compactStatus.includes(`${provider.name} ${provider.health}`), 'status bar must omit routine provider badges')
+  }
   screens.push({ screen: 'Status', text: await text('.status') })
   // The renderer creates Chat only after a successful empty list, then loads
   // an authoritative snapshot. A missing provider does not unserve chat.
@@ -476,7 +484,16 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   assert.deepEqual((emptyMessages.result as { items: unknown[] }).items, [])
   screens.push({ screen: 'Conversation sidebar', text: await text('nav[aria-label="Conversations"]') })
 
-  // Slash commands remain useful without a provider. Exercise the actual command
+  // Both status-bar actions and slash commands remain useful without a provider.
+  // Click the real retained buttons, not merely their labels.
+  for (const report of ['Status', 'Usage']) {
+    await run(`(() => { const button = Array.from(document.querySelectorAll('.status button')).find(b => b.textContent.trim() === ${JSON.stringify(report)}); if (!button || button.disabled) throw new Error('Missing enabled status report action'); button.click(); })()`)
+    const expected = report === 'Status' ? status.version : (reads['usage.get'] as { summary: string }).summary
+    await until(async () => (await text('.composer .panel-text')).includes(expected), `status bar ${report} report`)
+    screens.push({ screen: `Status bar / ${report}`, text: await text('.composer .panel-text') })
+    await click('.composer .panel button')
+  }
+  // Exercise the actual command
   // palette and bridge; /status and /usage use real step-five observations,
   // with served usage measured once the boot backfill has settled.
   for (const command of ['/status', '/usage']) {
@@ -493,7 +510,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     } else {
       const summary = (reads['usage.get'] as { summary: string }).summary
       await until(async () => (await text('.composer .panel-text')).includes(summary), '/usage report')
-      assert(!/Usage.*unavailable/i.test(await text('.status')), 'served usage must not present capability refusal')
+      assert(await run<boolean>(`!Array.from(document.querySelectorAll('.status [role="status"]')).some(e => /Usage.*unavailable/i.test(e.textContent))`), 'served usage must not present capability refusal')
       screens.push({ screen: '/usage', text: await text('.composer .panel-text') })
       await click('.composer .panel button')
     }
@@ -968,7 +985,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       await until(async () => (await count('[id="settings-curated-logging.level"]')) === 1, 'real secondary Advanced log detail')
     }
     if (destination === 'Models and providers') {
-      await until(async () => (await text('.codex-accounts')).includes('Add account'), 'served account management')
+      await until(async () => (await count('[data-testid="codex-add-account"]')) === 1 &&
+        await run<boolean>('document.querySelector("[data-testid=codex-add-account]")?.disabled === false'), 'served account management')
       await until(async () => !(await text('.codex-accounts')).includes('Loading'), 'real account observation')
       assert(!/not (?:yet )?available|not served/i.test(await text('.codex-accounts')), 'served account management must not remain capability-unavailable')
       assert.equal(await run('document.querySelectorAll(".account").length'), 0, 'real session must not display fixture accounts')
@@ -986,9 +1004,11 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       await run(`(() => { const timeout = document.querySelector('section[aria-label="Tool timeouts"]'); const details = timeout?.closest('details'); if (!details) throw new Error('Timeouts must remain reachable under More options'); details.open = true; })()`)
       assert((await text('section[aria-label="Tool timeouts"]')).includes('Timeouts'))
       const tools = (observations.tools!.result as { tools: Array<{ name: string; cost?: string | null; risk?: string | null }> }).tools
-      const rows = await run<string[]>('Array.from(document.querySelectorAll("section[aria-label=\\"Built-in tools\\"] .manage-row"), row => row.innerText)')
+      const rows = await run<Array<{ name: string; facts: string }>>('Array.from(document.querySelectorAll("section[aria-label=\\"Built-in tools\\"] .manage-row"), row => ({ name: row.querySelector(".manage-name")?.textContent.trim() ?? "", facts: row.querySelector(".panel-hint")?.textContent.trim() ?? "" }))')
       for (const tool of tools) {
-        assert(rows.some((row) => row.includes(tool.name) && row.includes(`Cost: ${tool.cost ?? 'not reported'}. Risk: ${tool.risk ?? 'not reported'}.`)), `${tool.name} must render its reported cost and risk without invented measurements`)
+        assert(rows.some((row) => row.name === tool.name &&
+          (tool.cost ? row.facts.includes(`Cost: ${tool.cost}.`) : !row.facts.includes('Cost:')) &&
+          (tool.risk ? row.facts.includes(`Risk: ${tool.risk}.`) : !row.facts.includes('Risk:'))), `${tool.name} must render its reported cost and risk without invented measurements`)
       }
       await until(async () => /unavailable/i.test(await text('section[aria-label="Browser runtime"]')), 'real unqualified browser state')
     }
@@ -1116,7 +1136,15 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert(fields.some((field) => field.path === 'llm_provider.model'), 'main-model control must have a served configuration field')
       assert.equal(await count('[id="settings-curated-llm_provider.model"]'), 1, 'Models must render its dedicated main-model control')
     }
-    if (destination === 'General') assert(renderedPaths.includes('timezone'), 'General must render the real curated time zone schema field')
+    if (destination === 'General') {
+      assert(renderedPaths.includes('timezone'), 'General must render the real curated time zone schema field')
+      const about = await run<Array<{ label: string; value: string }>>(`(() => {
+        const section = Array.from(document.querySelectorAll('.settings-body .settings-section')).find(e => e.querySelector('h3')?.textContent.trim() === 'About');
+        return Array.from(section?.querySelectorAll('.settings-row') ?? [], row => ({ label: row.querySelector('.settings-row-label')?.textContent.trim() ?? '', value: row.querySelector('.settings-row-control')?.textContent.trim() ?? '' }));
+      })()`)
+      assert.equal(about.find(row => row.label === 'Engine build')?.value, status.version, 'General About must show the actual engine build separately from Desktop release')
+      assert(about.some(row => row.label === 'Desktop release' && row.value && row.value !== 'Unavailable'), 'General About must retain the separate Desktop release fact')
+    }
     if (destination === 'Advanced settings') {
       const owners = await run<string[]>(`Array.from(document.querySelectorAll('.settings-body :is(input, select, textarea, output, div)[id^="settings-curated-"]:not([id^="settings-curated-record-"])'), e => decodeURIComponent(e.id.slice('settings-curated-'.length)))`)
       const categories = await run<string[]>(`Array.from(document.querySelectorAll('.settings-body .settings-section-header > h3'), e => e.textContent.trim())`)

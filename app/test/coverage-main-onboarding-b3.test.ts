@@ -12,11 +12,12 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs() })
 function fixture(scenario: string) {
   vi.stubEnv('ODIN_SMOKE_ONBOARDING', scenario);
-  let state = scenario === 'ready-second' ? 'effective-ready' : scenario === 'saved-second' ? 'saved' : ['locked', 'missing'].includes(scenario) ? 'degraded' : 'fresh';
+  let state = scenario === 'ready-second' ? 'effective-ready' : scenario === 'saved-second' ? 'saved' : ['locked', 'missing'].includes(scenario) ? 'degraded' : scenario === 'fresh-second' ? 'incomplete' : 'fresh';
   let section = '', settingsOpen = false, model = 'gpt-6.1-sol';
+  let reminderHidden = scenario === 'fresh-second';
   let accounts = 0, auth = 'pending', keyring = state === 'degraded' ? scenario : 'healthy', unlockCalls = 0;
   let autostart = scenario.endsWith('-second') && scenario !== 'fresh-second', previews = !autostart;
-  let enabled = true, compatEnabled = false, credential = false, level = 'INFO', conflict = false, disconnected = false;
+  let enabled = scenario !== 'fresh-second', compatEnabled = false, credential = false, level = 'INFO', conflict = false, disconnected = false;
   let probeFailure = false, guardDegraded = false, localRevision = false;
   let compatibleOpen = false, modelDraft: string | undefined, secretDraft = '', disablePending = false;
   const controls: any[] = [];
@@ -38,14 +39,23 @@ function fixture(scenario: string) {
       { path: 'openai_compatible.enabled', desired: compatEnabled }
     ] } };
     if (method === 'codex.accounts.list') return { ok: true, result: { configured: accounts > 0 } };
-    if (method === 'settings.set') { if (params.expected_revision) { level = 'DEBUG'; localRevision = true } return { ok: true, result: {} } }
+    if (method === 'settings.set') {
+      const codex = params.changes?.find((change: any) => change.path === 'openai_codex.enabled');
+      if (codex) { enabled = codex.value; state = enabled ? 'fresh' : 'incomplete' }
+      else if (params.expected_revision) { level = 'DEBUG'; localRevision = true }
+      return { ok: true, result: {} }
+    }
     throw new Error(`Unmodeled core request ${method}`);
   }), close: vi.fn(() => { disconnected = true; core.linkState = 'reconnecting' }),
     connect: vi.fn(() => { disconnected = false; core.linkState = 'ready' }), startEvents: vi.fn() };
   const win: any = { webContents: { isLoading: () => false, executeJavaScript: vi.fn(async (script: string) => {
+    if (script === 'window.odin.getSetupReminderHidden()') return { ok: true, result: { hidden: reminderHidden } };
+    if (script.includes('await window.odin.getSetupReminderHidden()')) return reminderHidden;
     if (script.startsWith('document.querySelectorAll(')) {
       const selector = JSON.parse(script.slice('document.querySelectorAll('.length, script.indexOf(').length')));
       if (selector === '.settings') return settingsOpen ? 1 : 0;
+      if (selector === '.first-run-banner') return !settingsOpen && state !== 'effective-ready' &&
+        (!reminderHidden || ['saved', 'degraded'].includes(state)) ? 1 : 0;
       if (selector === '.settings-nav-item') return 3;
       if (selector === '.msg') return 0;
       if (selector === '[role="dialog"]') return disablePending ? 1 : 0;
@@ -56,6 +66,7 @@ function fixture(scenario: string) {
       if (selector.includes('settings-curated-openai_compatible.api_key')) return compatibleOpen && section === 'Models and providers' ? 1 : 0;
       if (selector.includes('settings-curated-llm_provider.model') || selector.includes('settings-curated-openai_codex.enabled') || selector.includes('settings-curated-openai_compatible.enabled') || selector === '.codex-accounts') return section === 'Models and providers' ? 1 : 0;
       if (selector === '[data-testid="configure-compat"]' || selector === 'button[title="Settings (Ctrl+,)"]' || selector === '.settings-nav .back') return 1;
+      if (selector === '[data-testid="codex-add-account"]') return settingsOpen && section === 'Models and providers' ? 1 : 0;
       throw new Error(`Unmodeled count ${selector}`);
     }
     if (script.startsWith('document.querySelector(') && script.includes('?.innerText')) {
@@ -71,6 +82,7 @@ function fixture(scenario: string) {
       if (script.includes('Settings (Ctrl+,)')) settingsOpen = true;
       else if (script.includes('.settings-nav .back')) settingsOpen = false;
       else if (script.includes('configure-compat')) compatibleOpen = !compatibleOpen;
+      else if (script.includes('codex-add-account')) { if (auth === 'success') accounts = 1; clicked.push('Add account') }
       else throw new Error(`Unmodeled click ${script}`);
       clicked.push(script); return undefined;
     }
@@ -80,17 +92,19 @@ function fixture(scenario: string) {
       else if (label === 'Advanced settings' && section === 'General') { section = label; sections.push(label) }
       else if (label === 'Add account') { if (auth === 'success') accounts = 1 }
       else if (label === 'Retry') { if (keyring === 'locked') unlockCalls++; keyring = 'healthy'; state = 'fresh' }
-      else if (label === 'Save main model') { expect(modelDraft).toBeDefined(); model = modelDraft!; modelDraft = undefined; state = guardDegraded ? 'degraded' : 'effective-ready' }
+      else if (label === 'Save' && script.includes('#main-model-actions')) { expect(modelDraft).toBeDefined(); model = modelDraft!; modelDraft = undefined; state = guardDegraded ? 'degraded' : 'effective-ready'; clicked.push('Save main model') }
       else if (label === 'Store key') { expect(compatibleOpen).toBe(true); expect(secretDraft).not.toBe(''); credential = keyring === 'healthy'; secretDraft = '' }
       else if (label === 'Disable') { expect(disablePending).toBe(true); disablePending = false; enabled = false; state = 'incomplete' }
+      else if (label === 'Set up later') reminderHidden = true;
       else if (!['Set up later', 'Stop waiting'].includes(label)) throw new Error(`Unmodeled button ${label}`);
       clicked.push(label); return undefined;
     }
     if (script.startsWith('Boolean(document.querySelector')) {
       const expected = script.match(/data-state="([^"]+)"/)?.[1];
-      return !settingsOpen && expected === state;
+      return !settingsOpen && expected === state && state !== 'effective-ready' &&
+        (!reminderHidden || ['saved', 'degraded'].includes(state));
     }
-    if (script.includes("button.innerText.trim() === 'Save main model'")) return modelDraft !== undefined;
+    if (script.includes("querySelectorAll('#main-model-actions button')")) return modelDraft !== undefined;
     if (script.startsWith('Array.from(document.querySelectorAll')) return [autostart, true, previews];
     if (script.includes("querySelector('#start-at-login')")) { autostart = true; return undefined }
     if (script.includes("querySelector('#notification-previews')")) { previews = false; return undefined }
@@ -106,7 +120,7 @@ function fixture(scenario: string) {
     if (script.includes('input.type ===')) {
       const value = JSON.parse(script.match(/input\.checked = ("(?:[^"\\]|\\.)*"|true|false)/)![1]!);
       if (script.includes('settings-curated-llm_provider.model')) modelDraft = value;
-      else if (script.includes('settings-curated-openai_codex.enabled')) { if (!value) disablePending = true; else { enabled = true; state = 'effective-ready' } }
+      else if (script.includes('settings-curated-openai_codex.enabled')) { if (!value) disablePending = true; else { enabled = true; state = scenario.startsWith('fresh') ? 'fresh' : 'effective-ready' } }
       else if (script.includes('settings-curated-openai_compatible.api_key')) secretDraft = value;
       else if (script.includes('settings-curated-openai_compatible.enabled')) { if (!probeFailure) compatEnabled = value }
       else if (script.includes('settings-curated-logging.level')) {
@@ -133,20 +147,23 @@ async function runScenario(scenario: string) {
 describe('onboarding smoke orchestration without a display', () => {
   it.each(['fresh', 'fresh-second'])('checks %s defaults, setup-later and collision-free section reentry', async scenario => {
     const f = await runScenario(scenario);
-    expect(f.sections).toEqual(['General', 'Models and providers', 'General', 'Models and providers', 'General', 'Models and providers', 'General']);
-    expect(f.clicked).toContain('Set up later'); expect(f.edits).toEqual([]);
-    expect(disk.write).toHaveBeenCalledExactlyOnceWith('/mock/result.json', JSON.stringify({ scenario, passed: true, states: ['fresh'], checks: ['setup-later', 'section-reentry', 'defaults', 'secret-readback-absent'] }), { mode: 0o600 });
-    expect(f.core.request.mock.calls.every(([method]: string[]) => method === 'status.get')).toBe(true);
+    expect(f.sections).toEqual(['General', 'Models and providers', 'General', 'Models and providers', 'General', 'Models and providers', 'General', 'Models and providers']);
+    if (scenario === 'fresh') expect(f.clicked).toContain('Set up later');
+    else expect(f.clicked).not.toContain('Set up later');
+    expect(f.edits).toEqual(scenario === 'fresh' ? [false] : []);
+    expect(disk.write).toHaveBeenCalledExactlyOnceWith('/mock/result.json', JSON.stringify({ scenario, passed: true, states: scenario === 'fresh' ? ['fresh', 'incomplete'] : ['incomplete'], checks: [...(scenario === 'fresh-second' ? ['dismissal-persisted'] : []), 'dismissal-after-incomplete', 'setup-later', 'section-reentry', 'defaults', 'secret-readback-absent'] }), { mode: 0o600 });
+    expect(f.core.request.mock.calls.filter(([method]: string[]) => method === 'settings.set')).toEqual([]);
+    if (scenario === 'fresh') expect(f.clicked).toContain('Disable');
   })
   it('checks persisted preferences and adopted provider on the second ready launch', async () => {
     const f = await runScenario('ready-second'); expect(f.sections).toEqual(['General']);
-    expect(disk.write).toHaveBeenCalledExactlyOnceWith('/mock/result.json', JSON.stringify({ scenario: 'ready-second', passed: true, states: ['effective-ready'], checks: ['preferences-persisted', 'startup-provider-adopted', 'secret-readback-absent'] }), { mode: 0o600 });
+    expect(disk.write).toHaveBeenCalledExactlyOnceWith('/mock/result.json', JSON.stringify({ scenario: 'ready-second', passed: true, states: ['effective-ready'], checks: ['effective-ready-no-banner', 'preferences-persisted', 'startup-provider-adopted', 'secret-readback-absent'] }), { mode: 0o600 });
   })
   it('retries a saved provider through a changed model and retains unrelated adapter-control keys', async () => {
     const f = await runScenario('saved-second'); expect(f.edits).toEqual(['gpt-6-luna']);
     expect(f.clicked).toContain('Save main model');
     expect(disk.write).toHaveBeenCalledWith('/mock/control.json', '{"retained":true,"unlock_calls":0,"startup_provider_unavailable":false}', { mode: 0o600 });
-    expect(disk.write).toHaveBeenCalledWith('/mock/result.json', JSON.stringify({ scenario: 'saved-second', passed: true, states: ['saved', 'effective-ready'], checks: ['preferences-persisted', 'saved-not-effective', 'secret-readback-absent'] }), { mode: 0o600 });
+    expect(disk.write).toHaveBeenCalledWith('/mock/result.json', JSON.stringify({ scenario: 'saved-second', passed: true, states: ['saved', 'effective-ready'], checks: ['preferences-persisted', 'effective-ready-no-banner', 'saved-not-effective', 'secret-readback-absent'] }), { mode: 0o600 });
   })
   it('redacts a failing renderer operation rather than reporting success', async () => {
     const f = fixture('fresh'); f.win.webContents.executeJavaScript.mockRejectedValueOnce(new Error('renderer failed'));
@@ -157,7 +174,7 @@ describe('onboarding smoke orchestration without a display', () => {
     const f = await runScenario(scenario); expect(f.clicked).toContain('Retry'); expect(f.clicked).toContain('Add account');
     expect(f.clicked).toContain('Store key'); expect(f.clicked).toContain('Save main model');
     expect(f.edits).toEqual(['E2E-WRITE-ONLY-NEVER-RENDER', 'gpt-6-luna']);
-    expect(disk.write).toHaveBeenCalledWith('/mock/result.json', JSON.stringify({ scenario, passed: true, states: ['degraded', 'fresh', 'effective-ready'], checks: ['keyring-retry', 'secret-readback-absent', 'secret-readback-absent'] }), { mode: 0o600 });
+    expect(disk.write).toHaveBeenCalledWith('/mock/result.json', JSON.stringify({ scenario, passed: true, states: ['degraded', 'fresh', 'effective-ready'], checks: ['keyring-retry', 'secret-readback-absent', 'effective-ready-no-banner', 'secret-readback-absent'] }), { mode: 0o600 });
     expect(f.controls.some(control => control.keyring === 'healthy')).toBe(scenario === 'missing');
   })
   it('checks cancellation, expiry, revision/disconnect and provider qualification recovery in the full onboarding plan', async () => {
@@ -168,8 +185,8 @@ describe('onboarding smoke orchestration without a display', () => {
     expect(f.core.close).toHaveBeenCalledOnce(); expect(f.core.connect).toHaveBeenCalledOnce(); expect(f.core.startEvents).toHaveBeenCalledOnce();
     const result = JSON.parse(disk.write.mock.calls.find(([path]) => path === '/mock/result.json')![1] as string);
     expect(result).toEqual({ scenario: 'ready', passed: true, states: ['fresh', 'incomplete', 'effective-ready', 'degraded'], checks: [
-      'defaults-and-opt-in', 'secret-readback-absent', 'canceled-login', 'secret-readback-absent', 'expired-login', 'secret-readback-absent',
-      'revision-retry', 'connection-retry', 'secret-cleared', 'provider-save-retry', 'degraded-health-recovery', 'secret-readback-absent'
+      'defaults-and-opt-in', 'secret-readback-absent', 'canceled-login', 'secret-readback-absent', 'expired-login', 'secret-readback-absent', 'effective-ready-no-banner',
+      'revision-retry', 'connection-retry', 'secret-cleared', 'effective-ready-no-banner', 'effective-ready-no-banner', 'provider-save-retry', 'effective-ready-no-banner', 'degraded-health-recovery', 'secret-readback-absent'
     ] });
     expect(f.controls).toEqual(expect.arrayContaining([expect.objectContaining({ probe_failure: true }), expect.objectContaining({ probe_failure: false }), expect.objectContaining({ guard_degraded: true }), expect.objectContaining({ guard_degraded: false })]));
   })

@@ -391,11 +391,11 @@ describe('B3 tool details and chat status', () => {
   it('opens connected status/usage reports, includes quota reset facts and hides stale data', async () => {
     const measured = (value: number) => ({ value, kind: 'measured' })
     status.core = { model: { main: 'Local', effort: 'high', provider: 'local' } }
-    status.usage = { context: { used: measured(20), budget: measured(100) }, quota: [{ account: 'Primary', window: 'week', used_percent: measured(30), resets_at: '2026-10-08T10:00:00Z' }], tokens: measured(2000) }
+    status.usage = { period: '24h', context: { used: measured(20), budget: measured(100) }, quota: [{ account: 'Primary', window: 'week', used_percent: measured(30), resets_at: '2026-10-08T10:00:00Z' }], tokens: measured(2000) }
     const view = await screen('ChatStatus'); const buttons = view.root.findAll((n) => n.tag === 'button')
     expect(buttons[1]!.props.title).toContain('resets'); expect(view.root.textContent()).toContain('Context 20% · Quota 30% · 2K tokens')
     buttons[0]!.fire('click'); buttons[1]!.fire('click'); expect(commands[0].run).toHaveBeenCalledWith(''); expect(commands[1].run).toHaveBeenCalledWith('')
-    status.usage.quota = []; await flush(); expect(view.root.textContent()).toContain('Quota —')
+    status.usage.quota = []; await flush(); expect(view.root.textContent()).not.toContain('Quota'); expect(view.root.textContent()).toContain('Context 20% · 2K tokens in 24h')
     state.app.link = 'reconnecting'; await flush(); expect(view.root.find('button')).toBeUndefined()
   })
 })

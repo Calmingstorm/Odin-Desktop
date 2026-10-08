@@ -33,6 +33,9 @@ export interface LoginState {
 
 export const settings = reactive({
   meta: null as ConfigMeta | null,
+  /** Qualifies independent keyring diagnostics; retained form metadata alone is not current health. */
+  metaEpoch: -1,
+  metaCoreInstanceId: null as string | null,
   error: '',
   unavailable: false,
   notice: '',
@@ -66,6 +69,7 @@ export async function loadSettings(explicit = false): Promise<void> {
   const result = await window.odin.settingsSchema()
   if (mine !== settingsGeneration || epoch !== appState.recoveryEpoch || instance !== appState.app.coreInstanceId) return
   if (!result.ok) {
+    settings.metaEpoch = -1
     if (isUnavailable(result.error)) {
       settings.meta = null
       settings.unavailable = true
@@ -79,6 +83,8 @@ export async function loadSettings(explicit = false): Promise<void> {
   settings.unavailable = false
   settings.error = ''
   settings.meta = result.result
+  settings.metaEpoch = epoch
+  settings.metaCoreInstanceId = instance
   if (explicit) { settings.unknownSave = false; settings.notice = '' }
 }
 
@@ -421,8 +427,10 @@ let codexActedAfter = 0
 
 export async function loadCodex(): Promise<boolean> {
   const mine = ++codexRead
+  const epoch = appState.recoveryEpoch
+  const instance = appState.app.coreInstanceId
   const result = await window.odin.codexAccounts()
-  if (mine !== codexRead) return false // a newer read owns the list
+  if (mine !== codexRead || epoch !== appState.recoveryEpoch || instance !== appState.app.coreInstanceId) return false
   if (!result.ok) {
     if (isUnavailable(result.error)) {
       settings.codex.status = null

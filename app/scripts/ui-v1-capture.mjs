@@ -1,4 +1,4 @@
-// UI C visual-review evidence only. Not native desktop/platform qualification.
+// UI D visual-review evidence only. Not native desktop/platform qualification.
 // Run only after parent declares the tree stable, as nonprivileged odin.
 import { spawn, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -8,12 +8,14 @@ import { fileURLToPath } from 'node:url'
 import { launchIsolated, repositoryRoot } from './real-core-isolation.mjs'
 
 export const CAPTURE_EPOCH = '2026-10-08T03:43:00.000Z'
-export const DEFAULT_OUTPUT = '/mnt/storage/odin-desktop-evidence/ui-v1-slices3-4-20261008'
+export const DEFAULT_OUTPUT = '/mnt/storage/odin-desktop-evidence/ui-v1-slices5-7-20261008'
 export const PRIMARY_NAV = ['General', 'Models and providers', 'Personality', 'Tools', 'Skills',
   'MCP servers', 'Hosts and access', 'Work', 'Data and privacy']
 export const CAPTURE_VARIANTS = [
   { key: '1180x780-dark', width: 1180, height: 780, theme: 'dark' },
-  { key: '1920x1080-light', width: 1920, height: 1080, theme: 'light' }
+  { key: '1920x1080-light', width: 1920, height: 1080, theme: 'light' },
+  { key: '1180x780-light', width: 1180, height: 780, theme: 'light' },
+  { key: '1920x1080-dark', width: 1920, height: 1080, theme: 'dark' }
 ]
 export const BOUNDS_VARIANTS = [
   { key: 'minimum-720x480', width: 720, height: 480, zoom: 1 },
@@ -22,7 +24,20 @@ export const BOUNDS_VARIANTS = [
 ]
 export const REQUIRED_STATES = ['models-more-options', 'provider-codex-configure', 'provider-ollama-configure',
   'provider-compat-configure', 'mcp-add', 'mcp-edit', 'outbound-add', 'outbound-edit', 'advanced-search', 'advanced-no-results', 'pending-restart',
-  'data-memory', 'data-conversations', 'data-records']
+  'data-memory', 'data-conversations', 'data-records', 'chat-empty', 'chat-populated',
+  'models-dirty-save', 'models-long-names', 'mcp-validation-error']
+// These remain their own gates. A screenshot must never silently inherit their qualification.
+export const EXISTING_GATES = [
+  { id: 'dirty-stale-and-unavailable', command: 'npm test -- test/renderer/settings-store.test.ts test/renderer/ui-v1-models.test.ts test/real-core-settings.test.ts',
+    source: ['app/test/renderer/settings-store.test.ts', 'app/test/renderer/ui-v1-models.test.ts', 'app/test/real-core-settings.test.ts'], scope: 'settings ownership and revision failures' },
+  { id: 'onboarding-loading-and-provider-retry', command: 'npm run test:onboarding',
+    source: ['app/test/e2e/onboarding.spec.ts', 'app/scripts/onboarding-test.mjs'], scope: 'isolated real-core onboarding, no real credentials' },
+  { id: 'keyboard-reduced-motion-and-light-contrast', command: 'npm run test:a11y',
+    source: ['app/test/e2e/accessibility.spec.ts'], scope: 'AX/axe and theme/keyboard/reflow gate, not Orca or installed qualification' },
+  { id: 'retained-output-nonreplay', command: 'npm test -- test/renderer/tool-output.test.ts test/renderer/tool-activity.test.ts',
+    source: ['app/test/renderer/tool-output.test.ts', 'app/test/renderer/tool-activity.test.ts'], scope: 'retained output cursor owner, never re-run' }
+]
+export const CAPTURE_LONG_ACCOUNT_LABEL = 'Capture secondary account with an intentionally lengthy label for wrap review'
 export const ADVANCED_CATEGORIES = ['Models and context', 'Tool execution', 'Hosts and access', 'Work and recovery', 'Data and retention']
 // Declared illustration only. This is not a copied production capability table.
 export const CAPTURE_MODEL_CATALOGUE = {
@@ -64,7 +79,7 @@ export const CAPTURE_FIXTURE_FIELDS = [
   ['openai_compatible.thinking_mode', 'string', 'Provider thinking mode', 'auto'],
   ['agents.thinking_mode', 'string', 'Agent thinking mode', 'auto'],
   ['agents.model_selection_hints', 'object', 'Automatic selection guidance', {}],
-  ['openai_codex.agent_reasoning_effort', 'string', 'Agent reasoning effort', 'medium'],
+  ['openai_codex.agent_reasoning_effort', 'string', 'Agent reasoning effort', 'auto'],
   ['ollama.num_ctx', 'integer', 'Local context size', 32768],
   ['openai_compatible.context_utilization', 'integer', 'Provider context', 60],
   ['openai_compatible.reasoning_content_feedback_policy', 'string', 'Reasoning history', 'auto'],
@@ -84,7 +99,7 @@ export const CAPTURE_FIXTURE_FIELDS = [
   ['attachments.retention_hours', 'integer', 'Attachment retention', 24, 'restart']
 ]
 export function validateCaptureEvidence(receipts) {
-  if (receipts.length !== CAPTURE_VARIANTS.length) throw new Error('Expected two passing variant receipts')
+  if (receipts.length !== CAPTURE_VARIANTS.length) throw new Error('Expected four passing variant receipts')
   for (const variant of CAPTURE_VARIANTS) {
     const receipt = receipts.find((item) => item.variant?.key === variant.key)
     if (!receipt || receipt.outcome !== 'passed') throw new Error(`Missing passing variant: ${variant.key}`)
@@ -106,7 +121,19 @@ export function validateCaptureEvidence(receipts) {
       }
     }
     if (JSON.stringify(receipt.advancedCategories) !== JSON.stringify(ADVANCED_CATEGORIES)) throw new Error('Advanced categories missing or reordered')
+    for (const page of [...PRIMARY_NAV, 'Advanced settings']) {
+      if (!receipt.geometry?.some((record) => record.name === page && record.outcome === 'passed')) {
+        throw new Error(`Missing numerical page geometry: ${variant.key} ${page}`)
+      }
+    }
   }
+  for (const bounds of BOUNDS_VARIANTS) {
+    const images = receipts.flatMap((receipt) => receipt.screenshots ?? []).filter((image) => image.label === bounds.key)
+    if (images.length !== 1) throw new Error(`Expected exactly one bounded screenshot: ${bounds.key}`)
+  }
+}
+export function assertStableTree(value) {
+  if (value !== '1') throw new Error('Parent must confirm the tree stable: ODIN_APP_UI_TREE_STABLE=1')
 }
 export function contactSheetArgs(paths, output) {
   if (!paths.length) throw new Error('Cannot build an empty contact sheet')
@@ -132,7 +159,7 @@ export function captureLaunchPlan(appDir, config, output) {
     args: ['--config-file', join(repositoryRoot, 'tests/desktop_fixtures/private-session.conf'), '--',
       'xvfb-run', '-a', '-s', '-screen 0 2048x1200x24 -nolisten tcp', process.execPath,
       join(appDir, 'node_modules/@playwright/test/cli.js'), 'test', '--config', config],
-    options: { cwd: repositoryRoot, timeoutMs: 10 * 60_000,
+    options: { cwd: repositoryRoot, timeoutMs: 20 * 60_000,
       env: { ODIN_APP_E2E: '1', ODIN_APP_E2E_OUT: output, ODIN_APP_UI_CAPTURE: '1',
         ODIN_APP_UI_PLAN: join(output, 'capture-plan.json') } }
   }
@@ -178,14 +205,15 @@ function sourceProvenance(appDir) {
       else if (entry.isFile()) files.push({ path: relative(repositoryRoot, full), sha256: sha256(readFileSync(full)) })
     }
   }
-  for (const directory of ['src', 'fixture-core', 'scripts', 'out']) visit(join(appDir, directory))
-  for (const path of ['playwright.config.ts', 'test/e2e/harness.ts', 'test/e2e/ui-v1-capture.spec.ts']) {
+  for (const directory of ['src', 'fixture-core', 'scripts', 'out', 'test']) visit(join(appDir, directory))
+  for (const path of ['playwright.config.ts', 'package.json', 'package-lock.json']) {
     files.push({ path: `app/${path}`, sha256: sha256(readFileSync(join(appDir, path))) })
   }
   return { files, digest: sha256(JSON.stringify(files)) }
 }
 
 export async function runCapture() {
+  assertStableTree(process.env.ODIN_APP_UI_TREE_STABLE)
   if (process.platform !== 'linux' || process.getuid?.() === 0 || process.getuid?.() !== process.geteuid?.()) {
     throw new Error('Run UI capture as the nonprivileged odin user. No root Electron or sandbox bypass.')
   }
@@ -193,23 +221,26 @@ export async function runCapture() {
   const output = externalOutput(process.env.ODIN_APP_E2E_OUT)
   mkdirSync(output, { recursive: true, mode: 0o700 })
   // Keep prior evidence intact. Every rerun gets a fresh private profile and evidence directory.
-  const runDirectory = join(output, `ui-c-${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}`)
+  const runDirectory = join(output, `ui-d-${new Date().toISOString().replace(/[:.]/g, '-')}-${process.pid}`)
   mkdirSync(runDirectory, { mode: 0o700 })
   const config = join(runDirectory, 'capture.config.ts')
   const manifest = {
-    schema: 'odin-ui-c-capture-v1', startedAt: new Date().toISOString(), outcome: 'running',
-    scope: 'UI C source-build visual review; every settings destination, scroll coverage and expanded workflows',
+    schema: 'odin-ui-d-capture-v1', startedAt: new Date().toISOString(), outcome: 'running',
+    scope: 'UI D source-build evidence matrix; all Settings, chat empty/populated, measured geometry and expanded workflows',
     limitations: ['Fixture core, not model or production-core evidence', 'No installed package, VM, live display, Orca or platform qualification',
       'Fixture schema samples and accounts are synthetic; appearance does not prove engine adoption or workflow qualification',
-      'Small/narrow/200% zoom checks have no screenshots until UI D'],
+      'Existing ownership, onboarding, accessibility and nonreplay gates are independent; this manifest does not claim their qualification',
+      'Real Advanced owner inventory remains a separately captured REAL-core receipt; synthetic Advanced does not prove engine ownership'],
     runDirectory, epoch: CAPTURE_EPOCH, primaryNavigation: PRIMARY_NAV,
-    screenshotVariants: CAPTURE_VARIANTS, boundsOnlyVariants: BOUNDS_VARIANTS,
+    screenshotVariants: CAPTURE_VARIANTS, singleScreenshotBoundsVariants: BOUNDS_VARIANTS,
     isolation: { runner: 'launchIsolated', uid: process.getuid(), gid: process.getgid(),
       privateHomeXdg: true, privatePidProc: true, privateDbus: true, xvfb: '2048x1200x24',
       chromiumSandbox: true, rendererSandbox: true, contextIsolation: true, nodeIntegration: false },
     fixtureFields: CAPTURE_FIXTURE_FIELDS, fixtureModelCatalogue: CAPTURE_MODEL_CATALOGUE,
     fixtureOutboundWebhooks: CAPTURE_OUTBOUND_WEBHOOKS,
     fixtureFieldMetadata: CAPTURE_FIELD_METADATA,
+    fixtureModelStatus: CAPTURE_MODEL_STATUS,
+    existingGates: [],
     requiredStates: REQUIRED_STATES, advancedCategories: ADVANCED_CATEGORIES,
     screenshots: [], contactSheets: [], outcomes: []
   }
@@ -224,6 +255,8 @@ export async function runCapture() {
       diffSha256: sha256(execFileSync('git', ['diff', 'HEAD', '--', 'app'], { cwd: repositoryRoot, maxBuffer: 16 * 1024 * 1024 }))
     }
     manifest.source = sourceProvenance(appDir)
+    manifest.existingGates = EXISTING_GATES.map((gate) => ({ ...gate, outcome: 'separate-gate-required',
+      sourceHashes: gate.source.map((path) => ({ path, sha256: sha256(readFileSync(join(repositoryRoot, path))) })) }))
     // Playwright compiles .ts tests to CJS in this project. Supply data, not a
     // CJS import of this executable ESM runner (which contains import.meta).
     writeFileSync(join(runDirectory, 'capture-plan.json'), JSON.stringify({
@@ -231,11 +264,12 @@ export async function runCapture() {
       requiredStates: REQUIRED_STATES, advancedCategories: ADVANCED_CATEGORIES,
       fixtureModelCatalogue: CAPTURE_MODEL_CATALOGUE,
       fixtureOutboundWebhooks: CAPTURE_OUTBOUND_WEBHOOKS,
+      longAccountLabel: CAPTURE_LONG_ACCOUNT_LABEL,
       command: fixtureCommand(resolve(process.env.ODIN_DESKTOP_ENGINE_PYTHON || join(repositoryRoot, '.venv/bin/python')),
         join(appDir, 'fixture-core/fixture_core.py'), CAPTURE_FIXTURE_FIELDS)
     }, null, 2) + '\n', { mode: 0o600 })
     // Own no shared configuration file: a disposable absolute-path config overrides only selection/report location.
-    writeFileSync(config, `import base from ${JSON.stringify(join(appDir, 'playwright.config.ts'))}\nexport default { ...base, testDir: ${JSON.stringify(join(appDir, 'test/e2e'))}, testMatch: ['ui-v1-capture.spec.ts'], timeout: 180000, retries: 0, workers: 1, use: { trace: 'off', screenshot: 'off', video: 'off' } }\n`, { mode: 0o600 })
+    writeFileSync(config, `import base from ${JSON.stringify(join(appDir, 'playwright.config.ts'))}\nexport default { ...base, testDir: ${JSON.stringify(join(appDir, 'test/e2e'))}, testMatch: ['ui-v1-capture.spec.ts'], timeout: 300000, retries: 0, workers: 1, use: { trace: 'off', screenshot: 'off', video: 'off' } }\n`, { mode: 0o600 })
     const plan = captureLaunchPlan(appDir, config, runDirectory)
     await launchIsolated(plan.command, plan.args, plan.options)
     const after = sourceProvenance(appDir)

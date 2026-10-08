@@ -17,6 +17,22 @@ describe('cleanup preload bridge', () => {
 })
 
 describe('local app preload bridge', () => {
+  it('exposes named reminder get/set methods without renderer profile paths or storage access', async () => {
+    await import('../src/preload/index')
+    const [, api] = bridge.expose.mock.calls[0] as [string, OdinApi]
+    bridge.invoke.mockClear()
+    const receipt = { ok: true, result: { hidden: true } }
+    bridge.invoke.mockResolvedValueOnce(receipt)
+    expect(await api.getSetupReminderHidden()).toBe(receipt)
+    expect(bridge.invoke).toHaveBeenCalledExactlyOnceWith(IPC.getSetupReminderHidden, {})
+    for (const hidden of [true, false]) {
+      bridge.invoke.mockClear()
+      bridge.invoke.mockResolvedValueOnce(receipt)
+      expect(await api.setSetupReminderHidden(hidden)).toBe(receipt)
+      expect(bridge.invoke).toHaveBeenCalledExactlyOnceWith(IPC.setSetupReminderHidden, { hidden })
+    }
+  })
+
   it('exposes only named argument-free operations with strict empty IPC payloads', async () => {
     await import('../src/preload/index')
     const [, api] = bridge.expose.mock.calls[0] as [string, OdinApi]

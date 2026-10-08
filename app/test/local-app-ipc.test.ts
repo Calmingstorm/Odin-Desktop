@@ -54,6 +54,18 @@ describe('local app IPC boundary', () => {
     for (const channel of channels) expect(await call(channel)).toEqual(unavailable)
     expect(forbidden).not.toHaveBeenCalled()
   })
+  it('never acknowledges a conversation mute preference whose durable owner rejected the save', async () => {
+    const setConversationMuted = vi.fn(() => { throw new Error('/private/profile write failed') })
+    const { call, forbidden } = fixture({ setConversationMuted })
+    for (const muted of [true, false]) {
+      expect(await call(IPC.setConversationMuted, { conversation_id: 'private-chat', muted })).toEqual({
+        ok: false, error: { code: 'internal', message: 'Internal app error.' }
+      })
+    }
+    expect(setConversationMuted).toHaveBeenNthCalledWith(1, 'private-chat', true)
+    expect(setConversationMuted).toHaveBeenNthCalledWith(2, 'private-chat', false)
+    expect(forbidden).not.toHaveBeenCalled()
+  })
 
   it('delivers acceptance before the owner-scheduled shutdown callback runs', async () => {
     const shutdown = vi.fn()

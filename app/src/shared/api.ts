@@ -1325,6 +1325,9 @@ export interface ControlTarget {
 
 /** The API the preload bridge exposes as `window.odin`. Nothing else crosses the bridge. */
 export interface OdinApi extends ManagementApi, SettingsShapedApi {
+  /** Profile-local app preference, not a provider readiness/completion flag. */
+  getSetupReminderHidden(): Promise<Result<{ hidden: boolean }>>
+  setSetupReminderHidden(hidden: boolean): Promise<Result<{ hidden: boolean }>>
   getDesktopInfo(): Promise<Result<DesktopInfo>>
   /** Opens only the current profile's settings folder; no renderer-supplied path. */
   openSettingsFolder(): Promise<Result<{ opened: true }>>
@@ -1437,6 +1440,8 @@ export interface LateReceipt {
 }
 
 export const IPC = {
+  getSetupReminderHidden: 'odin:setup-reminder:get',
+  setSetupReminderHidden: 'odin:setup-reminder:set',
   getDesktopInfo: 'odin:get-desktop-info',
   openSettingsFolder: 'odin:open-settings-folder',
   exitOdin: 'odin:exit-odin',

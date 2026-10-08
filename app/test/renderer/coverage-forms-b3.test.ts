@@ -170,7 +170,7 @@ describe('B3 MCP: patches and form ownership', () => {
     expect(actions.saveMcp).toHaveBeenCalledWith({ name: 'tools', create: false, transport: 'http', timeout_seconds: 15, headers_set: { 'X-Public': 'fixture' }, env_set: { MODE: 'test' } })
     await invoke(v, 'save'); await flush(); expect(v.setup.form).toBeNull()
     v.root.button('Add server').fire('click'); await flush(); field(v.root, 'Name').type('stdio_fixture'); field(v.root, 'Executable').type('/fixture/mcp'); field(v.root, 'Arguments, one per line', 'textarea').type('--test\n--safe')
-    await v.root.named('Add MCP server').fire('click'); expect(actions.saveMcp).toHaveBeenLastCalledWith({ name: 'stdio_fixture', create: true, transport: 'stdio', command: '/fixture/mcp', args: ['--test', '--safe'] })
+    await v.root.named('Add server (MCP)').fire('click'); expect(actions.saveMcp).toHaveBeenLastCalledWith({ name: 'stdio_fixture', create: true, transport: 'stdio', command: '/fixture/mcp', args: ['--test', '--safe'] })
   })
 })
 

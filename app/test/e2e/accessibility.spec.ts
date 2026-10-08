@@ -655,7 +655,13 @@ test('keyboard management disclosures and editor forms are named and auditable',
 
   await settingsSection('MCP servers')
   await activate(page.getByRole('button', { name: 'More actions for LMMS', exact: true }))
-  await activate(page.getByRole('menuitem', { name: 'Tools for LMMS', exact: true }))
+  // Native menu items use roving focus, not the page's Tab order.
+  const mcpMenu = page.getByRole('menu', { name: 'More actions for LMMS', exact: true })
+  await expect(mcpMenu.getByRole('menuitem', { name: 'Reconnect LMMS', exact: true })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowDown')
+  await expect(mcpMenu.getByRole('menuitem', { name: 'Tools for LMMS', exact: true })).toBeFocused()
+  await page.keyboard.press('Enter')
   await expect(page.locator('.mcp-tools')).toContainText('create_track')
   await activate(page.getByRole('button', { name: 'Add server', exact: true }))
   await tabTo(page.getByRole('textbox', { name: 'Executable', exact: true }))

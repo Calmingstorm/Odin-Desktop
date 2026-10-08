@@ -20,7 +20,9 @@ it('uses exact nine primary destinations and only requested large screenshots', 
     'Skills', 'MCP servers', 'Hosts and access', 'Work', 'Data and privacy'])
   expect(evaluate('runner.CAPTURE_VARIANTS')).toEqual([
     { key: '1180x780-dark', width: 1180, height: 780, theme: 'dark' },
-    { key: '1920x1080-light', width: 1920, height: 1080, theme: 'light' }
+    { key: '1920x1080-light', width: 1920, height: 1080, theme: 'light' },
+    { key: '1180x780-light', width: 1180, height: 780, theme: 'light' },
+    { key: '1920x1080-dark', width: 1920, height: 1080, theme: 'dark' }
   ])
   expect(evaluate('runner.BOUNDS_VARIANTS.map(x => x.key)')).toEqual([
     'minimum-720x480', 'zoom-200-percent', 'narrow-720x780'
@@ -29,32 +31,40 @@ it('uses exact nine primary destinations and only requested large screenshots', 
   expect(source).toContain("pages.push({ name, frames })")
   expect(source).toContain("await screenshot('pending-restart')")
   expect(source).not.toContain('waitForTimeout(')
-  expect(evaluate('runner.DEFAULT_OUTPUT')).toBe('/mnt/storage/odin-desktop-evidence/ui-v1-slices3-4-20261008')
+  expect(evaluate('runner.DEFAULT_OUTPUT')).toBe('/mnt/storage/odin-desktop-evidence/ui-v1-slices5-7-20261008')
+  expect((evaluate('runner.CAPTURE_LONG_ACCOUNT_LABEL') as string).length).toBeLessThanOrEqual(80)
   const fields = evaluate('runner.CAPTURE_FIXTURE_FIELDS.map(row => row[0])') as string[]
   expect(fields).toEqual(expect.arrayContaining(['openai_codex.enabled', 'openai_codex.agent_reasoning_effort',
     'ollama.num_ctx', 'openai_compatible.openrouter.order', 'openai_compatible.openrouter.model_pins',
     'agents.model_selection_hints', 'attachments.retention_hours']))
 })
 
-it('requires every C page and special state with contiguous top-to-bottom scroll coverage', () => {
+it('requires every D page and special state with contiguous top-to-bottom scroll coverage', () => {
   const result = evaluate(`(() => {
     const make = () => runner.CAPTURE_VARIANTS.map(variant => ({variant, outcome:'passed',
       advancedCategories: runner.ADVANCED_CATEGORIES,
       pages: [...runner.PRIMARY_NAV, 'Advanced settings'].map(name => ({name, frames:[
         {top:0, client:100, height:180}, {top:80, client:100, height:180}]})),
-      screenshots: runner.REQUIRED_STATES.map(label => ({label: label + '-scroll-01'}))}));
+      geometry: [...runner.PRIMARY_NAV, 'Advanced settings'].map(name => ({name, outcome:'passed'})),
+      screenshots: [...runner.REQUIRED_STATES.map(label => ({label: label + '-scroll-01'})),
+        ...(variant.key === runner.CAPTURE_VARIANTS[0].key ? runner.BOUNDS_VARIANTS.map(x => ({label:x.key})) : [])]}));
     const check = mutation => { const receipts=make(); mutation(receipts); try {runner.validateCaptureEvidence(receipts); return 'passed'} catch(e) {return e.message} };
     return [check(() => {}), check(x => x.pop()), check(x => x[0].pages.pop()),
-      check(x => x[0].screenshots.pop()), check(x => x[0].pages[0].frames[0].top=1),
+      check(x => x[0].screenshots.shift()), check(x => x[0].pages[0].frames[0].top=1),
       check(x => x[0].pages[0].frames[1].top=110), check(x => x[0].advancedCategories=[]),
-      check(x => x[0].outcome='failed'), check(x => x[0].pages[0].frames.pop())];
+      check(x => x[0].outcome='failed'), check(x => x[0].pages[0].frames.pop()),
+      check(x => x[0].geometry.pop()), check(x => x[0].screenshots.pop()),
+      check(x => x[1].screenshots.push({label:runner.BOUNDS_VARIANTS[0].key}))];
   })()`)
-  expect(result).toEqual(['passed', 'Expected two passing variant receipts',
+  expect(result).toEqual(['passed', 'Expected four passing variant receipts',
     'Incomplete full-page scroll evidence: 1180x780-dark Advanced settings',
-    'Missing required state: 1180x780-dark data-records',
+    'Missing required state: 1180x780-dark models-more-options',
     'Incomplete full-page scroll evidence: 1180x780-dark General',
     'Scroll coverage gap: 1180x780-dark General', 'Advanced categories missing or reordered',
-    'Missing passing variant: 1180x780-dark', 'Incomplete full-page scroll evidence: 1180x780-dark General'])
+    'Missing passing variant: 1180x780-dark', 'Incomplete full-page scroll evidence: 1180x780-dark General',
+    'Missing numerical page geometry: 1180x780-dark Advanced settings',
+    'Expected exactly one bounded screenshot: narrow-720x780',
+    'Expected exactly one bounded screenshot: minimum-720x480'])
 })
 
 it('builds nonempty labelled contact sheets without replacing full-window source screenshots', () => {
@@ -65,6 +75,38 @@ it('builds nonempty labelled contact sheets without replacing full-window source
   expect(evaluate(`(() => {try {runner.contactSheetArgs([], '/sheet'); return false} catch {return true}})()`)).toBe(true)
 })
 
+it('requires explicit parent-stable authorization and never claims independent gates passed', () => {
+  expect(evaluate(`(() => { return [undefined, '', 'true', '0', '1'].map(value => {
+    try { runner.assertStableTree(value); return 'allowed' } catch (error) { return error.message }
+  }) })()`)).toEqual([
+    ...Array(4).fill('Parent must confirm the tree stable: ODIN_APP_UI_TREE_STABLE=1'), 'allowed'
+  ])
+  const gates = evaluate('runner.EXISTING_GATES') as { id: string; source: string[]; command: string }[]
+  expect(gates.map(gate => gate.id)).toEqual(['dirty-stale-and-unavailable', 'onboarding-loading-and-provider-retry',
+    'keyboard-reduced-motion-and-light-contrast', 'retained-output-nonreplay'])
+  for (const gate of gates) for (const source of gate.source) {
+    expect(readFileSync(resolve(import.meta.dirname, '../..', source), 'utf8').length).toBeGreaterThan(0)
+  }
+  const runner = readFileSync(script, 'utf8')
+  expect(runner).toContain("outcome: 'separate-gate-required'")
+  expect(runner).toContain('Source/build changed during capture')
+  expect(runner).toContain('Real Advanced owner inventory remains a separately captured REAL-core receipt')
+  const source = readFileSync(resolve(import.meta.dirname, 'e2e/ui-v1-capture.spec.ts'), 'utf8')
+  expect(source).toContain("await screenshot(check.key, body, 'bounds')")
+  expect(source).toContain("await expect(composer).toBeFocused()")
+  expect(source).toContain('dialogContainment(page, add)')
+  expect(source).toContain("await screenshot('models-dirty-save')")
+  expect(source).toContain("await screenshot('chat-empty'")
+  expect(source).toContain("await screenshot('chat-populated'")
+  expect(source).toContain('comparableButtonPattern(pattern)')
+  expect(source).toContain("shared inner padding token`).toBe('18px')")
+  expect(source).toContain("stable scrollbar gutter`).toBe('stable')")
+  expect(source).toContain('buttonPatterns: measured.buttons.map')
+  expect(source).toContain('Settings scroll inside their body, never the outer document')
+  const css = readFileSync(resolve(import.meta.dirname, '../src/renderer/src/styles.css'), 'utf8')
+  expect(css).toContain('.settings-content { position: relative;')
+})
+
 it('uses private D-Bus and 2048x1200 Xvfb with only allowed isolation overlays', () => {
   const plan = evaluate(`runner.captureLaunchPlan('/fixture/app', '/evidence/config.ts', '/evidence')`) as {
     command: string; args: string[]; options: { timeoutMs: number; env: Record<string, string> }
@@ -73,7 +115,7 @@ it('uses private D-Bus and 2048x1200 Xvfb with only allowed isolation overlays',
   expect(plan.args).toContain('-screen 0 2048x1200x24 -nolisten tcp')
   expect(plan.args).toContain('/fixture/app/node_modules/@playwright/test/cli.js')
   expect(plan.args).not.toContain('--no-sandbox')
-  expect(plan.options.timeoutMs).toBe(600000)
+  expect(plan.options.timeoutMs).toBe(1200000)
   expect(plan.options.env).toEqual({ ODIN_APP_E2E: '1', ODIN_APP_E2E_OUT: '/evidence', ODIN_APP_UI_CAPTURE: '1', ODIN_APP_UI_PLAN: '/evidence/capture-plan.json' })
 })
 
@@ -116,6 +158,7 @@ it('adds declared synthetic screenshot metadata without changing the fixture or 
     const parsed = JSON.parse(result.stdout)
     expect(parsed.argv).toEqual([fixture, '--profile', 'disposable-test'])
     expect(parsed.fields['attachments.retention_hours']).toMatchObject({ default: 24, apply_mode: 'restart' })
+    expect(parsed.fields['openai_codex.agent_reasoning_effort']).toMatchObject({ default: 'auto' })
     expect(parsed.fields['tools.governor.host_overrides']).toMatchObject({ default: {}, type: 'object' })
     expect(parsed.fields['llm_provider.model']).toMatchObject({ default: 'gpt-6.1-sol', apply_handler: 'models.main.set', enum: ['gpt-6.1-sol'] })
     expect(parsed.fields['openai_compatible.api_key']).toMatchObject({ sensitivity: 'sensitive', secret_route: 'secrets.set' })

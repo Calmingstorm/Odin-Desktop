@@ -203,7 +203,7 @@ async function saveLimits(): Promise<void> {
     <p v-else-if="management.notes[`mcp:${form.name}`]" class="manage-note" role="status">{{ management.notes[`mcp:${form.name}`] }}</p>
     <div class="settings-form-actions">
       <button type="button" class="ghost" aria-label="Cancel MCP server changes" :disabled="formBusy" @click="cancel">Cancel</button>
-      <button type="button" class="primary" :disabled="formBusy" :aria-label="form.create ? 'Add MCP server' : `Save MCP server ${form.name}`" @click="save">{{ form.create ? 'Add server' : 'Save' }}</button>
+      <button type="button" class="primary" :disabled="formBusy" :aria-label="form.create ? 'Add server (MCP)' : `Save MCP server ${form.name}`" @click="save">{{ form.create ? 'Add server' : 'Save' }}</button>
     </div>
   </form>
 

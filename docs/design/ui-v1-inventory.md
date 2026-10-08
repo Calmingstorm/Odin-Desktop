@@ -125,8 +125,17 @@ Internal credentials such as account paths and audit signing identity have no
 visible route. Open settings folder remains an expert support escape hatch only:
 Exit, edit, relaunch; credentials stay in app-controlled secret transactions.
 
-App preferences and planned geometry/setup dismissal are separate from core
-fields. Planned preferences are explicitly not claims of implemented capability.
+App preferences are separate from core fields. Slice 5 implements durable setup
+reminder dismissal as the actual `PersistedState.setupReminderHidden` field,
+through app-owned `getSetupReminderHidden` / `setSetupReminderHidden` bridges.
+The setter rolls back on persistence failure; dismissal does not suppress runtime
+warnings. Slice 6 implements `PersistedState.windowState`, a versioned object
+containing `normalBounds` and the separate `maximized` flag. Native lifecycle
+events capture geometry, not renderer IPC. Restore validates DIP bounds against
+current work areas and reachable titlebars; only X11 restores position, while
+Wayland and unknown backends restore size without position instructions.
+Minimized/fullscreen/maximized geometry does not overwrite normal bounds.
+Both fields use profile-scoped `app-state.json`; no planned preferences remain.
 Management actions preserve destructive scope, confirmation, steering/cancellation
 distinctions, native qualification and unknown-effect/quarantine boundaries.
 
@@ -148,7 +157,9 @@ build information, fixed current-profile folder access and acceptance of orderly
 Exit. The bridge inventory now contains 171 actions. Copy diagnostics uses the
 existing clipboard owner with an explicit public-data projection. Slice 3 adds
 the existing models.status projection and slice 4 adds four named outgoing
-webhook bridges, bringing the app action inventory to 176. No engine
+webhook bridges, bringing the app action inventory to 176. Slice 5 adds the two
+app-owned setup reminder bridges, bringing the inventory to 178. They have no
+Core routes; slice 6 window persistence introduces no renderer bridge. No engine
 restart or unrestricted path-opening method has been introduced.
 
 The tests compare the actual composed `METHODS` plus direct `CAPABILITIES` with

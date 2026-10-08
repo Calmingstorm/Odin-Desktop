@@ -44,6 +44,7 @@ import {
   draftSetSchema,
   desktopInfoSchema,
   localAppSchema,
+  setupReminderSchema,
   reloadSchema,
   uploadAttachmentSchema,
   usageSchema,
@@ -77,6 +78,9 @@ import { DeviceLoginBoundary } from './device-login'
 import { isSameFrame, isTrustedSender, type FrameIdentity } from './security-policy'
 
 export interface IpcDeps {
+  /** Current profile's app-owned invitation preference, independent of core health. */
+  getSetupReminderHidden?: () => boolean
+  setSetupReminderHidden?: (hidden: boolean) => void
   /** Main-owned runtime fields; the IPC boundary projects the explicit whitelist. */
   getDesktopInfo?: () => DesktopInfo
   /** Fixed current-profile configDir only. Returns shell.openPath's error string. */
@@ -174,6 +178,17 @@ export function registerIpc(deps: IpcDeps): void {
   const unavailable: Result<never> = { ok: false, error: {
     code: 'capability_unavailable', message: 'This app capability is unavailable.', disposition: 'not_dispatched'
   } }
+  handle(IPC.getSetupReminderHidden, localAppSchema, () => {
+    if (!deps.getSetupReminderHidden) return unavailable
+    const hidden = deps.getSetupReminderHidden()
+    if (typeof hidden !== 'boolean') return { ok: false, error: { code: 'internal', message: 'Invalid setup reminder preference.' } }
+    return { ok: true, result: { hidden } }
+  })
+  handle(IPC.setSetupReminderHidden, setupReminderSchema, (v) => {
+    if (!deps.setSetupReminderHidden) return unavailable
+    deps.setSetupReminderHidden(v.hidden)
+    return { ok: true, result: { hidden: v.hidden } }
+  })
   handle(IPC.getDesktopInfo, localAppSchema, () => {
     if (!deps.getDesktopInfo) return unavailable
     const info = desktopInfoSchema.safeParse(deps.getDesktopInfo())

@@ -849,7 +849,9 @@ label.field-input > input:not([type='checkbox']):not([type='radio']), label.fiel
 .shell.settings-open > .main { grid-column: 2; }
 .settings { grid-template-columns: 220px minmax(0, 1fr); }
 .settings-body { min-width: 0; overflow-x: hidden; scrollbar-gutter: stable; container-type: inline-size; }
-.settings-content { width: 100%; max-width: 880px; min-width: 0; margin: 0; --settings-padding: 18px; }
+/* Keep absolutely positioned accessible labels inside the settings scroller,
+   rather than extending the document and creating a second scrollbar. */
+.settings-content { position: relative; width: 100%; max-width: 880px; min-width: 0; margin: 0; --settings-padding: 18px; }
 .settings-content *, .settings-form-dialog, .settings-form-dialog * { box-sizing: border-box; }
 .settings-content .panel, .settings-content .settings-group { max-width: none; margin-left: 0; margin-right: 0; width: 100%; padding: 16px var(--settings-padding); }
 .settings-content > h2 { font-size: 24px; margin-bottom: 12px; }

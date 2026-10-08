@@ -10,7 +10,7 @@ export default defineConfig({
   testMatch: process.env.ODIN_APP_E2E === '1'
     ? ['**/lifecycle.spec.ts', '**/notifications.spec.ts', '**/admitted-work.spec.ts',
       '**/execution-containment.spec.ts', '**/native-reconciliation.spec.ts', '**/r4.spec.ts', '**/session-logout.spec.ts',
-      '**/desktop-security.spec.ts', '**/startup-exit.spec.ts']
+      '**/desktop-security.spec.ts', '**/startup-exit.spec.ts', '**/window-state.spec.ts']
     : ['**/accessibility.spec.ts', '**/release-notice.spec.ts'],
   workers: 1,
   fullyParallel: false,

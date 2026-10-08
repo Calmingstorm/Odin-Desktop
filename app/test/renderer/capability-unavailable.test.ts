@@ -176,15 +176,15 @@ describe('step-1 capability refusals in mounted renderer screens', () => {
     expect(workStore.activeCount()).toBe(0)
   })
 
-  it('shows real status version and phase, visible usage unavailability, and a field-based status report', async () => {
+  it('shows connection words and usage refusal, with real engine version and phase in the status report', async () => {
     store.state.app = app
     const statusStore = await import('../../src/renderer/src/stores/status')
     const status = await screen('StatusBar')
     await statusStore.refreshStatus()
     await flush()
-    expect(status.root.textContent()).toContain('Core step1-test · ready')
+    expect(status.root.textContent()).toContain('Connected')
     expect(status.root.textContent()).toContain('Usage is unavailable in this core.')
-    await status.root.button('Core step1-test · ready').fire('click')
+    await status.root.button('Status').fire('click')
     expect(store.state.panel?.text).toBe('Core real-core\nVersion: step1-test\nPhase: ready\nCapabilities: status.get, events.subscribe, runtime.shutdown')
     const { COMMANDS } = await import('../../src/renderer/src/commands')
     await COMMANDS.find((command) => command.name === 'usage')!.run('24h')

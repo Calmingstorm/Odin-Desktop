@@ -32,6 +32,8 @@ const settingsShaped = Object.fromEntries(
 ) as SettingsShapedApi
 
 const api: OdinApi = {
+  getSetupReminderHidden: () => ipcRenderer.invoke(IPC.getSetupReminderHidden, {}),
+  setSetupReminderHidden: (hidden) => ipcRenderer.invoke(IPC.setSetupReminderHidden, { hidden }),
   getDesktopInfo: () => ipcRenderer.invoke(IPC.getDesktopInfo, {}),
   openSettingsFolder: () => ipcRenderer.invoke(IPC.openSettingsFolder, {}),
   exitOdin: () => ipcRenderer.invoke(IPC.exitOdin, {}),

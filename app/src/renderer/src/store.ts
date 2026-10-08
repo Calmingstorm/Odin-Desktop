@@ -149,6 +149,7 @@ export const state = reactive({
   /** Retained section only, never a local readiness or completion flag. */
   settingsSection: 'general',
   setupReminderHidden: false,
+  setupReminderLoaded: false,
   /** The app's notification settings, from the main process. */
   notifications: null as NotificationSettings | null,
   /** The saved theme choice, from the main process. */
@@ -191,6 +192,34 @@ export function onReady(listener: () => void): void {
 export function openSettings(section?: string): void {
   if (section && NAV.some((entry) => entry.id === section)) state.settingsSection = section
   state.view = 'settings'
+}
+
+let setupReminderGeneration = 0
+let setupReminderWrites = 0
+let setupReminderWriting = false
+/** Main owns profile-local persistence. A delayed bootstrap cannot undo an owner dismissal. */
+export async function loadSetupReminder(): Promise<void> {
+  const mine = ++setupReminderGeneration
+  const writes = setupReminderWrites
+  try {
+    const answer = await window.odin.getSetupReminderHidden()
+    if (mine === setupReminderGeneration && writes === setupReminderWrites && !setupReminderWriting && answer.ok) state.setupReminderHidden = answer.result.hidden
+  } catch { /* UI preferences are best effort, not core readiness. */ }
+  finally { if (mine === setupReminderGeneration) state.setupReminderLoaded = true }
+}
+
+export async function dismissSetupReminder(): Promise<boolean> {
+  if (setupReminderWriting) return false
+  setupReminderWrites += 1
+  setupReminderWriting = true
+  try {
+    const answer = await window.odin.setSetupReminderHidden(true)
+    if (!answer.ok) return false
+    state.setupReminderHidden = answer.result.hidden
+    state.setupReminderLoaded = true
+    return answer.result.hidden
+  } catch { return false }
+  finally { setupReminderWriting = false }
 }
 
 function notifyReady(): void {
@@ -296,6 +325,7 @@ export async function init(): Promise<void> {
     state.notifications = settings.result.notifications
     if (settings.result.appearance) state.appearance = settings.result.appearance
   }
+  await loadSetupReminder()
   if (state.app.link === 'ready') {
     notifyReady()
     await loadAll()
