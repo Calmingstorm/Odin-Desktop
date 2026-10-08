@@ -706,9 +706,11 @@ class SkillManager:
         # would let concurrent remember() calls race and collide on the .tmp.
         self._skill_memory_lock = threading.Lock()
         self._disabled: set[str] = self._load_disabled_set()
-        # Names whose create is in progress. A create claims its name before
-        # writing, so a concurrent create of that name can't write over it.
-        self._create_lock = threading.Lock()
+        # Every writer of the disabled-name ledger derives, persists and
+        # publishes its candidate under this lock, and a create claims its
+        # name under it (so a concurrent create of that name can't write over
+        # it). Never held while skill code loads or runs.
+        self._activation_lock = threading.Lock()
         self._creating: set[str] = set()
         # Optional service references — set after construction via set_services()
         self._knowledge_store = None
@@ -906,26 +908,28 @@ class SkillManager:
         if error:
             return error
 
-        with self._create_lock:
+        with self._activation_lock:
             if name in self._skills or name in self._creating:
                 return f"Skill '{name}' already exists. Use edit_skill to modify it."
             recorded = not enabled and name not in self._disabled
             if recorded:
+                candidate = self._disabled | {name}
                 try:
-                    self._save_disabled_set(self._disabled | {name})
+                    self._save_disabled_set(candidate)
                 except Exception as e:
                     return f"Failed to record the skill as disabled: {e}"
-                self._disabled = self._disabled | {name}
+                self._disabled = candidate
             self._creating.add(name)
         try:
             return self._create_claimed(name, code, enabled=enabled, exclusive=exclusive)
         finally:
-            with self._create_lock:
+            with self._activation_lock:
                 self._creating.discard(name)
                 if recorded and name not in self._skills:
+                    candidate = self._disabled - {name}
                     try:
-                        self._save_disabled_set(self._disabled - {name})
-                        self._disabled = self._disabled - {name}
+                        self._save_disabled_set(candidate)
+                        self._disabled = candidate
                     except Exception:
                         log.warning("Could not clear the disabled record of %s", name)
 
@@ -1017,9 +1021,11 @@ class SkillManager:
         # Clean up config file and disabled state
         config_path = self._config_dir / f"{name}.json"
         config_path.unlink(missing_ok=True)
-        if name in self._disabled:
-            self._disabled.discard(name)
-            self._save_disabled_set()
+        with self._activation_lock:
+            if name in self._disabled:
+                candidate = self._disabled - {name}
+                self._save_disabled_set(candidate)
+                self._disabled = candidate
         return f"Skill '{name}' deleted."
 
     def delete_failed_skill(self, name: str) -> str:
@@ -1040,6 +1046,10 @@ class SkillManager:
 
     def enable_skill(self, name: str) -> str:
         """Enable a previously disabled skill."""
+        with self._activation_lock:
+            return self._enable_skill(name)
+
+    def _enable_skill(self, name: str) -> str:
         if name not in self._skills:
             return f"Skill '{name}' not found."
         skill = self._skills[name]
@@ -1053,6 +1063,10 @@ class SkillManager:
 
     def disable_skill(self, name: str) -> str:
         """Disable a skill without deleting it. The file is preserved."""
+        with self._activation_lock:
+            return self._disable_skill(name)
+
+    def _disable_skill(self, name: str) -> str:
         if name not in self._skills:
             return f"Skill '{name}' not found."
         skill = self._skills[name]
@@ -1215,7 +1229,8 @@ class SkillManager:
         for name in tuple(self._skills):
             self._unload_skill(name)
         self.definition_errors.clear()
-        self._disabled = self._load_disabled_set()
+        with self._activation_lock:
+            self._disabled = self._load_disabled_set()
         self._load_all()
 
     def close(self) -> None:

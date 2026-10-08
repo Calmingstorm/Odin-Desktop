@@ -11,6 +11,7 @@ import pytest
 
 from src.desktop.management import MethodError
 from src.permissions.manager import PermissionManager
+from src.tools.skill_manager import SkillManager
 from tests.test_desktop_mcp import harness  # noqa: F401 - pytest fixture
 from tests.test_desktop_model_settings import service  # noqa: F401 - pytest fixture
 from tests.test_desktop_skills import code, graph, owner  # noqa: F401 - pytest fixture
@@ -147,6 +148,9 @@ async def test_skill_created_switched_off_is_never_enabled_even_mid_create(graph
             )
         assert "broken" not in disabled_record(manager)
         assert disabled_record(manager) == ["quiet"]
+        # Deleting it clears its disabled record too.
+        await graph.service.handle("skills.delete", {"name": "quiet"})
+        assert disabled_record(manager) == []
     finally:
         resume.set()
         PermissionManager.reset_request_owner(token)
@@ -183,6 +187,55 @@ async def test_a_disabled_record_that_cannot_be_written_creates_nothing(graph, m
         assert disabled_record(manager) == ["broken"]
         assert "Could not clear the disabled record of broken" in caplog.text
     finally:
+        PermissionManager.reset_request_owner(token)
+        await graph.service.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("toggle", ["disable", "enable"])
+async def test_disabled_import_and_native_toggle_survive_a_restart(graph, monkeypatch, toggle):  # noqa: F811
+    await graph.service.start()
+    token = owner(graph)
+    manager = graph.service.skill_manager
+    recording, resume = threading.Event(), threading.Event()
+    real_save = manager._save_disabled_set
+
+    def save(disabled=None):
+        # Hold the import while it records its skill as disabled.
+        if disabled is not None and "quiet" in disabled and not recording.is_set():
+            recording.set()
+            assert resume.wait(10)
+        return real_save(disabled)
+
+    restarted = None
+    try:
+        existing = {"name": "existing", "code": code(name="existing")}
+        await graph.service.handle("skills.save", existing)
+        if toggle == "enable":
+            manager.disable_skill("existing")
+        monkeypatch.setattr(manager, "_save_disabled_set", save)
+        imported = asyncio.create_task(graph.service.handle(
+            "skills.save",
+            {"name": "quiet", "code": code(name="quiet"), "create": True, "enabled": False},
+        ))
+        assert await asyncio.to_thread(recording.wait, 10)
+        # The native enable_skill/disable_skill tool's own manager call, made meanwhile, waits.
+        native = asyncio.create_task(
+            asyncio.to_thread(getattr(manager, f"{toggle}_skill"), "existing"))
+        done, _ = await asyncio.wait({native}, timeout=0.5)
+        assert not done
+        resume.set()
+        await imported
+        assert "existing" in await native
+        assert disabled_record(manager) == (
+            ["existing", "quiet"] if toggle == "disable" else ["quiet"])
+        restarted = SkillManager(str(manager.skills_dir), graph.executor)
+        assert restarted.is_enabled("existing") is (toggle == "enable")
+        assert restarted.has_skill("quiet") and not restarted.is_enabled("quiet")
+    finally:
+        resume.set()
+        if restarted is not None:
+            restarted.close()
         PermissionManager.reset_request_owner(token)
         await graph.service.close()
 

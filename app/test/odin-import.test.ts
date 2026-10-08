@@ -1,6 +1,10 @@
 // Import from Odin: a fake Odin API and a fake core that keeps the real contracts (create-only refusals, if_absent,
 // revisions and unconfirmed outcomes), so every read and write the importer makes is visible and judged.
 import { EventEmitter } from 'node:events'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { createServer, type Socket } from 'node:net'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 const handlers = vi.hoisted(() => new Map<string, Function>())
 vi.mock('electron', () => ({ ipcMain: { handle: (name: string, handler: Function) => handlers.set(name, handler) } }))
@@ -13,8 +17,11 @@ import {
   type FetchLike,
   type ImportBroker
 } from '../src/main/odin-import'
+import { Broker } from '../src/main/broker'
+import { FrameDecoder, encodeFrame } from '../src/main/framing'
 import { odinImportApplySchema, odinImportPreviewSchema } from '../src/main/schemas'
 import { IPC } from '../src/shared/api'
+import { waitFor } from './fixture-harness'
 
 // A throwaway public key and the fingerprint `ssh-keygen -lf` printed for it.
 const KEY = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPGfYwFXBev5NmLvSwQEC8gDGxBDSmS3iNsSbtLWXxJB import-test'
@@ -357,7 +364,7 @@ describe('applyOdinImport', () => {
     expect(testLate.result.public_key).toBeUndefined()
   })
 
-  it('refuses to send an unconfirmed change again until its late receipt arrives', async () => {
+  it('refuses to send an unconfirmed change again until a late receipt proves its outcome', async () => {
     let lost = true
     const { broker, requests, receipts } = desktop({ 'models.main.set': () => (lost ? refuse('no_receipt', 'No receipt yet.', 'outcome_unknown') : { ok: true }) })
     const first = await applyOdinImport(SOURCE, [pick('models', 'main')], broker, odinApi().fetchImpl)
@@ -370,17 +377,47 @@ describe('applyOdinImport', () => {
     expect(again.result.outcomes.map((o) => [o.id, o.status])).toEqual([['main', 'unknown'], ['timezone', 'imported']])
     expect(again.result.outcomes[0]!.command_id).toBe(original)
     expect(requests.filter((r) => r.method === 'models.main.set')).toHaveLength(1)
-    // An unrelated receipt changes nothing; the original command's late receipt clears it.
-    receipts.emit('receipt', { id: 'someone-else' })
+    // Another command's receipt changes nothing.
+    receipts.emit('receipt', { id: 'someone-else', settled: { ok: true, result: {} } })
     lost = false
     const still = await applyOdinImport(SOURCE, [pick('models', 'main')], broker, odinApi().fetchImpl)
     if (!still.ok) throw new Error(still.error.message)
-    expect(still.result.outcomes[0]).toMatchObject({ status: 'unknown' })
-    receipts.emit('receipt', { id: original })
+    expect(still.result.outcomes[0]).toMatchObject({ status: 'unknown', message: expect.stringMatching(/hasn't confirmed/) })
+    // The original command's late receipt with a known outcome clears it.
+    receipts.emit('receipt', { id: original, settled: { ok: true, result: {} } })
     const settled = await applyOdinImport(SOURCE, [pick('models', 'main')], broker, odinApi().fetchImpl)
     if (!settled.ok) throw new Error(settled.error.message)
     expect(settled.result.outcomes[0]).toMatchObject({ status: 'imported' })
     expect(requests.filter((r) => r.method === 'models.main.set')).toHaveLength(2)
+  })
+
+  it("keeps a change blocked whose outcome the core couldn't tell, and clears one the core refused", async () => {
+    const unknown = refuse('internal', 'Saved settings could not be applied', 'outcome_unknown')
+    let answer: unknown = refuse('no_receipt', 'No receipt yet.', 'outcome_unknown')
+    const { broker, requests, receipts } = desktop({ 'models.main.set': () => answer, 'settings.set': unknown })
+    // An unknown answer from the core itself: no receipt will follow it.
+    const direct = await applyOdinImport(SOURCE, [pick('models', 'timezone')], broker, odinApi().fetchImpl)
+    if (!direct.ok) throw new Error(direct.error.message)
+    expect(direct.result.outcomes[0]).toMatchObject({ status: 'unknown', message: expect.stringMatching(/couldn't tell whether this change took effect/) })
+    const directAgain = await applyOdinImport(SOURCE, [pick('models', 'timezone')], broker, odinApi().fetchImpl)
+    if (!directAgain.ok) throw new Error(directAgain.error.message)
+    expect(directAgain.result.outcomes[0]).toMatchObject({ status: 'unknown', message: expect.stringMatching(/couldn't tell whether an earlier import/) })
+    expect(requests.filter((r) => r.method === 'settings.set')).toHaveLength(1)
+    // A timed-out change whose late receipt still says unknown stays blocked, now as one that won't clear by itself.
+    const timedOut = await applyOdinImport(SOURCE, [pick('models', 'main')], broker, odinApi().fetchImpl)
+    if (!timedOut.ok) throw new Error(timedOut.error.message)
+    const original = timedOut.result.outcomes[0]!.command_id
+    receipts.emit('receipt', { id: original, settled: { ok: false, error: unknown.__error } })
+    answer = { ok: true }
+    const blocked = await applyOdinImport(SOURCE, [pick('models', 'main')], broker, odinApi().fetchImpl)
+    if (!blocked.ok) throw new Error(blocked.error.message)
+    expect(blocked.result.outcomes[0]).toMatchObject({ status: 'unknown', command_id: original, message: expect.stringMatching(/couldn't tell/) })
+    expect(requests.filter((r) => r.method === 'models.main.set')).toHaveLength(1)
+    // A refusal is a known outcome: nothing changed, so importing it again is allowed.
+    receipts.emit('receipt', { id: original, settled: { ok: false, error: { code: 'bad_request', message: 'no', disposition: 'rejected' } } })
+    const retried = await applyOdinImport(SOURCE, [pick('models', 'main')], broker, odinApi().fetchImpl)
+    if (!retried.ok) throw new Error(retried.error.message)
+    expect(retried.result.outcomes[0]).toMatchObject({ status: 'imported' })
   })
 
   it('refuses a second import while one is still running, and runs again once it has finished', async () => {
@@ -521,8 +558,96 @@ describe('the import IPC handlers', () => {
     expect(await apply(timezone)).toMatchObject({ ok: true, result: { outcomes: [{ status: 'unknown', command_id: original }] } })
     expect(requests.filter((r) => r.method === 'settings.set')).toHaveLength(1)
     lost = false
-    receipts.emit('receipt', { id: original })
+    receipts.emit('receipt', { id: original, settled: { ok: true, result: {} } })
     expect(await apply(timezone)).toMatchObject({ ok: true, result: { outcomes: [{ status: 'imported' }] } })
     expect(requests.filter((r) => r.method === 'settings.set')).toHaveLength(2)
+  })
+})
+
+describe('the import through the real broker', () => {
+  /** A fake core on a real socket: it answers reads, and holds models.main.set until the test answers it. */
+  async function fakeCore() {
+    const dir = mkdtempSync(join(tmpdir(), 'odin-import-core-'))
+    const socketPath = join(dir, 'core.sock')
+    const reads: Record<string, unknown> = { 'skills.list': [], 'mcp.status': { servers: [] }, 'personality.get': {},
+      'hosts.list': { hosts: [] }, 'settings.schema': { revision: 'rev-settings', fields: [] } }
+    const held: Array<{ socket: Socket; id: unknown }> = []
+    const sets: unknown[] = []
+    const sockets: Socket[] = []
+    const state = { hold: true }
+    const server = createServer((socket) => {
+      sockets.push(socket)
+      const decoder = new FrameDecoder()
+      socket.on('data', (chunk) => {
+        for (const frame of decoder.push(chunk)) {
+          if (frame.t === 'hello') {
+            socket.write(encodeFrame({ t: 'welcome', protocol: { major: 0, minor: 3 }, core: { instance_id: 'fake', version: '0' }, profile_id: 'default', capabilities: [], features: [], max_frame: 4194304, event_high: '0' }))
+          } else if (frame.t === 'req' && frame.method === 'models.main.set') {
+            sets.push(frame.id)
+            if (state.hold) held.push({ socket, id: frame.id })
+            else socket.write(encodeFrame({ t: 'res', id: frame.id, ok: true, result: {} }))
+          } else if (frame.t === 'req') {
+            socket.write(encodeFrame({ t: 'res', id: frame.id, ok: true, result: reads[String(frame.method)] ?? {} }))
+          }
+        }
+      })
+    })
+    await new Promise<void>((resolve) => server.listen(socketPath, () => resolve()))
+    const broker = new Broker({ socketPath, readToken: () => 'x'.repeat(64), profileId: 'default', clientVersion: 'test', requestTimeoutMs: 50, reconnectDelaysMs: [50] })
+    broker.connect()
+    await waitFor(() => broker.linkState === 'ready')
+    return {
+      broker, sets, state,
+      answer(response: Record<string, unknown>) {
+        const frame = held.shift()!
+        frame.socket.write(encodeFrame({ t: 'res', id: frame.id, ...response }))
+      },
+      close() {
+        broker.close()
+        for (const socket of sockets) socket.destroy()
+        server.close()
+        rmSync(dir, { recursive: true, force: true })
+      }
+    }
+  }
+  const main = () => applyOdinImport(SOURCE, [pick('models', 'main')], core.broker, odinApi().fetchImpl)
+  let core: Awaited<ReturnType<typeof fakeCore>>
+
+  it("never sends a timed-out change again when its late receipt still can't say whether it took effect", async () => {
+    core = await fakeCore()
+    try {
+      const first = await main()
+      if (!first.ok) throw new Error(first.error.message)
+      const original = first.result.outcomes[0]!.command_id
+      expect(first.result.outcomes[0]).toMatchObject({ status: 'unknown' })
+      expect(core.sets).toEqual([original])
+      core.answer({ ok: false, error: { code: 'internal', message: 'Saved settings could not be applied', disposition: 'outcome_unknown' } })
+      await waitFor(() => core.broker.unreceiptedCount === 0)
+      core.state.hold = false
+      const again = await main()
+      if (!again.ok) throw new Error(again.error.message)
+      expect(again.result.outcomes[0]).toMatchObject({ status: 'unknown', command_id: original, message: expect.stringMatching(/couldn't tell/) })
+      expect(core.sets).toEqual([original])
+    } finally {
+      core.close()
+    }
+  })
+
+  it('imports it again once the late receipt proves the first change was made', async () => {
+    core = await fakeCore()
+    try {
+      const first = await main()
+      if (!first.ok) throw new Error(first.error.message)
+      core.answer({ ok: true, result: {} })
+      await waitFor(() => core.broker.unreceiptedCount === 0)
+      core.state.hold = false
+      const again = await main()
+      if (!again.ok) throw new Error(again.error.message)
+      expect(again.result.outcomes[0]).toMatchObject({ status: 'imported' })
+      expect(core.sets).toHaveLength(2)
+      expect(core.sets[1]).not.toBe(core.sets[0])
+    } finally {
+      core.close()
+    }
   })
 })

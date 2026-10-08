@@ -39,17 +39,26 @@ const SETTINGS_WRITERS = new Set([
 
 export interface ImportBroker {
   request(method: string, params?: Record<string, unknown>, id?: string): Promise<Settled>
-  /** The real broker emits a late 'receipt' for a command it could not confirm in time. */
-  on?(event: 'receipt', listener: (receipt: { id?: string }) => void): unknown
+  /** The real broker emits a late 'receipt', with the core's settled answer, for a command it could not confirm in
+   * time. */
+  on?(event: 'receipt', listener: (receipt: { id?: string; settled?: Settled }) => void): unknown
 }
 
 interface Unresolved {
   id: string
   method: string
+  /** The broker still holds the command, so its late receipt can settle it. False once the core itself has answered
+   * that the outcome is unknown: nothing will settle it while the app runs. */
+  awaiting: boolean
 }
 
-/** Per broker, the picks whose last change the core has not confirmed. Only its late receipt clears one; until
- * then importing that pick again is refused, so an earlier write can't land on top of a newer one. */
+/** Answers that prove what happened: the change was made, or it was refused or never sent. */
+const KNOWN_REFUSALS = new Set(['rejected', 'not_dispatched'])
+const known = (settled: Settled | undefined): boolean =>
+  settled !== undefined && (settled.ok || KNOWN_REFUSALS.has(settled.error.disposition ?? ''))
+
+/** Per broker, the picks whose last change has no known outcome. Only a late receipt with a known outcome clears one;
+ * until then importing that pick again is refused, so an earlier write can't land on top of a newer one. */
 const unresolvedByBroker = new WeakMap<ImportBroker, Map<string, Unresolved>>()
 
 function unresolvedFor(broker: ImportBroker): Map<string, Unresolved> {
@@ -59,7 +68,11 @@ function unresolvedFor(broker: ImportBroker): Map<string, Unresolved> {
     pending = created
     unresolvedByBroker.set(broker, created)
     broker.on?.('receipt', (receipt) => {
-      for (const [key, entry] of created) if (entry.id === receipt?.id) created.delete(key)
+      for (const [key, entry] of created) {
+        if (entry.id !== receipt?.id) continue
+        if (known(receipt.settled)) created.delete(key)
+        else entry.awaiting = false
+      }
     })
   }
   return pending
@@ -71,9 +84,9 @@ export type FetchLike = (
 ) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>
 
 class ImportError extends Error {}
-/** A change was sent but the core didn't confirm it; nothing after it may run. */
+/** A change was sent but its outcome isn't known; nothing after it may run. */
 class Unconfirmed extends Error {
-  constructor(readonly commandId: string) {
+  constructor(readonly commandId: string, readonly awaiting: boolean) {
     super('unconfirmed change')
   }
 }
@@ -368,8 +381,11 @@ class Importer {
     const id = randomUUID()
     const settled = await this.broker.request(method, params, id)
     if (!settled.ok && settled.error.disposition === 'outcome_unknown') {
-      unresolvedFor(this.broker).set(this.current, { id, method })
-      throw new Unconfirmed(id)
+      // no_receipt: the broker timed out and keeps the command for its late receipt. Any other unknown answer came
+      // from the core, and no receipt will follow it.
+      const awaiting = settled.error.code === 'no_receipt'
+      unresolvedFor(this.broker).set(this.current, { id, method, awaiting })
+      throw new Unconfirmed(id, awaiting)
     }
     return settled
   }
@@ -613,8 +629,9 @@ async function importPicks(
       }
       const waiting = unresolved.get(key)
       if (waiting) {
-        outcomes.push({ category, id, label, status: 'unknown', command_id: waiting.id,
-          message: "Odin Desktop hasn't confirmed an earlier import of this yet, so it isn't sent again. If it doesn't clear, restart Odin Desktop and check it before importing it again." })
+        outcomes.push({ category, id, label, status: 'unknown', command_id: waiting.id, message: waiting.awaiting
+          ? "Odin Desktop hasn't confirmed an earlier import of this yet, so it isn't sent again until it does. If that doesn't happen, restart Odin Desktop and check this before importing it again."
+          : "Odin Desktop couldn't tell whether an earlier import of this took effect, so it isn't sent again while Odin Desktop is running. Restart Odin Desktop and check this before importing it again." })
         continue
       }
       importer.current = key
@@ -632,8 +649,9 @@ async function importPicks(
       } catch (error) {
         if (error instanceof Unconfirmed) {
           stopped = true
-          outcome = { status: 'unknown', command_id: error.commandId,
-            message: "Odin Desktop didn't confirm this change in time, so the import stopped. It isn't sent again until Odin Desktop confirms it." }
+          outcome = { status: 'unknown', command_id: error.commandId, message: error.awaiting
+            ? "Odin Desktop didn't confirm this change in time, so the import stopped. It isn't sent again until Odin Desktop confirms it."
+            : "Odin Desktop couldn't tell whether this change took effect, so the import stopped. It isn't sent again while Odin Desktop is running. Restart Odin Desktop and check this before importing it again." }
         } else {
           outcome = failed(error instanceof ImportError ? error.message : 'Something went wrong with this item.')
         }
