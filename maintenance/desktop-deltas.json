@@ -30673,6 +30673,43 @@
       ]
     },
     {
+      "after_sha256": "54e22de1cd88c7e1f35448854c050fcd0515cc452b93058260b9775228c50308",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Coverage of src/computer/runtime/wayland_portal.py is deterministic; transport cleanup never raises on a closed socket.",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Test-only Desktop addition. Upstream tests and product code are unchanged.",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Claude",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiUG9ydGFsIHRyYW5zcG9ydCBjbGVhbnVwIG9uIGEgY2xvc2VkIHNvY2tldDsgbm8gZGVza3RvcCwgYnVzIGRhZW1vbiBvciBwb3J0YWwgaGVscGVyLiIiIgoKaW1wb3J0IHNvY2tldAoKZnJvbSBzcmMuY29tcHV0ZXIucnVudGltZSBpbXBvcnQgd2F5bGFuZF9wb3J0YWwKCgpkZWYgdGVzdF9zaHV0ZG93bl90b2xlcmF0ZXNfYW5fYWxyZWFkeV9jbG9zZWRfc29ja2V0KCk6CiAgICAjIENhbmNlbGxhdGlvbiBtYXkgY2xvc2UgYSBzb2NrZXQgYmVmb3JlIGNsZWFudXAgc2h1dHMgaXQgZG93bjsgY2xlYW51cCBtdXN0IG5vdCByYWlzZS4KICAgIGNsb3NlZCA9IHNvY2tldC5zb2NrZXQoc29ja2V0LkFGX1VOSVgsIHNvY2tldC5TT0NLX1NUUkVBTSkKICAgIGNsb3NlZC5jbG9zZSgpCiAgICB3YXlsYW5kX3BvcnRhbC5fc2h1dGRvd24oY2xvc2VkKQogICAgd2F5bGFuZF9wb3J0YWwuX3NodXRkb3duKE5vbmUpCg==",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/test_desktop_b3_coverage_portal_cleanup.py",
+      "reason": "Deterministic coverage for wayland_portal._shutdown on an already-closed socket. Lines 69-70 ran only when a cancellation race closed the socket first, so the coverage no-drop ratchet failed at random (master push run 37717134902: 572 of 866 lines against a baseline of 574).",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/test_desktop_b3_coverage_portal_cleanup.py": "54e22de1cd88c7e1f35448854c050fcd0515cc452b93058260b9775228c50308"
+      },
+      "tests": [
+        "tests/test_desktop_b3_coverage_portal_cleanup.py"
+      ]
+    },
+    {
       "after_sha256": "f4fbe90988db855f1899cc135aa52191f5129dfd14594294ed2e31fd7375f3a5",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
