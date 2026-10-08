@@ -1700,21 +1700,41 @@ def flatten(value: Any, prefix: str = "") -> list[tuple[str, Any]]:
 
 
 def _annotation_facts(annotation: Any) -> dict[str, Any]:
-    """Type and enum for one field annotation, unwrapping Optional."""
+    """Publish a closed string enum only when every non-null branch is one.
+
+    The wire enum is string-valued. Mixed scalar types must not be coerced to
+    strings, and an unrestricted branch must not become a finite selector just
+    because another branch contains Literals. Null remains separate from the
+    string effort level ``none`` and from the agent policy ``auto``.
+    """
     facts: dict[str, Any] = {"type": None, "enum": None}
     origin = typing.get_origin(annotation)
     if origin in (typing.Union, types.UnionType):
-        for arg in typing.get_args(annotation):
-            if arg is type(None):
-                continue
-            resolved = _annotation_facts(arg)
-            resolved["nullable"] = type(None) in typing.get_args(annotation)
-            return resolved
+        args = typing.get_args(annotation)
+        branches = [_annotation_facts(arg) for arg in args if arg is not type(None)]
+        facts["nullable"] = type(None) in args or any(
+            branch.get("nullable", False) for branch in branches
+        )
+        if not branches:
+            return facts
+        branch_types = {branch["type"] for branch in branches}
+        if len(branch_types) == 1:
+            facts["type"] = branches[0]["type"]
+        if facts["type"] == "string" and all(branch["enum"] is not None for branch in branches):
+            facts["enum"] = list(
+                dict.fromkeys(option for branch in branches for option in branch["enum"])
+            )
         return facts
     if origin is Literal:
-        options = [a for a in typing.get_args(annotation) if a is not None]
-        facts["enum"] = [str(a) for a in options]
-        facts["type"] = "string"
+        args = typing.get_args(annotation)
+        options = [a for a in args if a is not None]
+        if None in args:
+            facts["nullable"] = True
+        option_types = {_annotation_facts(type(option))["type"] for option in options}
+        if len(option_types) == 1:
+            facts["type"] = option_types.pop()
+        if facts["type"] == "string" and all(isinstance(option, str) for option in options):
+            facts["enum"] = list(dict.fromkeys(options))
         return facts
     if origin in (list, set, tuple, frozenset):
         facts["type"] = "array"
@@ -1724,8 +1744,7 @@ def _annotation_facts(annotation: Any) -> dict[str, Any]:
         return facts
     if isinstance(annotation, type):
         if issubclass(annotation, enum.Enum):
-            facts["enum"] = [str(member.value) for member in annotation]
-            facts["type"] = "string"
+            return _annotation_facts(Literal[tuple(member.value for member in annotation)])
         elif issubclass(annotation, bool):
             facts["type"] = "boolean"
         elif issubclass(annotation, int):

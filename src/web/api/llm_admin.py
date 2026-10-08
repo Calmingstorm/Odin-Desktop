@@ -10,13 +10,18 @@ import hashlib
 import ipaddress as _ipaddress
 import time
 import urllib.parse as _urlparse
-from typing import Any
+from typing import Any, Literal, TypedDict, get_args
 
 import aiohttp
 from aiohttp import web
 from pydantic import TypeAdapter, ValidationError
 
-from ...config.schema import CODEX_REASONING_EFFORTS
+from ...config.schema import (
+    CODEX_MODEL_UNSUPPORTED_EFFORTS,
+    ReasoningEffort,
+    effort_incompatibility_error,
+    retired_codex_model_error,
+)
 from . import require_phase2
 
 _OPENROUTER_CACHE_TTL_SECONDS = 300
@@ -181,6 +186,54 @@ def _auxiliary_status(bot) -> dict:
     }
 
 
+class EffortCapabilities(TypedDict):
+    """Presentation facts, not a guarantee the remote server accepts a request.
+
+    Unknown Codex models retain the generic request enum and no known model
+    restrictions. For compatible providers, null means efforts are undeclared;
+    an empty list means the selected wire dialect has no effort control.
+    """
+
+    values: list[str] | None
+    source: Literal[
+        "core_validation", "model_profile", "provider_catalogue", "unknown", "not_applicable"
+    ]
+    restrictions_known: bool
+
+
+def _effort_capabilities(
+    config: Any, model: str, capability: str, *, catalogue_model: dict[str, Any] | None = None
+) -> EffortCapabilities:
+    if capability != "reasoning":
+        return {"values": [], "source": "not_applicable", "restrictions_known": True}
+    if not model.startswith(("compat:", "ollama:")):
+        # Match Config's effective-pair validation, not the budget alias resolver.
+        # In particular, case/unknown spelling is preserved and codex: is stripped
+        # only at the same boundary that validates main/fixed-agent pairs.
+        validation_model = model.strip().removeprefix("codex:")
+        return {
+            "values": [effort for effort in get_args(ReasoningEffort)
+                       if effort_incompatibility_error(validation_model, effort) is None],
+            "source": "core_validation",
+            "restrictions_known": (
+                validation_model in CODEX_MODEL_UNSUPPORTED_EFFORTS
+                or retired_codex_model_error(validation_model) is not None
+            ),
+        }
+    from ...llm.context_budget import compatible_model_profile
+
+    profile = compatible_model_profile(model, getattr(config, "openai_compatible", None))
+    # The resolved profile is also the authority for native agent validation;
+    # use provider-declared choices only when that profile leaves them unknown.
+    values = getattr(profile, "supported_efforts", None)
+    if values:
+        return {"values": list(values), "source": "model_profile", "restrictions_known": True}
+    values = (catalogue_model or {}).get("supported_efforts")
+    if values:
+        return {"values": list(values), "source": "provider_catalogue", "restrictions_known": True}
+    return {"values": None, "source": "unknown", "restrictions_known": False}
+
+
 def _model_catalogue(
     bot: Any, *, codex_configured: bool, ollama_configured: bool
 ) -> dict[str, list[dict[str, Any]]]:
@@ -192,8 +245,9 @@ def _model_catalogue(
         "gpt-6-astra", "gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna",
         "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
     ]
-    if bot.config.openai_codex.model not in codex_names:
-        codex_names.insert(0, bot.config.openai_codex.model)
+    for name in (bot.config.openai_codex.model, getattr(bot.config.llm_provider, "model", None)):
+        if name and not name.startswith(("compat:", "ollama:")) and name not in codex_names:
+            codex_names.insert(0, name)
 
     policy_refs = [
         item if isinstance(item, str) else item.model
@@ -203,7 +257,7 @@ def _model_catalogue(
     if fixed_agent not in (None, "auto"):
         policy_refs.append(fixed_agent)
     for ref in policy_refs:
-        if ref and ":" not in ref and ref not in codex_names:
+        if ref and not ref.startswith(("compat:", "ollama:")) and ref not in codex_names:
             codex_names.append(ref)
 
     from ...llm.context_budget import (
@@ -213,6 +267,9 @@ def _model_catalogue(
     from ...tools.model_hints import catalogue_hint_metadata
 
     def entry(ref, provider, name, available, reason, capability, **extra):
+        efforts = _effort_capabilities(
+            bot.config, ref, capability, catalogue_model=extra.pop("catalogue_model", None)
+        )
         return {
             "ref": ref,
             "provider": provider,
@@ -221,6 +278,8 @@ def _model_catalogue(
             "unavailable_reason": reason,
             "capability": capability,
             "hint_metadata": catalogue_hint_metadata(ref, bot.config),
+            "efforts": efforts["values"] or [],
+            "effort_capabilities": efforts,
             **extra,
         }
 
@@ -257,6 +316,7 @@ def _model_catalogue(
 
         agent_reason = compatible_agent_unavailable_reason(name, compatible_cfg)
         profile = compatible_model_profile(name, compatible_cfg)
+        is_openrouter = bool(compatible_cfg and compatible_cfg.preset == "openrouter")
         cached_model = next(
             (
                 item
@@ -264,8 +324,7 @@ def _model_catalogue(
                 if isinstance(item, dict) and item.get("id") == name
             ),
             None,
-        )
-        is_openrouter = bool(compatible_cfg and compatible_cfg.preset == "openrouter")
+        ) if is_openrouter else None
         dialect = model_reasoning_dialect(bot.config, f"compat:{name}")
         supports_openrouter_reasoning = bool(
             cached_model and cached_model.get("supports_reasoning")
@@ -296,9 +355,7 @@ def _model_catalogue(
             agent_available=compatible_available and agent_reason is None,
             agent_unavailable_reason=(None if not compatible_available else agent_reason),
             profile=profile.model_dump() if profile is not None else None,
-            efforts=(cached_model or {}).get("supported_efforts")
-            or getattr(profile, "supported_efforts", None)
-            or [],
+            catalogue_model=cached_model,
         )
 
     return {
@@ -312,7 +369,6 @@ def _model_catalogue(
                 "reasoning",
                 agent_available=codex_configured,
                 agent_unavailable_reason=None if codex_configured else "not configured",
-                efforts=list(CODEX_REASONING_EFFORTS),
             )
             for name in codex_names
         ],

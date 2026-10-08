@@ -7,7 +7,7 @@
 "docs/design/prompt-changes.md":"3e685af175e5195c489ae4af3f4d08fe2fcfbd20050002428047573d972f4b12",
 "scripts/maintenance/fresh_profile_parity.py":"d3c522b3185095f0c048012651fb58d0a43e087e6e90999b76e5c9b8b0863467",
 "src/config/__init__.py":"7624b8d6c9f55d85ee27ca3e714b5d180dd81f990d74fa4f96773f7ead37eacb",
-"src/config/apply_registry.py":"e5c235848d58812b0d763206b2d4dce6bc655afb665b990f8ae9dd07eebeebf9",
+"src/config/apply_registry.py":"d631eecb3734633e221e37da370a7082e8fd755499a3589696c9e827c1dd6e0a",
 "src/config/environment.py":"467efdc279210a6a69e0780077ba211c96c86de988d676b2aab0e3028b0239c3",
 "src/config/image_defaults.py":"a78c396288a4dcbf5d578bad545645e9e3187b91409896cd7e4e59216ffa1678",
 "src/config/initialization.py":"8ffe233a6160b98fe1b58eab0c6bd4636409fa2ed5f5ce97adcd1ad47d1a1d23",
