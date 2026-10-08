@@ -1774,7 +1774,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/desktop-security.spec.ts": "ee82ce084be8819ce4f6b1fb3b7aeca65325087768a18a54831c34c5de134083",
+        "app/test/e2e/desktop-security.spec.ts": "a2dd6e317ae863717d865a3d904d84a4efbbcc87f30b2c04c9f04f14e9a274d7",
         "tests/test_desktop_matrix_qualification.py": "07ad4b07fb9d634ffcfebdd4571d83607689f1854d6c4255591a77f4fe061826"
       },
       "tests": [
@@ -1813,7 +1813,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/desktop-security.spec.ts": "ee82ce084be8819ce4f6b1fb3b7aeca65325087768a18a54831c34c5de134083",
+        "app/test/e2e/desktop-security.spec.ts": "a2dd6e317ae863717d865a3d904d84a4efbbcc87f30b2c04c9f04f14e9a274d7",
         "tests/test_desktop_matrix_qualification.py": "07ad4b07fb9d634ffcfebdd4571d83607689f1854d6c4255591a77f4fe061826"
       },
       "tests": [
@@ -1852,7 +1852,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/desktop-security.spec.ts": "ee82ce084be8819ce4f6b1fb3b7aeca65325087768a18a54831c34c5de134083",
+        "app/test/e2e/desktop-security.spec.ts": "a2dd6e317ae863717d865a3d904d84a4efbbcc87f30b2c04c9f04f14e9a274d7",
         "tests/test_desktop_matrix_qualification.py": "07ad4b07fb9d634ffcfebdd4571d83607689f1854d6c4255591a77f4fe061826"
       },
       "tests": [
@@ -1891,7 +1891,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/desktop-security.spec.ts": "ee82ce084be8819ce4f6b1fb3b7aeca65325087768a18a54831c34c5de134083",
+        "app/test/e2e/desktop-security.spec.ts": "a2dd6e317ae863717d865a3d904d84a4efbbcc87f30b2c04c9f04f14e9a274d7",
         "tests/test_desktop_matrix_qualification.py": "07ad4b07fb9d634ffcfebdd4571d83607689f1854d6c4255591a77f4fe061826"
       },
       "tests": [
@@ -1930,7 +1930,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/desktop-security.spec.ts": "ee82ce084be8819ce4f6b1fb3b7aeca65325087768a18a54831c34c5de134083",
+        "app/test/e2e/desktop-security.spec.ts": "a2dd6e317ae863717d865a3d904d84a4efbbcc87f30b2c04c9f04f14e9a274d7",
         "tests/test_desktop_matrix_qualification.py": "07ad4b07fb9d634ffcfebdd4571d83607689f1854d6c4255591a77f4fe061826"
       },
       "tests": [
