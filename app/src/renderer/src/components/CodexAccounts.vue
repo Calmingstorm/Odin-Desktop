@@ -179,14 +179,20 @@ function updateCandidate(index: number, key: 'model' | 'reasoning_effort' | 'thi
   next[index] = key === 'model' && typeof item === 'string' ? raw : { ...(typeof item === 'string' ? { model: item } : item), [key]: raw || null }
   allowlistDraft.value = next
 }
-// Odin's selection hints: what each automatic candidate is good for, keyed by model.
-const hintsDraft = ref<Record<string, string> | null>(null)
-const hints = computed<Record<string, string>>(() => hintsDraft.value ?? ((field('agents.model_selection_hints')?.desired as Record<string, string> | null | undefined) ?? {}))
+// Odin's selection hints: what each automatic candidate is good for, keyed by model. The descriptions and the
+// guidance JSON under More options edit one draft, that JSON, so the newest edit in either is the one saved.
+const hintsPath = 'agents.model_selection_hints'
+const hints = computed<Record<string, string> | null>(() => {
+  const item = field(hintsPath)
+  const parsed = item ? fromInput(item, value(hintsPath)) : null
+  return parsed?.ok ? parsed.value as Record<string, string> | null : null
+})
 function updateHint(model: string, text: string): void {
+  if (!hints.value) return
   const next = { ...hints.value }
   if (text.trim()) next[model] = text
   else delete next[model]
-  hintsDraft.value = next
+  edit(hintsPath, JSON.stringify(next, null, 2))
 }
 function reorder(index: number, delta: number): void { const next = [...candidates.value]; const to = index + delta; if (to < 0 || to >= next.length) return; [next[index], next[to]] = [next[to]!, next[index]!]; allowlistDraft.value = next }
 async function saveAgents(): Promise<void> {
@@ -197,11 +203,11 @@ async function saveAgents(): Promise<void> {
     if (candidates.value.some((item) => typeof item !== 'string' && item.reasoning_effort && item.reasoning_effort !== 'auto' && modelEfforts(item.model)?.includes(item.reasoning_effort) !== true)) { errors.agents = 'Choose supported reasoning efforts for every automatic candidate.'; return }
     params.auto_model_allowlist = candidates.value
   }
-  if (hintsDraft.value) params.model_selection_hints = Object.fromEntries(Object.entries(hintsDraft.value).map(([model, hint]) => [model, hint.trim()]))
   for (const path of agentPaths.slice(2)) if (Object.hasOwn(drafts, path) && field(path)) { const parsed = fromInput(field(path)!, value(path)); if (!parsed.ok) { errors[path] = parsed.error; return }; params[path.split('.').pop()!] = parsed.value }
-  const snapshot = JSON.stringify({ model: value('agents.model'), candidates: candidates.value, hints: hints.value, drafts: agentPaths.map((path) => value(path)) })
+  // Clear only what this save sent: a draft edited while it runs stays.
+  const sent = { drafts: Object.fromEntries(agentPaths.map((path) => [path, drafts[path]])), candidates: allowlistDraft.value }
   busy.agents = true; notes.agents = ''
-  try { if (await saveModelSettings('models.agents.set', params)) { if (snapshot === JSON.stringify({ model: value('agents.model'), candidates: candidates.value, hints: hints.value, drafts: agentPaths.map((path) => value(path)) })) { cancel(agentPaths); allowlistDraft.value = null; hintsDraft.value = null }; notes.agents = 'Saved.' } }
+  try { if (await saveModelSettings('models.agents.set', params)) { for (const path of agentPaths) if (drafts[path] === sent.drafts[path]) { delete drafts[path]; delete errors[path] }; if (allowlistDraft.value === sent.candidates) allowlistDraft.value = null; notes.agents = 'Saved.' } }
   finally { busy.agents = false }
 }
 const independentAgentPaths = ['agents.max_concurrent_agents']
@@ -210,9 +216,7 @@ const agentEfforts = computed(() => {
   if (!agentEffortModels.value.length || agentEffortModels.value.some((model) => modelEfforts(model) === null)) return null
   return modelEfforts(agentEffortModels.value[0]!)!.filter((effort) => agentEffortModels.value.every((model) => modelEfforts(model)!.includes(effort)))
 })
-const agentDirty = computed(() => dirty(agentPaths)
-  || (allowlistDraft.value !== null && JSON.stringify(allowlistDraft.value) !== JSON.stringify(field('agents.auto_model_allowlist')?.desired ?? []))
-  || (hintsDraft.value !== null && JSON.stringify(hintsDraft.value) !== JSON.stringify(field('agents.model_selection_hints')?.desired ?? {})))
+const agentDirty = computed(() => dirty(agentPaths) || (allowlistDraft.value !== null && JSON.stringify(allowlistDraft.value) !== JSON.stringify(field('agents.auto_model_allowlist')?.desired ?? [])))
 async function pickAgentEffort(effort: string): Promise<void> {
   const item = field('openai_codex.agent_reasoning_effort')
   if (!item || (effort !== '' && effort !== 'auto' && agentEfforts.value?.includes(effort) !== true)) return
@@ -359,6 +363,7 @@ async function remove(account: CodexAccount): Promise<void> {
     <div v-if="agentMode === 'auto' && field('agents.auto_model_allowlist')" :id="modelId('agents.auto_model_allowlist')" tabindex="-1" class="model-candidates">
       <h4>Automatic candidates</h4>
       <p class="settings-help">Order sets preference. Per-model effort and thinking choices must be compatible with that model. A description tells automatic selection which tasks suit the model.</p>
+      <p v-if="field(hintsPath) && !hints" class="settings-help">Descriptions can't be edited here until the selection guidance under More options is valid JSON.</p>
       <p v-if="!candidates.length">No candidates. Add a model for automatic selection.</p>
       <div v-for="(candidate, index) in candidates" :key="index" class="model-candidate">
         <label :for="modelId(`agents.auto_model_allowlist.${index}.model`)">Model {{ index + 1 }}</label>
@@ -374,8 +379,8 @@ async function remove(account: CodexAccount): Promise<void> {
         <select :id="modelId(`agents.auto_model_allowlist.${index}.thinking_mode`)" :disabled="modelProvider(candidateModel(candidate)) === 'codex'" :value="typeof candidate === 'string' ? '' : candidate.thinking_mode ?? ''" @change="updateCandidate(index, 'thinking_mode', ($event.target as HTMLSelectElement).value)">
           <option value="">Use agent policy</option><option v-for="mode in field('agents.thinking_mode')?.enum ?? []" :key="mode" :value="mode">{{ mode }}</option>
         </select>
-        <label v-if="field('agents.model_selection_hints')" :for="modelId(`agents.model_selection_hints.${index}`)">Description {{ index + 1 }}</label>
-        <textarea v-if="field('agents.model_selection_hints')" :id="modelId(`agents.model_selection_hints.${index}`)" rows="2" :disabled="!candidateModel(candidate)" :value="hints[candidateModel(candidate)] ?? ''" placeholder="Which tasks suit this model" @input="updateHint(candidateModel(candidate), ($event.target as HTMLTextAreaElement).value)" />
+        <label v-if="field(hintsPath)" :for="modelId(`${hintsPath}.${index}`)">Description {{ index + 1 }}</label>
+        <textarea v-if="field(hintsPath)" :id="modelId(`${hintsPath}.${index}`)" rows="2" :disabled="!candidateModel(candidate) || !hints" :value="hints?.[candidateModel(candidate)] ?? ''" placeholder="Which tasks suit this model" @input="updateHint(candidateModel(candidate), ($event.target as HTMLTextAreaElement).value)" />
         <div class="settings-actions">
           <button class="ghost" :aria-label="`Move model ${index + 1} up`" :disabled="index === 0" @click="reorder(index, -1)">Move up</button>
           <button class="ghost" :aria-label="`Move model ${index + 1} down`" :disabled="index === candidates.length - 1" @click="reorder(index, 1)">Move down</button>
@@ -399,7 +404,7 @@ async function remove(account: CodexAccount): Promise<void> {
     <div v-if="agentDirty" id="agent-model-actions" class="model-actions settings-editor-actions" data-testid="agent-model-actions">
       <span>Unsaved changes</span>
       <button :disabled="busy.agents" @click="saveAgents">Save</button>
-      <button class="ghost" @click="cancel(agentPaths); allowlistDraft = null; hintsDraft = null">Cancel</button>
+      <button class="ghost" @click="cancel(agentPaths); allowlistDraft = null">Cancel</button>
     </div>
   </SettingsSection>
   <SettingsSection title="Accounts and quota">
