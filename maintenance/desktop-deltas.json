@@ -3533,7 +3533,7 @@
         }
       ],
       "path": "scripts/qualification/lifecycle.py",
-      "reason": "Merge of #58 with main: Merge of #42 with step 6B and main #40: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Main lifecycle integration from 0b7d596f; preserve main-only source adaptation and named test evidence. | P3.3 part1 isolated source-build lifecycle qualification and owned fixtures | Merged origin/main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | Latest main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3.",
+      "reason": "Merge of #58 with main: Merge of #42 with step 6B and main #40: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Main lifecycle integration from 0b7d596f; preserve main-only source adaptation and named test evidence. | P3.3 part1 isolated source-build lifecycle qualification and owned fixtures | Merged origin/main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | Latest main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | 2026-10-08: test digest refreshed after app/test/e2e/lifecycle.spec.ts exit-only expectation was updated for #115's Electron userData path (odin-desktop/electron).",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -3541,7 +3541,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/lifecycle.spec.ts": "f8842db9e8bd561fea2f5b334c183d39dec410b8dad13e239b82138651b89e81",
+        "app/test/e2e/lifecycle.spec.ts": "718229084259b634c9d7579bc53124e8e2bd96635b4e04c3f97a5948363269a2",
         "app/test/e2e/notifications.spec.ts": "c7f0593c73bb0cc83e08a90ae2d7a9c451cdbb2a24e956d905c83c7f42d9ffe1",
         "tests/test_desktop_lifecycle_qualification.py": "81bc47c2a9c5f8384ab62e6244e56aa96ef1a488955780ec61830ab51b4bd342"
       },
@@ -28666,7 +28666,7 @@
         }
       ],
       "path": "tests/desktop_fixtures/lifecycle_owned_socket.py",
-      "reason": "Merge of #58 with main: Merge of #42 with step 6B and main #40: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Main lifecycle integration from 0b7d596f; preserve main-only source adaptation and named test evidence. | P3.3 part1 isolated source-build lifecycle qualification and owned fixtures | Merged origin/main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | Latest main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3.",
+      "reason": "Merge of #58 with main: Merge of #42 with step 6B and main #40: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Main lifecycle integration from 0b7d596f; preserve main-only source adaptation and named test evidence. | P3.3 part1 isolated source-build lifecycle qualification and owned fixtures | Merged origin/main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | Latest main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | 2026-10-08: test digest refreshed after app/test/e2e/lifecycle.spec.ts exit-only expectation was updated for #115's Electron userData path (odin-desktop/electron).",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -28674,7 +28674,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/lifecycle.spec.ts": "f8842db9e8bd561fea2f5b334c183d39dec410b8dad13e239b82138651b89e81",
+        "app/test/e2e/lifecycle.spec.ts": "718229084259b634c9d7579bc53124e8e2bd96635b4e04c3f97a5948363269a2",
         "app/test/e2e/notifications.spec.ts": "c7f0593c73bb0cc83e08a90ae2d7a9c451cdbb2a24e956d905c83c7f42d9ffe1",
         "tests/test_desktop_lifecycle_qualification.py": "81bc47c2a9c5f8384ab62e6244e56aa96ef1a488955780ec61830ab51b4bd342"
       },
@@ -28795,7 +28795,7 @@
         }
       ],
       "path": "tests/desktop_fixtures/notification_core.py",
-      "reason": "Merge of #58 with main: Merge of #42 with step 6B and main #40: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Main lifecycle integration from 0b7d596f; preserve main-only source adaptation and named test evidence. | P3.3 part1 isolated source-build lifecycle qualification and owned fixtures | Merged origin/main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | Latest main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3.",
+      "reason": "Merge of #58 with main: Merge of #42 with step 6B and main #40: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Main lifecycle integration from 0b7d596f; preserve main-only source adaptation and named test evidence. | P3.3 part1 isolated source-build lifecycle qualification and owned fixtures | Merged origin/main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | Latest main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | 2026-10-08: test digest refreshed after app/test/e2e/lifecycle.spec.ts exit-only expectation was updated for #115's Electron userData path (odin-desktop/electron).",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -28803,7 +28803,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/lifecycle.spec.ts": "f8842db9e8bd561fea2f5b334c183d39dec410b8dad13e239b82138651b89e81",
+        "app/test/e2e/lifecycle.spec.ts": "718229084259b634c9d7579bc53124e8e2bd96635b4e04c3f97a5948363269a2",
         "app/test/e2e/notifications.spec.ts": "c7f0593c73bb0cc83e08a90ae2d7a9c451cdbb2a24e956d905c83c7f42d9ffe1",
         "tests/test_desktop_lifecycle_qualification.py": "81bc47c2a9c5f8384ab62e6244e56aa96ef1a488955780ec61830ab51b4bd342"
       },
@@ -28922,7 +28922,7 @@
         }
       ],
       "path": "tests/desktop_fixtures/private-session.conf",
-      "reason": "Merge of #58 with main: Merge of #42 with step 6B and main #40: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Main lifecycle integration from 0b7d596f; preserve main-only source adaptation and named test evidence. | P3.3 part1 isolated source-build lifecycle qualification and owned fixtures | Merged origin/main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | Latest main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3.",
+      "reason": "Merge of #58 with main: Merge of #42 with step 6B and main #40: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Main lifecycle integration from 0b7d596f; preserve main-only source adaptation and named test evidence. | P3.3 part1 isolated source-build lifecycle qualification and owned fixtures | Merged origin/main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | Latest main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | 2026-10-08: test digest refreshed after app/test/e2e/lifecycle.spec.ts exit-only expectation was updated for #115's Electron userData path (odin-desktop/electron).",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -28930,7 +28930,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/lifecycle.spec.ts": "f8842db9e8bd561fea2f5b334c183d39dec410b8dad13e239b82138651b89e81",
+        "app/test/e2e/lifecycle.spec.ts": "718229084259b634c9d7579bc53124e8e2bd96635b4e04c3f97a5948363269a2",
         "app/test/e2e/notifications.spec.ts": "c7f0593c73bb0cc83e08a90ae2d7a9c451cdbb2a24e956d905c83c7f42d9ffe1",
         "tests/test_desktop_lifecycle_qualification.py": "81bc47c2a9c5f8384ab62e6244e56aa96ef1a488955780ec61830ab51b4bd342"
       },
@@ -28963,7 +28963,7 @@
         }
       ],
       "path": "tests/desktop_fixtures/private_notification_server.py",
-      "reason": "Merge of #58 with main: Merge of #42 with step 6B and main #40: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Main lifecycle integration from 0b7d596f; preserve main-only source adaptation and named test evidence. | P3.3 part1 isolated source-build lifecycle qualification and owned fixtures | Merged origin/main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | Latest main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3.",
+      "reason": "Merge of #58 with main: Merge of #42 with step 6B and main #40: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Main lifecycle integration from 0b7d596f; preserve main-only source adaptation and named test evidence. | P3.3 part1 isolated source-build lifecycle qualification and owned fixtures | Merged origin/main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | Latest main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | 2026-10-08: test digest refreshed after app/test/e2e/lifecycle.spec.ts exit-only expectation was updated for #115's Electron userData path (odin-desktop/electron).",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -28971,7 +28971,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/lifecycle.spec.ts": "f8842db9e8bd561fea2f5b334c183d39dec410b8dad13e239b82138651b89e81",
+        "app/test/e2e/lifecycle.spec.ts": "718229084259b634c9d7579bc53124e8e2bd96635b4e04c3f97a5948363269a2",
         "app/test/e2e/notifications.spec.ts": "c7f0593c73bb0cc83e08a90ae2d7a9c451cdbb2a24e956d905c83c7f42d9ffe1",
         "tests/test_desktop_lifecycle_qualification.py": "81bc47c2a9c5f8384ab62e6244e56aa96ef1a488955780ec61830ab51b4bd342"
       },
@@ -35052,7 +35052,7 @@
         }
       ],
       "path": "tests/test_desktop_lifecycle_qualification.py",
-      "reason": "Merge of #58 with main: Merge of #42 with step 6B and main #40: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Main lifecycle integration from 0b7d596f; preserve main-only source adaptation and named test evidence. | P3.3 part1 isolated source-build lifecycle qualification and owned fixtures | Merged origin/main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | Latest main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3.",
+      "reason": "Merge of #58 with main: Merge of #42 with step 6B and main #40: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Main lifecycle integration from 0b7d596f; preserve main-only source adaptation and named test evidence. | P3.3 part1 isolated source-build lifecycle qualification and owned fixtures | Merged origin/main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | Latest main contract: P3.3 part1 isolated source-build lifecycle qualification and owned fixtures Evidence-only refresh for bounded load-flake harness waits in app/test/e2e/lifecycle.spec.ts; protected destination bytes verified identical to base f29ffc3. | 2026-10-08: test digest refreshed after app/test/e2e/lifecycle.spec.ts exit-only expectation was updated for #115's Electron userData path (odin-desktop/electron).",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -35060,7 +35060,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/lifecycle.spec.ts": "f8842db9e8bd561fea2f5b334c183d39dec410b8dad13e239b82138651b89e81",
+        "app/test/e2e/lifecycle.spec.ts": "718229084259b634c9d7579bc53124e8e2bd96635b4e04c3f97a5948363269a2",
         "app/test/e2e/notifications.spec.ts": "c7f0593c73bb0cc83e08a90ae2d7a9c451cdbb2a24e956d905c83c7f42d9ffe1",
         "tests/test_desktop_lifecycle_qualification.py": "81bc47c2a9c5f8384ab62e6244e56aa96ef1a488955780ec61830ab51b4bd342"
       },
