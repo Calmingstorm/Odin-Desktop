@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import type { HostRow } from '../../../../shared/api'
 import { ask } from '../../dialog'
 import {
@@ -22,7 +22,15 @@ import {
   testConnection
 } from '../../stores/hosts'
 import { management } from '../../stores/management'
-import { unavailableText } from '../../capability'
+import { settingsUnavailableText as unavailableText } from '../../capability'
+import { settingsFields } from '../../settings-presentation'
+import { saveField, settings } from '../../stores/settings'
+import SettingsSection from '../../components/settings/SettingsSection.vue'
+import SettingsRow from '../../components/settings/SettingsRow.vue'
+import SettingsSwitch from '../../components/settings/SettingsSwitch.vue'
+import type { ConfigField } from '../../../../shared/api'
+import { editableHere } from '../../settings-form'
+import { state } from '../../store'
 
 onMounted(loadHosts)
 
@@ -40,6 +48,31 @@ const allowTofu = ref<boolean | null>(null)
 const shownDefault = computed(() => defaultHost.value ?? hosts.list?.configured_default_host ?? hosts.list?.default_host ?? '')
 const shownTofu = computed(() => allowTofu.value ?? hosts.list?.tofu_enabled ?? false)
 const copied = ref('')
+const policyNote = ref('')
+const enrollmentDialog = ref<HTMLDialogElement | null>(null)
+watch(() => !!hosts.enrollment, async (open) => {
+  await nextTick()
+  if (open) enrollmentDialog.value?.showModal?.()
+})
+const policies = computed(() => settingsFields('hosts', 'more-options').flatMap((entry) => {
+  const field = settings.meta?.fields.find((field) => field.path === entry.key)
+  return field ? [{ ...entry, field }] : []
+}))
+
+async function changePolicy(field: ConfigField, value: boolean): Promise<void> {
+  if (!editableHere(field) || field.type !== 'boolean' || field.sensitivity !== 'public') return
+  const revision = settings.meta?.revision
+  const epoch = state.recoveryEpoch
+  const instance = state.app.coreInstanceId
+  const widens = field.path === 'tools.governor.owner_can_override' ? value : !value
+  policyNote.value = ''
+  if (widens && !(await ask({ title: 'Allow more command access?', message: 'This weakens command safeguards. Only continue if you trust the people and tools using Odin.', confirmLabel: 'Allow change', danger: true }))) return
+  if (revision !== settings.meta?.revision || epoch !== state.recoveryEpoch || instance !== state.app.coreInstanceId || settings.meta?.fields.find((entry) => entry.path === field.path) !== field) {
+    policyNote.value = 'Settings changed while you were confirming. Check them, then try again.'
+    return
+  }
+  await saveField(field, value)
+}
 
 async function saveSettings(): Promise<void> {
   const change = {
@@ -47,6 +80,14 @@ async function saveSettings(): Promise<void> {
     ...(allowTofu.value === null ? {} : { allow_host_tofu: allowTofu.value })
   }
   if (!Object.keys(change).length) return
+  const revision = settings.meta?.revision
+  const snapshot = hosts.list
+  const epoch = state.recoveryEpoch
+  const instance = state.app.coreInstanceId
+  if (change.allow_host_tofu === true && !hosts.list?.tofu_enabled) {
+    if (!(await ask({ title: 'Allow trust on first use?', message: 'New hosts can be trusted without a previously pinned key. You will still need to review the scanned key.', confirmLabel: 'Allow', danger: true }))) return
+    if (revision !== settings.meta?.revision || snapshot !== hosts.list || epoch !== state.recoveryEpoch || instance !== state.app.coreInstanceId) { policyNote.value = 'Hosts changed while you were confirming. Check them, then save again.'; return }
+  }
   if (await saveHostSettings(change)) {
     if (defaultHost.value === change.default_host) defaultHost.value = null
     if (allowTofu.value === change.allow_host_tofu) allowTofu.value = null
@@ -86,30 +127,26 @@ function lastTest(host: HostRow): string {
 </script>
 
 <template>
-  <section class="panel" aria-label="Hosts">
+  <SettingsSection title="Hosts" aria-label="Hosts">
     <header class="panel-head">
-      <h3>Hosts</h3>
-      <span class="panel-hint">Machines Odin runs commands on, over SSH with its own key. Each host's key is trusted only as you set.</span>
       <button v-if="!hosts.unavailable" class="ghost" @click="beginAdd">Add host</button>
     </header>
     <p v-if="hosts.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Host management') }}</p>
     <template v-else>
-    <div class="limits">
-      <label class="limit">
-        Default host
-        <select :value="shownDefault" @change="defaultHost = ($event.target as HTMLSelectElement).value">
+    <SettingsRow label="Default host" description="Use this machine when a command does not name one." control-id="hosts-default">
+        <select id="hosts-default" :value="shownDefault" @change="defaultHost = ($event.target as HTMLSelectElement).value">
           <option value="">None: every command names its host</option>
           <option v-for="host in hosts.list?.hosts ?? []" :key="host.host_id" :value="host.alias">{{ host.alias }}</option>
         </select>
-      </label>
-      <label class="toggle-inline">
-        <input type="checkbox" :checked="shownTofu" @change="allowTofu = ($event.target as HTMLInputElement).checked" />
-        Allow trust on first use
-      </label>
+    </SettingsRow>
+    <div v-if="defaultHost !== null" class="panel-actions">
       <button class="ghost" :disabled="management.busy.hosts" @click="saveSettings">Save</button>
+      <button class="ghost" @click="defaultHost = null; allowTofu = null">Cancel</button>
     </div>
     <p v-if="management.notes.hosts" class="manage-note" role="status">{{ management.notes.hosts }}</p>
     <p v-if="hosts.error" class="warn">{{ hosts.error }}</p>
+    <p v-if="!hosts.list" class="manage-desc" role="status">Loading hosts…</p>
+    <p v-else-if="!hosts.list.hosts.length" class="manage-desc">No hosts yet. Add a host to connect another machine.</p>
     <ul class="manage-list">
       <li v-for="host in hosts.list?.hosts ?? []" :key="host.host_id" class="manage-row">
         <div class="manage-line">
@@ -122,9 +159,9 @@ function lastTest(host: HostRow): string {
           <span class="manage-actions">
             <button v-if="host.trust_mode === 'legacy' && !isLocal(host.address)" type="button" class="ghost" :aria-label="`Enroll trusted key for host ${host.alias}`" :disabled="management.busy[`host:${host.alias}`]" @click="importLegacy(host)">Enroll trusted key</button>
             <button class="ghost" :aria-label="`Edit host ${host.alias}`" @click="beginEdit(host)">Edit</button>
-            <button class="ghost" :aria-label="`${host.enabled ? 'Turn off' : 'Turn on'} host ${host.alias}`" :disabled="management.busy[`host:${host.alias}`]" @click="setHostEnabled(host.alias, !host.enabled)">
-              {{ host.enabled ? 'Turn off' : 'Turn on' }}
-            </button>
+            <label class="toggle-inline">Available
+              <SettingsSwitch :id="`host-enabled-${encodeURIComponent(host.alias)}`" :label="`${host.enabled ? 'Turn off' : 'Turn on'} host ${host.alias}`" :checked="host.enabled" :disabled="management.busy[`host:${host.alias}`]" @change="setHostEnabled(host.alias, $event)" />
+            </label>
             <button v-if="host.draining" class="ghost danger-item" :aria-label="`Force revoke host ${host.alias}…`" @click="revoke(host)">Force revoke…</button>
             <button class="ghost danger-item" :aria-label="`Delete host ${host.alias}…`" @click="remove(host)">Delete…</button>
           </span>
@@ -142,13 +179,10 @@ function lastTest(host: HostRow): string {
       </li>
     </ul>
     </template>
-  </section>
+  </SettingsSection>
 
-  <section v-if="hosts.key && !hosts.unavailable" class="panel" aria-label="Odin's key">
-    <header class="panel-head">
-      <h3>Odin's key</h3>
-      <span class="panel-hint">Add it to a host's authorized keys, and Odin can log in there. It never uses passwords.</span>
-    </header>
+  <SettingsSection v-if="hosts.key && !hosts.unavailable" title="Odin's key" aria-label="Odin's key">
+    <p class="manage-desc">Install this public key on a host to allow password-free SSH access.</p>
     <pre class="manage-json">{{ hosts.key.public_key }}</pre>
     <div class="panel-actions">
       <button class="ghost" @click="copy('The key', hosts.key.public_key)">Copy the key</button>
@@ -157,14 +191,14 @@ function lastTest(host: HostRow): string {
     <p class="manage-desc">Fingerprint {{ hosts.key.fingerprint }}. {{ hosts.key.permissions }}.</p>
     <p v-if="hosts.key.restart_pending" class="field-diff">A new key is saved; Odin uses it from the next start.</p>
     <p v-if="copied" class="manage-note" role="status">{{ copied }}</p>
-  </section>
+  </SettingsSection>
 
-  <section v-if="hosts.enrollment && !hosts.unavailable" class="panel" aria-label="Host enrollment">
+  <dialog v-if="hosts.enrollment && !hosts.unavailable" ref="enrollmentDialog" class="host-editor-dialog" :aria-label="hosts.enrollment.editing ? `Edit host ${hosts.enrollment.form.alias}` : 'Add host'" @cancel.prevent="closeEnrollment">
+  <SettingsSection :title="hosts.enrollment.editing ? `Change ${hosts.enrollment.form.alias}` : 'Add a host'" aria-label="Host enrollment">
     <template v-for="e in [hosts.enrollment]" :key="'enrollment'">
       <header class="panel-head">
-        <h3>{{ e.editing ? `Change ${e.form.alias}` : 'Add a host' }}</h3>
         <span class="panel-hint">Step {{ e.step }} of 5: {{ STEPS[e.step - 1] }}</span>
-        <button class="ghost" @click="closeEnrollment">Close</button>
+        <button class="ghost" @click="closeEnrollment">Cancel</button>
       </header>
       <ol class="steps">
         <li v-for="(name, index) in STEPS" :key="name" :aria-current="e.step === index + 1 ? 'step' : undefined" :class="{ current: e.step === index + 1, done: e.step > index + 1 }">{{ name }}</li>
@@ -192,7 +226,7 @@ function lastTest(host: HostRow): string {
           </select>
         </label>
         <label v-if="isLocal(e.form.address)" class="toggle-inline">
-          <input v-model="e.form.confirm_local" type="checkbox" /> This is this computer: commands run inside Odin itself
+          <input v-model="e.form.confirm_local" type="checkbox" /> Allow commands on this computer
         </label>
         <div class="panel-actions">
           <button class="ghost" :disabled="!e.form.alias.trim() || !e.form.address.trim()" @click="goTo(2)">Next</button>
@@ -200,7 +234,7 @@ function lastTest(host: HostRow): string {
       </template>
 
       <template v-else-if="e.step === 2">
-        <p v-if="isLocal(e.form.address)" class="manage-desc">This computer runs commands inside Odin. No SSH key installation is needed.</p>
+        <p v-if="isLocal(e.form.address)" class="manage-desc">Local commands do not need an SSH key.</p>
         <p v-else class="manage-desc">Install Odin's key for {{ e.form.ssh_user }}@{{ e.form.address }}, then continue.</p>
         <pre v-if="hosts.key && !isLocal(e.form.address)" class="manage-json">{{ hosts.key.authorized_keys_command }}</pre>
         <div class="panel-actions">
@@ -264,5 +298,33 @@ function lastTest(host: HostRow): string {
       </template>
       <p v-if="e.note" id="host-enrollment-note" :class="e.step === 3 && e.observed.length && !e.token ? 'manage-note' : 'warn'" role="status">{{ e.note }}</p>
     </template>
-  </section>
+  </SettingsSection>
+
+  </dialog>
+  <details v-if="!hosts.unavailable" class="settings-more-options">
+    <summary>More options</summary>
+    <SettingsSection title="Trust and command access">
+      <SettingsRow label="Allow trust on first use" description="Review a host's key without pinning it in advance." control-id="hosts-tofu">
+        <SettingsSwitch id="hosts-tofu" label="Allow trust on first use" :checked="shownTofu" :disabled="management.busy.hosts" described-by="hosts-tofu-description" @change="allowTofu = $event" />
+        <template #note><div v-if="allowTofu !== null" class="panel-actions">
+          <button class="ghost" :disabled="management.busy.hosts" @click="saveSettings">Save trust policy</button>
+          <button class="ghost" @click="allowTofu = null">Cancel trust changes</button>
+        </div></template>
+      </SettingsRow>
+      <SettingsRow v-for="entry in policies" :key="entry.key" :label="entry.label" :description="entry.help" :control-id="`hosts-policy-${entry.key}`">
+        <input :id="`hosts-policy-${entry.key}`" type="checkbox" role="switch" class="settings-switch" :aria-label="entry.label" :aria-describedby="`hosts-policy-${entry.key}-description`" :aria-invalid="entry.field.apply_state === 'invalid' || undefined" :checked="entry.field.desired === true" :disabled="settings.fields[entry.key]?.status === 'saving' || !editableHere(entry.field) || entry.field.sensitivity !== 'public' || entry.field.type !== 'boolean'" @change="changePolicy(entry.field, ($event.target as HTMLInputElement).checked); ($event.target as HTMLInputElement).checked = entry.field.desired === true" />
+        <template #note>
+          <p v-if="entry.field.apply_state === 'invalid'" class="warn">This value is invalid. Choose a value and save again.</p>
+          <p v-if="entry.field.apply_state === 'drift'" class="warn">The running value differs from the saved value.</p>
+          <p v-if="settings.fields[entry.key]" class="manage-note" role="status">{{ settings.fields[entry.key]?.message ?? (settings.fields[entry.key]?.status === 'saving' ? 'Saving…' : 'Saved') }}</p>
+        </template>
+      </SettingsRow>
+      <p v-if="policyNote" class="warn" role="status">{{ policyNote }}</p>
+    </SettingsSection>
+  </details>
 </template>
+
+<style scoped>
+.host-editor-dialog { width: min(760px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow: auto; padding: 0 20px; border: 1px solid var(--border); border-radius: 12px; color: var(--text); background: var(--bg); }
+.host-editor-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+</style>

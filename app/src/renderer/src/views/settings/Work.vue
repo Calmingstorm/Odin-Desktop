@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import type { ScheduleRow, WorkKind } from '../../../../shared/api'
 import WorkList from '../../components/WorkList.vue'
 import WebhookIngress from '../../components/WebhookIngress.vue'
+import OutboundWebhooks from '../../components/OutboundWebhooks.vue'
 import { ask } from '../../dialog'
 import { ACTIONS, blankForm, buildSave, formFor, REPORT_FORMATS, WEBHOOK_METHODS, type ScheduleForm } from '../../schedule-form'
 import { analyzeLocalDateTime } from '../../schedule-time'
@@ -10,9 +11,12 @@ import { scheduleRecovery, scheduleRunLabel } from '../../schedule-observations'
 import { state } from '../../store'
 import { management } from '../../stores/management'
 import { settings } from '../../stores/settings'
-import { unavailableText } from '../../capability'
+import { settingsUnavailableText as unavailableText } from '../../capability'
 import { checkCron, deleteSchedule, loadHistory, loadSchedules, resetFailures, runNow, saveSchedule, schedules, setPaused } from '../../stores/schedules'
 import { loadWork } from '../../stores/work'
+import { settingsFields } from '../../settings-presentation'
+import SettingEditor from '../../components/settings/SettingEditor.vue'
+import SettingsSection from '../../components/settings/SettingsSection.vue'
 
 onMounted(loadSchedules)
 
@@ -23,6 +27,11 @@ const CHECK_TOOLS = ['run_command', 'run_command_multi', 'run_script']
 const ZONES: string[] = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.('timeZone') ?? []
 
 const editing = ref<{ form: ScheduleForm; original: ScheduleRow | null } | null>(null)
+const scheduleDialog = ref<HTMLDialogElement | null>(null)
+watch(() => !!editing.value, async (open) => {
+  await nextTick()
+  if (open) scheduleDialog.value?.showModal?.()
+})
 const formError = ref('')
 // Validation messages come from buildSave; only mark the field it identifies.
 const errorField = computed(() => {
@@ -47,6 +56,10 @@ const counts = computed(() => ({
   failing: schedules.list.filter((s) => (s.consecutive_failures ?? 0) > 0).length
 }))
 const localTime = computed(() => (editing.value?.form.timing === 'once' ? analyzeLocalDateTime(editing.value.form.run_at) : null))
+const more = computed(() => settingsFields('work', 'more-options').flatMap((entry) => {
+  const field = settings.meta?.fields.find((field) => field.path === entry.key)
+  return field ? [{ ...entry, field }] : []
+}))
 const formKey = computed(() => (editing.value?.original ? `schedule:${editing.value.original.id}` : 'schedule:new'))
 
 function startNew(): void {
@@ -100,7 +113,7 @@ function conversationTitle(id: string): string | null {
 }
 
 function when(row: ScheduleRow): string {
-  if (row.cron) return `${row.cron}, ${row.timezone ? `${row.timezone} time` : "the core's time zone"}`
+  if (row.cron) return `${row.cron}, ${row.timezone ? `${row.timezone} time` : "Odin's time zone"}`
   return row.run_at ? `once, ${new Date(row.run_at).toLocaleString()}` : 'on a trigger'
 }
 
@@ -131,16 +144,15 @@ async function remove(row: ScheduleRow): Promise<void> {
 </script>
 
 <template>
-  <section class="panel" aria-label="Schedules">
+  <SettingsSection title="Schedules" aria-label="Schedules">
     <header class="panel-head">
-      <h3>Schedules</h3>
       <span v-if="!schedules.unavailable" class="panel-hint">{{ counts.total }} schedule{{ counts.total === 1 ? '' : 's' }}, {{ counts.paused }} paused, {{ counts.failing }} failing.</span>
       <button class="ghost" aria-label="Refresh schedules" @click="loadSchedules">Refresh</button>
       <button v-if="!schedules.unavailable" class="ghost" @click="startNew">New schedule</button>
     </header>
     <p v-if="schedules.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Scheduling') }}</p>
     <p v-else-if="management.error" class="warn">{{ management.error }}</p>
-    <p v-else-if="schedules.loaded && !schedules.list.length" class="manage-desc">No schedules yet.</p>
+    <p v-else-if="schedules.loaded && !schedules.list.length" class="manage-desc">No schedules yet. Create one for reminders or recurring work.</p>
     <ul class="manage-list">
       <li v-for="row in schedules.list" :key="row.id" class="manage-row">
         <div class="manage-line">
@@ -189,14 +201,13 @@ async function remove(row: ScheduleRow): Promise<void> {
         <p v-if="management.notes[`schedule:${row.id}`]" class="manage-note" role="status">{{ management.notes[`schedule:${row.id}`] }}</p>
       </li>
     </ul>
-  </section>
+  </SettingsSection>
 
-  <section v-if="editing && !schedules.unavailable" class="panel" aria-label="Schedule form" :aria-describedby="formError ? 'schedule-form-error' : undefined">
+  <dialog v-if="editing && !schedules.unavailable" ref="scheduleDialog" class="schedule-editor-dialog" :aria-label="editing.original ? `Edit schedule ${editing.original.description}` : 'New schedule'" @cancel.prevent="editing = null">
+  <SettingsSection :title="editing.original ? `Edit ${editing.original.description}` : 'New schedule'" aria-label="Schedule form" :aria-describedby="formError ? 'schedule-form-error' : undefined">
     <template v-for="f in [editing.form]" :key="'form'">
       <header class="panel-head">
-        <h3>{{ editing.original ? `Edit "${editing.original.description}"` : 'New schedule' }}</h3>
-        <span v-if="editing.original" class="panel-hint">Only what you change is sent.</span>
-        <button class="ghost" @click="editing = null">Close</button>
+        <button class="ghost" @click="editing = null">Cancel</button>
       </header>
       <label class="field-input">Description <input v-model="f.description" v-bind="fieldError('description')" maxlength="500" /></label>
       <label v-if="!editing.original" class="field-input">
@@ -220,7 +231,7 @@ async function remove(row: ScheduleRow): Promise<void> {
         </label>
       </div>
       <template v-if="f.timing === 'trigger'">
-        <p class="manage-desc">All supplied filters must match. Save this schedule, then configure its inbound source and write-only secret below. The outgoing Webhook action calls a URL; it is not this listener.</p>
+        <p class="manage-desc">All filters must match. After saving, set up its incoming source and secret below; outgoing webhooks are separate.</p>
         <label class="field-input">Trigger source
           <select v-model="f.trigger_source" v-bind="fieldError('trigger_source')" data-testid="schedule-trigger-source">
             <option value="">Unspecified (any matching source)</option>
@@ -233,7 +244,7 @@ async function remove(row: ScheduleRow): Promise<void> {
       </template>
       <template v-if="f.timing === 'cron'">
         <label class="field-input">Cron <input v-model="f.cron" :aria-invalid="errorField === 'cron' || Boolean(schedules.cron?.error && schedules.cron.expression === f.cron) ? 'true' : undefined" :aria-describedby="errorField === 'cron' ? 'schedule-form-error' : schedules.cron?.error && schedules.cron.expression === f.cron ? 'schedule-cron-error' : undefined" placeholder="0 9 * * 1-5" spellcheck="false" /></label>
-        <label class="field-input">Time zone <input v-model="f.cron_timezone" list="zones" placeholder="The core's time zone" /></label>
+        <label class="field-input">Time zone <input v-model="f.cron_timezone" list="zones" placeholder="Odin's time zone" /></label>
         <datalist id="zones"><option v-for="z in ZONES" :key="z" :value="z" /></datalist>
         <p v-if="schedules.cron?.error && schedules.cron.expression === f.cron" id="schedule-cron-error" class="warn" role="status">{{ schedules.cron.error }}</p>
         <p v-else-if="schedules.cron?.next_runs.length && schedules.cron.expression === f.cron" class="manage-desc">
@@ -288,17 +299,30 @@ async function remove(row: ScheduleRow): Promise<void> {
       <p v-if="formError" id="schedule-form-error" class="warn" role="alert">{{ formError }}</p>
       <p v-else-if="management.notes[formKey]" class="manage-note" role="status">{{ management.notes[formKey] }}</p>
     </template>
-  </section>
+  </SettingsSection>
 
+  </dialog>
   <WebhookIngress v-if="!schedules.unavailable && !settings.unavailable" />
-  <section v-else class="panel" aria-label="Webhook ingress"><h3>Webhook ingress</h3><p class="capability-unavailable" role="status">Webhook ingress setup unavailable from this core.</p></section>
+  <SettingsSection v-else title="Incoming webhooks" aria-label="Webhook ingress"><p class="capability-unavailable" role="status">Incoming webhook setup is unavailable.</p></SettingsSection>
 
-  <section class="panel" aria-label="Running work">
+  <OutboundWebhooks />
+
+  <SettingsSection title="Running now" aria-label="Running work">
     <header class="panel-head">
-      <h3>Running now</h3>
-      <span class="panel-hint">Agents, tasks, loops, processes and workflows, with the controls Odin offers for each.</span>
       <button class="ghost" aria-label="Refresh running work" @click="loadWork">Refresh</button>
     </header>
-    <WorkList :kinds="RUNNING" empty-text="Nothing is running." />
-  </section>
+    <WorkList :kinds="RUNNING" empty-text="Nothing is running." :unavailable-message="unavailableText('Work (agents, tasks, loops, processes, workflows and schedules)')" />
+  </SettingsSection>
+
+  <details v-if="more.length" class="settings-more-options">
+    <summary>More options</summary>
+    <SettingsSection title="Learning and recovery">
+      <SettingEditor v-for="entry in more" :key="entry.key" :field="entry.field" :label="entry.label" :help="entry.help" />
+    </SettingsSection>
+  </details>
 </template>
+
+<style scoped>
+.schedule-editor-dialog { width: min(760px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow: auto; padding: 0 20px; border: 1px solid var(--border); border-radius: 12px; color: var(--text); background: var(--bg); }
+.schedule-editor-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+</style>

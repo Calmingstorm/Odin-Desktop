@@ -744,6 +744,53 @@ describe('search and jump', () => {
     expect(store.state.jump).toBeNull()
     expect(store.state.highlightId).toBeNull()
   })
+  it('clears stale search results and pagination when search becomes unavailable', async () => {
+    await start()
+    store.state.search.hits = [
+      { conversation_id: 'c1', message_id: 'm-old', role: 'assistant', snippet: 'stale', created_at: '2026-10-05T00:00:00Z' }
+    ]
+    store.state.search.nextCursor = 'old-cursor'
+    void store.runSearch('fresh query')
+    await until(() => bridge.control.searchResults.length === 1)
+    bridge.control.searchResults[0]!.resolve({ ok: false, error: { code: 'capability_unavailable', message: 'Search is unavailable.', disposition: 'not_dispatched' } })
+    await until(() => !store.state.search.loading)
+    expect(store.state.search).toMatchObject({ query: 'fresh query', hits: [], nextCursor: null, unavailable: true, error: 'Search is unavailable in this core.' })
+  })
+
+  it('drops a failed around-message jump and keeps the live view intact', async () => {
+    await start(snapshot({ watermark: '3', messages: { items: [message('m-latest')], has_more: false } }))
+    bridge.control.aroundResult = { ok: false, error: { code: 'not_found', message: 'That message is no longer available.', disposition: 'not_dispatched' } }
+    await store.jumpTo({ conversation_id: 'c1', message_id: 'm-gone', role: 'assistant', snippet: '', created_at: '2026-10-05T00:00:00Z' })
+    expect(store.state.jump).toBeNull()
+    expect(store.state.highlightId).toBeNull()
+    expect(store.state.views.c1!.messages.map((m) => m.id)).toEqual(['m-latest'])
+    expect(store.state.notice).toBe('That message is no longer available.')
+  })
+})
+
+describe('history pagination failures', () => {
+  it('does not request older history when the page is absent, exhausted, or already loading', async () => {
+    await start(snapshot({ watermark: '3', messages: { items: [message('m1')], has_more: false } }))
+    await store.loadOlder('missing')
+    await store.loadOlder('c1')
+    expect(bridge.calls.listMessages).toHaveLength(0)
+    const view = store.state.views.c1!
+    view.hasMore = true
+    view.loadingOlder = true
+    await store.loadOlder('c1')
+    expect(bridge.calls.listMessages).toHaveLength(0)
+  })
+
+  it('preserves the current page and reports the error when older history cannot be fetched', async () => {
+    const current = [message('m2'), message('m3')]
+    await start(snapshot({ watermark: '3', messages: { items: current, has_more: true } }))
+    bridge.control.olderResult = { ok: false, error: { code: 'storage_unavailable', message: 'History storage is unavailable.', disposition: 'not_dispatched' } }
+    await store.loadOlder('c1')
+    expect(bridge.calls.listMessages[0]).toMatchObject({ conversation_id: 'c1', before: 'm2', limit: 100 })
+    expect(store.state.views.c1!.messages.map((m) => m.id)).toEqual(['m2', 'm3'])
+    expect(store.state.views.c1!.loadingOlder).toBe(false)
+    expect(store.state.notice).toBe('History storage is unavailable.')
+  })
 })
 
 describe('commands and attachments', () => {

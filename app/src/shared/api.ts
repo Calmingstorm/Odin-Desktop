@@ -3,6 +3,18 @@
 
 export type CorePhase = 'starting' | 'ready' | 'degraded' | 'quiescing'
 
+/** App-owned runtime metadata only. Core version is read separately from status(). */
+export interface DesktopInfo {
+  appVersion: string
+  electronVersion: string
+  chromiumVersion: string
+  nodeVersion: string
+  platform: string
+  architecture: string
+  license: 'MIT'
+  packaged: boolean
+}
+
 export interface ReleaseNotice {
   state: 'cannot-check-private' | 'offline' | 'rate-limited' | 'unavailable' | 'malformed' | 'no-release' |
     'invalid-current-version' | 'equal' | 'older' | 'newer'
@@ -221,6 +233,8 @@ export type MessageRole = 'user' | 'assistant' | 'notice'
 export interface Message {
   id: string
   role: MessageRole
+  /** Trusted tool-publication presentation identity; never a guarded assistant transcript role. */
+  author?: 'odin'
   text: string
   created_at: string
   request_id?: string
@@ -351,6 +365,7 @@ export interface ConfigField {
   default: unknown
   nullable: boolean
   sensitivity: 'public' | 'sensitive' | 'secret_container'
+  secret_route?: string | null
   apply_mode: ApplyMode
   /** Where Odin applies the field: a dedicated desktop method (for example `models.main.set`), or null. */
   apply_handler: string | null
@@ -366,6 +381,8 @@ export interface ConfigField {
   configured: boolean | null
   pending_restart: boolean
   apply_state: ApplyState
+  /** Canonical schema member shape for record-map editors, including empty maps. */
+  record_members?: Array<Pick<ConfigField, 'path' | 'type' | 'enum' | 'constraints' | 'default' | 'nullable' | 'sensitivity'>>
 }
 
 export type ImageLeaf = 'image_model' | 'outer_model'
@@ -955,8 +972,31 @@ export interface TraceFilter {
   errors_only?: boolean | string
 }
 
+/** Outbound owner projections. Credentials are never editable readback. */
+export interface OutboundWebhookTarget {
+  id: string; name: string; url: string; has_secret: boolean; events: string[]
+  enabled: boolean; scrub_secrets: boolean; verify_ssl: boolean; created_at: string
+}
+export interface OutboundWebhookStatus {
+  webhook_count: number; enabled_count: number; scrub_secrets: boolean; rate_limit_seconds: number
+  webhooks: OutboundWebhookTarget[]; stats: Record<string, unknown>
+  skipped_webhooks?: Array<{ id: string; reason: string }>
+}
+export interface OutboundWebhookSave {
+  expected_revision: string; id?: string; name?: string; url?: string; secret?: string; events?: string[]
+  enabled?: boolean; scrub_secrets?: boolean; verify_ssl?: boolean
+}
+export interface OutboundWebhookDelivery {
+  webhook_id: string; webhook_name: string; event_type: string; status_code: number; success: boolean
+  attempt: number; latency_ms: number; timestamp: string; error?: string
+}
+
 /** Each management bridge method: its params and its answer. */
 export interface ManagementCalls {
+  outboundWebhooksList: [Empty, OutboundWebhookStatus]
+  outboundWebhooksSave: [OutboundWebhookSave, OutboundWebhookTarget]
+  outboundWebhooksDelete: [{ id: string; expected_revision: string }, { status: string; webhook_id: string }]
+  outboundWebhooksTest: [{ id: string; expected_revision: string }, OutboundWebhookDelivery]
   auditDiffs: [{ tool?: string; user?: string; date?: string; limit?: number | string }, ManagementRecord]
   auditFailures: [{ window?: number | string }, ManagementRecord]
   auditTail: [{ cursor?: string; lines?: number }, FollowRead]
@@ -982,6 +1022,7 @@ export interface ManagementCalls {
   poolsHttp: [Empty, ManagementRecord]
   poolsClose: [{ host?: string; ssh_user?: string }, { closed?: boolean; closed_count?: number; host?: string }]
   openrouterCatalogue: [Empty, ManagementRecord]
+  modelsStatus: [Empty, ManagementRecord]
   openrouterEndpoints: [{ model: string }, ManagementRecord]
   openrouterSelect: [{ model: string; provider_tag?: string; expected_revision?: string }, ManagementRecord]
   providersCompatDiagnostic: [Empty, ManagementRecord]
@@ -1069,6 +1110,10 @@ export type ManagementApi = {
  * (schemas.ts, MANAGEMENT_SCHEMAS): there is no generic passthrough.
  */
 export const MANAGEMENT: { [K in ManagementMethod]: { channel: string; core: string; command: boolean } } = {
+  outboundWebhooksList: { channel: 'odin:manage:webhooks.outbound.list', core: 'webhooks.outbound.list', command: false },
+  outboundWebhooksSave: { channel: 'odin:manage:webhooks.outbound.save', core: 'webhooks.outbound.save', command: true },
+  outboundWebhooksDelete: { channel: 'odin:manage:webhooks.outbound.delete', core: 'webhooks.outbound.delete', command: true },
+  outboundWebhooksTest: { channel: 'odin:manage:webhooks.outbound.test', core: 'webhooks.outbound.test', command: true },
   auditDiffs: { channel: 'odin:manage:audit.diffs', core: 'audit.diffs', command: false },
   auditFailures: { channel: 'odin:manage:audit.failures', core: 'audit.failures', command: false },
   auditTail: { channel: 'odin:manage:audit.tail', core: 'audit.tail', command: false },
@@ -1094,6 +1139,7 @@ export const MANAGEMENT: { [K in ManagementMethod]: { channel: string; core: str
   poolsHttp: { channel: 'odin:manage:pools.http', core: 'pools.http', command: false },
   poolsClose: { channel: 'odin:manage:pools.close', core: 'pools.close', command: true },
   openrouterCatalogue: { channel: 'odin:manage:openrouter.catalogue', core: 'openrouter.catalogue', command: false },
+  modelsStatus: { channel: 'odin:manage:models.status', core: 'models.status', command: false },
   openrouterEndpoints: { channel: 'odin:manage:openrouter.endpoints', core: 'openrouter.endpoints', command: false },
   openrouterSelect: { channel: 'odin:manage:openrouter.select', core: 'openrouter.select', command: true },
   providersCompatDiagnostic: { channel: 'odin:manage:providers.compat.diagnostic', core: 'providers.compat.diagnostic', command: false },
@@ -1279,8 +1325,71 @@ export interface ControlTarget {
   generation: number
 }
 
+/** Odin's own HTTP API and an admin token, used for one import and never stored. */
+export interface OdinImportSource {
+  url: string
+  token: string
+  /** The user's explicit choice to send the token to a non-loopback http:// address. */
+  allow_insecure_http?: boolean
+}
+
+export type OdinImportCategory = 'memory' | 'skills' | 'mcp' | 'personality' | 'hosts' | 'models'
+
+/** One thing Odin has that Odin Desktop can import. */
+export interface OdinImportItem {
+  category: OdinImportCategory
+  /** Stable within its category: a memory scope, skill, server, preset, host alias or model setting. */
+  id: string
+  label: string
+  detail: string
+  /** Already in Odin Desktop; importing it is skipped. */
+  exists: boolean
+  /** What the user has to finish by hand, in plain words. */
+  notes: string[]
+  /** Suggested choice: new things on, anything that replaces a current choice off. */
+  selected: boolean
+}
+
+export interface OdinImportPreview {
+  items: OdinImportItem[]
+}
+
+export interface OdinImportPick {
+  category: OdinImportCategory
+  id: string
+}
+
+export interface OdinImportOutcome {
+  category: OdinImportCategory
+  id: string
+  label: string
+  /** unknown: a change was sent but not confirmed, so the import stopped; not_attempted: picks after it. */
+  status: 'imported' | 'skipped' | 'needs_attention' | 'failed' | 'unknown' | 'not_attempted'
+  message: string
+  /** For an unconfirmed change: the command the core may still settle. */
+  command_id?: string
+}
+
+export interface OdinImportReport {
+  outcomes: OdinImportOutcome[]
+  /** Odin Desktop's SSH public key, when a host still needs it. */
+  public_key?: string
+}
+
 /** The API the preload bridge exposes as `window.odin`. Nothing else crosses the bridge. */
 export interface OdinApi extends ManagementApi, SettingsShapedApi {
+  /** Profile-local app preference, not a provider readiness/completion flag. */
+  getSetupReminderHidden(): Promise<Result<{ hidden: boolean }>>
+  setSetupReminderHidden(hidden: boolean): Promise<Result<{ hidden: boolean }>>
+  getDesktopInfo(): Promise<Result<DesktopInfo>>
+  /** Opens only the current profile's settings folder; no renderer-supplied path. */
+  openSettingsFolder(): Promise<Result<{ opened: true }>>
+  /** Accepts an orderly, bounded app/core shutdown, not proof that shutdown completed. */
+  exitOdin(): Promise<Result<{ accepted: true }>>
+  /** Reads what an Odin install has, through its API, without changing anything. */
+  odinImportPreview(source: OdinImportSource): Promise<Result<OdinImportPreview>>
+  /** Imports the picked items through Odin Desktop's own save paths, one outcome per item. */
+  odinImportApply(params: OdinImportSource & { picks: OdinImportPick[] }): Promise<Result<OdinImportReport>>
   checkReleases(): Promise<Result<ReleaseNotice>>
   openRelease(): Promise<Result<{ opened: true }>>
   status(): Promise<Result<CoreStatus>>
@@ -1388,6 +1497,13 @@ export interface LateReceipt {
 }
 
 export const IPC = {
+  getSetupReminderHidden: 'odin:setup-reminder:get',
+  setSetupReminderHidden: 'odin:setup-reminder:set',
+  getDesktopInfo: 'odin:get-desktop-info',
+  openSettingsFolder: 'odin:open-settings-folder',
+  exitOdin: 'odin:exit-odin',
+  odinImportPreview: 'odin:import-odin:preview',
+  odinImportApply: 'odin:import-odin:apply',
   checkReleases: 'odin:check-releases',
   openRelease: 'odin:open-release',
   status: 'odin:status',

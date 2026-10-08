@@ -121,7 +121,7 @@ describe('real management contracts', () => {
     expect(view.root.textContent()).toContain('Profile keyring is locked')
     expect(view.root.textContent()).toContain('public')
     expect(view.root.findAll((node) => node.props['aria-label'] === 'Reconnect public')).toHaveLength(1)
-    expect(view.root.textContent()).not.toContain('MCP management is unavailable in this core.')
+    expect(view.root.textContent()).not.toContain('MCP management is unavailable.')
   })
 
   it('refreshes limits/global refusal state without marking unrelated MCP servers unavailable', async () => {
@@ -146,7 +146,7 @@ describe('real management contracts', () => {
     const component = (await import('../../src/renderer/src/views/settings/Skills.vue')).default
     const view = mount(component); views.push(view); await flush()
     expect(store.management.skillTestUnavailable).toBe(false)
-    expect(view.root.textContent()).not.toContain('Test is unavailable in this core.')
+    expect(view.root.textContent()).not.toContain('Skill testing is unavailable.')
     expect(view.root.textContent()).toContain('0 runs')
     const cardTest = view.root.findAll((node) => node.props['aria-label'] === 'Test hello')[0]!
     expect(cardTest.props.disabled).toBeFalsy()
@@ -160,13 +160,13 @@ describe('real management contracts', () => {
     expect(editor.find('pre')?.props.class).not.toContain('warn')
     expect(view.root.textContent()).toContain('1 runs')
     expect(view.root.textContent()).toContain('Ran with empty input.')
-    expect(view.root.textContent()).not.toContain('Test is unavailable in this core.')
+    expect(view.root.textContent()).not.toContain('Skill testing is unavailable.')
   })
 
   it('shows only Test unavailable for a core without skills.test, preserving failed cards, editor and other skill actions', async () => {
     const component = (await import('../../src/renderer/src/views/settings/Skills.vue')).default
     const view = mount(component); views.push(view); await flush()
-    expect(view.root.textContent()).toContain('Test is unavailable in this core.')
+    expect(view.root.textContent()).toContain('Skill testing is unavailable.')
     expect(view.root.textContent()).toContain('Failed to load module')
     expect(view.root.findAll((node) => node.props['aria-label'] === 'Test hello')[0]?.props.disabled).toBe(true)
     expect(store.management.unavailable.skills).toBe(false)

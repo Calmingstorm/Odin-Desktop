@@ -65,6 +65,85 @@ def test_group_writable_parent_is_not_refused(profile, tmp_path):
     assert tmp_path.stat().st_mode & 0o777 == 0o775
 
 
+def test_existing_profile_without_timezone_keeps_utc_on_load(profile, monkeypatch):
+    import src.desktop.provisioning as provisioning
+    from src.desktop.secrets import ProfileSecretStore
+    from src.desktop.settings import SettingsService
+
+    monkeypatch.setenv("TZ", "America/New_York")
+    detect = Mock(return_value="America/New_York")
+    monkeypatch.setattr(provisioning, "system_timezone", detect)
+    profile.paths.config_file.write_text("# existing 1.0.0 profile\npersonality: {}\n")
+    profile.paths.config_file.chmod(0o600)
+    saved = profile.paths.config_file.read_bytes()
+    assert fresh_config(profile.paths).timezone == "UTC"
+    assert load_config(profile.paths.config_file).timezone == "UTC"
+    assert ensure_profile(profile.paths, authority=profile.authority).timezone == "UTC"
+    settings = SettingsService(
+        profile.paths, ProfileSecretStore(profile.paths, backend=SimpleNamespace())
+    )
+    assert settings.config.timezone == "UTC"
+    assert profile.paths.config_file.read_bytes() == saved
+    detect.assert_not_called()
+
+
+@pytest.mark.parametrize("entrypoint", ["ensure", "provision"])
+def test_new_profile_uses_system_zone_once_existing_zone_is_preserved(
+    profile, monkeypatch, entrypoint
+):
+    import src.desktop.provisioning as provisioning
+
+    calls = []
+
+    def detect():
+        calls.append(True)
+        return "America/New_York" if len(calls) == 1 else "Asia/Tokyo"
+
+    monkeypatch.setattr(provisioning, "system_timezone", detect)
+    if entrypoint == "ensure":
+        config = ensure_profile(profile.paths, authority=profile.authority)
+        assert config.timezone == "America/New_York"
+    else:
+        provision_fresh_profile(profile.paths)
+    assert len(calls) == 1
+    assert load_config(profile.paths.config_file).timezone == "America/New_York"
+    saved = profile.paths.config_file.read_bytes()
+    assert ensure_profile(profile.paths, authority=profile.authority).timezone == "America/New_York"
+    assert profile.paths.config_file.read_bytes() == saved
+    assert len(calls) == 1
+
+
+def test_system_timezone_validates_environment_and_falls_back_to_system(monkeypatch):
+    from src.desktop.provisioning import system_timezone
+
+    monkeypatch.setenv("TZ", ":Europe/Paris")
+    assert system_timezone() == "Europe/Paris"
+    monkeypatch.setenv("TZ", "not/a/real-zone")
+    monkeypatch.setattr(
+        Path, "resolve", lambda *_args, **_kwargs: Path("/usr/share/zoneinfo/Asia/Tokyo")
+    )
+    monkeypatch.setattr(Path, "read_text", lambda *_args, **_kwargs: "Europe/Paris\n")
+    assert system_timezone() == "Asia/Tokyo"
+
+
+def test_system_timezone_file_invalid_and_unavailable_fallback(monkeypatch):
+    from src.desktop.provisioning import system_timezone
+
+    monkeypatch.delenv("TZ", raising=False)
+    monkeypatch.setattr(Path, "resolve", lambda *_args, **_kwargs: Path("/regular-file"))
+    monkeypatch.setattr(Path, "read_text", lambda *_args, **_kwargs: "Europe/Paris\n")
+    assert system_timezone() == "Europe/Paris"
+    monkeypatch.setattr(Path, "read_text", lambda *_args, **_kwargs: "/etc/passwd")
+    assert system_timezone() == "UTC"
+
+    def unavailable(*_args, **_kwargs):
+        raise OSError("unavailable")
+
+    monkeypatch.setattr(Path, "resolve", unavailable)
+    monkeypatch.setattr(Path, "read_text", unavailable)
+    assert system_timezone() == "UTC"
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("entrypoint", ["ensure", "provision"])
 async def test_fresh_profile_public_key_is_usable_and_preserved(profile, entrypoint):

@@ -24,6 +24,8 @@ beforeEach(async () => {
     secretsClear: vi.fn(async () => ok({ configured: false })),
     secretsUnlock: vi.fn(async () => ok({ unlocked: true })),
     settingsSet: vi.fn(async () => ok({ revision: 'r2', fields: [] })),
+    getSetupReminderHidden: vi.fn(async () => ok({ hidden: false })),
+    setSetupReminderHidden: vi.fn(async (hidden) => ok({ hidden })),
     setNotifications: vi.fn(), setAutostart: vi.fn()
   }
   ;(globalThis as unknown as { window: unknown }).window = { odin: bridge }
@@ -32,6 +34,7 @@ beforeEach(async () => {
   statuses = await import('../../src/renderer/src/stores/status')
   settings = await import('../../src/renderer/src/stores/settings')
   store.state.app = { ...store.state.app, link: 'ready', coreInstanceId: 'test-core' }
+  await store.loadSetupReminder()
   await statuses.refreshStatus()
 })
 afterEach(() => { for (const v of mounts.splice(0)) v.unmount() })
@@ -42,13 +45,151 @@ async function banner(dismissible = false): Promise<Mounted> {
   await flush()
   return v
 }
-const stateOf = (v: Mounted): unknown => v.root.find('section')!.props['data-state']
+const stateOf = (v: Mounted): unknown => v.root.find('section')?.props['data-state'] ?? 'absent'
 
 describe('P3.2 core-authoritative first run', () => {
-  it.each(['fresh', 'incomplete', 'saved', 'effective-ready', 'degraded'] as const)('shows %s only when the current core reports it', async (state) => {
+  it('keeps dismissed invitations hidden on later incompleteness, but never hides operational notices', async () => {
+    bridge.getSetupReminderHidden!.mockResolvedValue(ok({ hidden: true }))
+    await store.loadSetupReminder()
+    const v = await banner(true)
+    expect(stateOf(v)).toBe('absent')
+    for (const [state, reason] of [['incomplete', 'provider_configuration_incomplete'], ['saved', 'provider_identity_not_adopted'],
+      ['degraded', 'credential_state_unavailable'], ['degraded', 'keyring_unavailable']] as const) {
+      bridge.status!.mockResolvedValue(ok(core(project(state, reason, reason === 'keyring_unavailable'))))
+      await statuses.refreshStatus()
+      await flush()
+      expect(stateOf(v)).toBe(state === 'incomplete' ? 'absent' : state)
+      if (state !== 'incomplete') expect(v.root.findAll((node) => node.props['data-testid'] === 'first-run-later')).toHaveLength(0)
+    }
+    expect(bridge.secretsUnlock).not.toHaveBeenCalled()
+  })
+
+  it('shows invitations and operational notices only in chat', async () => {
+    const v = await banner(true)
+    v.root.button('Open Models and providers').fire('click')
+    await flush()
+    expect(stateOf(v)).toBe('absent')
+    bridge.status!.mockResolvedValue(ok(core(project('degraded', 'credential_state_unavailable'))))
+    await statuses.refreshStatus()
+    await flush()
+    expect(stateOf(v)).toBe('absent')
+    store.state.view = 'chat'
+    await flush()
+    expect(stateOf(v)).toBe('degraded')
+  })
+
+  it('failed dismissal stays visible, scrubs errors, and permits explicit retry without core writes', async () => {
+    const v = await banner(true)
+    bridge.setSetupReminderHidden!.mockRejectedValueOnce(new Error('PRIVATE-PATH'))
+    await v.root.button('Set up later').fire('click')
+    await flush()
+    expect(store.state.setupReminderHidden).toBe(false)
+    expect(v.root.textContent()).toContain('Could not save this preference')
+    expect(v.root.textContent()).not.toContain('PRIVATE-PATH')
+    await v.root.button('Set up later').fire('click')
+    await flush()
+    expect(stateOf(v)).toBe('absent')
+    expect(bridge.settingsSet).not.toHaveBeenCalled()
+    expect(bridge.secretsSet).not.toHaveBeenCalled()
+  })
+
+  it.each([true, false])('late bootstrap cannot undo owner dismissal; failed save still settles bootstrap (success=%s)', async (success) => {
+    store.state.setupReminderLoaded = false
+    let resolve!: (value: Result<{ hidden: boolean }>) => void
+    bridge.getSetupReminderHidden!.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+    bridge.setSetupReminderHidden!.mockResolvedValueOnce(success ? ok({ hidden: true }) : failure())
+    const read = store.loadSetupReminder()
+    expect(await store.dismissSetupReminder()).toBe(success)
+    resolve(ok({ hidden: false }))
+    await read
+    expect(store.state.setupReminderHidden).toBe(success)
+    expect(store.state.setupReminderLoaded).toBe(true)
+  })
+
+  it('failed bootstrap is best effort and does not fabricate readiness or successful saving', async () => {
+    bridge.getSetupReminderHidden!.mockRejectedValueOnce(new Error('private'))
+    await store.loadSetupReminder()
+    expect(store.state.setupReminderLoaded).toBe(true)
+    bridge.setSetupReminderHidden!.mockResolvedValueOnce(failure())
+    expect(await store.dismissSetupReminder()).toBe(false)
+    expect(store.state.setupReminderHidden).toBe(false)
+  })
+
+  it('an overlapping read cannot consume an in-flight dismissal receipt, and owner writes do not replay', async () => {
+    let resolve!: (value: Result<{ hidden: boolean }>) => void
+    bridge.setSetupReminderHidden!.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+    const dismissal = store.dismissSetupReminder()
+    expect(await store.dismissSetupReminder()).toBe(false)
+    await store.loadSetupReminder()
+    resolve(ok({ hidden: true }))
+    expect(await dismissal).toBe(true)
+    expect(store.state.setupReminderHidden).toBe(true)
+    expect(bridge.setSetupReminderHidden).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not read replacement-core status after settings rehydration crosses epochs', async () => {
+    bridge.status!.mockResolvedValue(ok(core(project('degraded', 'credential_state_unavailable'))))
+    await statuses.refreshStatus()
+    const v = await banner()
+    let resolve!: (value: Result<ReturnType<typeof meta>>) => void
+    bridge.settingsSchema!.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+    const reads = bridge.status!.mock.calls.length
+    const retry = v.root.button('Retry').fire('click')
+    await flush()
+    store.state.recoveryEpoch += 1
+    resolve(ok(meta()))
+    await retry
+    expect(bridge.status).toHaveBeenCalledTimes(reads)
+  })
+
+  it('does not adopt old-core accounts returned during explicit Retry after recovery', async () => {
+    bridge.status!.mockResolvedValue(ok(core(project('degraded', 'credential_state_unavailable'))))
+    await statuses.refreshStatus()
+    const v = await banner()
+    let resolve!: (value: Result<{ configured: boolean; accounts: unknown[] }>) => void
+    settings.settings.codex.stale = true
+    bridge.codexAccounts!.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
+    const retry = v.root.button('Retry').fire('click')
+    await flush()
+    store.state.recoveryEpoch += 1
+    store.state.app.coreInstanceId = 'replacement-core'
+    resolve(ok({ configured: true, accounts: [{ email: 'old-core@example.test' }] }))
+    await retry
+    expect(settings.settings.codex.status).toBeNull()
+    expect(settings.settings.codex.stale).toBe(true)
+  })
+
+  it('qualifies independent keyring metadata by epoch and instance without first_run', async () => {
+    store.state.setupReminderHidden = true
+    bridge.status!.mockResolvedValue(ok(core()))
+    await statuses.refreshStatus()
+    bridge.settingsSchema!.mockResolvedValue(ok({ ...meta(), status: { ...meta().status, keyring_error: 'keyring_unavailable' } }))
+    await settings.loadSettings()
+    const v = await banner(true)
+    expect(stateOf(v)).toBe('keyring-attention')
+    expect(v.root.textContent()).toContain('Keyring needs attention')
+    expect(v.root.findAll((node) => node.props['data-testid'] === 'first-run-later')).toHaveLength(0)
+    expect(bridge.secretsUnlock).not.toHaveBeenCalled()
+    store.state.recoveryEpoch += 1
+    await flush()
+    expect(stateOf(v)).toBe('absent')
+  })
+
+  it('effective ready plus a current keyring error has an action warning without empty paragraphs or success sentence', async () => {
+    bridge.status!.mockResolvedValue(ok(core(project('effective-ready', 'provider_effective'))))
+    await statuses.refreshStatus()
+    bridge.settingsSchema!.mockResolvedValue(ok({ ...meta(), status: { ...meta().status, keyring_error: 'locked' } }))
+    await settings.loadSettings()
+    const v = await banner(true)
+    expect(v.root.textContent()).toContain('Keyring needs attention')
+    expect(v.root.textContent()).not.toContain('generation or connection test')
+    expect(v.root.findAll((node) => node.tag === 'p').every((node) => node.textContent().trim())).toBe(true)
+  })
+
+  it.each(['fresh', 'incomplete', 'saved', 'effective-ready', 'degraded'] as const)('projects %s only when the current core reports it, without a ready banner', async (state) => {
     bridge.status!.mockResolvedValue(ok(core(project(state, state === 'effective-ready' ? 'provider_effective' : 'provider_runtime_unavailable'))))
     await statuses.refreshStatus()
-    expect(stateOf(await banner())).toBe(state)
+    expect(stateOf(await banner())).toBe(state === 'effective-ready' ? 'absent' : state)
   })
 
   it('does not infer readiness from phase, model, credentials, or settings; a second mount still reports fresh', async () => {
@@ -61,7 +202,7 @@ describe('P3.2 core-authoritative first run', () => {
     expect(stateOf(await banner())).toBe('fresh')
     bridge.status!.mockResolvedValue(ok(core()))
     await statuses.refreshStatus()
-    expect(stateOf(await banner())).toBe('unavailable')
+    expect(stateOf(await banner())).toBe('absent')
   })
 
   it('a saved model remains saved-not-effective; revision and connection failures remain retryable without completing setup', async () => {
@@ -88,7 +229,7 @@ describe('P3.2 core-authoritative first run', () => {
     bridge.status!.mockResolvedValue(ok(core(project('effective-ready', 'provider_effective'))))
     await statuses.refreshStatus()
     const v = await banner()
-    expect(stateOf(v)).toBe('effective-ready')
+    expect(stateOf(v)).toBe('absent')
     let resolve!: (value: Result<CoreStatus>) => void
     bridge.status!.mockImplementationOnce(() => new Promise((r) => { resolve = r }))
     const oldRead = statuses.refreshStatus()
@@ -98,7 +239,7 @@ describe('P3.2 core-authoritative first run', () => {
     resolve(ok(core(project('effective-ready', 'provider_effective'))))
     await oldRead
     await flush()
-    expect(stateOf(v)).toBe('unavailable')
+    expect(stateOf(v)).toBe('absent')
     bridge.status!.mockResolvedValue(ok(core(project('saved', 'provider_identity_not_adopted'))))
     await statuses.refreshStatus()
     await flush()
@@ -110,24 +251,26 @@ describe('P3.2 core-authoritative first run', () => {
     bridge.status!.mockResolvedValue(failure())
     await statuses.refreshStatus()
     await flush()
-    expect(stateOf(v)).toBe('unavailable')
+    expect(stateOf(v)).toBe('absent')
     bridge.status!.mockRejectedValue(new Error('not displayed'))
     await statuses.refreshStatus()
     await flush()
-    expect(stateOf(v)).toBe('unavailable')
+    expect(stateOf(v)).toBe('absent')
     expect(v.root.textContent()).not.toContain('not displayed')
   })
 
-  it('setup later leaves chat and settings navigable, without writing a completion flag or hiding Settings readiness', async () => {
+  it('setup later persists only the invitation preference, keeps navigation, and never completes setup', async () => {
     const v = await banner(true)
-    v.root.button('Set up later').fire('click')
+    await v.root.button('Set up later').fire('click')
     await flush()
     expect(store.state.view).toBe('chat')
     expect(store.state.setupReminderHidden).toBe(true)
-    v.root.button('Open Models and providers').fire('click')
+    expect(bridge.setSetupReminderHidden).toHaveBeenCalledExactlyOnceWith(true)
+    expect(stateOf(v)).toBe('absent')
+    store.openSettings('models')
     await flush()
     expect([store.state.view, store.state.settingsSection]).toEqual(['settings', 'models'])
-    expect(stateOf(await banner())).toBe('fresh')
+    expect(stateOf(await banner())).toBe('absent')
     expect(bridge.settingsSet).not.toHaveBeenCalled()
     expect(bridge.secretsSet).not.toHaveBeenCalled()
   })
@@ -219,7 +362,7 @@ describe('P3.2 core-authoritative first run', () => {
     await flush()
     expect(bridge.settingsSchema).not.toHaveBeenCalled()
     expect(bridge.codexAccounts).not.toHaveBeenCalled()
-    expect(stateOf(v)).toBe('unavailable')
+    expect(stateOf(v)).toBe('absent')
   })
 
   it('clears transient credentials immediately on submission, including failed writes, and never adds them to a conversation draft', async () => {
@@ -250,8 +393,8 @@ describe('P3.2 core-authoritative first run', () => {
     const previews = v.root.findAll((n) => n.props['data-testid'] === 'notification-previews')[0]!
     expect(startup.checked).toBe(false)
     expect(previews.checked).toBe(true)
-    expect(v.root.textContent()).toContain('Exit stops Odin')
-    expect(v.root.textContent()).toContain('mute a conversation')
+    expect(v.root.textContent()).toContain('Closing the window keeps Odin running in the tray. Exit stops it.')
+    expect(v.root.textContent()).toContain('Mute or unmute one from its')
     startup.checked = true
     await startup.fire('change')
     previews.checked = false

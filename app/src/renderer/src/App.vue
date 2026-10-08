@@ -61,16 +61,16 @@ const workOpen = computed(() => state.view === 'chat' && work.open)
 </script>
 
 <template>
-  <div class="shell" :class="{ 'work-open': workOpen }">
+  <div class="shell" :class="{ 'work-open': workOpen, 'settings-open': state.view === 'settings' }">
     <CleanupNotice />
     <IconRail />
-    <ConversationList class="sidebar" />
+    <ConversationList v-show="state.view === 'chat'" class="sidebar" />
     <main v-if="state.view === 'chat'" class="main">
       <header class="topbar">
         <h1>{{ active?.title ?? 'Odin' }}</h1>
         <ChatStatus />
       </header>
-      <FirstRunBanner v-if="!state.setupReminderHidden" dismissible />
+      <FirstRunBanner dismissible />
       <SearchPanel v-if="state.search.open" />
       <MessageList class="messages" />
       <div class="composer">

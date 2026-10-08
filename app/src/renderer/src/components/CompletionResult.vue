@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { completion } from '../stores/completion'
-import { unavailableText } from '../capability'
+import { settingsUnavailableText as unavailableText } from '../capability'
 defineProps<{ resource: string; feature: string }>()
 </script>
 <template>

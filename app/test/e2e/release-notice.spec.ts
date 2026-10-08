@@ -66,7 +66,9 @@ async function launch(real: boolean): Promise<void> {
   expect(await app.evaluate(({ BrowserWindow }) => (BrowserWindow.getAllWindows()[0]!.webContents as any).getLastWebPreferences()))
     .toMatchObject({ sandbox: true, contextIsolation: true, nodeIntegration: false })
   await page.keyboard.press('Control+,')
-  await expect(page.getByRole('region', { name: 'App version and updates' })).toBeVisible()
+  const updates = page.locator('section.settings-section').filter({ has: page.getByRole('heading', { name: 'Updates', exact: true }) })
+  await expect(updates).toBeVisible()
+  await expect(updates).toContainText(`Version ${VERSION}`)
   await page.evaluate(readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'))
   await settledProfile()
   // Debugger-side injection into the actual transport used by the named IPC operation.
@@ -171,13 +173,13 @@ for (const real of [false, true]) test(`${real ? 'real core' : 'fixture core'}: 
     [{ offline: true }, 'offline', 'Offline'],
     [{ status: 403, body: '{}', headers: { 'x-ratelimit-remaining': '0' } }, 'rate-limited', 'rate-limited'],
     [{ status: 429, body: '{}' }, 'rate-limited', 'rate-limited'],
-    [{ status: 200, body: '{' }, 'malformed', 'invalid release metadata'],
-    [{ status: 200, body: ' '.repeat(1024 * 1024 + 1) }, 'malformed', 'invalid release metadata'],
+    [{ status: 200, body: '{' }, 'malformed', 'invalid release information'],
+    [{ status: 200, body: ' '.repeat(1024 * 1024 + 1) }, 'malformed', 'invalid release information'],
     [{ status: 200, body: '[]' }, 'no-release', 'No published stable release'],
     [{ status: 200, body: JSON.stringify([release(`v${VERSION}`)]) }, 'equal', 'Up to date'],
     [{ status: 200, body: JSON.stringify([release('v0.0.9')]) }, 'older', 'This app is newer'],
     [{ status: 200, body: JSON.stringify([release(NEWER), release('v99.0.0', { draft: true }), release('v98.0.0', { prerelease: true })]) }, 'newer', 'A new version is available'],
-    [{ status: 200, body: JSON.stringify([release(NEWER, { html_url: 'https://example.com/' })]) }, 'malformed', 'invalid release metadata']
+    [{ status: 200, body: JSON.stringify([release(NEWER, { html_url: 'https://example.com/' })]) }, 'malformed', 'invalid release information']
   ] as const
   for (const [response, state, text] of cases) {
     await fixture(response)
@@ -220,7 +222,8 @@ for (const real of [false, true]) test(`${real ? 'real core' : 'fixture core'}: 
   const cdp = await page.context().newCDPSession(page)
   const ax = await cdp.send('Accessibility.getFullAXTree')
   await cdp.detach()
-  expect(JSON.stringify(ax)).toContain('App version and updates')
+  expect(JSON.stringify(ax)).toContain('Updates')
+  expect(JSON.stringify(ax)).toContain(`Version ${VERSION}`)
   expect(JSON.stringify(ax)).toContain('Check for updates')
   await test.info().attach('notice-safety-and-a11y', { body: JSON.stringify({ audit, coreBefore, coreAfter,
     productConfigAndDataUnchanged: true, executablesUnchanged: true,

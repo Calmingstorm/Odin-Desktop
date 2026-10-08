@@ -24,6 +24,7 @@ beforeEach(async () => {
   api = {
     toolsList: vi.fn(async () => ok(inventory)), toolsTimeoutsGet: vi.fn(async () => ok(timeouts)),
     healthGet: vi.fn(async () => ok({ browser: { state: 'disabled', ready: false, reason: null, retry_available: false } })),
+    computerStatus: vi.fn(async () => ok({ readiness: { management_available: true, foreground_available: false, dispatch: 'none', reason: 'not_enabled' }, session: null })),
     skillsList: vi.fn(async () => ok([skill])), skillsGet: vi.fn(async () => ok(detail)),
     mcpStatus: vi.fn(async () => ok(mcp)), mcpTools: vi.fn(async () => ok({ tools: [] })),
     hostsList: vi.fn(async () => ok(hostList)), hostsPublicKey: vi.fn(async () => ok(key)),
@@ -127,7 +128,7 @@ describe('management capability refusals', () => {
     expect(store.management.errors.tools).toBe('core restarting')
     expect(store.management.unavailable.tools).toBe(false)
     const tools = await view('Tools')
-    expect(tools.root.textContent()).not.toContain('unavailable in this core')
+    expect(tools.root.textContent()).not.toContain('is unavailable.')
     api.skillsList!.mockResolvedValueOnce(refused)
     await store.loadSkills()
     expect(store.management.unavailable.skills).toBe(true)
@@ -151,10 +152,10 @@ describe('management capability refusals', () => {
   })
 
   it.each([
-    ['Tools', ['toolsList', 'toolsTimeoutsGet'], 'Tool management is unavailable in this core.', 'Built-in tools', 'loadTools'],
-    ['Skills', ['skillsList'], 'Skill management is unavailable in this core.', 'Skills', 'loadSkills'],
-    ['Mcp', ['mcpStatus'], 'MCP management is unavailable in this core.', 'MCP servers', 'loadMcp'],
-    ['Hosts', ['hostsList', 'hostsPublicKey'], 'Host management is unavailable in this core.', 'Hosts', 'loadHosts']
+    ['Tools', ['toolsList', 'toolsTimeoutsGet'], 'Tool management is unavailable.', 'Built-in tools', 'loadTools'],
+    ['Skills', ['skillsList'], 'Skill management is unavailable.', 'Skills', 'loadSkills'],
+    ['Mcp', ['mcpStatus'], 'MCP management is unavailable.', 'MCP servers', 'loadMcp'],
+    ['Hosts', ['hostsList', 'hostsPublicKey'], 'Host management is unavailable.', 'Hosts', 'loadHosts']
   ])('the mounted %s view makes its own loads, shows a specific plain unavailable state, no mutation controls, then recovers', async (name, methods, message, label, reload) => {
     await store.loadTools()
     await store.loadSkills()
@@ -171,15 +172,17 @@ describe('management capability refusals', () => {
     expect(panel.textContent()).toContain(message)
     expect(panel.findAll((node) => node.props.role === 'status')).toHaveLength(1)
     expect(screen.root.textContent()).not.toMatch(/Service is not available yet|cached_tool|cached_skill|old public key|Loading/)
-    // Browser status is an independent read capability, not a tool-management mutation or qualification probe.
+    // Browser/email setup disclosures and status refresh remain independent of the built-in inventory.
     const controls = screen.root.findAll((node) => ['button', 'input', 'select', 'textarea'].includes(node.tag))
     if (name === 'Tools') {
-      expect(controls).toHaveLength(1)
-      expect(controls[0]!.props['aria-label']).toBe('Refresh status for browser')
+      expect(controls.map((control) => control.props['aria-label']).sort()).toEqual(['Configure browser', 'Configure email', 'Refresh computer use', 'Refresh status for browser'].sort())
+      expect(panel.findAll((node) => ['button', 'input', 'select', 'textarea'].includes(node.tag))).toEqual([])
+      expect(screen.root.findAll((node) => node.props['aria-label'] === 'Tool timeouts')[0]!.findAll((node) => ['button', 'input', 'select', 'textarea'].includes(node.tag))).toEqual([])
       expect(api.healthGet).toHaveBeenCalledExactlyOnceWith({})
+      expect(api.computerStatus).toHaveBeenCalledExactlyOnceWith({})
     } else expect(controls).toEqual([])
     expect(screen.root.findAll((node) => node.props.class === 'warn')).toEqual([])
-    if (name === 'Tools') expect(screen.root.textContent()).toContain('Tool timeout management is unavailable in this core.')
+    if (name === 'Tools') expect(screen.root.textContent()).toContain('Tool timeout management is unavailable.')
     if (reload === 'loadHosts') await hostStore.loadHosts()
     else await store[reload as 'loadTools' | 'loadSkills' | 'loadMcp']()
     await flush()

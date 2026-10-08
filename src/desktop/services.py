@@ -829,7 +829,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         artifact = make_artifact(message, data, filename, producer)
         if mode == "stage":
             return delivery.stage_file(message, artifact)
-        return await delivery.send(message.channel, caption, files=[artifact])
+        return await delivery.send(message.channel, caption, files=[artifact], tool_output=True)
 
     class DesktopMediaTools(MediaTools):
         """Adapt only the copied media handler's durable-publication seam."""
@@ -839,7 +839,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
 
         async def _publish_attachment(self, message, data, filename, caption=""):
             artifact = make_artifact(message, data, filename, publication_tool.get())
-            return await delivery.send(message.channel, caption, files=[artifact])
+            return await delivery.send(message.channel, caption, files=[artifact], tool_output=True)
 
         async def _handle_generate_file(self, message, inp):
             token = publication_tool.set("generate_file")

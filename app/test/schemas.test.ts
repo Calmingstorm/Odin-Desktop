@@ -40,9 +40,12 @@ describe('bridge request validation', () => {
     expect(parseRequest(MANAGEMENT_SCHEMAS.computerReconcile, { ...input, operation: 'input' }).ok).toBe(false)
   })
 
-  it('accepts a revision-bound model leaf without admitting a second change', () => {
+  it('accepts revision-bound dependent model policy without admitting unrelated changes', () => {
     const base = { method: 'models.main.set', params: { model: 'gpt-6-luna', expected_revision: 'rev-1' } }
     expect(parseRequest(editLeafSchema, base).ok).toBe(true)
+    expect(parseRequest(editLeafSchema, { ...base, params: { ...base.params, reasoning_effort: 'high' } }).ok).toBe(true)
+    expect(parseRequest(editLeafSchema, { method: 'models.agents.set', params: { model: 'auto', auto_model_allowlist: ['codex:gpt-6-luna'], thinking_mode: null, expected_revision: 'rev-1' } }).ok).toBe(true)
+    expect(parseRequest(editLeafSchema, { ...base, params: { reasoning_effort: 'high' } }).ok).toBe(false)
     expect(parseRequest(editLeafSchema, { ...base, params: { ...base.params, other: true } }).ok).toBe(false)
     expect(parseRequest(editLeafSchema, { ...base, params: { ...base.params, expected_revision: 2 } }).ok).toBe(false)
   })

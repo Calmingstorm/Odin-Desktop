@@ -129,7 +129,15 @@ class ModelSettingsService:
             raise _error("bad_request", "model must be a concrete model reference")
         model = parsed.render()
         provider = parsed.provider.value
-        self._candidate("llm_provider", {"model": model, "active_provider": provider})
+        values = self.settings.config.model_dump()
+        values["llm_provider"].update({"model": model, "active_provider": provider})
+        effort = params.get("reasoning_effort")
+        if "reasoning_effort" in params:
+            if provider not in {"codex", "compat"} or not isinstance(effort, str):
+                raise _error("bad_request", "This provider does not accept reasoning effort")
+            section = "openai_codex" if provider == "codex" else "openai_compatible"
+            values[section]["reasoning_effort"] = effort
+        type(self.settings.config).model_validate(values)
         switch = getattr(self.provider, "switch_provider", None)
         if not callable(switch):
             raise _error("unavailable", "Main-model runtime owner is unavailable")
@@ -137,6 +145,8 @@ class ModelSettingsService:
             (("llm_provider", "model"), model),
             (("llm_provider", "active_provider"), provider),
         ]
+        if "reasoning_effort" in params:
+            changes.append(((section, "reasoning_effort"), effort))
         from .management import MethodError
 
         persist_error = None
@@ -156,6 +166,7 @@ class ModelSettingsService:
             provider,
             persist=persist,
             model_ref=model,
+            **({"reasoning_effort": effort} if "reasoning_effort" in params else {}),
         )
         if not isinstance(result, dict):
             raise _error("unavailable", "Main-model runtime owner returned no result")
@@ -209,6 +220,9 @@ class ModelSettingsService:
                     raise _error("bad_request", f"cannot overwrite built-in preset '{name}'")
                 if not params.get("identity") and not params.get("voice"):
                     raise _error("bad_request", "identity or voice is required")
+                # create: true never replaces a saved preset (checked under the settings lock).
+                if params.get("create") is True and name in presets:
+                    raise _error("conflict", "a preset with this name already exists")
                 presets[name] = PersonalityPreset(
                     name=params.get("display_name", name),
                     identity=params.get("identity", ""), voice=params.get("voice", ""),

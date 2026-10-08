@@ -2,7 +2,7 @@
 // /api/health/components, /api/logs, /api/turn-state and /api/computer routes. Read-only, except computer-use cleanup.
 import { reactive } from 'vue'
 import type { AuditEntry, AuditVerify, ComputerStatus, ComputerSession, DesktopComputerStatus, LegacyComputerStatus, HealthReport, LogEntry, Result, TurnStateReport, UsageResult } from '../../../shared/api'
-import { isUnavailable, resultMessage } from '../capability'
+import { isUnavailable, settingsResultMessage as resultMessage } from '../capability'
 import { act, management } from './management'
 
 export type RecordSection = 'audit' | 'verify' | 'usage' | 'health' | 'logs' | 'turns' | 'computer'
@@ -190,18 +190,18 @@ export function computerReleaseUncertain(session: ComputerSession | LegacyComput
 export function reconcileOutcome(status: ComputerStatus): string {
   if (isDesktopComputer(status)) {
     const session = status.session
-    if (!session) return 'No session reported. No input-release or cleanup verdict was recorded.'
+    if (!session) return 'No session reported. Mouse and keyboard release has not been confirmed.'
     const recovery = session.recovery
     const uncertain = computerReleaseUncertain(session)
     if (!uncertain && recovery?.status === 'absence_verified' && recovery.complete === true) {
-      return 'Reconciled: Odin verified the recorded runtime is absent. This does not qualify foreground or native input.'
+      return 'Reconciled: Odin verified the recorded session is no longer running. This does not confirm safe mouse or keyboard control.'
     }
     const why = recovery ? reasonText(recovery.reason) : 'Odin recorded no recovery'
-    return `Reconciliation recorded: ${why}. Input release and cleanup remain unverified; the session is ${session.state}.`
+    return `Reconciliation recorded: ${why}. Mouse and keyboard release remains unverified; the session is ${session.state}.`
   }
   const recovery = status.recovery
   if (recovery?.status === 'absence_verified') return 'Released: Odin verified nothing of the session remains.'
-  if (recovery?.status === 'operator_acknowledged_unverified') return 'Acknowledged: Odin closed the session on your word. Its cleanup stays unverified.'
+  if (recovery?.status === 'operator_acknowledged_unverified') return 'Acknowledged: Odin closed the session on your word. Mouse and keyboard release stays unverified.'
   const why = recovery ? reasonText(recovery.reason) : 'Odin recorded no recovery'
   return `Not released: ${why}. The session ${status.state === 'quarantined' ? 'stays quarantined' : `is ${status.state}`}.`
 }

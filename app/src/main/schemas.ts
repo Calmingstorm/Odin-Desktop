@@ -4,6 +4,45 @@ import type { CoreError, ManagementMethod } from '../shared/api'
 
 const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 
+// Local app actions never accept paths, arguments, configuration or diagnostics.
+export const localAppSchema = z.object({}).strict()
+export const setupReminderSchema = z.object({ hidden: z.boolean() }).strict()
+// Import from Odin: an http(s) address for Odin's API with no credentials in it, and a token used for this call only.
+const odinImportUrl = z.string().min(1).max(2048).refine((value) => {
+  try {
+    const url = new URL(value)
+    return (url.protocol === 'http:' || url.protocol === 'https:') && !url.username && !url.password
+  } catch {
+    return false
+  }
+}, 'Enter an http:// or https:// address')
+const odinImportSource = { url: odinImportUrl, token: z.string().min(1).max(4096), allow_insecure_http: z.boolean().optional() }
+export const odinImportPreviewSchema = z.object(odinImportSource).strict()
+export const odinImportApplySchema = z
+  .object({
+    ...odinImportSource,
+    picks: z
+      .array(z.object({
+        category: z.enum(['memory', 'skills', 'mcp', 'personality', 'hosts', 'models']),
+        id: z.string().min(1).max(256)
+      }).strict())
+      .min(1)
+      .max(2048)
+  })
+  .strict()
+const runtimeLabel = z.string().min(1).max(100)
+/** Project only these fields, even if an owner accidentally supplies extra metadata. */
+export const desktopInfoSchema = z.object({
+  appVersion: runtimeLabel,
+  electronVersion: runtimeLabel,
+  chromiumVersion: runtimeLabel,
+  nodeVersion: runtimeLabel,
+  platform: runtimeLabel,
+  architecture: runtimeLabel,
+  license: z.literal('MIT'),
+  packaged: z.boolean()
+})
+
 // Neither notice action accepts a repository, URL, transport, credentials or an update command.
 export const releaseNoticeSchema = z.object({}).strict()
 
@@ -226,7 +265,11 @@ export const LEAF_EDITORS = ['models.main.set', 'models.agents.set'] as const
 export const editLeafSchema = z
   .object({ method: z.enum(LEAF_EDITORS), params: z.record(z.string().regex(/^[A-Za-z0-9_]+$/), leafValue) })
   .strict()
-  .refine((v) => Object.keys(v.params).filter((key) => key !== 'expected_revision').length === 1, 'one leaf at a time')
+  .refine((v) => {
+    const keys = Object.keys(v.params).filter((key) => key !== 'expected_revision')
+    const allowed = v.method === 'models.main.set' ? ['model', 'reasoning_effort'] : ['model', 'thinking_mode', 'auto_model_allowlist', 'model_selection_hints']
+    return keys.length > 0 && keys.every((key) => allowed.includes(key)) && (v.method !== 'models.main.set' || typeof v.params.model === 'string')
+  }, 'unsupported model settings')
   .refine((v) => v.params.expected_revision === undefined ||
     (typeof v.params.expected_revision === 'string' && v.params.expected_revision.length > 0 && v.params.expected_revision.length <= 128),
   'invalid settings revision')
@@ -289,6 +332,18 @@ const scheduleFields = {
 }
 
 export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
+  outboundWebhooksList: empty,
+  outboundWebhooksSave: z.object({
+    expected_revision: z.string().min(1).max(128), id: coreId.optional(),
+    name: z.string().max(128).optional(), url: z.string().min(1).max(2048).optional(),
+    secret: z.string().max(256).optional(),
+    events: z.array(z.enum(['all', 'tool_execution', 'alert', 'schedule', 'agent', 'loop', 'health', 'web_action', 'custom'])).max(8).optional(),
+    enabled: z.boolean().optional(), scrub_secrets: z.boolean().optional(), verify_ssl: z.boolean().optional()
+  }).strict().refine((v) => Boolean(v.id) || Boolean(v.url), 'New target requires URL')
+    .refine((v) => Boolean(v.id) || (v.name?.length ?? 0) <= 100, 'New name exceeds 100 characters')
+    .refine((v) => !v.events?.includes('all') || v.events.length === 1, 'All must be selected alone'),
+  outboundWebhooksDelete: z.object({ id: coreId, expected_revision: z.string().min(1).max(128) }).strict(),
+  outboundWebhooksTest: z.object({ id: coreId, expected_revision: z.string().min(1).max(128) }).strict(),
   auditDiffs: z.object({ tool: z.string().optional(), user: z.string().optional(), date: z.string().optional(), limit: z.union([z.number(), z.string()]).optional() }).strict(),
   auditFailures: z.object({ window: z.union([z.number(), z.string()]).optional() }).strict(),
   auditTail: z.object({ cursor: z.string().optional(), lines: z.number().int().optional() }).strict(),
@@ -314,6 +369,7 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
   poolsHttp: empty,
   poolsClose: z.object({ host: z.string().optional(), ssh_user: z.string().optional() }).strict(),
   openrouterCatalogue: empty,
+  modelsStatus: empty,
   openrouterEndpoints: z.object({ model: z.string() }).strict(),
   openrouterSelect: z.object({ model: z.string(), provider_tag: z.string().optional(), expected_revision: z.string().optional() }).strict(),
   providersCompatDiagnostic: empty,

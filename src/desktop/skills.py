@@ -7,6 +7,7 @@ The retained manager is the catalog's schema owner and dispatch boundary.
 from __future__ import annotations
 
 import asyncio
+import functools
 import hashlib
 import json
 
@@ -22,6 +23,12 @@ METHODS = frozenset({
     "skills.set_enabled", "skills.delete", "skills.config.get", "skills.config.set",
 })
 READ_METHODS = frozenset({"skills.list", "skills.get", "skills.config.get"})
+
+
+def _refuse_busy(name, result):
+    """The manager refuses a change while another one, or a reload, holds the name."""
+    if result == f"Skill '{name}' is busy; try again.":
+        raise MethodError("busy", "the skill is being changed; try again")
 
 
 class _ConfigStore:
@@ -231,11 +238,27 @@ class SkillsService:
         if method == "skills.save":
             code = self._code(params)
             existing = manager.has_skill(name)
-            operation = manager.edit_skill if existing else manager.create_skill
+            # create: true never replaces a skill, loaded or only on disk; the manager claims
+            # the name and creates the source exclusively. enabled: false starts it disabled.
+            create_only = params.get("create") is True
+            if create_only and existing:
+                raise MethodError("conflict", "a skill with this name already exists")
+            if existing:
+                operation = manager.edit_skill
+            elif create_only:
+                operation = functools.partial(
+                    manager.create_skill, enabled=params.get("enabled") is not False,
+                    exclusive=True,
+                )
+            else:
+                operation = manager.create_skill
             try:
                 result = await to_thread_settled(operation, name, code)
             finally:
                 self._changed()
+            _refuse_busy(name, result)
+            if create_only and str(result).startswith(f"Skill '{name}' already exists"):
+                raise MethodError("conflict", "a skill with this name already exists")
             if not manager.has_skill(name) or manager.get_skill_info(name)["code"] != code:
                 raise MethodError(
                     "bad_request", "skill could not be loaded; previous version retained",
@@ -252,6 +275,7 @@ class SkillsService:
                 result = await to_thread_settled(operation, name)
             finally:
                 self._changed()
+            _refuse_busy(name, result)
             return {"result": _deep_scrub_strings(result)}
         if not manager.has_skill(name):
             raise MethodError("not_found", "skill not found")

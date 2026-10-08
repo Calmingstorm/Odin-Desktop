@@ -5,6 +5,7 @@ import json
 
 import aiohttp
 import pytest
+import yaml
 
 from src.config.schema import Config
 from src.desktop.codex_accounts import CodexAccountsService
@@ -206,6 +207,52 @@ async def test_main_switch_preserves_revision_until_real_persist(graph):
     assert owner.main is owner.ollama
     assert owner.main.model == "temporary-model"
     assert settings.config.llm_provider.model == "ollama:temporary-model"
+    await owner.close()
+
+
+@pytest.mark.asyncio
+async def test_main_pair_uses_real_owner_and_one_persistence_revision(graph):
+    from src.desktop.model_settings import ModelSettingsService
+
+    settings, _, owner, _ = graph
+    credentials(settings)
+    await save(settings, "providers.codex.set", ("openai_codex.enabled", True))
+    old = owner.capture_serving_identity()
+    revision = settings.revision
+    service = ModelSettingsService(settings, provider=owner)
+    answer = await service.handle("models.main.set", {
+        "model": "codex:gpt-6.1-sol", "reasoning_effort": "high", "expected_revision": revision,
+    })
+    assert answer["main_model"] == "codex:gpt-6.1-sol"
+    assert settings.revision != revision
+    assert settings.config.openai_codex.reasoning_effort == "high"
+    assert owner._effective_config.openai_codex.reasoning_effort == "high"
+    assert owner.capture_serving_identity() != old
+    stored = yaml.safe_load(settings.paths.config_file.read_text())
+    assert stored["llm_provider"]["model"] == "codex:gpt-6.1-sol"
+    assert stored["openai_codex"]["reasoning_effort"] == "high"
+    await owner.close()
+
+
+@pytest.mark.asyncio
+async def test_main_pair_stale_revision_keeps_real_owner_and_effort(graph):
+    from src.desktop.model_settings import ModelSettingsService
+
+    settings, _, owner, _ = graph
+    credentials(settings)
+    await save(settings, "providers.codex.set", ("openai_codex.enabled", True))
+    before = owner.capture_serving_identity()
+    effort = settings.config.openai_codex.reasoning_effort
+    contents = settings.paths.config_file.read_text()
+    with pytest.raises(MethodError) as error:
+        await ModelSettingsService(settings, provider=owner).handle("models.main.set", {
+            "model": "codex:gpt-6.1-sol", "reasoning_effort": "high", "expected_revision": "stale",
+        })
+    assert error.value.code == "stale_binding"
+    assert owner.capture_serving_identity() == before
+    assert settings.config.openai_codex.reasoning_effort == effort
+    assert owner._effective_config.openai_codex.reasoning_effort == effort
+    assert settings.paths.config_file.read_text() == contents
     await owner.close()
 
 

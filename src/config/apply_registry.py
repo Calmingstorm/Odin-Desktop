@@ -1700,21 +1700,41 @@ def flatten(value: Any, prefix: str = "") -> list[tuple[str, Any]]:
 
 
 def _annotation_facts(annotation: Any) -> dict[str, Any]:
-    """Type and enum for one field annotation, unwrapping Optional."""
+    """Publish a closed string enum only when every non-null branch is one.
+
+    The wire enum is string-valued. Mixed scalar types must not be coerced to
+    strings, and an unrestricted branch must not become a finite selector just
+    because another branch contains Literals. Null remains separate from the
+    string effort level ``none`` and from the agent policy ``auto``.
+    """
     facts: dict[str, Any] = {"type": None, "enum": None}
     origin = typing.get_origin(annotation)
     if origin in (typing.Union, types.UnionType):
-        for arg in typing.get_args(annotation):
-            if arg is type(None):
-                continue
-            resolved = _annotation_facts(arg)
-            resolved["nullable"] = type(None) in typing.get_args(annotation)
-            return resolved
+        args = typing.get_args(annotation)
+        branches = [_annotation_facts(arg) for arg in args if arg is not type(None)]
+        facts["nullable"] = type(None) in args or any(
+            branch.get("nullable", False) for branch in branches
+        )
+        if not branches:
+            return facts
+        branch_types = {branch["type"] for branch in branches}
+        if len(branch_types) == 1:
+            facts["type"] = branches[0]["type"]
+        if facts["type"] == "string" and all(branch["enum"] is not None for branch in branches):
+            facts["enum"] = list(
+                dict.fromkeys(option for branch in branches for option in branch["enum"])
+            )
         return facts
     if origin is Literal:
-        options = [a for a in typing.get_args(annotation) if a is not None]
-        facts["enum"] = [str(a) for a in options]
-        facts["type"] = "string"
+        args = typing.get_args(annotation)
+        options = [a for a in args if a is not None]
+        if None in args:
+            facts["nullable"] = True
+        option_types = {_annotation_facts(type(option))["type"] for option in options}
+        if len(option_types) == 1:
+            facts["type"] = option_types.pop()
+        if facts["type"] == "string" and all(isinstance(option, str) for option in options):
+            facts["enum"] = list(dict.fromkeys(options))
         return facts
     if origin in (list, set, tuple, frozenset):
         facts["type"] = "array"
@@ -1724,8 +1744,7 @@ def _annotation_facts(annotation: Any) -> dict[str, Any]:
         return facts
     if isinstance(annotation, type):
         if issubclass(annotation, enum.Enum):
-            facts["enum"] = [str(member.value) for member in annotation]
-            facts["type"] = "string"
+            return _annotation_facts(Literal[tuple(member.value for member in annotation)])
         elif issubclass(annotation, bool):
             facts["type"] = "boolean"
         elif issubclass(annotation, int):
@@ -2196,6 +2215,55 @@ def build_meta_payload(
         )
         for path, value in flatten(config_dump)
     ]
+
+    # Populated maps flatten into entry leaves. Grouped Desktop editors need
+    # canonical parent authority and complete values, never inferred parents.
+    grouped_maps = (
+        "openai_compatible.model_profiles",
+        "openai_codex.context_budget_overrides",
+        "sessions.context_budget_overrides",
+        "tools.governor.host_overrides",
+    )
+    missing = object()
+
+    def map_value(dump: dict[str, Any], path: str) -> Any:
+        value: Any = dump
+        for segment in path.split("."):
+            if not isinstance(value, dict) or segment not in value:
+                return missing
+            value = value[segment]
+        return value
+
+    facts = schema_facts()
+    for path in grouped_maps:
+        desired = map_value(config_dump, path)
+        if not isinstance(desired, dict):
+            continue
+        record = next((item for item in fields if item["path"] == path), None)
+        if record is None:
+            boot = map_value(boot_dump, path) if boot_dump is not None else missing
+            record = build_field_record(
+                path, desired, boot_value=None if boot is missing else boot,
+                has_boot=has_boot and boot is not missing,
+            )
+            fields.append(record)
+        # Empty maps still publish Pydantic shape, not invented runtime values
+        # or independent member write authority.
+        if path == "openai_compatible.model_profiles":
+            record["record_members"] = [
+                {
+                    "path": member_path,
+                    "type": member_facts["type"],
+                    "enum": member_facts.get("enum"),
+                    "constraints": dict(member_facts.get("constraints") or {}),
+                    "default": member_facts.get("default"),
+                    "nullable": bool(member_facts.get("nullable")),
+                    "sensitivity": spec_for(member_path).sensitivity or "public",
+                }
+                for member_path, member_facts in facts.items()
+                if member_path.startswith(f"{path}.")
+                and "." not in member_path[len(path) + 1:]
+            ]
 
     counts = dict.fromkeys(HEALTH_STATES, 0)
     for record in fields:

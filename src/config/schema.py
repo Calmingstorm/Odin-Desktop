@@ -341,11 +341,17 @@ class AgentsConfig(BaseModel):
         return v
 
 
+def _desktop_socket_directory() -> str:
+    from ..desktop.ssh_sockets import socket_directory
+
+    return socket_directory(runtime_profile_paths())
+
+
 class SSHPoolConfig(BaseModel):
     enabled: bool = True
     control_persist: int = 60
     socket_dir: str = Field(
-        default_factory=lambda: str(runtime_profile_paths().cache_dir / "ssh-sockets")
+        default_factory=_desktop_socket_directory
     )
 
 
@@ -902,7 +908,7 @@ class OpenAICodexConfig(BaseModel):
     # targets (quality/latency/cost posture — NOT a capability claim). The
     # resolver never lets utilization reduce budgets at or below 272K, so
     # changing this may have no effect on smaller models by design.
-    context_utilization: int = 60
+    context_utilization: int = Field(default=60, ge=30, le=100)
 
     @field_validator("context_utilization")
     @classmethod

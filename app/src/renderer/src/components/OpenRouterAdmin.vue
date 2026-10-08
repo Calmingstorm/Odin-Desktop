@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Result } from '../../../shared/api'
-import { isUnavailable, unavailableText } from '../capability'
+import { isUnavailable, settingsUnavailableText as unavailableText } from '../capability'
 import { act, management } from '../stores/management'
 import { isUnknownOutcome, onLateReceipt } from '../store'
+import { loadSettings, settings, settingsCommand } from '../stores/settings'
+import { settingsFields } from '../settings-presentation'
+import SettingEditor from './settings/SettingEditor.vue'
+import SettingsRow from './settings/SettingsRow.vue'
 
 // Optional methods let an older bridge show an explicit capability limit, not break Codex accounts.
 type Payload = Record<string, unknown>
@@ -12,7 +16,7 @@ type Selection = Payload & { model: string; provider_tag: string | null }
 type RouterBridge = {
   openrouterCatalogue?: (params: Record<string, never>) => Promise<Result<Catalogue>>
   openrouterEndpoints?: (params: { model: string }) => Promise<Result<Payload>>
-  openrouterSelect?: (params: { model: string; provider_tag: string }) => Promise<Result<Selection>>
+  openrouterSelect?: (params: { model: string; provider_tag: string; expected_revision: string }) => Promise<Result<Selection>>
   providersCompatDiagnostic?: (params: Record<string, never>) => Promise<Result<Payload>>
 }
 const bridge = () => window.odin as unknown as RouterBridge
@@ -28,6 +32,10 @@ const selectUnavailable = ref(false)
 const key = 'openrouter-select'
 const validModel = computed(() => /^[^/\s]+\/[^/\s]+$/.test(model.value.trim()))
 const models = computed(() => (catalogue.value?.models ?? []).filter((entry) => typeof entry.id === 'string'))
+const routing = computed(() => settingsFields('models', 'more-options').filter((entry) => entry.key.startsWith('openai_compatible.openrouter.')).flatMap((entry) => {
+  const field = settings.meta?.fields.find((item) => item.path === entry.key)
+  return field ? [{ ...entry, field }] : []
+}))
 const json = (value: unknown): string => JSON.stringify(value, null, 2) ?? 'Not reported'
 let alive = true
 let catalogueRead = 0
@@ -87,25 +95,27 @@ async function loadDiagnostic(): Promise<void> {
 }
 async function selectModel(): Promise<void> {
   if (!validModel.value || management.busy[key] || selectUnavailable.value) return
+  if (!settings.meta || settings.unknownSave) { notices.value.select = 'Refresh saved settings before saving routing.'; return }
   const select = bridge().openrouterSelect
   if (!select) {
     selectUnavailable.value = true
     notices.value.select = unavailableText('OpenRouter selection')
     return
   }
-  const params = { model: model.value.trim(), provider_tag: provider.value.trim() }
+  const params = { model: model.value.trim(), provider_tag: provider.value.trim(), expected_revision: settings.meta.revision }
   await act(key, async () => {
-    const result = await select(params).catch(caught)
+    const result = await settingsCommand((revision) => select({ ...params, expected_revision: revision }))
     if (!result.ok && isUnknownOutcome(result.error)) pendingSelection = result.error.command_id
     if (!result.ok && isUnavailable(result.error)) {
       selectUnavailable.value = true
       notices.value.select = unavailableText('OpenRouter selection')
     }
+    if (!result.ok && result.error.code === 'stale_binding') { await loadSettings(); notices.value.select = 'Settings changed elsewhere. Check, then save routing again.' }
     return result
   }, (answer) => {
     if (alive) selected.value = answer
-    return `Selected ${answer.model}; provider ${answer.provider_tag ?? 'automatic'}.`
-  }, loadCatalogue)
+    return `Saved routing for ${answer.model}; provider ${answer.provider_tag ?? 'automatic'}.`
+  }, async () => { await loadSettings(true); await loadCatalogue() })
 }
 onLateReceipt((receipt) => {
   if (!alive || receipt.id !== pendingSelection) return
@@ -127,41 +137,39 @@ onUnmounted(() => { alive = false })
 </script>
 
 <template>
-  <section class="panel openrouter-admin" aria-label="OpenRouter models">
+  <section class="openrouter-admin" aria-label="OpenRouter models">
     <header class="panel-head">
-      <h3>OpenRouter models</h3>
+      <h4>OpenRouter models</h4>
       <button class="ghost" :disabled="loading.catalogue" @click="loadCatalogue">Reload catalogue</button>
     </header>
-    <p class="panel-hint">Catalogue, profiles and measurements are reported by the core. Missing measurements are not estimates. Selecting a model changes the compatibility provider configuration.</p>
+    <p class="settings-help">Save routing without enabling the provider or changing the main model.</p>
     <p v-if="loading.catalogue" role="status">Reading catalogue.</p>
     <p v-if="notices.catalogue" class="warn" role="status">{{ notices.catalogue }}</p>
     <template v-if="catalogue">
-      <p>Fetched at: {{ catalogue.fetched_at ?? 'Not reported' }}. Stale: {{ catalogue.stale ?? 'Not reported' }}.</p>
+      <p v-if="catalogue.stale" class="settings-help">Showing a saved catalogue; it may be out of date.</p>
       <p v-if="catalogue.refresh_error" class="warn" role="status">Catalogue refresh error: {{ catalogue.refresh_error }}</p>
-      <details><summary>Quick-add compatibility references (core reported)</summary><pre>{{ json(catalogue.quick_add) }}</pre></details>
-      <details><summary>Routing configuration</summary><pre>{{ json(catalogue.routing) }}</pre></details>
-      <details><summary>Measured cache (core reported)</summary><pre>{{ json(catalogue.measured_cache) }}</pre></details>
+      <details><summary>Suggested model references</summary><pre>{{ json(catalogue.quick_add) }}</pre></details>
+      <details><summary>Measured cache</summary><pre>{{ json(catalogue.measured_cache) }}</pre></details>
       <details>
-        <summary>Catalogue models, profiles and eligibility ({{ models.length }})</summary>
+        <summary>Browse models ({{ models.length }})</summary>
         <ul>
           <li v-for="entry in models" :key="String(entry.id)">
             <button class="ghost" :disabled="management.busy[key]" @click="model = String(entry.id)">{{ entry.id }}</button>
-            <details><summary>Reported model details</summary><pre>{{ json(entry) }}</pre></details>
+            <span v-if="entry.agent_eligible === false" class="warn">{{ entry.agent_unavailable_reason ?? entry.reason ?? 'Not available for agents' }}</span>
+            <details><summary>Model details</summary><pre>{{ json(entry) }}</pre></details>
           </li>
         </ul>
       </details>
     </template>
     <form @submit.prevent="selectModel">
-      <label for="openrouter-model">Model ID (author/slug)</label>
-      <input id="openrouter-model" v-model="model" placeholder="author/slug" :disabled="management.busy[key]" />
-      <label for="openrouter-provider">Provider pin (blank uses automatic routing)</label>
-      <input id="openrouter-provider" v-model="provider" :disabled="management.busy[key]" />
+      <SettingsRow label="Model ID" description="Use the author/slug shown in the catalogue." control-id="openrouter-model"><input id="openrouter-model" v-model="model" placeholder="author/slug" :disabled="management.busy[key]" /></SettingsRow>
+      <SettingsRow label="Provider pin" description="Leave blank for automatic routing." control-id="openrouter-provider"><input id="openrouter-provider" v-model="provider" :disabled="management.busy[key]" /></SettingsRow>
       <button class="ghost" type="button" :disabled="!validModel || loading.endpoints" @click="loadEndpoints">Read endpoints</button>
-      <button type="submit" :disabled="!validModel || management.busy[key] || selectUnavailable">Select model</button>
+      <button type="submit" :disabled="!validModel || management.busy[key] || selectUnavailable || !settings.meta || settings.unknownSave">Save routing</button>
     </form>
     <p v-if="notices.select" class="warn" role="status">{{ notices.select }}</p>
     <p v-if="management.notes[key]" role="status">{{ management.notes[key] }}</p>
-    <details v-if="selected"><summary>Last confirmed selection receipt</summary><pre>{{ json(selected) }}</pre></details>
+    <p v-if="selected" class="settings-help">Saved {{ selected.model }} with {{ selected.provider_tag ?? 'automatic routing' }}.</p>
     <p v-if="loading.endpoints" role="status">Reading endpoints.</p>
     <p v-if="notices.endpoints" class="warn" role="status">{{ notices.endpoints }}</p>
     <details v-if="endpoints" open><summary>Endpoints and effective profile</summary><pre>{{ json(endpoints) }}</pre></details>
@@ -169,6 +177,7 @@ onUnmounted(() => { alive = false })
     <p v-if="loading.diagnostic" role="status">Reading compatibility diagnostic.</p>
     <p v-if="notices.diagnostic" class="warn" role="status">{{ notices.diagnostic }}</p>
     <details v-if="diagnostic" open><summary>Compatibility diagnostic (including unhealthy results)</summary><pre>{{ json(diagnostic) }}</pre></details>
+    <details v-if="routing.length"><summary>Routing options</summary><SettingEditor v-for="entry in routing" :key="entry.key" :field="entry.field" :label="entry.label" :help="entry.help" commit="explicit" /></details>
   </section>
 </template>
 

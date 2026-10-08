@@ -5,7 +5,7 @@
 import { randomUUID } from 'node:crypto'
 import { readFileSync, readlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { BrowserWindow, Menu, Notification, app, clipboard, dialog, ipcMain, nativeTheme, powerMonitor, shell } from 'electron'
+import { BrowserWindow, Menu, Notification, app, clipboard, dialog, ipcMain, nativeTheme, powerMonitor, screen, shell } from 'electron'
 import { IPC, type AppState, type Appearance, type CoreEvent, type LinkState, type NotificationSettings, type Settings } from '../shared/api'
 import { AppearanceController, loadAppearance } from './appearance'
 import { ArtifactStore, safeFileName } from './artifacts'
@@ -32,6 +32,7 @@ import { boundedShutdown, CleanupJournal, resourceCleanupSource } from './shutdo
 import { installKdeLogoutHook, startSessionMonitor } from './session-logout'
 import { showNativeNotification } from './native-notifications'
 import { configureIdentity } from './identity'
+import { WindowStateController, loadWindowState, objectRecord, restoreWindowState, windowBackend, type WindowState, type WindowBackend } from './window-state'
 
 configureIdentity(app)
 registerAppScheme()
@@ -86,12 +87,17 @@ function run(): void {
   }
   let notificationSettings = loadSettings(persisted.notifications)
   const savedAppearance = loadAppearance(persisted.appearance)
+  let setupReminderHidden = persisted.setupReminderHidden === true
+  let savedWindowState = loadWindowState(persisted.windowState)
+  let windowState: WindowStateController | null = null
+  let backend: WindowBackend = 'unknown'
+  let resolvedOzonePlatform = ''
   // Applied to the native theme once the app is ready, before the window is created.
   let appearance: AppearanceController | null = null
   const currentAppearance = (): Appearance => appearance?.appearance ?? savedAppearance
   const savePersisted = (): boolean =>
-    writePersisted(appStateFile, { noTrayNoticeShown: lifecycle.noTrayNoticeShown, notifications: notificationSettings,
-      appearance: currentAppearance() })
+    writePersisted(appStateFile, { ...persisted, noTrayNoticeShown: lifecycle.noTrayNoticeShown, notifications: notificationSettings,
+      appearance: currentAppearance(), setupReminderHidden, windowState: windowState?.snapshot() ?? savedWindowState })
 
   const resources = join(app.getAppPath(), 'resources')
   const iconPath = join(resources, 'icon.png')
@@ -299,7 +305,8 @@ function run(): void {
 
   const shutdown = boundedShutdown({
     stopAdmission: () => { lifecycle.quitting = true; broker.quiesce(); tray?.setStatus('Stopping Odin…') },
-    persist: () => { drafts.flush(); if (!savePersisted()) throw new Error('App preferences were not persisted') },
+    // Drafts remain a correctness boundary. Cosmetic UI writes do not manufacture cleanup uncertainty.
+    persist: () => { drafts.flush(); windowState?.flush(); savePersisted() },
     requestShutdown: async (signal) => (await broker.waitForShutdownReady(5_000, signal))
       && (await coreRequest('runtime.shutdown', { reason: 'exit' })).ok,
     stopCore: () => {
@@ -310,6 +317,9 @@ function run(): void {
     unreceipted: () => broker.unreceiptedCount,
     finish: (record) => cleanup.finish(record),
     release: () => {
+      windowState?.dispose()
+      screen.removeListener('display-removed', repairWindow)
+      screen.removeListener('display-metrics-changed', displayMetricsChanged)
       sessionMonitor?.close()
       logoutHook?.remove()
       for (const os of liveNotifications) os.close()
@@ -339,6 +349,18 @@ function run(): void {
       notification: (intent: NotificationIntent, emittedAt: string) => notifier.handle(intent, new Date(emittedAt)),
       notificationAcks,
       close: () => win?.close(), show: showWindow,
+      windowSnapshot: () => ({ backend, resolvedOzonePlatform, bounds: win?.getBounds(),
+        normalBounds: win?.getNormalBounds(), maximized: win?.isMaximized(), minimized: win?.isMinimized(),
+        fullscreen: win?.isFullScreen(), persisted: windowState?.snapshot() }),
+      windowBounds: (bounds: Electron.Rectangle) => win?.setBounds(bounds),
+      windowMode: (mode: string) => {
+        if (mode === 'maximize') win?.maximize()
+        else if (mode === 'unmaximize') win?.unmaximize()
+        else if (mode === 'minimize') win?.minimize()
+        else if (mode === 'restore') win?.restore()
+        else if (mode === 'fullscreen') win?.setFullScreen(true)
+        else if (mode === 'normal') win?.setFullScreen(false)
+      },
       rendererCrash: () => win?.webContents.forcefullyCrashRenderer(),
       exit: () => { void exitOdin() }
     } })
@@ -358,9 +380,16 @@ function run(): void {
     }
   })
 
+  const repairWindow = (): void => windowState?.repair(screen.getAllDisplays(), screen.getPrimaryDisplay().id)
+  const displayMetricsChanged = (_event: Electron.Event, _display: Electron.Display, metrics: string[]): void => {
+    if (metrics.some((metric) => ['workArea', 'bounds', 'scaleFactor'].includes(metric))) repairWindow()
+  }
+
   void app.whenReady().then(async () => {
     if (lifecycle.quitting) return
-    const theme = new AppearanceController(nativeTheme, savedAppearance, () => { savePersisted() })
+    resolvedOzonePlatform = app.commandLine.getSwitchValue('ozone-platform')
+    backend = windowBackend(process.platform, resolvedOzonePlatform)
+    const theme = new AppearanceController(nativeTheme, savedAppearance, () => { if (!savePersisted()) throw new Error('App preferences could not be persisted') })
     appearance = theme
     // Following the system, the theme can change while Odin runs; the window background follows it.
     nativeTheme.on('updated', () => win?.setBackgroundColor(theme.background()))
@@ -376,6 +405,19 @@ function run(): void {
     installGuards()
     serveAppScheme(rendererDir)
     registerIpc({
+      getDesktopInfo: () => ({
+        appVersion: app.getVersion(),
+        electronVersion: process.versions.electron,
+        chromiumVersion: process.versions.chrome,
+        nodeVersion: process.versions.node,
+        platform: process.platform,
+        architecture: process.arch,
+        license: 'MIT',
+        packaged: app.isPackaged
+      }),
+      openSettingsFolder: () => shell.openPath(paths.configDir),
+      // Let the IPC acceptance receipt settle before quiescing or exiting Electron.
+      exitOdin: () => { setImmediate(() => { void exitOdin() }) },
       admitting: () => !lifecycle.quitting,
       broker,
       windowId: () => win?.webContents.id ?? null,
@@ -404,23 +446,39 @@ function run(): void {
       deviceLogin,
       mainFrame: () => win?.webContents.mainFrame ?? null,
       getSettings: settings,
+      getSetupReminderHidden: () => setupReminderHidden,
+      setSetupReminderHidden: (hidden) => {
+        const previous = setupReminderHidden
+        setupReminderHidden = hidden
+        if (!savePersisted()) { setupReminderHidden = previous; throw new Error('App preferences could not be persisted') }
+      },
       setAutostart: (enabled) => {
         setAutostart(enabled, launchCommand())
         return settings()
       },
       setNotifications: (change) => {
+        const previous = notificationSettings
         notificationSettings = mergeSettings(notificationSettings, change)
-        savePersisted()
+        if (!savePersisted()) { notificationSettings = previous; throw new Error('App preferences could not be persisted') }
         return settings()
       },
       setAppearance: (choice) => {
-        theme.set(choice)
+        const previous = theme.appearance
+        try { theme.set(choice) }
+        catch (error) {
+          // A failed durable save is not adoption. Restore both the native choice and
+          // controller before returning failure; persistence may still be unavailable.
+          try { theme.set(previous) } catch { /* The previous runtime choice is restored before persistence. */ }
+          win?.setBackgroundColor(theme.background())
+          throw error
+        }
         win?.setBackgroundColor(theme.background())
         return settings()
       },
       setConversationMuted: (conversationId, muted) => {
+        const previous = notificationSettings
         notificationSettings = setMuted(notificationSettings, conversationId, muted)
-        savePersisted()
+        if (!savePersisted()) { notificationSettings = previous; throw new Error('App preferences could not be persisted') }
         return settings()
       },
       appState,
@@ -453,11 +511,10 @@ function run(): void {
       ])
     )
 
+    const restored = restoreWindowState(savedWindowState, screen.getAllDisplays(), screen.getPrimaryDisplay().id, backend)
+    savedWindowState = restored.state
     win = new BrowserWindow({
-      width: 1180,
-      height: 780,
-      minWidth: 720,
-      minHeight: 480,
+      ...restored.options,
       show: false,
       title: 'Odin',
       icon: iconPath,
@@ -465,7 +522,12 @@ function run(): void {
       autoHideMenuBar: true,
       webPreferences: hardenedWebPreferences(preloadPath)
     })
+    windowState = new WindowStateController(win, restored.state, savePersisted, backend)
+    if (restored.state.maximized) win.maximize()
+    screen.on('display-removed', repairWindow)
+    screen.on('display-metrics-changed', displayMetricsChanged)
     win.on('close', (event) => {
+      windowState?.flush()
       const decision = decideWindowClose(lifecycle)
       if (decision.action === 'allow') return
       event.preventDefault()
@@ -554,15 +616,17 @@ function statusLabel(link: LinkState): string {
   }
 }
 
-interface PersistedState {
+interface PersistedState extends Record<string, unknown> {
   noTrayNoticeShown: boolean
   notifications: NotificationSettings
   appearance: Appearance
+  setupReminderHidden: boolean
+  windowState: WindowState | null
 }
 
-function readPersisted(path: string): { noTrayNoticeShown?: boolean; notifications?: unknown; appearance?: unknown } {
+function readPersisted(path: string): Record<string, unknown> {
   try {
-    return JSON.parse(readFileSync(path, 'utf8')) as { noTrayNoticeShown?: boolean; notifications?: unknown; appearance?: unknown }
+    return objectRecord(JSON.parse(readFileSync(path, 'utf8')))
   } catch {
     return {}
   }
@@ -574,8 +638,7 @@ function writePersisted(path: string, state: PersistedState): boolean {
     writeFileSync(path, JSON.stringify(state), { mode: 0o600 })
     return true
   } catch {
-    // Exit records failed persistence as unknown rather than silently declaring
-    // completed clean shutdown. Ordinary UI callers remain available.
+    // Lifecycle UI writes are best effort; explicit setters still report save failure.
     return false
   }
 }

@@ -31,7 +31,7 @@ function meta(): ConfigMeta {
     fields: [
       field('learning.enabled', { type: 'boolean', desired: core['learning.enabled'] }),
       field('timezone', { desired: core.timezone, default: 'UTC' }),
-      field('discord.token', { sensitivity: 'sensitive', desired: core['discord.token'] !== undefined })
+      field('discord.token', { sensitivity: 'sensitive', secret_route: 'secrets.set', desired: core['discord.token'] !== undefined })
     ],
     status: { counts: {}, desired_revision: `rev-${revision}`, effective_revision: null },
     image_models: {},
@@ -117,6 +117,7 @@ describe('review round 4: the settings form never drops or erases what the user 
     secret().fire('keydown', { key: 'Enter' })
     fieldBlock('discord.token').button('Save').fire('click')
     secret().fire('input', { target: { value: 'value-b' } })
+    await flush() // Settings writes now share one serialized revision queue.
     await land()
     expect(writes.map((w) => w.value)).toEqual(['value-a'])
     expect(secret().props.value).toBe('value-b')

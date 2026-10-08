@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import SettingsSection from './settings/SettingsSection.vue'
 import { computed, onBeforeUnmount, reactive } from 'vue'
 import type { Result } from '../../../shared/api'
-import { isUnavailable, unavailableText } from '../capability'
+import { isUnavailable, settingsUnavailableText as unavailableText } from '../capability'
 
 type ReadKind = 'diffs' | 'failures' | 'stats'
 type TailKind = 'audit' | 'logs'
@@ -117,9 +118,8 @@ function follow(kind: TailKind): void {
 </script>
 
 <template>
-  <section class="panel" aria-label="Records extras">
-    <h3>Records extras</h3>
-    <p class="manage-desc">Read-only details. Tails retain at most 200 lines here. Follow reads once per second after the previous read finishes, one tail at a time.</p>
+  <SettingsSection title="Records extras" aria-label="Records extras">
+    <p class="manage-desc">Shows up to 200 recent lines; Follow reads one log at a time.</p>
     <section v-for="kind in (['diffs', 'failures', 'stats'] as const)" :key="kind" :aria-label="names[kind]">
       <h4>{{ names[kind] }}</h4>
       <p v-if="reads[kind].unavailable" role="status">{{ unavailableText(names[kind]) }}</p>
@@ -143,10 +143,10 @@ function follow(kind: TailKind): void {
       <p role="status">{{ tails[kind].following ? 'Following.' : 'Follow stopped.' }} {{ tails[kind].loading ? 'Reading…' : tails[kind].loaded ? `${tails[kind].lines.length} retained lines.` : 'Not read yet.' }}</p>
       <p v-if="tails[kind].error && !tails[kind].unavailable" class="warn" role="alert">Couldn't read: {{ tails[kind].error }} Follow stopped. No automatic retry.</p>
       <template v-if="tails[kind].loaded">
-        <p v-if="tails[kind].discarded" class="manage-desc">Renderer retention discarded {{ tails[kind].discarded }} older lines. Source reset/truncation metadata below is separate.</p>
+        <p v-if="tails[kind].discarded" class="manage-desc">{{ tails[kind].discarded }} older lines are no longer shown here. File resets and truncation are listed below.</p>
         <pre class="manage-json" :aria-label="`${names[kind]} retained lines`">{{ tails[kind].lines.join('\n') }}</pre>
       </template>
-      <details v-if="Object.keys(tails[kind].metadata).length"><summary>{{ names[kind] }} source metadata</summary><pre class="manage-json">{{ json(tails[kind].metadata) }}</pre></details>
+      <details v-if="Object.keys(tails[kind].metadata).length"><summary>{{ names[kind] }} file details</summary><pre class="manage-json">{{ json(tails[kind].metadata) }}</pre></details>
     </section>
-  </section>
+  </SettingsSection>
 </template>

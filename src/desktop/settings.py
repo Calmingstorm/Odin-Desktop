@@ -136,7 +136,11 @@ class SettingsService:
             values = fresh_config(paths).model_dump(mode="json")
             self._merge(values, _ignore_unknown_config_keys(dict(document)))
             config = Config.model_validate(values, context={"startup": True})
-        self.config = config if isinstance(config, Config) else Config.model_validate(config)
+        from .ssh_sockets import normalize_config_sockets
+
+        self.config = normalize_config_sockets(
+            config if isinstance(config, Config) else Config.model_validate(config), paths
+        )
         self._boot = self.config.model_dump(mode="json")
         self._applied = {}
         self._generation = 0
@@ -377,6 +381,11 @@ class SettingsService:
                         raise _error(f"{leaf}: a secret; use secrets.set or secrets.clear")
                 right = _handler(leaf)
                 allowed = method == right
+                if method == "models.main.set" and leaf in {
+                    "openai_codex.reasoning_effort", "openai_compatible.reasoning_effort"
+                }:
+                    # Dependent model/effort pairs share the main switch transaction.
+                    allowed = True
                 if right == "hosts.settings" and method.startswith("hosts."):
                     allowed = True
                 if right.startswith("webhooks.outbound.") and method.startswith(
@@ -392,7 +401,9 @@ class SettingsService:
                 _put(candidate, path, value)
         self._validate_route_values(method, candidate, changes)
         try:
-            desired = Config.model_validate(candidate)
+            from .ssh_sockets import normalize_config_sockets
+
+            desired = normalize_config_sockets(Config.model_validate(candidate), self.paths)
         except ValidationError as exc:
             first = exc.errors(include_input=False, include_context=False)[0]
             path = ".".join(map(str, first["loc"])) or (
@@ -767,7 +778,10 @@ class SettingsService:
                                 _put(values, tuple(path.split(".")), stored)
                             elif path.startswith("webhook.triggers.") and path.endswith(".secret"):
                                 _put(values, tuple(path.split(".")), "")
-                    desired = Config.model_validate(values)
+                    from .ssh_sockets import normalize_config_sockets
+
+                    desired = normalize_config_sockets(Config.model_validate(values), self.paths)
+                    values = desired.model_dump(mode="json")
                 except Exception:
                     raise _error(
                         "Saved configuration or keyring could not be loaded",

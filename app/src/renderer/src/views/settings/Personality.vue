@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ask } from '../../dialog'
-import { unavailableText } from '../../capability'
+import { settingsUnavailableText as unavailableText } from '../../capability'
 import { management } from '../../stores/management'
 import { deletePreset, loadPersonality, savePersonality, savePreset, stateStore } from '../../stores/state'
+import SettingsSection from '../../components/settings/SettingsSection.vue'
+import SettingsRow from '../../components/settings/SettingsRow.vue'
 
 onMounted(loadPersonality)
 
@@ -81,48 +83,55 @@ async function remove(name: string): Promise<void> {
   const confirmed = await ask({ title: 'Delete this preset?', message: `${name} is removed. If it's in use, Odin goes back to his own.`, confirmLabel: 'Delete', danger: true })
   if (confirmed) await deletePreset(name)
 }
+
+function cancel(): void {
+  const saved = stateStore.personality
+  if (!saved) return
+  for (const field of Object.keys(choice) as ChoiceField[]) {
+    edit(field)
+    accepted[field] = edited[field]
+    choice[field] = saved[field]
+  }
+}
+function cancelPreset(): void {
+  Object.assign(draft, { name: '', display_name: '', identity: '', voice: '' })
+  presetError.value = ''
+  presetErrorField.value = null
+}
 </script>
 
 <template>
-  <section v-if="stateStore.unavailable.personality" class="panel" aria-label="Personality">
-    <h3>Who Odin is</h3>
+  <SettingsSection v-if="stateStore.unavailable.personality" title="Who Odin is" aria-label="Personality">
     <p class="manage-desc" role="status">{{ unavailableText('Personality') }}</p>
-  </section>
+  </SettingsSection>
   <p v-else-if="!stateStore.personality && stateStore.errors.personality" class="warn">{{ stateStore.errors.personality }}</p>
-  <section v-if="stateStore.personality" class="panel" aria-label="Personality">
-    <header class="panel-head">
-      <h3>Who Odin is</h3>
-      <span class="panel-hint">A preset sets his identity and voice. New requests use the one saved here.</span>
-    </header>
-    <label class="field-input">
-      Preset
-      <select v-model="choice.preset" @change="edit('preset')">
+  <p v-else-if="!stateStore.personality && !stateStore.unavailable.personality" role="status">Loading personality.</p>
+  <SettingsSection v-if="stateStore.personality" title="Who Odin is" aria-label="Personality">
+    <SettingsRow label="Preset" description="New requests use the saved identity and voice." control-id="personality-preset">
+      <select id="personality-preset" v-model="choice.preset" @change="edit('preset')">
         <option v-for="key in stateStore.personality.builtin_presets" :key="key" :value="key">{{ stateStore.personality.presets[key]?.name ?? key }}</option>
         <option v-for="key in stateStore.personality.user_presets" :key="key" :value="key">{{ stateStore.personality.presets[key]?.name ?? key }} (yours)</option>
         <option value="custom">Custom</option>
       </select>
-    </label>
+    </SettingsRow>
     <template v-if="shown">
-      <p class="manage-desc"><strong>Identity.</strong> {{ shown.identity }}</p>
-      <p class="manage-desc"><strong>Voice.</strong> {{ shown.voice }}</p>
+      <SettingsRow label="Identity" full-width><p class="manage-desc">{{ shown.identity }}</p></SettingsRow>
+      <SettingsRow label="Voice" full-width><p class="manage-desc">{{ shown.voice }}</p></SettingsRow>
     </template>
     <template v-else>
-      <label class="field-input">Name <input v-model="choice.custom_name" @input="edit('custom_name')" maxlength="200" /></label>
-      <label class="field-input">Identity <textarea v-model="choice.custom_identity" @input="edit('custom_identity')" rows="4" /></label>
-      <label class="field-input">Voice <textarea v-model="choice.custom_voice" @input="edit('custom_voice')" rows="4" /></label>
+      <SettingsRow label="Name" control-id="personality-name"><input id="personality-name" v-model="choice.custom_name" @input="edit('custom_name')" maxlength="200" /></SettingsRow>
+      <SettingsRow label="Identity" control-id="personality-identity" full-width><textarea id="personality-identity" v-model="choice.custom_identity" @input="edit('custom_identity')" rows="4" /></SettingsRow>
+      <SettingsRow label="Voice" control-id="personality-voice" full-width><textarea id="personality-voice" v-model="choice.custom_voice" @input="edit('custom_voice')" rows="4" /></SettingsRow>
     </template>
     <div class="panel-actions">
       <button class="ghost" aria-label="Save personality" :disabled="management.busy.personality" @click="save">Save</button>
+      <button class="ghost" aria-label="Cancel personality changes" @click="cancel">Cancel</button>
     </div>
     <p v-if="management.notes.personality" class="manage-note" role="status">{{ management.notes.personality }}</p>
     <p v-if="stateStore.errors.personality" class="warn">{{ stateStore.errors.personality }}</p>
-  </section>
+  </SettingsSection>
 
-  <section v-if="stateStore.personality" class="panel" aria-label="Your presets">
-    <header class="panel-head">
-      <h3>Your presets</h3>
-      <span class="panel-hint">Built-in presets can't be changed or deleted.</span>
-    </header>
+  <SettingsSection v-if="stateStore.personality" title="Your presets" aria-label="Your presets">
     <ul class="manage-list">
       <li v-for="key in stateStore.personality.user_presets" :key="key" class="manage-row">
         <div class="manage-line">
@@ -133,14 +142,15 @@ async function remove(name: string): Promise<void> {
         <p v-if="management.notes[`preset:${key}`]" class="manage-note" role="status">{{ management.notes[`preset:${key}`] }}</p>
       </li>
     </ul>
-    <p v-if="!stateStore.personality.user_presets.length" class="manage-desc">None yet.</p>
-    <h4 class="sub-head">Save a preset</h4>
-    <label class="field-input">Name <input v-model="draft.name" maxlength="64" placeholder="night_shift" :aria-invalid="presetErrorField === 'name' || undefined" :aria-describedby="presetErrorField === 'name' ? 'preset-validation-error' : undefined" /></label>
-    <label class="field-input">Shown as <input v-model="draft.display_name" maxlength="200" placeholder="Night shift" /></label>
-    <label class="field-input">Identity <textarea v-model="draft.identity" rows="3" :aria-invalid="presetErrorField === 'content' || undefined" :aria-describedby="presetErrorField === 'content' ? 'preset-validation-error' : undefined" /></label>
-    <label class="field-input">Voice <textarea v-model="draft.voice" rows="3" :aria-invalid="presetErrorField === 'content' || undefined" :aria-describedby="presetErrorField === 'content' ? 'preset-validation-error' : undefined" /></label>
-    <div class="panel-actions"><button class="ghost" :disabled="management.busy.preset" @click="saveAsPreset">Save preset</button></div>
+    <p v-if="!stateStore.personality.user_presets.length" class="manage-desc">No saved presets. Create one below.</p>
+  </SettingsSection>
+  <SettingsSection v-if="stateStore.personality" title="Save a preset">
+    <SettingsRow label="Name" control-id="preset-name" description="A short name for this preset."><input id="preset-name" v-model="draft.name" maxlength="64" placeholder="night_shift" :aria-invalid="presetErrorField === 'name' || undefined" :aria-describedby="presetErrorField === 'name' ? 'preset-validation-error' : undefined" /></SettingsRow>
+    <SettingsRow label="Shown as" control-id="preset-display-name"><input id="preset-display-name" v-model="draft.display_name" maxlength="200" placeholder="Night shift" /></SettingsRow>
+    <SettingsRow label="Identity" control-id="preset-identity" full-width><textarea id="preset-identity" v-model="draft.identity" rows="3" :aria-invalid="presetErrorField === 'content' || undefined" :aria-describedby="presetErrorField === 'content' ? 'preset-validation-error' : undefined" /></SettingsRow>
+    <SettingsRow label="Voice" control-id="preset-voice" full-width><textarea id="preset-voice" v-model="draft.voice" rows="3" :aria-invalid="presetErrorField === 'content' || undefined" :aria-describedby="presetErrorField === 'content' ? 'preset-validation-error' : undefined" /></SettingsRow>
+    <div class="panel-actions"><button class="ghost" :disabled="management.busy.preset" @click="saveAsPreset">Save preset</button><button class="ghost" aria-label="Cancel preset draft" @click="cancelPreset">Cancel</button></div>
     <p v-if="presetError" id="preset-validation-error" class="warn" role="alert">{{ presetError }}</p>
     <p v-else-if="management.notes.preset" class="manage-note" role="status">{{ management.notes.preset }}</p>
-  </section>
+  </SettingsSection>
 </template>

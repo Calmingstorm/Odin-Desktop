@@ -105,6 +105,150 @@ beforeEach(async () => {
 })
 
 describe('saving a setting', () => {
+  it('rejects queued structured saves when member facts change', async () => {
+    const profile = field('openai_compatible.model_profiles', { type: 'object', desired: {}, apply_handler: 'providers.compat.set', record_members: [
+      { path: 'openai_compatible.model_profiles.total_window_tokens', type: 'integer', enum: null, constraints: { minimum: 1 }, default: null, nullable: false, sensitivity: 'public' }
+    ] })
+    store.settings.meta!.fields.push(profile)
+    const binding = store.settings.meta!.fields.find((f) => f.path === profile.path)!
+    const saving = store.saveField(binding, { model: { total_window_tokens: 100 } })
+    binding.record_members![0]!.constraints.minimum = 200
+    expect(await saving).toBe(false)
+    expect(calls.shaped).toEqual([])
+    expect(store.settings.fields[profile.path]?.message).toContain('changed')
+  })
+  it('treats a rejected bridge promise as unknown and fences queued intent until an explicit successful refresh', async () => {
+    const write = vi.fn<(...args: unknown[]) => Promise<Result<unknown>>>(async () => { throw new Error('lost transport') })
+    ;(window.odin as unknown as Record<string, unknown>).settingsSet = write
+    const first = store.saveField(store.settings.meta!.fields[0]!, 'Europe/Paris')
+    const second = store.saveField(store.settings.meta!.fields[0]!, 'Asia/Tokyo')
+    expect(await first).toBe(false)
+    expect(await second).toBe(false)
+    expect(write).toHaveBeenCalledOnce()
+    expect(store.settings.unknownSave).toBe(true)
+    expect(store.settings.notice).toContain('unknown')
+    expect(store.settings.fields.timezone?.message).toContain('earlier save')
+    ;(window.odin as unknown as Record<string, unknown>).settingsSchema = async () => ({ ok: false, error: { code: 'read_failed', message: 'Refresh unavailable', disposition: 'not_dispatched' } })
+    await store.loadSettings(true)
+    expect(store.settings.unknownSave).toBe(true)
+    expect(store.settings.error).toBe('Refresh unavailable')
+    expect(await store.saveField(store.settings.meta!.fields[0]!, 'Europe/Paris')).toBe(false)
+    expect(write).toHaveBeenCalledOnce()
+    ;(window.odin as unknown as Record<string, unknown>).settingsSchema = async () => ({ ok: true, result: structuredClone(meta) })
+    await store.loadSettings(true)
+    expect(store.settings.unknownSave).toBe(false)
+    write.mockImplementation(async () => ({ ok: true, result: { revision: 'rev-3', fields: [field('timezone', { desired: 'Europe/Paris' })] } }))
+    expect(await store.saveField(store.settings.meta!.fields[0]!, 'Europe/Paris')).toBe(true)
+  })
+  it('fences queued independent writes after a definite failure without making future deliberate intent unknown', async () => {
+    setAnswer = { ok: false, error: { code: 'bad_request', message: 'Rejected', disposition: 'not_dispatched' } }
+    const first = store.saveField(store.settings.meta!.fields[0]!, 'bad')
+    const second = store.saveField(store.settings.meta!.fields[2]!, 'http://gpu:11434')
+    expect(await first).toBe(false)
+    expect(await second).toBe(false)
+    expect(calls.set).toHaveLength(1)
+    expect(calls.shaped).toHaveLength(0)
+    expect(store.settings.unknownSave).toBe(false)
+    setAnswer = null
+    expect(await store.saveField(store.settings.meta!.fields[2]!, 'http://gpu:11434')).toBe(true)
+    expect(calls.shaped).toHaveLength(1)
+  })
+  it('handles dedicated stale and unknown receipts without adopting or submitting queued writes', async () => {
+    const edit = vi.fn(async () => ({ ok: false, error: { code: 'stale_binding', message: 'Changed', disposition: 'stale_binding' } }))
+    ;(window.odin as unknown as Record<string, unknown>).editLeaf = edit
+    expect(await store.saveField(store.settings.meta!.fields[1]!, 'new-model')).toBe(false)
+    expect(store.settings.fields['llm_provider.model']?.message).toContain('changed elsewhere')
+    edit.mockResolvedValue({ ok: false, error: { code: 'unconfirmed', message: 'No receipt', disposition: 'outcome_unknown' } })
+    const first = store.saveField(store.settings.meta!.fields[1]!, 'new-model')
+    const second = store.saveField(store.settings.meta!.fields[0]!, 'Europe/Paris')
+    expect(await first).toBe(false)
+    expect(await second).toBe(false)
+    expect(store.settings.unknownSave).toBe(true)
+    expect(calls.set).toHaveLength(0)
+  })
+  it('rejects a dedicated receipt after the core instance changes even without an epoch change', async () => {
+    let land!: (result: Result<unknown>) => void
+    ;(window.odin as unknown as Record<string, unknown>).editLeaf = () => new Promise((resolve) => { land = resolve })
+    const pending = store.saveField(store.settings.meta!.fields[1]!, 'new-model')
+    await Promise.resolve()
+    const { state } = await import('../../src/renderer/src/store')
+    state.app.coreInstanceId = 'replacement-core'
+    land({ ok: true, result: {} })
+    expect(await pending).toBe(false)
+    expect(store.settings.unknownSave).toBe(true)
+    expect(store.settings.meta!.revision).toBe('rev-1')
+    expect(store.settings.fields['llm_provider.model']?.status).toBe('error')
+  })
+  it('does not adopt an old-core success receipt into the replacement core', async () => {
+    let land!: (result: Result<unknown>) => void
+    ;(window.odin as unknown as Record<string, unknown>).settingsSet = () => new Promise((resolve) => { land = resolve })
+    const pending = store.saveField(store.settings.meta!.fields[0]!, 'Europe/Paris')
+    await Promise.resolve()
+    const { state } = await import('../../src/renderer/src/store')
+    state.recoveryEpoch += 1
+    store.settings.meta = { ...meta, revision: 'new-core', fields: [field('timezone', { desired: 'Asia/Tokyo' })] }
+    land({ ok: true, result: { revision: 'old-core', fields: [field('timezone', { desired: 'Europe/Paris' })] } })
+    expect(await pending).toBe(false)
+    expect(store.settings.meta.revision).toBe('new-core')
+    expect(store.settings.meta.fields[0]!.desired).toBe('Asia/Tokyo')
+    expect(store.settings.unknownSave).toBe(true)
+  })
+  it('fences queued writes after an unknown result', async () => {
+    let land!: (result: Result<unknown>) => void
+    const requests: Array<Record<string, unknown>> = []
+    ;(window.odin as unknown as Record<string, unknown>).settingsSet = (params: Record<string, unknown>) => {
+      requests.push(params)
+      return new Promise((resolve) => { land = resolve })
+    }
+    const first = store.saveField(store.settings.meta!.fields[0]!, 'Europe/Paris')
+    const second = store.saveField(store.settings.meta!.fields[0]!, 'Asia/Tokyo')
+    await Promise.resolve()
+    expect(requests).toHaveLength(1)
+    land({ ok: false, error: { code: 'no_receipt', message: 'Outcome unknown.', disposition: 'outcome_unknown' } } as never)
+    expect(await first).toBe(false)
+    expect(await second).toBe(false)
+    expect(requests).toHaveLength(1)
+    expect(store.settings.fields.timezone?.message).toContain('earlier save')
+    expect(await store.saveField(store.settings.meta!.fields[0]!, 'Europe/Paris')).toBe(false)
+    expect(requests).toHaveLength(1)
+    await store.loadSettings()
+    expect(await store.saveField(store.settings.meta!.fields[0]!, 'Europe/Paris')).toBe(false)
+    expect(requests).toHaveLength(1)
+    await store.loadSettings(true)
+    expect(store.settings.unknownSave).toBe(false)
+  })
+  it('rejects a removed field or changed owner before queued dispatch', async () => {
+    const original = store.settings.meta!.fields[0]!
+    const missing = store.saveField(original, 'Europe/Paris')
+    store.settings.meta!.fields = []
+    expect(await missing).toBe(false)
+    expect(calls.set).toHaveLength(0)
+    store.settings.meta!.fields = [{ ...original, apply_handler: 'providers.ollama.set' }]
+    expect(await store.saveField(original, 'Europe/Paris')).toBe(false)
+    expect(calls.shaped).toHaveLength(0)
+  })
+  it('rejects queued intent from an obsolete core epoch', async () => {
+    const { state } = await import('../../src/renderer/src/store')
+    const queued = store.saveField(store.settings.meta!.fields[0]!, 'Europe/Paris')
+    state.recoveryEpoch += 1
+    expect(await queued).toBe(false)
+    expect(calls.set).toHaveLength(0)
+  })
+  it('uses the adopted revision for a queued deliberate independent save', async () => {
+    let land!: (result: Result<unknown>) => void
+    const requests: Array<Record<string, unknown>> = []
+    ;(window.odin as unknown as Record<string, unknown>).settingsSet = (params: Record<string, unknown>) => {
+      requests.push(params)
+      return requests.length === 1 ? new Promise((resolve) => { land = resolve }) : Promise.resolve({ ok: true, result: { revision: 'rev-3', fields: [field('timezone', { desired: 'Asia/Tokyo' })] } })
+    }
+    const first = store.saveField(store.settings.meta!.fields[0]!, 'Europe/Paris')
+    const second = store.saveField(store.settings.meta!.fields[0]!, 'Asia/Tokyo')
+    await Promise.resolve()
+    land({ ok: true, result: { revision: 'rev-2', fields: [field('timezone', { desired: 'Europe/Paris' })] } })
+    expect(await first).toBe(true)
+    expect(await second).toBe(true)
+    expect(requests[1]).toMatchObject({ expected_revision: 'rev-2' })
+  })
   it('does not submit the derived provider as a main-model change', async () => {
     expect(await store.saveField(field('llm_provider.active_provider', { apply_handler: 'models.main.set' }), 'ollama')).toBe(false)
     expect(calls.edit).toEqual([])

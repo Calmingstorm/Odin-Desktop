@@ -13,6 +13,8 @@ import ast
 import contextvars
 import hashlib
 import os
+import shutil
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -59,15 +61,18 @@ def owner_fixture(tmp_path):
     manager = OwnerPermissionManager(authority)
     context = authority.authenticate_local(peer_uid=os.geteuid())
     request_binding = manager.set_request_owner(context)
-    state = SimpleNamespace(paths=paths, authority=authority, manager=manager, executors=[])
-    fixture_binding = _fixture.set(state)
     # A bare SSHConnectionPool() must not create the engine's shared /tmp
-    # socket directory; this owner's temporary cache stands in for it.
+    # socket directory, and socket paths must fit the Unix limit that Desktop's
+    # pool enforces: this owner gets a short private directory of its own.
+    sockets = tempfile.mkdtemp(prefix="odq-ssh-", dir="/tmp")
+    state = SimpleNamespace(paths=paths, authority=authority, manager=manager, executors=[],
+                            sockets=sockets)
+    fixture_binding = _fixture.set(state)
     pool_init = EngineSSHConnectionPool.__init__
     pool_defaults = pool_init.__defaults__
     pool_args = pool_init.__code__.co_varnames[1:pool_init.__code__.co_argcount]
     pool_init.__defaults__ = tuple(
-        str(paths.cache_dir / "ssh-sockets") if name == "socket_dir" else value
+        sockets if name == "socket_dir" else value
         for name, value in zip(pool_args[-len(pool_defaults):], pool_defaults))
     try:
         yield state
@@ -78,6 +83,7 @@ def owner_fixture(tmp_path):
         _fixture.reset(fixture_binding)
         manager.reset_request_owner(request_binding)
         authority.release_runtime()
+        shutil.rmtree(sockets, ignore_errors=True)
 
 
 class ToolExecutor(EngineExecutor):
@@ -93,9 +99,9 @@ class ToolExecutor(EngineExecutor):
         pool = getattr(config, "ssh_pool", None)
         if pool is not None and pool.socket_dir == SSHPoolConfig.model_fields["socket_dir"].default:
             # The historical default string stays assertable on the declaration;
-            # a real pool always uses this owner's temporary cache.
+            # a real pool always uses this owner's private socket directory.
             kwargs["config"] = config.model_copy(update={"ssh_pool": pool.model_copy(
-                update={"socket_dir": str(state.paths.cache_dir / "ssh-sockets")})})
+                update={"socket_dir": state.sockets})})
         super().__init__(*args, **kwargs)
         self._host_access = HostAccessManager(
             state.paths.config_dir / f"test-host-preferences-{len(state.executors)}.json",

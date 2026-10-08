@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { backToLatest, chatUnavailable, loadFailure, loadOlder, resumeTarget, retry, select, state, steersFor, stopPending, type SteerLine } from '../store'
 import { unavailableText } from '../capability'
 import { chatAnnouncement, type ChatAnnouncementState } from '../chat-announcements'
@@ -9,6 +9,7 @@ import ToolActivity from './ToolActivity.vue'
 import Icon from './Icon.vue'
 
 const scroller = ref<HTMLElement | null>(null)
+const content = ref<HTMLElement | null>(null)
 const view = computed(() => (state.activeId ? state.views[state.activeId] : undefined))
 const messages = computed(() => view.value?.messages ?? [])
 const running = computed(() => view.value?.running ?? null)
@@ -124,6 +125,52 @@ function steerState(item: SteerLine): string {
 
 /** The scroll to the end in progress. A newer one, a search result coming into view, or the list going away ends it. */
 let scrollRun = 0
+// Bottom-following is reader intent, not a fresh distance check after an image has already grown.
+let pinned = true
+let writtenTop: number | null = null
+let readerScrolling = false
+let contentObserver: ResizeObserver | null = null
+
+function takeScroll(): void {
+  scrollRun += 1
+  // Input cancels an in-flight placement; only an actual scroll changes follow intent.
+  // Downward wheel at the bottom and clicks on message controls may not scroll at all.
+  writtenTop = null
+  readerScrolling = true
+}
+
+function onHistoryKey(event: KeyboardEvent): void {
+  if (event.key === 'End') {
+    // End at an already settled bottom produces no scroll event, but still means follow the latest.
+    void scrollToEnd()
+  } else if (['Home', 'PageUp', 'PageDown', 'ArrowUp', 'ArrowDown', ' '].includes(event.key)) {
+    takeScroll()
+  }
+}
+
+function onScroll(): void {
+  const el = scroller.value
+  if (!el || !readerScrolling || el.scrollTop === writtenTop) return
+  // Browser layout/clamping scroll events are not reader intent. Only input can relinquish the pin.
+  scrollRun += 1
+  pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  if (pinned) readerScrolling = false
+  writtenTop = null
+}
+
+function canFollow(): boolean {
+  return pinned && !state.highlightId && !jump.value && !historyPaging.value
+}
+
+onMounted(() => {
+  if (typeof ResizeObserver === 'undefined') return
+  contentObserver = new ResizeObserver(() => {
+    // Covers image decoding, file/report cards, tool expansion and late fonts/layout, even after the initial scroll.
+    if (canFollow()) void scrollToEnd()
+  })
+  if (content.value) contentObserver.observe(content.value)
+  if (scroller.value) contentObserver.observe(scroller.value)
+})
 
 /**
  * Scrolls to the latest message. Messages skipped while off screen (content-visibility) have estimated heights that
@@ -131,6 +178,8 @@ let scrollRun = 0
  */
 async function scrollToEnd(): Promise<void> {
   const run = ++scrollRun
+  pinned = true
+  readerScrolling = false
   await nextTick()
   const el = scroller.value
   if (!el) return
@@ -138,6 +187,7 @@ async function scrollToEnd(): Promise<void> {
   let steady = 0
   for (let frame = 0; frame < 60 && run === scrollRun; frame++) {
     el.scrollTop = el.scrollHeight
+    writtenTop = el.scrollTop
     await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
     const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 2
     // Done once the end hasn't moved for three frames: the messages scrolled into view have rendered.
@@ -154,7 +204,7 @@ watch(
     const switched = next[4] !== previous?.[4]
     const focusedHistory = Boolean(el?.contains?.(document.activeElement))
     const nearEnd = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 80
-    if (!state.highlightId && !historyPaging.value && (switched || (!focusedHistory && nearEnd))) void scrollToEnd()
+    if (!state.highlightId && !historyPaging.value && (switched || (pinned && !focusedHistory && nearEnd))) void scrollToEnd()
   }
 )
 
@@ -168,6 +218,8 @@ watch(
   () => [state.highlightId, jump.value?.messageId],
   async () => {
     if (!state.highlightId) return
+    pinned = false
+    readerScrolling = false // search placement is not a reader scroll and must finish settling
     const run = ++scrollRun // the search result owns the view now
     await nextTick()
     const id = state.highlightId
@@ -212,6 +264,7 @@ watch(
 
 onBeforeUnmount(() => {
   scrollRun += 1
+  contentObserver?.disconnect()
 })
 
 function time(iso: string): string {
@@ -223,6 +276,7 @@ async function older(): Promise<void> {
   const el = scroller.value
   if (!id || !el || !view.value?.hasMore || view.value.loadingOlder || historyPaging.value) return
   scrollRun += 1
+  pinned = false
   historyPaging.value = true
   olderUsed.value = true
   const beforeHeight = el.scrollHeight
@@ -238,7 +292,8 @@ async function older(): Promise<void> {
 
 <template>
   <p class="chat-announcement" role="status" aria-live="polite" aria-atomic="true">{{ announcement }}</p>
-  <section id="conversation-history" ref="scroller" class="message-scroll" tabindex="0" aria-label="Conversation history" @wheel.passive="scrollRun += 1" @keydown="scrollRun += 1" @pointerdown="scrollRun += 1">
+  <section id="conversation-history" ref="scroller" class="message-scroll" tabindex="0" aria-label="Conversation history" @scroll.passive="onScroll" @wheel.passive="takeScroll" @keydown="onHistoryKey" @pointerdown="takeScroll">
+    <div ref="content" class="message-content">
     <p v-if="chatUnavailable()" class="empty" role="status">{{ unavailableText('Chat') }}</p>
     <div v-else-if="!view?.hasData && loadError" class="empty" role="alert">
       <p>Couldn't load from Odin: {{ loadError }}</p>
@@ -320,12 +375,14 @@ async function older(): Promise<void> {
       <ResumeBanner v-if="state.activeId" :conversation-id="state.activeId" />
       <p v-for="(line, index) in unresolvedLines" :key="index" class="outcome unresolved">{{ line }}</p>
     </template>
+    </div>
   </section>
 </template>
 
 <style scoped>
 .chat-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .message-scroll { overflow-anchor: none; }
+.message-content { display: flow-root; }
 .message-scroll:focus-visible, button:focus-visible { outline: 2px solid var(--accent, #91baff); outline-offset: -3px; }
 button[aria-disabled="true"] { opacity: .65; }
 </style>

@@ -26,10 +26,17 @@ The next Tab can leave Message.
 
 ## Common tasks
 
-1. Tab to **Settings** and press Enter. Navigate to **Models and providers** or
-   another section; **Back to chat** returns to chat.
+1. Tab to **Settings** and press Enter. Navigate among the nine curated sections;
+   **Back to chat** returns to chat. **Advanced settings** is a secondary button
+   in **General → Support and advanced**, not a primary navigation entry.
+   In **Models and providers**, Tab through **Model** and supported **Reasoning
+   effort**, then use the group's **Save** or **Cancel** for unsaved changes.
+   Changing a model selection, pressing Enter in it or leaving it is not a save.
 2. Tab to **New conversation**, activate it and move to **Message**. Type a request and send
-   with Enter, or use Shift+Enter for more lines.
+   with Enter, or use Shift+Enter for more lines. Message starts at one line,
+   grows to eight visible lines (less in a short/high-zoom view), then scrolls
+   internally. Its short hint and errors are linked to the field; growing does
+   not discard the draft. Icon-only Attach and Send controls retain named actions.
 3. Tab to **Attach files**. Choose a file in the desktop dialog, or Escape to
    cancel. Check its named upload state and Remove control.
 4. On a reply, activate **Copy**, choose Markdown or plain text, and return to its
@@ -45,6 +52,19 @@ The next Tab can leave Message.
 Use the Work column and report controls described in
 [Background work](background-work.md). A service refusal is not an empty list
 or proof a task completed.
+
+Provider **Configure** buttons report whether their setup is expanded and work
+while the provider is off. Save setup explicitly; enable the provider separately.
+Provider keys use write-only **Store key**, **Replace key** and confirmed
+**Remove key** actions. Cancelling a setup draft does not remove an already stored
+key. Independent short fields may save on Enter/blur; long or explicit editors
+require their Save. Follow the actual control, not a universal Enter-to-save rule.
+
+**Set up later**, when offered in chat, saves dismissal of the setup invitation
+across app restarts, not of operational or recovery warnings. There is no persistent
+success banner for an effective-ready provider, and absent setup status is not
+announced as a fabricated readiness result. Use Settings and the connection state
+when the invitation is absent.
 
 ## Screen readers and privacy
 
@@ -70,7 +90,7 @@ Odin**; Wayland computer use is planned for **1.1** and is refused with guidance
 until then. Actual accessibility behavior can depend on desktop, screen reader
 and display setup.
 
-The current Raven interface has been exercised with Orca in isolated
+Earlier Raven-interface observations recorded Orca exercises in isolated
 Cinnamon/X11 and GNOME/Wayland sessions: all seven task groups passed in each.
 KDE/Wayland passed six of seven; the native Attach dialog was visible but its
 controls were unavailable to the screen reader. Do not assume accessible
@@ -78,9 +98,14 @@ Attach/Save on KDE. This limitation remains recorded; the
 [Linux release checklist](../release/linux-v1-checklist.md) defines the current
 candidate gate rather than the earlier P3.6/D11 matrix. These observations do
 not claim every desktop or version was tested, including Hyprland screen-reader
-coverage.
+coverage. Those historical observations do not qualify the changed UI-v1 controls
+or prove release readiness. The composer growth and best-effort window restoration
+described here are source-verified behavior, not a new native accessibility matrix.
+On native Wayland the app requests window size and maximized state, not position;
+the compositor owns placement. See [Window size and placement](settings.md#window-size-and-placement).
 
-Report app version, package format, desktop/session (**X11** or **Wayland**),
+Report **Desktop release** and **Engine build** separately from **General → About**,
+package format, desktop/session (**X11** or **Wayland**),
 screen reader/version, zoom/scaling, control name, expected result and actual
 result. Reproduce with non-private content. Preserve unknown or quarantined
 state rather than repeating input to demonstrate it. See [Recovery](recovery.md).

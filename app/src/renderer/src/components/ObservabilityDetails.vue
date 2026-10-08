@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue'
 import CompletionResult from './CompletionResult.vue'
+import SettingsSection from './settings/SettingsSection.vue'
+import SettingsRow from './settings/SettingsRow.vue'
 import { readCompletion } from '../stores/completion'
 import { act, management } from '../stores/management'
 import { ask } from '../dialog'
-import { isUnavailable, unavailableText } from '../capability'
+import { isUnavailable, settingsUnavailableText as unavailableText } from '../capability'
 import { isUnknownOutcome, onLateReceipt } from '../store'
 const host = ref('')
 const sshUser = ref('')
@@ -42,19 +44,20 @@ async function closePools(all: boolean): Promise<void> {
 }
 </script>
 <template>
-  <section v-for="section in sections" :key="section.key" class="panel" :aria-label="section.feature">
-    <header class="panel-head"><h3>{{ section.feature }}</h3><button class="ghost" @click="readCompletion(section.key, section.run)">Read {{ section.feature }}</button></header>
+  <SettingsSection v-for="section in sections" :key="section.key" :title="section.feature" :aria-label="section.feature">
+    <SettingsRow label="Latest report"><button class="ghost" @click="readCompletion(section.key, section.run)">Read {{ section.feature }}</button></SettingsRow>
     <CompletionResult :resource="section.key" :feature="section.feature" />
-  </section>
-  <section class="panel" aria-label="Connection pool actions">
-    <h3>Connection pool actions</h3>
+  </SettingsSection>
+  <SettingsSection title="Connection pool actions" aria-label="Connection pool actions">
     <p v-if="closeUnavailable" role="status">{{ unavailableText('Connection pool actions') }}</p>
     <template v-else>
+      <SettingsRow label="Host connections" description="Close existing SSH connections; new work opens new ones.">
       <label>Pool host <input v-model="host" /></label>
       <label>Pool SSH user (optional) <input v-model="sshUser" /></label>
       <button class="ghost" :disabled="!host || management.busy['connection-pools']" @click="closePools(false)">Close host pool…</button>
       <button class="ghost" :disabled="management.busy['connection-pools']" @click="closePools(true)">Close all pools…</button>
+      </SettingsRow>
     </template>
     <p v-if="management.notes['connection-pools']" role="status">{{ management.notes['connection-pools'] }}</p>
-  </section>
+  </SettingsSection>
 </template>

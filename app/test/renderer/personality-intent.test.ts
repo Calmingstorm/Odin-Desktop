@@ -79,7 +79,7 @@ function selected(v: Mounted): unknown {
 function field(v: Mounted, key: CustomField): Host {
   const label = { custom_name: 'Name', custom_identity: 'Identity', custom_voice: 'Voice' }[key]
   const row = panel(v).findAll((node) => node.tag === 'label' && node.textContent().trim() === label)[0]
-  const control = row?.find(key === 'custom_name' ? 'input' : 'textarea')
+  const control = row?.find(key === 'custom_name' ? 'input' : 'textarea') ?? panel(v).findAll((node) => node.props.id === row?.props.for)[0]
   if (!control) throw new Error(`Missing editable ${key}`)
   return control
 }

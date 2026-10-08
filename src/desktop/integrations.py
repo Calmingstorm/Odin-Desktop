@@ -15,7 +15,7 @@ from copy import deepcopy
 from typing import Any
 from urllib.parse import urlparse
 
-from ..config.persistence import _load_document
+from ..config.persistence import _config_file_lock, _load_document
 from ..config.schema import OutboundWebhookTarget
 from ..notifications.outbound_webhooks import OutboundWebhookDispatcher
 from .management import MethodError
@@ -209,13 +209,11 @@ class IntegrationsService:
         if self._closed:
             raise MethodError("unavailable", "outbound integration service is closed")
         if self.dispatcher is not None:
-            sync = getattr(self.dispatcher, "_sync", None)
-            if callable(sync):
-                sync()
+            self.dispatcher.get_status()
             return self.dispatcher
         owner = ProfileOutboundWebhookDispatcher(
             lambda: self.settings.config, secrets=self.settings.secrets)
-        owner._sync()
+        owner.get_status()
         self.dispatcher = owner
         return owner
 
@@ -247,6 +245,11 @@ class IntegrationsService:
                 return await secret_call(dispatcher.get_status)
             if method == "webhooks.outbound.test":
                 ident = self._identifier(params)
+                if "expected_revision" in params:
+                    await secret_call(self._check_test_revision, params)
+                # The public owner handles qualification, shutdown and statistics.
+                # No settings/file lock spans HTTP. A concurrent edit after the
+                # revision check may be adopted before the owner selects the ID.
                 result = await dispatcher.send_test_event(ident)
                 if result is None:
                     raise MethodError("not_found", "webhook not found")
@@ -255,6 +258,13 @@ class IntegrationsService:
             # one settled worker transaction. Cancellation cannot release the
             # service gate with an unfinished signing-key write behind it.
             return await secret_call(self._mutate, dispatcher, method, params)
+
+    def _check_test_revision(self, params):
+        expected = params.get("expected_revision")
+        if not isinstance(expected, str) or not expected:
+            raise MethodError("bad_request", "expected_revision is required")
+        with self.settings._lock, _config_file_lock(self.settings.paths.config_file):
+            self.settings._check_revision(expected)
 
     @staticmethod
     def _identifier(params):

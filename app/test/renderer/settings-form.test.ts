@@ -89,10 +89,10 @@ describe('editing a value', () => {
     expect(fromInput(map, '{oops')).toEqual({ ok: false, error: 'That is not valid JSON.' })
   })
 
-  it('says when the running value differs from the saved one, or is unknown, but never for a secret', () => {
+  it('says when the running value differs, but stays silent for unknowns and secrets', () => {
     expect(differenceNote(field({ path: 'x.t', type: 'integer', desired: 900, effective: 600 }))).toBe('Saved: 900. Running: 600.')
     expect(differenceNote(field({ path: 'x.t', type: 'integer', desired: 900, effective: 900 }))).toBeNull()
-    expect(differenceNote(field({ path: 'x.t', type: 'integer', apply_state: 'unknown' }))).toBe('The running value is not known.')
+    expect(differenceNote(field({ path: 'x.t', type: 'integer', apply_state: 'unknown', desired: 3, effective: null }))).toBeNull()
     expect(differenceNote(field({ path: 'x.k', type: 'string', sensitivity: 'sensitive', desired: '••••', effective: null }))).toBeNull()
   })
 

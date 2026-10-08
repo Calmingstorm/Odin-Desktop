@@ -22,6 +22,19 @@ beforeEach(() => {
 })
 afterEach(() => { view?.unmount(); vi.unstubAllGlobals() })
 describe('smallest honest observability and trajectory sections', () => {
+  it('uses section headings outside report and connection-action cards', () => {
+    view = mount(Observability)
+    const sections = view.root.findAll((n) => String(n.props.class).split(' ').includes('settings-section'))
+    expect(sections).toHaveLength(7)
+    for (const section of sections) {
+      expect(section.findAll((n) => n.tag === 'h3')).toHaveLength(1)
+      const card = section.findAll((n) => String(n.props.class).split(' ').includes('settings-card'))[0]!
+      expect(card.findAll((n) => n.tag === 'h3')).toHaveLength(0)
+    }
+    expect(bridge.observabilityStats).not.toHaveBeenCalled()
+    expect(bridge.poolsClose).not.toHaveBeenCalled()
+  })
+
   it('shows unread before clicks and retains unavailable measurements as reported', async () => {
     bridge.observabilityStats.mockResolvedValue({ ok: true, result: { compression: { available: false, reason: 'not measured' } } })
     view = mount(Observability); await flush()
@@ -32,7 +45,7 @@ describe('smallest honest observability and trajectory sections', () => {
     expect(view.root.textContent()).not.toContain('0 tokens')
     bridge.observabilityStats.mockResolvedValue({ ok: false, error: { code: 'capability_unavailable', message: 'old core' } })
     await view.root.button('Read Runtime statistics').fire('click'); await flush()
-    expect(view.root.textContent()).toContain('Runtime statistics is unavailable in this core.')
+    expect(view.root.textContent()).toContain('Runtime statistics is unavailable.')
     expect(view.root.textContent()).not.toContain('not measured')
   })
   it('requires confirmation before close and calls the named mutation', async () => {
@@ -64,6 +77,6 @@ describe('smallest honest observability and trajectory sections', () => {
     applyReceipt({ id: 'pool-1', settled: { ok: false, error: { code: 'capability_unavailable', message: 'old core' } } })
     await flush()
     expect(management.busy['connection-pools']).toBe(false)
-    expect(view.root.textContent()).toContain('Connection pool actions is unavailable in this core.')
+    expect(view.root.textContent()).toContain('Connection pool actions is unavailable.')
   })
 })

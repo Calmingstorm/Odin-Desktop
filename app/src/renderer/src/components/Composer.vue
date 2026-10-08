@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { observeComposer } from '../composer-geometry'
 import { dispatch, matchCommands, parseCommand } from '../commands'
 import { canAct, chatUnavailable, loadFailure, retry, send, state, stop, stopPending, type ComposerMode } from '../store'
 import { unavailableText } from '../capability'
@@ -28,6 +29,17 @@ const mode = ref<ComposerMode>('steer')
 const busy = ref(false)
 const dragging = ref(false)
 const stopButton = ref<HTMLButtonElement | null>(null)
+const messageField = ref<HTMLTextAreaElement | null>(null)
+const measurement = ref<HTMLDivElement | null>(null)
+let geometry: ReturnType<typeof observeComposer> | undefined
+onMounted(() => {
+  // Object-renderer component tests have no layout engine; real DOM geometry is tested separately.
+  if (messageField.value && measurement.value && typeof getComputedStyle === 'function') {
+    geometry = observeComposer(messageField.value, measurement.value)
+  }
+})
+onUnmounted(() => geometry?.dispose())
+watch(text, () => geometry?.update(), { flush: 'post' })
 const selected = ref(0)
 const paletteDismissed = ref(false)
 const runningRequest = computed(() => (state.activeId ? (state.views[state.activeId]?.running ?? null) : null))
@@ -211,7 +223,10 @@ async function closeReport(): Promise<void> {
       <label><input v-model="mode" name="composer-mode" type="radio" value="steer" /> Steer the current task</label>
       <label><input v-model="mode" name="composer-mode" type="radio" value="queue" /> Queue as a follow-up</label>
     </div>
-    <CommandPalette v-if="paletteOpen" :commands="matches" :selected="selected" @pick="pick" />
+    <div v-if="paletteOpen" class="composer-palette">
+      <CommandPalette :commands="matches" :selected="selected" @pick="pick" />
+      <p id="composer-palette-help" class="composer-help">Up/Down or Home/End to choose · Tab to complete · Enter to run · Escape to dismiss</p>
+    </div>
     <AttachmentTray
       v-if="attachments.length"
       :items="attachments"
@@ -223,14 +238,15 @@ async function closeReport(): Promise<void> {
         <Icon name="attach" :size="18" />
       </button>
       <textarea
+        ref="messageField"
         v-model="text"
-        rows="3"
+        rows="1"
         aria-label="Message"
         aria-autocomplete="list"
         :aria-controls="paletteOpen && matches.length ? 'command-palette' : undefined"
         :aria-activedescendant="paletteOpen && matches[selected] ? `command-option-${matches[selected]?.name}` : undefined"
         :aria-invalid="composer.errors.length > 0 || failedAttachment ? true : undefined"
-        :aria-describedby="['composer-help', composer.errors.length ? 'composer-errors' : '', failedAttachment ? 'composer-attachment-error' : ''].filter(Boolean).join(' ')"
+        :aria-describedby="['composer-help', paletteOpen ? 'composer-palette-help' : '', composer.errors.length ? 'composer-errors' : '', failedAttachment ? 'composer-attachment-error' : ''].filter(Boolean).join(' ')"
         :placeholder="placeholder"
         :disabled="!state.activeId && !chatUnavailable()"
         @keydown="onKey"
@@ -245,7 +261,8 @@ async function closeReport(): Promise<void> {
         </button>
       </div>
     </div>
-    <p id="composer-help" class="composer-help">Enter to send; Shift+Enter for a new line. For commands, use Up/Down or Home/End, Tab to complete, Enter to run, Escape to dismiss.</p>
+    <div ref="measurement" class="composer-measurement" aria-hidden="true"></div>
+    <p id="composer-help" class="composer-help">Enter to send · Shift+Enter for a new line · / for commands</p>
     <p v-if="composer.errors.length" id="composer-errors" class="notice error" role="alert">{{ composer.errors.join(' ') }}</p>
     <p v-if="chatUnavailable()" class="notice" role="status">{{ unavailableText('Chat') }} Sending messages and attachments is unavailable.</p>
     <p v-else-if="loadError" class="notice error" role="alert">
@@ -262,6 +279,18 @@ async function closeReport(): Promise<void> {
 <style scoped>
 .report-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .composer-help { font-size: .8rem; color: var(--muted); margin: .4rem 0; }
+.composer-box { flex-wrap: nowrap; align-items: flex-end; }
+.composer-box textarea { box-sizing: border-box; flex: 1 1 0; min-width: 0; min-height: 38px; height: 38px; max-height: none; line-height: 20px; padding: 9px 6px; overflow-y: hidden; }
+.composer-box .buttons { flex-shrink: 0; flex-wrap: nowrap; align-items: flex-end; }
+.composer-icon { flex-shrink: 0; }
+.composer-measurement { position: fixed; left: 0; top: 0; visibility: hidden; pointer-events: none; box-sizing: border-box; height: auto; min-height: 0; border: 0; white-space: pre-wrap; overflow-wrap: break-word; }
+/* High zoom reserves room for header, history, hint and connection bar.
+   Measurement honors this cap and scrolls internally, never clips. */
+@media (max-height: 450px) {
+  .composer-box textarea { max-height: max(38px, calc(100dvh - 282px)); }
+}
 textarea:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent, #91baff); outline-offset: 3px; }
+/* The outer frame owns the message field's focus cue; buttons keep their own ring. */
+.composer-box textarea:focus-visible { outline: none; box-shadow: none; }
 button[aria-disabled="true"] { opacity: .65; }
 </style>

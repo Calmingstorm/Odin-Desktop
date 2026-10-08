@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ask } from '../../dialog'
-import { unavailableText } from '../../capability'
+import { settingsUnavailableText as unavailableText } from '../../capability'
 import { management } from '../../stores/management'
 import KnowledgeDetails from '../../components/KnowledgeDetails.vue'
+import SettingsSection from '../../components/settings/SettingsSection.vue'
+import SettingsRow from '../../components/settings/SettingsRow.vue'
 import {
   closeScope,
   deleteList,
@@ -25,7 +27,7 @@ import {
 
 onMounted(() => void Promise.all([loadMemory(), loadKnowledge()]))
 
-const scopeName = (scope: string): string => scope === 'global' ? 'Everywhere' : scope.startsWith('user_') ? 'Yours' : scope
+const scopeName = (scope: string): string => scope === 'global' ? 'Everywhere' : scope === 'owner' || scope.startsWith('user_') ? 'You' : scope
 const show = (value: unknown): string => (typeof value === 'string' ? value : JSON.stringify(value))
 const listItem = (value: unknown): string => {
   if (value && typeof value === 'object' && 'name' in value && typeof value.name === 'string') {
@@ -113,11 +115,7 @@ async function removeSource(name: string): Promise<void> {
 </script>
 
 <template>
-  <section class="panel" aria-label="Memory">
-    <header class="panel-head">
-      <h3>Memory</h3>
-      <span class="panel-hint">What Odin remembers. All of it goes into every request, as in Odin.</span>
-    </header>
+  <SettingsSection title="Memory" aria-label="Memory">
     <p v-if="stateStore.unavailable.memory" class="manage-desc" role="status">{{ unavailableText('Memory') }}</p>
     <template v-else>
     <p v-if="stateStore.errors.memory" class="warn">{{ stateStore.errors.memory }}</p>
@@ -156,13 +154,9 @@ async function removeSource(name: string): Promise<void> {
       </li>
     </ul>
     </template>
-  </section>
+  </SettingsSection>
 
-  <section class="panel" aria-label="Named lists">
-    <header class="panel-head">
-      <h3>Named lists</h3>
-      <span class="panel-hint">Lists Odin keeps for you, like a shopping list.</span>
-    </header>
+  <SettingsSection title="Named lists" aria-label="Named lists">
     <p v-if="stateStore.unavailable.lists" class="manage-desc" role="status">{{ unavailableText('Named list management') }}</p>
     <template v-else>
     <p v-if="stateStore.errors.lists" class="warn">{{ stateStore.errors.lists }}</p>
@@ -183,25 +177,21 @@ async function removeSource(name: string): Promise<void> {
         </ul>
       </li>
     </ul>
-    <p v-if="!stateStore.lists.length" class="manage-desc">No lists.</p>
+    <p v-if="!stateStore.lists.length && !stateStore.errors.lists" class="manage-desc">No lists. Ask Odin to create a list in chat.</p>
     </template>
-  </section>
+  </SettingsSection>
 
-  <section class="panel" aria-label="Knowledge">
-    <header class="panel-head">
-      <h3>Knowledge</h3>
-      <span class="panel-hint">Documents Odin can search. Each source keeps its versions.</span>
-    </header>
+  <SettingsSection title="Knowledge" aria-label="Knowledge">
     <p v-if="stateStore.unavailable.knowledge" class="manage-desc" role="status">{{ unavailableText('Knowledge') }}</p>
     <template v-else>
     <p v-if="stateStore.errors.knowledge" class="warn">{{ stateStore.errors.knowledge }}</p>
-    <label class="field-input">Search <input v-model="query" type="search" placeholder="Words to find" @input="searchKnowledge(query)" /></label>
+    <SettingsRow label="Search" control-id="knowledge-search" description="Find text in saved documents."><input id="knowledge-search" v-model="query" type="search" placeholder="Words to find" @input="searchKnowledge(query)" /></SettingsRow>
     <ul v-if="stateStore.hits" class="manage-list">
       <li v-for="hit in stateStore.hits" :key="hit.chunk_id" class="manage-row">
         <div class="manage-line"><code class="manage-name">{{ hit.source }}</code><span class="manage-count">score {{ hit.score }}</span></div>
         <p class="manage-desc">{{ hit.content }}</p>
       </li>
-      <li v-if="!stateStore.hits.length" class="manage-desc">Nothing found.</li>
+      <li v-if="!stateStore.hits.length" class="manage-desc">Nothing found. Try different words or add a document below.</li>
     </ul>
     <ul class="manage-list">
       <li v-for="item in stateStore.knowledge" :key="item.source" class="manage-row">
@@ -232,24 +222,33 @@ async function removeSource(name: string): Promise<void> {
       </li>
     </ul>
     <h4 class="sub-head">Add a document</h4>
-    <label class="field-input">Source <input v-model="source" maxlength="100" placeholder="runbook.md" /></label>
-    <label class="field-input">Text <textarea v-model="content" rows="5" maxlength="500000" /></label>
+    <p v-if="!stateStore.knowledge.length && !stateStore.errors.knowledge" class="manage-desc">No documents saved. Add text or load a text file below.</p>
+    <SettingsRow label="Source" control-id="knowledge-source" description="A name for the document you are adding."><input id="knowledge-source" v-model="source" maxlength="100" placeholder="runbook.md" /></SettingsRow>
+    <SettingsRow label="Text" control-id="knowledge-content" full-width><textarea id="knowledge-content" v-model="content" rows="5" maxlength="500000" /></SettingsRow>
     <div class="panel-actions">
-      <label class="ghost file-pick">Load a text file <input type="file" accept=".txt,.md,.markdown,.json,.yml,.yaml,.csv,.log,text/*" @change="readFile" /></label>
+      <label class="knowledge-file-label" for="knowledge-file">Load a text file</label>
+      <input id="knowledge-file" class="knowledge-file-input" type="file" aria-label="Load a text file" accept=".txt,.md,.markdown,.json,.yml,.yaml,.csv,.log,text/*" @change="readFile" />
       <button class="ghost" :disabled="!source.trim() || source.trim().length > 100 || !content.trim() || content.trim().length > 500000 || management.busy.knowledge" @click="add">Add</button>
+      <button class="ghost" aria-label="Cancel document draft" @click="source = ''; content = ''">Cancel</button>
     </div>
     <p v-if="management.notes.knowledge" class="manage-note" role="status">{{ management.notes.knowledge }}</p>
     </template>
-  </section>
+  </SettingsSection>
 
   <KnowledgeDetails />
 
-  <section class="panel" aria-label="Context">
-    <header class="panel-head">
-      <h3>Context</h3>
-      <span class="panel-hint">Reload the context files, and see what is in context now.</span>
+  <SettingsSection title="Context" aria-label="Context">
+    <SettingsRow label="Context files" description="Reload the saved instructions used in requests.">
       <button v-if="!stateStore.unavailable.context" class="ghost" @click="reloadContext">Reload context</button>
-    </header>
+    </SettingsRow>
     <pre v-if="stateStore.reload" class="manage-json">{{ stateStore.reload }}</pre>
-  </section>
+  </SettingsSection>
 </template>
+
+<style scoped>
+.sub-head { margin: 14px var(--settings-padding) 4px; }
+.knowledge-file-label { font-size: 13px; }
+.knowledge-file-input { width: auto; max-width: 100%; background: transparent; border: 0; padding: 0; }
+.knowledge-file-input::file-selector-button { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 4px 11px; margin-right: 8px; cursor: pointer; }
+.knowledge-file-input::file-selector-button:hover { background: var(--raise); border-color: var(--accent-line); }
+</style>

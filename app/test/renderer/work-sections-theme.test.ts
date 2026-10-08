@@ -62,21 +62,20 @@ describe("General's theme choice", () => {
     setAppearance.mockClear()
   })
 
-  it('offers System, Dark and Light as one named radio group and saves a choice through the bridge', async () => {
+  it('offers System, Dark and Light as one named segmented group and saves a choice through the bridge', async () => {
     const view = mount(General)
     await flush()
-    const group = view.root.findAll((host) => host.tag === 'fieldset')[0]!
-    expect(group.find('legend')!.textContent()).toBe('Theme')
-    const radios = group.findAll((host) => host.tag === 'input')
-    expect(radios.map((r) => [r.props.type, r.props.name, r.props.value, r.props.checked])).toEqual([
-      ['radio', 'appearance', 'system', true], ['radio', 'appearance', 'dark', false], ['radio', 'appearance', 'light', false]
+    const group = view.root.findAll((host) => host.props.role === 'group' && host.props['aria-label'] === 'Theme')[0]!
+    const buttons = group.findAll((host) => host.tag === 'button')
+    expect(buttons.map((r) => [r.props.type, r.textContent().trim(), r.props['aria-pressed']])).toEqual([
+      ['button', 'System', true], ['button', 'Dark', false], ['button', 'Light', false]
     ])
-    expect(group.findAll((host) => host.tag === 'label').map((l) => l.textContent().trim())).toEqual(['System', 'Dark', 'Light'])
-    radios[1]!.fire('change')
+    expect(group.findAll((host) => host.tag === 'input')).toHaveLength(0)
+    buttons[1]!.fire('click')
     await flush()
     expect(setAppearance).toHaveBeenCalledExactlyOnceWith('dark')
     expect(state.appearance).toBe('dark')
-    expect(radios.map((r) => r.props.checked)).toEqual([false, true, false])
+    expect(buttons.map((r) => r.props['aria-pressed'])).toEqual([false, true, false])
     view.unmount()
   })
 })

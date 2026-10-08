@@ -1,5 +1,7 @@
 """Fresh runtime extraction plus strict omission and stale-hash verification."""
 import json
+import os
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -54,6 +56,68 @@ def test_extraction_data_covers_every_difference(observed, tmp_path):
     # 38 reviewed deltas plus step 7's four D10 webhook ingress settings.
     assert len(result["deltas"]) == 42
     assert all(row["approval"]["status"] == "approved" for row in result["deltas"])
+    old_deltas = parity.expand_deltas(json.loads((ROOT / parity.PROOF).read_text())["deltas"])
+    socket_key = "settings.tools.ssh_pool.socket_dir"
+    assert [row for row in old_deltas if row["path"] != socket_key] == [
+        row for row in result["deltas"] if row["path"] != socket_key]
+    assert next(row for row in result["deltas"] if row["path"] == socket_key) == {
+        "path": socket_key, "baseline": "/tmp/odin_ssh_sockets",
+        "desktop": "$PROFILE_RUNTIME/default/ssh", "approval": parity.approval_for(socket_key)}
+    print(json.dumps({"executed_collect": True,
+                      "baseline_sha256": parity.digest(observed["baseline"]),
+                      "desktop_sha256": parity.digest(observed["desktop"]),
+                      "delta_sha256": parity.digest(result["deltas"]),
+                      "delta_count": len(result["deltas"]),
+                      "socket_dir": observed["desktop"]["settings.tools.ssh_pool.socket_dir"]},
+                     sort_keys=True))
+
+
+@pytest.mark.parametrize("uid", [1003, 4242])
+@pytest.mark.parametrize("runtime_dir", [None, "/run/user/4242", "/tmp/rt-fixture"])
+def test_socket_normalization_is_uid_and_runtime_root_independent(uid, runtime_dir):
+    fallback = f"/tmp/odin-desktop-{uid}/default/ssh"
+    assert parity.normalize_socket_directory(
+        fallback, profile_id="default", uid=uid, runtime_dir=runtime_dir,
+    ) == "$PROFILE_RUNTIME/default/ssh"
+    if runtime_dir:
+        assert parity.normalize_socket_directory(
+            f"{runtime_dir}/odin-desktop/default/ssh", profile_id="default", uid=uid,
+            runtime_dir=runtime_dir,
+        ) == "$PROFILE_RUNTIME/default/ssh"
+
+
+@pytest.mark.parametrize("value", [
+    "/tmp/odin-desktop-4242/default/ssh",  # Wrong UID.
+    "/tmp/odin-desktop-1003/other/ssh",  # Wrong profile.
+    "/tmp/odin-desktop-1003/default/ssh/extra",  # Not the exact default.
+    "/unselected/odin-desktop/default/ssh",  # Unselected XDG root.
+    "/tmp/odin-desktop-1003/default/../default/ssh",  # Custom spelling.
+    "/home/fresh/.cache/odin-desktop/default/ssh-sockets",  # Former D5 default.
+    "custom/ssh", "/tmp/odin_ssh_sockets",
+])
+def test_socket_normalization_preserves_nondefault_observations(value):
+    assert parity.normalize_socket_directory(
+        value, profile_id="default", uid=1003, runtime_dir="/tmp/rt-fixture",
+    ) == value
+
+
+def test_fresh_collect_matches_with_verified_xdg_runtime_and_fallback(observed, monkeypatch):
+    # A short private runtime root qualifies for the real selector. tmp_path can
+    # be long enough to force fallback and would not exercise XDG selection.
+    from src.desktop.paths import ProfilePaths
+    from src.desktop.ssh_sockets import socket_directory
+
+    key = "settings.tools.ssh_pool.socket_dir"
+    assert observed["desktop"][key] == "$PROFILE_RUNTIME/default/ssh"
+    with tempfile.TemporaryDirectory(prefix="rt-") as runtime_dir:
+        monkeypatch.setenv("XDG_RUNTIME_DIR", runtime_dir)
+        paths = ProfilePaths.from_xdg(home=Path(runtime_dir) / "home", environ={})
+        assert socket_directory(paths) == f"{runtime_dir}/odin-desktop/default/ssh"
+        xdg_observed = parity.collect(ROOT)
+        monkeypatch.delenv("XDG_RUNTIME_DIR")
+        assert socket_directory(paths) == f"/tmp/odin-desktop-{os.geteuid()}/default/ssh"
+        fallback_observed = parity.collect(ROOT)
+    assert xdg_observed == fallback_observed == observed
 
 
 @pytest.fixture

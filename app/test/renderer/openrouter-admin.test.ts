@@ -30,6 +30,7 @@ beforeEach(() => {
     providersCompatDiagnostic: vi.fn(async () => ok({ configured: true, provider: 'compat', model: 'author/model', health: { healthy: false, error: 'offline' }, stats: {} })),
     codexAccounts: vi.fn(async () => ok({ configured: true, accounts: [{ index: 0, account_id: 'acct', email: 'person@example.com', is_current: true, expired: true }] })),
     codexRefresh: vi.fn(async () => ok({ status: 'refreshed', email: 'person@example.com', expired: false }))
+    ,settingsSchema: vi.fn(async () => ok({ revision: 'rev-router', fields: [], status: { counts: {}, desired_revision: 'rev-router', effective_revision: null } }))
   }
   vi.stubGlobal('window', { odin: bridge })
   vi.stubGlobal('document', { activeElement: null })
@@ -45,12 +46,17 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 async function router() {
+  await (await import('../../src/renderer/src/stores/settings')).loadSettings()
   mounted = mount((await import('../../src/renderer/src/components/OpenRouterAdmin.vue')).default)
   await flush()
   return mounted.root
 }
 async function codex() {
+  const { settings } = await import('../../src/renderer/src/stores/settings')
+  settings.meta = { revision: 'rev-router', schema_version: 1, fields: [{ path: 'openai_compatible.enabled', type: 'boolean', desired: false, enum: null, constraints: {}, sensitivity: 'public', apply_handler: 'providers.compat.set', apply_state: 'dormant' } as any], status: { counts: {}, desired_revision: 'rev-router', effective_revision: null } }
   mounted = mount((await import('../../src/renderer/src/components/CodexAccounts.vue')).default)
+  await flush()
+  mounted.root.named('Configure OpenAI-compatible').fire('click')
   await flush()
   return mounted.root
 }
@@ -110,15 +116,15 @@ describe('OpenRouter honest minimum', () => {
     await flush()
     root.find('form')!.fire('submit', { preventDefault: () => undefined })
     await flush()
-    expect(bridge.openrouterSelect).toHaveBeenCalledWith({ model: 'author/model', provider_tag: 'provider-pin' })
-    expect(root.button('Select model').props.disabled).toBe(true)
+    expect(bridge.openrouterSelect).toHaveBeenCalledWith({ model: 'author/model', provider_tag: 'provider-pin', expected_revision: 'rev-router' })
+    expect(root.button('Save routing').props.disabled).toBe(true)
     root.find('form')!.fire('submit', { preventDefault: () => undefined })
     await flush()
     expect(bridge.openrouterSelect).toHaveBeenCalledTimes(1)
     expect(root.textContent()).toContain("It's never sent twice")
     await receipt('select-1', ok({ model: 'author/model', provider_tag: 'provider-pin', profile: {}, effective_profile: {} }))
-    expect(root.textContent()).toContain('Selected author/model; provider provider-pin.')
-    expect(root.button('Select model').props.disabled).toBe(false)
+    expect(root.textContent()).toContain('Saved routing for author/model; provider provider-pin.')
+    expect(root.button('Save routing').props.disabled).toBe(false)
     expect(bridge.openrouterCatalogue).toHaveBeenCalledTimes(2)
   })
 
@@ -132,7 +138,7 @@ describe('OpenRouter honest minimum', () => {
     await flush()
     root.find('form')!.fire('submit', { preventDefault: () => undefined })
     await flush()
-    expect(bridge.openrouterSelect).toHaveBeenCalledWith({ model: 'author/model', provider_tag: '' })
+    expect(bridge.openrouterSelect).toHaveBeenCalledWith({ model: 'author/model', provider_tag: '', expected_revision: 'rev-router' })
     expect(root.textContent()).toContain('provider automatic.')
   })
 
@@ -143,7 +149,7 @@ describe('OpenRouter honest minimum', () => {
     root.button('Reload catalogue').fire('click')
     await flush()
     expect(root.textContent()).not.toContain('compat:author/model')
-    expect(root.textContent()).toContain('OpenRouter catalogue is unavailable in this core.')
+    expect(root.textContent()).toContain('OpenRouter catalogue is unavailable.')
     bridge.providersCompatDiagnostic!.mockResolvedValue({ ok: false, error: { code: 'offline', message: 'Compatibility provider timed out' } })
     root.button('Read compatibility diagnostic').fire('click')
     await flush()
@@ -159,8 +165,8 @@ describe('OpenRouter honest minimum', () => {
     root.find('form')!.fire('submit', { preventDefault: () => undefined })
     await flush()
     await receipt('refused-select', refused())
-    expect(root.textContent()).toContain('OpenRouter selection is unavailable in this core.')
-    expect(root.button('Select model').props.disabled).toBe(true)
+    expect(root.textContent()).toContain('OpenRouter selection is unavailable.')
+    expect(root.button('Save routing').props.disabled).toBe(true)
     expect(bridge.openrouterSelect).toHaveBeenCalledTimes(1)
   })
 
@@ -168,13 +174,13 @@ describe('OpenRouter honest minimum', () => {
     bridge.openrouterCatalogue!.mockResolvedValue(refused())
     bridge.codexRefresh!.mockResolvedValue(refused())
     const root = await codex()
-    expect(root.textContent()).toContain('OpenRouter catalogue is unavailable in this core.')
+    expect(root.textContent()).toContain('OpenRouter catalogue is unavailable.')
     expect(root.textContent()).toContain('person@example.com')
     root.button('Refresh sign-in').fire('click')
     await flush()
-    expect(root.textContent()).toContain('Codex sign-in refresh is unavailable in this core.')
+    expect(root.textContent()).toContain('Codex sign-in refresh is unavailable.')
     expect(root.textContent()).toContain('person@example.com')
-    expect(root.button('Label…').props.disabled).toBe(false)
+    expect(root.button('Rename').props.disabled).toBe(false)
     expect(root.button('Refresh sign-in').props.disabled).toBe(true)
   })
 
@@ -184,8 +190,8 @@ describe('OpenRouter honest minimum', () => {
     const root = await codex()
     root.button('Refresh sign-in').fire('click')
     await flush()
-    expect(root.textContent()).toContain('OpenRouter catalogue is unavailable in this core.')
-    expect(root.textContent()).toContain('Codex sign-in refresh is unavailable in this core.')
+    expect(root.textContent()).toContain('OpenRouter catalogue is unavailable.')
+    expect(root.textContent()).toContain('Codex sign-in refresh is unavailable.')
     expect(root.textContent()).toContain('person@example.com')
   })
 })
@@ -234,9 +240,9 @@ describe('Codex per-account refresh', () => {
     root.button('Refresh sign-in').fire('click')
     await flush()
     await receipt('refused-refresh', refused())
-    expect(root.textContent()).toContain('Codex sign-in refresh is unavailable in this core.')
+    expect(root.textContent()).toContain('Codex sign-in refresh is unavailable.')
     expect(root.textContent()).toContain('person@example.com')
-    expect(root.button('Label…').props.disabled).toBe(false)
+    expect(root.button('Rename').props.disabled).toBe(false)
     expect(root.button('Refresh sign-in').props.disabled).toBe(true)
   })
 })

@@ -1,5 +1,6 @@
 // The message list's scrolling, mounted with its real code and the real store over a fake bridge.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { toRaw } from 'vue'
 import type { Conversation, ConversationSnapshot, CoreEvent, Message, Result } from '../../src/shared/api'
 import { flush, heldFrames, mount, type Host, type Mounted } from './component-host'
 
@@ -48,11 +49,21 @@ let frames: ReturnType<typeof heldFrames>
 /** Snapshots held back by conversation, until the test releases them. */
 let held: Map<string, (answer: Result<ConversationSnapshot>) => void>
 let deliverEvent: (event: CoreEvent) => void
+let resize: () => void
+let observed: unknown[]
+let disconnected: ReturnType<typeof vi.fn>
 
 const HIT_TOP = 150
 
 beforeEach(async () => {
   vi.resetModules()
+  observed = []
+  disconnected = vi.fn()
+  vi.stubGlobal('ResizeObserver', class {
+    constructor(callback: () => void) { resize = callback }
+    observe(target: unknown) { observed.push(toRaw(target)) }
+    disconnect = disconnected
+  })
   held = new Map()
   const api = {
     getAppState: async () => ({ link: 'ready', coreInstanceId: 'core-1', noTray: false, unreceipted: 0 }),
@@ -93,7 +104,7 @@ beforeEach(async () => {
   await flush()
 })
 
-afterEach(() => mounted.unmount())
+afterEach(() => { mounted.unmount(); vi.unstubAllGlobals() })
 
 /** Delivers frames until the scroll in progress, if any, is done. */
 async function settle(): Promise<void> {
@@ -107,6 +118,200 @@ async function searchHit(conversationId: string): Promise<void> {
 }
 
 describe('scrolling to the latest messages', () => {
+  it('keeps reader keyboard navigation unpinned while unrelated keys do not cancel following', async () => {
+    await settle()
+    scroller.fire('keydown', { key: 'Shift' })
+    scroller.scrollHeight = 8000; resize(); await flush(); await settle()
+    expect(scroller.scrollTop).toBe(7500)
+    scroller.fire('keydown', { key: 'PageUp' })
+    scroller.scrollTop = 2000; scroller.fire('scrollPassive')
+    scroller.scrollHeight = 10000; resize(); await flush(); await settle()
+    expect(scroller.scrollTop).toBe(2000)
+  })
+
+  it.each(['wheelPassive', 'pointerdown'])('keeps following after %s at the bottom without a scroll event', async (input) => {
+    await settle()
+    scroller.fire(input, { deltaY: 120 })
+    // A downward wheel at the boundary or a Copy click produces no scroll event.
+    scroller.scrollHeight = 8000
+    resize()
+    await flush()
+    await settle()
+    expect(scroller.scrollTop).toBe(7500)
+  })
+
+  it('preserves the reading anchor when older messages load and retains the exhausted-history control', async () => {
+    await settle()
+    let land!: (answer: Result<{ items: Message[]; has_more: boolean }>) => void
+    const listMessages = vi.fn(() => new Promise<Result<{ items: Message[]; has_more: boolean }>>((resolve) => { land = resolve }))
+    Object.assign(window.odin, { listMessages })
+    store.state.views.c1!.hasMore = true; await flush()
+    scroller.fire('pointerdown'); scroller.scrollTop = 900; scroller.fire('scrollPassive')
+    const button = mounted.root.named('Load older messages')
+    const loading = button.fire('click'); await flush()
+    expect(mounted.root.named('Loading… older messages').props['aria-disabled']).toBe(true)
+    button.fire('click'); await flush()
+    expect(listMessages).toHaveBeenCalledExactlyOnceWith({ conversation_id: 'c1', before: 'c1-0', limit: 100 })
+    scroller.scrollHeight = 6500
+    land({ ok: true, result: { items: [message('earlier')], has_more: false } })
+    await loading; await flush(); await settle()
+    expect(scroller.scrollTop).toBe(2400)
+    expect(store.state.views.c1!.messages[0]!.id).toBe('earlier')
+    const exhausted = mounted.root.named('All older messages loaded')
+    expect(exhausted.props['aria-disabled']).toBe(true)
+    exhausted.fire('click'); await flush()
+    expect(listMessages).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows local unknown receipts, detailed active steers, unresolved effects and queued follow-ups', async () => {
+    const view = store.state.views.c1!
+    view.running = { request_id: 'active', generation: 1, started_at: '2026-10-05T00:00:00Z' }
+    view.queued = [{ request_id: 'follow-up', generation: 1, message_id: 'follow-up-message' }]
+    view.unresolved = [{ request_id: 'uncertain', generation: 1, at: '2026-10-05T00:00:00Z', outcome: 'failed', unknown_effects: 2 }]
+    store.state.pending.push({ client_submission_id: 'pending', conversation_id: 'c1', text: 'Uncertain submission', status: 'unknown' })
+    for (const status of ['consumed', 'queued', 'unknown'] as const) store.state.controls.push({ control_command_id: status, kind: 'steer', conversation_id: 'c1', request_id: 'active', generation: 1, status, text: `Steer ${status}`, detail: 'Receipt detail' })
+    store.state.controls.push({ control_command_id: 'old-stop', kind: 'stop', conversation_id: 'c1', request_id: 'ended', generation: 1, status: 'unknown' })
+    await flush()
+    expect(mounted.root.textContent()).toContain('1 follow-up queued')
+    expect(mounted.root.textContent()).toContain('Odin has read it: Receipt detail')
+    expect(mounted.root.textContent()).toContain('waiting for Odin to read it: Receipt detail')
+    expect(mounted.root.textContent()).toContain('outcome unknown; it will not be sent again: Receipt detail')
+    expect(mounted.root.textContent()).toContain('2 action(s) with an unknown outcome. They will not be repeated.')
+    expect(mounted.root.findAll((node) => node.props['aria-label'] === 'Control receipts')[0]!.textContent()).toContain('Stopoutcome unknown; it will not be sent again')
+    await settle()
+  })
+
+  it('observes inner content and follows late image/file layout after initial scrolling settles', async () => {
+    await settle()
+    expect(observed).toContain(scroller)
+    expect(observed).toContain(mounted.root.findAll((n) => n.props.class === 'message-content')[0])
+    for (const growth of [8000, 12000]) {
+      scroller.scrollHeight = growth
+      resize()
+      await flush()
+      await settle()
+      expect(scroller.scrollTop).toBe(growth - 500)
+      scroller.fire('scrollPassive')
+    }
+  })
+
+  it('never follows late growth after reader scroll-up, even during an active end scroll', async () => {
+    await settle()
+    await store.openLatest('c1')
+    await flush()
+    scroller.fire('wheelPassive', { deltaY: -100 })
+    scroller.scrollTop = 1000
+    scroller.fire('scrollPassive')
+    const before = scroller.scrolls.length
+    scroller.scrollHeight = 12000
+    resize()
+    await flush()
+    await settle()
+    expect(scroller.scrollTop).toBe(1000)
+    expect(scroller.scrolls.length).toBe(before)
+  })
+
+  it('pins again when the reader scrolls back to the end', async () => {
+    await settle()
+    scroller.fire('wheelPassive', { deltaY: -100 })
+    scroller.scrollTop = 1000
+    scroller.fire('scrollPassive')
+    scroller.scrollTop = 4500
+    scroller.fire('scrollPassive')
+    scroller.scrollHeight = 8000
+    resize()
+    await flush()
+    await settle()
+    expect(scroller.scrollTop).toBe(7500)
+  })
+
+  it('does not repin a highlighted search result when images grow', async () => {
+    await settle()
+    await searchHit('c1')
+    await settle()
+    scroller.scrollHeight = 9000
+    resize()
+    await flush()
+    await settle()
+    expect(scroller.scrollTop).toBe(HIT_TOP)
+  })
+
+  it('preserves follow intent when End is pressed at the already settled bottom', async () => {
+    await settle()
+    scroller.fire('keydown', { key: 'End', ctrlKey: true })
+    await flush()
+    await settle()
+    scroller.scrollHeight = 8000
+    resize()
+    await flush()
+    await settle()
+    expect(scroller.scrollTop).toBe(7500)
+  })
+
+  it('ignores browser layout scroll events while pinned, before a content observer fires', async () => {
+    await settle()
+    scroller.scrollHeight = 8000
+    scroller.scrollTop = 4600
+    scroller.fire('scrollPassive')
+    resize()
+    await flush()
+    await settle()
+    expect(scroller.scrollTop).toBe(7500)
+  })
+
+  it('retains tool-publication authors through history snapshots and committed frames', async () => {
+    const artifact = { ref: 'image', name: 'Image', mime: 'image/png', size: 10, kind: 'image' as const, available: true }
+    const first: Message = { ...message('authored-history'), role: 'notice', author: 'odin', request_id: 'r1', artifacts: [artifact] }
+    const answer = snapshot('c2')
+    if (!answer.ok) throw new Error('fixture snapshot must succeed')
+    answer.result.messages.items = [first]
+    held.set('hold-c2', () => undefined)
+    const opening = store.select('c2')
+    await flush()
+    held.get('c2')!(answer)
+    await opening
+    await flush()
+    expect(store.state.views.c2!.messages[0]).toEqual(first)
+    const second: Message = { ...first, id: 'authored-live', request_id: 'r2' }
+    deliverEvent({ seq: 3, cursor: '3', type: 'message.committed', entity: { kind: 'message', id: second.id },
+      at: second.created_at, payload: { conversation_id: 'c2', message: second } })
+    await flush()
+    expect(store.state.views.c2!.messages.at(-1)).toEqual(second)
+    await settle()
+  })
+
+  it('starts following the new conversation after leaving a scrolled-up conversation', async () => {
+    await settle()
+    scroller.scrollTop = 1000
+    scroller.fire('scrollPassive')
+    await store.select('c2')
+    await flush()
+    await settle()
+    scroller.scrollHeight = 9000
+    resize()
+    await flush()
+    await settle()
+    expect(store.state.activeId).toBe('c2')
+    expect(scroller.scrollTop).toBe(8500)
+  })
+
+  it('keeps following with history focused after the reader returns to the end', async () => {
+    await settle()
+    const doc = document as unknown as { activeElement: unknown }
+    doc.activeElement = scroller
+    Object.assign(scroller, { contains: (element: unknown) => element === scroller })
+    scroller.fire('pointerdown')
+    scroller.scrollTop = 4400
+    scroller.fire('scrollPassive')
+    scroller.scrollTop = 4500
+    scroller.fire('scrollPassive')
+    scroller.scrollHeight = 8000
+    resize()
+    await flush()
+    await settle()
+    expect(scroller.scrollTop).toBe(7500)
+  })
+
   it('keeps confirmed Stop and consumed Steer receipts after their run ends', async () => {
     const view = store.state.views.c1!
     view.controls.stop = { control_command_id: 'stop', kind: 'stop', request_id: 'ended', generation: 1, status: 'confirmed' }
@@ -190,6 +395,7 @@ describe('review round 4: a newer navigation owns the view', () => {
     await store.openLatest('c1')
     await flush()
     mounted.unmount()
+    expect(disconnected).toHaveBeenCalledOnce()
     const before = scroller.scrolls.length
     scroller.scrollHeight = 9000
     await settle()
@@ -293,6 +499,24 @@ describe('a jumped-to message that has never rendered here (review #87)', () => 
     } finally {
       doc.getElementById = original
     }
+    expect(placements).toEqual([{ block: 'center' }, { block: 'start' }])
+  })
+
+  it('does not mistake programmatic scroll events between highlight frames for reader input', async () => {
+    await settle()
+    const doc = document as unknown as { getElementById: unknown }
+    const original = doc.getElementById
+    const placements: unknown[] = []
+    const target = unrendered(placements)
+    try {
+      doc.getElementById = () => target
+      await searchHit('c1')
+      expect(placements).toEqual([{ block: 'center' }])
+      // Browser scrollIntoView/layout emits scroll, without a wheel, key or pointer action.
+      scroller.fire('scrollPassive')
+      target.height = 3000
+      await settle()
+    } finally { doc.getElementById = original }
     expect(placements).toEqual([{ block: 'center' }, { block: 'start' }])
   })
 

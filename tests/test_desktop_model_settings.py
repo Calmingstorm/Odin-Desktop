@@ -119,6 +119,62 @@ async def test_main_provider_failure_is_not_persisted_or_leaked(service):
 
 
 @pytest.mark.asyncio
+async def test_main_model_effort_dependent_pair_is_one_revision(service):
+    calls = []
+
+    async def switch(provider, persist, *, model_ref, reasoning_effort):
+        calls.append((provider, model_ref, reasoning_effort))
+        persist()
+        return {"provider": provider, "model": model_ref}
+
+    service.provider.switch_provider = switch
+    service.settings.config.openai_codex.reasoning_effort = "none"
+    answer = await service.handle("models.main.set", {
+        "model": "codex:gpt-6.1-sol", "reasoning_effort": "high", "expected_revision": "r0",
+    })
+    assert calls == [("codex", "codex:gpt-6.1-sol", "high")]
+    assert answer["main_model"] == "codex:gpt-6.1-sol"
+    assert service.settings.config.openai_codex.reasoning_effort == "high"
+    assert service.settings.revision == "r1"
+    assert len(service.settings.writes) == 1
+    assert service.settings.writes[0][1][-1] == (("openai_codex", "reasoning_effort"), "high")
+
+
+@pytest.mark.asyncio
+async def test_main_pair_rejects_incompatible_effort_without_saving(service):
+    service.provider.switch_provider = lambda *args, **kwargs: pytest.fail(
+        "Invalid pair must not reach provider"
+    )
+    with pytest.raises(MethodError):
+        await service.handle("models.main.set", {
+            "model": "codex:gpt-6.1-sol", "reasoning_effort": "none",
+        })
+    assert not service.settings.writes
+
+
+@pytest.mark.asyncio
+async def test_main_pair_persistence_failure_keeps_effort(service):
+    before = service.settings.config.model_dump()
+    service.settings.fail = True
+
+    async def switch(provider, persist, **kwargs):
+        try:
+            persist()
+        except MethodError:
+            return {"error": "persist failed"}
+        pytest.fail("Failed persistence must not adopt")
+
+    service.provider.switch_provider = switch
+    with pytest.raises(MethodError) as error:
+        await service.handle("models.main.set", {
+            "model": "codex:gpt-6.1-sol", "reasoning_effort": "high", "expected_revision": "r0",
+        })
+    assert error.value.code == "storage_unavailable"
+    assert service.settings.config.model_dump() == before
+    assert not service.settings.writes
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("code,disposition", [
     ("stale_binding", "stale_binding"), ("storage_unavailable", "rejected"),
 ])

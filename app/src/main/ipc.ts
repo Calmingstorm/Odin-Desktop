@@ -10,6 +10,7 @@ import {
   type SettingsShapedMethod,
   type AppState,
   type Appearance,
+  type DesktopInfo,
   type NotificationChange,
   type Result,
   type Settings,
@@ -41,6 +42,11 @@ import {
   conversationRevisionSchema,
   draftGetSchema,
   draftSetSchema,
+  desktopInfoSchema,
+  odinImportApplySchema,
+  odinImportPreviewSchema,
+  localAppSchema,
+  setupReminderSchema,
   reloadSchema,
   uploadAttachmentSchema,
   usageSchema,
@@ -70,10 +76,22 @@ import {
   submitSchema
 } from './schemas'
 import { withCommandId } from './command-id'
+import { applyOdinImport, previewOdinImport, type FetchLike } from './odin-import'
 import { DeviceLoginBoundary } from './device-login'
 import { isSameFrame, isTrustedSender, type FrameIdentity } from './security-policy'
 
 export interface IpcDeps {
+  /** Current profile's app-owned invitation preference, independent of core health. */
+  getSetupReminderHidden?: () => boolean
+  setSetupReminderHidden?: (hidden: boolean) => void
+  /** Main-owned runtime fields; the IPC boundary projects the explicit whitelist. */
+  getDesktopInfo?: () => DesktopInfo
+  /** Fixed current-profile configDir only. Returns shell.openPath's error string. */
+  openSettingsFolder?: () => Promise<string>
+  /** Schedules the existing bounded shutdown after the acceptance receipt is queued. */
+  exitOdin?: () => void
+  /** Import from Odin's HTTP client; tests inject one. Defaults to the runtime's fetch. */
+  odinFetch?: FetchLike
   releases: ReleaseNoticeService
   broker: Broker
   /** Exit quiesces local app writes as well as core requests before persistence. */
@@ -162,6 +180,45 @@ export function registerIpc(deps: IpcDeps): void {
     return { ok: true, result: projected }
   })
   handle(IPC.checkReleases, releaseNoticeSchema, async () => ({ ok: true, result: await deps.releases.check() }))
+  const unavailable: Result<never> = { ok: false, error: {
+    code: 'capability_unavailable', message: 'This app capability is unavailable.', disposition: 'not_dispatched'
+  } }
+  handle(IPC.getSetupReminderHidden, localAppSchema, () => {
+    if (!deps.getSetupReminderHidden) return unavailable
+    const hidden = deps.getSetupReminderHidden()
+    if (typeof hidden !== 'boolean') return { ok: false, error: { code: 'internal', message: 'Invalid setup reminder preference.' } }
+    return { ok: true, result: { hidden } }
+  })
+  handle(IPC.setSetupReminderHidden, setupReminderSchema, (v) => {
+    if (!deps.setSetupReminderHidden) return unavailable
+    deps.setSetupReminderHidden(v.hidden)
+    return { ok: true, result: { hidden: v.hidden } }
+  })
+  handle(IPC.getDesktopInfo, localAppSchema, () => {
+    if (!deps.getDesktopInfo) return unavailable
+    const info = desktopInfoSchema.safeParse(deps.getDesktopInfo())
+    if (!info.success) return { ok: false, error: { code: 'internal', message: 'Invalid desktop information.' } }
+    return { ok: true, result: info.data }
+  })
+  handle(IPC.openSettingsFolder, localAppSchema, async () => {
+    if (!deps.openSettingsFolder) return unavailable
+    const error = await deps.openSettingsFolder()
+    // The OS may include private paths in its diagnostic. Report failure, never that text.
+    if (typeof error !== 'string') return { ok: false, error: { code: 'internal', message: 'Invalid folder-open receipt.' } }
+    if (error) return { ok: false, error: { code: 'open_failed', message: 'The settings folder could not be opened.' } }
+    return { ok: true, result: { opened: true } }
+  })
+  handle(IPC.exitOdin, localAppSchema, () => {
+    if (!deps.exitOdin) return unavailable
+    deps.exitOdin()
+    return { ok: true, result: { accepted: true } }
+  })
+  // Import from Odin: Odin's API is read with the user's token for this call only; writes use the core's own methods.
+  const odinFetch: FetchLike = deps.odinFetch ?? ((url, init) => fetch(url, init))
+  handle(IPC.odinImportPreview, odinImportPreviewSchema, (v) => previewOdinImport(v, deps.broker, odinFetch))
+  handle(IPC.odinImportApply, odinImportApplySchema, ({ picks, ...source }) =>
+    applyOdinImport(source, picks, deps.broker, odinFetch)
+  )
   handle(IPC.openRelease, releaseNoticeSchema, () => deps.releases.open())
   handle(IPC.listConversations, null, async () => fromSettled(await deps.broker.request('conversations.list')))
   // Conversation commands carry the window's command ID, so their late receipts can be matched (store.ts).

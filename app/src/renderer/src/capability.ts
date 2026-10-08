@@ -14,3 +14,14 @@ export function unavailableText(feature: string): string {
 export function resultMessage(result: Result<unknown>, feature: string): string {
   return result.ok ? '' : isUnavailable(result.error) ? unavailableText(feature) : result.error.message
 }
+
+/** Settings copy stays local; chat, onboarding and status retain their existing wording. */
+export function settingsUnavailableText(feature: string): string {
+  const verb = feature === 'Settings' || feature === 'Codex accounts' ? 'are' : 'is'
+  return `${feature} ${verb} unavailable.`
+}
+
+/** Keep diagnostic failures intact and name the capability that was refused. */
+export function settingsResultMessage(result: Result<unknown>, feature: string): string {
+  return result.ok ? '' : isUnavailable(result.error) ? settingsUnavailableText(feature) : result.error.message
+}

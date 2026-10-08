@@ -1,0 +1,291 @@
+path	disposition	editor	credential_route	reason
+timezone	primary	general.timezone	none	Choose local time for schedules and displayed dates.
+openai_codex.enabled	primary	models.codex	none	Enable Codex without losing account setup.
+openai_codex.model	internal-or-legacy	none	none	No independent user change: main-model selection owns this transport default.
+openai_codex.reasoning_effort	primary	models.main-effort	none	Trade response speed for deeper reasoning.
+openai_codex.agent_reasoning_effort	primary	models.agent-effort	none	Choose automatic, inherited or explicit agent reasoning effort.
+openai_codex.agent_model	internal-or-legacy	none	none	No user change: dormant alias replaced by provider-neutral agent policy.
+openai_codex.credentials_path	internal-or-legacy	none	none	No user change: profile account credentials use managed storage.
+openai_codex.request_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: request deadlines are transport plumbing.
+openai_codex.stream_stall_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: stalled-stream detection is transport plumbing.
+openai_codex.retry.max_retries	internal-or-legacy	none	none	No independent user change: provider retry policy retains its supported default.
+openai_codex.retry.base_delay	internal-or-legacy	none	none	No independent user change: provider backoff is transport plumbing.
+openai_codex.retry.max_delay	internal-or-legacy	none	none	No independent user change: provider backoff is transport plumbing.
+openai_codex.connection_pool.max_connections	internal-or-legacy	none	none	No independent user change: connection pooling is transport plumbing.
+openai_codex.connection_pool.keepalive_timeout	internal-or-legacy	none	none	No independent user change: connection pooling is transport plumbing.
+openai_codex.auxiliary.enabled	more-options	models.auxiliary	none	Enable a separate background and summarization model.
+openai_codex.auxiliary.model	more-options	models.auxiliary	none	Choose the model for auxiliary tasks rather than main chat.
+openai_codex.context_compression.enabled	internal-or-legacy	none	none	No independent user change: compression implementation follows context policy.
+openai_codex.context_compression.max_context_chars	internal-or-legacy	none	none	No independent user change: compression implementation uses supported limits.
+openai_codex.context_compression.keep_recent_iterations	internal-or-legacy	none	none	No independent user change: compression implementation retains supported defaults.
+openai_codex.context_budget_overrides	advanced	models.codex-context-overrides	none	Correct usable context budgets for particular Codex models.
+openai_codex.context_utilization	primary	models.context	none	Choose context usage while reserving response space.
+ollama.enabled	primary	models.ollama	none	Enable local models without discarding saved configuration.
+ollama.base_url	primary	models.ollama	none	Connect to the Ollama endpoint hosting your models.
+ollama.model	primary	models.ollama	none	Choose the default Ollama model.
+ollama.max_tokens	advanced	models.ollama	none	Limit response length and compute cost.
+ollama.num_ctx	more-options	models.ollama	none	Fit local model context to available memory.
+ollama.timeout	internal-or-legacy	none	none	No ordinary user change: local transport deadline retains its default.
+ollama.api_key	primary	models.ollama	secrets.set|secrets.clear	Store or remove an authenticated Ollama endpoint key.
+openai_compatible.enabled	primary	models.compatible	none	Enable a compatible provider without losing setup.
+openai_compatible.api_key	primary	models.compatible	secrets.set|secrets.clear	Store or remove the provider key without readback.
+openai_compatible.base_url	primary	models.compatible	none	Connect to your compatible provider endpoint.
+openai_compatible.model	primary	models.compatible	none	Choose the compatible provider default model.
+openai_compatible.max_tokens	advanced	models.compatible	none	Bound response length and output spending.
+openai_compatible.request_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: request deadline is transport plumbing.
+openai_compatible.stream_stall_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: stalled-stream detection is transport plumbing.
+openai_compatible.reasoning_effort	primary	models.compatible	none	Choose effort supported by the compatible model.
+openai_compatible.thinking_mode	internal-or-legacy	none	none	No user change: legacy primary thinking input is replaced by neutral effort.
+openai_compatible.preset	primary	models.compatible	none	Choose provider defaults or a custom endpoint.
+openai_compatible.reasoning_dialect	advanced	models.compatible-dialect	none	Correct custom endpoint reasoning protocol when detection is insufficient.
+openai_compatible.glm_clear_thinking	advanced	models.glm-policy	none	Choose whether GLM clears previous reasoning between turns.
+openai_compatible.reasoning_content_feedback_policy	more-options	models.compatible	none	Choose whether reasoning traces are fed back into history.
+openai_compatible.context_utilization	primary	models.compatible-context	none	Reserve response space in compatible model context.
+openai_compatible.model_profiles.total_window_tokens	advanced	models.custom-profiles	none	Correct a custom model total context window in its profile.
+openai_compatible.model_profiles.max_output_tokens	advanced	models.custom-profiles	none	Correct a custom model output reservation in its profile.
+openai_compatible.model_profiles.selection_hint	advanced	models.custom-profiles	none	Give a custom model automatic-selection guidance.
+openai_compatible.model_profiles.supports_thinking_mode	advanced	models.custom-profiles	none	Declare custom model native thinking support.
+openai_compatible.model_profiles.supports_reasoning	advanced	models.custom-profiles	none	Declare custom model reasoning support.
+openai_compatible.model_profiles.supported_efforts	advanced	models.custom-profiles	none	Declare custom model supported reasoning levels.
+openai_compatible.model_profiles	advanced	models.custom-profiles	none	Define custom model profiles as records, not raw objects.
+openai_compatible.openrouter.order	more-options	models.openrouter-routing	none	Prefer particular upstream providers for unpinned models.
+openai_compatible.openrouter.allow_fallbacks	more-options	models.openrouter-routing	none	Allow or forbid routing around unavailable preferred upstreams.
+openai_compatible.openrouter.quantizations	more-options	models.openrouter-routing	none	Restrict acceptable upstream model quantizations.
+openai_compatible.openrouter.sort	more-options	models.openrouter-routing	none	Prioritize price, throughput or latency.
+openai_compatible.openrouter.data_collection	more-options	models.openrouter-routing	none	Restrict routes by data-collection policy.
+openai_compatible.openrouter.reasoning_effort	more-options	models.openrouter-routing	none	Set the OpenRouter routed reasoning default.
+openai_compatible.openrouter.model_pins	more-options	models.openrouter-routing	none	Pin models to preferred upstream endpoint tags.
+openai_compatible.openrouter.catalogue_profiles.total_window_tokens	internal-or-legacy	none	none	No user change: catalogue refresh owns route-derived window metadata.
+openai_compatible.openrouter.catalogue_profiles.max_output_tokens	internal-or-legacy	none	none	No user change: catalogue refresh owns route-derived output metadata.
+openai_compatible.openrouter.catalogue_profiles.selection_hint	internal-or-legacy	none	none	No user change: catalogue refresh owns route-derived selection metadata.
+openai_compatible.openrouter.catalogue_profiles.supports_thinking_mode	internal-or-legacy	none	none	No user change: catalogue refresh owns route-derived thinking metadata.
+openai_compatible.openrouter.catalogue_profiles.supports_reasoning	internal-or-legacy	none	none	No user change: catalogue refresh owns route-derived reasoning metadata.
+openai_compatible.openrouter.catalogue_profiles.supported_efforts	internal-or-legacy	none	none	No user change: catalogue refresh owns route-derived effort metadata.
+openai_compatible.openrouter.catalogue_profiles	internal-or-legacy	none	none	No user change: provider catalogue refresh owns derived profiles.
+kimi.enabled	internal-or-legacy	none	none	No user change: legacy Kimi setup is replaced by compatible setup.
+kimi.api_key	internal-or-legacy	none	none	No user change: legacy Kimi credentials are replaced by compatible setup.
+kimi.model	internal-or-legacy	none	none	No user change: legacy Kimi model is replaced by compatible setup.
+kimi.max_tokens	internal-or-legacy	none	none	No user change: legacy Kimi output policy is replaced by compatible setup.
+kimi.timeout	internal-or-legacy	none	none	No user change: legacy Kimi deadline is replaced by compatible setup.
+llm_provider.active_provider	primary	models.main-model	none	Choose which configured provider handles main chat.
+llm_provider.model	primary	models.main-model	none	Choose main chat model with compatible reasoning choices.
+context.directory	internal-or-legacy	none	none	No user change: context files belong to the selected profile.
+sessions.max_history	advanced	data.conversation-retention	none	Limit messages retained in active session history.
+sessions.max_age_hours	advanced	data.conversation-retention	none	Choose when inactive sessions age out of active history.
+sessions.persist_directory	internal-or-legacy	none	none	No user change: conversations belong to the selected profile.
+sessions.token_budget	advanced	models.conversation-context	none	Bound stored history tokens for long conversations.
+sessions.adaptive_compaction	more-options	models.conversation-context	none	Choose adaptive compaction of long history.
+sessions.archive_max_bytes	more-options	data.conversation-retention	none	Cap archive disk usage while retaining restore within the cap.
+sessions.archive_max_files	more-options	data.conversation-retention	none	Cap retained conversation archive count.
+sessions.context_token_budget	advanced	models.conversation-context	none	Limit session history sent with each request.
+sessions.context_budget_overrides	advanced	models.session-context-overrides	none	Customize session-history budgets for particular models.
+tools.enabled	primary	tools.global	none	Enable tool availability without granting authorization.
+tools.tool_output_max_chars	advanced	tools.output	none	Bound model-facing output and context consumption.
+tools.governor.block_critical	more-options	hosts.command-safety	none	Choose critical-command blocking with permission-expansion confirmation.
+tools.governor.block_exfil	more-options	hosts.command-safety	none	Choose exfiltration-command blocking with permission-expansion confirmation.
+tools.governor.owner_can_override	more-options	hosts.command-safety	none	Choose whether the owner may override governor denials.
+tools.governor.host_overrides	advanced	hosts.command-safety-overrides	none	Apply host-specific command safety policies.
+tools.ssh_key_path	internal-or-legacy	none	none	No user change: enrollment uses the profile SSH identity.
+tools.ssh_known_hosts_path	internal-or-legacy	none	none	No user change: enrollment owns host trust records.
+tools.hosts.address	primary	hosts.enrollment	none	Set the host address through tested enrollment.
+tools.hosts.ssh_user	primary	hosts.enrollment	none	Choose the remote command account.
+tools.hosts.os	primary	hosts.enrollment	none	Identify host platform for command handling.
+tools.hosts.port	primary	hosts.enrollment	none	Connect using the host SSH port.
+tools.hosts.description	primary	hosts.enrollment	none	Give the host a recognizable description.
+tools.hosts.enabled	primary	hosts.enrollment	none	Disable a target without deleting enrollment.
+tools.hosts.host_id	internal-or-legacy	none	none	No user change: enrollment binds durable host identity.
+tools.hosts.trust_mode	primary	hosts.enrollment	none	Choose supported host trust during enrollment.
+tools.hosts.host_keys	primary	hosts.enrollment	none	Review and confirm keys before granting trust.
+tools.hosts	primary	hosts.enrollment	none	Add or retire hosts through enrollment, not a raw map editor.
+tools.default_host	primary	hosts.default	none	Choose the default target for host-scoped work.
+tools.allow_host_tofu	more-options	hosts.default	none	Choose whether legacy trust-on-first-use is allowed.
+tools.command_timeout_seconds	more-options	tools.timeouts	none	Set the default command deadline.
+tools.command_shell	advanced	tools.command-shell	none	Choose the shell for newly admitted local work.
+tools.tool_timeouts	more-options	tools.timeouts	none	Set individual tool deadlines.
+tools.skill_allowed_urls	more-options	skills.network-policy	none	Restrict endpoints skill code may access.
+tools.disabled_tools	primary	tools.builtin	none	Choose built-in availability without granting authorization.
+tools.audit_log_path	internal-or-legacy	none	none	No user change: audit uses profile-managed storage.
+tools.trajectory_path	internal-or-legacy	none	none	No user change: trajectories use profile-managed storage.
+tools.ssh_retry.max_retries	internal-or-legacy	none	none	No independent user change: SSH retry policy is transport plumbing.
+tools.ssh_retry.base_delay	internal-or-legacy	none	none	No independent user change: SSH retry pacing is transport plumbing.
+tools.ssh_retry.max_delay	internal-or-legacy	none	none	No independent user change: SSH retry pacing is transport plumbing.
+tools.bulkhead.ssh_max_concurrent	advanced	tools.concurrency	none	Limit simultaneous SSH work to remote host capacity.
+tools.bulkhead.subprocess_max_concurrent	advanced	tools.concurrency	none	Limit simultaneous subprocess work to workstation capacity.
+tools.bulkhead.browser_max_concurrent	advanced	tools.concurrency	none	Limit simultaneous browser jobs to available memory.
+tools.bulkhead.ssh_max_queued	advanced	tools.queue-limits	none	Bound pending SSH work when hosts are busy.
+tools.bulkhead.subprocess_max_queued	advanced	tools.queue-limits	none	Bound pending local work when execution slots are full.
+tools.bulkhead.browser_max_queued	advanced	tools.queue-limits	none	Bound pending work when browser slots are full.
+tools.ssh_pool.enabled	internal-or-legacy	none	none	No independent user change: connection reuse is transport plumbing.
+tools.ssh_pool.control_persist	internal-or-legacy	none	none	No independent user change: reuse lifetime is transport plumbing.
+tools.ssh_pool.socket_dir	internal-or-legacy	none	none	No user change: SSH sockets use profile-owned cache.
+tools.recovery.enabled	internal-or-legacy	none	none	No independent user change: recovery retains supported safety behavior.
+tools.branch_freshness.enabled	internal-or-legacy	none	none	No independent user change: freshness guarding retains its default.
+tools.streaming.enabled	more-options	tools.streaming	none	Choose whether long-running tools report incremental output.
+tools.streaming.tools	more-options	tools.streaming	none	Choose which tools stream progress.
+tools.streaming.chunk_interval_seconds	internal-or-legacy	none	none	No independent user change: chunk pacing is transport plumbing.
+tools.streaming.max_chunk_chars	internal-or-legacy	none	none	No independent user change: progress framing retains its default.
+tools.max_tool_iterations_chat	advanced	tools.work-limits	none	Bound iterations in new chat work.
+tools.max_tool_iterations_loop	advanced	work.loop-limits	none	Bound iterations in new autonomous loops.
+tools.local_working_dir	internal-or-legacy	none	none	No user change: Desktop provisions an independent protected workspace.
+logging.level	advanced	data.log-detail	none	Increase diagnostic detail while investigating a problem.
+logging.directory	internal-or-legacy	none	none	No user change: logs use profile-managed storage.
+usage.directory	internal-or-legacy	none	none	No user change: usage uses profile-managed storage.
+webhook.enabled	primary	work.inbound-webhooks	none	Enable incoming schedule events independently of outgoing integrations.
+webhook.bind_address	primary	work.inbound-webhooks	none	Choose the incoming listener interface.
+webhook.port	primary	work.inbound-webhooks	none	Choose the incoming listener port.
+webhook.triggers.source	primary	work.inbound-webhooks	none	Bind a schedule credential to its event source.
+webhook.triggers.secret	primary	work.inbound-webhooks	secrets.set|secrets.clear	Store or remove a unique incoming credential for one schedule.
+webhook.triggers	primary	work.inbound-webhooks	per-entry-secrets	Bind sources to schedules with separate write-only credentials.
+learning.enabled	primary	data.learned-context	none	Choose whether Odin accumulates learned context.
+learning.max_entries	advanced	data.learned-context	none	Limit retained learned-context entries.
+learning.consolidation_target	advanced	data.learned-context	none	Choose consolidation size when context reaches its cap.
+learning.injection_token_budget	advanced	data.learned-context	none	Limit learned context included with requests.
+learning.loop_reflection_enabled	more-options	work.reflection	none	Choose whether loops generate learned reflections.
+learning.loop_reflection_cooldown_hours	advanced	work.reflection	none	Space reflections to avoid repeated learning from similar work.
+learning.loop_reflection_max_per_hour	advanced	work.reflection	none	Limit reflection frequency and cost.
+observability.context_trace.enabled	internal-or-legacy	none	none	No ordinary user change: prompt-assembly tracing is diagnostic implementation.
+observability.context_trace.memory_key_mode	internal-or-legacy	none	none	No ordinary user change: memory-key framing belongs to diagnostic traces.
+observability.context_trace.include_segment_ids	internal-or-legacy	none	none	No ordinary user change: segment identifiers are diagnostic framing.
+observability.context_trace.max_trace_bytes	internal-or-legacy	none	none	No independent user change: diagnostic byte framing retains its default.
+observability.audit_failure_classification	internal-or-legacy	none	none	No independent user change: failure classification is diagnostic implementation.
+observability.prompt_budget_accounting	internal-or-legacy	none	none	No ordinary user change: prompt-budget accounting is diagnostic implementation.
+observability.trajectory_user_content	more-options	data.trace-privacy	none	Choose whether trajectories retain scrubbed request text.
+observability.max_user_content_chars	internal-or-legacy	none	none	No ordinary user change: trajectory text framing is diagnostic implementation.
+observability.loop_trace	internal-or-legacy	none	none	No ordinary user change: loop trajectory tracing is diagnostic implementation.
+observability.max_tool_result_chars	internal-or-legacy	none	none	No ordinary user change: tool-result trace framing is diagnostic implementation.
+email.enabled	primary	tools.email	none	Enable mail tools while retaining account setup.
+email.tls_verify	more-options	tools.email	none	Configure a deliberate verification exception for a private mail server.
+email.smtp.host	primary	tools.email	none	Choose the outgoing mail server.
+email.smtp.port	primary	tools.email	none	Choose the outgoing mail port.
+email.smtp.username	primary	tools.email	none	Choose the outgoing authentication account.
+email.smtp.password	primary	tools.email	secrets.set|secrets.clear	Store or remove the outgoing password in the keyring.
+email.smtp.from_address	primary	tools.email	none	Choose the outgoing sender address.
+email.imap.host	primary	tools.email	none	Choose the incoming mail server.
+email.imap.port	primary	tools.email	none	Choose the incoming mail port.
+email.imap.username	primary	tools.email	none	Choose the incoming authentication account.
+email.imap.password	primary	tools.email	secrets.set|secrets.clear	Store or remove the incoming password in the keyring.
+email.max_body_chars	advanced	tools.email-limits	none	Limit mail body content tools may read.
+email.max_results	advanced	tools.email-limits	none	Limit messages returned by mail search.
+email.max_attachment_bytes	advanced	tools.email-limits	none	Bound outgoing attachment size.
+email.connect_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: mail connection deadline retains its default.
+email.allowed_attachment_dirs	more-options	tools.email-limits	none	Choose directories mail tools may read attachments from.
+search.enabled	primary	data.search	none	Enable indexed search without deleting stored knowledge.
+search.search_db_path	internal-or-legacy	none	none	No user change: index storage belongs to the profile.
+browser.enabled	primary	tools.browser	none	Enable browser tools or configure them while disabled.
+browser.cdp_url	more-options	tools.browser	none	Use an existing debugging endpoint instead of the Desktop-launched browser; empty launches its own browser.
+browser.default_timeout_ms	internal-or-legacy	none	none	No ordinary user change: navigation deadline retains its default.
+browser.max_wait_timeout_seconds	advanced	tools.browser-limits	none	Bound waits for page elements.
+browser.viewport_width	advanced	tools.browser-limits	none	Choose page rendering and capture width.
+browser.viewport_height	advanced	tools.browser-limits	none	Choose page rendering and capture height.
+browser.allow_private_targets	more-options	tools.browser-limits	none	Explicitly allow selected private-network destinations.
+computer.enabled	primary	tools.computer	none	Enable qualified native availability without granting session consent.
+computer.storage_dir	unsupported-on-desktop	none	none	Desktop derives native storage from the profile and rejects direct writes.
+computer.runtime_sudo	unsupported-on-desktop	none	none	Desktop does not expose native privilege-elevation configuration.
+computer.environment	unsupported-on-desktop	none	none	Desktop derives native attachment environment from its session.
+computer.platform	unsupported-on-desktop	none	none	Desktop qualifies actual platform rather than a configured override.
+computer.display	unsupported-on-desktop	none	none	Desktop derives the native display binding.
+computer.xauthority	unsupported-on-desktop	none	none	Desktop derives native display authorization.
+computer.monitor_names	unsupported-on-desktop	none	none	Desktop obtains qualified targets rather than monitor overrides.
+computer.wayland_bus_address	unsupported-on-desktop	none	none	Desktop derives its session bus.
+computer.wayland_uid	unsupported-on-desktop	none	none	Desktop derives native session ownership.
+computer.wayland_guardian_binary	unsupported-on-desktop	none	none	Desktop qualifies a provisioned guardian rather than a selected binary.
+computer.wayland_backend	unsupported-on-desktop	none	none	Desktop qualifies backend availability rather than accepting overrides.
+computer.hyprland_discovery_mode	unsupported-on-desktop	none	none	Desktop discovery policy is derived, not writable.
+computer.hyprland_runtime_dir	unsupported-on-desktop	none	none	Desktop runtime paths are derived, not writable.
+computer.hyprland_wayland_display	unsupported-on-desktop	none	none	Desktop display identity is derived, not writable.
+computer.hyprland_instance_signature	unsupported-on-desktop	none	none	Desktop compositor identity is derived, not writable.
+computer.hyprland_output_name	unsupported-on-desktop	none	none	Desktop uses qualified output selection rather than overrides.
+computer.hyprland_compositor_pid	unsupported-on-desktop	none	none	Desktop derives native process identity.
+computer.hyprland_compositor_executable	unsupported-on-desktop	none	none	Desktop qualifies executable identity.
+computer.hyprland_compositor_sha256	unsupported-on-desktop	none	none	Desktop qualifies executable hashes as evidence, not settings.
+computer.hyprland_compositor_version	unsupported-on-desktop	none	none	Desktop qualifies version evidence rather than trusting settings.
+computer.hyprland_compositor_commit	unsupported-on-desktop	none	none	Desktop qualifies build evidence rather than trusting settings.
+computer.hyprland_compositor_owner_uid	unsupported-on-desktop	none	none	Desktop qualifies process ownership rather than configured overrides.
+computer.hyprland_guardian_binary	unsupported-on-desktop	none	none	Desktop qualifies a provisioned guardian binary.
+computer.hyprland_capture_binary	unsupported-on-desktop	none	none	Desktop qualifies a provisioned capture binary.
+computer.hyprland_scope_socket	unsupported-on-desktop	none	none	Desktop derives its scope binding.
+computer.hyprland_managed_activation	unsupported-on-desktop	none	none	Desktop qualifies activation policy rather than exposing overrides.
+computer.hyprland_plugin_manifest	unsupported-on-desktop	none	none	Desktop qualifies provisioned plugin identity.
+image.openai.enabled	more-options	models.image	none	Enable image generation independently of chat.
+image.openai.outer_model	more-options	models.image-intent	none	Follow the host-model default or pin a chosen host model.
+image.openai.image_model	more-options	models.image-intent	none	Follow the image-model default or pin a chosen image model.
+image.openai.request_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: image request deadline is transport plumbing.
+image.openai.connect_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: image connection deadline is transport plumbing.
+image.openai.stream_stall_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: image stream detection is transport plumbing.
+image.openai.max_image_bytes	advanced	models.image	none	Bound decoded image size and memory usage.
+attachments.temp_directory	internal-or-legacy	none	none	No user change: attachments use the profile cache.
+attachments.inline_text_max_bytes	advanced	data.attachment-limits	none	Choose which text attachments fit inline.
+attachments.preview_max_chars	advanced	data.attachment-limits	none	Limit text preview length.
+attachments.large_preview_chars	advanced	data.attachment-limits	none	Limit previews for large attachments.
+attachments.archive_max_bytes	advanced	data.attachment-limits	none	Bound archive upload size before inspection.
+attachments.archive_max_files	advanced	data.attachment-limits	none	Bound archive entries inspected.
+attachments.archive_extract_max_bytes	advanced	data.attachment-limits	none	Bound extracted bytes to protect storage.
+attachments.archive_preview_total_chars	advanced	data.attachment-limits	none	Limit combined archive preview text.
+attachments.image_max_bytes	advanced	data.attachment-limits	none	Bound image upload size.
+attachments.pdf_max_bytes	advanced	data.attachment-limits	none	Bound PDF upload size.
+attachments.archive_preview_file_max_bytes	advanced	data.attachment-limits	none	Limit individual archive entries eligible for preview.
+attachments.retention_hours	advanced	data.attachment-retention	none	Choose temporary attachment retention.
+personality.preset	primary	personality.main	none	Choose voice and behavior preset.
+personality.custom_name	primary	personality.main	none	Name the custom personality.
+personality.custom_identity	primary	personality.main	none	Write identity instructions with explicit Save or Cancel.
+personality.custom_voice	primary	personality.main	none	Write voice instructions with explicit Save or Cancel.
+personality.user_presets.name	primary	personality.presets	none	Name a saved custom preset.
+personality.user_presets.identity	primary	personality.presets	none	Save reusable identity instructions.
+personality.user_presets.voice	primary	personality.presets	none	Save reusable voice instructions.
+personality.user_presets	primary	personality.presets	none	Create or remove saved presets as structured records.
+mcp.enabled	primary	mcp.global	none	Enable publication without deleting servers.
+mcp.max_published_tools_per_server	more-options	mcp.limits	none	Limit tools published by each server.
+mcp.max_published_tools_global	more-options	mcp.limits	none	Limit total published tools to keep the catalogue manageable.
+mcp.servers.enabled	primary	mcp.server	none	Enable a server without deleting saved values.
+mcp.servers.transport	primary	mcp.server	none	Choose local stdio or remote HTTP transport.
+mcp.servers.command	primary	mcp.server	none	Choose the local server executable.
+mcp.servers.args	primary	mcp.server	none	Supply local server startup arguments.
+mcp.servers.url	primary	mcp.server	mcp.save	Set the remote endpoint with private URL credentials in the owner keyring transaction.
+mcp.servers.headers	primary	mcp.server	mcp.save	Keep, replace or remove write-only HTTP credentials through the server transaction.
+mcp.servers.env	primary	mcp.server	mcp.save	Keep, replace or remove write-only environment credentials through the server transaction.
+mcp.servers.cwd	more-options	mcp.server	none	Choose the local working directory.
+mcp.servers.tool_allowlist	more-options	mcp.server	none	Restrict discovered tools that may be published.
+mcp.servers.timeout_seconds	more-options	mcp.server	none	Bound requests to this server.
+mcp.servers	primary	mcp.server	mcp.save	Add structured servers with owner-managed credentials, never a raw map editor.
+audit.hmac_key	internal-or-legacy	none	none	No user change: audit signing authority is profile-managed security state.
+agents.model	primary	models.agents	none	Choose main, automatic or fixed agent model.
+agents.thinking_mode	more-options	models.agents	none	Set or inherit compatible-agent thinking policy.
+agents.auto_model_allowlist	primary	models.agents	none	Choose automatic candidates, ranking and per-entry effort or thinking policy.
+agents.model_selection_hints	more-options	models.agents	none	Give per-model automatic-selection guidance.
+agents.max_nesting_depth	advanced	models.agent-limits	none	Bound delegation depth.
+agents.max_children_per_agent	advanced	models.agent-limits	none	Bound children each agent may spawn.
+agents.max_concurrent_agents	primary	models.agent-limits	none	Choose per-channel agent parallelism.
+agents.max_iterations	advanced	models.agent-limits	none	Bound iterations, cost and runaway work.
+agents.scheduled_max_iterations	advanced	work.scheduled-agent-limits	none	Bound scheduled agent iterations.
+agents.hard_max_iterations	advanced	models.agent-hard-limit	none	Set the hard ceiling new agents cannot exceed.
+agents.final_warning_iterations	internal-or-legacy	none	none	No independent user change: warning cadence follows iteration policy.
+agents.iteration_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: hung-generation backstop retains its default.
+agents.max_lifetime_seconds	advanced	models.agent-limits	none	Choose the maximum lifetime of new agents.
+outbound_webhooks.enabled	unsupported-on-desktop	none	none	Global switch has no Desktop write operation: outbound save edits individual targets only.
+outbound_webhooks.scrub_secrets	unsupported-on-desktop	none	none	Global scrubbing has no Desktop write operation: per-target scrubbing remains supported.
+outbound_webhooks.rate_limit_seconds	unsupported-on-desktop	none	none	Global rate limit has no Desktop write operation: outbound save edits individual targets only.
+outbound_webhooks.targets.id	internal-or-legacy	none	none	No user change: the owner binds durable target identity.
+outbound_webhooks.targets.created_at	internal-or-legacy	none	none	No user change: the owner records creation time.
+outbound_webhooks.targets.name	primary	work.outbound-webhooks	none	Give an integration a recognizable name.
+outbound_webhooks.targets.url	primary	work.outbound-webhooks	webhooks.outbound.save	Set the endpoint with private URL credentials in the owner keyring transaction.
+outbound_webhooks.targets.secret	primary	work.outbound-webhooks	webhooks.outbound.save	Keep, replace or remove signing keys through the integration transaction.
+outbound_webhooks.targets.signing_key_stored	internal-or-legacy	none	none	No user change: the owner records credential presence without readback.
+outbound_webhooks.targets.private_url_stored	internal-or-legacy	none	none	No user change: the owner records private URL presence without readback.
+outbound_webhooks.targets.events	primary	work.outbound-webhooks	none	Choose delivered event types.
+outbound_webhooks.targets.enabled	primary	work.outbound-webhooks	none	Disable an integration without deleting it.
+outbound_webhooks.targets.scrub_secrets	more-options	work.outbound-webhooks	none	Choose target scrubbing with explicit privacy confirmation.
+outbound_webhooks.targets.verify_ssl	more-options	work.outbound-webhooks	none	Configure a deliberate verification exception for a private endpoint.
+outbound_webhooks.targets	primary	work.outbound-webhooks	webhooks.outbound.save	Add structured integrations with owner-managed credentials.
+graceful_degradation.degraded_threshold	internal-or-legacy	none	none	No independent user change: failure classification retains its supported threshold.
+graceful_degradation.unavailable_threshold	internal-or-legacy	none	none	No independent user change: failure classification retains its supported threshold.
+llm_recovery.generation_deadline_seconds	internal-or-legacy	none	none	No ordinary user change: generation recovery deadline is engine plumbing.
+llm_recovery.backoff_cap_seconds	internal-or-legacy	none	none	No independent user change: recovery backoff is engine plumbing.
+llm_recovery.breaker_generation_threshold	internal-or-legacy	none	none	No independent user change: breaker classification is engine plumbing.
+llm_recovery.breaker_cooldown_base_seconds	internal-or-legacy	none	none	No independent user change: breaker recovery pacing is engine plumbing.
+llm_recovery.breaker_cooldown_cap_seconds	internal-or-legacy	none	none	No independent user change: breaker recovery pacing is engine plumbing.
+turn_state.enabled	internal-or-legacy	none	none	No user change: durable receipt safety retains supported defaults.
+turn_state.db_path	internal-or-legacy	none	none	No user change: durable state belongs to the profile.
+turn_state.auto_resume	more-options	work.recovery	none	Choose automatic resume without overriding quarantine or unknown-effect guards.
+turn_state.resume_ttl_hours	advanced	work.recovery	none	Choose how old work may be before automatic resume is refused.
+turn_state.payload_retention_days	advanced	data.work-retention	none	Choose completed payload retention.
+turn_state.ledger_retention_days	advanced	data.work-retention	none	Choose completed ownership and receipt retention.

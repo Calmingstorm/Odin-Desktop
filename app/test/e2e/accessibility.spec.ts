@@ -111,11 +111,28 @@ async function tabTo(target: Locator, reverse = false): Promise<void> {
     if (await target.evaluate((el) => el === document.activeElement)) {
       const focus = await target.evaluate((el) => {
         const s = getComputedStyle(el)
-        return { visible: el.matches(':focus-visible'), outline: s.outlineStyle, width: s.outlineWidth }
+        const frame = el.matches('.composer-box textarea') ? el.closest('.composer-box') : null
+        const frameStyle = frame ? getComputedStyle(frame) : null
+        const line = getComputedStyle(document.documentElement).getPropertyValue('--line').trim()
+        const idleRgb = /^#[0-9a-f]{6}$/i.test(line)
+          ? `rgb(${[1, 3, 5].map((offset) => parseInt(line.slice(offset, offset + 2), 16)).join(', ')})` : null
+        return { visible: el.matches(':focus-visible'), outline: s.outlineStyle, width: s.outlineWidth,
+          composer: frame ? { focused: frame.matches(':focus-within'), border: frameStyle!.borderTopColor,
+            width: frameStyle!.borderTopWidth, shadow: s.boxShadow, idleRgb } : null }
       })
       expect(focus.visible).toBe(true)
-      expect(focus.outline).not.toBe('none')
-      expect(parseFloat(focus.width)).toBeGreaterThanOrEqual(2)
+      if (focus.composer) {
+        // Only Message delegates focus to its outer frame. All other controls retain rings.
+        expect(focus.outline).toBe('none')
+        expect(focus.composer.shadow).toBe('none')
+        expect(focus.composer.focused).toBe(true)
+        expect(focus.composer.idleRgb).not.toBeNull()
+        expect(focus.composer.border).not.toBe(focus.composer.idleRgb)
+        expect(parseFloat(focus.composer.width)).toBeGreaterThanOrEqual(1)
+      } else {
+        expect(focus.outline).not.toBe('none')
+        expect(parseFloat(focus.width)).toBeGreaterThanOrEqual(2)
+      }
       return
     }
     await page.keyboard.press(reverse ? 'Shift+Tab' : 'Tab')
@@ -142,15 +159,30 @@ async function ax(name: string): Promise<string> {
   const tree = await session.send('Accessibility.getFullAXTree')
   await session.detach()
   await test.info().attach(`ax-${name}`, { body: JSON.stringify(tree, null, 2), contentType: 'application/json' })
-  const controls = new Set(['button', 'textbox', 'searchbox', 'combobox', 'checkbox', 'radio', 'spinbutton', 'menuitem', 'slider'])
+  const controls = new Set(['button', 'textbox', 'searchbox', 'combobox', 'checkbox', 'switch', 'radio', 'spinbutton', 'menuitem', 'slider'])
   expect(tree.nodes.filter((node) => !node.ignored && controls.has(String(node.role?.value)) && !String(node.name?.value ?? '').trim()),
     `unnamed controls in real Chromium AX tree on ${name}`).toEqual([])
   return JSON.stringify(tree)
 }
 
 async function settingsSection(name: string): Promise<void> {
-  await activate(page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name, exact: true }))
-  await expect(page.locator('.settings-body')).toContainText(name)
+  if (name === 'Advanced settings') {
+    await settingsSection('General')
+    await activate(page.getByRole('button', { name, exact: true }))
+    await expect(page.locator('#settings-section-title')).toHaveText(name)
+    return
+  }
+  if (name === 'Memory and knowledge' || name === 'Usage, logs and audit') {
+    await settingsSection('Data and privacy')
+    const subsection = page.getByRole('navigation', { name: 'Data and privacy subsections' }).getByRole('button', { name, exact: true })
+    await activate(subsection)
+    await expect(subsection).toHaveAttribute('aria-current', 'page')
+    return
+  }
+  const destination = page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name, exact: true })
+  await activate(destination)
+  await expect(destination).toHaveAttribute('aria-current', 'page')
+  await expect(page.locator('#settings-section-title')).toHaveText(name)
 }
 
 async function typeField(field: Locator, value: string): Promise<void> {
@@ -199,12 +231,13 @@ test('theme choice applies to the page and window, keeps focus and survives a re
   expect((await native()).source).toBe(startDark ? 'dark' : 'light')
   // General's theme choice returns to following the system, by keyboard, and says which choice is current.
   await page.keyboard.press('Control+,')
-  // Tab reaches a radio group at its checked option; the arrow keys move the choice, as with any radio group.
+  // B3 uses native segmented buttons. Tab and Space activate the System choice,
+  // retaining the keyboard, focus, native theme and persistence assertions.
   const theme = page.getByRole('group', { name: 'Theme', exact: true })
-  const system = theme.getByRole('radio', { name: 'System', exact: true })
-  await tabTo(theme.getByRole('radio', { checked: true }))
-  for (let n = 0; n < 3 && !(await system.isChecked()); n++) await page.keyboard.press('ArrowUp')
-  await expect(system).toBeChecked()
+  const system = theme.getByRole('button', { name: 'System', exact: true })
+  await tabTo(system)
+  await page.keyboard.press('Space')
+  await expect(system).toHaveAttribute('aria-pressed', 'true')
   await expect(system).toBeFocused()
   await expect.poll(async () => (await native()).source).toBe('system')
   expect(await pageDark()).toBe(initial.dark)
@@ -217,10 +250,15 @@ test('settings section audit inventory', async () => {
   const nav = page.getByRole('navigation', { name: 'Settings sections' })
   const labels = await nav.locator('.settings-nav-item').allTextContents()
   const findings: Record<string, unknown> = {}
+  expect(labels).toEqual(['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and access', 'Work', 'Data and privacy'])
   for (const label of labels) {
-    await activate(nav.getByRole('button', { name: label, exact: true }))
-    await expect(page.locator('.settings-body')).toContainText(label)
-    await page.waitForTimeout(200)
+    await settingsSection(label)
+    findings[label] = await runAxe()
+    await contrastInOtherTheme(`settings-${label}`)
+    await ax(`settings-${label}`)
+  }
+  for (const label of ['Memory and knowledge', 'Usage, logs and audit', 'Advanced settings']) {
+    await settingsSection(label)
     findings[label] = await runAxe()
     await contrastInOtherTheme(`settings-${label}`)
     await ax(`settings-${label}`)
@@ -293,14 +331,44 @@ async function nativeFile(path: string, title: string): Promise<void> {
   if (title === 'Save file') {
     execFileSync('xdotool', ['type', '--clearmodifiers', '--delay', '1', dirname(path)])
     execFileSync('xdotool', ['key', '--clearmodifiers', 'Return'])
-    await page.waitForTimeout(200)
+    await expect.poll(() => nativeDialogState(title).some((node) => node.role === 'toggle button' && node.name === basename(dirname(path)) && node.checked)).toBe(true)
     execFileSync('xdotool', ['key', '--clearmodifiers', 'alt+n', 'ctrl+a'])
+    await expect.poll(() => nativeDialogState(title).some((node) => node.role === 'text' && node.focused && node.editable)).toBe(true)
     execFileSync('xdotool', ['type', '--clearmodifiers', '--delay', '1', basename(path)])
-    execFileSync('xdotool', ['key', '--clearmodifiers', 'Return'])
+    await expect.poll(() => nativeDialogState(title).some((node) => node.role === 'text' && node.focused && node.text === basename(path))).toBe(true)
+    await expect.poll(() => nativeDialogState(title).some((node) => node.role === 'push button' && node.name === 'Save' && node.enabled)).toBe(true)
+    execFileSync('xdotool', ['key', '--clearmodifiers', 'alt+s'])
     return
   }
   execFileSync('xdotool', ['type', '--clearmodifiers', '--delay', '1', path])
   execFileSync('xdotool', ['key', '--clearmodifiers', 'Return'])
+}
+
+function nativeDialogState(title: string): Array<{ role: string; name: string; focused: boolean; checked: boolean; editable: boolean; enabled: boolean; text?: string }> {
+  // Read-only AT-SPI observations, restricted to the exact chooser on the
+  // isolation runner's private bus. Input still travels exclusively by keys.
+  return JSON.parse(execFileSync('/usr/bin/python3', ['-c', `
+import gi, json
+gi.require_version('Atspi', '2.0')
+from gi.repository import Atspi
+rows = []
+def walk(node, depth=0, selected=False):
+    if depth > 15 or len(rows) > 1500: return
+    try:
+        role = node.get_role_name()
+        selected = selected or (role == 'file chooser' and node.get_name() == ${JSON.stringify(title)})
+        states = node.get_state_set()
+        row = {'role': role, 'name': node.get_name(), 'focused': states.contains(Atspi.StateType.FOCUSED),
+               'checked': states.contains(Atspi.StateType.CHECKED), 'editable': states.contains(Atspi.StateType.EDITABLE),
+               'enabled': states.contains(Atspi.StateType.ENABLED)}
+        if role in ('text', 'entry', 'password text'):
+            row['text'] = Atspi.Text.get_text(node, 0, -1)
+        if selected: rows.append(row)
+        for i in range(node.get_child_count()): walk(node.get_child_at_index(i), depth + 1, selected)
+    except Exception: pass
+walk(Atspi.get_desktop(0))
+print(json.dumps(rows))
+`], { encoding: 'utf8', timeout: 5000 }))
 }
 
 test('keyboard menus, modal trapping, restored focus and conversation children', async () => {
@@ -450,10 +518,10 @@ test('real core keyboard status usage and every real settings or unavailable ser
   expect(await ax('real-core-chat')).not.toContain('Echo:')
   await page.keyboard.press('Control+,')
   const nav = page.getByRole('navigation', { name: 'Settings sections' })
-  // Schema loading adds Other. Do not race enumeration and silently omit its accessibility audit.
-  await expect(nav.getByRole('button', { name: 'Other', exact: true })).toBeVisible()
+  // Nine stable primary destinations; secondary destinations are audited explicitly below.
+  await expect(nav.getByRole('button', { name: 'Data and privacy', exact: true })).toBeVisible()
   const labels = await nav.locator('.settings-nav-item').allTextContents()
-  expect(labels).toHaveLength(11)
+  expect(labels).toEqual(['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and access', 'Work', 'Data and privacy'])
   for (const label of labels) {
     // Real Tools has the full catalog, potentially hundreds of controls. Walk
     // backwards from its first status control to the settings navigation rather
@@ -461,8 +529,8 @@ test('real core keyboard status usage and every real settings or unavailable ser
     const section = nav.getByRole('button', { name: label, exact: true })
     await tabTo(section, label === 'Skills')
     await page.keyboard.press('Enter')
-    await expect(page.locator('.settings-body')).toContainText(label)
-    await page.waitForTimeout(200)
+    await expect(section).toHaveAttribute('aria-current', 'page')
+    await expect(page.locator('#settings-section-title')).toHaveText(label)
     if (label === 'Skills') {
       const panel = page.getByRole('region', { name: 'Skills', exact: true })
       await expect(panel).toContainText('slice4_constant')
@@ -484,19 +552,24 @@ test('real core keyboard status usage and every real settings or unavailable ser
       await expect(panel).not.toContainText('MCP is unavailable in this core')
       await activate(panel.getByRole('button', { name: 'Add server', exact: true }))
       await tabTo(page.getByRole('textbox', { name: 'Executable', exact: true }))
+      await activate(page.getByRole('button', { name: 'Cancel MCP server changes', exact: true }))
+      await expect(page.getByRole('dialog', { name: 'Add MCP server', exact: true })).toHaveCount(0)
     }
     if (label === 'Tools') {
       // D17 fresh settings enable the browser; this source-tree profile has no qualified bundle.
       const browser = page.getByRole('region', { name: 'Browser runtime', exact: true })
-      await expect(browser).toContainText('State: unavailable')
+      await expect(browser).toContainText('unavailable')
       await expect(browser).toContainText('Not ready')
       await activate(browser.getByRole('button', { name: 'Refresh status for browser', exact: true }))
-      await expect(browser).toContainText('State: unavailable')
+      await expect(browser).toContainText('unavailable')
     }
-    if (label === 'Records') {
+    if (label === 'Data and privacy') {
+      await audit('real-Memory and knowledge')
+      await ax('real-Memory and knowledge')
+      await settingsSection('Usage, logs and audit')
       const computer = page.getByRole('region', { name: 'Computer use', exact: true })
-      await expect(computer).toContainText('No computer-use session is reported by this status')
-      await expect(computer).toContainText('Foreground computer use is unavailable.')
+      await expect(computer).toContainText('No computer-use session is reported.')
+      await expect(computer).toContainText('Desktop input is unavailable.')
       await expect(computer.getByRole('button', { name: 'Reconcile', exact: true })).toHaveCount(0)
       const usage = page.getByRole('region', { name: 'Usage', exact: true })
       await expect(usage.getByRole('combobox', { name: 'Period', exact: true })).toBeVisible()
@@ -506,13 +579,13 @@ test('real core keyboard status usage and every real settings or unavailable ser
       await expect(usage).toContainText(/\((?:measured|not measured: Odin doesn't know this value)\)/)
       await expect(usage).not.toContainText('Usage is unavailable in this core')
     }
-    if (label === 'Scheduled and running work') {
+    if (label === 'Work') {
       await expect(page.getByRole('region', { name: 'Schedules', exact: true })).toContainText('No schedules yet.')
       await expect(page.getByRole('region', { name: 'Running work', exact: true })).toContainText('Nothing is running.')
       await expect(page.locator('.settings-body')).not.toContainText('Work (agents, tasks, loops, processes, workflows and schedules) is unavailable')
       const ingress = page.getByRole('region', { name: 'Webhook ingress', exact: true })
       await expect(ingress.getByTestId('webhook-ingress-status')).toContainText('Disabled')
-      await tabTo(ingress.getByRole('checkbox', { name: 'Enable inbound webhook deliveries', exact: true }))
+      await tabTo(ingress.getByRole('switch', { name: 'Enable inbound webhook deliveries', exact: true }))
       await tabTo(ingress.getByRole('textbox', { name: 'Listen address', exact: true }))
       await activate(page.getByRole('button', { name: 'New schedule', exact: true }))
       const form = page.getByRole('region', { name: 'Schedule form', exact: true })
@@ -525,17 +598,20 @@ test('real core keyboard status usage and every real settings or unavailable ser
       await audit('real-webhook-trigger-editor')
       const triggerTree = await ax('real-webhook-trigger-editor')
       expect(triggerTree).toContain('Trigger event')
-      await activate(form.getByRole('button', { name: 'Close', exact: true }))
+      await activate(form.getByRole('button', { name: 'Cancel', exact: true }))
     }
     await audit(`real-${label}`)
     await ax(`real-${label}`)
   }
+  await settingsSection('Advanced settings')
+  await audit('real-Advanced settings')
+  await ax('real-Advanced settings')
 })
 
 test('keyboard settings edits, field-associated errors, secrets and provider code AX privacy', async () => {
   await launch()
   await page.keyboard.press('Control+,')
-  await tabTo(page.getByRole('checkbox', { name: 'Quiet hours', exact: true }))
+  await tabTo(page.getByRole('switch', { name: 'Quiet hours', exact: true }))
   await page.keyboard.press('Space')
   await tabTo(page.getByLabel('Quiet hours start', { exact: true }))
   await tabTo(page.getByLabel('Quiet hours end', { exact: true }))
@@ -548,6 +624,7 @@ test('keyboard settings edits, field-associated errors, secrets and provider cod
   await settingsSection('Tools')
   await activate(page.getByRole('button', { name: 'Parameters for read_file', exact: true }))
   await expect(page.locator('#tool-parameters-read_file')).toContainText('properties')
+  await activate(page.getByText('More options', { exact: true }))
   const timeout = page.getByRole('spinbutton', { name: 'Default, in seconds', exact: true })
   await typeField(timeout, '0')
   await activate(page.getByRole('button', { name: 'Save timeouts', exact: true }))
@@ -561,11 +638,16 @@ test('keyboard settings edits, field-associated errors, secrets and provider cod
   await expect(timeout).not.toHaveAttribute('aria-invalid', 'true')
 
   await settingsSection('Models and providers')
-  const secret = page.locator('input[type="password"]').first()
+  await activate(page.getByRole('button', { name: 'Configure OpenAI-compatible', exact: true }))
+  const secret = page.locator('[id="settings-curated-openai_compatible.api_key"]')
+  const secretSchema = await page.evaluate(() => window.odin.settingsSchema())
+  expect(secretSchema.ok).toBe(true)
+  if (secretSchema.ok) expect(secretSchema.result.fields.find((field) => field.path === 'openai_compatible.api_key')).toMatchObject({ sensitivity: 'sensitive', secret_route: 'secrets.set' })
+  await expect(secret).toBeEnabled()
   const sentinel = 'fixture-only-private-a11y-value'
   await typeField(secret, sentinel)
   expect(await ax('secret-editing')).not.toContain(sentinel)
-  await activate(secret.locator('..').getByRole('button', { name: /^Save / }))
+  await activate(page.getByRole('button', { name: /^(Store|Replace) OpenAI-compatible API key$/ }))
   await expect(secret).toHaveValue('')
   expect(await ax('secret-saved')).not.toContain(sentinel)
   await activate(page.getByRole('button', { name: 'Add account', exact: true }))
@@ -589,15 +671,24 @@ test('keyboard management disclosures and editor forms are named and auditable',
   await audit('skill-editor')
 
   await settingsSection('MCP servers')
-  await activate(page.getByRole('button', { name: 'Tools for LMMS', exact: true }))
+  await activate(page.getByRole('button', { name: 'More actions for LMMS', exact: true }))
+  // Native menu items use roving focus, not the page's Tab order.
+  const mcpMenu = page.getByRole('menu', { name: 'More actions for LMMS', exact: true })
+  await expect(mcpMenu.getByRole('menuitem', { name: 'Reconnect LMMS', exact: true })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowDown')
+  await expect(mcpMenu.getByRole('menuitem', { name: 'Tools for LMMS', exact: true })).toBeFocused()
+  await page.keyboard.press('Enter')
   await expect(page.locator('.mcp-tools')).toContainText('create_track')
   await activate(page.getByRole('button', { name: 'Add server', exact: true }))
   await tabTo(page.getByRole('textbox', { name: 'Executable', exact: true }))
   await activate(page.getByRole('button', { name: 'Add a header', exact: true }))
   await tabTo(page.getByLabel('Header value 1', { exact: true }))
   await audit('mcp-editor')
+  await activate(page.getByRole('button', { name: 'Cancel MCP server changes', exact: true }))
+  await expect(page.getByRole('dialog', { name: 'Add MCP server', exact: true })).toHaveCount(0)
 
-  await settingsSection('Hosts and trust')
+  await settingsSection('Hosts and access')
   const enroll = page.getByRole('button', { name: /^Enroll trusted key for host / }).first()
   await activate(enroll)
   const enrollment = page.getByRole('region', { name: 'Host enrollment', exact: true })
@@ -610,20 +701,34 @@ test('keyboard management disclosures and editor forms are named and auditable',
   await expect(enrollment).toContainText('Check the host\'s key yourself')
   await expect(enrollment.getByRole('textbox', { name: 'Expected fingerprints', exact: true })).not.toHaveValue('')
   await expect(enrollment.getByRole('button', { name: 'Scan and compare', exact: true })).toBeVisible()
-  await activate(enrollment.getByRole('button', { name: 'Close', exact: true }))
+  await activate(enrollment.getByRole('button', { name: 'Cancel', exact: true }))
   await activate(page.getByRole('button', { name: 'Add host', exact: true }))
+  await expect(page.getByRole('dialog', { name: 'Add host', exact: true })).toBeVisible()
   await tabTo(page.getByRole('textbox', { name: 'Alias', exact: true }))
   await audit('host-enrollment')
 
-  await settingsSection('Scheduled and running work')
+  // Add host is now a native modal. Finish the enrollment before navigating;
+  // Tab correctly cannot reach the inert Settings navigation while it is open.
+  await activate(page.getByRole('region', { name: 'Host enrollment', exact: true }).getByRole('button', { name: 'Cancel', exact: true }))
+  await expect(page.getByRole('dialog', { name: 'Add host', exact: true })).toHaveCount(0)
+  // Removing the native dialog leaves no focus-owner promise. Ground the next
+  // keyboard traversal on its still-rendered opener, without scripted focus.
+  await tabTo(page.getByRole('button', { name: 'Add host', exact: true }))
+  await expect(page.getByRole('button', { name: 'Add host', exact: true })).toBeFocused()
+
+  await settingsSection('Work')
   await activate(page.getByRole('button', { name: /^Edit schedule / }).first())
   await audit('schedule-editor')
+  await activate(page.getByRole('region', { name: 'Schedule form', exact: true }).getByRole('button', { name: 'Cancel', exact: true }))
+  await expect(page.getByRole('dialog', { name: /^Edit schedule / })).toHaveCount(0)
+  await tabTo(page.getByRole('button', { name: /^Edit schedule / }).first())
+  await expect(page.getByRole('button', { name: /^Edit schedule / }).first()).toBeFocused()
 
-  await settingsSection('State')
+  await settingsSection('Memory and knowledge')
   await activate(page.getByRole('button', { name: 'Open Everywhere memory', exact: true }))
   await expect(page.getByRole('table', { name: 'Everywhere memory entries' })).toBeVisible()
   await audit('memory-disclosure')
-  await settingsSection('Records')
+  await settingsSection('Usage, logs and audit')
   await tabTo(page.getByRole('searchbox', { name: 'Search the audit', exact: true }))
   await tabTo(page.getByRole('combobox', { name: 'Period', exact: true }))
   await tabTo(page.getByRole('searchbox', { name: 'Search the logs', exact: true }))
@@ -633,9 +738,9 @@ test('keyboard management disclosures and editor forms are named and auditable',
   await tabTo(page.getByRole('combobox', { name: 'Preset', exact: true }))
   await tabTo(page.getByRole('textbox', { name: 'Name', exact: true }))
   await audit('personality-presets')
-  await settingsSection('Other')
+  await settingsSection('Advanced settings')
   await tabTo(page.locator('.settings-body'))
-  await audit('other-settings')
+  await audit('advanced-settings')
 })
 
 test('real-shape service failure cards and readiness are accessible without claiming native input', async () => {
@@ -653,22 +758,24 @@ test('real-shape service failure cards and readiness are accessible without clai
   const servers = page.getByRole('region', { name: 'MCP servers', exact: true })
   await expect(servers).toContainText('LMMS')
   await expect(servers).toContainText('Profile keyring is unavailable or locked')
-  await tabTo(servers.getByRole('button', { name: 'Reconnect locked-local', exact: true }))
+  await activate(servers.getByRole('button', { name: 'More actions for locked-local', exact: true }))
+  await expect(page.getByRole('menu', { name: 'More actions for locked-local', exact: true })).toBeVisible()
   await audit('per-server-keyring-reason')
   expect(await ax('per-server-keyring-reason')).toContain('Profile keyring is unavailable or locked')
+  await page.keyboard.press('Escape')
   await settingsSection('Tools')
   const browser = page.getByRole('region', { name: 'Browser runtime', exact: true })
-  await expect(browser).toContainText('State: unavailable')
+  await expect(browser).toContainText('unavailable')
   await expect(browser).toContainText('Not ready')
-  await expect(browser).toContainText(/next .*use|next-use/i)
+  await expect(browser).toContainText(/next browser request can check availability again/i)
   await audit('browser-next-use-unavailable')
-  await settingsSection('Records')
+  await settingsSection('Usage, logs and audit')
   const computer = page.getByRole('region', { name: 'Computer use', exact: true })
-  await expect(computer).toContainText('No computer-use session is reported by this status')
-  await expect(computer).toContainText('Foreground computer use is unavailable.')
+  await expect(computer).toContainText('No computer-use session is reported.')
+  await expect(computer).toContainText('Desktop input is unavailable.')
   await expect(computer.getByRole('button', { name: 'Reconcile', exact: true })).toHaveCount(0)
   await audit('computer-unqualified-envelope')
-  expect(await ax('computer-unqualified-envelope')).toContain('Foreground computer use is unavailable.')
+  expect(await ax('computer-unqualified-envelope')).toContain('Desktop input is unavailable.')
 })
 
 test('a notification for a long reply opens it at its start, even before it rendered in this list', async () => {
@@ -723,7 +830,7 @@ test('work panel keyboard controls, focus return and target names', async () => 
   await expect(workButton).toBeFocused()
   await expect(page.locator('.work-panel')).toHaveCount(0)
   await page.keyboard.press('Control+,')
-  await settingsSection('Scheduled and running work')
+  await settingsSection('Work')
   const openConversation = page.locator('.settings-body .work-link').first()
   await activate(openConversation)
   await expect(page.getByRole('region', { name: 'Conversation history', exact: true })).toBeFocused()

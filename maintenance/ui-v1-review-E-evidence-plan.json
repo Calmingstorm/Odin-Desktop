@@ -1,0 +1,19 @@
+{
+  "scope": "Exact inherited source contracts unchanged; only named shared-test digests are revalidated for Round E tool-publication presentation tests.",
+  "changed_tests": ["tests/test_desktop_delivery.py", "tests/test_desktop_skill_delivery.py", "tests/test_desktop_engine_services.py"],
+  "paths": [
+    "src/discord/delivery.py",
+    "src/discord/native_tools/registry.py",
+    "src/discord/native_tools/skills_tools.py",
+    "src/discord/tool_loop.py",
+    "src/desktop/mcp.py",
+    "src/desktop/notifications.py",
+    "src/desktop/requests.py",
+    "src/desktop/resource_cleanup.py",
+    "src/desktop/runtime.py",
+    "src/desktop/schema.py",
+    "tests/test_desktop_background_skill_delivery.py",
+    "tests/test_desktop_step5_completion_core.py"
+  ],
+  "reason_suffix": " | Round E named-evidence revalidation: inherited source bytes and semantic contract unchanged; shared Desktop tests add explicit trusted tool-publication author assertions and generic notice preservation. Records remain pending independent review."
+}

@@ -7,11 +7,12 @@ import { IPC } from '../src/shared/api'
 const m = vi.hoisted(() => ({
   app: null as any, windows: [] as any[], brokers: [] as any[], supervisors: [] as any[], trays: [] as any[],
   journal: null as any, deps: null as any, ready: Promise.resolve() as Promise<void>,
-  packaged: false, lock: true, trayAvailable: true, initialLink: 'ready', read: vi.fn(), write: vi.fn(),
+  packaged: false, lock: true, trayAvailable: true, trayDetection: null as Promise<boolean> | null,
+  initialLink: 'ready', read: vi.fn(), write: vi.fn(),
   coreCommand: vi.fn(), guardian: null as any, acquire: vi.fn(), admit: vi.fn(), inspect: vi.fn(),
   security: { registerAppScheme: vi.fn(), installGuards: vi.fn(), serveAppScheme: vi.fn(), hardenedWebPreferences: vi.fn(() => ({ sandbox: true })) },
   native: vi.fn(), onboarding: vi.fn(), realSmoke: vi.fn(), register: vi.fn(),
-  theme: null as any, power: null as any, ipc: null as any,
+  theme: null as any, power: null as any, ipc: null as any, screen: null as any,
   menu: vi.fn(), menuSet: vi.fn(), clipboard: vi.fn(), open: vi.fn(), openPath: vi.fn(), reveal: vi.fn(),
   errorBox: vi.fn(), pick: vi.fn(), save: vi.fn(), autostart: vi.fn(), enabled: vi.fn(),
   monitorClose: vi.fn(), hookRemove: vi.fn(), sessionEnd: null as any
@@ -41,8 +42,14 @@ vi.mock('electron', () => ({
     loadURL = vi.fn(async () => undefined); setBackgroundColor = vi.fn();
     isVisible() { return this.visible } isFocused() { return false }
     isMinimized() { return this.minimized } isDestroyed() { return this.destroyed }
+    isMaximized() { return false } isFullScreen() { return false }
+    getNormalBounds() { return { x: this.options.x ?? 0, y: this.options.y ?? 0, width: this.options.width, height: this.options.height } }
+    getBounds() { return this.getNormalBounds() }
+    setBounds = vi.fn((bounds: any) => { Object.assign(this.options, bounds); this.emit('resize') });
+    setMinimumSize = vi.fn(); maximize = vi.fn(); unmaximize = vi.fn(); minimize = vi.fn(); setFullScreen = vi.fn();
   },
   get nativeTheme() { return m.theme }, get powerMonitor() { return m.power }, get ipcMain() { return m.ipc },
+  get screen() { return m.screen },
   Menu: { buildFromTemplate: m.menu, setApplicationMenu: m.menuSet },
   clipboard: { writeText: m.clipboard },
   shell: { openExternal: m.open, openPath: m.openPath, showItemInFolder: m.reveal },
@@ -85,7 +92,7 @@ vi.mock('../src/main/ipc', () => ({ registerIpc: (deps: any) => { m.deps = deps;
 vi.mock('../src/main/release-notice', () => ({ ReleaseNoticeService: class { constructor(public version: any, public open: any) {} } }))
 vi.mock('../src/main/autostart', () => ({ setAutostart: m.autostart, isAutostartEnabled: m.enabled }))
 vi.mock('../src/main/native-notifications', () => ({ showNativeNotification: m.native }))
-vi.mock('../src/main/tray', () => ({ detectTray: async () => m.trayAvailable, OdinTray: class {
+vi.mock('../src/main/tray', () => ({ detectTray: async () => m.trayDetection ?? m.trayAvailable, OdinTray: class {
   setStatus = vi.fn(); setTooltip = vi.fn(); destroy = vi.fn();
   constructor(public path: string, public actions: any) { m.trays.push(this) }
 } }))
@@ -108,14 +115,17 @@ vi.mock('../src/main/shutdown', async (original) => {
 beforeEach(() => {
   vi.resetModules(); vi.clearAllMocks(); vi.useFakeTimers();
   m.windows.length = 0; m.brokers.length = 0; m.supervisors.length = 0; m.trays.length = 0;
-  m.packaged = false; m.lock = true; m.trayAvailable = true; m.initialLink = 'ready'; m.ready = Promise.resolve(); m.deps = null;
+  m.packaged = false; m.lock = true; m.trayAvailable = true; m.trayDetection = null;
+  m.initialLink = 'ready'; m.ready = Promise.resolve(); m.deps = null;
   m.app = Object.assign(new EventEmitter(), {
     isPackaged: false, requestSingleInstanceLock: vi.fn(() => m.lock), quit: vi.fn(), exit: vi.fn(),
     whenReady: vi.fn(() => m.ready), getAppPath: () => '/mock/app', getVersion: () => '0.1.0', getPath: () => '/mock/downloads',
-    setName: vi.fn(), setPath: vi.fn()
+    setName: vi.fn(), setPath: vi.fn(), commandLine: { getSwitchValue: vi.fn(() => 'x11') }
   });
   m.theme = Object.assign(new EventEmitter(), { themeSource: 'system', shouldUseDarkColors: true });
   m.power = new EventEmitter(); m.ipc = new EventEmitter();
+  const display = { id: 1, workArea: { x: 0, y: 0, width: 1280, height: 800 } };
+  m.screen = Object.assign(new EventEmitter(), { getAllDisplays: () => [display], getPrimaryDisplay: () => display });
   m.read.mockImplementation((path: string) => path.includes('token') ? ' token\n' : '{}');
   m.write.mockImplementation(() => undefined);
   m.coreCommand.mockReturnValue({ command: '/mock/python', args: ['-m', 'src'], env: {} });
@@ -141,6 +151,66 @@ async function flush() { for (let i = 0; i < 15; i++) await Promise.resolve() }
 const prevent = () => ({ preventDefault: vi.fn() })
 
 describe('inert main-process lifecycle wiring', () => {
+  it('rejects false persistence receipts without adopting notification or native theme changes', async () => {
+    const { deps, win } = await boot()
+    const previous = structuredClone(deps.getSettings())
+    m.write.mockImplementation(() => { throw new Error('mock durable write failed') })
+    expect(() => deps.setNotifications({ previews: !previous.notifications.previews })).toThrow('could not be persisted')
+    expect(deps.getSettings().notifications).toEqual(previous.notifications)
+    expect(() => deps.setAppearance('light')).toThrow('could not be persisted')
+    expect(deps.getSettings().appearance).toBe(previous.appearance)
+    expect(m.theme.themeSource).toBe(previous.appearance)
+    expect(win.setBackgroundColor).toHaveBeenCalledWith('#0E1115')
+    m.write.mockImplementation(() => undefined)
+    expect(deps.setAppearance('light').appearance).toBe('light')
+    expect(deps.setNotifications({ previews: false }).notifications.previews).toBe(false)
+    expect(JSON.parse(m.write.mock.calls.at(-1)![1])).toMatchObject({ appearance: 'light', notifications: { previews: false } })
+  })
+  it('rolls back explicit mute and unmute when the shared preference writer fails', async () => {
+    const { deps } = await boot()
+    const before = structuredClone(deps.getSettings().notifications)
+    m.write.mockImplementation(() => { throw new Error('mock durable write failed') })
+    expect(() => deps.setConversationMuted('private-chat', true)).toThrow('could not be persisted')
+    expect(deps.getSettings().notifications).toEqual(before)
+    m.write.mockImplementation(() => undefined)
+    expect(deps.setConversationMuted('private-chat', true).notifications.muted).toContain('private-chat')
+    const muted = structuredClone(deps.getSettings().notifications)
+    m.write.mockImplementation(() => { throw new Error('mock durable write failed') })
+    expect(() => deps.setConversationMuted('private-chat', false)).toThrow('could not be persisted')
+    expect(deps.getSettings().notifications).toEqual(muted)
+    m.write.mockImplementation(() => undefined)
+    expect(deps.setConversationMuted('private-chat', false).notifications.muted).not.toContain('private-chat')
+  })
+  it('supplies whitelisted app metadata and opens only the active profile configDir', async () => {
+    const { deps } = await boot()
+    const info = deps.getDesktopInfo()
+    expect(info).toEqual({ appVersion: '0.1.0', electronVersion: process.versions.electron,
+      chromiumVersion: process.versions.chrome, nodeVersion: process.versions.node,
+      platform: process.platform, architecture: process.arch, license: 'MIT', packaged: false })
+    m.app.isPackaged = true
+    expect(deps.getDesktopInfo().packaged).toBe(true)
+    m.openPath.mockResolvedValueOnce('OS rejected /mock/config')
+    expect(await deps.openSettingsFolder('/untrusted/path')).toBe('OS rejected /mock/config')
+    expect(m.openPath).toHaveBeenCalledExactlyOnceWith('/mock/config')
+    expect(m.open).not.toHaveBeenCalled()
+  })
+  it('schedules the existing bounded shutdown only after the exit callback returns', async () => {
+    const { deps, broker, supervisor } = await boot()
+    expect(deps.exitOdin()).toBeUndefined()
+    // Multiple accepted clicks still reach the existing idempotent shutdown once.
+    expect(deps.exitOdin()).toBeUndefined()
+    expect(deps.admitting()).toBe(true)
+    expect(broker.quiesce).not.toHaveBeenCalled()
+    expect(m.app.exit).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(0)
+    await flush()
+    expect(deps.admitting()).toBe(false)
+    expect(broker.quiesce).toHaveBeenCalledOnce()
+    expect(broker.originalRequest).toHaveBeenCalledWith('runtime.shutdown', { reason: 'exit' })
+    expect(supervisor.stop).toHaveBeenCalledOnce()
+    expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0)
+    expect(m.journal.finish).toHaveBeenCalledWith(expect.objectContaining({ shutdownAccepted: true, processOutcome: 'exited' }))
+  })
   it('pins Chromium storage and the visible name before instance admission or readiness', async () => {
     await boot();
     expect(m.app.setName).toHaveBeenCalledExactlyOnceWith('Odin');
@@ -265,10 +335,33 @@ describe('inert main-process lifecycle wiring', () => {
     else if (source === 'menu') m.menu.mock.calls[0]![0][0].submenu[2].click(); else m.app.emit('second-instance', {}, ['--exit']);
     await flush(); expect(supervisor.stop).toHaveBeenCalledOnce(); expect(tray.destroy).toHaveBeenCalledOnce(); expect(m.app.exit).toHaveBeenCalledWith(0);
   })
-  it('marks failed preferences persistence unknown rather than declaring clean exit', async () => {
+  it('reports explicit preference failure but cosmetic persistence does not make cleanup unknown', async () => {
     const { deps } = await boot(); m.write.mockImplementation(() => { throw new Error('disk full') });
-    deps.setNotifications({ previews: false }); m.sessionEnd(); await flush();
+    expect(() => deps.setNotifications({ previews: false })).toThrow('could not be persisted');
+    expect(deps.getSettings().notifications.previews).toBe(true);
+    expect(() => deps.setAppearance('light')).toThrow('could not be persisted');
+    m.sessionEnd(); await flush();
+    expect(m.journal.finish).toHaveBeenCalledWith(expect.objectContaining({ state: 'process-exited', unsaved: false }));
+  })
+  it('still records draft persistence failure as unknown cleanup', async () => {
+    const { deps } = await boot(); deps.drafts.flush.mockImplementation(() => { throw new Error('draft disk full') });
+    m.sessionEnd(); await flush();
     expect(m.journal.finish).toHaveBeenCalledWith(expect.objectContaining({ state: 'unknown', unsaved: true }));
+  })
+  it.each(['null', '[]', '{broken'])('damaged top-level app state %s cannot block launch', async content => {
+    m.read.mockReturnValue(content); const { win, deps } = await boot();
+    expect(win.options.width).toBe(1180); expect(deps.getSetupReminderHidden()).toBe(false);
+  })
+  it('one latest-state writer preserves dismissal, geometry, preferences and unknown fields', async () => {
+    m.read.mockReturnValue(JSON.stringify({ setupReminderHidden: true, appearance: 'dark', extraFutureField: { value: 1 } }));
+    const { win, deps } = await boot(); expect(deps.getSetupReminderHidden()).toBe(true);
+    win.setBounds({ x: 100, width: 900 }); deps.setNotifications({ previews: false }); deps.setAppearance('light');
+    deps.setSetupReminderHidden(false); win.emit('close', prevent());
+    const saved = JSON.parse(m.write.mock.calls.filter(([path]) => path === '/mock/app.json').at(-1)![1]);
+    expect(saved).toMatchObject({ setupReminderHidden: false, appearance: 'light', notifications: { previews: false },
+      extraFutureField: { value: 1 }, windowState: { normalBounds: { x: 100, width: 900 } } });
+    m.write.mockImplementation(() => { throw new Error('disk full') });
+    expect(() => deps.setSetupReminderHidden(true)).toThrow('could not be persisted'); expect(deps.getSetupReminderHidden()).toBe(false);
   })
   it('does not create a window if exit arrives before app readiness', async () => {
     let resolve!: () => void; m.ready = new Promise<void>(r => { resolve = r });
@@ -302,6 +395,17 @@ describe('inert main-process lifecycle wiring', () => {
     expect(broker.originalRequest).toHaveBeenCalledWith('fixture.read', { value: 1 }, 'fixture-id');
     expect(await hooks.notification({ conversation_id: 'c1', message_id: 'm1', category: 'reply', preview: 'test', dedupe_key: 'e2e' }, new Date().toISOString())).toBe('shown');
     await flush(); expect(hooks.notificationAcks).toEqual([expect.objectContaining({ dedupeKey: 'e2e', outcome: 'shown', settled: { ok: true, result: {} } })]);
+    expect(hooks.windowSnapshot()).toMatchObject({ backend: 'x11', resolvedOzonePlatform: 'x11',
+      bounds: win.getBounds(), normalBounds: win.getNormalBounds(), maximized: false, minimized: false,
+      fullscreen: false, persisted: { version: 1, maximized: false } });
+    hooks.windowBounds({ x: 100, y: 40, width: 900, height: 600 });
+    expect(win.setBounds).toHaveBeenLastCalledWith({ x: 100, y: 40, width: 900, height: 600 });
+    expect(hooks.windowSnapshot().persisted.normalBounds).toEqual({ x: 100, y: 40, width: 900, height: 600 });
+    for (const mode of ['maximize', 'unmaximize', 'minimize', 'restore', 'fullscreen', 'normal']) hooks.windowMode(mode);
+    expect(win.maximize).toHaveBeenCalledOnce(); expect(win.unmaximize).toHaveBeenCalledOnce();
+    expect(win.minimize).toHaveBeenCalledOnce(); expect(win.restore).toHaveBeenCalledOnce();
+    expect(win.setFullScreen.mock.calls).toEqual([[true], [false]]);
+    hooks.windowMode('unrecognized'); expect(win.setFullScreen).toHaveBeenCalledTimes(2);
     hooks.close(); hooks.show(); hooks.rendererCrash(); expect(win.close).toHaveBeenCalledOnce(); expect(win.focus).toHaveBeenCalledOnce(); expect(win.webContents.forcefullyCrashRenderer).toHaveBeenCalledOnce();
     hooks.exit(); await flush(); expect(m.app.exit).toHaveBeenCalledWith(0);
   })
@@ -336,4 +440,111 @@ describe('inert main-process lifecycle wiring', () => {
     const { win, supervisor } = await boot(); win.emit('close', prevent()); await flush();
     expect(win.hide).toHaveBeenCalledOnce(); expect(supervisor.stop).not.toHaveBeenCalled(); expect(m.app.exit).not.toHaveBeenCalled();
   })
+  it('repairs geometry only for relevant display changes and releases display listeners on Exit', async () => {
+    const { win, deps } = await boot();
+    const smaller = { id: 2, workArea: { x: 300, y: 200, width: 800, height: 600 } };
+    m.screen.getAllDisplays = () => [smaller]; m.screen.getPrimaryDisplay = () => smaller;
+    m.screen.emit('display-metrics-changed', {}, smaller, ['rotation', 'colorSpace']);
+    expect(win.setBounds).not.toHaveBeenCalled(); expect(win.setMinimumSize).not.toHaveBeenCalled();
+    m.screen.emit('display-metrics-changed', {}, smaller, ['workArea']);
+    expect(win.setBounds).toHaveBeenLastCalledWith({ x: 300, y: 200, width: 800, height: 600 });
+    expect(win.setMinimumSize).toHaveBeenLastCalledWith(720, 480);
+    m.screen.emit('display-removed', {}, smaller);
+    await vi.advanceTimersByTimeAsync(250);
+    expect(JSON.parse(m.write.mock.calls.at(-1)![1]).windowState.normalBounds)
+      .toEqual({ x: 300, y: 200, width: 800, height: 600 });
+    expect(deps.admitting()).toBe(true);
+    m.sessionEnd(); await flush();
+    expect(m.screen.listenerCount('display-removed')).toBe(0);
+    expect(m.screen.listenerCount('display-metrics-changed')).toBe(0);
+    const repairs = win.setBounds.mock.calls.length;
+    m.screen.emit('display-removed'); m.screen.emit('display-metrics-changed', {}, smaller, ['bounds']);
+    expect(win.setBounds).toHaveBeenCalledTimes(repairs);
+    await vi.advanceTimersByTimeAsync(1000); expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0);
+  })
+  it('restores maximized hidden windows without replacing retained normal geometry', async () => {
+    const normalBounds = { x: 80, y: 40, width: 900, height: 600 };
+    m.read.mockReturnValue(JSON.stringify({ windowState: { version: 1, normalBounds, maximized: true } }));
+    const { win, deps } = await boot(['--hidden']);
+    expect(win.options).toMatchObject(normalBounds); expect(win.maximize).toHaveBeenCalledOnce();
+    expect(win.show).not.toHaveBeenCalled();
+    deps.setSetupReminderHidden(true);
+    expect(JSON.parse(m.write.mock.calls.at(-1)![1])).toMatchObject({ setupReminderHidden: true,
+      windowState: { version: 1, normalBounds, maximized: true } });
+  })
+  it('retains a pre-ready open request but exits safely while tray detection is unresolved', async () => {
+    let ready!: () => void; let trayReady!: (value: boolean) => void;
+    m.ready = new Promise<void>(resolve => { ready = resolve });
+    m.trayDetection = new Promise<boolean>(resolve => { trayReady = resolve });
+    await boot(['--hidden']); m.app.emit('second-instance', {}, []);
+    expect(m.windows).toHaveLength(0);
+    ready(); await flush(); expect(m.deps).not.toBeNull(); expect(m.windows).toHaveLength(0);
+    expect(await m.deps.pickFiles()).toEqual([]); expect(await m.deps.chooseSavePath('ignored')).toBeNull();
+    expect(m.pick).not.toHaveBeenCalled(); expect(m.save).not.toHaveBeenCalled();
+    m.sessionEnd(); await flush(); trayReady(true); await flush();
+    expect(m.windows).toHaveLength(0); expect(m.trays).toHaveLength(0);
+    expect(m.supervisors[0].start).not.toHaveBeenCalled(); expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0);
+  })
+  it.each(['not-ready', 'rejected'])('does not claim accepted shutdown when the core is %s', async failure => {
+    const { broker, supervisor } = await boot();
+    if (failure === 'not-ready') broker.waitForShutdownReady.mockResolvedValue(false);
+    else broker.originalRequest.mockResolvedValue({ ok: false, error: { code: 'unavailable' } });
+    m.sessionEnd(); await flush();
+    expect(broker.quiesce).toHaveBeenCalledOnce(); expect(supervisor.stop).toHaveBeenCalledOnce();
+    if (failure === 'not-ready') expect(broker.originalRequest).not.toHaveBeenCalledWith('runtime.shutdown', expect.anything());
+    expect(m.journal.finish).toHaveBeenCalledWith(expect.objectContaining({ state: 'unknown', shutdownAccepted: false }));
+    expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0);
+  })
+  it('ignores failed welcome snapshots and never sends an unaddressed smoke submission', async () => {
+    vi.stubEnv('ODIN_SMOKE_MESSAGE', 'fixture hello');
+    const { broker, win } = await boot(['--smoke-test']);
+    broker.originalRequest.mockResolvedValue({ ok: false, error: { code: 'unavailable' } });
+    broker.emit('welcome'); await flush();
+    await vi.advanceTimersByTimeAsync(3000); await flush();
+    expect(broker.originalRequest).not.toHaveBeenCalledWith('submission.send', expect.anything(), expect.anything());
+    expect(win.webContents.capturePage).toHaveBeenCalledOnce(); expect(m.app.exit).toHaveBeenCalledWith(0);
+  })
+  it('retains latest geometry after a cosmetic write failure without adopting failed preferences or making Exit unknown', async () => {
+    const { win, deps } = await boot();
+    deps.setSetupReminderHidden(true); deps.setNotifications({ previews: false });
+    const previous = structuredClone(deps.getSettings());
+    m.write.mockImplementation(() => { throw new Error('geometry disk full') });
+    win.setBounds({ x: 70, y: 30, width: 850, height: 550 });
+    await vi.advanceTimersByTimeAsync(250);
+    expect(m.journal.markUnknown).not.toHaveBeenCalled(); expect(m.app.exit).not.toHaveBeenCalled();
+    expect(() => deps.setSetupReminderHidden(false)).toThrow('could not be persisted');
+    expect(deps.getSetupReminderHidden()).toBe(true);
+    expect(() => deps.setNotifications({ previews: true })).toThrow('could not be persisted');
+    expect(deps.getSettings()).toEqual(previous);
+    m.write.mockImplementation(() => undefined); deps.setAppearance('light');
+    expect(JSON.parse(m.write.mock.calls.at(-1)![1])).toMatchObject({ setupReminderHidden: true,
+      appearance: 'light', notifications: { previews: false }, windowState: {
+        normalBounds: { x: 70, y: 30, width: 850, height: 550 } } });
+    m.write.mockImplementation(() => { throw new Error('shutdown geometry disk full') });
+    m.sessionEnd(); await flush();
+    expect(m.journal.finish).toHaveBeenCalledWith(expect.objectContaining({ state: 'process-exited', unsaved: false }));
+    expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0);
+  })
+  it.each(['missing-conversation', 'too-short', 'missing-message', 'not-highlighted', 'not-at-start'])
+    ('rejects dishonest notification screenshot evidence: %s', async failure => {
+      vi.stubEnv('ODIN_SMOKE_OUT', '/mock/smoke.png'); vi.stubEnv('ODIN_SMOKE_SHOTS', 'fixture');
+      const { win } = await boot(['--smoke-test']);
+      const execute = win.webContents.executeJavaScript.getMockImplementation()!;
+      win.webContents.executeJavaScript.mockImplementation(async (script: string) => {
+        if (failure === 'missing-conversation' && script.includes('conv-title')) return 'Not listed';
+        if (failure === 'too-short' && script.includes('Math.round(s.scrollHeight')) return 99;
+        if (failure === 'missing-message' && script.includes('id?.slice')) return '';
+        if (script.includes('JSON.stringify({ top:')) {
+          if (failure === 'not-highlighted') return JSON.stringify({ top: 0, view: 800, height: 900, highlighted: false });
+          if (failure === 'not-at-start') return JSON.stringify({ top: 50, view: 800, height: 900, highlighted: true });
+        }
+        return execute(script);
+      });
+      await vi.runAllTimersAsync(); await flush();
+      const expected = { 'missing-conversation': 'no listed conversation', 'too-short': 'too short to scroll away',
+        'missing-message': 'could not identify', 'not-highlighted': 'did not highlight', 'not-at-start': 'did not show' }[failure];
+      expect(process.stderr.write).toHaveBeenCalledWith(expect.stringContaining(expected!));
+      expect(process.stdout.write).not.toHaveBeenCalledWith(expect.stringContaining('smoke: ok'));
+      expect(m.app.exit).toHaveBeenCalledWith(1);
+    })
 })
