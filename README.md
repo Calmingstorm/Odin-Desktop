@@ -18,8 +18,10 @@ Supported sessions are **Cinnamon/X11, GNOME/Wayland, KDE/Wayland and Hyprland**
 Windows, macOS and ARM builds are not supported in 1.0.
 
 Desktop can be installed alongside Odin without adopting its state automatically.
-**Import from Odin** previews selected supported settings, memory and skills from an existing
-installation; it is not a history or credential migration. See [Settings](docs/user/settings.md).
+**Import from Odin** previews selected memory, skills, MCP servers, personality, managed hosts
+and model settings from an existing installation. It never replaces what already exists;
+secrets Odin withholds have to be entered again. It is not a history or credential migration.
+See [Settings](docs/user/settings.md).
 
 ## User guide
 

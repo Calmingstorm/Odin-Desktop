@@ -101,3 +101,23 @@ No GitHub settings/visibility changes, release dispatch, notice-generation chang
 dependency-distribution change, Odin repository change, service operation, VM or active-desktop input.
 Repository-local locked Python development dependencies were installed in this checkout's `.venv`.
 The draft PR must not be marked ready by this task.
+
+## PR #121 review corrections
+
+Review: `/home/odin/reviews/desktop-public/review-pr121.md`, 2026-10-08.
+
+- R1: restored master reason/contract/invariant text for all seven re-recorded entries,
+  appending each public-readiness addition with the dated delimiter requested by review.
+  Restored inventory.py's complete master merge_lineage and merge_resolution. Verified
+  after_sha256, patch, test_sha256 and tests remain unchanged for every corrected entry;
+  all other entries are unchanged. The ledger is canonical sorted-key, indent-2 JSON.
+- R2: README and installation guide now enumerate memory, skills, MCP servers, personality,
+  managed hosts and model settings, state that import never replaces existing content,
+  and explain that withheld secrets must be entered again.
+- All five maintenance gates passed again; inventory reports no errors and
+  byte-drift-clean-review-pending. Focused isolated maintenance tests: **27 passed**.
+  `git diff --check` passed. No production source or test behavior changed.
+- Raw validation evidence:
+  `/home/odin/reviews/desktop-public/evidence/pr121-review-fixes-gates.log`.
+  Full engine/app CI and graphical/package qualification were not rerun for these
+  provenance/documentation-only corrections. PR remains draft; no settings or live changes.

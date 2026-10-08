@@ -119,8 +119,9 @@ that time, the cleanup is recorded as unknown.
 ## Your profile and privacy
 
 Desktop creates its own profile and does not automatically adopt another Odin installation's state.
-**Import from Odin** previews selected supported settings, memory and skills;
-it does not migrate history, credentials or a browser profile. See [Settings](settings.md).
+**Import from Odin** previews selected memory, skills, MCP servers, personality, managed hosts
+and model settings. It never replaces what already exists; secrets Odin withholds have to be
+entered again. It does not migrate history, credentials or a browser profile. See [Settings](settings.md).
 Managed SSH is supported, but this is not a phone app or a client for an existing Odin server.
 
 For the default profile and standard Linux locations:
