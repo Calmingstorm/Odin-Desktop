@@ -5,6 +5,7 @@ import type { KnowledgeHit, KnowledgeIngest, KnowledgeSource, KnowledgeVersion, 
 import { isUnavailable, settingsResultMessage as resultMessage } from '../capability'
 import { act, management } from './management'
 import { activePersonality } from '../assistant-name'
+import { onReady } from '../store'
 
 type StateResource = 'personality' | 'memory' | 'lists' | 'knowledge' | 'context'
 const features: Record<StateResource, string> = { personality: 'Personality', memory: 'Memory', lists: 'Named list management', knowledge: 'Knowledge', context: 'Context reload' }
@@ -75,6 +76,10 @@ async function command<T>(resource: StateResource, run: () => Promise<Result<T>>
 // ---- Personality ------------------------------------------------------------------------------------------------------
 
 let personalityAsked = 0
+
+// Re-read at start and after every recovery: a read made before the core was connected can't leave the chat on the
+// default name, and the newer read supersedes one still in flight from a previous core.
+onReady(() => { loadPersonality().catch(() => undefined) })
 
 export async function loadPersonality(): Promise<void> {
   const mine = ++personalityAsked

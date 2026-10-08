@@ -5,8 +5,11 @@
 - **Fixed:** a saved personality, such as one brought over with Import from Odin, applied only until the app
   restarted. After a restart Odin Desktop answered as Odin again. Saved personalities now apply from the first
   message after every start.
-- The chat names the assistant after the active personality: replies, the message box and the empty chat use its
-  name, for example Clippy. The window title and the tray still say Odin.
+- The chat names the assistant after the active personality: replies, the message box, the empty chat, the working,
+  Steer and resume text, and their screen-reader announcements use its name, for example Clippy. The window title
+  and the tray still say Odin.
+- Settings, Personality lists saved presets by their own names, so presets that share a display name can be told
+  apart.
 
 ## [1.0.0]
 

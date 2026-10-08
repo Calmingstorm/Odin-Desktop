@@ -220,7 +220,7 @@ async function closeReport(): Promise<void> {
     @dragleave="dragging = false"
     @drop.prevent="onDrop"
   >
-    <div v-if="running" class="mode" role="radiogroup" aria-label="While Odin is working">
+    <div v-if="running" class="mode" role="radiogroup" :aria-label="`While ${assistantName()} is working`">
       <label><input v-model="mode" name="composer-mode" type="radio" value="steer" /> Steer the current task</label>
       <label><input v-model="mode" name="composer-mode" type="radio" value="queue" /> Queue as a follow-up</label>
     </div>

@@ -105,3 +105,68 @@ describe('the chat with a saved personality active', () => {
     expect(list.root.textContent()).toContain('Ask Odin anything.')
   })
 })
+
+describe('the chat name follows the connected core', () => {
+  const ready = (coreInstanceId: string): AppState => ({ link: 'ready', coreInstanceId, noTray: false, unreceipted: 0 })
+  const start = async () => {
+    const store = await import('../../src/renderer/src/store')
+    // The chat view's module registers the personality's ready listener before the store starts.
+    const list = await import('../../src/renderer/src/components/MessageList.vue')
+    await store.init()
+    const view = mount(list.default)
+    mounted.push(view)
+    await flush()
+    return { store, view, push: api.onAppState!.mock.calls[0]![0] as (state: AppState) => void }
+  }
+
+  it('reads the personality again when the core becomes ready, after a read that failed during startup', async () => {
+    api.getAppState!.mockResolvedValue({ link: 'connecting', coreInstanceId: null, noTray: false, unreceipted: 0 })
+    api.personalityGet!.mockResolvedValueOnce({ ok: false, error: { code: 'not_connected', message: 'Odin is not connected yet.', disposition: 'not_dispatched' } })
+    const { view, push } = await start()
+    expect(view.root.textContent()).not.toContain('Clippy')
+    push(ready('real-core'))
+    await flush()
+    expect(view.root.textContent()).toContain('Ask Clippy anything.')
+  })
+
+  it("keeps the newer core's personality when a read from the previous core answers late", async () => {
+    const late: Array<(answer: unknown) => void> = []
+    const deferred = () => new Promise((resolve) => { late.push(resolve) })
+    api.personalityGet!.mockImplementationOnce(deferred).mockImplementationOnce(deferred)
+    const { view, push } = await start()
+    expect(late).toHaveLength(2)
+    push(ready('core-2'))
+    await flush()
+    expect(view.root.textContent()).toContain('Ask Clippy anything.')
+    for (const resolve of late) resolve({ ok: true, result: personality('professional') })
+    await flush()
+    expect(view.root.textContent()).toContain('Ask Clippy anything.')
+    expect(view.root.textContent()).not.toContain('Mimir')
+  })
+
+  it('names the assistant while it works', async () => {
+    const running = { request_id: 'r1', generation: 1, started_at: '2026-10-08T00:00:00Z' }
+    api.snapshotConversation!.mockResolvedValue({ ok: true, result: { ...snapshot, running } })
+    const { view } = await start()
+    expect(view.root.textContent()).toContain('Clippy is working…')
+  })
+
+  it('names the assistant in the resume banner', async () => {
+    const suspended = { request_id: 'r0', generation: 1, outcome: 'suspended', unknown_effects: 0, at: '' }
+    api.snapshotConversation!.mockResolvedValue({ ok: true, result: { ...snapshot, recent: [suspended] } })
+    await start()
+    const banner = mount((await import('../../src/renderer/src/components/ResumeBanner.vue')).default, { conversationId: 'chat' })
+    mounted.push(banner)
+    await flush()
+    expect(banner.root.textContent()).toContain('Ask Clippy to resume from any preserved progress.')
+  })
+
+  it('names the assistant in live announcements', async () => {
+    const { activePersonality } = await import('../../src/renderer/src/assistant-name')
+    const { chatAnnouncement } = await import('../../src/renderer/src/chat-announcements')
+    activePersonality.value = personality('clippy-astra')
+    const idle = { running: null, stopping: false, terminal: null, outcome: null, queued: 0, consumed: [], steerQueued: [], unknown: [] }
+    expect(chatAnnouncement(idle, { ...idle, running: 'r1', steerQueued: ['s1'] })).toBe('Clippy is working. Steer queued for Clippy to read.')
+    expect(chatAnnouncement({ ...idle, running: 'r1', steerQueued: ['s1'] }, { ...idle, running: 'r1', consumed: ['s1'] })).toBe('Clippy has read the steer.')
+  })
+})

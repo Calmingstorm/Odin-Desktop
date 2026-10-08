@@ -108,6 +108,21 @@ describe('review round 4: Personality keeps newer edits (16.R4.2)', () => {
     hold('personalityPresetsSave', () => ok({ name: 'first' }))
   })
 
+  it('names saved presets by their own name, so presets sharing a display name are told apart', async () => {
+    odin.personalityGet = async () => ok({
+      preset: 'clippy-astra', custom_name: '', custom_identity: '', custom_voice: '',
+      presets: {
+        default: { name: 'Odin', identity: 'i', voice: 'v' }, clippy: { name: 'Clippy', identity: 'c', voice: 'c' },
+        'clippy-astra': { name: 'Clippy', identity: 'a', voice: 'a' }, plain: { name: 'plain', identity: 'p', voice: 'p' }
+      },
+      builtin_presets: ['default'], user_presets: ['clippy', 'clippy-astra', 'plain']
+    })
+    const v = await view('Personality')
+    const select = v.root.findAll((node) => node.tag === 'select')[0]!
+    expect(select.options.map((option) => option.textContent().trim()))
+      .toEqual(['Odin', 'clippy (Clippy, yours)', 'clippy-astra (Clippy, yours)', 'plain (yours)', 'Custom'])
+  })
+
   it('keeps a choice and an identity made while a save was on its way', async () => {
     const v = await view('Personality')
     const select = v.root.findAll((node) => node.tag === 'select')[0]!
