@@ -56,10 +56,15 @@
         "missing": 0,
         "total": 28
       },
-      "app/src/main/index.ts": {
-        "covered": 420,
+      "app/src/main/identity.ts": {
+        "covered": 4,
         "missing": 0,
-        "total": 420
+        "total": 4
+      },
+      "app/src/main/index.ts": {
+        "covered": 421,
+        "missing": 0,
+        "total": 421
       },
       "app/src/main/ipc.ts": {
         "covered": 157,
@@ -533,9 +538,9 @@
       }
     },
     "total": {
-      "covered": 6962,
+      "covered": 6967,
       "missing": 364,
-      "total": 7326
+      "total": 7331
     }
   },
   "exceptions": {},
@@ -547,8 +552,8 @@
         "total": 3
       },
       "src/__main__.py": {
-        "covered": 229,
-        "missing": 51,
+        "covered": 234,
+        "missing": 46,
         "total": 280
       },
       "src/agents/__init__.py": {
@@ -1902,8 +1907,8 @@
         "total": 0
       },
       "src/runtime/pdf_resources.py": {
-        "covered": 129,
-        "missing": 22,
+        "covered": 138,
+        "missing": 13,
         "total": 151
       },
       "src/runtime_paths.py": {
@@ -2583,8 +2588,8 @@
       }
     },
     "total": {
-      "covered": 64525,
-      "missing": 9973,
+      "covered": 64542,
+      "missing": 9956,
       "total": 74498
     }
   },
@@ -2601,6 +2606,7 @@
     "app/src/main/device-login.ts",
     "app/src/main/drafts.ts",
     "app/src/main/framing.ts",
+    "app/src/main/identity.ts",
     "app/src/main/index.ts",
     "app/src/main/ipc.ts",
     "app/src/main/lifecycle.ts",
