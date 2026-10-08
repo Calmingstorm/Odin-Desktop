@@ -3,8 +3,7 @@
 ## Find a version
 
 Use [Odin Desktop Releases](https://github.com/Calmingstorm/Odin-Desktop/releases)
-for `.deb` and AppImage files. If the repository is private, use your own browser
-login. Do not give the app a GitHub token or copy credentials from another Odin
+for `.deb` and AppImage files. Do not give the app a GitHub token or copy credentials from another Odin
 installation. If the page has no published files, there is no release to download.
 
 Read release notes and check the file's SHA-256 as described in
@@ -30,9 +29,8 @@ there is no automatic background check.
 | No published stable release is available | No valid stable release was found. Drafts and prereleases do not count; this is not an up-to-date result. |
 | Can't check for updates | Access, connectivity, rate limiting or invalid/incomplete metadata prevented a reliable comparison. |
 
-While the repository is private, **Can't check for updates** is expected even
-when your browser can view it. The check does not use browser cookies or keyring
-credentials. Use the Releases page in your own browser instead. Do not supply a
+If the check fails, use the Releases page in your browser and preserve the error.
+The check does not use browser cookies or keyring credentials. Do not supply a
 GitHub token. Checking or opening a page does not restart work, replay effects,
 clear quarantine, download a package or replace an executable.
 

@@ -1,9 +1,9 @@
 # Install Odin Desktop on Linux
 
 Odin Desktop is a Linux app with its own local engine and profile. Start here,
-then follow [First run](first-run.md). These guides describe the 1.0.0 scope,
-not a published release or a claim that final candidate checks passed. The
-[Linux release checklist](../release/linux-v1-checklist.md) defines that gate.
+then follow [First run](first-run.md). These guides cover 1.0.0. Read the
+published release notes for the exact package's checks and limitations; the
+[Linux release checklist](../release/linux-v1-checklist.md) records the publication gate.
 
 Based on Odin v4.13.0. Later Odin changes are included only when the release
 notes list them.
@@ -46,8 +46,7 @@ sandbox or weaken system security policy to make the app start.
 ## Download and check the file
 
 1. Open [Odin Desktop Releases](https://github.com/Calmingstorm/Odin-Desktop/releases).
-   If the repository is private, use your own GitHub browser login. If no release
-   files are available, there is no release to install from that page.
+   Choose a published release with package files; do not install an unreviewed development artifact.
 2. Choose the format above and read its release notes. Check the version and
    architecture before installing.
 3. Compare the file's SHA-256 with the value supplied for that exact file. In a
@@ -119,9 +118,11 @@ that time, the cleanup is recorded as unknown.
 
 ## Your profile and privacy
 
-Desktop creates its own profile. It does not import another Odin installation's
-configuration, history, credentials, skills or browser profile. Managed SSH is
-supported, but this is not a phone app or a client for an existing Odin server.
+Desktop creates its own profile and does not automatically adopt another Odin installation's state.
+**Import from Odin** previews selected memory, skills, MCP servers, personality, managed hosts
+and model settings. It never replaces what already exists; secrets Odin withholds have to be
+entered again. It does not migrate history, credentials or a browser profile. See [Settings](settings.md).
+Managed SSH is supported, but this is not a phone app or a client for an existing Odin server.
 
 For the default profile and standard Linux locations:
 

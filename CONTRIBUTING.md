@@ -1,7 +1,16 @@
 # Contributing to Odin Desktop
 
-The project is implementing the approved plan, authorized by Aaron on 2026-10-04 (brief, "GO"). These rules bind
-everyone working here, Claude and Odin alike.
+PRs are welcome. Describe the problem, keep changes focused, and include tests for changed behavior.
+Start from current `master` and submit a branch for maintainer review.
+
+CI runs on the maintainer's self-hosted runners only after maintainer approval. **Fork PRs never run on
+those runners**; a maintainer must review and bring approved changes onto an in-repository branch first.
+Draft PRs do not run CI. Do not request or attempt access to the runners.
+
+Never include credentials, tokens, private keys, profile dumps, databases or private conversation history
+in commits, issues, PRs or test artifacts. Use minimal sanitized reproductions. Report vulnerabilities through
+[SECURITY.md](SECURITY.md). Named-agent process and historical design ownership live in the
+[maintainer index](docs/development/README.md).
 
 ## Where work happens
 
@@ -9,25 +18,13 @@ everyone working here, Claude and Odin alike.
   pinned upstream Git object, never edited upstream as part of this project.
 - **Never touch a live install.** No changes to `/opt/odin`, its data or config, or any running service, and no
   restarts. Never copy from `/opt/odin`'s working tree.
-- **The repository stays private** (D16).
-
-## Layout
-
-| Path | Contents | Owner |
-|---|---|---|
-| `src/`, `tests/` | The engine, kept at Odin's module paths so upstream fixes port as the same diff | Odin |
-| `maintenance/` | Baseline record, source manifest, port ledger, safety manifest | Odin |
-| `scripts/maintenance/` | Drift-report and manifest tooling | Odin |
-| `app/` | The Electron app: main process, preload bridge, renderer | Claude |
-| `docs/design/` | The approved design | per-file owner |
 
 ## Changes
 
 - **Code goes through a branch and a PR.**
   - Pull `master` first, then branch.
-  - Odin's PRs are reviewed by Claude, and Claude's by Odin. Nothing merges without that review.
+  - Maintainer review is required before merge or admission to self-hosted CI.
   - Delete the branch once it's merged.
-- **Design docs** may still be edited directly on `master`, by their owner only.
 - **Commits** carry no attribution trailers (`Co-Authored-By`, session footers).
 - **Tests ship with the change** that needs them. Run the touched tests while working, and the full suite at each gate.
 - **Tests exercise real code behaviour.** Never write a test that reads a human-written document (`.md`, `.sh`) to assert

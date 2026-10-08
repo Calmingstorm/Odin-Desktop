@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -396,7 +397,9 @@ def test_ci_uses_only_an_exact_stable_cached_python(tmp_path, versions, expected
     workflow = yaml.safe_load((ROOT / ".github/workflows/phase1-engine.yml").read_text())
     for job_name, job in workflow["jobs"].items():
         guard = next(step for step in job["steps"] if step.get("id") == "cached-python")
-        setup = next(step for step in job["steps"] if step.get("uses") == "actions/setup-python@v5")
+        setup = next(step for step in job["steps"]
+                     if step.get("uses", "").startswith("actions/setup-python@"))
+        assert re.fullmatch(r"actions/setup-python@[0-9a-f]{40}", setup["uses"])
         assert setup["with"]["python-version"] == "${{ steps.cached-python.outputs.version }}"
         cache = tmp_path / job_name
         cache.mkdir()

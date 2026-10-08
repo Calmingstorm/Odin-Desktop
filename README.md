@@ -1,35 +1,32 @@
 # Odin Desktop
 
-A standalone desktop application for [Odin](https://github.com/Calmingstorm/Odin), the self-hosted AI execution agent.
+A Linux desktop app for [Odin](https://github.com/Calmingstorm/Odin), the self-hosted AI execution agent.
+Chat with your configured model, run tools locally or over managed SSH, and keep conversations,
+knowledge and background work in your own Desktop profile. Desktop runs its own local engine;
+it does not require a separate Odin server or Discord account.
 
-**Status: implementation, Linux v1.** Aaron approved the design and authorized the build on 2026-10-04. Decisions
-D1 to D16 are in the brief. Work follows [`CONTRIBUTING.md`](CONTRIBUTING.md). Work orders are in `docs/work/`.
+## Install
 
-## What Odin Desktop is meant to be
+Download an **x86-64 `.deb` or AppImage** from
+[Releases](https://github.com/Calmingstorm/Odin-Desktop/releases), read the release notes,
+and compare the file's **SHA-256** with the published value for that exact file before installing.
+The packages are **unsigned**: a matching checksum detects changed bytes, not an independent
+publisher signature. Follow [Installation](docs/user/install.md) for package, keyring and sandbox requirements.
 
-- A desktop app that runs on your own machine and can start automatically at login.
-- Installable on its own or alongside an existing Odin install, without conflicts.
-- A chat experience at least as capable as talking to Odin on Discord, and ideally better.
-- Linux first, with Windows and macOS clients later.
-- Built mostly from Odin's existing code, at feature parity or better. It leaves out what doesn't apply on a personal
-  desktop, such as multi-user access control and the Discord bot machinery.
+Supported sessions are **Cinnamon/X11, GNOME/Wayland, KDE/Wayland and Hyprland**.
+**Computer use is X11 only**; Wayland computer use is planned for **1.1**.
+Windows, macOS and ARM builds are not supported in 1.0.
 
-## Layout
-
-| Path | Contents |
-|---|---|
-| `docs/design/` | The living design. Each file is owned by one author and kept current. |
-| `docs/discussion/` | Numbered discussion rounds between Claude and Odin (`NN-author-topic.md`). Each file is written once and not rewritten. |
-
-Start with [`docs/design/00-brief.md`](docs/design/00-brief.md).
+Desktop can be installed alongside Odin without adopting its state automatically.
+**Import from Odin** previews selected memory, skills, MCP servers, personality, managed hosts
+and model settings from an existing installation. It never replaces what already exists;
+secrets Odin withholds have to be entered again. It is not a history or credential migration.
+See [Settings](docs/user/settings.md).
 
 ## User guide
 
-These guides describe the **1.0.0 scope**, not a release announcement or a claim that final checks passed.
-The app is supported on **Cinnamon/X11, GNOME/Wayland, KDE/Wayland and Hyprland**.
-**Computer use is supported on X11 only, at parity with Odin.** Wayland computer use is planned for **1.1**;
-until then the app refuses it with guidance. Wayland app support is not computer-use support.
 Start with [Installation](docs/user/install.md), then [First run](docs/user/first-run.md).
+These guides cover **1.0.0**; release-specific limitations belong to that version's release notes.
 
 | Guide | Covers |
 |---|---|
@@ -41,41 +38,13 @@ Start with [Installation](docs/user/install.md), then [First run](docs/user/firs
 | [Accessibility](docs/user/accessibility.md) | Keyboard tasks, screen-reader expectations and desktop limits |
 | [Linux release checklist](docs/release/linux-v1-checklist.md) | 1.0.0 release checks, supported scope and publication approval |
 
-Desktop runs its own local engine and profile. Managed SSH is supported; a phone client, client for an existing
-Odin server, and import of an Odin installation are **not** Linux v1 features. An alongside install does not adopt
-the other installation's configuration, history or credentials. Windows/macOS remain future-platform work.
+## Contribute and report problems
 
-## Documentation watermark
-
-The user guides describe merged `master` behavior, with plain limitations rather
-than development provenance. Maintainer source watermarks, pinned references,
-claim checks and historical gate results live in
-[P4.4 validation](maintenance/p44-user-docs-validation.md).
-The [documentation status](docs/release/pending-user-docs.md) records promoted
-guidance and remaining dependencies. Background work, schedules/reports,
-provider/knowledge/record administration, ingress and manual release notices
-now describe merged services. So do orderly shutdown/reboot/logout, fresh
-Wayland launch, boot-scoped package-change fences and bounded Exit during core
-startup (#96). The release checklist is the current gate; historical native
-qualification reports do not certify the final candidate.
-
-The upstream review remains **baseline only** at Odin v4.13.0; later changes are
-not implied. Full internal identities are in the validation and
-[baseline record](maintenance/baseline.md). A green test count does not prove an
-identical engine, current upstream parity, native qualification or release approval.
-
-The [release checklist](docs/release/linux-v1-checklist.md) supersedes the earlier
-Phase 3/4 release blockers under [Decision I](docs/work/phase-3-app-v1.md#decision-i-lean-v1-release-gate).
-It requires evidence for the exact candidate and Aaron's separate publication approval.
-These guides do not authorize active-desktop testing or publication.
-
-## How we work
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md). In short:
-- code goes through PRs with cross-review (Odin reviews Claude's, Claude reviews Odin's);
-- no work in the Odin repository;
-- tests run only in an isolated PID namespace;
-- commits carry no attribution trailers.
+PRs are welcome. Read [Contributing](CONTRIBUTING.md) before running tests; process tests
+require isolation, and fork PRs do not run on the maintainer's self-hosted runners.
+Report security problems privately using [Security](SECURITY.md), not a public issue.
+The [maintainer index](docs/development/README.md) holds development process, design decisions,
+repository layout and qualification status. Desktop is [MIT licensed](LICENSE).
 
 ## Optional local prompt client
 

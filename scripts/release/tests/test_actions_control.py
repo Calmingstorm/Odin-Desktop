@@ -107,8 +107,14 @@ class ActionsTests(unittest.TestCase):
         self.responses = {
             'users/Calmingstorm': {'login': 'Calmingstorm', 'type': 'User', 'id': 123},
             self.e: {
+                'id': 77,
+                'node_id': 'EN_fixture',
                 'name': c.ENVIRONMENT,
-                'prevent_admin_bypass': True,
+                'url': f'https://api.github.com/{self.e}',
+                'html_url': f'https://github.com/{c.helper.REPOSITORY}/deployments/activity_log?environments={c.ENVIRONMENT}',
+                'created_at': '2026-10-08T00:00:00Z',
+                'updated_at': '2026-10-08T00:00:00Z',
+                'can_admins_bypass': False,
                 'protection_rules': [
                     {
                         'type': 'required_reviewers',
@@ -404,8 +410,8 @@ class ActionsTests(unittest.TestCase):
         original = copy.deepcopy(self.responses[self.e])
         for env in (
             {},
-            {**original, 'prevent_admin_bypass': False},
-            {k: v for k, v in original.items() if k != 'prevent_admin_bypass'},
+            {**original, 'can_admins_bypass': True},
+            {k: v for k, v in original.items() if k != 'can_admins_bypass'},
             {**original, 'protection_rules': []},
             {**original, 'deployment_branch_policy': None},
         ):
@@ -421,6 +427,22 @@ class ActionsTests(unittest.TestCase):
             rule[key] = value
             self.responses[self.e]['protection_rules'] = [rule]
             self.denied()
+
+    def test_admin_bypass_requires_literal_false_from_api(self):
+        original = copy.deepcopy(self.responses[self.e])
+        result = c.audit_environment()
+        self.assertTrue(result['prevent_admin_bypass'])  # Internal receipt, not an API field.
+        for value in (True, None, 0, 1, 'false', '', [], {}):
+            with self.subTest(value=value):
+                self.responses[self.e] = {**original, 'can_admins_bypass': value}
+                with self.assertRaisesRegex(ValueError, 'admin bypass protection absent'):
+                    c.audit_environment()
+        self.responses[self.e] = {
+            k: v for k, v in original.items() if k != 'can_admins_bypass'
+        }
+        self.responses[self.e]['prevent_admin_bypass'] = True
+        with self.assertRaisesRegex(ValueError, 'admin bypass protection absent'):
+            c.audit_environment()
 
     def test_environment_branches(self):
         for policies in (
@@ -514,7 +536,7 @@ class ActionsTests(unittest.TestCase):
             if argv[-1] == self.e:
                 count += 1
                 if count == 2:
-                    self.responses[self.e]['prevent_admin_bypass'] = False
+                    self.responses[self.e]['can_admins_bypass'] = True
             return original(argv, **kwargs)
 
         with patch.object(c.subprocess, 'Popen', side_effect=drift):

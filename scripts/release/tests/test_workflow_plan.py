@@ -1,4 +1,5 @@
 """Execute actual YAML shell/env/conditions with fake builds. Not an Actions emulator."""
+import itertools
 import json
 import os
 import shutil
@@ -22,7 +23,10 @@ def expression(source, context):
     # Limited declarative vocabulary used by the actual workflow, not arbitrary YAML.
     source = source.removeprefix('${{').removesuffix('}}').strip()
     source = source.replace('&&', ' and ').replace('||', ' or ')
-    return eval(source, {'__builtins__': {}, 'startsWith': lambda s, p: s.startswith(p)}, context)
+    return eval(source, {
+        '__builtins__': {}, 'startsWith': lambda s, p: s.startswith(p),
+        'false': False, 'true': True,
+    }, context)
 
 
 class WorkflowPlanTests(unittest.TestCase):
@@ -76,11 +80,68 @@ class WorkflowPlanTests(unittest.TestCase):
             self.context(mode='publish-approved', ref='refs/heads/unreviewed'),
         ]:
             self.assertEqual(self.jobs(ctx), [])
-        self.assertEqual(self.jobs(self.context(actor='other')), ['build'])
+        self.assertEqual(self.jobs(self.context(actor='other')), [])
         self.assertEqual(self.jobs(self.context(mode='publish-approved')), ['verify', 'publish'])
         failed = self.context(mode='publish-approved')
         failed['needs'].verify.result = 'failure'
         self.assertEqual(self.jobs(failed), ['verify'])
+
+    def test_every_dispatch_mode_is_owner_only(self):
+        for mode, actor, repo, ref in itertools.product(
+            ('dry-run', 'retain-candidate', 'publish-approved', 'unknown'),
+            ('Calmingstorm', 'contributor', 'github-actions[bot]'),
+            ('Calmingstorm/Odin-Desktop', 'contributor/Odin-Desktop'),
+            ('refs/heads/master', 'refs/heads/feature', 'refs/tags/v1.0.0'),
+        ):
+            with self.subTest(mode=mode, actor=actor, repo=repo, ref=ref):
+                expected = []
+                if (actor == 'Calmingstorm' and repo == 'Calmingstorm/Odin-Desktop'
+                        and ref == 'refs/heads/master'):
+                    if mode in ('dry-run', 'retain-candidate'):
+                        expected = ['build']
+                    elif mode == 'publish-approved':
+                        expected = ['verify', 'publish']
+                self.assertEqual(
+                    self.jobs(self.context(mode=mode, actor=actor, repo=repo, ref=ref)), expected,
+                )
+
+    def test_engine_runner_admission_matrix(self):
+        engine = yaml.safe_load((ROOT / '.github/workflows/phase1-engine.yml').read_text())
+        repository = 'Calmingstorm/Odin-Desktop'
+        for event, repo, ref, head, draft in itertools.product(
+            ('push', 'pull_request', 'pull_request_target', 'workflow_dispatch'),
+            (repository, 'contributor/Odin-Desktop'),
+            ('refs/heads/master', 'refs/heads/feature', 'refs/pull/42/merge', 'refs/tags/v1.0.0'),
+            (repository, 'contributor/Odin-Desktop'),
+            (False, True),
+        ):
+            context = self.context(event=event, repo=repo, ref=ref)
+            context['github'].event = SimpleNamespace(pull_request=SimpleNamespace(
+                draft=draft, head=SimpleNamespace(repo=SimpleNamespace(full_name=head)),
+            ))
+            expected = repo == repository and (
+                (event == 'push' and ref == 'refs/heads/master')
+                or (event == 'pull_request' and not draft and head == repository)
+            )
+            for name, job in engine['jobs'].items():
+                with self.subTest(
+                    job=name, event=event, repo=repo, ref=ref, head=head, draft=draft,
+                ):
+                    self.assertEqual(expression(job['if'], context), expected)
+        # Actual pushes have no PR payload; the push branch must short-circuit safely.
+        for ref, expected in (('refs/heads/master', True), ('refs/heads/feature', False)):
+            context = self.context(event='push', ref=ref)
+            context['github'].event = SimpleNamespace()
+            for job in engine['jobs'].values():
+                self.assertEqual(expression(job['if'], context), expected)
+
+    def test_engine_actions_are_commit_pinned(self):
+        engine = yaml.safe_load((ROOT / '.github/workflows/phase1-engine.yml').read_text())
+        for name, job in engine['jobs'].items():
+            for step in job['steps']:
+                if 'uses' in step:
+                    with self.subTest(job=name, action=step['uses']):
+                        self.assertRegex(step['uses'], r'@[0-9a-f]{40}$')
 
     def test_fake_upload_action_not_called_for_dry_run(self):
         upload = next(s for s in self.workflow['jobs']['build']['steps'] if s.get('id') == 'retain')

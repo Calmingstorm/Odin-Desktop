@@ -164,7 +164,7 @@ def audit_environment():
     )
     env = api(f'{BASE}/environments/{ENVIRONMENT}')
     require(env.get('name') == ENVIRONMENT, 'missing release environment')
-    require(env.get('prevent_admin_bypass') is True, 'admin bypass protection absent')
+    require(env.get('can_admins_bypass') is False, 'admin bypass protection absent')
     reviewers = [
         r for r in env.get('protection_rules', []) if r.get('type') == 'required_reviewers'
     ]
