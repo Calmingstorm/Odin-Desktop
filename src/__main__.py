@@ -537,15 +537,21 @@ def main() -> None:
     handler.addFilter(final_stop_record)
     logging.getLogger().addHandler(handler)
     log.setLevel(logging.INFO)
-    if not _enable_process_containment(log):
-        raise SystemExit(1)
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    reaper = AdoptedZombieReaper()
-    exit_code = 0
-    service = CoreService(
-        options.paths, options.socket, options.token_file, release_runtime_on_close=False
-    )
+    try:
+        if not _enable_process_containment(log):
+            raise SystemExit(1)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        reaper = AdoptedZombieReaper()
+        exit_code = 0
+        service = CoreService(
+            options.paths, options.socket, options.token_file, release_runtime_on_close=False
+        )
+    except BaseException:
+        # The run's own cleanup below never starts; don't leave the root handler.
+        logging.getLogger().removeHandler(handler)
+        handler.close()
+        raise
 
     async def supervised() -> int:
         reaper.start()

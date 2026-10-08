@@ -276,6 +276,32 @@ def test_entry_uses_containment_and_finalize_barrier(tmp_path, monkeypatch):
     assert stages == ["contain", "reaper-start", "run", "reaper-stop", "finalize", "release"]
 
 
+@pytest.mark.parametrize("failure", ["containment", "construction"])
+def test_entry_removes_its_log_handler_when_startup_fails_early(tmp_path, monkeypatch, failure):
+    import logging
+
+    from src import __main__ as entry
+    from src.desktop import core
+
+    monkeypatch.setattr(entry.sys, "argv", ["desktop", "--socket", str(tmp_path / "run.sock"),
+                         "--token-file", str(tmp_path / "config/ipc.token"), "--profile", "work",
+                         "--data-dir", str(tmp_path / "data")])
+    monkeypatch.setenv("HOME", str(tmp_path))
+    for key in ("ODIN_DESKTOP_PROFILE", "ODIN_DESKTOP_TOKEN_FILE", "ODIN_DESKTOP_DATA_DIR"):
+        monkeypatch.setenv(key, "unselected-fixture")
+    monkeypatch.setattr(entry, "_enable_process_containment",
+                        lambda log: failure != "containment")
+
+    class Unbuildable:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("inert construction failure")
+
+    monkeypatch.setattr(core, "CoreService", Unbuildable)
+    before = list(logging.getLogger().handlers)
+    with pytest.raises(SystemExit if failure == "containment" else RuntimeError):
+        entry.main()
+    assert logging.getLogger().handlers == before
+
 def test_entry_failure_enters_finalization_before_any_error_logging(tmp_path, monkeypatch):
     import logging
 
