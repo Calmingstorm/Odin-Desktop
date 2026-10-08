@@ -252,12 +252,21 @@ class WorkService:
         else:
             result = dict(record, actions=[])
             if (record["kind"] == "schedule" and item is None and self.scheduler is not None
-                    and record["state"] in {"scheduled", "paused"}):
+                    and record["state"] in {"scheduled", "paused", "running"}):
                 # The scheduler drops a one-time schedule after its run and any
-                # schedule the owner deletes. Neither is still scheduled.
-                result.update(state=self._ended_schedule_state(record),
-                              settlement={"state": "settled",
-                                          "last_run": record["settlement"].get("last_run")})
+                # schedule the owner deletes. Neither is still scheduled, but
+                # deleting a definition doesn't end a run already executing: that
+                # run's own recorded result settles it once it finishes.
+                in_flight = getattr(self.scheduler, "_in_flight", None)
+                if not isinstance(in_flight, (set, frozenset)):
+                    pass  # Running state can't be known; conclude nothing.
+                elif record["manager_id"] in in_flight:
+                    result.update(state="running", settlement={
+                        "state": "pending", "last_run": record["settlement"].get("last_run")})
+                else:
+                    result.update(state=self._ended_schedule_state(record),
+                                  settlement={"state": "settled",
+                                              "last_run": record["settlement"].get("last_run")})
             elif record["settlement"]["state"] not in {"settled", "definition"}:
                 result.update(state="interrupted", settlement={"state": "unknown",
                               "resource_release": "unproven"})
@@ -272,7 +281,11 @@ class WorkService:
         return json.loads(canonical_json(result))
 
     def _ended_schedule_state(self, record):
-        """The last recorded run of this schedule generation, or cancelled if it never ran."""
+        """The latest recorded run of this schedule generation, or cancelled if it never ran.
+
+        Only called once nothing of the schedule is executing, so the latest entry
+        is the result of the last run, including one that outlived the definition.
+        """
         path = getattr(getattr(self.scheduler, "history", None), "path", None)
         try:
             lines = Path(path).read_text(encoding="utf-8").splitlines() if path else []

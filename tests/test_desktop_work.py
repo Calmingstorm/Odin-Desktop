@@ -325,7 +325,7 @@ def _ended_schedule(work, tmp_path, history_lines):
     held = [schedule]
     history = tmp_path / "schedule_history.jsonl"
     history.write_text("".join(line + "\n" for line in history_lines))
-    service.scheduler = SimpleNamespace(list_all=lambda: list(held),
+    service.scheduler = SimpleNamespace(list_all=lambda: list(held), _in_flight=set(),
                                         history=SimpleNamespace(path=history))
     record = service.register_schedule(schedule)
     assert record["state"] == "scheduled"
@@ -363,6 +363,72 @@ def test_schedule_is_not_ended_without_a_scheduler_or_while_it_is_held(work, tmp
     assert service.list({"kind": "schedule"})["items"][0]["state"] == "scheduled"
     service.scheduler = scheduler
     assert service.list({"kind": "schedule"})["items"][0]["state"] == "completed"
+
+
+def test_schedule_without_run_tracking_concludes_nothing(work, tmp_path):
+    service = _ended_schedule(work, tmp_path, [_run("success")])
+    del service.scheduler._in_flight  # another scheduler adapter: running state unknown
+    assert service.list({"kind": "schedule"})["items"][0]["state"] == "scheduled"
+
+
+async def _real_schedule(work, tmp_path, callback):
+    from src.scheduler.scheduler import Scheduler
+    service, message, _context = work
+    scheduler = Scheduler(str(tmp_path / "schedules.json"), desktop_recovery=True)
+    scheduler._callback = callback
+    service.scheduler = scheduler
+    schedule = await scheduler.add("inert recurring", "reminder", message.conversation_id,
+                                   cron="0 0 * * *", requester_id=message.owner_id)
+    service.register_schedule(schedule)
+    return service, scheduler, schedule
+
+
+@pytest.mark.parametrize(("earlier", "outcome", "expected"), [
+    (None, None, "completed"),                 # deleted during its first run, which succeeds
+    ("success", RuntimeError, "failed"),       # an older success never settles a newer run
+])
+async def test_schedule_deleted_while_running_settles_with_that_run(work, tmp_path, earlier,
+                                                                    outcome, expected):
+    started, finish = asyncio.Event(), asyncio.Event()
+
+    async def callback(schedule):
+        started.set()
+        await finish.wait()
+        if outcome is not None:
+            raise outcome("inert run failure")
+
+    service, scheduler, schedule = await _real_schedule(work, tmp_path, callback)
+    if earlier:
+        await scheduler.history.record(
+            schedule_id=schedule["id"], description="earlier run", action="reminder",
+            status=earlier, duration_ms=1,
+            run_binding={"generation": schedule["_generation"], "run_id": "earlier"})
+    running = asyncio.create_task(scheduler.run_now(schedule["id"]))
+    try:
+        await asyncio.wait_for(started.wait(), 5)
+        await scheduler.delete(schedule["id"])
+        during = service.list({"kind": "schedule"})["items"][0]
+        assert during["state"] == "running" and during["settlement"]["state"] == "pending"
+        assert service.list({"kind": "schedule"})["items"][0]["state"] == "running"
+    finally:
+        finish.set()
+        await running
+    after = service.list({"kind": "schedule"})["items"][0]
+    assert after["state"] == expected and after["settlement"]["state"] == "settled"
+
+
+@pytest.mark.parametrize("failed", [False, True])
+async def test_idle_real_schedule_deleted_after_a_run_ends_with_it(work, tmp_path, failed):
+    async def callback(schedule):
+        if failed:
+            raise RuntimeError("inert run failure")
+
+    service, scheduler, schedule = await _real_schedule(work, tmp_path, callback)
+    await scheduler.run_now(schedule["id"])
+    assert service.list({"kind": "schedule"})["items"][0]["state"] == "scheduled"
+    await scheduler.delete(schedule["id"])
+    item = service.list({"kind": "schedule"})["items"][0]
+    assert item["state"] == ("failed" if failed else "completed")
 
 
 def test_ended_schedule_keeps_its_state_after_later_history(work, tmp_path):
