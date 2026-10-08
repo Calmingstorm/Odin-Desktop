@@ -91,6 +91,11 @@
         "missing": 0,
         "total": 73
       },
+      "app/src/main/odin-import.ts": {
+        "covered": 255,
+        "missing": 0,
+        "total": 255
+      },
       "app/src/main/onboarding-smoke.ts": {
         "covered": 238,
         "missing": 0,
@@ -360,6 +365,11 @@
         "covered": 41,
         "missing": 0,
         "total": 41
+      },
+      "app/src/renderer/src/components/settings/OdinImport.vue": {
+        "covered": 91,
+        "missing": 0,
+        "total": 91
       },
       "app/src/renderer/src/components/settings/SecretControl.vue": {
         "covered": 23,
@@ -2688,6 +2698,7 @@
     "app/src/main/lifecycle.ts",
     "app/src/main/native-notifications.ts",
     "app/src/main/notifications.ts",
+    "app/src/main/odin-import.ts",
     "app/src/main/onboarding-smoke.ts",
     "app/src/main/package-ownership.ts",
     "app/src/main/package-state.ts",
@@ -2742,6 +2753,7 @@
     "app/src/renderer/src/components/WorkPanel.vue",
     "app/src/renderer/src/components/settings/ContextUse.vue",
     "app/src/renderer/src/components/settings/McpMoreMenu.vue",
+    "app/src/renderer/src/components/settings/OdinImport.vue",
     "app/src/renderer/src/components/settings/SecretControl.vue",
     "app/src/renderer/src/components/settings/SettingEditor.vue",
     "app/src/renderer/src/components/settings/SettingsRow.vue",

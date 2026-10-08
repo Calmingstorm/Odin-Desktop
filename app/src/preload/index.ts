@@ -37,6 +37,8 @@ const api: OdinApi = {
   getDesktopInfo: () => ipcRenderer.invoke(IPC.getDesktopInfo, {}),
   openSettingsFolder: () => ipcRenderer.invoke(IPC.openSettingsFolder, {}),
   exitOdin: () => ipcRenderer.invoke(IPC.exitOdin, {}),
+  odinImportPreview: (source) => ipcRenderer.invoke(IPC.odinImportPreview, source),
+  odinImportApply: (params) => ipcRenderer.invoke(IPC.odinImportApply, params),
   checkReleases: () => ipcRenderer.invoke(IPC.checkReleases, {}),
   openRelease: () => ipcRenderer.invoke(IPC.openRelease, {}),
   ...management,
