@@ -255,8 +255,8 @@ class WorkService:
                     and record["state"] in {"scheduled", "paused", "running"}):
                 # The scheduler drops a one-time schedule after its run and any
                 # schedule the owner deletes. Neither is still scheduled, but
-                # deleting a definition doesn't end a run already executing: that
-                # run's own recorded result settles it once it finishes.
+                # deleting a definition doesn't end a run already executing: only
+                # the latest admitted run's own recorded result settles it.
                 in_flight = getattr(self.scheduler, "_in_flight", None)
                 if not isinstance(in_flight, (set, frozenset)):
                     pass  # Running state can't be known; conclude nothing.
@@ -264,9 +264,10 @@ class WorkService:
                     result.update(state="running", settlement={
                         "state": "pending", "last_run": record["settlement"].get("last_run")})
                 else:
-                    result.update(state=self._ended_schedule_state(record),
-                                  settlement={"state": "settled",
-                                              "last_run": record["settlement"].get("last_run")})
+                    ended = self._ended_schedule_state(record)
+                    result.update(state=ended, settlement={
+                        "state": "unknown" if ended == "unknown" else "settled",
+                        "last_run": record["settlement"].get("last_run")})
             elif record["settlement"]["state"] not in {"settled", "definition"}:
                 result.update(state="interrupted", settlement={"state": "unknown",
                               "resource_release": "unproven"})
@@ -281,11 +282,18 @@ class WorkService:
         return json.loads(canonical_json(result))
 
     def _ended_schedule_state(self, record):
-        """The latest recorded run of this schedule generation, or cancelled if it never ran.
+        """The result of the latest run admitted for this definition, from that run's own entry.
 
-        Only called once nothing of the schedule is executing, so the latest entry
-        is the result of the last run, including one that outlived the definition.
+        Each run registers its binding when it starts, so the record names the latest
+        admitted run (`run_binding`, else `last_run_binding`). Only a history entry with
+        that run ID settles it: completed, failed or unknown. A run that left no entry
+        (cancelled, history unavailable, the core stopped) is unknown, never settled from
+        an older run; a definition with no admitted run ends cancelled.
         """
+        detail = record.get("detail") or {}
+        latest = detail.get("run_binding") or detail.get("last_run_binding")
+        if not isinstance(latest, dict) or not latest.get("run_id"):
+            return "cancelled"
         path = getattr(getattr(self.scheduler, "history", None), "path", None)
         try:
             lines = Path(path).read_text(encoding="utf-8").splitlines() if path else []
@@ -298,10 +306,10 @@ class WorkService:
                 continue
             if (type(entry) is dict and entry.get("schedule_id") == record["manager_id"]
                     and type(entry.get("run_binding")) is dict
-                    and entry["run_binding"].get("generation") == record["manager_generation"]):
+                    and entry["run_binding"].get("run_id") == latest["run_id"]):
                 return {"success": "completed", "failure": "failed"}.get(entry.get("status"),
                                                                          "unknown")
-        return "cancelled"
+        return "unknown"
 
     def refresh_all(self):
         with self.store.transaction() as connection:

@@ -316,12 +316,18 @@ def test_unqualified_schedule_controls_not_advertised(work):
 
 
 
-def _ended_schedule(work, tmp_path, history_lines):
-    """A registered schedule its scheduler then no longer holds, with a harmless history file."""
+def _ended_schedule(work, tmp_path, history_lines, latest_run="r1"):
+    """A registered schedule its scheduler then no longer holds, with a harmless history file.
+
+    `latest_run` is the run ID the record names as the latest admitted run (each run
+    registers its binding when it starts); None means no run was ever admitted.
+    """
     service, message, _context = work
     schedule = {"id": "s", "_generation": "g1", "created_at": "fixed",
                 "requester_id": message.owner_id, "channel_id": message.conversation_id,
-                "description": "harmless", "settlement": {"state": "running"}}
+                "description": "harmless", "settlement": "completed",
+                "last_run_binding": ({"run_id": latest_run, "generation": "g1"}
+                                     if latest_run else None)}
     held = [schedule]
     history = tmp_path / "schedule_history.jsonl"
     history.write_text("".join(line + "\n" for line in history_lines))
@@ -333,26 +339,30 @@ def _ended_schedule(work, tmp_path, history_lines):
     return service
 
 
-def _run(status, generation="g1", schedule_id="s"):
+def _run(status, run_id="r1", generation="g1", schedule_id="s"):
     import json as _json
     return _json.dumps({"schedule_id": schedule_id, "status": status,
-                        "run_binding": {"generation": generation}})
+                        "run_binding": {"generation": generation, "run_id": run_id}})
 
 
-@pytest.mark.parametrize(("history", "expected"), [
-    ([_run("success")], "completed"),
-    ([_run("failure")], "failed"),
-    ([_run("unknown")], "unknown"),
-    ([_run("failure"), _run("success")], "completed"),
-    ([], "cancelled"),
-    ([_run("success", generation="g0"), _run("success", schedule_id="other")], "cancelled"),
-    (["not json", _run("success")], "completed"),
+@pytest.mark.parametrize(("history", "latest", "expected"), [
+    ([_run("success")], "r1", "completed"),
+    ([_run("failure")], "r1", "failed"),
+    ([_run("unknown")], "r1", "unknown"),
+    ([_run("failure", "r0"), _run("success")], "r1", "completed"),
+    ([_run("success"), _run("failure", "r0")], "r1", "completed"),  # only the latest run counts
+    ([_run("success", "r0")], "r1", "unknown"),    # the latest run left no entry: not the older
+    ([], "r1", "unknown"),
+    ([_run("success", schedule_id="other")], "r1", "unknown"),
+    ([], None, "cancelled"),                       # no run was ever admitted
+    (["not json", _run("success")], "r1", "completed"),
 ])
-def test_schedule_the_scheduler_dropped_ends_with_its_last_run(work, tmp_path, history, expected):
-    service = _ended_schedule(work, tmp_path, history)
+def test_schedule_the_scheduler_dropped_ends_with_its_latest_run(work, tmp_path, history, latest,
+                                                                 expected):
+    service = _ended_schedule(work, tmp_path, history, latest)
     item = service.list({"kind": "schedule"})["items"][0]
     assert item["state"] == expected
-    assert item["settlement"]["state"] == "settled"
+    assert item["settlement"]["state"] == ("unknown" if expected == "unknown" else "settled")
     assert item["actions"] == []
 
 
@@ -371,10 +381,16 @@ def test_schedule_without_run_tracking_concludes_nothing(work, tmp_path):
     assert service.list({"kind": "schedule"})["items"][0]["state"] == "scheduled"
 
 
-async def _real_schedule(work, tmp_path, callback):
+async def _real_schedule(work, tmp_path, run):
+    """A real Scheduler whose runs register with Work first, as CoreService._admit_schedule does."""
     from src.scheduler.scheduler import Scheduler
     service, message, _context = work
     scheduler = Scheduler(str(tmp_path / "schedules.json"), desktop_recovery=True)
+
+    async def callback(schedule):
+        service.register_schedule(schedule)
+        await run(schedule)
+
     scheduler._callback = callback
     service.scheduler = scheduler
     schedule = await scheduler.add("inert recurring", "reminder", message.conversation_id,
@@ -383,47 +399,92 @@ async def _real_schedule(work, tmp_path, callback):
     return service, scheduler, schedule
 
 
-@pytest.mark.parametrize(("earlier", "outcome", "expected"), [
-    (None, None, "completed"),                 # deleted during its first run, which succeeds
-    ("success", RuntimeError, "failed"),       # an older success never settles a newer run
+async def _earlier_success(scheduler, schedule):
+    await scheduler.history.record(
+        schedule_id=schedule["id"], description="earlier run", action="reminder",
+        status="success", duration_ms=1,
+        run_binding={"generation": schedule["_generation"], "run_id": "earlier"})
+
+
+@pytest.mark.parametrize("earlier", [False, True])
+@pytest.mark.parametrize(("ending", "expected"), [
+    ("success", "completed"),            # its own success, even after an earlier one
+    ("failure", "failed"),               # an earlier success never settles a failing run
+    ("cancel", "unknown"),               # cancelled: no entry for this run
+    ("history_unavailable", "unknown"),  # the run's entry couldn't be written
 ])
-async def test_schedule_deleted_while_running_settles_with_that_run(work, tmp_path, earlier,
-                                                                    outcome, expected):
+async def test_schedule_deleted_while_running_settles_only_from_that_run(work, tmp_path, earlier,
+                                                                         ending, expected):
     started, finish = asyncio.Event(), asyncio.Event()
 
-    async def callback(schedule):
+    async def run(schedule):
         started.set()
         await finish.wait()
-        if outcome is not None:
-            raise outcome("inert run failure")
+        if ending == "failure":
+            raise RuntimeError("inert run failure")
 
-    service, scheduler, schedule = await _real_schedule(work, tmp_path, callback)
+    service, scheduler, schedule = await _real_schedule(work, tmp_path, run)
     if earlier:
-        await scheduler.history.record(
-            schedule_id=schedule["id"], description="earlier run", action="reminder",
-            status=earlier, duration_ms=1,
-            run_binding={"generation": schedule["_generation"], "run_id": "earlier"})
+        await _earlier_success(scheduler, schedule)
+    if ending == "history_unavailable":
+        async def unavailable(**_entry):
+            raise OSError("inert: history disk unavailable")
+        scheduler.history.record = unavailable
     running = asyncio.create_task(scheduler.run_now(schedule["id"]))
     try:
         await asyncio.wait_for(started.wait(), 5)
         await scheduler.delete(schedule["id"])
         during = service.list({"kind": "schedule"})["items"][0]
         assert during["state"] == "running" and during["settlement"]["state"] == "pending"
-        assert service.list({"kind": "schedule"})["items"][0]["state"] == "running"
+        if ending == "cancel":
+            running.cancel()
     finally:
         finish.set()
-        await running
+        try:
+            await running
+        except (asyncio.CancelledError, OSError):
+            pass
     after = service.list({"kind": "schedule"})["items"][0]
-    assert after["state"] == expected and after["settlement"]["state"] == "settled"
+    assert after["state"] == expected
+    assert after["settlement"]["state"] == ("unknown" if expected == "unknown" else "settled")
+
+
+async def test_deleted_run_without_its_entry_stays_unknown_after_a_restart(work, tmp_path):
+    from src.scheduler.scheduler import Scheduler
+    started = asyncio.Event()
+
+    async def run(schedule):
+        started.set()
+        await asyncio.Event().wait()  # never finishes: the core stops mid-run
+
+    service, scheduler, schedule = await _real_schedule(work, tmp_path, run)
+    await _earlier_success(scheduler, schedule)
+    running = asyncio.create_task(scheduler.run_now(schedule["id"]))
+    await asyncio.wait_for(started.wait(), 5)
+    await scheduler.delete(schedule["id"])
+    assert service.list({"kind": "schedule"})["items"][0]["state"] == "running"
+    running.cancel()
+    try:
+        await running
+    except asyncio.CancelledError:
+        pass
+    # A new process: the durable Work record and a reloaded scheduler with nothing in flight.
+    restarted = WorkService(service.store, service.events, authority=service.authority,
+        permissions=service.permissions, requests=service.requests,
+        conversations=service.conversations, agents=AgentManager(), tasks={},
+        loops=LoopManager(), processes=Processes())
+    restarted.scheduler = Scheduler(str(tmp_path / "schedules.json"), desktop_recovery=True)
+    item = restarted.list({"kind": "schedule"})["items"][0]
+    assert item["state"] == "unknown" and item["settlement"]["state"] == "unknown"
 
 
 @pytest.mark.parametrize("failed", [False, True])
 async def test_idle_real_schedule_deleted_after_a_run_ends_with_it(work, tmp_path, failed):
-    async def callback(schedule):
+    async def run(schedule):
         if failed:
             raise RuntimeError("inert run failure")
 
-    service, scheduler, schedule = await _real_schedule(work, tmp_path, callback)
+    service, scheduler, schedule = await _real_schedule(work, tmp_path, run)
     await scheduler.run_now(schedule["id"])
     assert service.list({"kind": "schedule"})["items"][0]["state"] == "scheduled"
     await scheduler.delete(schedule["id"])
@@ -432,7 +493,7 @@ async def test_idle_real_schedule_deleted_after_a_run_ends_with_it(work, tmp_pat
 
 
 def test_ended_schedule_keeps_its_state_after_later_history(work, tmp_path):
-    service = _ended_schedule(work, tmp_path, [])
+    service = _ended_schedule(work, tmp_path, [], latest_run=None)
     assert service.list({"kind": "schedule"})["items"][0]["state"] == "cancelled"
     service.scheduler.history.path.write_text(_run("success") + "\n")
     assert service.list({"kind": "schedule"})["items"][0]["state"] == "cancelled"
