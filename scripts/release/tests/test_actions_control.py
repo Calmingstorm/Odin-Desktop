@@ -91,7 +91,7 @@ class ActionsTests(unittest.TestCase):
             'GITHUB_ACTOR': 'Calmingstorm',
             'GITHUB_SHA': self.source,
             'GITHUB_WORKFLOW_SHA': self.source,
-            'GITHUB_REF': 'refs/heads/main',
+            'GITHUB_REF': 'refs/heads/master',
             'GITHUB_EVENT_NAME': 'workflow_dispatch',
             'GITHUB_REPOSITORY': c.helper.REPOSITORY,
             'GITHUB_STEP_SUMMARY': str(self.root / 'summary'),
@@ -123,7 +123,7 @@ class ActionsTests(unittest.TestCase):
                     'protected_branches': False,
                 },
             },
-            self.p: {'branch_policies': [{'name': 'main', 'type': 'branch'}]},
+            self.p: {'branch_policies': [{'name': 'master', 'type': 'branch'}]},
             self.r: {
                 'id': 42,
                 'run_attempt': 1,
@@ -425,9 +425,9 @@ class ActionsTests(unittest.TestCase):
     def test_environment_branches(self):
         for policies in (
             [],
-            [{'name': 'main', 'type': 'tag'}],
+            [{'name': 'master', 'type': 'tag'}],
             [{'name': '*', 'type': 'branch'}],
-            [{'name': 'main', 'type': 'branch'}, {'name': 'v*', 'type': 'tag'}],
+            [{'name': 'master', 'type': 'branch'}, {'name': 'v*', 'type': 'tag'}],
         ):
             self.responses[self.p] = {'branch_policies': policies}
             self.denied()
@@ -455,7 +455,7 @@ class ActionsTests(unittest.TestCase):
         self.run_control()
 
     def test_non_tag_push(self):
-        self.responses[self.r].update(event='push', head_branch='main')
+        self.responses[self.r].update(event='push', head_branch='master')
         self.denied()
 
     def test_post_publish_mismatch_no_retry(self):

@@ -35,7 +35,7 @@ def candidate_arguments(env, root=ROOT):
             event == 'workflow_dispatch' and mode in ('dry-run', 'retain-candidate'),
             'not a candidate request',
         )
-        require(ref == 'refs/heads/main', 'manual candidates require reviewed main')
+        require(ref == 'refs/heads/master', 'manual candidates require reviewed master')
         require(
             env.get('RELEASE_VERSION') == version, 'dispatch version must equal current version'
         )

@@ -1,7 +1,7 @@
 # P4.1 local, unreleased Linux candidates
 
 This is the early packaging lane, not release authorization. The candidate contains
-the real Phase 2 step-one core from `main`: handshake, status, events, ping and
+the real Phase 2 step-one core from `master`: handshake, status, events, ping and
 supervised shutdown. Later conversation, execution, settings, skill-worker and
 native-computer admission services are **not** invented or replaced by the fixture.
 The development fixture and `ODIN_DESKTOP_CORE_CMD` never select a packaged core.

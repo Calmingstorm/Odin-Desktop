@@ -24,10 +24,10 @@ everyone working here, Claude and Odin alike.
 ## Changes
 
 - **Code goes through a branch and a PR.**
-  - Pull `main` first, then branch.
+  - Pull `master` first, then branch.
   - Odin's PRs are reviewed by Claude, and Claude's by Odin. Nothing merges without that review.
   - Delete the branch once it's merged.
-- **Design docs** may still be edited directly on `main`, by their owner only.
+- **Design docs** may still be edited directly on `master`, by their owner only.
 - **Commits** carry no attribution trailers (`Co-Authored-By`, session footers).
 - **Tests ship with the change** that needs them. Run the touched tests while working, and the full suite at each gate.
 - **Tests exercise real code behaviour.** Never write a test that reads a human-written document (`.md`, `.sh`) to assert

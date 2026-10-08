@@ -47,7 +47,7 @@ the other installation's configuration, history or credentials. Windows/macOS re
 
 ## Documentation watermark
 
-The user guides describe merged `main` behavior, with plain limitations rather
+The user guides describe merged `master` behavior, with plain limitations rather
 than development provenance. Maintainer source watermarks, pinned references,
 claim checks and historical gate results live in
 [P4.4 validation](maintenance/p44-user-docs-validation.md).

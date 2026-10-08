@@ -126,7 +126,7 @@ def dispatch_inputs():
     require(all(v.values()), 'missing dispatch input')
     require(v['GITHUB_REPOSITORY'] == helper.REPOSITORY, 'wrong dispatch repository')
     require(v['GITHUB_EVENT_NAME'] == 'workflow_dispatch', 'manual dispatch required')
-    require(v['GITHUB_REF'] == 'refs/heads/main', 'dispatch must use main')
+    require(v['GITHUB_REF'] == 'refs/heads/master', 'dispatch must use master')
     require(v['GITHUB_ACTOR'] == 'Calmingstorm', 'Aaron dispatch required')
     for key in ('CANDIDATE_RUN_ID', 'CANDIDATE_ARTIFACT_ID'):
         require(helper.RUN.fullmatch(v[key]), 'invalid ' + key)
@@ -190,16 +190,16 @@ def audit_environment():
     )
     require(
         len(policies) == 1
-        and policies[0].get('name') == 'main'
+        and policies[0].get('name') == 'master'
         and policies[0].get('type') == 'branch',
-        'environment must allow only main branch',
+        'environment must allow only master branch',
     )
     return {
         'environment': ENVIRONMENT,
         'reviewer_id': user['id'],
         'prevent_admin_bypass': True,
         'prevent_self_review': False,
-        'branch': 'main',
+        'branch': 'master',
     }
 
 

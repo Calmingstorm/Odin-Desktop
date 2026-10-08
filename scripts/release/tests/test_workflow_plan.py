@@ -35,7 +35,7 @@ class WorkflowPlanTests(unittest.TestCase):
         mode='dry-run',
         event='workflow_dispatch',
         actor='Calmingstorm',
-        ref='refs/heads/main',
+        ref='refs/heads/master',
         repo='Calmingstorm/Odin-Desktop',
     ):
         return {

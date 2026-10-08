@@ -1,10 +1,10 @@
 name: Phase 1 engine boundaries
 on:
   pull_request:
-    branches: [main]
+    branches: [master]
     types: [opened, synchronize, reopened, ready_for_review]
   push:
-    branches: [main]
+    branches: [master]
 permissions:
   contents: read
 concurrency:
@@ -76,7 +76,7 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.draft == false
     runs-on: [self-hosted, odin-desktop-ci]
     # Plan groups run once with their original JUnit receipts; the additional
-    # Desktop step covers only files outside that plan. Keep main's existing bound.
+    # Desktop step covers only files outside that plan. Keep master's existing bound.
     timeout-minutes: 120
     env:
       ODIN_COVERAGE: '1'
