@@ -22,11 +22,9 @@ export const NAV: NavSection[] = [
   { id: 'tools', title: 'Tools', prefixes: ['tools', 'browser', 'computer', 'email'] },
   { id: 'skills', title: 'Skills', prefixes: [] },
   { id: 'mcp', title: 'MCP servers', prefixes: ['mcp'] },
-  { id: 'hosts', title: 'Hosts and trust', prefixes: [] },
-  { id: 'work', title: 'Scheduled and running work', prefixes: ['webhook', 'outbound_webhooks', 'turn_state'] },
-  { id: 'state', title: 'State', prefixes: ['search'] },
-  { id: 'records', title: 'Records', prefixes: ['logging', 'usage', 'observability', 'audit'] },
-  { id: 'other', title: 'Other', prefixes: [] }
+  { id: 'hosts', title: 'Hosts and access', prefixes: [] },
+  { id: 'work', title: 'Work', prefixes: ['webhook', 'outbound_webhooks', 'turn_state'] },
+  { id: 'data', title: 'Data and privacy', prefixes: ['search', 'logging', 'usage', 'observability', 'audit'] }
 ]
 
 /** The dedicated desktop methods a field may name as its apply handler; anything else is saved with settings.set. */
@@ -159,9 +157,11 @@ export function fromInput(field: ConfigField, raw: string | boolean): Parsed {
     const value = Number(text.trim())
     if (text.trim() === '' || !Number.isFinite(value)) return { ok: false, error: 'Enter a number.' }
     if (field.type === 'integer' && !Number.isInteger(value)) return { ok: false, error: 'Enter a whole number.' }
-    const { minimum, maximum } = field.constraints
+    const { minimum, maximum, exclusive_minimum, exclusive_maximum } = field.constraints
     if (minimum !== undefined && value < minimum) return { ok: false, error: `The lowest is ${minimum}.` }
     if (maximum !== undefined && value > maximum) return { ok: false, error: `The highest is ${maximum}.` }
+    if (exclusive_minimum !== undefined && value <= exclusive_minimum) return { ok: false, error: `Enter a value above ${exclusive_minimum}.` }
+    if (exclusive_maximum !== undefined && value >= exclusive_maximum) return { ok: false, error: `Enter a value below ${exclusive_maximum}.` }
     return { ok: true, value }
   }
   if (field.type === 'array' && isTextList(field)) {
@@ -177,6 +177,8 @@ export function fromInput(field: ConfigField, raw: string | boolean): Parsed {
     }
   }
   if (field.enum && !field.enum.includes(text)) return { ok: false, error: `Choose one of ${field.enum.join(', ')}.` }
+  if (field.constraints.min_length !== undefined && text.length < field.constraints.min_length) return { ok: false, error: `Enter at least ${field.constraints.min_length} characters.` }
+  if (field.constraints.max_length !== undefined && text.length > field.constraints.max_length) return { ok: false, error: `Enter no more than ${field.constraints.max_length} characters.` }
   return { ok: true, value: text }
 }
 
@@ -223,6 +225,13 @@ export class FieldDrafts {
     return this.drafts[field.path] !== undefined && this.drafts[field.path] !== toInput(field)
   }
 
+  /** Cancel the unsent draft and queued intent, never a dispatched write. */
+  cancel(path: string): void {
+    this.drafts[path] = undefined
+    this.errors[path] = undefined
+    this.owed.delete(path)
+  }
+
   async save(field: ConfigField): Promise<void> {
     const draft = this.drafts[field.path]
     if (draft === undefined) return
@@ -248,14 +257,17 @@ export class FieldDrafts {
 
   private async write(field: ConfigField, sent: string | boolean | undefined, run: () => Promise<boolean>): Promise<void> {
     this.writing.add(field.path)
+    let succeeded = false
     try {
-      if ((await run()) && this.drafts[field.path] === sent) this.drafts[field.path] = undefined
+      succeeded = await run()
+      if (succeeded && this.drafts[field.path] === sent) this.drafts[field.path] = undefined
     } finally {
       this.writing.delete(field.path)
+      if (!succeeded) this.owed.delete(field.path)
     }
     const next = this.owed.get(field.path)
     this.owed.delete(field.path)
-    if (next !== undefined) await this.send(this.writes.latest(field.path) ?? field, next)
+    if (succeeded && next !== undefined) await this.send(this.writes.latest(field.path) ?? field, next)
   }
 }
 

@@ -443,6 +443,24 @@ def test_every_preload_action_is_explicitly_classified_and_correctly_routed():
     validate_app(management_data()["app_actions"])
 
 
+def test_app_local_bridge_actions_are_explicit_and_never_fabricated_core_methods():
+    actions = {row["id"]: row for row in management_data()["app_actions"]}
+    expected = {"getDesktopInfo": True, "openSettingsFolder": False, "exitOdin": False}
+    for name, read in expected.items():
+        assert actions[name]["read"] is read
+        assert actions[name]["core_methods"] == []
+    # The exhaustive preload-vs-inventory equality above must reject a newly
+    # introduced bridge method until it has an explicit, reviewed disposition.
+    actions["futureLocalAction"] = {
+        "id": "futureLocalAction", "app_method": "futureLocalAction",
+        "domain": "general", "reason": "Unreviewed action.",
+        "owner": "app.src.main.ipc.registerIpc", "read": False,
+        "source": "app/src/preload/index.ts:api", "core_methods": [],
+    }
+    with pytest.raises(AssertionError, match="unclassified app capabilities"):
+        validate_app(list(actions.values()))
+
+
 @pytest.mark.parametrize("mutation,message", [
     ("missing", "unclassified app capabilities"),
     ("unsupported", "unsupported app methods"),

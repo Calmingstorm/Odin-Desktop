@@ -3,6 +3,18 @@
 
 export type CorePhase = 'starting' | 'ready' | 'degraded' | 'quiescing'
 
+/** App-owned runtime metadata only. Core version is read separately from status(). */
+export interface DesktopInfo {
+  appVersion: string
+  electronVersion: string
+  chromiumVersion: string
+  nodeVersion: string
+  platform: string
+  architecture: string
+  license: 'MIT'
+  packaged: boolean
+}
+
 export interface ReleaseNotice {
   state: 'cannot-check-private' | 'offline' | 'rate-limited' | 'unavailable' | 'malformed' | 'no-release' |
     'invalid-current-version' | 'equal' | 'older' | 'newer'
@@ -1281,6 +1293,11 @@ export interface ControlTarget {
 
 /** The API the preload bridge exposes as `window.odin`. Nothing else crosses the bridge. */
 export interface OdinApi extends ManagementApi, SettingsShapedApi {
+  getDesktopInfo(): Promise<Result<DesktopInfo>>
+  /** Opens only the current profile's settings folder; no renderer-supplied path. */
+  openSettingsFolder(): Promise<Result<{ opened: true }>>
+  /** Accepts an orderly, bounded app/core shutdown, not proof that shutdown completed. */
+  exitOdin(): Promise<Result<{ accepted: true }>>
   checkReleases(): Promise<Result<ReleaseNotice>>
   openRelease(): Promise<Result<{ opened: true }>>
   status(): Promise<Result<CoreStatus>>
@@ -1388,6 +1405,9 @@ export interface LateReceipt {
 }
 
 export const IPC = {
+  getDesktopInfo: 'odin:get-desktop-info',
+  openSettingsFolder: 'odin:open-settings-folder',
+  exitOdin: 'odin:exit-odin',
   checkReleases: 'odin:check-releases',
   openRelease: 'odin:open-release',
   status: 'odin:status',

@@ -336,6 +336,26 @@
         "missing": 1,
         "total": 15
       },
+      "app/src/renderer/src/components/settings/SettingEditor.vue": {
+        "covered": 43,
+        "missing": 0,
+        "total": 43
+      },
+      "app/src/renderer/src/components/settings/SettingsRow.vue": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "app/src/renderer/src/components/settings/SettingsSection.vue": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
+      "app/src/renderer/src/components/settings/SettingsSwitch.vue": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
+      },
       "app/src/renderer/src/conversation-menu-keys.ts": {
         "covered": 7,
         "missing": 0,
@@ -390,6 +410,11 @@
         "covered": 102,
         "missing": 1,
         "total": 103
+      },
+      "app/src/renderer/src/settings-presentation.ts": {
+        "covered": 9,
+        "missing": 0,
+        "total": 9
       },
       "app/src/renderer/src/skill-config.ts": {
         "covered": 4,
@@ -475,6 +500,16 @@
         "covered": 13,
         "missing": 2,
         "total": 15
+      },
+      "app/src/renderer/src/views/settings/Advanced.vue": {
+        "covered": 9,
+        "missing": 0,
+        "total": 9
+      },
+      "app/src/renderer/src/views/settings/DataPrivacy.vue": {
+        "covered": 3,
+        "missing": 0,
+        "total": 3
       },
       "app/src/renderer/src/views/settings/General.vue": {
         "covered": 20,
@@ -2662,6 +2697,10 @@
     "app/src/renderer/src/components/WebhookIngress.vue",
     "app/src/renderer/src/components/WorkList.vue",
     "app/src/renderer/src/components/WorkPanel.vue",
+    "app/src/renderer/src/components/settings/SettingEditor.vue",
+    "app/src/renderer/src/components/settings/SettingsRow.vue",
+    "app/src/renderer/src/components/settings/SettingsSection.vue",
+    "app/src/renderer/src/components/settings/SettingsSwitch.vue",
     "app/src/renderer/src/conversation-menu-keys.ts",
     "app/src/renderer/src/dialog.ts",
     "app/src/renderer/src/format.ts",
@@ -2673,6 +2712,7 @@
     "app/src/renderer/src/schedule-time.ts",
     "app/src/renderer/src/settings-accessibility.ts",
     "app/src/renderer/src/settings-form.ts",
+    "app/src/renderer/src/settings-presentation.ts",
     "app/src/renderer/src/skill-config.ts",
     "app/src/renderer/src/skill-editor.ts",
     "app/src/renderer/src/store.ts",
@@ -2690,6 +2730,8 @@
     "app/src/renderer/src/stores/work.ts",
     "app/src/renderer/src/tool-output.ts",
     "app/src/renderer/src/views/Settings.vue",
+    "app/src/renderer/src/views/settings/Advanced.vue",
+    "app/src/renderer/src/views/settings/DataPrivacy.vue",
     "app/src/renderer/src/views/settings/General.vue",
     "app/src/renderer/src/views/settings/Hosts.vue",
     "app/src/renderer/src/views/settings/Mcp.vue",

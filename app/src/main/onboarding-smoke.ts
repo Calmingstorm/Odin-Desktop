@@ -51,8 +51,8 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     writeFileSync(controlFile, JSON.stringify({ ...previous, ...change }), { mode: 0o600 })
   }
   // Use the renderer's collision-free ID contract without importing renderer modules into main.
-  const fieldId = (path: string): string => `[id=${JSON.stringify(`settings-field-${encodeURIComponent(path)}`)}]`
-  const fieldText = (path: string): Promise<string> => run(`document.querySelector(${JSON.stringify(fieldId(path))})?.closest('.field')?.innerText ?? ''`)
+  const fieldId = (path: string): string => `[id=${JSON.stringify(`settings-${path === 'logging.level' ? 'curated' : 'field'}-${encodeURIComponent(path)}`)}]`
+  const fieldText = (path: string): Promise<string> => run(`document.querySelector(${JSON.stringify(fieldId(path))})?.closest('.field, .setting-editor')?.innerText ?? ''`)
   const edit = async (path: string, value: string | boolean): Promise<void> => {
     const id = fieldId(path)
     assert.equal(await count(id), 1, `${path} single existing settings field`)
@@ -79,7 +79,12 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
       observed = (await request<{ first_run: FirstRun }>('status.get')).first_run
       return observed.state === expected
     }, `authoritative ${expected}`)
+    // Readiness is owned by chat, not Settings. Re-enter the previous settings
+    // destination after checking the actual banner, without changing core state.
+    const settingsOpen = await count('.settings') === 1
+    if (settingsOpen) await click('.settings-nav .back')
     await until(async () => await run(`Boolean(document.querySelector('.first-run-banner[data-state=${JSON.stringify(expected)}]'))`), `rendered ${expected}`)
+    if (settingsOpen) await openSettings()
     if (!states.includes(expected)) states.push(expected)
     return observed!
   }
@@ -109,13 +114,13 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
   }
   const preferences = async (second: boolean): Promise<void> => {
     await section('General')
-    await until(async () => (await count('.app-settings input[type=checkbox]')) >= 3, 'general settings')
-    const actual = await run<boolean[]>('Array.from(document.querySelectorAll(".app-settings input[type=checkbox]"), e => e.checked)')
+    await until(async () => (await count('#start-at-login, #notifications-enabled, #notification-previews')) === 3, 'general settings')
+    const actual = await run<boolean[]>('Array.from(document.querySelectorAll("#start-at-login, #notifications-enabled, #notification-previews"), e => e.checked)')
     assert.equal(actual[0], second, 'autostart initially off, persisted opt-in only')
     assert.equal(actual[2], !second, 'previews initially on, persisted toggle respected')
     if (!second) {
-      await run(`(() => { const boxes = document.querySelectorAll('.app-settings input[type=checkbox]'); boxes[0].checked=true; boxes[0].dispatchEvent(new Event('change',{bubbles:true})); })()`)
-      await run(`(() => { const boxes = document.querySelectorAll('.app-settings input[type=checkbox]'); boxes[2].checked=false; boxes[2].dispatchEvent(new Event('change',{bubbles:true})); })()`)
+      await run(`(() => { const input = document.querySelector('#start-at-login'); input.checked=true; input.dispatchEvent(new Event('change',{bubbles:true})); })()`)
+      await run(`(() => { const input = document.querySelector('#notification-previews'); input.checked=false; input.dispatchEvent(new Event('change',{bubbles:true})); })()`)
       await until(async () => await run(`(async () => { const r=await window.odin.getSettings(); return r.ok && r.result.autostart && !r.result.notifications.previews; })()`), 'preferences saved')
     }
     checks.push(second ? 'preferences-persisted' : 'defaults-and-opt-in')
@@ -126,7 +131,7 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
   if (scenario === 'fresh' || scenario === 'fresh-second') {
     await observeState('fresh')
     await section('General')
-    const defaults = await run<boolean[]>('Array.from(document.querySelectorAll(".app-settings input[type=checkbox]"), e => e.checked)')
+    const defaults = await run<boolean[]>('Array.from(document.querySelectorAll("#start-at-login, #notifications-enabled, #notification-previews"), e => e.checked)')
     assert.equal(defaults[0], false)
     assert.equal(defaults[2], true)
     await click('.settings-nav .back')
@@ -157,19 +162,23 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
   } else if (scenario === 'locked' || scenario === 'missing') {
     const degraded = await observeState('degraded')
     assert.equal(degraded.keyring_unavailable, true)
-    await section('Models and providers')
+    await click('.settings-nav .back')
     await until(async () => /keyring/i.test(await text('.first-run-banner')), 'visible keyring failure')
+    await openSettings()
+    await section('Models and providers')
     await edit('openai_compatible.api_key', 'E2E-WRITE-ONLY-NEVER-RENDER')
     await until(async () => await run(`document.querySelector(${JSON.stringify(fieldId('openai_compatible.api_key'))}).value === ''`), 'failed secret clears')
     assert.equal((await request<{ first_run: FirstRun }>('status.get')).first_run.state, 'degraded')
     // A locked collection must be unlocked by the rendered owner Retry, not
     // secretly made healthy by the orchestrator before the click.
     if (scenario === 'missing') control({ keyring: 'healthy' })
+    await click('.settings-nav .back')
     await button('.first-run-banner', 'Retry')
     await observeState('fresh')
     const keyringControl = JSON.parse(readFileSync(process.env.ODIN_SMOKE_CONTROL!, 'utf8')) as { unlock_calls?: number }
     assert.equal(keyringControl.unlock_calls ?? 0, scenario === 'locked' ? 1 : 0)
     checks.push('keyring-retry')
+    await openSettings()
     await finishLogin()
     await model('codex:gpt-5.4')
     await observeState('effective-ready')
@@ -197,7 +206,9 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     await model('codex:gpt-5.4')
     await observeState('effective-ready')
 
-    await section('Records')
+    await section('General')
+    await button('.settings-body', 'Advanced settings')
+    await until(async () => await text('.settings-body h2') === 'Advanced settings', 'secondary Advanced settings')
     const current = await schema()
     await request('settings.set', { expected_revision: current.revision, changes: [{ path: 'logging.level', value: 'DEBUG' }] })
     await edit('logging.level', 'WARNING')

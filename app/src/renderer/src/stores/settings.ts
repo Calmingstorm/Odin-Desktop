@@ -15,6 +15,7 @@ import {
 import { dedicatedMethod, editableHere, imageLeafOf, isSecret, settingsShapedMethod } from '../settings-form'
 import { isUnavailable } from '../capability'
 import { refreshStatus } from './status'
+import { state as appState } from '../store'
 
 export interface FieldState {
   status: 'saving' | 'saved' | 'error'
@@ -35,6 +36,7 @@ export const settings = reactive({
   error: '',
   unavailable: false,
   notice: '',
+  unknownSave: false,
   fields: {} as Record<string, FieldState | undefined>,
   codex: {
     status: null as CodexStatus | null,
@@ -57,10 +59,12 @@ function message(result: Result<unknown>): string {
 /** Moves on with every read and every adopted answer, so an older read never replaces something newer. */
 let settingsGeneration = 0
 
-export async function loadSettings(): Promise<void> {
+export async function loadSettings(explicit = false): Promise<void> {
   const mine = ++settingsGeneration
+  const epoch = appState.recoveryEpoch
+  const instance = appState.app.coreInstanceId
   const result = await window.odin.settingsSchema()
-  if (mine !== settingsGeneration) return
+  if (mine !== settingsGeneration || epoch !== appState.recoveryEpoch || instance !== appState.app.coreInstanceId) return
   if (!result.ok) {
     if (isUnavailable(result.error)) {
       settings.meta = null
@@ -75,6 +79,7 @@ export async function loadSettings(): Promise<void> {
   settings.unavailable = false
   settings.error = ''
   settings.meta = result.result
+  if (explicit) { settings.unknownSave = false; settings.notice = '' }
 }
 
 /** Replaces the records a save returned, so each field shows what saving did and what runs now. */
@@ -100,14 +105,69 @@ function saverFor(field: ConfigField): (params: SettingsSetParams) => Promise<Re
   return method ? (params) => window.odin[SETTINGS_SHAPED[method].call](params) : (params) => window.odin.settingsSet(params)
 }
 
-/** Saves one field: through its dedicated method when Odin applies it that way, otherwise settings.set. */
-export async function saveField(field: ConfigField, value: unknown): Promise<boolean> {
+// All generic settings owners share the configuration revision. Serialize deliberate mutations,
+// but a failed/unknown settlement invalidates already queued intent. No automatic resubmission.
+let mutationTail: Promise<unknown> = Promise.resolve()
+let mutationFence = 0
+export function saveField(field: ConfigField, value: unknown): Promise<boolean> {
+  const fence = mutationFence
+  const epoch = appState.recoveryEpoch
+  const instance = appState.app.coreInstanceId
+  const authority = JSON.stringify([field.apply_handler, field.sensitivity, field.type, field.enum, field.constraints])
+  const run = mutationTail.then(async () => {
+    if (fence !== mutationFence) {
+      settings.fields[field.path] = { status: 'error', message: 'An earlier save did not complete. Check the current settings, then save this change again.' }
+      return false
+    }
+    if (settings.unknownSave) { settings.fields[field.path] = { status: 'error', message: 'A save outcome is unknown. Refresh saved settings and check before submitting again.' }; return false }
+    try {
+      const latest = settings.meta?.fields.find((record) => record.path === field.path)
+      if (!latest || epoch !== appState.recoveryEpoch || instance !== appState.app.coreInstanceId || authority !== JSON.stringify([latest.apply_handler, latest.sensitivity, latest.type, latest.enum, latest.constraints])) {
+        mutationFence += 1
+        settings.fields[field.path] = { status: 'error', message: 'The setting or its write authority changed. Refresh, check, then submit again.' }
+        return false
+      }
+      settingsGeneration += 1
+      const saved = await saveFieldNow(latest, value)
+      if (!saved) mutationFence += 1
+      return saved
+    } catch {
+      mutationFence += 1
+      settings.unknownSave = true
+      settings.notice = 'A save outcome is unknown. Refresh saved settings and check before submitting again.'
+      settings.fields[field.path] = { status: 'error', message: 'The save outcome could not be confirmed. Refresh and check the value before submitting again.' }
+      return false
+    }
+  })
+  mutationTail = run.then(() => undefined, () => undefined)
+  return run
+}
+
+/** Saves through the metadata's owner, never a presentation routing table. */
+async function saveFieldNow(field: ConfigField, value: unknown): Promise<boolean> {
+  const epoch = appState.recoveryEpoch
+  const instance = appState.app.coreInstanceId
+  const current = (): boolean => {
+    if (epoch === appState.recoveryEpoch && instance === appState.app.coreInstanceId) return true
+    settings.unknownSave = true
+    settings.notice = 'A save settled after the core changed. Refresh saved settings and check before submitting again.'
+    settings.fields[field.path] = { status: 'error', message: settings.notice }
+    return false
+  }
+  const uncertain = (result: Result<unknown>): void => {
+    if (!result.ok && (['no_receipt', 'outcome_unknown', 'unknown'].includes(result.error.code) || result.error.disposition === 'outcome_unknown')) {
+      settings.unknownSave = true
+      settings.notice = 'A save outcome is unknown. Refresh saved settings and check before submitting again.'
+    }
+  }
   if (!settings.meta || isSecret(field) || !editableHere(field)) return false
   settings.fields[field.path] = { status: 'saving' }
   const method = dedicatedMethod(field)
   if (method) {
     const key = field.path.split('.').pop() as string
     const result = await window.odin.editLeaf({ method, params: { [key]: value, expected_revision: settings.meta.revision } })
+    if (!current()) return false
+    uncertain(result)
     if (!result.ok) {
       if (result.error.code === 'stale_binding') await changedElsewhere(field.path)
       else settings.fields[field.path] = { status: 'error', message: message(result) }
@@ -115,11 +175,18 @@ export async function saveField(field: ConfigField, value: unknown): Promise<boo
     }
     await loadSettings() // a dedicated method returns its own shape; the records come from the core
     await refreshStatus()
+    if (!current()) return false
     settings.fields[field.path] = { status: 'saved' }
     return true
   }
   const result = await saverFor(field)({ expected_revision: settings.meta.revision, changes: [{ path: field.path, value }] })
+  if (!current()) return false
+  uncertain(result)
   if (!result.ok) {
+    if (['no_receipt', 'outcome_unknown', 'unknown'].includes(result.error.code) || result.error.disposition === 'outcome_unknown') {
+      settings.unknownSave = true
+      settings.notice = 'A save outcome is unknown. Refresh saved settings and check before submitting again.'
+    }
     if (result.error.code === 'stale_binding') await changedElsewhere(field.path)
     else settings.fields[field.path] = { status: 'error', message: message(result) }
     return false

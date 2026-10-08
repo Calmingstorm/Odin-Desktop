@@ -249,10 +249,12 @@ describe('per-resource state capability handling', () => {
 
   it('loads each own screen under a refused settings schema, instead of treating schema as its capability', async () => {
     const v = await view('Settings')
-    for (const label of ['Personality', 'State', 'Records']) {
+    for (const label of ['Personality', 'Data and privacy']) {
       v.root.findAll((n) => n.tag === 'button' && String(n.props.class).includes('settings-nav-item')).find((n) => n.textContent().trim() === label)!.fire('click')
       await flush()
     }
+    v.root.button('Usage, logs and audit').fire('click')
+    await flush()
     expect(odin.settingsSchema).toHaveBeenCalledTimes(1)
     for (const method of ['personalityGet', 'memoryList', 'listsList', 'knowledgeList', 'auditQuery', 'usage', 'healthGet', 'logsSearch', 'turnStateList', 'computerStatus']) expect(odin[method]).toHaveBeenCalledTimes(1)
     expect(v.root.textContent()).toContain('Core settings are unavailable in this core.')

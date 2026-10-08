@@ -4,6 +4,21 @@ import type { CoreError, ManagementMethod } from '../shared/api'
 
 const coreId = z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/)
 
+// Local app actions never accept paths, arguments, configuration or diagnostics.
+export const localAppSchema = z.object({}).strict()
+const runtimeLabel = z.string().min(1).max(100)
+/** Project only these fields, even if an owner accidentally supplies extra metadata. */
+export const desktopInfoSchema = z.object({
+  appVersion: runtimeLabel,
+  electronVersion: runtimeLabel,
+  chromiumVersion: runtimeLabel,
+  nodeVersion: runtimeLabel,
+  platform: runtimeLabel,
+  architecture: runtimeLabel,
+  license: z.literal('MIT'),
+  packaged: z.boolean()
+})
+
 // Neither notice action accepts a repository, URL, transport, credentials or an update command.
 export const releaseNoticeSchema = z.object({}).strict()
 

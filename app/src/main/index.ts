@@ -360,7 +360,7 @@ function run(): void {
 
   void app.whenReady().then(async () => {
     if (lifecycle.quitting) return
-    const theme = new AppearanceController(nativeTheme, savedAppearance, () => { savePersisted() })
+    const theme = new AppearanceController(nativeTheme, savedAppearance, () => { if (!savePersisted()) throw new Error('App preferences could not be persisted') })
     appearance = theme
     // Following the system, the theme can change while Odin runs; the window background follows it.
     nativeTheme.on('updated', () => win?.setBackgroundColor(theme.background()))
@@ -376,6 +376,19 @@ function run(): void {
     installGuards()
     serveAppScheme(rendererDir)
     registerIpc({
+      getDesktopInfo: () => ({
+        appVersion: app.getVersion(),
+        electronVersion: process.versions.electron,
+        chromiumVersion: process.versions.chrome,
+        nodeVersion: process.versions.node,
+        platform: process.platform,
+        architecture: process.arch,
+        license: 'MIT',
+        packaged: app.isPackaged
+      }),
+      openSettingsFolder: () => shell.openPath(paths.configDir),
+      // Let the IPC acceptance receipt settle before quiescing or exiting Electron.
+      exitOdin: () => { setImmediate(() => { void exitOdin() }) },
       admitting: () => !lifecycle.quitting,
       broker,
       windowId: () => win?.webContents.id ?? null,
@@ -409,12 +422,21 @@ function run(): void {
         return settings()
       },
       setNotifications: (change) => {
+        const previous = notificationSettings
         notificationSettings = mergeSettings(notificationSettings, change)
-        savePersisted()
+        if (!savePersisted()) { notificationSettings = previous; throw new Error('App preferences could not be persisted') }
         return settings()
       },
       setAppearance: (choice) => {
-        theme.set(choice)
+        const previous = theme.appearance
+        try { theme.set(choice) }
+        catch (error) {
+          // A failed durable save is not adoption. Restore both the native choice and
+          // controller before returning failure; persistence may still be unavailable.
+          try { theme.set(previous) } catch { /* The previous runtime choice is restored before persistence. */ }
+          win?.setBackgroundColor(theme.background())
+          throw error
+        }
         win?.setBackgroundColor(theme.background())
         return settings()
       },

@@ -181,6 +181,18 @@ async function native(title: string, action: 'cancel' | 'file' | 'describe', pat
 }
 
 async function section(name: string): Promise<void> {
+  if (name === 'Memory and knowledge' || name === 'Usage, logs and audit') {
+    await section('Data and privacy')
+    await activate(page.getByRole('navigation', { name: 'Data and privacy subsections' }).getByRole('button', { name, exact: true }), new RegExp(name, 'i'))
+    await expect(page.getByRole('region', { name: name === 'Memory and knowledge' ? 'Memory' : 'Audit', exact: true })).toBeVisible()
+    return
+  }
+  if (name === 'Advanced settings') {
+    await section('General')
+    await activate(page.getByRole('button', { name, exact: true }), /Advanced settings/i)
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
+    return
+  }
   await activate(page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name, exact: true }),
     new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
   await expect(page.locator('.settings-body')).toContainText(name)
@@ -319,22 +331,23 @@ test('orca-busy-steer-consumed-queued-stop-resume-unknown-no-flood', async () =>
   expect(structural.map((r) => r.text).join('\n')).not.toContain('private steer content')
 })
 
+// Keep the historical task ID required by the qualification inventory. It now
+// traverses nine primary destinations plus the retained secondary surfaces.
 test('orca-all-eleven-settings-names-roles-states-errors-secret', async () => {
   await launch()
   await press('Control+,')
-  const names = ['General', 'Models and providers', 'Tools', 'Skills', 'MCP servers', 'Hosts and trust',
-    'Scheduled and running work', 'State', 'Records', 'Personality', 'Other']
+  const names = ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and access', 'Work', 'Data and privacy']
   const nav = page.getByRole('navigation', { name: 'Settings sections' })
-  await expect(nav.getByRole('button', { name: 'Other', exact: true })).toBeVisible()
+  await expect(nav.getByRole('button', { name: 'Data and privacy', exact: true })).toBeVisible()
   expect((await nav.locator('.settings-nav-item').allTextContents()).map((s) => s.trim()).sort()).toEqual([...names].sort())
   for (const name of names) await section(name)
   await section('General')
-  const quiet = page.getByRole('checkbox', { name: 'Quiet hours', exact: true })
-  await tabTo(quiet, /Quiet hours/i, /check box|checkbox/i, /not checked|unchecked/i)
+  const quiet = page.getByRole('switch', { name: 'Quiet hours', exact: true })
+  await tabTo(quiet, /Quiet hours/i, /switch/i, /not checked|unchecked|off/i)
   const changed = speech!.mark()
   await press('Space')
   await expect(quiet).toBeChecked()
-  await hear(changed, /(?<!not )checked/i)
+  await hear(changed, /(?<!not )checked|\bon\b/i)
   await tabTo(page.getByLabel('Quiet hours start', { exact: true }), /Quiet hours start/i)
   await tabTo(page.getByLabel('Quiet hours end', { exact: true }), /Quiet hours end/i)
   await section('Tools')
@@ -360,15 +373,15 @@ test('orca-all-eleven-settings-names-roles-states-errors-secret', async () => {
   await section('MCP servers')
   await activate(page.getByRole('button', { name: 'Add server', exact: true }), /Add server/i)
   await tabTo(page.getByRole('textbox', { name: 'Executable', exact: true }), /Executable/i, /entry|text/i)
-  await section('Hosts and trust')
+  await section('Hosts and access')
   await activate(page.getByRole('button', { name: 'Add host', exact: true }), /Add host/i)
   await tabTo(page.getByRole('textbox', { name: 'Alias', exact: true }), /Alias/i, /entry|text/i)
-  await section('Scheduled and running work')
+  await section('Work')
   await activate(page.getByRole('button', { name: /^Edit schedule / }).first(), /Edit schedule/i)
-  await section('State')
+  await section('Memory and knowledge')
   await activate(page.getByRole('button', { name: 'Open Everywhere memory', exact: true }), /Open Everywhere memory/i)
   await expect(page.getByRole('table', { name: 'Everywhere memory entries' })).toBeVisible()
-  await section('Records')
+  await section('Usage, logs and audit')
   await tabTo(page.getByRole('searchbox', { name: 'Search the audit', exact: true }), /Search the audit/i, /entry|text/i)
   await tabTo(page.getByRole('combobox', { name: 'Period', exact: true }), /Period/i, /combo box/i)
   await tabTo(page.getByRole('searchbox', { name: 'Search the logs', exact: true }), /Search the logs/i, /entry|text/i)
@@ -376,7 +389,7 @@ test('orca-all-eleven-settings-names-roles-states-errors-secret', async () => {
   await section('Personality')
   await tabTo(page.getByRole('combobox', { name: 'Preset', exact: true }), /Preset/i, /combo box/i)
   await tabTo(page.getByRole('textbox', { name: 'Name', exact: true }), /Name/i, /entry|text/i)
-  await section('Other')
+  await section('Advanced settings')
 })
 
 test('orca-delayed-history-search-retains-focused-current-message', async () => {
@@ -408,8 +421,9 @@ test('orca-real-core-services-when-explicitly-provisioned', async () => {
   await hear(usage, /Usage, 7d report ready/i)
   await press('Control+,')
   const nav = page.getByRole('navigation', { name: 'Settings sections' })
-  await expect(nav.getByRole('button', { name: 'Other', exact: true })).toBeVisible()
+  await expect(nav.getByRole('button', { name: 'Data and privacy', exact: true })).toBeVisible()
   const names = (await nav.locator('.settings-nav-item').allTextContents()).map((s) => s.trim())
-  expect(names).toHaveLength(11)
+  expect(names).toEqual(['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and access', 'Work', 'Data and privacy'])
   for (const name of names) await section(name)
+  for (const name of ['Memory and knowledge', 'Usage, logs and audit', 'Advanced settings']) await section(name)
 })

@@ -10,7 +10,7 @@ const ports = vi.hoisted(() => ({ files: new Map<string, string | Buffer>(), rea
 vi.mock('node:fs', () => ({ readFileSync: ports.read, writeFileSync: ports.write, existsSync: ports.exists, readlinkSync: ports.link }))
 vi.mock('electron', () => ({ dialog: { showOpenDialog: ports.open, showSaveDialog: ports.save } }))
 const root = '/tmp/odrc-inert-driver', out = root + '/result.png'
-const sections = ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and trust', 'Scheduled and running work', 'State', 'Records', 'Other']
+const sections = ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and access', 'Work', 'Data and privacy']
 const missing = 'No LLM provider available. Please try again later.'
 const submission = 'real-core smoke unavailable provider check'
 const skillCode = 'inert constant fixture, never evaluated'
@@ -57,7 +57,7 @@ function fixture(provider = false, seeded = false, fault = '') {
   const messages: any[] = provider ? [{ id: 'm_seed', role: 'user', text: 'Preserved request', request_id: 'r_seed' }] : []
   const recent: any[] = [], histories: any[] = [], webhookMessages: any[] = [], clicks: string[] = [], operations: any[] = [], journal = new Map<string, any>()
   const conversations = [{ id: 'c_chat', title: 'Chat' }]
-  const schema = () => ({ revision: String(revision), fields: [{ path: 'logging.level' }] })
+  const schema = () => ({ revision: String(revision), fields: [{ path: 'timezone' }, ...(fault === 'unknown-curated-log' ? [] : [{ path: 'logging.level' }])] })
   const computer = { session: null, readiness: { management_available: true, foreground_available: false, native_qualified: false, input_supported: false, dispatch: 'none' } }
   const mcpStatus = () => ({ revision: String(revision), servers: mcp ? [{ name: 'slice4_local', state: mcpEnabled ? 'connected' : 'disabled', published_count: 1 }] : [], configured_servers: mcp ? ['slice4_local'] : [], server_count: mcp ? 1 : 0, configured_server_count: mcp ? 1 : 0, connected_count: mcp && mcpEnabled ? 1 : 0, published_tool_count: mcp && mcpEnabled ? 1 : 0, started: true, closed: false })
   const ingress = () => ({ reason: !ingressEnabled ? 'disabled' : sourceSecret ? 'accepting' : 'no_eligible_schedule', address: ingressEnabled && sourceSecret ? ['127.0.0.1', 43211] : null, eligible_schedules: sourceSecret ? 1 : 0, unknown_deliveries: 0 })
@@ -185,6 +185,7 @@ function fixture(provider = false, seeded = false, fault = '') {
   }))
   const fullOutput = () => outputPages === 1 ? 'Evidence line 0000: first' : 'Evidence line 0000: first\nEvidence line 0899: last'
   const text = (selector: string): string => {
+    if (selector === 'Advanced settings') return 'Advanced settings'
     if (['Save listener setup', 'Save trigger source and secret', 'Clear per-trigger secret'].includes(selector)) return selector
     if (selector === '.status') return '0.1.0.dev1'
     if (selector === '.conv.active .conv-title' || selector === '.conv-title') return title
@@ -224,6 +225,8 @@ function fixture(provider = false, seeded = false, fault = '') {
     }
     const panel = selector.match(/^section\[aria-label=(?:"([^"]+)"|([^\]]+))\]/)?.slice(1).find(Boolean)
     if (panel && panel in panels) {
+      if (['Memory', 'Named lists', 'Knowledge', 'Context'].includes(panel) && section !== 'Data and privacy') throw new Error('State panel outside its Data and privacy owner')
+      if (['Health', 'Usage', 'Computer use', 'Audit', 'Logs', 'Turn state', 'Audit diffs', 'Audit failures', 'Log statistics', 'Runtime statistics'].includes(panel) && section !== 'Usage, logs and audit') throw new Error('Records panel outside its Data and privacy subsection')
       if (selector.endsWith('.capability-unavailable')) return 'Foreground computer use is unavailable. Dispatch: none. Reason: computer disabled.'
       return panels[panel]!
     }
@@ -239,6 +242,9 @@ function fixture(provider = false, seeded = false, fault = '') {
     if (selector === '.msg') return seeded ? 2 : messages.length
     if (selector === '.search-hits li' || selector === '.search-hits .hit') return messages.length ? 1 : 0
     if (selector === '.settings-nav-item') return sections.length
+    if (selector === '[id="settings-curated-timezone"]') return section === 'General' && fault !== 'missing-curated-timezone' ? 1 : 0
+    if (selector === '[id="settings-curated-logging.level"]') return section === 'Advanced settings' ? 1 : 0
+    if (selector === '.settings-subnav button:nth-of-type(2)') return section === 'Data and privacy' && fault !== 'missing-records-owner' ? 1 : 0
     if (selector === '.work-item') return seeded ? 6 : 0
     if (selector === '.composer button.danger') return running ? 1 : 0
     if (selector === '.first-run button') return 0
@@ -261,7 +267,8 @@ function fixture(provider = false, seeded = false, fault = '') {
       dispatchEvent: (e: any) => { if (e.type === 'submit' && selector === '.composer form') submit() },
       click: async () => {
         clicks.push(selector)
-        if (selector.includes('New conversation')) { conversations.push({ id: 'c_new', title: 'New chat' }); title = 'New chat' }
+        if (selector === 'button[title="Settings (Ctrl+,)"]') section ||= 'General'
+        else if (selector.includes('New conversation')) { conversations.push({ id: 'c_new', title: 'New chat' }); title = 'New chat' }
         else if (selector === '.composer button[type=submit]') submit()
         else if (selector === '.composer button.danger') { const stopped = running; operations.push(['stop', stopped.request_id]); complete(stopped, 'cancelled'); event('request.cancelled', stopped) }
         else if (selector.includes('input[value="queue"]')) mode = 'queue'
@@ -274,6 +281,8 @@ function fixture(provider = false, seeded = false, fault = '') {
         else if (selector === '.menu button:first-child') dialogKind = 'rename'
         else if (selector === '.dialog button[type=submit]') { if (dialogKind === 'reset') messages.push({ id: 'reset', role: 'notice', text: 'Model context reset.' }); else title = node('.dialog input').value }
         else if (selector.startsWith('.settings-nav-item:nth-of-type')) section = sections[Number(selector.match(/\((\d+)\)/)![1]) - 2]!
+        else if (selector === '.settings-subnav button:nth-of-type(2)' && section === 'Data and privacy') section = 'Usage, logs and audit'
+        else if (selector === 'Advanced settings' && section === 'General') section = 'Advanced settings'
         else if (selector === 'button[aria-label="Test slice4_constant"]' || selector.includes('Test slice4_constant')) await bridge('skillsTest')
         else if (selector === '[data-testid="webhook-ingress-enabled"]') checked = !checked
         else if (selector === 'Save listener setup') ingressEnabled = true
@@ -286,7 +295,8 @@ function fixture(provider = false, seeded = false, fault = '') {
     querySelector: node,
     querySelectorAll: (selector: string): any[] => {
       if (selector === '.settings-nav-item') return sections.map(label => ({ innerText: label }))
-      if (selector === '.settings-body .field-path') return [{ textContent: 'logging.level' }]
+      if (selector.includes('.settings-body .field-path')) return section === 'General' ? [{ id: 'settings-curated-timezone' }] : section === 'Advanced settings' ? [{ id: 'settings-curated-logging.level' }] : []
+      if (selector === '.settings-body button') return section === 'General' ? [node('Advanced settings')] : []
       if (selector === '.msg.user .body') return messages.filter(m => m.role === 'user').map(m => ({ textContent: m.text }))
       if (selector === '[data-testid="webhook-ingress"] button') return ['Save listener setup', 'Save trigger source and secret', 'Clear per-trigger secret'].map(node)
       return Array.from({ length: size(selector) }, () => node(selector))
@@ -320,6 +330,13 @@ describe('real-core driver with entirely inert stateful ports', () => {
     expect(f.operations.filter(op => op[0] === 'submit').map(op => op[1])).toEqual(['/status', '/usage', submission])
     expect(f.skillRuns).toBe(2); expect(f.mcp).toBe(false)
     expect(evidence.screens.at(-1).screen).toContain('Search / committed transcript')
+    expect(evidence.screens.map((screen: any) => screen.screen)).toEqual(expect.arrayContaining([
+      'production entry / fresh real profile / Settings / Data and privacy / Memory and knowledge / Context reload',
+      'production entry / fresh real profile / Settings / Usage, logs and audit',
+      'production entry / fresh real profile / Settings / Advanced settings'
+    ]))
+    expect(f.clicks).toContain('.settings-subnav button:nth-of-type(2)')
+    expect(f.clicks).toContain('Advanced settings')
     expect(f.core.listenerCount('event')).toBe(0)
     expect(dialog.showOpenDialog).toBe(ports.open); expect(dialog.showSaveDialog).toBe(ports.save)
     expect(f.core.request.mock.calls.filter(([method]: any[]) => method.startsWith('control.'))).toHaveLength(3)
@@ -359,6 +376,16 @@ describe('real-core driver with entirely inert stateful ports', () => {
     const evidence = JSON.parse(String(ports.files.get(root + '/result-evidence.json')))
     expect(evidence.error).toContain('D9 committed reply')
     expect(evidence.renderedPage).toBe('inert rendered body')
+    expect(f.core.listenerCount('event')).toBe(0)
+    expect(dialog.showOpenDialog).toBe(ports.open); expect(dialog.showSaveDialog).toBe(ports.save)
+  })
+  it.each([
+    ['missing-curated-timezone', 'real curated time zone before enumerating all sections'],
+    ['missing-records-owner', 'missing UI control .settings-subnav button:nth-of-type(2)'],
+    ['unknown-curated-log', 'rendered field logging.level must belong to the served schema']
+  ])('rejects %s instead of passing a stale or nonexistent selector', async (fault, expected) => {
+    const f = fixture(false, false, fault)
+    await expect(execute(f)).rejects.toThrow(expected)
     expect(f.core.listenerCount('event')).toBe(0)
     expect(dialog.showOpenDialog).toBe(ports.open); expect(dialog.showSaveDialog).toBe(ports.save)
   })

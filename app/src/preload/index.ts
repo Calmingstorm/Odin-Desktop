@@ -32,6 +32,9 @@ const settingsShaped = Object.fromEntries(
 ) as SettingsShapedApi
 
 const api: OdinApi = {
+  getDesktopInfo: () => ipcRenderer.invoke(IPC.getDesktopInfo, {}),
+  openSettingsFolder: () => ipcRenderer.invoke(IPC.openSettingsFolder, {}),
+  exitOdin: () => ipcRenderer.invoke(IPC.exitOdin, {}),
   checkReleases: () => ipcRenderer.invoke(IPC.checkReleases, {}),
   openRelease: () => ipcRenderer.invoke(IPC.openRelease, {}),
   ...management,

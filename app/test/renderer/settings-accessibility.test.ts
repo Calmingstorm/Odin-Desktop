@@ -91,6 +91,8 @@ describe('P3.4 general and provider controls', () => {
       expect(root.findAll((node) => node.tag === 'label' && node.props.for === id).map((node) => node.textContent())).toEqual([text])
     }
     root.findAll((node) => node.props.id === 'quiet-hours-start')[0]!.fire('change', { target: { value: '23:00' } })
+    expect(setNotifications).not.toHaveBeenCalled()
+    root.findAll((node) => node.props.id === 'quiet-hours-start')[0]!.fire('blur')
     await flush()
     expect(setNotifications).toHaveBeenCalledWith({ quietHours: { start: '23:00' } })
     expect(root.findAll((node) => node.props.role === 'status').map((node) => node.textContent())).toContain('Could not save notifications.')
@@ -124,8 +126,11 @@ describe('P3.4 general and provider controls', () => {
   })
 
   it('uses ordinary navigation buttons with a current section, not tabs without arrow-key behavior', async () => {
+    const refused = async () => ({ ok: false, error: { code: 'capability_unavailable', message: 'Unavailable', disposition: 'not_dispatched' } })
     ;(globalThis as unknown as { window: unknown }).window = { odin: {
-      settingsSchema: async () => ({ ok: true, result: { fields: [], status: { keyring_error: null } } })
+      settingsSchema: async () => ({ ok: true, result: { fields: [], status: { keyring_error: null } } }),
+      memoryList: refused, listsList: refused, knowledgeList: refused,
+      auditQuery: refused, usage: refused, healthGet: refused, logsSearch: refused, turnStateList: refused, computerStatus: refused
     } }
     const Settings = (await import('../../src/renderer/src/views/Settings.vue')).default
     const { root, unmount } = mount(Settings)
@@ -135,8 +140,24 @@ describe('P3.4 general and provider controls', () => {
     expect(root.find('h2')!.props.id).toBe('settings-section-title')
     expect(root.find('nav')!.props['aria-label']).toBe('Settings sections')
     expect(root.button('General').props['aria-current']).toBe('page')
+    expect(root.findAll((node) => node.tag === 'button' && String(node.props.class).includes('settings-nav-item')).map((node) => node.textContent().trim())).toEqual([
+      'General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and access', 'Work', 'Data and privacy'
+    ])
     expect(root.findAll((node) => node.props.role === 'tab')).toHaveLength(0)
     expect(root.findAll((node) => node.props['aria-label'] === 'General settings content')).toHaveLength(1)
+    root.button('Data and privacy').fire('click')
+    await flush()
+    expect(root.findAll((node) => node.tag === 'nav' && node.props['aria-label'] === 'Data and privacy subsections')).toHaveLength(1)
+    expect(root.button('Memory and knowledge').props['aria-current']).toBe('page')
+    root.button('Usage, logs and audit').fire('click')
+    await flush()
+    expect(root.button('Usage, logs and audit').props['aria-current']).toBe('page')
+    root.button('General').fire('click')
+    await flush()
+    root.button('Advanced settings').fire('click')
+    await flush()
+    expect(root.find('h2')!.textContent()).toBe('Advanced settings')
+    expect(root.findAll((node) => node.props['aria-label'] === 'Advanced settings settings content')).toHaveLength(1)
     unmount()
   })
 })

@@ -141,6 +141,51 @@ async function flush() { for (let i = 0; i < 15; i++) await Promise.resolve() }
 const prevent = () => ({ preventDefault: vi.fn() })
 
 describe('inert main-process lifecycle wiring', () => {
+  it('rejects false persistence receipts without adopting notification or native theme changes', async () => {
+    const { deps, win } = await boot()
+    const previous = structuredClone(deps.getSettings())
+    m.write.mockImplementation(() => { throw new Error('mock durable write failed') })
+    expect(() => deps.setNotifications({ previews: !previous.notifications.previews })).toThrow('could not be persisted')
+    expect(deps.getSettings().notifications).toEqual(previous.notifications)
+    expect(() => deps.setAppearance('light')).toThrow('could not be persisted')
+    expect(deps.getSettings().appearance).toBe(previous.appearance)
+    expect(m.theme.themeSource).toBe(previous.appearance)
+    expect(win.setBackgroundColor).toHaveBeenCalledWith('#0E1115')
+    m.write.mockImplementation(() => undefined)
+    expect(deps.setAppearance('light').appearance).toBe('light')
+    expect(deps.setNotifications({ previews: false }).notifications.previews).toBe(false)
+    expect(JSON.parse(m.write.mock.calls.at(-1)![1])).toMatchObject({ appearance: 'light', notifications: { previews: false } })
+  })
+  it('supplies whitelisted app metadata and opens only the active profile configDir', async () => {
+    const { deps } = await boot()
+    const info = deps.getDesktopInfo()
+    expect(info).toEqual({ appVersion: '0.1.0', electronVersion: process.versions.electron,
+      chromiumVersion: process.versions.chrome, nodeVersion: process.versions.node,
+      platform: process.platform, architecture: process.arch, license: 'MIT', packaged: false })
+    m.app.isPackaged = true
+    expect(deps.getDesktopInfo().packaged).toBe(true)
+    m.openPath.mockResolvedValueOnce('OS rejected /mock/config')
+    expect(await deps.openSettingsFolder('/untrusted/path')).toBe('OS rejected /mock/config')
+    expect(m.openPath).toHaveBeenCalledExactlyOnceWith('/mock/config')
+    expect(m.open).not.toHaveBeenCalled()
+  })
+  it('schedules the existing bounded shutdown only after the exit callback returns', async () => {
+    const { deps, broker, supervisor } = await boot()
+    expect(deps.exitOdin()).toBeUndefined()
+    // Multiple accepted clicks still reach the existing idempotent shutdown once.
+    expect(deps.exitOdin()).toBeUndefined()
+    expect(deps.admitting()).toBe(true)
+    expect(broker.quiesce).not.toHaveBeenCalled()
+    expect(m.app.exit).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(0)
+    await flush()
+    expect(deps.admitting()).toBe(false)
+    expect(broker.quiesce).toHaveBeenCalledOnce()
+    expect(broker.originalRequest).toHaveBeenCalledWith('runtime.shutdown', { reason: 'exit' })
+    expect(supervisor.stop).toHaveBeenCalledOnce()
+    expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0)
+    expect(m.journal.finish).toHaveBeenCalledWith(expect.objectContaining({ shutdownAccepted: true, processOutcome: 'exited' }))
+  })
   it('pins Chromium storage and the visible name before instance admission or readiness', async () => {
     await boot();
     expect(m.app.setName).toHaveBeenCalledExactlyOnceWith('Odin');
@@ -267,7 +312,10 @@ describe('inert main-process lifecycle wiring', () => {
   })
   it('marks failed preferences persistence unknown rather than declaring clean exit', async () => {
     const { deps } = await boot(); m.write.mockImplementation(() => { throw new Error('disk full') });
-    deps.setNotifications({ previews: false }); m.sessionEnd(); await flush();
+    expect(() => deps.setNotifications({ previews: false })).toThrow('could not be persisted');
+    expect(deps.getSettings().notifications.previews).toBe(true);
+    expect(() => deps.setAppearance('light')).toThrow('could not be persisted');
+    m.sessionEnd(); await flush();
     expect(m.journal.finish).toHaveBeenCalledWith(expect.objectContaining({ state: 'unknown', unsaved: true }));
   })
   it('does not create a window if exit arrives before app readiness', async () => {

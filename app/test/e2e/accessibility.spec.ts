@@ -142,13 +142,26 @@ async function ax(name: string): Promise<string> {
   const tree = await session.send('Accessibility.getFullAXTree')
   await session.detach()
   await test.info().attach(`ax-${name}`, { body: JSON.stringify(tree, null, 2), contentType: 'application/json' })
-  const controls = new Set(['button', 'textbox', 'searchbox', 'combobox', 'checkbox', 'radio', 'spinbutton', 'menuitem', 'slider'])
+  const controls = new Set(['button', 'textbox', 'searchbox', 'combobox', 'checkbox', 'switch', 'radio', 'spinbutton', 'menuitem', 'slider'])
   expect(tree.nodes.filter((node) => !node.ignored && controls.has(String(node.role?.value)) && !String(node.name?.value ?? '').trim()),
     `unnamed controls in real Chromium AX tree on ${name}`).toEqual([])
   return JSON.stringify(tree)
 }
 
 async function settingsSection(name: string): Promise<void> {
+  if (name === 'Advanced settings') {
+    await settingsSection('General')
+    await activate(page.getByRole('button', { name, exact: true }))
+    await expect(page.locator('.settings-body')).toContainText(name)
+    return
+  }
+  if (name === 'Memory and knowledge' || name === 'Usage, logs and audit') {
+    await settingsSection('Data and privacy')
+    const subsection = page.getByRole('navigation', { name: 'Data and privacy subsections' }).getByRole('button', { name, exact: true })
+    await activate(subsection)
+    await expect(subsection).toHaveAttribute('aria-current', 'page')
+    return
+  }
   await activate(page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name, exact: true }))
   await expect(page.locator('.settings-body')).toContainText(name)
 }
@@ -217,9 +230,17 @@ test('settings section audit inventory', async () => {
   const nav = page.getByRole('navigation', { name: 'Settings sections' })
   const labels = await nav.locator('.settings-nav-item').allTextContents()
   const findings: Record<string, unknown> = {}
+  expect(labels).toEqual(['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and access', 'Work', 'Data and privacy'])
   for (const label of labels) {
     await activate(nav.getByRole('button', { name: label, exact: true }))
     await expect(page.locator('.settings-body')).toContainText(label)
+    await page.waitForTimeout(200)
+    findings[label] = await runAxe()
+    await contrastInOtherTheme(`settings-${label}`)
+    await ax(`settings-${label}`)
+  }
+  for (const label of ['Memory and knowledge', 'Usage, logs and audit', 'Advanced settings']) {
+    await settingsSection(label)
     await page.waitForTimeout(200)
     findings[label] = await runAxe()
     await contrastInOtherTheme(`settings-${label}`)
@@ -450,10 +471,10 @@ test('real core keyboard status usage and every real settings or unavailable ser
   expect(await ax('real-core-chat')).not.toContain('Echo:')
   await page.keyboard.press('Control+,')
   const nav = page.getByRole('navigation', { name: 'Settings sections' })
-  // Schema loading adds Other. Do not race enumeration and silently omit its accessibility audit.
-  await expect(nav.getByRole('button', { name: 'Other', exact: true })).toBeVisible()
+  // Nine stable primary destinations; secondary destinations are audited explicitly below.
+  await expect(nav.getByRole('button', { name: 'Data and privacy', exact: true })).toBeVisible()
   const labels = await nav.locator('.settings-nav-item').allTextContents()
-  expect(labels).toHaveLength(11)
+  expect(labels).toEqual(['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and access', 'Work', 'Data and privacy'])
   for (const label of labels) {
     // Real Tools has the full catalog, potentially hundreds of controls. Walk
     // backwards from its first status control to the settings navigation rather
@@ -493,7 +514,10 @@ test('real core keyboard status usage and every real settings or unavailable ser
       await activate(browser.getByRole('button', { name: 'Refresh status for browser', exact: true }))
       await expect(browser).toContainText('State: unavailable')
     }
-    if (label === 'Records') {
+    if (label === 'Data and privacy') {
+      await audit('real-Memory and knowledge')
+      await ax('real-Memory and knowledge')
+      await settingsSection('Usage, logs and audit')
       const computer = page.getByRole('region', { name: 'Computer use', exact: true })
       await expect(computer).toContainText('No computer-use session is reported by this status')
       await expect(computer).toContainText('Foreground computer use is unavailable.')
@@ -506,7 +530,7 @@ test('real core keyboard status usage and every real settings or unavailable ser
       await expect(usage).toContainText(/\((?:measured|not measured: Odin doesn't know this value)\)/)
       await expect(usage).not.toContainText('Usage is unavailable in this core')
     }
-    if (label === 'Scheduled and running work') {
+    if (label === 'Work') {
       await expect(page.getByRole('region', { name: 'Schedules', exact: true })).toContainText('No schedules yet.')
       await expect(page.getByRole('region', { name: 'Running work', exact: true })).toContainText('Nothing is running.')
       await expect(page.locator('.settings-body')).not.toContainText('Work (agents, tasks, loops, processes, workflows and schedules) is unavailable')
@@ -530,12 +554,15 @@ test('real core keyboard status usage and every real settings or unavailable ser
     await audit(`real-${label}`)
     await ax(`real-${label}`)
   }
+  await settingsSection('Advanced settings')
+  await audit('real-Advanced settings')
+  await ax('real-Advanced settings')
 })
 
 test('keyboard settings edits, field-associated errors, secrets and provider code AX privacy', async () => {
   await launch()
   await page.keyboard.press('Control+,')
-  await tabTo(page.getByRole('checkbox', { name: 'Quiet hours', exact: true }))
+  await tabTo(page.getByRole('switch', { name: 'Quiet hours', exact: true }))
   await page.keyboard.press('Space')
   await tabTo(page.getByLabel('Quiet hours start', { exact: true }))
   await tabTo(page.getByLabel('Quiet hours end', { exact: true }))
@@ -597,7 +624,7 @@ test('keyboard management disclosures and editor forms are named and auditable',
   await tabTo(page.getByLabel('Header value 1', { exact: true }))
   await audit('mcp-editor')
 
-  await settingsSection('Hosts and trust')
+  await settingsSection('Hosts and access')
   const enroll = page.getByRole('button', { name: /^Enroll trusted key for host / }).first()
   await activate(enroll)
   const enrollment = page.getByRole('region', { name: 'Host enrollment', exact: true })
@@ -615,15 +642,15 @@ test('keyboard management disclosures and editor forms are named and auditable',
   await tabTo(page.getByRole('textbox', { name: 'Alias', exact: true }))
   await audit('host-enrollment')
 
-  await settingsSection('Scheduled and running work')
+  await settingsSection('Work')
   await activate(page.getByRole('button', { name: /^Edit schedule / }).first())
   await audit('schedule-editor')
 
-  await settingsSection('State')
+  await settingsSection('Memory and knowledge')
   await activate(page.getByRole('button', { name: 'Open Everywhere memory', exact: true }))
   await expect(page.getByRole('table', { name: 'Everywhere memory entries' })).toBeVisible()
   await audit('memory-disclosure')
-  await settingsSection('Records')
+  await settingsSection('Usage, logs and audit')
   await tabTo(page.getByRole('searchbox', { name: 'Search the audit', exact: true }))
   await tabTo(page.getByRole('combobox', { name: 'Period', exact: true }))
   await tabTo(page.getByRole('searchbox', { name: 'Search the logs', exact: true }))
@@ -633,9 +660,9 @@ test('keyboard management disclosures and editor forms are named and auditable',
   await tabTo(page.getByRole('combobox', { name: 'Preset', exact: true }))
   await tabTo(page.getByRole('textbox', { name: 'Name', exact: true }))
   await audit('personality-presets')
-  await settingsSection('Other')
+  await settingsSection('Advanced settings')
   await tabTo(page.locator('.settings-body'))
-  await audit('other-settings')
+  await audit('advanced-settings')
 })
 
 test('real-shape service failure cards and readiness are accessible without claiming native input', async () => {
@@ -662,7 +689,7 @@ test('real-shape service failure cards and readiness are accessible without clai
   await expect(browser).toContainText('Not ready')
   await expect(browser).toContainText(/next .*use|next-use/i)
   await audit('browser-next-use-unavailable')
-  await settingsSection('Records')
+  await settingsSection('Usage, logs and audit')
   const computer = page.getByRole('region', { name: 'Computer use', exact: true })
   await expect(computer).toContainText('No computer-use session is reported by this status')
   await expect(computer).toContainText('Foreground computer use is unavailable.')
@@ -723,7 +750,7 @@ test('work panel keyboard controls, focus return and target names', async () => 
   await expect(workButton).toBeFocused()
   await expect(page.locator('.work-panel')).toHaveCount(0)
   await page.keyboard.press('Control+,')
-  await settingsSection('Scheduled and running work')
+  await settingsSection('Work')
   const openConversation = page.locator('.settings-body .work-link').first()
   await activate(openConversation)
   await expect(page.getByRole('region', { name: 'Conversation history', exact: true })).toBeFocused()

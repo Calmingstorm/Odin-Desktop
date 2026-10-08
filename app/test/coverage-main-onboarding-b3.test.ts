@@ -48,14 +48,15 @@ function fixture(scenario: string) {
       if (selector === '.settings-nav-item') return 3;
       if (selector === '.msg') return 0;
       if (selector === '.account') return accounts;
-      if (selector === '.app-settings input[type=checkbox]') return 3;
+      if (selector === '#start-at-login, #notifications-enabled, #notification-previews') return section === 'General' && settingsOpen ? 3 : 0;
+      if (selector.includes('settings-curated-logging.level')) return settingsOpen && section === 'Advanced settings' ? 1 : 0;
       if (selector === '.codex-accounts' || selector.includes('settings-field-') || selector === 'button[title="Settings (Ctrl+,)"]' || selector === '.settings-nav .back') return 1;
       throw new Error(`Unmodeled count ${selector}`);
     }
     if (script.startsWith('document.querySelector(') && script.includes('?.innerText')) {
       if (script.includes('openai_compatible.enabled') && script.includes("querySelector('.warn')")) return probeFailure ? 'Qualification rejected' : '';
       if (script.includes('.settings-body h2')) return section;
-      if (script.includes('.first-run-banner')) return keyring !== 'healthy' ? 'Keyring unavailable' : 'Ready';
+      if (script.includes('.first-run-banner')) return settingsOpen ? '' : keyring !== 'healthy' ? 'Keyring unavailable' : 'Ready';
       if (script.includes('.login-code')) return 'TEST-CODE';
       if (script.includes('.login')) return auth === 'expired' ? 'Login expired' : 'Pending';
       if (script.includes('logging.level')) return disconnected ? 'Connection unavailable' : conflict ? 'Changed elsewhere, reloaded' : '';
@@ -70,6 +71,7 @@ function fixture(scenario: string) {
     if (script.includes('const buttons = Array.from')) {
       const label = JSON.parse(script.match(/b\.innerText\.trim\(\) === ("(?:[^"\\]|\\.)*")/)![1]!);
       if (script.includes('.settings-nav button')) { section = label; sections.push(label) }
+      else if (label === 'Advanced settings' && section === 'General') { section = label; sections.push(label) }
       else if (label === 'Add account') { if (auth === 'success') accounts = 1 }
       else if (label === 'Retry') { if (keyring === 'locked') unlockCalls++; keyring = 'healthy'; state = 'fresh' }
       else if (!['Set up later', 'Stop waiting'].includes(label)) throw new Error(`Unmodeled button ${label}`);
@@ -77,11 +79,11 @@ function fixture(scenario: string) {
     }
     if (script.startsWith('Boolean(document.querySelector')) {
       const expected = script.match(/data-state="([^"]+)"/)?.[1];
-      return expected === state;
+      return !settingsOpen && expected === state;
     }
     if (script.startsWith('Array.from(document.querySelectorAll')) return [autostart, true, previews];
-    if (script.includes('boxes[0].checked=true')) { autostart = true; return undefined }
-    if (script.includes('boxes[2].checked=false')) { previews = false; return undefined }
+    if (script.includes("querySelector('#start-at-login')")) { autostart = true; return undefined }
+    if (script.includes("querySelector('#notification-previews')")) { previews = false; return undefined }
     if (script.includes('await window.odin.getSettings()')) return autostart && !previews;
     if (script.includes('openai_compatible.api_key') && script.includes(".value === ''")) return true;
     if (script.includes('openai_compatible.enabled') && script.includes("querySelector('.warn')")) return probeFailure ? 'Qualification rejected' : '';
@@ -91,7 +93,7 @@ function fixture(scenario: string) {
       else if (script.includes('settings-field-openai_codex.enabled')) { enabled = value; state = value ? 'effective-ready' : 'incomplete' }
       else if (script.includes('settings-field-openai_compatible.api_key')) { credential = keyring === 'healthy' }
       else if (script.includes('settings-field-openai_compatible.enabled')) { if (!probeFailure) compatEnabled = value }
-      else if (script.includes('settings-field-logging.level')) {
+      else if (script.includes('settings-curated-logging.level')) {
         await core.request('settings.set', { changes: [{ path: 'logging.level', value }] });
         if (disconnected) level = 'WARNING';
         else if (localRevision) { localRevision = false; conflict = true; level = 'DEBUG' }
@@ -142,6 +144,7 @@ describe('onboarding smoke orchestration without a display', () => {
   })
   it('checks cancellation, expiry, revision/disconnect and provider qualification recovery in the full onboarding plan', async () => {
     const f = await runScenario('ready');
+    expect(f.sections).toContain('Advanced settings'); expect(f.sections).not.toContain('Records');
     expect(f.clicked.filter(label => label === 'Add account')).toHaveLength(3); expect(f.clicked).toContain('Stop waiting');
     expect(f.core.close).toHaveBeenCalledOnce(); expect(f.core.connect).toHaveBeenCalledOnce(); expect(f.core.startEvents).toHaveBeenCalledOnce();
     const result = JSON.parse(disk.write.mock.calls.find(([path]) => path === '/mock/result.json')![1] as string);

@@ -811,9 +811,12 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
 
   await click('button[title="Settings (Ctrl+,)"]')
   await until(async () => (await run<number>('document.querySelectorAll(".settings-nav-item").length')) > 1, 'settings navigation')
-  await until(async () => (await count('.settings-group .schema-form')) > 0, 'real settings schema before enumerating all sections')
+  await until(async () => (await count('[id="settings-curated-timezone"]')) === 1, 'real curated time zone before enumerating all sections')
   const sections = await run<string[]>('Array.from(document.querySelectorAll(".settings-nav-item"), b => b.innerText)')
-  assert.deepEqual(sections, ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and trust', 'Scheduled and running work', 'State', 'Records', 'Other'])
+  assert.deepEqual(sections, ['General', 'Models and providers', 'Personality', 'Tools', 'Skills', 'MCP servers', 'Hosts and access', 'Work', 'Data and privacy'])
+  // Data and privacy owns both previous state/records surfaces. Advanced is
+  // secondary access from General, never a tenth primary destination.
+  const destinations = [...sections, 'Usage, logs and audit', 'Advanced settings']
   // Check unserved work owners separately from the wired Step 6A read panels.
   const servicePanels: Record<string, string[]> = {
   }
@@ -823,9 +826,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     Tools: [['section[aria-label="Built-in tools"]', /run_command/], ['section[aria-label="Tool timeouts"]', /Default|seconds/i]],
     Skills: [['section[aria-label="Skills"]', /New skill/]],
     'MCP servers': [['section[aria-label="MCP"]', /1 of 1 servers connected.*1 tools offered/s], ['section[aria-label="MCP servers"]', /Add server/]],
-    'Hosts and trust': [['section[aria-label="Hosts"]', /localhost/]],
-    State: [['section[aria-label="Memory"]', /0 entries/], ['section[aria-label="Named lists"]', /No lists\./], ['section[aria-label="Knowledge"]', /Knowledge/]],
-    Records: [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /tokens in .*\(measured\)/], ['section[aria-label="Computer use"]', /Refresh/]]
+    'Hosts and access': [['section[aria-label="Hosts"]', /localhost/]],
+    'Data and privacy': [['section[aria-label="Memory"]', /0 entries/], ['section[aria-label="Named lists"]', /No lists\./], ['section[aria-label="Knowledge"]', /Knowledge/]],
+    'Usage, logs and audit': [['section[aria-label="Health"]', /healthy.*degraded.*down.*not set up/s], ['section[aria-label="Usage"]', /tokens in .*\(measured\)/], ['section[aria-label="Computer use"]', /Refresh/]]
   }
   const observations = await run<Record<string, { ok: boolean; result?: unknown; error?: { code: string; message: string } }>>(`(async () => ({
     settings: await window.odin.settingsSchema(), hosts: await window.odin.hostsList({}),
@@ -940,9 +943,16 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   // D17 fresh settings enable the browser; no bundle is qualified in this
   // source-tree profile. Preserve the unavailable retry seam, not native success.
   assert.deepEqual({ state: health.browser.state, ready: health.browser.ready, retry_available: health.browser.retry_available }, { state: 'unavailable', ready: false, retry_available: true })
-  for (let i = 0; i < sections.length; i++) {
-    await click(`.settings-nav-item:nth-of-type(${i + 2})`)
-    if (sections[i] === 'Models and providers') {
+  for (let i = 0; i < destinations.length; i++) {
+    const destination = destinations[i]!
+    if (i < sections.length) await click(`.settings-nav-item:nth-of-type(${i + 2})`)
+    else if (destination === 'Usage, logs and audit') await click('.settings-subnav button:nth-of-type(2)')
+    else {
+      await click('.settings-nav-item:nth-of-type(2)')
+      await run(`(() => { const buttons = Array.from(document.querySelectorAll('.settings-body button')).filter(b => b.textContent.trim() === 'Advanced settings'); if (buttons.length !== 1 || buttons[0].disabled) throw new Error('Expected one enabled Advanced settings button'); buttons[0].click(); })()`)
+      await until(async () => (await count('[id="settings-curated-logging.level"]')) === 1, 'real secondary Advanced log detail')
+    }
+    if (destination === 'Models and providers') {
       await until(async () => (await text('.codex-accounts')).includes('Add account'), 'served account management')
       await until(async () => !(await text('.codex-accounts')).includes('Loading'), 'real account observation')
       assert(!/not (?:yet )?available|not served/i.test(await text('.codex-accounts')), 'served account management must not remain capability-unavailable')
@@ -951,10 +961,10 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       await until(async () => /OpenRouter endpoint not recognized/i.test(await text('section[aria-label="OpenRouter models"]')), 'honest unconfigured OpenRouter panel')
       assert.equal(await count('section[aria-label="OpenRouter models"] li'), 0, 'unconfigured OpenRouter must not invent models')
     }
-    if (sections[i] === 'Personality') {
+    if (destination === 'Personality') {
       await until(async () => await run<boolean>('Boolean(document.querySelector("section[aria-label=Personality] select"))'), 'real personality settings')
     }
-    if (sections[i] === 'Tools') {
+    if (destination === 'Tools') {
       await until(async () => (await count('section[aria-label="Built-in tools"] .manage-row')) > 0, 'real built-in tools')
       assert((await text('section[aria-label="Tool timeouts"]')).includes('Timeouts'))
       const tools = (observations.tools!.result as { tools: Array<{ name: string; cost?: string | null; risk?: string | null }> }).tools
@@ -964,7 +974,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       }
       await until(async () => /unavailable/i.test(await text('section[aria-label="Browser runtime"]')), 'real unqualified browser state')
     }
-    if (sections[i] === 'Skills') {
+    if (destination === 'Skills') {
       await until(async () => (await text('section[aria-label="Skills"]')).includes('slice4_constant'), 'real skill card')
       assert(!(await text('section[aria-label="Skills"]')).includes('Test is unavailable in this core.'), 'a capable core must not show Test unavailable')
       assert((await text('section[aria-label="Skills"] .manage-count')).includes('1 runs'), 'the card must show the bridge execution')
@@ -981,13 +991,13 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       assert.equal(await run('document.querySelector(".skill-editor .manage-json").classList.contains("warn")'), false)
       process.stdout.write(`real-core-smoke: skills.test result=${JSON.stringify(tested.result)} is_error=${tested.is_error} rendered=${JSON.stringify(await text('.skill-editor .manage-json'))} runs=${runs}\n`)
     }
-    if (sections[i] === 'MCP servers') {
+    if (destination === 'MCP servers') {
       await until(async () => (await text('section[aria-label="MCP servers"]')).includes('slice4_local'), 'real MCP row')
       assert((await text('section[aria-label="MCP servers"]')).includes('connected'), 'MCP UI must show real handshake state')
       await click('button[aria-label="Tools for slice4_local"]')
       await until(async () => (await text('.mcp-tools')).includes('constant'), 'rendered real MCP tools disclosure')
     }
-    if (sections[i] === 'Scheduled and running work') {
+    if (destination === 'Work') {
       if (seededWorkProof) {
         await until(async () => (await text('section[aria-label="Schedules"]')).includes('D12 manual recovery check') &&
           (await text('section[aria-label="Schedules"]')).includes('Recovery required'), 'real D12 recovery-required schedule')
@@ -1002,18 +1012,18 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
         assert.equal(await count('section[aria-label="Running work"] .work-item'), 0)
       }
     }
-    if (sections[i] === 'Hosts and trust') {
+    if (destination === 'Hosts and access') {
       await until(async () => (await text('section[aria-label=Hosts]')).includes('localhost'), 'real localhost row')
       assert.equal(await run('document.querySelector("section[aria-label=Hosts] select").value'), 'localhost')
       await until(async () => (await text('section[aria-label="Odin\'s key"]')).includes('ssh-ed25519'), 'fresh provisioned SSH public key')
     }
-    for (const selector of servicePanels[sections[i]!] ?? []) {
-      await recordUnavailable(`Settings / ${sections[i]} / ${selector}`, selector)
+    for (const selector of servicePanels[destination] ?? []) {
+      await recordUnavailable(`Settings / ${destination} / ${selector}`, selector)
       assert.equal(await run(`document.querySelectorAll(${JSON.stringify(selector + ' .manage-row, ' + selector + ' .work-item')}).length`), 0, `${selector} must not display fixture rows`)
       assert(!/No schedules yet|No servers\.|Nothing is running\./.test(await text(selector)), 'refused reads must not claim successful empty results')
     }
-    for (const [selector, expected] of servedPanels[sections[i]!] ?? []) {
-      await until(async () => expected.test(await text(selector)), `served ${sections[i]} / ${selector}`)
+    for (const [selector, expected] of servedPanels[destination] ?? []) {
+      await until(async () => expected.test(await text(selector)), `served ${destination} / ${selector}`)
       assert(!/Service is not available yet|Loading…|Searching…/.test(await text(selector)), `${selector} must settle its served read`)
       if (selector === 'section[aria-label="Computer use"]') {
         // Served management and unqualified native input are separate claims.
@@ -1023,14 +1033,14 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       } else {
         assert.equal(await count(selector + ' .capability-unavailable'), 0, `${selector} must not claim its served capability unavailable`)
       }
-      screens.push({ screen: `Settings / ${sections[i]} / ${selector}`, text: await text(selector) })
+      screens.push({ screen: `Settings / ${destination} / ${selector}`, text: await text(selector) })
     }
-    if (sections[i] === 'State') {
+    if (destination === 'Data and privacy') {
       // Context reload is deliberately on demand, not a screen-mount side effect.
       await click('section[aria-label="Context"] button')
       await until(async () => /Context reloaded.*context directory does not exist; nothing is loaded/s.test(await text('section[aria-label="Context"] .manage-json')), 'served context reload')
       assert.equal(await run('document.querySelectorAll("section[aria-label=Context] button").length'), 1, 'served context reload remains offered')
-      screens.push({ screen: 'Settings / State / Context reload', text: await text('section[aria-label="Context"]') })
+      screens.push({ screen: 'Settings / Data and privacy / Memory and knowledge / Context reload', text: await text('section[aria-label="Context"]') })
       assert(!(await text('.settings-body')).includes('Loading'))
       assert((await text('section[aria-label="Named lists"]')).includes('No lists.'))
       await until(async () => (await count('pre[aria-label="Learned context JSON"]')) === 1, 'real learned context read')
@@ -1039,7 +1049,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       await until(async () => (await count('pre[aria-label="Knowledge duplicates JSON"]')) === 1, 'real knowledge duplicates read')
       assert.deepEqual(JSON.parse(await text('pre[aria-label="Knowledge duplicates JSON"]')), observations.duplicates!.result)
     }
-    if (sections[i] === 'Records') {
+    if (destination === 'Usage, logs and audit') {
       if (seededWorkProof) {
         await until(async () => !(await text('section[aria-label=Audit]')).includes('Loading'), 'seeded work proof audit')
         await until(async () => !(await text('section[aria-label=Logs]')).includes('Loading'), 'seeded work proof logs')
@@ -1070,21 +1080,22 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       // may be invented while the retained management Refresh remains offered.
       assert.equal(await count('section[aria-label="Computer use"] .manage-name, section[aria-label="Computer use"] .manage-actions'), 0, 'fresh computer management must not invent a session or recovery action')
     }
-    if (sections[i] === 'Skills' || sections[i] === 'MCP servers') {
+    if (destination === 'Skills' || destination === 'MCP servers') {
       assert.equal(await count('.settings-body .manage-row'), 1, 'Step 6A management must show exactly its saved real-core fixture, not renderer-seeded rows')
       assert.equal(await count('.settings-body .warn'), 0, 'served Step 6A reads must not present a renderer fault')
     }
-    assert.equal(await run('document.querySelectorAll(".settings-body [role=alert]").length'), 0, `${sections[i]} must not present capability refusal as a fault`)
+    assert.equal(await run('document.querySelectorAll(".settings-body [role=alert]").length'), 0, `${destination} must not present capability refusal as a fault`)
     // Seeded Work is real 6B work in its own section; accounts are never served in this isolated profile.
-    const fixtureRows = seededWorkProof && sections[i] === 'Scheduled and running work'
+    const fixtureRows = seededWorkProof && destination === 'Work'
       ? '.settings-body .account' : '.settings-body .work-item, .settings-body .account'
-    assert.equal(await run(`document.querySelectorAll(${JSON.stringify(fixtureRows)}).length`), 0, `${sections[i]} must not display fixture accounts/work`)
-    const renderedPaths = await run<string[]>('Array.from(document.querySelectorAll(".settings-body .field-path"), e => e.textContent)')
+    assert.equal(await run(`document.querySelectorAll(${JSON.stringify(fixtureRows)}).length`), 0, `${destination} must not display fixture accounts/work`)
+    const renderedPaths = await run<string[]>(`Array.from(document.querySelectorAll('.settings-body .field-path, .settings-body :is(input, select, textarea, output)[id^="settings-curated-"]'), e => e.id.startsWith('settings-curated-') ? decodeURIComponent(e.id.slice('settings-curated-'.length)) : e.textContent)`)
     const fields = (reads['settings.schema'] as { fields: Array<{ path: string }> }).fields
     for (const path of renderedPaths) assert(fields.some((field) => field.path === path), `rendered field ${path} must belong to the served schema`)
-    if (sections[i] === 'General') assert(renderedPaths.length > 0, 'General must render real schema fields')
-    assert(!(await text('.settings-body')).includes('Service is not available yet'), `${sections[i]} must not leak a generic capability refusal`)
-    screens.push({ screen: `Settings / ${sections[i]}`, text: await text('.settings-body') })
+    if (destination === 'General') assert(renderedPaths.includes('timezone'), 'General must render the real curated time zone schema field')
+    if (destination === 'Advanced settings') assert(renderedPaths.includes('logging.level'), 'Advanced must render real log detail from the schema')
+    assert(!(await text('.settings-body')).includes('Service is not available yet'), `${destination} must not leak a generic capability refusal`)
+    screens.push({ screen: `Settings / ${destination}`, text: await text('.settings-body') })
     if (i === 0) {
       assert((await text('.settings-body')).includes('Start Odin when you log in'), 'app-local settings remain available')
     }

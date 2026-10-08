@@ -100,10 +100,13 @@ Configure/More options group, not as seven always-expanded global settings.
 Grouping does not claim 17 controls are eight fields, nor justify moving the
 reviewer's explicit choices to Advanced or internal merely to meet a quota.
 
-Advanced now exceeds 30 fields. Its future UI **requires search and category
+Advanced now exceeds 30 fields. Its UI **requires search and category
 headings**: Models and context, Tool execution, Hosts and access, Work and recovery,
 and Data and retention. The requirement is explicit in the owner inventory and
-tested; it is not a claim that search or any UI was implemented in this correction.
+tested. Slice 2 implements search and categories with ordinary metadata-backed
+editors. Four structured editors remain explicitly read-only for conversion in
+slice 4: model profiles, both model-budget maps and per-host governor overrides.
+Review-A's correction commit itself remains data/engine-only.
 Each path still has a supported write owner and user-change reason, and Advanced
 is an explicit allowlist, never a dump of schema leftovers. Normal pages must not
 duplicate Advanced editors or render a mixed-disposition workflow's tuning leaves
@@ -136,6 +139,12 @@ capability is retained in the inventory, not fabricated as an existing app call.
 Converting those workflows later requires a reviewed named IPC/schema/preload
 addition. Similarly, a visible field describes its intended single workflow;
 this slice does not claim that every such workflow is already implemented.
+
+Slice 2's General exemplar uses three new app-local bridge actions for public
+build information, fixed current-profile folder access and acceptance of orderly
+Exit. The bridge inventory now contains 171 actions. Copy diagnostics uses the
+existing clipboard owner with an explicit public-data projection. No engine
+restart or unrestricted path-opening method has been introduced.
 
 The tests compare the actual composed `METHODS` plus direct `CAPABILITIES` with
 management entries, the actual preload keys and generated tables with app
