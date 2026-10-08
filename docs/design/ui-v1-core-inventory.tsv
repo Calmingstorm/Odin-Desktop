@@ -23,7 +23,7 @@ openai_codex.context_utilization	primary	models.context	none	Choose context usag
 ollama.enabled	primary	models.ollama	none	Enable local models without discarding saved configuration.
 ollama.base_url	primary	models.ollama	none	Connect to the Ollama endpoint hosting your models.
 ollama.model	primary	models.ollama	none	Choose the default Ollama model.
-ollama.max_tokens	more-options	models.ollama	none	Limit response length and compute cost.
+ollama.max_tokens	advanced	models.ollama	none	Limit response length and compute cost.
 ollama.num_ctx	more-options	models.ollama	none	Fit local model context to available memory.
 ollama.timeout	internal-or-legacy	none	none	No ordinary user change: local transport deadline retains its default.
 ollama.api_key	primary	models.ollama	secrets.set|secrets.clear	Store or remove an authenticated Ollama endpoint key.
@@ -31,7 +31,7 @@ openai_compatible.enabled	primary	models.compatible	none	Enable a compatible pro
 openai_compatible.api_key	primary	models.compatible	secrets.set|secrets.clear	Store or remove the provider key without readback.
 openai_compatible.base_url	primary	models.compatible	none	Connect to your compatible provider endpoint.
 openai_compatible.model	primary	models.compatible	none	Choose the compatible provider default model.
-openai_compatible.max_tokens	more-options	models.compatible	none	Bound response length and output spending.
+openai_compatible.max_tokens	advanced	models.compatible	none	Bound response length and output spending.
 openai_compatible.request_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: request deadline is transport plumbing.
 openai_compatible.stream_stall_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: stalled-stream detection is transport plumbing.
 openai_compatible.reasoning_effort	primary	models.compatible	none	Choose effort supported by the compatible model.
@@ -70,17 +70,17 @@ kimi.timeout	internal-or-legacy	none	none	No user change: legacy Kimi deadline i
 llm_provider.active_provider	primary	models.main-model	none	Choose which configured provider handles main chat.
 llm_provider.model	primary	models.main-model	none	Choose main chat model with compatible reasoning choices.
 context.directory	internal-or-legacy	none	none	No user change: context files belong to the selected profile.
-sessions.max_history	more-options	data.conversation-retention	none	Limit messages retained in active session history.
-sessions.max_age_hours	more-options	data.conversation-retention	none	Choose when inactive sessions age out of active history.
+sessions.max_history	advanced	data.conversation-retention	none	Limit messages retained in active session history.
+sessions.max_age_hours	advanced	data.conversation-retention	none	Choose when inactive sessions age out of active history.
 sessions.persist_directory	internal-or-legacy	none	none	No user change: conversations belong to the selected profile.
-sessions.token_budget	more-options	models.conversation-context	none	Bound stored history tokens for long conversations.
+sessions.token_budget	advanced	models.conversation-context	none	Bound stored history tokens for long conversations.
 sessions.adaptive_compaction	more-options	models.conversation-context	none	Choose adaptive compaction of long history.
 sessions.archive_max_bytes	more-options	data.conversation-retention	none	Cap archive disk usage while retaining restore within the cap.
 sessions.archive_max_files	more-options	data.conversation-retention	none	Cap retained conversation archive count.
-sessions.context_token_budget	more-options	models.conversation-context	none	Limit session history sent with each request.
+sessions.context_token_budget	advanced	models.conversation-context	none	Limit session history sent with each request.
 sessions.context_budget_overrides	advanced	models.session-context-overrides	none	Customize session-history budgets for particular models.
 tools.enabled	primary	tools.global	none	Enable tool availability without granting authorization.
-tools.tool_output_max_chars	more-options	tools.output	none	Bound model-facing output and context consumption.
+tools.tool_output_max_chars	advanced	tools.output	none	Bound model-facing output and context consumption.
 tools.governor.block_critical	more-options	hosts.command-safety	none	Choose critical-command blocking with permission-expansion confirmation.
 tools.governor.block_exfil	more-options	hosts.command-safety	none	Choose exfiltration-command blocking with permission-expansion confirmation.
 tools.governor.owner_can_override	more-options	hosts.command-safety	none	Choose whether the owner may override governor denials.
@@ -109,9 +109,9 @@ tools.trajectory_path	internal-or-legacy	none	none	No user change: trajectories 
 tools.ssh_retry.max_retries	internal-or-legacy	none	none	No independent user change: SSH retry policy is transport plumbing.
 tools.ssh_retry.base_delay	internal-or-legacy	none	none	No independent user change: SSH retry pacing is transport plumbing.
 tools.ssh_retry.max_delay	internal-or-legacy	none	none	No independent user change: SSH retry pacing is transport plumbing.
-tools.bulkhead.ssh_max_concurrent	more-options	tools.concurrency	none	Limit simultaneous SSH work to remote host capacity.
-tools.bulkhead.subprocess_max_concurrent	more-options	tools.concurrency	none	Limit simultaneous subprocess work to workstation capacity.
-tools.bulkhead.browser_max_concurrent	more-options	tools.concurrency	none	Limit simultaneous browser jobs to available memory.
+tools.bulkhead.ssh_max_concurrent	advanced	tools.concurrency	none	Limit simultaneous SSH work to remote host capacity.
+tools.bulkhead.subprocess_max_concurrent	advanced	tools.concurrency	none	Limit simultaneous subprocess work to workstation capacity.
+tools.bulkhead.browser_max_concurrent	advanced	tools.concurrency	none	Limit simultaneous browser jobs to available memory.
 tools.bulkhead.ssh_max_queued	advanced	tools.queue-limits	none	Bound pending SSH work when hosts are busy.
 tools.bulkhead.subprocess_max_queued	advanced	tools.queue-limits	none	Bound pending local work when execution slots are full.
 tools.bulkhead.browser_max_queued	advanced	tools.queue-limits	none	Bound pending work when browser slots are full.
@@ -124,8 +124,8 @@ tools.streaming.enabled	more-options	tools.streaming	none	Choose whether long-ru
 tools.streaming.tools	more-options	tools.streaming	none	Choose which tools stream progress.
 tools.streaming.chunk_interval_seconds	internal-or-legacy	none	none	No independent user change: chunk pacing is transport plumbing.
 tools.streaming.max_chunk_chars	internal-or-legacy	none	none	No independent user change: progress framing retains its default.
-tools.max_tool_iterations_chat	more-options	tools.work-limits	none	Bound iterations in new chat work.
-tools.max_tool_iterations_loop	more-options	work.loop-limits	none	Bound iterations in new autonomous loops.
+tools.max_tool_iterations_chat	advanced	tools.work-limits	none	Bound iterations in new chat work.
+tools.max_tool_iterations_loop	advanced	work.loop-limits	none	Bound iterations in new autonomous loops.
 tools.local_working_dir	internal-or-legacy	none	none	No user change: Desktop provisions an independent protected workspace.
 logging.level	advanced	data.log-detail	none	Increase diagnostic detail while investigating a problem.
 logging.directory	internal-or-legacy	none	none	No user change: logs use profile-managed storage.
@@ -137,22 +137,22 @@ webhook.triggers.source	primary	work.inbound-webhooks	none	Bind a schedule crede
 webhook.triggers.secret	primary	work.inbound-webhooks	secrets.set|secrets.clear	Store or remove a unique incoming credential for one schedule.
 webhook.triggers	primary	work.inbound-webhooks	per-entry-secrets	Bind sources to schedules with separate write-only credentials.
 learning.enabled	primary	data.learned-context	none	Choose whether Odin accumulates learned context.
-learning.max_entries	more-options	data.learned-context	none	Limit retained learned-context entries.
-learning.consolidation_target	more-options	data.learned-context	none	Choose consolidation size when context reaches its cap.
-learning.injection_token_budget	more-options	data.learned-context	none	Limit learned context included with requests.
+learning.max_entries	advanced	data.learned-context	none	Limit retained learned-context entries.
+learning.consolidation_target	advanced	data.learned-context	none	Choose consolidation size when context reaches its cap.
+learning.injection_token_budget	advanced	data.learned-context	none	Limit learned context included with requests.
 learning.loop_reflection_enabled	more-options	work.reflection	none	Choose whether loops generate learned reflections.
-learning.loop_reflection_cooldown_hours	more-options	work.reflection	none	Space reflections to avoid repeated learning from similar work.
-learning.loop_reflection_max_per_hour	more-options	work.reflection	none	Limit reflection frequency and cost.
-observability.context_trace.enabled	more-options	data.trace-privacy	none	Choose whether prompt assembly is recorded.
-observability.context_trace.memory_key_mode	more-options	data.trace-privacy	none	Choose raw, hashed or redacted memory identifiers in traces.
-observability.context_trace.include_segment_ids	more-options	data.trace-privacy	none	Choose whether segment identifiers appear in traces.
+learning.loop_reflection_cooldown_hours	advanced	work.reflection	none	Space reflections to avoid repeated learning from similar work.
+learning.loop_reflection_max_per_hour	advanced	work.reflection	none	Limit reflection frequency and cost.
+observability.context_trace.enabled	internal-or-legacy	none	none	No ordinary user change: prompt-assembly tracing is diagnostic implementation.
+observability.context_trace.memory_key_mode	internal-or-legacy	none	none	No ordinary user change: memory-key framing belongs to diagnostic traces.
+observability.context_trace.include_segment_ids	internal-or-legacy	none	none	No ordinary user change: segment identifiers are diagnostic framing.
 observability.context_trace.max_trace_bytes	internal-or-legacy	none	none	No independent user change: diagnostic byte framing retains its default.
 observability.audit_failure_classification	internal-or-legacy	none	none	No independent user change: failure classification is diagnostic implementation.
-observability.prompt_budget_accounting	more-options	data.trace-privacy	none	Choose whether budget diagnostics are collected.
+observability.prompt_budget_accounting	internal-or-legacy	none	none	No ordinary user change: prompt-budget accounting is diagnostic implementation.
 observability.trajectory_user_content	more-options	data.trace-privacy	none	Choose whether trajectories retain scrubbed request text.
-observability.max_user_content_chars	more-options	data.trace-privacy	none	Limit request text retained in trajectories.
-observability.loop_trace	more-options	data.trace-privacy	none	Choose whether loop trajectories are recorded.
-observability.max_tool_result_chars	more-options	data.trace-privacy	none	Limit tool-result text retained in trajectories.
+observability.max_user_content_chars	internal-or-legacy	none	none	No ordinary user change: trajectory text framing is diagnostic implementation.
+observability.loop_trace	internal-or-legacy	none	none	No ordinary user change: loop trajectory tracing is diagnostic implementation.
+observability.max_tool_result_chars	internal-or-legacy	none	none	No ordinary user change: tool-result trace framing is diagnostic implementation.
 email.enabled	primary	tools.email	none	Enable mail tools while retaining account setup.
 email.tls_verify	more-options	tools.email	none	Configure a deliberate verification exception for a private mail server.
 email.smtp.host	primary	tools.email	none	Choose the outgoing mail server.
@@ -164,19 +164,19 @@ email.imap.host	primary	tools.email	none	Choose the incoming mail server.
 email.imap.port	primary	tools.email	none	Choose the incoming mail port.
 email.imap.username	primary	tools.email	none	Choose the incoming authentication account.
 email.imap.password	primary	tools.email	secrets.set|secrets.clear	Store or remove the incoming password in the keyring.
-email.max_body_chars	more-options	tools.email-limits	none	Limit mail body content tools may read.
-email.max_results	more-options	tools.email-limits	none	Limit messages returned by mail search.
-email.max_attachment_bytes	more-options	tools.email-limits	none	Bound outgoing attachment size.
+email.max_body_chars	advanced	tools.email-limits	none	Limit mail body content tools may read.
+email.max_results	advanced	tools.email-limits	none	Limit messages returned by mail search.
+email.max_attachment_bytes	advanced	tools.email-limits	none	Bound outgoing attachment size.
 email.connect_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: mail connection deadline retains its default.
 email.allowed_attachment_dirs	more-options	tools.email-limits	none	Choose directories mail tools may read attachments from.
 search.enabled	primary	data.search	none	Enable indexed search without deleting stored knowledge.
 search.search_db_path	internal-or-legacy	none	none	No user change: index storage belongs to the profile.
 browser.enabled	primary	tools.browser	none	Enable browser tools or configure them while disabled.
-browser.cdp_url	primary	tools.browser	none	Connect to an explicitly configured debugging endpoint.
+browser.cdp_url	more-options	tools.browser	none	Use an existing debugging endpoint instead of the Desktop-launched browser; empty launches its own browser.
 browser.default_timeout_ms	internal-or-legacy	none	none	No ordinary user change: navigation deadline retains its default.
-browser.max_wait_timeout_seconds	more-options	tools.browser-limits	none	Bound waits for page elements.
-browser.viewport_width	more-options	tools.browser-limits	none	Choose page rendering and capture width.
-browser.viewport_height	more-options	tools.browser-limits	none	Choose page rendering and capture height.
+browser.max_wait_timeout_seconds	advanced	tools.browser-limits	none	Bound waits for page elements.
+browser.viewport_width	advanced	tools.browser-limits	none	Choose page rendering and capture width.
+browser.viewport_height	advanced	tools.browser-limits	none	Choose page rendering and capture height.
 browser.allow_private_targets	more-options	tools.browser-limits	none	Explicitly allow selected private-network destinations.
 computer.enabled	primary	tools.computer	none	Enable qualified native availability without granting session consent.
 computer.storage_dir	unsupported-on-desktop	none	none	Desktop derives native storage from the profile and rejects direct writes.
@@ -212,19 +212,19 @@ image.openai.image_model	more-options	models.image-intent	none	Follow the image-
 image.openai.request_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: image request deadline is transport plumbing.
 image.openai.connect_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: image connection deadline is transport plumbing.
 image.openai.stream_stall_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: image stream detection is transport plumbing.
-image.openai.max_image_bytes	more-options	models.image	none	Bound decoded image size and memory usage.
+image.openai.max_image_bytes	advanced	models.image	none	Bound decoded image size and memory usage.
 attachments.temp_directory	internal-or-legacy	none	none	No user change: attachments use the profile cache.
-attachments.inline_text_max_bytes	more-options	data.attachment-limits	none	Choose which text attachments fit inline.
-attachments.preview_max_chars	more-options	data.attachment-limits	none	Limit text preview length.
-attachments.large_preview_chars	more-options	data.attachment-limits	none	Limit previews for large attachments.
-attachments.archive_max_bytes	more-options	data.attachment-limits	none	Bound archive upload size before inspection.
-attachments.archive_max_files	more-options	data.attachment-limits	none	Bound archive entries inspected.
-attachments.archive_extract_max_bytes	more-options	data.attachment-limits	none	Bound extracted bytes to protect storage.
-attachments.archive_preview_total_chars	more-options	data.attachment-limits	none	Limit combined archive preview text.
-attachments.image_max_bytes	more-options	data.attachment-limits	none	Bound image upload size.
-attachments.pdf_max_bytes	more-options	data.attachment-limits	none	Bound PDF upload size.
-attachments.archive_preview_file_max_bytes	more-options	data.attachment-limits	none	Limit individual archive entries eligible for preview.
-attachments.retention_hours	more-options	data.attachment-retention	none	Choose temporary attachment retention.
+attachments.inline_text_max_bytes	advanced	data.attachment-limits	none	Choose which text attachments fit inline.
+attachments.preview_max_chars	advanced	data.attachment-limits	none	Limit text preview length.
+attachments.large_preview_chars	advanced	data.attachment-limits	none	Limit previews for large attachments.
+attachments.archive_max_bytes	advanced	data.attachment-limits	none	Bound archive upload size before inspection.
+attachments.archive_max_files	advanced	data.attachment-limits	none	Bound archive entries inspected.
+attachments.archive_extract_max_bytes	advanced	data.attachment-limits	none	Bound extracted bytes to protect storage.
+attachments.archive_preview_total_chars	advanced	data.attachment-limits	none	Limit combined archive preview text.
+attachments.image_max_bytes	advanced	data.attachment-limits	none	Bound image upload size.
+attachments.pdf_max_bytes	advanced	data.attachment-limits	none	Bound PDF upload size.
+attachments.archive_preview_file_max_bytes	advanced	data.attachment-limits	none	Limit individual archive entries eligible for preview.
+attachments.retention_hours	advanced	data.attachment-retention	none	Choose temporary attachment retention.
 personality.preset	primary	personality.main	none	Choose voice and behavior preset.
 personality.custom_name	primary	personality.main	none	Name the custom personality.
 personality.custom_identity	primary	personality.main	none	Write identity instructions with explicit Save or Cancel.
@@ -252,15 +252,15 @@ agents.model	primary	models.agents	none	Choose main, automatic or fixed agent mo
 agents.thinking_mode	more-options	models.agents	none	Set or inherit compatible-agent thinking policy.
 agents.auto_model_allowlist	primary	models.agents	none	Choose automatic candidates, ranking and per-entry effort or thinking policy.
 agents.model_selection_hints	more-options	models.agents	none	Give per-model automatic-selection guidance.
-agents.max_nesting_depth	more-options	models.agent-limits	none	Bound delegation depth.
-agents.max_children_per_agent	more-options	models.agent-limits	none	Bound children each agent may spawn.
+agents.max_nesting_depth	advanced	models.agent-limits	none	Bound delegation depth.
+agents.max_children_per_agent	advanced	models.agent-limits	none	Bound children each agent may spawn.
 agents.max_concurrent_agents	primary	models.agent-limits	none	Choose per-channel agent parallelism.
-agents.max_iterations	more-options	models.agent-limits	none	Bound iterations, cost and runaway work.
-agents.scheduled_max_iterations	more-options	work.scheduled-agent-limits	none	Bound scheduled agent iterations.
+agents.max_iterations	advanced	models.agent-limits	none	Bound iterations, cost and runaway work.
+agents.scheduled_max_iterations	advanced	work.scheduled-agent-limits	none	Bound scheduled agent iterations.
 agents.hard_max_iterations	advanced	models.agent-hard-limit	none	Set the hard ceiling new agents cannot exceed.
 agents.final_warning_iterations	internal-or-legacy	none	none	No independent user change: warning cadence follows iteration policy.
 agents.iteration_timeout_seconds	internal-or-legacy	none	none	No ordinary user change: hung-generation backstop retains its default.
-agents.max_lifetime_seconds	more-options	models.agent-limits	none	Choose the maximum lifetime of new agents.
+agents.max_lifetime_seconds	advanced	models.agent-limits	none	Choose the maximum lifetime of new agents.
 outbound_webhooks.enabled	unsupported-on-desktop	none	none	Global switch has no Desktop write operation: outbound save edits individual targets only.
 outbound_webhooks.scrub_secrets	unsupported-on-desktop	none	none	Global scrubbing has no Desktop write operation: per-target scrubbing remains supported.
 outbound_webhooks.rate_limit_seconds	unsupported-on-desktop	none	none	Global rate limit has no Desktop write operation: outbound save edits individual targets only.
@@ -286,6 +286,6 @@ llm_recovery.breaker_cooldown_cap_seconds	internal-or-legacy	none	none	No indepe
 turn_state.enabled	internal-or-legacy	none	none	No user change: durable receipt safety retains supported defaults.
 turn_state.db_path	internal-or-legacy	none	none	No user change: durable state belongs to the profile.
 turn_state.auto_resume	more-options	work.recovery	none	Choose automatic resume without overriding quarantine or unknown-effect guards.
-turn_state.resume_ttl_hours	more-options	work.recovery	none	Choose how old work may be before automatic resume is refused.
-turn_state.payload_retention_days	more-options	data.work-retention	none	Choose completed payload retention.
-turn_state.ledger_retention_days	more-options	data.work-retention	none	Choose completed ownership and receipt retention.
+turn_state.resume_ttl_hours	advanced	work.recovery	none	Choose how old work may be before automatic resume is refused.
+turn_state.payload_retention_days	advanced	data.work-retention	none	Choose completed payload retention.
+turn_state.ledger_retention_days	advanced	data.work-retention	none	Choose completed ownership and receipt retention.

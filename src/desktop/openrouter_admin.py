@@ -7,13 +7,19 @@ Remote awaits precede the owner locks; policy is rebuilt after those awaits.
 from __future__ import annotations
 
 from contextlib import AsyncExitStack
-from typing import Any
+from typing import Any, Literal, TypedDict, get_args
 
 import aiohttp
 from aiohttp import web
 from pydantic import ValidationError
 
-from ..config.schema import OpenAICompatibleModelProfile
+from ..config.schema import (
+    CODEX_MODEL_UNSUPPORTED_EFFORTS,
+    OpenAICompatibleModelProfile,
+    ReasoningEffort,
+    effort_incompatibility_error,
+    retired_codex_model_error,
+)
 from ..llm.context_budget import compatible_agent_unavailable_reason
 from ..llm.openrouter import conservative_profile, is_openrouter_base_url, openrouter_variant
 from ..observability.diagnostics import safe_text, scrub_diagnostic
@@ -27,6 +33,78 @@ METHODS = frozenset({
     "models.status", "models.provider.get", "models.provider.set",
 })
 READ_METHODS = METHODS - {"openrouter.select", "models.provider.set"}
+
+
+class EffortCapabilities(TypedDict):
+    """Desktop presentation facts, not a remote acceptance guarantee.
+
+    Unknown Codex models retain the generic request enum and no known model
+    restrictions. For compatible providers, null means efforts are undeclared;
+    an empty list means the selected wire dialect has no effort control.
+    """
+
+    values: list[str] | None
+    source: Literal[
+        "core_validation", "model_profile", "provider_catalogue", "unknown", "not_applicable"
+    ]
+    restrictions_known: bool
+
+
+def _effort_capabilities(
+    config: Any, model: str, capability: str, *, catalogue_model: dict[str, Any] | None = None
+) -> EffortCapabilities:
+    if capability != "reasoning":
+        return {"values": [], "source": "not_applicable", "restrictions_known": True}
+    if not model.startswith(("compat:", "ollama:")):
+        # Match Config's effective-pair validation, not the budget alias resolver.
+        # Preserve case/unknown spelling; strip codex: only as canonical validation does.
+        validation_model = model.strip().removeprefix("codex:")
+        return {
+            "values": [effort for effort in get_args(ReasoningEffort)
+                       if effort_incompatibility_error(validation_model, effort) is None],
+            "source": "core_validation",
+            "restrictions_known": (
+                validation_model in CODEX_MODEL_UNSUPPORTED_EFFORTS
+                or retired_codex_model_error(validation_model) is not None
+            ),
+        }
+    from ..llm.context_budget import compatible_model_profile
+
+    profile = compatible_model_profile(model, getattr(config, "openai_compatible", None))
+    # Resolved profiles also govern native agent validation. Provider declarations
+    # are advisory fallback only when the authoritative profile leaves choices unknown.
+    values = getattr(profile, "supported_efforts", None)
+    if values:
+        return {"values": list(values), "source": "model_profile", "restrictions_known": True}
+    values = (catalogue_model or {}).get("supported_efforts")
+    if values:
+        return {"values": list(values), "source": "provider_catalogue", "restrictions_known": True}
+    return {"values": None, "source": "unknown", "restrictions_known": False}
+
+
+def _project_model_catalogue(
+    config: Any, catalogue: dict[str, list[dict[str, Any]]]
+) -> dict[str, list[dict[str, Any]]]:
+    """Enrich retained catalogue rows without changing upstream algorithms or membership."""
+    compatible_cfg = getattr(config, "openai_compatible", None)
+    cached_models = (
+        llm_admin._openrouter_cache.get("models") or []
+        if compatible_cfg and compatible_cfg.preset == "openrouter" else []
+    )
+    projected = {}
+    for provider, rows in catalogue.items():
+        projected[provider] = []
+        for row in rows:
+            cached_model = next((item for item in cached_models
+                                 if isinstance(item, dict) and item.get("id") == row["name"]),
+                                None) if provider == "compat" else None
+            efforts = _effort_capabilities(
+                config, row["ref"], row["capability"], catalogue_model=cached_model,
+            )
+            projected[provider].append({
+                **row, "efforts": efforts["values"] or [], "effort_capabilities": efforts,
+            })
+    return projected
 
 
 class OpenRouterAdminService:
@@ -397,9 +475,10 @@ class OpenRouterAdminService:
                            "models": [f"compat:{compat.model}"]},
                 "ollama": {"configured": ollama_client is not None,
                            "models": [f"ollama:{ollama.model}"]}},
-            "model_catalogue": llm_admin._model_catalogue(projection,
-                codex_configured=codex_client is not None,
-                ollama_configured=ollama_client is not None)}
+            "model_catalogue": _project_model_catalogue(
+                config, llm_admin._model_catalogue(projection,
+                    codex_configured=codex_client is not None,
+                    ollama_configured=ollama_client is not None))}
         serving = owner.capture_serving_identity() if owner is not None else None
         if serving is not None and serving.client is not None:
             result["active_model"] = serving.model

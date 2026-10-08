@@ -11,6 +11,7 @@ import importlib
 import json
 import re
 import subprocess
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -87,7 +88,11 @@ def validate_core(rows, facts=None, write_owners=None, methods=None):
         f"invalid paths: {sorted(set(paths) - set(facts))}")
     assert {r["path"] for r in rows if r["disposition"] == "advanced"} == set(
         write_owners["advanced_allowlist"]), "Advanced is an explicit allowlist"
-    assert len(write_owners["advanced_allowlist"]) <= 30
+    presentation = write_owners["advanced_presentation"]
+    assert presentation["category_headings"], "Advanced needs category headings"
+    assert len(presentation["category_headings"]) == len(set(presentation["category_headings"]))
+    if len(write_owners["advanced_allowlist"]) > 30:
+        assert presentation["search_required"] is True, "Advanced over 30 needs search"
     for row in rows:
         path = row["path"]
         assert row["disposition"] in DISPOSITIONS
@@ -132,6 +137,82 @@ def validate_core(rows, facts=None, write_owners=None, methods=None):
 
 def test_every_recursive_registry_field_has_one_explicit_disposition():
     validate_core(core_rows())
+
+
+def test_review_a_disposition_counts_and_advanced_groups():
+    rows = core_rows()
+    assert len(rows) == 290
+    assert Counter(row["disposition"] for row in rows) == {
+        "primary": 76, "more-options": 42, "advanced": 61,
+        "internal-or-legacy": 81, "unsupported-on-desktop": 30,
+    }
+    assert len({r["editor"] for r in rows if r["disposition"] == "advanced"}) == 29
+
+
+def test_more_options_is_the_explicit_user_policy_selection_not_numeric_leftovers():
+    expected = {
+        "openai_codex.auxiliary.enabled", "openai_codex.auxiliary.model",
+        "ollama.num_ctx", "openai_compatible.reasoning_content_feedback_policy",
+        "openai_compatible.openrouter.order", "openai_compatible.openrouter.allow_fallbacks",
+        "openai_compatible.openrouter.quantizations", "openai_compatible.openrouter.sort",
+        "openai_compatible.openrouter.data_collection",
+        "openai_compatible.openrouter.reasoning_effort",
+        "openai_compatible.openrouter.model_pins", "sessions.adaptive_compaction",
+        "sessions.archive_max_bytes", "sessions.archive_max_files",
+        "tools.governor.block_critical", "tools.governor.block_exfil",
+        "tools.governor.owner_can_override", "tools.allow_host_tofu",
+        "tools.command_timeout_seconds", "tools.tool_timeouts", "tools.skill_allowed_urls",
+        "tools.streaming.enabled", "tools.streaming.tools", "learning.loop_reflection_enabled",
+        "observability.trajectory_user_content", "email.tls_verify",
+        "email.allowed_attachment_dirs",
+        "browser.cdp_url", "browser.allow_private_targets", "image.openai.enabled",
+        "image.openai.outer_model", "image.openai.image_model",
+        "mcp.max_published_tools_per_server", "mcp.max_published_tools_global",
+        "mcp.servers.cwd", "mcp.servers.tool_allowlist", "mcp.servers.timeout_seconds",
+        "agents.thinking_mode", "agents.model_selection_hints",
+        "outbound_webhooks.targets.scrub_secrets", "outbound_webhooks.targets.verify_ssl",
+        "turn_state.auto_resume",
+    }
+    rows = [r for r in core_rows() if r["disposition"] == "more-options"]
+    assert {r["path"] for r in rows} == expected
+    # Page ownership follows the explicit editor IDs, not the core schema groups.
+    assert Counter(r["editor"].split(".")[0] for r in rows) == {
+        "models": 17, "tools": 8, "skills": 1, "mcp": 5, "hosts": 4, "work": 4, "data": 3,
+    }
+    groups = {page: {r["editor"] for r in rows if r["editor"].startswith(page + ".")}
+              for page in ("models", "tools", "skills", "mcp", "hosts", "work", "data")}
+    assert {page: len(editors) for page, editors in groups.items()} == {
+        "models": 8, "tools": 6, "skills": 1, "mcp": 2, "hosts": 2, "work": 3, "data": 2,
+    }
+    # The documented models exception is seven OpenRouter choices plus ten
+    # other explicit policy/model choices, not a claim of eight scalar fields.
+    assert sum(r["editor"] == "models.openrouter-routing" for r in rows) == 7
+
+
+def test_pure_trace_diagnostics_have_no_visible_editor():
+    rows = core_rows()
+    diagnostic = {r["path"] for r in rows if r["path"].startswith("observability.context_trace.")}
+    diagnostic |= {
+        "observability.prompt_budget_accounting", "observability.max_user_content_chars",
+        "observability.max_tool_result_chars", "observability.loop_trace",
+    }
+    for row in rows:
+        if row["path"] in diagnostic:
+            assert row["disposition"] == "internal-or-legacy"
+            assert row["editor"] == "none"
+
+
+@pytest.mark.parametrize("mutation,message", [
+    ("search", "over 30 needs search"), ("headings", "needs category headings"),
+])
+def test_advanced_growth_requires_search_and_category_headings(mutation, message):
+    write_owners = copy.deepcopy(owners())
+    if mutation == "search":
+        write_owners["advanced_presentation"]["search_required"] = False
+    else:
+        write_owners["advanced_presentation"]["category_headings"] = []
+    with pytest.raises(AssertionError, match=message):
+        validate_core(core_rows(), write_owners=write_owners)
 
 
 def test_new_core_field_must_be_classified():

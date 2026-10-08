@@ -1,4 +1,5 @@
 """Model settings expose core restrictions without inventing provider support."""
+from copy import deepcopy
 from types import SimpleNamespace
 from typing import get_args
 
@@ -6,6 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.config.schema import Config, OpenAICompatibleModelProfile, ReasoningEffort
+from src.desktop.openrouter_admin import _project_model_catalogue
 from src.web.api import llm_admin
 from tests import test_desktop_step5_llm_methods as model_fixtures
 
@@ -18,8 +20,10 @@ def isolated_catalogue(monkeypatch):
 
 
 def catalogue(config):
-    return llm_admin._model_catalogue(
-        SimpleNamespace(config=config), codex_configured=True, ollama_configured=False
+    return _project_model_catalogue(
+        config, llm_admin._model_catalogue(
+            SimpleNamespace(config=config), codex_configured=True, ollama_configured=False,
+        ),
     )
 
 
@@ -46,7 +50,7 @@ def test_codex_presentation_matches_actual_config_pair_validation(model):
 
 
 def test_unknown_codex_keeps_request_enum_without_claiming_known_restrictions():
-    row = next(item for item in catalogue(Config(llm_provider={"model": "new-model"}))["codex"]
+    row = next(item for item in catalogue(Config(openai_codex={"model": "new-model"}))["codex"]
                if item["ref"] == "new-model")
     assert row["efforts"] == list(get_args(ReasoningEffort))
     assert row["effort_capabilities"]["restrictions_known"] is False
@@ -55,17 +59,62 @@ def test_unknown_codex_keeps_request_enum_without_claiming_known_restrictions():
     assert restricted["effort_capabilities"]["restrictions_known"] is True
 
 
-def test_agent_policy_refs_and_retired_selections_remain_visible():
+def test_bare_agent_policy_refs_and_retired_selections_remain_visible():
     config = Config()
-    config.agents.model = "codex:gpt-6.1-sol"
-    config.agents.auto_model_allowlist = ["future:opaque"]
+    config.agents.model = "gpt-5.4"
+    config.agents.auto_model_allowlist = ["future-opaque"]
     config.openai_codex.model = "gpt-5.5"
     rows = {item["ref"]: item for item in catalogue(config)["codex"]}
-    assert rows["codex:gpt-6.1-sol"]["efforts"] == ["low", "medium", "high", "xhigh", "max"]
-    assert rows["future:opaque"]["effort_capabilities"]["restrictions_known"] is False
+    assert rows["gpt-5.4"]["efforts"] == ["none", "low", "medium", "high", "xhigh"]
+    assert rows["future-opaque"]["effort_capabilities"]["restrictions_known"] is False
     assert rows["gpt-5.5"]["effort_capabilities"] == {
         "values": [], "source": "core_validation", "restrictions_known": True,
     }
+
+
+@pytest.mark.parametrize("ref", ["kimi:legacy", "codex:gpt-6.1-sol", "future:opaque"])
+def test_desktop_projection_does_not_add_colon_policy_refs(ref):
+    config = Config()
+    config.agents.model = ref
+    config.agents.auto_model_allowlist = [
+        ref, "bare-agent-name", "compat:vendor/model", "ollama:local",
+    ]
+    raw = llm_admin._model_catalogue(
+        SimpleNamespace(config=config), codex_configured=False, ollama_configured=False,
+    )
+    projected = _project_model_catalogue(config, raw)
+    for rows in (raw, projected):
+        codex_refs = {row["ref"] for row in rows["codex"]}
+        assert ref not in codex_refs
+        assert "bare-agent-name" in codex_refs
+        assert "compat:vendor/model" not in codex_refs
+        assert "ollama:local" not in codex_refs
+        assert "compat:vendor/model" in {row["ref"] for row in rows["compat"]}
+        assert "ollama:local" in {row["ref"] for row in rows["ollama"]}
+    assert all("effort_capabilities" not in row for group in raw.values() for row in group)
+
+
+def test_projection_preserves_catalogue_membership_order_and_unrelated_facts():
+    config = Config()
+    config.llm_provider.model = "main-only-name"
+    raw = llm_admin._model_catalogue(
+        SimpleNamespace(config=config), codex_configured=False, ollama_configured=False,
+    )
+    before = deepcopy(raw)
+    projected = _project_model_catalogue(config, raw)
+    assert raw == before
+    assert projected is not raw
+    assert list(projected) == list(raw)
+    assert "main-only-name" not in {row["ref"] for row in projected["codex"]}
+    for provider, rows in raw.items():
+        assert [row["ref"] for row in projected[provider]] == [row["ref"] for row in rows]
+        for original, enriched in zip(rows, projected[provider], strict=True):
+            assert enriched is not original
+            assert {key: value for key, value in enriched.items()
+                    if key not in {"efforts", "effort_capabilities"}} == {
+                        key: value for key, value in original.items() if key != "efforts"
+                    }
+            assert "effort_capabilities" not in original
 
 
 def profile(efforts=None):
@@ -157,7 +206,19 @@ def test_ollama_has_no_native_effort_choices():
 @pytest.mark.asyncio
 async def test_existing_models_status_delivers_metadata_without_write(service):
     before = service.settings.paths.config_file.read_bytes()
+    config = service.settings.config
+    config.openai_compatible.model_profiles["vendor/model"] = profile(["vendor-balanced"])
+    config.agents.model = "kimi:legacy"
+    config.agents.auto_model_allowlist = ["codex:gpt-6.1-sol", "future:opaque"]
     result = await service.handle("models.status", {})
     row = next(item for item in result["model_catalogue"]["codex"] if item["ref"] == "gpt-6.1-sol")
     assert row["effort_capabilities"]["values"] == ["low", "medium", "high", "xhigh", "max"]
+    assert not {"kimi:legacy", "codex:gpt-6.1-sol", "future:opaque"}.intersection(
+        item["ref"] for item in result["model_catalogue"]["codex"]
+    )
+    compatible = next(item for item in result["model_catalogue"]["compat"]
+                      if item["name"] == "vendor/model")
+    assert compatible["effort_capabilities"] == {
+        "values": ["vendor-balanced"], "source": "model_profile", "restrictions_known": True,
+    }
     assert service.settings.paths.config_file.read_bytes() == before
