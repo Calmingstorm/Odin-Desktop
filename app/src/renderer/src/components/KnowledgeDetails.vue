@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import type { Result } from '../../../shared/api'
 import { isUnavailable, settingsUnavailableText as unavailableText } from '../capability'
 import SettingsSection from './settings/SettingsSection.vue'
+import SettingsRow from './settings/SettingsRow.vue'
 import { ask } from '../dialog'
 import { act, management } from '../stores/management'
 import { loadKnowledge } from '../stores/state'
@@ -175,25 +176,25 @@ onMounted(() => void learned())
 <template>
   <SettingsSection title="Knowledge details" aria-label="Knowledge details">
     <form aria-label="Read knowledge chunks" @submit.prevent="chunks">
-      <label class="field-input">Chunk source <input v-model="chunkSource" required /></label>
-      <button class="ghost" type="submit" :disabled="!chunkSource.trim() || reads.chunks.busy">Read chunks</button>
+      <SettingsRow label="Chunk source" control-id="knowledge-chunk-source"><input id="knowledge-chunk-source" v-model="chunkSource" required /></SettingsRow>
+      <div class="panel-actions"><button class="ghost" type="submit" :disabled="!chunkSource.trim() || reads.chunks.busy">Read chunks</button></div>
     </form>
     <form aria-label="Find knowledge duplicates" @submit.prevent="duplicates">
-      <label class="field-input">Near-duplicate threshold (optional) <input v-model="threshold" type="number" step="any" /></label>
-      <button class="ghost" type="submit" :disabled="!thresholdValid() || reads.duplicates.busy">Find duplicates</button>
+      <SettingsRow label="Near-duplicate threshold (optional)" control-id="knowledge-duplicate-threshold"><input id="knowledge-duplicate-threshold" v-model="threshold" type="number" step="any" /></SettingsRow>
+      <div class="panel-actions"><button class="ghost" type="submit" :disabled="!thresholdValid() || reads.duplicates.busy">Find duplicates</button></div>
     </form>
     <form aria-label="Read knowledge version" @submit.prevent="getVersion">
-      <label class="field-input">Version source <input v-model="versionSource" required /></label>
-      <label class="field-input">Version number <input v-model="version" type="number" min="0" step="1" required /></label>
-      <button class="ghost" type="submit" :disabled="!versionSource.trim() || integer(version) === undefined || reads.version.busy">Read version</button>
+      <SettingsRow label="Version source" control-id="knowledge-version-source"><input id="knowledge-version-source" v-model="versionSource" required /></SettingsRow>
+      <SettingsRow label="Version number" control-id="knowledge-version-number"><input id="knowledge-version-number" v-model="version" type="number" min="0" step="1" required /></SettingsRow>
+      <div class="panel-actions"><button class="ghost" type="submit" :disabled="!versionSource.trim() || integer(version) === undefined || reads.version.busy">Read version</button></div>
     </form>
     <form aria-label="Read knowledge diff" @submit.prevent="diff">
-      <label class="field-input">Diff source <input v-model="diffSource" required /></label>
-      <label class="field-input">From version <input v-model="v1" type="number" min="0" step="1" required /></label>
-      <label class="field-input">To version <input v-model="v2" type="number" min="0" step="1" required /></label>
-      <button class="ghost" type="submit" :disabled="!diffSource.trim() || integer(v1) === undefined || integer(v2) === undefined || reads.diff.busy">Read diff</button>
+      <SettingsRow label="Diff source" control-id="knowledge-diff-source"><input id="knowledge-diff-source" v-model="diffSource" required /></SettingsRow>
+      <SettingsRow label="From version" control-id="knowledge-diff-from"><input id="knowledge-diff-from" v-model="v1" type="number" min="0" step="1" required /></SettingsRow>
+      <SettingsRow label="To version" control-id="knowledge-diff-to"><input id="knowledge-diff-to" v-model="v2" type="number" min="0" step="1" required /></SettingsRow>
+      <div class="panel-actions"><button class="ghost" type="submit" :disabled="!diffSource.trim() || integer(v1) === undefined || integer(v2) === undefined || reads.diff.busy">Read diff</button></div>
     </form>
-    <div v-for="key in knowledgeReads" :key="key" :aria-label="`${readLabels[key]} result`">
+    <div v-for="key in knowledgeReads" :key="key" class="knowledge-result" :aria-label="`${readLabels[key]} result`">
       <h4 class="sub-head">{{ readLabels[key] }}</h4>
       <p v-if="reads[key].busy" role="status">Reading…</p>
       <p v-else-if="reads[key].unavailable" role="status">{{ unavailableText(readLabels[key]) }}</p>
@@ -206,9 +207,9 @@ onMounted(() => void learned())
     </div>
     <form aria-label="Merge knowledge sources" @submit.prevent="merge">
       <h4 class="sub-head">Merge sources</h4>
-      <label class="field-input">Keep source <input v-model="keepSource" required /></label>
-      <label class="field-input">Remove source <input v-model="removeSource" required /></label>
-      <button class="ghost danger-item" type="submit" :disabled="!keepSource.trim() || !removeSource.trim() || keepSource.trim() === removeSource.trim() || mergeLocked() || mergeConfirming || mergeUnavailable">Merge sources…</button>
+      <SettingsRow label="Keep source" control-id="knowledge-merge-keep"><input id="knowledge-merge-keep" v-model="keepSource" required /></SettingsRow>
+      <SettingsRow label="Remove source" control-id="knowledge-merge-remove"><input id="knowledge-merge-remove" v-model="removeSource" required /></SettingsRow>
+      <div class="panel-actions"><button class="ghost danger-item" type="submit" :disabled="!keepSource.trim() || !removeSource.trim() || keepSource.trim() === removeSource.trim() || mergeLocked() || mergeConfirming || mergeUnavailable">Merge sources…</button></div>
     </form>
     <p v-if="mergeUnavailable" role="status">{{ unavailableText('Knowledge merge') }}</p>
     <pre v-if="management.notes.knowledge" class="manage-json" role="status" aria-label="Knowledge command receipt">{{ management.notes.knowledge }}</pre>
@@ -234,3 +235,7 @@ onMounted(() => void learned())
     <pre v-if="learnedNoteKey && management.notes[learnedNoteKey]" class="manage-json" role="status" aria-label="Learned command receipt">{{ management.notes[learnedNoteKey] }}</pre>
   </SettingsSection>
 </template>
+
+<style scoped>
+form > .panel-actions, form > .sub-head, .knowledge-result { margin: 12px var(--settings-padding); }
+</style>

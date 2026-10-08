@@ -735,6 +735,16 @@ class CodexAuthPool:
         key = self._quota_key(index)
         return getattr(self, "_quota_check_failures", {}).get(key) if key else None
 
+    def clear_quota_check_failure(self, account_key: str | None) -> None:
+        """Clear by the serving account's opaque key, never a mutable slot.
+
+        Transport callers retain the acquired identity across awaits; resolving
+        an index here could clear a different account after a reload or reorder.
+        Missing identity or a removed account is an idempotent no-op.
+        """
+        if account_key:
+            getattr(self, "_quota_check_failures", {}).pop(account_key, None)
+
     def set_quota_check_failure(self, index: int, reason: str | None) -> None:
         key = self._quota_key(index)
         if key is None:

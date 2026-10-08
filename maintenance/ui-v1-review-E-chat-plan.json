@@ -1,0 +1,52 @@
+{
+  "entries": [
+    {
+      "path": "src/desktop/delivery.py",
+      "owner": "Odin",
+      "reason": "Round E item 5: explicit producer presentation identity for tool-posted artifacts, without turning a publication into a guarded assistant reply.",
+      "contract": "Generic send notices default to no author even with artifacts; admitted tool_output sends and validated staged flushes attach author=odin only when artifacts exist.",
+      "invariant": "Transcript notice role, guarded-reply identity, unread accounting, notification entitlement, artifact authorization and exactly-once publication remain unchanged.",
+      "tests": ["tests/test_desktop_delivery.py", "tests/test_desktop_skill_delivery.py", "tests/test_desktop_background_skill_delivery.py", "tests/test_desktop_engine_services.py"]
+    },
+    {
+      "path": "src/desktop/services.py",
+      "owner": "Odin",
+      "reason": "Round E item 5: identify Odin-authored file/image publications only at the existing admitted producer seam.",
+      "contract": "Skill post-file and desktop media attachment publication pass tool_output=True after make_artifact validates the request and originating tool. Text notices remain unmarked.",
+      "invariant": "No additional request admission, publication authority, model reply write path or artifact permission bypass is introduced.",
+      "tests": ["tests/test_desktop_engine_services.py", "tests/test_desktop_skill_delivery.py", "tests/test_desktop_background_skill_delivery.py"]
+    },
+    {
+      "path": "src/desktop/transcript.py",
+      "owner": "Odin",
+      "reason": "Round E item 5: retain explicit trusted publication presentation metadata in durable history and committed frames.",
+      "contract": "Optional author accepts only odin on notice messages with a nonempty request binding and artifacts. Public history preserves the field without changing message role.",
+      "invariant": "Author metadata grants no assistant reply status, execution authority or notification entitlement; malformed bindings are rejected before publication.",
+      "tests": ["tests/test_desktop_delivery.py", "tests/test_desktop_skill_delivery.py", "tests/test_desktop_engine_services.py"]
+    },
+    {
+      "path": "tests/test_desktop_delivery.py",
+      "owner": "Odin",
+      "reason": "Round E item 5 behavioral coverage for explicit tool author, generic file notice preservation, durable history and invalid metadata.",
+      "contract": "Real durable stores verify tool output author survives reopen, keeps notice role and no reply key/unread/notifications, and generic notices remain unmarked.",
+      "invariant": "Tests use disposable stores and harmless producer fixtures; they neither bypass guards nor replay operations.",
+      "tests": ["tests/test_desktop_delivery.py"]
+    },
+    {
+      "path": "tests/test_desktop_skill_delivery.py",
+      "owner": "Odin",
+      "reason": "Round E item 5 real skill publication and staged image author coverage.",
+      "contract": "Real engine skill file posts receive odin author while text notices remain unmarked; validated staged image flush keeps notice role and publishes once.",
+      "invariant": "Producer authorization, generation binding and guarded final replies are exercised without changing their acceptance boundaries.",
+      "tests": ["tests/test_desktop_skill_delivery.py"]
+    },
+    {
+      "path": "tests/test_desktop_engine_services.py",
+      "owner": "Odin",
+      "reason": "Round E item 5 verify generate_file uses the trusted producer publication identity.",
+      "contract": "Existing real generate_file behavioral test verifies durable output has author=odin and notice transcript role.",
+      "invariant": "The synthetic engine graph remains offline, disposable and behind the isolated test launcher.",
+      "tests": ["tests/test_desktop_engine_services.py"]
+    }
+  ]
+}

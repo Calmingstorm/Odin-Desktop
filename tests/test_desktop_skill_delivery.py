@@ -70,8 +70,10 @@ async def test_real_skill_child_posts_exact_scrubbed_durable_message_and_bytes(g
     assert notice["text"] == scrub_response_secrets("exact marker\npassword=fixture-secret")
     assert "fixture-secret" not in notice["text"]
     assert notice["request_id"] == receipt["request_id"]
+    assert "author" not in notice
     files = [row for row in rows if row.get("artifacts")]
     assert len(files) == 2 and all(row["role"] == "notice" for row in files)
+    assert all(row["author"] == "odin" for row in files)
     artifact = files[0]["artifacts"][0]
     assert artifact["mime"] == "application/octet-stream"
     page = artifacts.read(artifact["ref"], 0, 100, owner=requests.authority.owner_id)
@@ -221,6 +223,23 @@ async def test_stage_failure_is_atomic_survives_reopen_and_never_crosses_request
         "SELECT COUNT(*) FROM desktop_artifacts").fetchone()[0] == 1
     with pytest.raises(PermissionError, match="already committed"):
         reopened.stage_file(resumed, file)
+
+
+@pytest.mark.asyncio
+async def test_staged_tool_output_has_presentation_author_not_assistant_role(graph):
+    requests, _engine, _provider, transcript, cid, artifacts = setup_skill(graph)
+    delivery = DurableDelivery(requests.store, requests.events, transcript_commit=transcript.commit,
+                               artifact_converter=ArtifactPublisher(artifacts, requests.events))
+    ctx = RequestContext(cid, "staged-output", 1, requests.authority.owner_id)
+    delivery.stage_file(
+        ctx, ArtifactPost(b"image", "result.png", "image/png", "image", "delivery_probe")
+    )
+    message = await delivery.finish_staged(ctx)
+    assert message["role"] == "notice" and message["author"] == "odin"
+    assert message["artifacts"][0]["kind"] == "image"
+    assert await delivery.finish_staged(ctx) is None
+    assert transcript.list(cid)["items"][-1] == message
+    assert delivery.notifications.pending() == []
 
 
 @pytest.mark.asyncio

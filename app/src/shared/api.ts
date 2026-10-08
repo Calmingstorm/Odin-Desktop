@@ -233,6 +233,8 @@ export type MessageRole = 'user' | 'assistant' | 'notice'
 export interface Message {
   id: string
   role: MessageRole
+  /** Trusted tool-publication presentation identity; never a guarded assistant transcript role. */
+  author?: 'odin'
   text: string
   created_at: string
   request_id?: string

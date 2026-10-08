@@ -251,6 +251,11 @@
         "missing": 2,
         "total": 43
       },
+      "app/src/renderer/src/components/HeaderModelSwitcher.vue": {
+        "covered": 58,
+        "missing": 0,
+        "total": 58
+      },
       "app/src/renderer/src/components/Icon.vue": {
         "covered": 7,
         "missing": 0,
@@ -351,6 +356,11 @@
         "missing": 1,
         "total": 15
       },
+      "app/src/renderer/src/components/settings/AccountMoreMenu.vue": {
+        "covered": 40,
+        "missing": 0,
+        "total": 40
+      },
       "app/src/renderer/src/components/settings/ContextUse.vue": {
         "covered": 24,
         "missing": 0,
@@ -420,6 +430,11 @@
         "covered": 65,
         "missing": 6,
         "total": 71
+      },
+      "app/src/renderer/src/model-picker.ts": {
+        "covered": 22,
+        "missing": 0,
+        "total": 22
       },
       "app/src/renderer/src/mcp-form.ts": {
         "covered": 20,
@@ -2720,6 +2735,7 @@
     "app/src/renderer/src/components/ConversationMenu.vue",
     "app/src/renderer/src/components/FileCard.vue",
     "app/src/renderer/src/components/FirstRunBanner.vue",
+    "app/src/renderer/src/components/HeaderModelSwitcher.vue",
     "app/src/renderer/src/components/Icon.vue",
     "app/src/renderer/src/components/IconRail.vue",
     "app/src/renderer/src/components/KnowledgeDetails.vue",
@@ -2740,6 +2756,7 @@
     "app/src/renderer/src/components/WebhookIngress.vue",
     "app/src/renderer/src/components/WorkList.vue",
     "app/src/renderer/src/components/WorkPanel.vue",
+    "app/src/renderer/src/components/settings/AccountMoreMenu.vue",
     "app/src/renderer/src/components/settings/ContextUse.vue",
     "app/src/renderer/src/components/settings/McpMoreMenu.vue",
     "app/src/renderer/src/components/settings/SecretControl.vue",
@@ -2755,6 +2772,7 @@
     "app/src/renderer/src/main.ts",
     "app/src/renderer/src/markdown.ts",
     "app/src/renderer/src/mcp-form.ts",
+    "app/src/renderer/src/model-picker.ts",
     "app/src/renderer/src/schedule-form.ts",
     "app/src/renderer/src/schedule-observations.ts",
     "app/src/renderer/src/schedule-time.ts",

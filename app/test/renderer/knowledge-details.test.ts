@@ -53,6 +53,20 @@ async function answerDialog(value: true | null): Promise<void> {
 }
 
 describe('State knowledge details and learned context', () => {
+  it('uses shared labeled rows for every knowledge query and merge field', async () => {
+    const v = await view()
+    const ids = ['knowledge-chunk-source', 'knowledge-duplicate-threshold', 'knowledge-version-source', 'knowledge-version-number', 'knowledge-diff-source', 'knowledge-diff-from', 'knowledge-diff-to', 'knowledge-merge-keep', 'knowledge-merge-remove']
+    for (const id of ids) {
+      const input = v.root.findAll((node) => node.tag === 'input' && node.props.id === id)[0]!
+      expect(input).toBeDefined()
+      const row = v.root.findAll((node) => String(node.props.class).includes('settings-row') && node.findAll((child) => child === input).length > 0)[0]!
+      expect(row).toBeDefined()
+      expect(row.findAll((node) => node.tag === 'label' && node.props.for === id)).toHaveLength(1)
+    }
+    for (const title of ['Read knowledge chunks', 'Find knowledge duplicates', 'Read knowledge version', 'Read knowledge diff', 'Merge knowledge sources']) {
+      expect(form(v, title).findAll((node) => node.props.class === 'panel-actions')[0]!.find('button')).toBeDefined()
+    }
+  })
   it('places headings outside cards without explanatory copy or internal terminology', async () => {
     const v = await view()
     for (const title of ['Knowledge details', 'Learned context']) {

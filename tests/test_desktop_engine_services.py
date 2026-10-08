@@ -213,6 +213,7 @@ async def test_actual_generate_file_posts_durable_binary_artifact(graph):
     await asyncio.gather(*requests._tasks)
     files = [item for item in transcript.list(cid)["items"] if item.get("artifacts")]
     assert len(files) == 1
+    assert files[0]["author"] == "odin" and files[0]["role"] == "notice"
     ref = files[0]["artifacts"][0]["ref"]
     page = artifacts.read(ref, 0, 100, owner=requests.authority.owner_id)
     assert base64.b64decode(page["data_b64"]) == b"durable text"

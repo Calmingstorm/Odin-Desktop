@@ -9,6 +9,7 @@ import FileCard from './FileCard.vue'
 import Icon from './Icon.vue'
 import ReportViewer from './ReportViewer.vue'
 import ToolActivity from './ToolActivity.vue'
+import appIcon from '../../../../resources/icon.svg'
 
 const props = defineProps<{
   message: Message
@@ -23,8 +24,12 @@ const copyOpen = ref(false)
 const copied = ref('')
 const copyButton = ref<HTMLButtonElement | null>(null)
 const copyChoices = ref<HTMLElement | null>(null)
-const messageLabel = computed(() => `${who(props.message.role)} message at ${time(props.message.created_at)}`)
-const avatar = computed(() => (props.message.role === 'assistant' ? 'rune' : props.message.role === 'user' ? 'person' : 'info'))
+// Tool publications retain their notice transcript role (they are not a guarded model reply).
+// Present their known producer, without relabelling genuine notices or user attachments.
+const displayRole = computed(() => props.message.role === 'notice' && props.message.author === 'odin' &&
+  props.message.request_id && props.message.artifacts?.length ? 'assistant' : props.message.role)
+const messageLabel = computed(() => `${who(displayRole.value)} message at ${time(props.message.created_at)}`)
+const avatar = computed(() => displayRole.value === 'user' ? 'person' : 'info')
 watch(copyOpen, async (open) => {
   await nextTick()
   if (open) copyChoices.value?.querySelector<HTMLButtonElement>('button')?.focus()
@@ -89,12 +94,13 @@ function onImageError(ref: string): void {
 </script>
 
 <template>
-  <article :id="`m-${message.id}`" :class="['msg', message.role, { highlight }]" tabindex="-1" :aria-label="messageLabel">
+  <article :id="`m-${message.id}`" :class="['msg', displayRole, { highlight }]" tabindex="-1" :aria-label="messageLabel">
     <span class="avatar" aria-hidden="true">
-      <Icon :name="avatar" :size="message.role === 'assistant' ? 16 : 18" :stroke="message.role === 'assistant' ? 2.6 : 2" />
+      <img v-if="displayRole === 'assistant'" class="app-icon" :src="appIcon" width="36" height="36" alt="" />
+      <Icon v-else :name="avatar" :size="18" />
     </span>
     <div class="meta">
-      <span class="who">{{ who(message.role) }}</span>
+      <span class="who">{{ who(displayRole) }}</span>
       <time :datetime="message.created_at">{{ time(message.created_at) }}</time>
       <span v-if="actions" class="msg-actions">
         <span class="copied" role="status" aria-atomic="true">{{ copied }}</span>
@@ -134,4 +140,6 @@ function onImageError(ref: string): void {
 <style scoped>
 article:focus-visible, button:focus-visible, .md :deep(button:focus-visible), .md :deep(a:focus-visible) { outline: 2px solid var(--accent, #91baff); outline-offset: 3px; }
 article:focus-within { content-visibility: visible; }
+.msg.assistant > .avatar { background: transparent; border-radius: 0; }
+.app-icon { display: block; width: 100%; height: 100%; }
 </style>

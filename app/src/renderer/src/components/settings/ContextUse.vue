@@ -43,7 +43,7 @@ function blur(event: FocusEvent): void { if (!(event.relatedTarget as HTMLElemen
       <p v-else-if="busy" role="status">Saving…</p>
       <p v-else-if="settings.fields[field.path]?.status === 'saved'" role="status">Saved.</p>
       <p v-if="!editable" class="settings-help">Editing is unavailable for this setting.</p>
-      <p v-if="['invalid', 'drift', 'unknown'].includes(field.apply_state)" class="warn">{{ field.apply_state === 'invalid' ? 'This saved value is invalid. Correct it and save again.' : field.apply_state === 'drift' ? 'The running value differs from the saved value.' : 'The running value is not known.' }}</p>
+      <p v-if="['invalid', 'drift'].includes(field.apply_state)" class="warn">{{ field.apply_state === 'invalid' ? 'This saved value is invalid. Correct it and save again.' : 'The running value differs from the saved value.' }}</p>
     </template>
   </SettingsRow>
 </template>

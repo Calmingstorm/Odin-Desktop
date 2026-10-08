@@ -134,7 +134,6 @@ async function quiet(key: 'start' | 'end'): Promise<void> {
         <p v-if="!zoneEditable" role="status">Time zone cannot be changed right now.</p>
         <p v-if="timezone.apply_state === 'invalid'" role="status">Choose a valid time zone and save again.</p>
         <p v-else-if="timezone.apply_state === 'drift'" role="status">The saved and running time zones differ. Refresh before changing it.</p>
-        <p v-else-if="timezone.apply_state === 'unknown'" role="status">The running time zone is not confirmed. Check the connection.</p>
         <p v-else-if="timezone.pending_restart" role="status">The saved time zone needs Odin to restart.</p>
       </template>
     </SettingsRow>

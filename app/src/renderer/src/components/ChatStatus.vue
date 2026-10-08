@@ -1,10 +1,11 @@
 <script setup lang="ts">
-// The chat header's model and context, from the connected core. Each opens its full report, as the status bar did.
+// The chat header's model switcher and context report, from the connected core.
 import { computed } from 'vue'
 import { COMMANDS } from '../commands'
 import { basis, count, percent, share } from '../format'
 import { state } from '../store'
 import { status } from '../stores/status'
+import HeaderModelSwitcher from './HeaderModelSwitcher.vue'
 
 // Only facts from the connected core: nothing stale is shown while the link is down.
 const current = computed(() => state.app.link === 'ready' && status.epoch === state.recoveryEpoch)
@@ -36,14 +37,7 @@ function report(name: 'status' | 'usage'): void {
 
 <template>
   <div v-if="core?.model || usage" class="chat-status">
-    <button
-      v-if="core?.model"
-      class="status-item chat-model"
-      :title="`Model and effort, served by ${core.model.provider}. Click for the full /status report.`"
-      @click="report('status')"
-    >
-      {{ core.model.main }} · {{ core.model.effort }}
-    </button>
+    <HeaderModelSwitcher v-if="core?.model" :model="core.model" />
     <button v-if="usage" class="status-item chat-context" :title="usageTitle" @click="report('usage')">
       <template v-if="hasContext">Context {{ percent(context!) }} · </template><template v-if="quota">Quota {{ percent(quota.used_percent) }} · </template>{{ count(usage.tokens) }} tokens in {{ usage.period }}
     </button>

@@ -207,9 +207,51 @@ async def test_artifact_only_notice_and_no_fabricated_artifact_success(tmp_path)
     message = await destination.send("", files=[object()])
     assert message["role"] == "notice"
     assert message["artifacts"] == [descriptor]
+    assert "author" not in message  # A generic notice carrying files is still a notice.
     assert next(iter(sink.accepted.values()))["type"] == "artifact.published"
     assert delivery.notifications.pending() == []
     assert await delivery.send_reply(ctx, "", guarded=delivery.guarded_reply(ctx, "")) is None
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_tool_publication_author_survives_restart_without_assistant_promotion(tmp_path):
+    path = tmp_path / "journal.db"
+    store, events, conversations, transcript, sink, delivery = build(path)
+    ctx = context(conversations)
+    descriptor = {"ref": "output", "name": "output.png", "mime": "image/png",
+                  "size": 4, "kind": "image", "available": True}
+    delivery.artifact_converter = lambda context, files: [descriptor]
+    message = await delivery.send(ctx, "Image caption", files=[ArtifactPost(
+        b"data", "output.png", "image/png", "image", "generate_image")], tool_output=True)
+    assert message["author"] == "odin" and message["role"] == "notice"
+    assert conversations.get(ctx.conversation_id)["unread"] == 0
+    assert delivery.notifications.pending() == []
+    assert any(frame["payload"].get("message") == message for frame in sink.accepted.values())
+    assert all(not key.startswith("reply:") for key in sink.accepted)
+    plain = await delivery.send(ctx, "System maintenance notice", tool_output=True)
+    assert "author" not in plain
+    store.close()
+    store, events, conversations, transcript, sink, delivery = build(path)
+    assert transcript.list(ctx.conversation_id)["items"][0] == message
+    store.close()
+
+
+@pytest.mark.parametrize("role,metadata", [
+    ("user", {"author": "odin", "request_id": "r", "artifacts": [{"ref": "a"}]}),
+    ("assistant", {"author": "odin", "request_id": "r", "artifacts": [{"ref": "a"}]}),
+    ("notice", {"author": "someone", "request_id": "r", "artifacts": [{"ref": "a"}]}),
+    ("notice", {"author": "odin", "request_id": "r", "artifacts": []}),
+    ("notice", {"author": "odin", "artifacts": [{"ref": "a"}]}),
+])
+def test_publication_author_requires_bound_notice_artifacts(tmp_path, role, metadata):
+    from src.desktop.conversations import ConversationError
+
+    store, events, conversations, transcript, sink, delivery = build(tmp_path / "journal.db")
+    ctx = context(conversations)
+    with pytest.raises(ConversationError, match="publication author"):
+        transcript.commit(ctx.conversation_id, role, "Not a publication", **metadata)
+    assert transcript.list(ctx.conversation_id)["items"] == []
     store.close()
 
 

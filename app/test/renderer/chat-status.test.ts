@@ -36,7 +36,7 @@ describe('status in the chat header, the status bar and the rail', () => {
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('shows the model and context in the header, each opening its report, and leaves them out of the status bar', async () => {
+  it('shows the model switcher and context report in the header and leaves them out of the status bar', async () => {
     const header = mount(ChatStatus)
     const bar = mount(StatusBar)
     await flush()

@@ -254,14 +254,21 @@ describe('SettingEditor writes only deliberate drafts', () => {
     expect(root.textContent()).toContain('Saved')
   })
 
-  it('shows actionable invalid, drift and unknown states without a Ready promise', () => {
-    for (const apply_state of ['invalid', 'drift', 'unknown'] as const) {
+  it('shows actionable invalid and drift states without a Ready promise', () => {
+    for (const apply_state of ['invalid', 'drift'] as const) {
       const root = editor(field({ apply_state }))
       expect(root.textContent()).not.toContain('Ready')
       expect(root.find('input')).toBeDefined()
-      expect(root.textContent()).toMatch(/Correct it|Check the value|Check the connection/)
+      expect(root.textContent()).toMatch(/Correct it|Check the value/)
       if (apply_state === 'invalid') expect(root.find('input')!.props['aria-invalid']).toBe(true)
     }
+  })
+
+  it('keeps unknown running values editable without a warning or readiness promise', () => {
+    const root = editor(field({ apply_state: 'unknown', effective: null }))
+    expect(root.find('input')).toBeDefined()
+    expect(root.textContent()).not.toMatch(/running value|Check the connection|Ready/i)
+    expect(root.findAll((node) => node.props.class === 'settings-help')).toHaveLength(0)
   })
 
   it('respects short text constraints and ignores IME Enter', async () => {

@@ -182,10 +182,9 @@ export function fromInput(field: ConfigField, raw: string | boolean): Parsed {
   return { ok: true, value: text }
 }
 
-/** "Saved: X. Running: Y." when the running value differs from the saved one, or isn't known. */
+/** "Saved: X. Running: Y." only when both values are known and differ. */
 export function differenceNote(field: ConfigField): string | null {
-  if (isSecret(field)) return null
-  if (field.apply_state === 'unknown') return 'The running value is not known.'
+  if (isSecret(field) || field.apply_state === 'unknown') return null
   if (JSON.stringify(field.desired) === JSON.stringify(field.effective)) return null
   return `Saved: ${JSON.stringify(field.desired)}. Running: ${JSON.stringify(field.effective)}.`
 }

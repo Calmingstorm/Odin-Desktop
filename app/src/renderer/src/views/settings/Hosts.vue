@@ -316,7 +316,6 @@ function lastTest(host: HostRow): string {
         <template #note>
           <p v-if="entry.field.apply_state === 'invalid'" class="warn">This value is invalid. Choose a value and save again.</p>
           <p v-if="entry.field.apply_state === 'drift'" class="warn">The running value differs from the saved value.</p>
-          <p v-if="entry.field.apply_state === 'unknown'" class="warn">The running value is unknown. Refresh before relying on it.</p>
           <p v-if="settings.fields[entry.key]" class="manage-note" role="status">{{ settings.fields[entry.key]?.message ?? (settings.fields[entry.key]?.status === 'saving' ? 'Saving…' : 'Saved') }}</p>
         </template>
       </SettingsRow>

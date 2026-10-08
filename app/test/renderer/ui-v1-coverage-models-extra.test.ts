@@ -59,6 +59,15 @@ async function models(custom?: (items: ConfigField[]) => void, props?: Record<st
 const control = (root: Host, id: string) => root.findAll((node) => node.props.id === id)[0]!
 const choose = (root: Host, path: string, value: string) => control(root, settingsControlId('curated', path)).fire('change', { target: { value } })
 describe('Models canonical references, ownership and negative paths', () => {
+  it('renders untouched restart-time unknown provider settings without warning or fabricated applied values', async () => {
+    const { root, settings } = await models((items) => {
+      for (const item of items) Object.assign(item, { apply_state: 'unknown', effective: null })
+    })
+    expect(control(root, settingsControlId('curated', 'openai_codex.reasoning_effort')).value).toBe('high')
+    expect(root.textContent()).not.toMatch(/running value (?:is|differs)|Check the connection/i)
+    expect(settings.meta!.fields.every((item) => item.apply_state === 'unknown' && item.effective === null)).toBe(true)
+    for (const method of ['editLeaf', 'providersCodexSet', 'providersCompatSet', 'providersOllamaSet', 'settingsSet']) expect(bridge[method]).not.toHaveBeenCalled()
+  })
   it('labels automatic agent effort plainly and preserves its canonical immediate owner', async () => {
     const { root } = await models()
     const select = control(root, settingsControlId('curated', 'openai_codex.agent_reasoning_effort'))

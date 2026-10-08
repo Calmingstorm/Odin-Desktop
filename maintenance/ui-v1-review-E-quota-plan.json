@@ -1,0 +1,28 @@
+{
+  "entries": [
+    {
+      "path": "src/llm/codex_auth.py",
+      "owner": "Odin Desktop UI Round E quota correction",
+      "reason": "Round E item 3: stale in-memory quota-check failure survives successful account use; transport must clear by stable serving-account identity instead of a mutable slot.",
+      "contract": "CodexAuthPool.clear_quota_check_failure accepts an already-derived opaque account key, removes only that key, and is idempotent for missing identity, missing state or an absent key. Existing index-based checker APIs retain their behavior.",
+      "invariant": "No credential exposure, account selection change, quota snapshot mutation, index lookup during transport clear, or live state access.",
+      "tests": ["tests/test_desktop_codex_quota_success.py", "tests/test_codex_limit_aware.py"]
+    },
+    {
+      "path": "src/llm/openai_codex.py",
+      "owner": "Odin Desktop UI Round E quota correction",
+      "reason": "Round E item 3: fresh reply quota headers can prevent background checks from clearing a stale failure; successful serving-account replies must clear it directly.",
+      "contract": "Shared retry transport derives the opaque key from the acquired per-attempt account_id and clears only after a fully read non-empty HTTP 200 response. Empty replies, 429 and other HTTP failures, failed/truncated/timed-out streams and tool responses marked incomplete retain the failure. Success provenance reuses that same acquired identity after rotations or pool reorders.",
+      "invariant": "No slot-based failure clear, retry/rotation/breaker semantic change, incomplete tool-response behavior change, credential readback, new network endpoint, or live service access.",
+      "tests": ["tests/test_desktop_codex_quota_success.py", "tests/test_codex_limit_aware.py"]
+    },
+    {
+      "path": "tests/test_desktop_codex_quota_success.py",
+      "owner": "Odin Desktop UI Round E quota correction",
+      "reason": "Round E item 3 regression proof through production retry transport and both real SSE readers, with only the HTTP boundary scripted.",
+      "contract": "Tests prove each serving account clears only itself, partial streams leave markers intact, pool reorder during reading cannot clear the wrong identity, 429 then successful retry clears the reacquired account only, and 429/failed/timeout/EOF/incomplete/empty replies retain failures in both text and tool paths. Explicit opaque-key API covers idempotency and missing state.",
+      "invariant": "Temporary in-memory fake accounts, no real credentials/network/config, no upstream test rewrite, and test execution exclusively through the isolated non-root PID launcher.",
+      "tests": ["tests/test_desktop_codex_quota_success.py", "tests/test_codex_limit_aware.py"]
+    }
+  ]
+}

@@ -44,9 +44,16 @@ describe('Context percent editor', () => {
     expect(root.textContent()).toContain(description)
     expect(input.props.step).toBe('any')
   })
-  it.each(['invalid', 'drift', 'unknown'] as const)('keeps %s state actionable without a readiness claim', async (apply_state) => {
+  it.each(['invalid', 'drift'] as const)('keeps %s state actionable without a readiness claim', async (apply_state) => {
     const { root } = await editor(make({ apply_state }), false)
-    expect(root.textContent()).toContain(apply_state === 'invalid' ? 'This saved value is invalid' : apply_state === 'drift' ? 'The running value differs' : 'The running value is not known')
+    expect(root.textContent()).toContain(apply_state === 'invalid' ? 'This saved value is invalid' : 'The running value differs')
+  })
+  it('omits unknown applied-value warnings on untouched context settings', async () => {
+    const { root, input } = await editor(make({ apply_state: 'unknown', effective: null }))
+    expect(input.props.disabled).toBe(false)
+    expect(root.textContent()).not.toMatch(/running value|Ready/i)
+    expect(root.findAll((node) => node.props.class === 'warn')).toHaveLength(0)
+    expect(writes.save).not.toHaveBeenCalled()
   })
   it.each([
     { apply_handler: 'unknown.owner' }, { type: 'string' }, { sensitivity: 'sensitive' }

@@ -226,7 +226,8 @@ async function removeSource(name: string): Promise<void> {
     <SettingsRow label="Source" control-id="knowledge-source" description="A name for the document you are adding."><input id="knowledge-source" v-model="source" maxlength="100" placeholder="runbook.md" /></SettingsRow>
     <SettingsRow label="Text" control-id="knowledge-content" full-width><textarea id="knowledge-content" v-model="content" rows="5" maxlength="500000" /></SettingsRow>
     <div class="panel-actions">
-      <label class="ghost file-pick">Load a text file <input type="file" accept=".txt,.md,.markdown,.json,.yml,.yaml,.csv,.log,text/*" @change="readFile" /></label>
+      <label class="knowledge-file-label" for="knowledge-file">Load a text file</label>
+      <input id="knowledge-file" class="knowledge-file-input" type="file" aria-label="Load a text file" accept=".txt,.md,.markdown,.json,.yml,.yaml,.csv,.log,text/*" @change="readFile" />
       <button class="ghost" :disabled="!source.trim() || source.trim().length > 100 || !content.trim() || content.trim().length > 500000 || management.busy.knowledge" @click="add">Add</button>
       <button class="ghost" aria-label="Cancel document draft" @click="source = ''; content = ''">Cancel</button>
     </div>
@@ -243,3 +244,11 @@ async function removeSource(name: string): Promise<void> {
     <pre v-if="stateStore.reload" class="manage-json">{{ stateStore.reload }}</pre>
   </SettingsSection>
 </template>
+
+<style scoped>
+.sub-head { margin: 14px var(--settings-padding) 4px; }
+.knowledge-file-label { font-size: 13px; }
+.knowledge-file-input { width: auto; max-width: 100%; background: transparent; border: 0; padding: 0; }
+.knowledge-file-input::file-selector-button { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 4px 11px; margin-right: 8px; cursor: pointer; }
+.knowledge-file-input::file-selector-button:hover { background: var(--raise); border-color: var(--accent-line); }
+</style>

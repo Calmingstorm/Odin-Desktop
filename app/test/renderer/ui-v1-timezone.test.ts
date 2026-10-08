@@ -37,6 +37,17 @@ it('searches valid named zones with the detected system first and never writes o
   expect(select.props.value).toBe('UTC')
 })
 
+it('omits unknown applied-value warnings without writing or claiming a running time zone', async () => {
+  meta.fields[0].apply_state = 'unknown'
+  meta.fields[0].effective = null
+  mounted = mount((await import('../../src/renderer/src/views/settings/General.vue')).default)
+  await flush()
+  expect(mounted.root.find('select')!.props.value).toBe('UTC')
+  expect(mounted.root.textContent()).not.toMatch(/running time zone|Check the connection|Ready/i)
+  expect(saves).not.toHaveBeenCalled()
+  expect(meta.fields[0].effective).toBeNull()
+})
+
 it('retains failed drafts for deliberate retry and exposes read-only and non-applied states', async () => {
   saves.mockResolvedValue(false)
   meta.fields[0].apply_state = 'drift'

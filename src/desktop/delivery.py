@@ -203,14 +203,14 @@ class DurableDelivery:
                                 consume_staged=consume_staged)
 
     async def send(self, channel, text: str = "", *, files=None, file=None,
-                   reference=None, final=False) -> dict | None:
+                   reference=None, final=False, tool_output=False) -> dict | None:
         """Sanctioned notices or tool artifact posts, never model response previews."""
         if file is not None:
             if files is not None:
                 raise ValueError("Specify file or files, not both")
             files = [file]
         return await self._send(self._context(channel), text, "notice", files,
-                                notify=False, final_notice=final)
+                                notify=False, final_notice=final, tool_output=tool_output)
 
     async def send_chunked(self, message, text: str, *, guarded=None) -> dict | None:
         # No Discord length constraint: keep the exact guarded transcript reply.
@@ -283,7 +283,8 @@ class DurableDelivery:
             if not artifacts:
                 return None
             message = self.transcript_commit(conversation_id=context.conversation_id,
-                role="notice", text="", request_id=context.request_id, artifacts=artifacts)
+                role="notice", text="", request_id=context.request_id, artifacts=artifacts,
+                author="odin")
             for frame in frames:
                 self._enqueue(context, frame)
         await self.drain()
@@ -296,7 +297,7 @@ class DurableDelivery:
         return await self.send(message, text, files=files)
 
     async def _send(self, context, text, role, files, *, notify, consume_staged=True,
-                    final_notice=False):
+                    final_notice=False, tool_output=False):
         if not isinstance(text, str):
             raise ValueError("Expected reply text")
         if not text.strip() and not files and role != "assistant":
@@ -324,7 +325,8 @@ class DurableDelivery:
                     raise TypeError("Artifact publication must return committed descriptors")
             message = self.transcript_commit(conversation_id=context.conversation_id,
                 role=role, text=scrub_output_secrets(text), request_id=context.request_id,
-                artifacts=artifacts)
+                artifacts=artifacts,
+                **({"author": "odin"} if role == "notice" and tool_output and artifacts else {}))
             if (role == "assistant" and consume_staged) or final_notice:
                 self.store.connection.execute("""DELETE FROM desktop_staged_files
                     WHERE conversation_id=? AND request_id=? AND generation<=? AND owner=?""",

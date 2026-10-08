@@ -47,6 +47,15 @@ async function view(name: string) {
 }
 
 describe('mounted managed settings missing interactions', () => {
+  it('omits unknown applied-value warnings for host policy without changing it', async () => {
+    const { settings } = await import('../../src/renderer/src/stores/settings')
+    settings.meta = { revision: 'unknown-policy', fields: [{ path: 'tools.governor.block_critical', type: 'boolean', desired: true, effective: null, apply_handler: 'settings.set', sensitivity: 'public', constraints: {}, apply_state: 'unknown' }] } as any
+    const root = await view('Hosts')
+    expect(control('hosts-policy-tools.governor.block_critical').props.checked).toBe(true)
+    expect(root.textContent()).not.toMatch(/running value|Refresh before relying/i)
+    expect(bridge.hostsSettings).not.toHaveBeenCalled()
+    expect(settings.meta!.fields[0]!.effective).toBeNull()
+  })
   it('cancels a host default and trust draft without dispatching either setting', async () => {
     const root = await view('Hosts')
     control('hosts-default').fire('change', { target: { value: 'build' } })

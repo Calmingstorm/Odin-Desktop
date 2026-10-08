@@ -53,7 +53,7 @@ class TranscriptStore:
         if role not in ("user", "assistant", "notice") or type(text) is not str:
             raise ConversationError("bad_request", "Invalid committed message")
         allowed = {"id", "created_at", "request_id", "client_submission_id",
-                   "attachments", "artifacts", "context_reset"}
+                   "attachments", "artifacts", "context_reset", "author"}
         if set(metadata) - allowed:
             raise ConversationError("bad_request", "Invalid message metadata")
         for key in ("request_id", "client_submission_id"):
@@ -63,6 +63,11 @@ class TranscriptStore:
             if key in metadata and (type(metadata[key]) is not list or
                                     any(type(item) is not dict for item in metadata[key])):
                 raise ConversationError("bad_request", "Invalid message metadata")
+        # Presentation provenance is not a guarded assistant reply or a notification entitlement.
+        if "author" in metadata and (
+                metadata["author"] != "odin" or role != "notice"
+                or not metadata.get("request_id") or not metadata.get("artifacts")):
+            raise ConversationError("bad_request", "Invalid publication author")
         if "context_reset" in metadata and (
                 role != "notice" or type(metadata["context_reset"]) is not bool):
             raise ConversationError("bad_request", "Invalid context reset notice")

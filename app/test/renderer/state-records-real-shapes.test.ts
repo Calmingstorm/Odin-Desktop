@@ -58,6 +58,18 @@ async function view(name: 'State' | 'Records'): Promise<Mounted> {
 }
 
 describe('Step 5 renderer integration shapes', () => {
+  it('keeps the styled native file chooser accessible and loads a document without ingesting it', async () => {
+    const v = await view('State')
+    const input = v.root.findAll((node) => node.tag === 'input' && node.props.type === 'file')[0]!
+    expect(input.props).toMatchObject({ class: 'knowledge-file-input', 'aria-label': 'Load a text file' })
+    const text = vi.fn(async () => 'A local document')
+    await input.fire('change', { target: { files: [{ name: 'guide.md', text }] } })
+    await flush()
+    expect(text).toHaveBeenCalledOnce()
+    expect(v.root.findAll((node) => node.props.id === 'knowledge-source')[0]!.value).toBe('guide.md')
+    expect(v.root.findAll((node) => node.props.id === 'knowledge-content')[0]!.value).toBe('A local document')
+    expect(odin.knowledgeIngest).not.toHaveBeenCalled()
+  })
   it('puts record section headings outside their cards, including capability refusals', async () => {
     const v = await view('Records')
     for (const label of ['Health', 'Usage', 'Audit', 'Logs', 'Turn state', 'Computer use']) {

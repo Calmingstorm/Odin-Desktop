@@ -2,6 +2,7 @@
 // The left rail: chats, work, the theme and settings. Keyboard shortcuts stay: Ctrl+, for settings.
 import { computed } from 'vue'
 import Icon from './Icon.vue'
+import appIcon from '../../../../resources/icon.svg'
 import { openSettings, setAppearance, state } from '../store'
 import { linkLabel } from '../stores/status'
 import { activeCount, work } from '../stores/work'
@@ -31,7 +32,7 @@ function toggleTheme(): void {
 
 <template>
   <nav class="rail" aria-label="Odin">
-    <span class="rail-mark" aria-hidden="true"><Icon name="rune" :size="19" :stroke="2.6" /></span>
+    <span class="rail-mark" aria-hidden="true"><img class="app-icon" :src="appIcon" width="40" height="40" alt="" /></span>
     <button
       type="button"
       class="rail-button"
@@ -72,3 +73,8 @@ function toggleTheme(): void {
     </button>
   </nav>
 </template>
+
+<style scoped>
+.rail-mark { background: transparent; }
+.app-icon { display: block; width: 100%; height: 100%; }
+</style>

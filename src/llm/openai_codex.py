@@ -1050,14 +1050,24 @@ class CodexChatClient(ClientLifecycle):
                                 model=str(body.get("model") or self.model),
                             ) from e
                         if not result_is_empty(result):
+                            from .account_key import opaque_account_key
+
+                            account_key = opaque_account_key(account_id)
+                            if isinstance(self.auth, CodexAuthPool) and not (
+                                isinstance(result, LLMResponse)
+                                and result.stop_reason == "incomplete"
+                            ):
+                                # Only a fully read, non-empty success proves
+                                # this account works. Headers alone (including
+                                # 200 with a failed/empty stream) do not. The
+                                # acquired id survives pool reloads/reorders.
+                                self.auth.clear_quota_check_failure(account_key)
                             self.breaker.record_success()
                             if isinstance(result, (LLMResponse, ChatText)):
                                 # Per-attempt account provenance: the pool may
                                 # rotate between attempts, so the stamp is the
                                 # account that served THIS successful attempt.
-                                from .account_key import opaque_account_key
-
-                                result.account_key = opaque_account_key(account_id)
+                                result.account_key = account_key
                             return result
                         log.warning(
                             "Codex returned 200 with empty response (attempt %d/%d)",

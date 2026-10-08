@@ -39,7 +39,6 @@ const note = computed(() => {
   if (!editable.value) return 'Read-only here. Use this setting’s dedicated controls.'
   if (field.value.apply_state === 'invalid') return 'This value is invalid. Correct it and save again.'
   if (field.value.apply_state === 'drift') return 'The running value differs from the saved value. Check the value before making another change.'
-  if (field.value.apply_state === 'unknown') return 'The running value is unknown. Check the connection before relying on this setting.'
   if (field.value.apply_state === 'pending_restart') return 'The saved change needs Odin to restart.'
   return ''
 })

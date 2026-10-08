@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flush, mount, type Host } from './component-host'
 import IconRail from '../../src/renderer/src/components/IconRail.vue'
+import appIcon from '../../resources/icon.svg'
 import { state } from '../../src/renderer/src/store'
 import { work } from '../../src/renderer/src/stores/work'
 
@@ -12,6 +13,22 @@ function named(root: Host, label: string): Host {
 }
 
 describe('the rail', () => {
+  it('uses the bundled app SVG as the decorative rail logo in both themes', async () => {
+    const { root, unmount } = mount(IconRail)
+    for (const dark of [true, false]) {
+      state.dark = dark
+      await flush()
+      const mark = root.findAll((node) => node.props.class === 'rail-mark')[0]!
+      const logo = mark.find('img')!
+      expect(mark.props['aria-hidden']).toBe('true')
+      expect(logo.props.src).toBe(appIcon)
+      expect(logo.props.alt).toBe('')
+      expect(logo.props.width).toBe('40')
+      expect(logo.props.height).toBe('40')
+      expect(mark.find('svg')).toBeUndefined()
+    }
+    unmount()
+  })
   const setAppearance = vi.fn(async (appearance: string) => ({ ok: true, result: { appearance } }))
   beforeEach(() => {
     vi.stubGlobal('window', { odin: { setAppearance } })

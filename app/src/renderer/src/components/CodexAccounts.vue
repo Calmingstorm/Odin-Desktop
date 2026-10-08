@@ -19,10 +19,7 @@ import SettingsSwitch from './settings/SettingsSwitch.vue'
 import ContextUse from './settings/ContextUse.vue'
 import AccountMoreMenu from './settings/AccountMoreMenu.vue'
 import { settingsControlId } from '../settings-accessibility'
-
-type ModelRow = { ref: string; name?: string; capability?: string; effort_capabilities?: { values: string[] | null; restrictions_known: boolean; source: string } }
-type ProviderStatus = { configured?: boolean; base_url?: string; model?: string; preset?: string; openrouter_recognized?: boolean }
-type ModelStatus = { model_catalogue?: Record<string, ModelRow[]>; serving_provider?: string | null; active_provider?: string; codex?: ProviderStatus; ollama?: ProviderStatus; openai_compatible?: ProviderStatus }
+import { catalogueRows, modelOptions, modelSelectionNote, modelProvider, modelEffortPath, type ModelRow, type ModelStatus } from '../model-picker'
 const props = defineProps<{ reveal?: string }>()
 const modelCatalogue = ref<ModelRow[]>([])
 const providerStatus = ref<ModelStatus | null>(null)
@@ -41,13 +38,14 @@ async function loadModels(): Promise<void> {
     if (mine !== modelRead || epoch !== state.recoveryEpoch || instance !== state.app.coreInstanceId) return
     if (!answer.ok) { modelReadError.value = answer.error.message; return }
     providerStatus.value = answer.result
-    modelCatalogue.value = Object.values(answer.result.model_catalogue ?? {}).flat().filter((row) => typeof row.ref === 'string')
+    modelCatalogue.value = catalogueRows(answer.result)
     modelReadError.value = ''
   } catch { if (mine === modelRead) modelReadError.value = 'Model choices could not be read. Try again.' }
 }
 const modelRow = (model: string): ModelRow | undefined => modelCatalogue.value.find((row) => row.ref === model)
 const modelEfforts = (model: string): string[] | null => modelRow(model)?.effort_capabilities?.values ?? null
-const modelProvider = (model: string): Provider => model.startsWith('compat:') ? 'compat' : model.startsWith('ollama:') ? 'ollama' : 'codex'
+const options = (model: string) => modelOptions(modelCatalogue.value, settings.meta?.fields ?? [], model)
+const selectionNote = (model: string) => modelSelectionNote(model, modelCatalogue.value, settings.meta?.fields ?? [])
 const validMainPair = computed(() => {
   const efforts = modelEfforts(String(value('llm_provider.model')))
   return !mainEffort.value || efforts === null || efforts.length === 0 || efforts.includes(String(value(mainEffort.value)))
@@ -107,7 +105,6 @@ function providerSummary(provider: Provider): string {
 function stateNote(item: ConfigField): string {
   if (item.apply_state === 'invalid') return 'This saved value is invalid. Correct it and save again.'
   if (item.apply_state === 'drift') return 'The running value differs from the saved value.'
-  if (item.apply_state === 'unknown') return 'The running value is not known.'
   return ''
 }
 async function groupSave(key: string, paths: string[], enable?: boolean): Promise<void> {
@@ -157,8 +154,7 @@ async function removeKey(item: ConfigField): Promise<void> {
 }
 const mainPaths = ['llm_provider.model', 'openai_codex.reasoning_effort', 'openai_compatible.reasoning_effort']
 const keyAvailable = (item: ConfigField): boolean => item.sensitivity === 'sensitive' && item.secret_route === 'secrets.set'
-const mainProvider = computed(() => modelProvider(String(value('llm_provider.model'))))
-const mainEffort = computed(() => modelEfforts(String(value('llm_provider.model')))?.length === 0 ? '' : mainProvider.value === 'codex' ? 'openai_codex.reasoning_effort' : mainProvider.value === 'compat' ? 'openai_compatible.reasoning_effort' : '')
+const mainEffort = computed(() => modelEffortPath(String(value('llm_provider.model')), modelCatalogue.value))
 async function saveMain(): Promise<void> {
   if (busy.main || !field('llm_provider.model') || !validMainPair.value) return
   const model = String(value('llm_provider.model')).trim()
@@ -313,10 +309,10 @@ async function remove(account: CodexAccount): Promise<void> {
   <SettingsSection v-if="field('llm_provider.model')" title="Main model">
     <SettingsRow label="Model" description="Choose the model used for main chat." :control-id="modelId('llm_provider.model')">
       <select :id="modelId('llm_provider.model')" :value="value('llm_provider.model')" @change="edit('llm_provider.model', ($event.target as HTMLSelectElement).value)">
-        <option v-if="!modelRow(String(value('llm_provider.model')))" :value="value('llm_provider.model')" disabled>{{ value('llm_provider.model') }} (choices unavailable)</option>
-        <option v-for="row in modelCatalogue" :key="row.ref" :value="row.ref">{{ row.name ?? row.ref }} · {{ row.ref }}</option>
+        <option v-for="row in options(String(value('llm_provider.model')))" :key="row.ref" :value="row.ref" :disabled="row.disabled">{{ row.label }}</option>
       </select>
       <button class="ghost model-refresh" @click="loadModels">Refresh model choices</button>
+      <template #note><p v-if="selectionNote(String(value('llm_provider.model')))" class="settings-help">{{ selectionNote(String(value('llm_provider.model'))) }}</p></template>
     </SettingsRow>
     <SettingsRow v-if="mainEffort && field(mainEffort)" label="Reasoning effort" description="Choose how much reasoning the model uses." :control-id="modelId(mainEffort)">
       <select :id="modelId(mainEffort)" :value="value(mainEffort)" :disabled="!modelEfforts(String(value('llm_provider.model')))?.length" @change="edit(mainEffort, ($event.target as HTMLSelectElement).value)">
@@ -345,7 +341,8 @@ async function remove(account: CodexAccount): Promise<void> {
       </select>
     </SettingsRow>
     <SettingsRow v-if="agentMode === 'fixed'" label="Chosen model" :control-id="modelId('agents.model')">
-      <select :id="modelId('agents.model')" :value="value('agents.model')" @change="edit('agents.model', ($event.target as HTMLSelectElement).value)"><option v-if="!modelRow(String(value('agents.model')))" :value="value('agents.model')" disabled>{{ value('agents.model') }} (choices unavailable)</option><option v-for="row in modelCatalogue" :key="row.ref" :value="row.ref">{{ row.name ?? row.ref }} · {{ row.ref }}</option></select>
+      <select :id="modelId('agents.model')" :value="value('agents.model')" @change="edit('agents.model', ($event.target as HTMLSelectElement).value)"><option v-for="row in options(String(value('agents.model')))" :key="row.ref" :value="row.ref" :disabled="row.disabled">{{ row.label }}</option></select>
+      <template #note><p v-if="selectionNote(String(value('agents.model')))" class="settings-help">{{ selectionNote(String(value('agents.model'))) }}</p></template>
     </SettingsRow>
     <div v-if="agentMode === 'auto' && field('agents.auto_model_allowlist')" :id="modelId('agents.auto_model_allowlist')" tabindex="-1" class="model-candidates">
       <h4>Automatic candidates</h4>
@@ -353,7 +350,8 @@ async function remove(account: CodexAccount): Promise<void> {
       <p v-if="!candidates.length">No candidates. Add a model for automatic selection.</p>
       <div v-for="(candidate, index) in candidates" :key="index" class="model-candidate">
         <label :for="modelId(`agents.auto_model_allowlist.${index}.model`)">Model {{ index + 1 }}</label>
-        <select :id="modelId(`agents.auto_model_allowlist.${index}.model`)" :value="candidateModel(candidate)" @change="updateCandidate(index, 'model', ($event.target as HTMLSelectElement).value)"><option v-if="!modelRow(candidateModel(candidate))" :value="candidateModel(candidate)" disabled>{{ candidateModel(candidate) || 'Choose a model' }}</option><option v-for="row in modelCatalogue" :key="row.ref" :value="row.ref">{{ row.ref }}</option></select>
+        <select :id="modelId(`agents.auto_model_allowlist.${index}.model`)" :value="candidateModel(candidate)" @change="updateCandidate(index, 'model', ($event.target as HTMLSelectElement).value)"><option v-for="row in options(candidateModel(candidate))" :key="row.ref" :value="row.ref" :disabled="row.disabled">{{ row.label }}</option></select>
+        <p v-if="selectionNote(candidateModel(candidate))" class="settings-help">{{ selectionNote(candidateModel(candidate)) }}</p>
         <label :for="modelId(`agents.auto_model_allowlist.${index}.reasoning_effort`)">Reasoning effort {{ index + 1 }}</label>
         <select :id="modelId(`agents.auto_model_allowlist.${index}.reasoning_effort`)" :value="typeof candidate === 'string' ? '' : candidate.reasoning_effort ?? ''" @change="updateCandidate(index, 'reasoning_effort', ($event.target as HTMLSelectElement).value)">
           <option v-if="typeof candidate !== 'string' && candidate.reasoning_effort && candidate.reasoning_effort !== 'auto' && !modelEfforts(candidateModel(candidate))?.includes(candidate.reasoning_effort)" :value="candidate.reasoning_effort" disabled>{{ candidate.reasoning_effort }} (not supported)</option>
