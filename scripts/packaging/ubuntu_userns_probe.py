@@ -35,7 +35,7 @@ def processes(match):
 
 
 async def browser(output):
-    runtime = Path('/opt/Odin/resources/runtime')
+    runtime = Path('/opt/odin-desktop/resources/runtime')
     os.environ['ODIN_DESKTOP_BUNDLE_ROOT'] = str(runtime)
     os.environ['PLAYWRIGHT_BROWSERS_PATH'] = str(runtime / 'browser')
     from src.tools.browser import BrowserManager

@@ -48,7 +48,7 @@ vi.mock('electron', () => ({
   shell: { openExternal: m.open, openPath: m.openPath, showItemInFolder: m.reveal },
   dialog: { showErrorBox: m.errorBox, showOpenDialog: m.pick, showSaveDialog: m.save }, Notification: class {}
 }))
-vi.mock('node:fs', () => ({ readFileSync: m.read, writeFileSync: m.write, readlinkSync: () => 'isolated-pid-ns' }))
+vi.mock('node:fs', () => ({ readFileSync: m.read, writeFileSync: m.write, mkdirSync: vi.fn(), readlinkSync: () => 'isolated-pid-ns' }))
 vi.mock('../src/main/security', () => m.security)
 vi.mock('../src/main/core-command', () => ({ coreCommand: m.coreCommand }))
 vi.mock('../src/main/paths', () => ({
@@ -111,7 +111,8 @@ beforeEach(() => {
   m.packaged = false; m.lock = true; m.trayAvailable = true; m.initialLink = 'ready'; m.ready = Promise.resolve(); m.deps = null;
   m.app = Object.assign(new EventEmitter(), {
     isPackaged: false, requestSingleInstanceLock: vi.fn(() => m.lock), quit: vi.fn(), exit: vi.fn(),
-    whenReady: vi.fn(() => m.ready), getAppPath: () => '/mock/app', getVersion: () => '0.1.0', getPath: () => '/mock/downloads'
+    whenReady: vi.fn(() => m.ready), getAppPath: () => '/mock/app', getVersion: () => '0.1.0', getPath: () => '/mock/downloads',
+    setName: vi.fn(), setPath: vi.fn()
   });
   m.theme = Object.assign(new EventEmitter(), { themeSource: 'system', shouldUseDarkColors: true });
   m.power = new EventEmitter(); m.ipc = new EventEmitter();
@@ -140,6 +141,13 @@ async function flush() { for (let i = 0; i < 15; i++) await Promise.resolve() }
 const prevent = () => ({ preventDefault: vi.fn() })
 
 describe('inert main-process lifecycle wiring', () => {
+  it('pins Chromium storage and the visible name before instance admission or readiness', async () => {
+    await boot();
+    expect(m.app.setName).toHaveBeenCalledExactlyOnceWith('Odin');
+    expect(m.app.setPath).toHaveBeenCalledExactlyOnceWith('userData', '/mock/downloads/odin-desktop/electron');
+    expect(m.app.setPath.mock.invocationCallOrder[0]).toBeLessThan(m.app.requestSingleInstanceLock.mock.invocationCallOrder[0]);
+    expect(m.app.setPath.mock.invocationCallOrder[0]).toBeLessThan(m.app.whenReady.mock.invocationCallOrder[0]);
+  })
   it('quits duplicate/exit-only launches before constructing the profile or core', async () => {
     m.lock = false; await boot(); expect(m.app.quit).toHaveBeenCalledOnce(); expect(m.brokers).toHaveLength(0);
     vi.resetModules(); m.lock = true; await boot(['--exit']); expect(m.app.quit).toHaveBeenCalledTimes(2); expect(m.supervisors).toHaveLength(0);

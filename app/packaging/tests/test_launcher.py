@@ -41,11 +41,11 @@ class LauncherTests(unittest.TestCase):
             attachments = re.findall(r'^profile\s+\S+\s+"([^"]+)"\s+flags=',
                                      profile, re.MULTILINE)
             self.assertEqual(set(attachments), {
-                '/opt/Odin/odin-desktop.bin',
-                '/opt/Odin/resources/runtime/browser/chromium/' + chromium_lock['chromium']['executable'],
+                '/opt/odin-desktop/odin-desktop.bin',
+                '/opt/odin-desktop/resources/runtime/browser/chromium/' + chromium_lock['chromium']['executable'],
             })
             for attachment in attachments:
-                attached = app / Path(attachment).relative_to('/opt/Odin')
+                attached = app / Path(attachment).relative_to('/opt/odin-desktop')
                 self.assertTrue(attached.is_file(), attachment)
                 self.assertTrue(os.access(attached, os.X_OK), attachment)
                 # A shell wrapper is not the ELF that needs userns permission.
@@ -85,6 +85,41 @@ class LauncherTests(unittest.TestCase):
             self.assertEqual(args, ['-I', '-B', str(app / 'resources/ownership.py'),
                 'exec', '--kind', 'appimage', '--', str(app / 'odin-desktop.bin'),
                 '--exit', 'argument with spaces'])
+
+    def test_generated_launcher_classifies_only_the_new_managed_install_as_deb(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            app = root / 'unpacked'
+            (app / 'resources').mkdir(parents=True)
+            (app / 'odin-desktop').write_text('original executable fixture')
+            tools = root / 'tools'
+            tools.mkdir()
+            finalize = tools / 'python3'
+            finalize.write_text('#!/bin/sh\nexit 0\n')
+            finalize.chmod(0o755)
+            build = subprocess.run(['node', '-e',
+                'require(process.argv[1])({appOutDir:process.argv[2]}).catch(e=>{'
+                'console.error(e);process.exit(1)})', str(HOOK), str(app)],
+                env={**os.environ, 'PATH': str(tools) + ':' + os.environ['PATH']},
+                capture_output=True, text=True)
+            self.assertEqual(build.returncode, 0, build.stderr)
+            # Execute the generated shell logic, but intercept its cd/pwd/exec.
+            # Virtual /opt paths are only strings: never inspect or launch them.
+            harness = ('cd() { :; }; pwd() { printf "%s\\n" "$FIXTURE_ROOT"; }; '
+                       'exec() { printf "%s\\n" "$@"; }; . "$1"')
+            for install, kind in (
+                    ('/opt/odin-desktop', 'deb'), ('/opt/Odin', 'appimage'),
+                    ('/opt/odin', 'appimage'), ('/opt/odin-desktop-copy', 'appimage'),
+                    ('/tmp/.mount_odin-desktop', 'appimage')):
+                with self.subTest(install=install):
+                    launch = subprocess.run(['/bin/bash', '-c', harness, str(app / 'odin-desktop'),
+                                             str(app / 'odin-desktop')],
+                        env={**os.environ, 'FIXTURE_ROOT': install}, capture_output=True, text=True)
+                    self.assertEqual(launch.returncode, 0, launch.stderr)
+                    self.assertEqual(launch.stdout.splitlines(), [
+                        install + '/resources/runtime/python/bin/python3', '-I', '-B',
+                        install + '/resources/ownership.py', 'exec', '--kind', kind, '--',
+                        install + '/odin-desktop.bin', str(app / 'odin-desktop')])
 
 
 if __name__ == '__main__':

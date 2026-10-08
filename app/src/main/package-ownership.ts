@@ -6,7 +6,7 @@ import type { ProfilePaths } from './paths'
 /** Independent guardian even when a user invokes the raw Electron executable. */
 export function acquirePackagedApp(paths: ProfilePaths, resources: string, env: NodeJS.ProcessEnv): Promise<ChildProcessWithoutNullStreams> {
   const launch = packagedCoreCommand(resources, [], env)
-  const kind = dirname(resolve(resources)) === '/opt/Odin' ? 'deb' : 'appimage'
+  const kind = dirname(resolve(resources)) === '/opt/odin-desktop' ? 'deb' : 'appimage'
   const child = spawn(launch.command, ['-I', '-B', join(resources, 'ownership.py'),
     '--kind', kind, '--role', 'app',
     '--app-cleanup', join(paths.configDir, '..', `${paths.profileId}-cleanup-state.json`),

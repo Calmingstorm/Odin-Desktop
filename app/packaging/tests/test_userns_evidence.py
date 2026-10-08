@@ -51,7 +51,7 @@ class UsernsEvidenceTests(unittest.TestCase):
                 popen.return_value.poll.return_value = 1
                 popen.return_value.returncode = 1
                 with self.assertRaises(AssertionError):
-                    probe.gui(output, ['/opt/Odin/odin-desktop', '--smoke-test'])
+                    probe.gui(output, ['/opt/odin-desktop/odin-desktop', '--smoke-test'])
                 popen.assert_called_once()
             observations = json.loads((output / 'observations.json').read_text())
             self.assertEqual(observations['exit'], 1)

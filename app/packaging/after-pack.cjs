@@ -42,7 +42,7 @@ module.exports = async (context) => {
   writeFileSync(executable, '#!/bin/sh\nset -eu\n' +
     'SELF=$(readlink -f -- "$0")\n' +
     'ROOT=$(CDPATH= cd -- "$(dirname -- "$SELF")" && pwd)\n' +
-    'KIND=appimage\n[ "$ROOT" != /opt/Odin ] || KIND=deb\n' +
+    'KIND=appimage\n[ "$ROOT" != /opt/odin-desktop ] || KIND=deb\n' +
     'exec "$ROOT/resources/runtime/python/bin/python3" -I -B ' +
     '"$ROOT/resources/ownership.py" exec --kind "$KIND" -- "$ROOT/odin-desktop.bin" "$@"\n')
   chmodSync(executable, 0o755)

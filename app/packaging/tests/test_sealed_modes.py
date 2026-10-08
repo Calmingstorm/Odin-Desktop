@@ -126,20 +126,20 @@ class SealedModes(unittest.TestCase):
                 fpm_deb = app.with_name('fpm-fixture.deb')
                 subprocess.run([fpm, '-s', 'dir', '-t', 'deb', '-n', 'sealed-modes',
                                 '-v', '1', '--deb-user', 'root', '--deb-group', 'root',
-                                '-p', str(fpm_deb), str(app) + '/=/opt/Odin'],
+                                '-p', str(fpm_deb), str(app) + '/=/opt/odin-desktop'],
                                check=True, capture_output=True, umask=0o002)
                 payload = subprocess.run(['dpkg-deb', '--fsys-tarfile', str(fpm_deb)],
                                          check=True, capture_output=True).stdout
                 with tarfile.open(fileobj=io.BytesIO(payload)) as archive_tar:
                     members = {m.name.removeprefix('./').rstrip('/'): m for m in archive_tar}
-                for name in ('opt', 'opt/Odin', 'opt/Odin/resources',
-                             'opt/Odin/locales', 'opt/Odin/resources/runtime/python/bin'):
+                for name in ('opt', 'opt/odin-desktop', 'opt/odin-desktop/resources',
+                             'opt/odin-desktop/locales', 'opt/odin-desktop/resources/runtime/python/bin'):
                     member = members[name]
                     self.assertEqual((member.mode, member.uid, member.gid), (0o755, 0, 0), name)
                 fpm_root = app.with_name('fpm extracted')
                 subprocess.run(['dpkg-deb', '-x', str(fpm_deb), str(fpm_root)], check=True)
-                self.assertEqual(verify(fpm_root / 'opt/Odin/resources'), verified)
-                for name in ('opt', 'opt/Odin', 'opt/Odin/resources'):
+                self.assertEqual(verify(fpm_root / 'opt/odin-desktop/resources'), verified)
+                for name in ('opt', 'opt/odin-desktop', 'opt/odin-desktop/resources'):
                     self.assertEqual(stat.S_IMODE((fpm_root / name).stat().st_mode), 0o755, name)
             # A real SquashFS round trip under normal extraction permissions.
             # This caught ASAR 0664 becoming 0644 in the original evidence.

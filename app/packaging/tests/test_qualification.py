@@ -370,11 +370,11 @@ class NamespaceBehaviour(unittest.TestCase):
             build.generate(package / 'DEBIAN')
             postinst.write_text(postinst.read_text().replace('set -eu\n',
                 'set -eu\nprintf "configured\\n" > /maintainer-proof\n'))
-            package.joinpath('opt/Odin/resources').mkdir(parents=True)
-            for directory in ('opt', 'opt/Odin', 'opt/Odin/resources'):
+            package.joinpath('opt/odin-desktop/resources').mkdir(parents=True)
+            for directory in ('opt', 'opt/odin-desktop', 'opt/odin-desktop/resources'):
                 package.joinpath(directory).chmod(0o755)
-            package.joinpath('opt/Odin/resources/apparmor-profile').write_text('profile fixture\n')
-            package.joinpath('opt/Odin/resources/apparmor-profile').chmod(0o644)
+            package.joinpath('opt/odin-desktop/resources/apparmor-profile').write_text('profile fixture\n')
+            package.joinpath('opt/odin-desktop/resources/apparmor-profile').chmod(0o644)
             package.joinpath('opt/qualification').mkdir(parents=True)
             package.joinpath('opt/qualification/payload').write_text('package payload')
             deb, installed = base / 'candidate.deb', base / 'installed'

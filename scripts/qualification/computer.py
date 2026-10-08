@@ -26,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 GUESTS = {"x11": "odq-cinnamon", "gnome": "odq-gnome",
           "kde": "odq-kde", "hyprland": "odq-hyprland"}
-RESOURCES = Path("/opt/Odin/resources")
+RESOURCES = Path("/opt/odin-desktop/resources")
 PYTHON = RESOURCES / "runtime/python/bin/python3"
 CASES = {
     "grounding": ["tests/test_computer_freshness_r1.py",

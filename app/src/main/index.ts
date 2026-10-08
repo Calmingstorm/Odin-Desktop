@@ -31,7 +31,9 @@ import { OdinTray, detectTray } from './tray'
 import { boundedShutdown, CleanupJournal, resourceCleanupSource } from './shutdown'
 import { installKdeLogoutHook, startSessionMonitor } from './session-logout'
 import { showNativeNotification } from './native-notifications'
+import { configureIdentity } from './identity'
 
+configureIdentity(app)
 registerAppScheme()
 
 const flags = parseLaunchFlags(process.argv)

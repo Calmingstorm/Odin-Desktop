@@ -33,14 +33,18 @@ profile copy identical to the sealed inventory. The after-pack hook canonicalize
 all resource files to `0644` (non-executable) or `0755` (executable), directories to
 `0755`, including the unpacked app root and resources root, and preserves
 symlinks before sealing. Fpm explicitly packages root-owned entries; a real
-fpm/dpkg extraction regression checks `/opt`, `/opt/Odin` and resources as `0755`.
+fpm/dpkg extraction regression checks `/opt`, `/opt/odin-desktop` and resources as `0755`.
 This includes builder-created ASAR
 and ownership files, not only the earlier runtime stage. Qualification still
 rejects any subsequent mode, content, size, inventory or link-target mismatch;
 it never rewrites the manifest to match extracted candidates. The `.deb` uses identity
 `odin-desktop`, installs application resources
-under `/opt/Odin`, and has an independent launcher/icon/state namespace. That path
-is not the unrelated `/opt/odin` live service. Nothing is installed on this host.
+under `/opt/odin-desktop`, and has an independent launcher/icon/state namespace.
+The `/usr/bin/odin-desktop` launcher points to `/opt/odin-desktop/odin-desktop`.
+The visible application name remains **Odin**. Its Chromium profile is pinned to
+`~/.config/odin-desktop/electron`, separate from the engine's per-profile state.
+The install directory is separate from standalone Odin at `/opt/odin` or
+`/opt/Odin`. Nothing is installed on this host.
 
 ## Immutable runtime layout
 
@@ -152,8 +156,8 @@ delivery; graphical visibility is not guaranteed in that case.
 
 The `.deb` launch branch does **not** perform this preflight. Its AppArmor asset
 attaches `userns` permission separately to the actual Electron ELF
-`/opt/Odin/odin-desktop.bin` and the bundled D14 Headless Shell ELF
-`/opt/Odin/resources/runtime/browser/chromium/chrome-headless-shell-linux64/chrome-headless-shell`.
+`/opt/odin-desktop/odin-desktop.bin` and the bundled D14 Headless Shell ELF
+`/opt/odin-desktop/resources/runtime/browser/chromium/chrome-headless-shell-linux64/chrome-headless-shell`.
 These paths follow the renamed executable and pinned Chromium staging layout,
 not the shell/Python launcher or a Playwright download cache. The profiles are
 unconfined compatibility attachments, not a claim of additional confinement.

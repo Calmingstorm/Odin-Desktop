@@ -7,6 +7,7 @@ The root lease inode and lifetime evidence survive removal, purge and reboot.
 from __future__ import annotations
 
 import argparse
+import errno
 import fcntl
 import hashlib
 import json
@@ -19,7 +20,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 ROOT = Path('/var/lib/odin-desktop/package-ownership')
-INSTALL = Path('/opt/Odin')
+INSTALL = Path('/opt/odin-desktop')
+LEGACY_INSTALL = Path('/opt/Odin')
 APPARMOR = Path('/etc/apparmor.d')
 APPARMOR_PARSER = Path('/sbin/apparmor_parser')
 BUILD_VERSION = None  # Generated hooks bind this to their actual candidate version.
@@ -235,9 +237,56 @@ def run_apparmor_parser(parser: Path, operation: str, target: Path) -> None:
             raise Refusal('AppArmor parser failed; package fence retained') from error
 
 
+def launcher_link_matches(launcher: Path, targets: tuple[str, ...],
+                          legacy_install: Path) -> bool:
+    """Follow bounded link text, accepting terminal targets without accessing them.
+
+    Inspect parent links component-wise too: readlink on an unchecked parent alias
+    could otherwise enter the legacy tree. Neither stat nor resolve is used, and
+    an unapproved legacy path is rejected before any filesystem call on it.
+    """
+    current = os.path.abspath(launcher)
+    forbidden = tuple(os.path.abspath(path) for path in (LEGACY_INSTALL, legacy_install))
+    seen = set()
+    for _ in range(40):
+        if current in targets:
+            return True
+        if (current in seen
+                or any(current == path or current.startswith(path + '/')
+                       for path in forbidden)):
+            return False
+        seen.add(current)
+        parts = Path(current).parts[1:]
+        prefix = '/'
+        for index, part in enumerate(parts):
+            if part == '..':
+                prefix = os.path.dirname(prefix)
+                continue
+            prefix = os.path.join(prefix, part)
+            if prefix in forbidden:
+                return False
+            if prefix in targets:
+                return index == len(parts) - 1
+            try:
+                text = os.readlink(prefix)
+            except OSError as error:
+                if error.errno == errno.EINVAL:  # This component is not a symlink.
+                    continue
+                return False
+            destination = (text if os.path.isabs(text)
+                           else os.path.join(os.path.dirname(prefix), text))
+            # Preserve '..' until preceding directory symlinks have been expanded.
+            current = os.path.join(destination, *parts[index + 1:])
+            break
+        else:
+            return False
+    return False
+
+
 def transaction(script: str, args: list[str], *, root: Path = ROOT, install: Path = INSTALL,
                 proc: Path = Path('/proc'), launcher: Path = Path('/usr/bin/odin-desktop'),
-                apparmor_dir: Path = APPARMOR, apparmor_parser: Path = APPARMOR_PARSER) -> None:
+                apparmor_dir: Path = APPARMOR, apparmor_parser: Path = APPARMOR_PARSER,
+                legacy_install: Path = LEGACY_INSTALL) -> None:
     if os.geteuid() != 0:
         raise Refusal('Maintainer transaction requires root')
     operation = args[0] if args else ''
@@ -264,11 +313,19 @@ def transaction(script: str, args: list[str], *, root: Path = ROOT, install: Pat
                     'Unguarded predecessor cannot be upgraded live; use an externally '
                     'fenced offline remove/install transition')
             legacy_process_check(install, proc)
+            # Only upgrades may inspect the old product-name directory. A foreign
+            # /opt/Odin is not ours; never provision, repair or remove anything there.
+            legacy_launcher_target = None
+            if (operation == 'upgrade'
+                    and (legacy_install / 'resources/ownership.py').is_file()):
+                legacy_process_check(legacy_install, proc)
+                legacy_launcher_target = str(legacy_install / 'odin-desktop')
             clean_receipts(root, proc)
             if current and current.get('operation') not in {'install', 'upgrade', operation}:
                 raise Refusal('Different interrupted package transaction is pending')
             atomic_json(marker, {'version': 1, 'operation': operation, 'script': script,
                                  'arguments': args, 'target_version': BUILD_VERSION,
+                                 'legacy_launcher_target': legacy_launcher_target,
                                  'lease_inode': (root / 'lease').stat().st_ino})
             return
         if ((script == 'postinst' and operation == 'configure')
@@ -290,9 +347,16 @@ def transaction(script: str, args: list[str], *, root: Path = ROOT, install: Pat
                 apparmor_profile(root, install, apparmor_dir, apparmor_parser)
                 if launcher.is_symlink():
                     if os.readlink(launcher) != target:
+                        legacy_target = (current.get('legacy_launcher_target')
+                                         if current.get('operation') == 'upgrade'
+                                         and current.get('script') == 'preinst' else None)
                         # Older candidates used update-alternatives. Only the
                         # exact existing package target may transition to a direct link.
-                        if str(launcher.resolve(strict=False)) != target:
+                        # Read only the link text, not its destination: dpkg may have
+                        # already removed the old executable, and a foreign old path
+                        # must never be inspected outside upgrade preflight.
+                        targets = (target,) if legacy_target is None else (target, legacy_target)
+                        if not launcher_link_matches(launcher, targets, legacy_install):
                             raise Refusal('Refusing to overwrite another launcher')
                         launcher.unlink()
                         launcher.symlink_to(target)

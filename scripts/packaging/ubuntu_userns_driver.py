@@ -23,7 +23,7 @@ environment.update({'XDG_CONFIG_HOME': str(base / 'config'), 'XDG_DATA_HOME': st
 out = base / case
 if case == 'deb':
     environment['ODIN_SMOKE_OUT'] = str(out / 'electron.png')
-    arguments = ['gui', str(out), '/opt/Odin/odin-desktop', '--smoke-test']
+    arguments = ['gui', str(out), '/opt/odin-desktop/odin-desktop', '--smoke-test']
 elif case == 'appimage':
     arguments = ['gui', str(out), '/home/odq/lane7.AppImage', '--smoke-test']
 elif case == 'browser':
@@ -34,6 +34,6 @@ print(json.dumps({'case': case, 'session': info, 'uid': pwd.getpwnam('odq').pw_u
                   'environment': environment}), flush=True)
 result = subprocess.run(['runuser', '-u', 'odq', '--', 'env', '-i',
                          *(f'{key}={value}' for key, value in environment.items()),
-                         '/opt/Odin/resources/runtime/python/bin/python3', '-I', '-B',
+                         '/opt/odin-desktop/resources/runtime/python/bin/python3', '-I', '-B',
                          '/var/tmp/lane7-probe.py', *arguments])
 raise SystemExit(result.returncode)

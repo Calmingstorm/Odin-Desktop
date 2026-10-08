@@ -167,7 +167,7 @@ def main():
             if status != "install ok installed":
                 raise AcceptanceError("Export requires actual installed candidate")
             api.exec("tar", "-C", "/", "-cf", "/p42-evidence/installed-root.tar",
-                     "opt/Odin", "var/lib/dpkg/status", timeout=300)
+                     "opt/odin-desktop", "var/lib/dpkg/status", timeout=300)
             api.api.run("file", "pull", NAME + "/p42-evidence/installed-root.tar",
                         str(args.output / "installed-root.tar"))
             report["export"] = {"dpkg_status": status,

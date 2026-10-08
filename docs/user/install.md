@@ -69,10 +69,14 @@ the app a GitHub token or set up an update feed.
 4. Follow [First run](first-run.md). You do not need a separate Odin server or
    background service.
 
-The application resources live under `/opt/Odin` with an uppercase `O`. Do not
+The application resources live under `/opt/odin-desktop`. Do not
 delete or modify those files by hand. Use the normal launcher, not the internal
 `.bin` executable. An existing standalone Odin installation is separate and does
 not need to be changed.
+
+Chromium's profile lives in `~/.config/odin-desktop/electron`, separate from the
+engine's per-profile folders. If you set `XDG_CONFIG_HOME`, the Chromium profile
+uses `<XDG_CONFIG_HOME>/odin-desktop/electron` instead.
 
 If replacing an existing installation, follow [Updates](updates.md) first.
 
