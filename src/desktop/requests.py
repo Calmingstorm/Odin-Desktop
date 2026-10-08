@@ -500,10 +500,16 @@ class RequestService:
             bound.update((row["request_id"], row["generation"]) for row in queued)
             controls = [control for control in controls
                         if (control["request_id"], control["generation"]) in bound]
+        acknowledged = set()
+        if "desktop_controls" in tables:
+            acknowledged = {(row[0], row[1]) for row in self.store.connection.execute(
+                "SELECT request_id,generation FROM desktop_controls WHERE conversation_id=? "
+                "AND kind='acknowledge' AND disposition='confirmed'", (conversation_id,))}
         running = {**bind(active[0]), "started_at": active[0]["started_at"]} if active else None
         return {"running": running,
                 "queued": queued, "recent": terminal[-20:],
-                "unresolved": [row for row in terminal if row["unknown_effects"]],
+                "unresolved": [row for row in terminal if row["unknown_effects"] and
+                               (row["request_id"], row["generation"]) not in acknowledged],
                 "tools": self._snapshot_tools(conversation_id, tables), "controls": controls}
 
     def _snapshot_tools(self, conversation_id, tables):

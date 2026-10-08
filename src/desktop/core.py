@@ -48,7 +48,8 @@ SEARCH_METHODS = frozenset({"search.query", "messages.around"})
 ATTACHMENT_METHODS = frozenset({"attachments.begin", "attachments.chunk",
                                 "attachments.commit", "attachments.cancel"})
 RESULT_METHODS = frozenset({"artifacts.read", "tool.detail", "tool.output"})
-CONTROL_METHODS = frozenset({"control.stop", "control.steer", "control.resume", "work.control"})
+CONTROL_METHODS = frozenset({"control.stop", "control.steer", "control.resume", "work.control",
+                             "effects.acknowledge"})
 WORK_METHODS = frozenset({"work.list", "reports.page", "turn_state.list"})
 SCHEDULE_METHODS = frozenset({"schedules.list", "schedules.save", "schedules.delete",
     "schedules.run", "schedules.reset_failures", "schedules.history", "schedules.validate_cron"})
@@ -176,6 +177,10 @@ def validate_params(method: str, params: object) -> dict | None:
         "control.steer": {
             "control_command_id": str, "conversation_id": str,
             "request_id": str, "generation": int, "text": str,
+        },
+        "effects.acknowledge": {
+            "control_command_id": str, "conversation_id": str,
+            "request_id": str, "generation": int,
         },
     }
     optional = {
