@@ -9,7 +9,9 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import mimetypes
+import os
 import time
+import uuid
 from collections.abc import Mapping
 from contextvars import ContextVar
 from copy import deepcopy
@@ -845,6 +847,17 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         async def _publish_attachment(self, message, data, filename, caption=""):
             artifact = make_artifact(message, data, filename, publication_tool.get())
             return await delivery.send(message.channel, caption, files=[artifact], tool_output=True)
+
+        def _retain_generated_image(self, data):
+            # The conversation shows the posted artifact; this owner-only copy in
+            # the local workspace is the one the model can open again.
+            directory = Path(get_config().tools.local_working_dir) / "generated-images"
+            directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+            path = directory / f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}.png"
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(data)
+            return str(path)
 
         async def _handle_generate_file(self, message, inp):
             token = publication_tool.set("generate_file")

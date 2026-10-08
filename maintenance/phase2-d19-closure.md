@@ -63,6 +63,7 @@ Baseline: `16e35e8f370661a2baf8e7030a27919b3e658b3b`. Section 4 of `maintenance/
 
 ### D19-031: no attachment URL for generated images
 **When Odin sees it:** Every successful `generate_image` call. Desktop stores the image as a durable conversation artifact; the result reads `Image generated (WxH, N KB) and posted.` and audit metadata records `attachment_url_available: false`.
+**1.0.2 amendment (Claude, D17 parity; reported to Aaron 2026-10-08):** Desktop also keeps an owner-only copy in the local workspace (`generated-images/`) and the result adds ` Local file on localhost: <path>`, so `analyze_image` and `post_file` can use the image again as Odin uses the attachment URL. Audit metadata records `local_copy_available`. When the copy can't be written, the result is unchanged. Still no URL.
 **Baseline:** Odin appends ` Attachment URL: <url>` and records `attachment_url_available: true` when Discord returns a safe https attachment URL (`src/discord/native_tools/media.py:351-370`).
 
 ### D19-041: full background task progress
