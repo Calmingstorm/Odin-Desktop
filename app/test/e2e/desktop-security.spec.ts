@@ -32,8 +32,10 @@ test('real DOM long replies, tables, inert Markdown, images and report paging', 
     await expect(reply).toContainText('log line 5000')
     await expect(reply.locator('table')).toContainText('safe')
     expect(await page.evaluate(() => (window as unknown as { __p36Markdown?: number }).__p36Markdown)).toBeUndefined()
-    await expect(reply.locator('img')).toBeVisible()
-    expect(await reply.locator('img').evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+    // The assistant's avatar is a decorative image too; address the reply's image by its name.
+    const image = reply.getByRole('img', { name: 'chart.png' })
+    await expect(image).toBeVisible()
+    expect(await image.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
     const report = reply.locator('.report')
     await expect(report).toContainText('Page 1')
     await report.getByRole('button', { name: 'Next page of Health report', exact: true }).click()
