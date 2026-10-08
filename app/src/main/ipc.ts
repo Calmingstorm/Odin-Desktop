@@ -39,6 +39,7 @@ import {
   attachPathsSchema,
   cancelAttachmentSchema,
   controlSchema,
+  effectsAcknowledgeSchema,
   conversationRevisionSchema,
   draftGetSchema,
   draftSetSchema,
@@ -245,6 +246,9 @@ export function registerIpc(deps: IpcDeps): void {
   )
   handle(IPC.stop, controlSchema, async (v) =>
     fromSettled(await deps.broker.request('control.stop', v, v.control_command_id))
+  )
+  handle('odin:effects:acknowledge', effectsAcknowledgeSchema, async (v) =>
+    fromSettled(await deps.broker.request('effects.acknowledge', v, v.control_command_id))
   )
   handle(IPC.steer, steerSchema, async (v) =>
     fromSettled(await deps.broker.request('control.steer', v, v.control_command_id))

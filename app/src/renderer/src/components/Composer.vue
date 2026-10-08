@@ -2,7 +2,8 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { observeComposer } from '../composer-geometry'
 import { dispatch, matchCommands, parseCommand } from '../commands'
-import { canAct, chatUnavailable, loadFailure, retry, send, state, stop, stopPending, type ComposerMode } from '../store'
+import { canAct, chatUnavailable, loadFailure, retry, send, state, stop, type ComposerMode } from '../store'
+import { useStoppingLabel } from '../stopping-label'
 import { unavailableText } from '../capability'
 import { status } from '../stores/status'
 import { assistantName } from '../assistant-name'
@@ -50,9 +51,7 @@ watch(running, async (active) => {
   await nextTick()
   if (document.activeElement === document.body) document.querySelector<HTMLTextAreaElement>('textarea[aria-label="Message"]')?.focus()
 })
-const stopping = computed(() =>
-  Boolean(runningRequest.value && stopPending(runningRequest.value.request_id, runningRequest.value.generation))
-)
+const { stopping, label: stoppingLabel } = useStoppingLabel()
 // Until the open conversation's snapshot arrives, nothing is routed; the draft can still be edited.
 const ready = computed(() => canAct(state.activeId))
 const loadError = computed(() => loadFailure())
@@ -214,7 +213,7 @@ async function closeReport(): Promise<void> {
     <pre class="panel-text">{{ state.panel.text }}</pre>
   </div>
   <form
-    :class="['composer-form', { dragging }]"
+    :class="['composer-form', { dragging, stopping }]"
     @submit.prevent="submit"
     @dragover.prevent="dragging = true"
     @dragleave="dragging = false"
@@ -254,8 +253,8 @@ async function closeReport(): Promise<void> {
         @paste="onPaste"
       />
       <div class="buttons">
-        <button v-if="running" ref="stopButton" type="button" class="danger composer-stop" aria-label="Stop the current task" title="Stop the current task (Ctrl+.)" :aria-disabled="stopping" @click="stopTask">
-          <Icon name="stop" :size="14" :stroke="2.4" />{{ stopping ? 'Stopping…' : 'Stop' }}
+        <button v-if="running" ref="stopButton" type="button" class="danger composer-stop" :aria-label="stopping ? stoppingLabel : 'Stop the current task'" :title="stopping ? stoppingLabel : 'Stop the current task (Ctrl+.)'" :aria-disabled="stopping" @click="stopTask">
+          <Icon name="stop" :size="14" :stroke="2.4" />{{ stopping ? stoppingLabel : 'Stop' }}
         </button>
         <button type="submit" :class="['primary', 'composer-send', { labelled: running }]" :aria-label="buttonLabel" :title="buttonLabel" :disabled="!busy && !canSend && !matches.length" :aria-disabled="busy">
           <Icon name="send" :size="18" :stroke="2.4" /><span v-if="running">{{ buttonLabel }}</span>

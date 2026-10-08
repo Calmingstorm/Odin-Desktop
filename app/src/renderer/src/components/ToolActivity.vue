@@ -96,7 +96,7 @@ function until(iso: string): string {
           <span class="sr-only">{{ e.outcome ?? 'running' }}. Show arguments and output. </span>
           <code class="name">{{ e.tool }}</code>
           <span v-if="e.target" class="target">{{ e.target }}</span>
-          <span class="summary">{{ e.summary }}</span>
+          <span v-if="e.summary && e.summary.trim() !== e.tool" class="summary">{{ e.summary }}</span>
           <span v-if="e.exit_code !== undefined" class="exit">exit {{ e.exit_code }}</span>
           <span v-if="e.duration_ms !== undefined" class="dur">{{ (e.duration_ms / 1000).toFixed(1) }}s</span>
         </button>
@@ -135,6 +135,7 @@ function until(iso: string): string {
 </template>
 
 <style scoped>
+.tools { position: relative; }
 .tool-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 button:focus-visible { outline: 2px solid var(--accent, #91baff); outline-offset: 3px; }
 button[aria-disabled="true"] { opacity: .65; }
