@@ -176,6 +176,11 @@
         "missing": 3,
         "total": 60
       },
+      "app/src/renderer/src/assistant-name.ts": {
+        "covered": 4,
+        "missing": 0,
+        "total": 4
+      },
       "app/src/renderer/src/capability.ts": {
         "covered": 7,
         "missing": 0,
@@ -2740,6 +2745,7 @@
     "app/src/preload/index.ts",
     "app/src/renderer/src/App.vue",
     "app/src/renderer/src/artifacts.ts",
+    "app/src/renderer/src/assistant-name.ts",
     "app/src/renderer/src/capability.ts",
     "app/src/renderer/src/chat-announcements.ts",
     "app/src/renderer/src/code-copy.ts",

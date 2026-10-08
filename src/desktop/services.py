@@ -31,6 +31,7 @@ from ..discord.response_guards import StuckLoopTracker, scrub_response_secrets
 from ..discord.tool_catalog import ToolCatalog
 from ..discord.tool_loop import ToolLoopDeps, ToolLoopRunner
 from ..discord.turn_recorder import TurnRecorder
+from ..llm.system_prompt import register_user_presets
 from ..odin_log import get_logger
 from ..sessions.manager import CHAT_RESPONSE_MAX_CHARS, summarize_tool_response
 from ..tools.builtin_policy import BuiltinToolPolicy, unavailable_rejection
@@ -455,6 +456,10 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         outbound = ProfileOutboundWebhookDispatcher(
             get_config, secrets=settings.secrets if settings is not None else None)
     set_default_timezone(cfg.timezone)
+    # Saved personality presets resolve through a registry that only a personality or settings save refreshed, so
+    # after a restart a selected saved preset fell back to Odin. Publish the profile's presets before any prompt.
+    register_user_presets({name: preset.model_dump()
+                           for name, preset in cfg.personality.user_presets.items()})
     paths.create_private()
     state = channel_state or getattr(runtime, "channel_state", None) or ChannelStateRegistry()
     reflector = getattr(runtime, "reflector", None) or ConversationReflector(

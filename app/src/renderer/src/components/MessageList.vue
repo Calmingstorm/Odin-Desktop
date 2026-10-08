@@ -3,6 +3,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { backToLatest, chatUnavailable, loadFailure, loadOlder, resumeTarget, retry, select, state, steersFor, stopPending, type SteerLine } from '../store'
 import { unavailableText } from '../capability'
 import { chatAnnouncement, type ChatAnnouncementState } from '../chat-announcements'
+import { assistantName } from '../assistant-name'
+import { loadPersonality } from '../stores/state'
 import Message from './Message.vue'
 import ResumeBanner from './ResumeBanner.vue'
 import ToolActivity from './ToolActivity.vue'
@@ -161,6 +163,9 @@ function onScroll(): void {
 function canFollow(): boolean {
   return pinned && !state.highlightId && !jump.value && !historyPaging.value
 }
+
+// The chat names the assistant after the active personality. A failed read keeps the default name.
+onMounted(() => { loadPersonality().catch(() => undefined) })
 
 onMounted(() => {
   if (typeof ResizeObserver === 'undefined') return
@@ -328,7 +333,7 @@ async function older(): Promise<void> {
           {{ view.loadingOlder ? 'Loading…' : view.hasMore ? 'Load older messages' : 'All older messages loaded' }}
         </button>
       </div>
-      <p v-if="!messages.length && !pending.length && !running" class="empty">Ask Odin anything.</p>
+      <p v-if="!messages.length && !pending.length && !running" class="empty">Ask {{ assistantName() }} anything.</p>
       <Message
         v-for="m in messages"
         :key="m.id"

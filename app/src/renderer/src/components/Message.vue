@@ -5,6 +5,7 @@ import { images, showsInline, type ImageHandle } from '../artifacts'
 import { onCodeCopyClick } from '../code-copy'
 import { plainTextOf, renderMarkdown } from '../markdown'
 import { startThread, type ToolEntry } from '../store'
+import { assistantName } from '../assistant-name'
 import FileCard from './FileCard.vue'
 import Icon from './Icon.vue'
 import ReportViewer from './ReportViewer.vue'
@@ -66,7 +67,7 @@ onBeforeUnmount(() => {
 })
 
 function who(role: string): string {
-  return role === 'user' ? 'You' : role === 'assistant' ? 'Odin' : 'Notice'
+  return role === 'user' ? 'You' : role === 'assistant' ? assistantName() : 'Notice'
 }
 
 function time(iso: string): string {
