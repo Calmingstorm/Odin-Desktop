@@ -3,6 +3,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { backToLatest, chatUnavailable, loadFailure, loadOlder, resumeTarget, retry, select, state, steersFor, stopPending, type SteerLine } from '../store'
 import { unavailableText } from '../capability'
 import { chatAnnouncement, type ChatAnnouncementState } from '../chat-announcements'
+import { assistantName } from '../assistant-name'
+import { loadPersonality } from '../stores/state'
 import Message from './Message.vue'
 import ResumeBanner from './ResumeBanner.vue'
 import ToolActivity from './ToolActivity.vue'
@@ -45,16 +47,16 @@ const controlReceipts = computed(() => {
   ).slice(-20)
 })
 
-const STOP_TEXT: Record<string, string> = {
+const stopText = (name = assistantName()): Record<string, string> => ({
   sending: 'sending…',
   'awaiting-receipt': 'sent, waiting for confirmation',
   unknown: 'outcome unknown; it will not be sent again',
   requested: 'requested; waiting for the task to stop',
-  confirmed: 'confirmed by Odin',
+  confirmed: `confirmed by ${name}`,
   not_running: 'not used: the task was not running',
   stale_binding: 'not used: the request binding changed',
   'not-delivered': 'not delivered'
-}
+})
 const announcement = ref('')
 const historyPaging = ref(false)
 const olderUsed = ref(false)
@@ -107,19 +109,19 @@ const unresolvedLines = computed(() =>
   )
 )
 
-const STEER_TEXT: Record<string, string> = {
+const steerText = (name = assistantName()): Record<string, string> => ({
   sending: 'sending…',
   'awaiting-receipt': 'sent, waiting for confirmation',
   unknown: 'outcome unknown; it will not be sent again',
-  queued: 'waiting for Odin to read it',
-  consumed: 'Odin has read it',
+  queued: `waiting for ${name} to read it`,
+  consumed: `${name} has read it`,
   closed: 'not used: the task ended first',
   stale_binding: 'not used: a different task was running',
   'not-delivered': 'not delivered'
-}
+})
 
 function steerState(item: SteerLine): string {
-  const text = STEER_TEXT[item.status] ?? item.status
+  const text = steerText()[item.status] ?? item.status
   return item.detail ? `${text}: ${item.detail}` : text
 }
 
@@ -161,6 +163,9 @@ function onScroll(): void {
 function canFollow(): boolean {
   return pinned && !state.highlightId && !jump.value && !historyPaging.value
 }
+
+// The chat names the assistant after the active personality. A failed read keeps the default name.
+onMounted(() => { loadPersonality().catch(() => undefined) })
 
 onMounted(() => {
   if (typeof ResizeObserver === 'undefined') return
@@ -318,7 +323,7 @@ async function older(): Promise<void> {
     </template>
     <template v-else>
       <p v-if="conversation?.inherited_from" class="inherited">
-        A thread continued from “{{ conversation.inherited_from.title }}”. Odin carries that conversation's context into
+        A thread continued from “{{ conversation.inherited_from.title }}”. {{ assistantName() }} carries that conversation's context into
         this one.
         <button class="ghost" @click="select(conversation.inherited_from.conversation_id)">Open the original</button>
       </p>
@@ -328,7 +333,7 @@ async function older(): Promise<void> {
           {{ view.loadingOlder ? 'Loading…' : view.hasMore ? 'Load older messages' : 'All older messages loaded' }}
         </button>
       </div>
-      <p v-if="!messages.length && !pending.length && !running" class="empty">Ask Odin anything.</p>
+      <p v-if="!messages.length && !pending.length && !running" class="empty">Ask {{ assistantName() }} anything.</p>
       <Message
         v-for="m in messages"
         :key="m.id"
@@ -358,7 +363,7 @@ async function older(): Promise<void> {
         </ul>
         <div class="working-line">
           <span class="spinner" aria-hidden="true" />
-          <span>{{ stopping ? 'Stopping…' : 'Odin is working…' }}</span>
+          <span>{{ stopping ? 'Stopping…' : `${assistantName()} is working…` }}</span>
           <span v-if="queuedCount" class="queued">{{ queuedCount }} follow-up{{ queuedCount === 1 ? '' : 's' }} queued</span>
         </div>
       </div>
@@ -366,7 +371,7 @@ async function older(): Promise<void> {
       <ul v-if="controlReceipts.length" class="steers control-receipts" aria-label="Control receipts">
         <li v-for="c in controlReceipts" :key="c.control_command_id" class="steer">
           <span class="steer-text">{{ c.kind === 'stop' ? 'Stop' : 'Steer' }}</span>
-          <span class="steer-state">{{ (c.kind === 'stop' ? STOP_TEXT : STEER_TEXT)[c.status] ?? c.status }}</span>
+          <span class="steer-state">{{ (c.kind === 'stop' ? stopText() : steerText())[c.status] ?? c.status }}</span>
         </li>
       </ul>
       <div v-for="[requestId, entries] in terminalTools" :key="requestId" class="terminal-tools">

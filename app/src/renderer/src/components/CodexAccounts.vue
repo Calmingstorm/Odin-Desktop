@@ -179,6 +179,21 @@ function updateCandidate(index: number, key: 'model' | 'reasoning_effort' | 'thi
   next[index] = key === 'model' && typeof item === 'string' ? raw : { ...(typeof item === 'string' ? { model: item } : item), [key]: raw || null }
   allowlistDraft.value = next
 }
+// Odin's selection hints: what each automatic candidate is good for, keyed by model. The descriptions and the
+// guidance JSON under More options edit one draft, that JSON, so the newest edit in either is the one saved.
+const hintsPath = 'agents.model_selection_hints'
+const hints = computed<Record<string, string> | null>(() => {
+  const item = field(hintsPath)
+  const parsed = item ? fromInput(item, value(hintsPath)) : null
+  return parsed?.ok ? parsed.value as Record<string, string> | null : null
+})
+function updateHint(model: string, text: string): void {
+  if (!hints.value) return
+  const next = { ...hints.value }
+  if (text.trim()) next[model] = text
+  else delete next[model]
+  edit(hintsPath, JSON.stringify(next, null, 2))
+}
 function reorder(index: number, delta: number): void { const next = [...candidates.value]; const to = index + delta; if (to < 0 || to >= next.length) return; [next[index], next[to]] = [next[to]!, next[index]!]; allowlistDraft.value = next }
 async function saveAgents(): Promise<void> {
   if (busy.agents) return
@@ -189,9 +204,10 @@ async function saveAgents(): Promise<void> {
     params.auto_model_allowlist = candidates.value
   }
   for (const path of agentPaths.slice(2)) if (Object.hasOwn(drafts, path) && field(path)) { const parsed = fromInput(field(path)!, value(path)); if (!parsed.ok) { errors[path] = parsed.error; return }; params[path.split('.').pop()!] = parsed.value }
-  const snapshot = JSON.stringify({ model: value('agents.model'), candidates: candidates.value, drafts: agentPaths.map((path) => value(path)) })
+  // Clear only what this save sent: a draft edited while it runs stays.
+  const sent = { drafts: Object.fromEntries(agentPaths.map((path) => [path, drafts[path]])), candidates: allowlistDraft.value }
   busy.agents = true; notes.agents = ''
-  try { if (await saveModelSettings('models.agents.set', params)) { if (snapshot === JSON.stringify({ model: value('agents.model'), candidates: candidates.value, drafts: agentPaths.map((path) => value(path)) })) { cancel(agentPaths); allowlistDraft.value = null }; notes.agents = 'Saved.' } }
+  try { if (await saveModelSettings('models.agents.set', params)) { for (const path of agentPaths) if (drafts[path] === sent.drafts[path]) { delete drafts[path]; delete errors[path] }; if (allowlistDraft.value === sent.candidates) allowlistDraft.value = null; notes.agents = 'Saved.' } }
   finally { busy.agents = false }
 }
 const independentAgentPaths = ['agents.max_concurrent_agents']
@@ -346,7 +362,8 @@ async function remove(account: CodexAccount): Promise<void> {
     </SettingsRow>
     <div v-if="agentMode === 'auto' && field('agents.auto_model_allowlist')" :id="modelId('agents.auto_model_allowlist')" tabindex="-1" class="model-candidates">
       <h4>Automatic candidates</h4>
-      <p class="settings-help">Order sets preference. Per-model effort and thinking choices must be compatible with that model.</p>
+      <p class="settings-help">Order sets preference. Per-model effort and thinking choices must be compatible with that model. A description tells automatic selection which tasks suit the model.</p>
+      <p v-if="field(hintsPath) && !hints" class="settings-help">Descriptions can't be edited here until the selection guidance under More options is valid JSON.</p>
       <p v-if="!candidates.length">No candidates. Add a model for automatic selection.</p>
       <div v-for="(candidate, index) in candidates" :key="index" class="model-candidate">
         <label :for="modelId(`agents.auto_model_allowlist.${index}.model`)">Model {{ index + 1 }}</label>
@@ -362,6 +379,8 @@ async function remove(account: CodexAccount): Promise<void> {
         <select :id="modelId(`agents.auto_model_allowlist.${index}.thinking_mode`)" :disabled="modelProvider(candidateModel(candidate)) === 'codex'" :value="typeof candidate === 'string' ? '' : candidate.thinking_mode ?? ''" @change="updateCandidate(index, 'thinking_mode', ($event.target as HTMLSelectElement).value)">
           <option value="">Use agent policy</option><option v-for="mode in field('agents.thinking_mode')?.enum ?? []" :key="mode" :value="mode">{{ mode }}</option>
         </select>
+        <label v-if="field(hintsPath)" :for="modelId(`${hintsPath}.${index}`)">Description {{ index + 1 }}</label>
+        <textarea v-if="field(hintsPath)" :id="modelId(`${hintsPath}.${index}`)" rows="2" :disabled="!candidateModel(candidate) || !hints" :value="hints?.[candidateModel(candidate)] ?? ''" placeholder="Which tasks suit this model" @input="updateHint(candidateModel(candidate), ($event.target as HTMLTextAreaElement).value)" />
         <div class="settings-actions">
           <button class="ghost" :aria-label="`Move model ${index + 1} up`" :disabled="index === 0" @click="reorder(index, -1)">Move up</button>
           <button class="ghost" :aria-label="`Move model ${index + 1} down`" :disabled="index === candidates.length - 1" @click="reorder(index, 1)">Move down</button>

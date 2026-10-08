@@ -5,6 +5,7 @@ import { dispatch, matchCommands, parseCommand } from '../commands'
 import { canAct, chatUnavailable, loadFailure, retry, send, state, stop, stopPending, type ComposerMode } from '../store'
 import { unavailableText } from '../capability'
 import { status } from '../stores/status'
+import { assistantName } from '../assistant-name'
 import {
   addFiles,
   addPasted,
@@ -78,7 +79,7 @@ const canSend = computed(
 )
 const buttonLabel = computed(() => (running.value ? (mode.value === 'steer' ? 'Steer' : 'Queue') : 'Send'))
 const placeholder = computed(() =>
-  chatUnavailable() ? 'Chat unavailable. Use /status or /usage for core reports.' : running.value ? (mode.value === 'steer' ? 'Steer the current task…' : 'Queue a follow-up…') : 'Message Odin… (/ for commands)'
+  chatUnavailable() ? 'Chat unavailable. Use /status or /usage for core reports.' : running.value ? (mode.value === 'steer' ? 'Steer the current task…' : 'Queue a follow-up…') : `Message ${assistantName()}… (/ for commands)`
 )
 
 // Each conversation keeps its own draft. While switching, the box belongs to no conversation until the next draft
@@ -219,7 +220,7 @@ async function closeReport(): Promise<void> {
     @dragleave="dragging = false"
     @drop.prevent="onDrop"
   >
-    <div v-if="running" class="mode" role="radiogroup" aria-label="While Odin is working">
+    <div v-if="running" class="mode" role="radiogroup" :aria-label="`While ${assistantName()} is working`">
       <label><input v-model="mode" name="composer-mode" type="radio" value="steer" /> Steer the current task</label>
       <label><input v-model="mode" name="composer-mode" type="radio" value="queue" /> Queue as a follow-up</label>
     </div>

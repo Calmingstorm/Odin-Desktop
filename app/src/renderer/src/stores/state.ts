@@ -4,6 +4,8 @@ import { reactive } from 'vue'
 import type { KnowledgeHit, KnowledgeIngest, KnowledgeSource, KnowledgeVersion, MemoryIndex, NamedList, Personality, PersonalitySet, Result } from '../../../shared/api'
 import { isUnavailable, settingsResultMessage as resultMessage } from '../capability'
 import { act, management } from './management'
+import { activePersonality } from '../assistant-name'
+import { onReady } from '../store'
 
 type StateResource = 'personality' | 'memory' | 'lists' | 'knowledge' | 'context'
 const features: Record<StateResource, string> = { personality: 'Personality', memory: 'Memory', lists: 'Named list management', knowledge: 'Knowledge', context: 'Context reload' }
@@ -37,7 +39,7 @@ function answered<T>(resource: StateResource, result: Result<T>): result is { ok
   if (!isUnavailable(result.error)) return false
   stateStore.unavailable[resource] = true
   epochs[resource] += 1
-  if (resource === 'personality') stateStore.personality = null
+  if (resource === 'personality') stateStore.personality = activePersonality.value = null
   if (resource === 'memory') {
     stateStore.memory = null
     stateStore.memoryEntries = {}
@@ -75,12 +77,16 @@ async function command<T>(resource: StateResource, run: () => Promise<Result<T>>
 
 let personalityAsked = 0
 
+// Re-read at start and after every recovery: a read made before the core was connected can't leave the chat on the
+// default name, and the newer read supersedes one still in flight from a previous core.
+onReady(() => { loadPersonality().catch(() => undefined) })
+
 export async function loadPersonality(): Promise<void> {
   const mine = ++personalityAsked
   const epoch = epochs.personality
   const result = await window.odin.personalityGet({})
   if (mine !== personalityAsked || epoch !== epochs.personality) return
-  if (answered('personality', result)) stateStore.personality = result.result
+  if (answered('personality', result)) stateStore.personality = activePersonality.value = result.result
 }
 
 export async function savePersonality(change: PersonalitySet, onSaved?: () => void): Promise<boolean> {

@@ -30,6 +30,12 @@ watch(
 )
 
 const shown = computed(() => (choice.preset === 'custom' ? null : stateStore.personality?.presets[choice.preset]))
+
+/** A saved preset by its own name, which tells apart presets that share a display name. */
+function savedPresetLabel(key: string): string {
+  const name = stateStore.personality?.presets[key]?.name
+  return name && name !== key ? `${key} (${name}, yours)` : `${key} (yours)`
+}
 const draft = reactive({ name: '', display_name: '', identity: '', voice: '' })
 const presetError = ref('')
 const presetErrorField = ref<'name' | 'content' | null>(null)
@@ -110,7 +116,7 @@ function cancelPreset(): void {
     <SettingsRow label="Preset" description="New requests use the saved identity and voice." control-id="personality-preset">
       <select id="personality-preset" v-model="choice.preset" @change="edit('preset')">
         <option v-for="key in stateStore.personality.builtin_presets" :key="key" :value="key">{{ stateStore.personality.presets[key]?.name ?? key }}</option>
-        <option v-for="key in stateStore.personality.user_presets" :key="key" :value="key">{{ stateStore.personality.presets[key]?.name ?? key }} (yours)</option>
+        <option v-for="key in stateStore.personality.user_presets" :key="key" :value="key">{{ savedPresetLabel(key) }}</option>
         <option value="custom">Custom</option>
       </select>
     </SettingsRow>

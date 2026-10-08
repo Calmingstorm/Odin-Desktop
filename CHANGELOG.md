@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.1]
+
+- **Fixed:** a saved personality, such as one brought over with Import from Odin, applied only until the app
+  restarted. After a restart Odin Desktop answered as Odin again. Saved personalities now apply from the first
+  message after every start.
+- The chat names the assistant after the active personality: replies, the message box, the empty chat, the working,
+  Steer and resume text, and their screen-reader announcements use its name, for example Clippy. The window title
+  and the tray still say Odin.
+- Settings, Personality lists saved presets by their own names, so presets that share a display name can be told
+  apart.
+- Settings, Models: each automatic agent candidate has a description field, as in Odin's own settings. It tells
+  automatic selection which tasks suit that model, and it saves with the other agent settings.
+
 ## [1.0.0]
 
 The first release of Odin Desktop, a desktop app for [Odin](https://github.com/Calmingstorm/Odin),

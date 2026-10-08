@@ -6,7 +6,7 @@ let mounted: Mounted | undefined
 let bridge: Record<string, any>
 const ok = (result: unknown) => ({ ok: true, result })
 const make = (path: string, desired: unknown, owner = 'settings.set', type: string = typeof desired, extra = {}): ConfigField => ({ path, desired, effective: desired, type, enum: null, constraints: {}, sensitivity: 'public', apply_handler: owner, apply_state: 'applied', nullable: desired === null, configured: null, ...extra } as ConfigField)
-const fields = () => [
+const fields = (hints: Record<string, string> = {}) => [
   make('llm_provider.model', 'codex:first', 'models.main.set'), make('llm_provider.active_provider', 'codex', 'models.main.set'),
   make('openai_codex.reasoning_effort', 'high', 'providers.codex.set', 'string', { enum: ['low', 'high', 'xhigh'] }),
   make('openai_codex.enabled', true, 'providers.codex.set'), make('openai_codex.context_utilization', 60, 'providers.codex.set', 'integer', { constraints: { minimum: 30, maximum: 100 } }),
@@ -15,7 +15,7 @@ const fields = () => [
   make('openai_compatible.api_key', '[redacted]', 'providers.compat.set', 'string', { sensitivity: 'sensitive', secret_route: 'secrets.set', configured: true }),
   make('ollama.enabled', false, 'providers.ollama.set'), make('ollama.base_url', 'http://localhost:11434', 'providers.ollama.set'), make('ollama.model', 'old-local', 'providers.ollama.set'),
   make('agents.model', 'auto', 'models.agents.set'), make('agents.auto_model_allowlist', ['codex:first', { model: 'codex:second', reasoning_effort: 'high' }], 'models.agents.set', 'array'),
-  make('agents.thinking_mode', null, 'models.agents.set', 'string', { enum: ['enabled', 'disabled'] }), make('agents.model_selection_hints', {}, 'models.agents.set', 'object'), make('agents.max_concurrent_agents', 3, 'settings.set', 'integer')
+  make('agents.thinking_mode', null, 'models.agents.set', 'string', { enum: ['enabled', 'disabled'] }), make('agents.model_selection_hints', hints, 'models.agents.set', 'object'), make('agents.max_concurrent_agents', 3, 'settings.set', 'integer')
 ]
 beforeEach(() => {
   vi.resetModules()
@@ -30,9 +30,9 @@ beforeEach(() => {
   ;(globalThis as any).document = { activeElement: null }
 })
 afterEach(() => { mounted?.unmount(); mounted = undefined })
-async function models() {
+async function models(hints: Record<string, string> = {}) {
   const { settings } = await import('../../src/renderer/src/stores/settings')
-  const meta = { revision: 'rev-1', schema_version: 1, fields: fields(), status: { counts: {}, desired_revision: 'rev-1', effective_revision: null } }
+  const meta = { revision: 'rev-1', schema_version: 1, fields: fields(hints), status: { counts: {}, desired_revision: 'rev-1', effective_revision: null } }
   settings.meta = meta
   bridge.settingsSchema.mockImplementation(async () => ok(settings.meta))
   for (const name of ['providersCompatSet', 'providersOllamaSet', 'providersCodexSet', 'settingsSet']) bridge[name].mockImplementation(async ({ changes }: any) => {
@@ -210,6 +210,79 @@ describe('UI v1 curated Models', () => {
     expect(bridge.editLeaf).not.toHaveBeenCalled()
     control(root, 'agent-model-actions').button('Save').fire('click'); await flush()
     expect(bridge.editLeaf).toHaveBeenCalledExactlyOnceWith({ method: 'models.agents.set', params: { model: 'auto', auto_model_allowlist: [{ model: 'codex:new-second', reasoning_effort: 'high' }, 'codex:first'], expected_revision: 'rev-1' } })
+  })
+  it('shows each candidate\'s description and saves edits with the agent settings, not per keystroke', async () => {
+    const { root } = await models({ 'codex:second': 'Long refactors' })
+    const description = (index: number) => control(root, settingsControlId('curated', `agents.model_selection_hints.${index}`))
+    expect(description(0).props.value).toBe('')
+    expect(description(1).props.value).toBe('Long refactors')
+    description(0).type('Quick lookups  '); await flush()
+    description(1).type('  '); await flush()
+    expect(description(0).props.value).toBe('Quick lookups  ')
+    expect(description(1).props.value).toBe('')
+    expect(bridge.editLeaf).not.toHaveBeenCalled()
+    control(root, 'agent-model-actions').button('Save').fire('click'); await flush()
+    expect(bridge.editLeaf).toHaveBeenCalledExactlyOnceWith({ method: 'models.agents.set', params: { model: 'auto', model_selection_hints: { 'codex:first': 'Quick lookups  ' }, expected_revision: 'rev-1' } })
+  })
+  it('keeps descriptions and the guidance JSON in one draft, so the newest edit in either is saved', async () => {
+    const { root } = await models({ 'codex:second': 'Saved' })
+    const description = (index: number) => control(root, settingsControlId('curated', `agents.model_selection_hints.${index}`))
+    const guidance = () => control(root, settingsControlId('curated', 'agents.model_selection_hints'))
+    guidance().type('{"codex:second": "Older JSON"}'); await flush()
+    expect(description(1).props.value).toBe('Older JSON')
+    description(1).type('Newest row'); await flush()
+    expect(JSON.parse(String(guidance().props.value))).toEqual({ 'codex:second': 'Newest row' })
+    description(0).type('Row text'); await flush()
+    guidance().type('{"codex:first": "JSON wins"}'); await flush()
+    expect([description(0).props.value, description(1).props.value]).toEqual(['JSON wins', ''])
+    guidance().type('{"codex:first": '); await flush()
+    expect(description(0).props.disabled).toBe(true)
+    expect(root.textContent()).toContain('until the selection guidance under More options is valid JSON')
+    description(0).type('ignored'); await flush()
+    guidance().type('{"codex:first": "Fixed"}'); await flush()
+    expect(description(0).props.disabled).toBe(false)
+    control(root, 'agent-model-actions').button('Save').fire('click'); await flush()
+    expect(bridge.editLeaf).toHaveBeenCalledExactlyOnceWith({ method: 'models.agents.set', params: { model: 'auto', model_selection_hints: { 'codex:first': 'Fixed' }, expected_revision: 'rev-1' } })
+  })
+  it('clears saved descriptions after the core trims them, and keeps an edit made while saving', async () => {
+    const { root, settings } = await models()
+    const description = (index: number) => control(root, settingsControlId('curated', `agents.model_selection_hints.${index}`))
+    const actions = () => root.findAll((item) => item.props.id === 'agent-model-actions')
+    const adopt = (params: any) => {
+      const hints = Object.fromEntries(Object.entries(params.model_selection_hints as Record<string, string>).map(([model, hint]) => [model, hint.trim()]))
+      settings.meta = { ...settings.meta!, revision: 'rev-2', fields: settings.meta!.fields.map((item) => item.path === 'agents.model_selection_hints' ? { ...item, desired: hints, effective: hints } : item) }
+    }
+    bridge.editLeaf.mockImplementation(async ({ params }: any) => { adopt(params); return ok({ status: 'updated' }) })
+    description(0).type('  New hint  '); await flush()
+    control(root, 'agent-model-actions').button('Save').fire('click'); await flush()
+    expect(bridge.editLeaf.mock.calls[0]![0].params.model_selection_hints).toEqual({ 'codex:first': '  New hint  ' })
+    expect(actions()).toHaveLength(0)
+    expect(description(0).props.value).toBe('New hint')
+    expect(root.textContent()).toContain('Saved.')
+    let finish!: () => void
+    bridge.editLeaf.mockImplementation(({ params }: any) => new Promise((resolve) => { finish = () => { adopt(params); resolve(ok({ status: 'updated' })) } }))
+    description(0).type('First'); await flush()
+    control(root, 'agent-model-actions').button('Save').fire('click'); await flush()
+    description(0).type('Second'); await flush()
+    finish(); await flush()
+    expect(bridge.editLeaf.mock.calls[1]![0].params.model_selection_hints).toEqual({ 'codex:first': 'First' })
+    expect(description(0).props.value).toBe('Second')
+    expect(actions()).toHaveLength(1)
+  })
+  it('hides agent actions when descriptions return to their saved text, and Cancel restores them', async () => {
+    const { root } = await models({ 'codex:second': 'Long refactors' })
+    const description = (index: number) => control(root, settingsControlId('curated', `agents.model_selection_hints.${index}`))
+    description(0).type('Quick lookups'); await flush()
+    expect(control(root, 'agent-model-actions')).toBeTruthy()
+    description(0).type(''); await flush()
+    expect(root.findAll((item) => item.props.id === 'agent-model-actions')).toHaveLength(0)
+    description(1).type('Something else'); await flush()
+    control(root, 'agent-model-actions').button('Cancel').fire('click'); await flush()
+    expect(description(1).props.value).toBe('Long refactors')
+    expect(root.findAll((item) => item.props.id === 'agent-model-actions')).toHaveLength(0)
+    root.button('Add automatic candidate').fire('click'); await flush()
+    expect(description(2).props.disabled).toBe(true)
+    expect(bridge.editLeaf).not.toHaveBeenCalled()
   })
   it('stores keys only explicitly, never reads secrets or includes them in provider saves', async () => {
     const { root } = await models()
