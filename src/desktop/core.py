@@ -17,7 +17,12 @@ from .authority import OwnerAuthority
 from .commands import CommandJournal, JournalStorageError, JournalStore
 from .controls import ControlService
 from .conversations import ConversationError, ConversationStore
-from .delivery import ArtifactPublisher, DurableDelivery, PublicationEventJournal
+from .delivery import (
+    ArtifactPublisher,
+    DurableDelivery,
+    PublicationEventJournal,
+    background_notification,
+)
 from .ipc import IpcServer
 from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
@@ -630,12 +635,14 @@ class CoreService:
     async def _publish_scheduled_notice(self, message, text):
         self.requests.assert_bound_request(message)
         # Scheduled handler notices occur after their producing check/workflow,
-        # not during the skill's own interim message callbacks.
-        return await self.delivery.send(message.channel, text, final=True)
+        # not during the skill's own interim message callbacks. Each is a run's
+        # result (a reminder, a check, a failure alert), so it notifies.
+        return await self.delivery.send(message.channel, text, final=True, notify="schedule")
 
     async def _publish_background(self, message, text, kind=None):
         self.requests.assert_bound_request(message)
-        return await self.delivery.send(message.channel, text)
+        return await self.delivery.send(message.channel, text,
+                                        notify=background_notification(kind, text))
 
     def _register_process(self, info):
         message = self.requests.current_bound_request()

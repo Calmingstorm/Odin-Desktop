@@ -80,6 +80,14 @@ async def session(tmp_path, provider, *, setup_timeout=3):
     return core, reader, writer, cid, read_fd, write_fd
 
 
+def notified(core, category):
+    """The texts of committed messages whose notification intent has this category."""
+    texts = {m["id"]: m["text"] for c in core.conversations.list()["items"]
+             for m in core.transcript.list(c["id"])["items"]}
+    return [texts[intent["message_id"]] for intent in core.delivery.notifications.pending()
+            if intent["category"] == category]
+
+
 async def cleanup(core, writer, read_fd, write_fd):
     writer.close()
     await writer.wait_closed()
@@ -135,6 +143,11 @@ async def test_real_core_native_task_uses_retained_dispatch_and_stored_destinati
         assert work[0]["conversation_id"] == cid
         messages = core.transcript.list(cid)["items"]
         assert any(m["request_id"] == work[0]["request_id"] for m in messages)
+        # L20 (1.0.5): the finished task notifies once, with its summary; progress does not.
+        task_notices = [m["text"] for m in messages if m["request_id"] == work[0]["request_id"]]
+        assert len(task_notices) >= 2, task_notices
+        summary = notified(core, "task")
+        assert len(summary) == 1 and summary[0] == tasks[0].summary_text
         response = await request(reader, writer, "work.control", {
             "control_command_id": "settled-task", "kind": "task", "id": work[0]["id"],
             "action": "cancel"})
@@ -215,6 +228,9 @@ async def test_real_native_loop_uses_sealed_iteration_and_actual_settlement(tmp_
             "SELECT r.state FROM desktop_requests r JOIN desktop_background_requests b "
             "ON b.request_id=r.request_id WHERE b.kind='loop_iteration'"))
         assert len(rows) == 1 and rows[0][0] == "completed"
+        # L20 (1.0.5): the loop's end notifies; its silent iteration posted nothing.
+        assert notified(core, "loop") == [
+            f"Loop `{loops[0].id}` completed after 1 iterations."]
     finally:
         await cleanup(core, writer, rfd, wfd)
 
@@ -268,6 +284,9 @@ async def test_scheduler_background_task_inherits_owner_without_a_window(tmp_pat
                 await asyncio.sleep(.01)
         assert history[-1]["status"] == "success"
         assert history[-1]["run_binding"]["owner_id"] == core.authority.owner_id
+        # L20 (1.0.5): the reminder raises a desktop notification, not only an unread mark.
+        assert notified(core, "schedule") == [
+            "**Scheduled reminder:** The reminder ran without a connected window."]
     finally:
         await cleanup(core, writer, rfd, wfd)
 

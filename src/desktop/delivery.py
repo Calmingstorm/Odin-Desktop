@@ -131,6 +131,20 @@ class ArtifactPublisher:
         return descriptors
 
 
+def background_notification(kind: str | None, text: str) -> str | None:
+    """The category a background post notifies with, or None for unread only.
+
+    A task's result summary and a loop's end notify, as does a loop post that
+    carries the loop's own [NOTIFY] or [ALERT] marker. Progress, follow-ups and
+    ordinary loop iterations only count as unread.
+    """
+    if kind == "summary":
+        return "task"
+    if kind == "loop_end" or (kind == "loop" and ("[NOTIFY]" in text or "[ALERT]" in text)):
+        return "loop"
+    return None
+
+
 class DurableDelivery:
     def __init__(self, store, events, *, transcript_commit, notifications=None,
                  sink: DeliverySink | None = None, artifact_converter=None,
@@ -199,18 +213,23 @@ class DurableDelivery:
         if (not isinstance(guarded, GuardedReply) or guarded._seal is not self._seal
                 or guarded.context != context or guarded.text != text):
             raise PermissionError("Only a guarded final reply may be committed")
-        return await self._send(context, text, "assistant", files, notify=True,
+        return await self._send(context, text, "assistant", files, notify="reply",
                                 consume_staged=consume_staged)
 
     async def send(self, channel, text: str = "", *, files=None, file=None,
-                   reference=None, final=False, tool_output=False) -> dict | None:
-        """Sanctioned notices or tool artifact posts, never model response previews."""
+                   reference=None, final=False, tool_output=False,
+                   notify: str | None = None) -> dict | None:
+        """Sanctioned notices or tool artifact posts, never model response previews.
+
+        ``notify`` names the notification category of a notice the owner should
+        hear about while away (a reminder, a finished task); others count as unread.
+        """
         if file is not None:
             if files is not None:
                 raise ValueError("Specify file or files, not both")
             files = [file]
         return await self._send(self._context(channel), text, "notice", files,
-                                notify=False, final_notice=final, tool_output=tool_output)
+                                notify=notify, final_notice=final, tool_output=tool_output)
 
     async def send_chunked(self, message, text: str, *, guarded=None) -> dict | None:
         # No Discord length constraint: keep the exact guarded transcript reply.
@@ -334,8 +353,8 @@ class DurableDelivery:
                      context.generation, context.owner_id))
             if notify:
                 self.notifications.intent(conversation_id=context.conversation_id,
-                    message_id=message["id"], category="reply", preview=message["text"][:240],
-                    dedupe_key=f"reply:{message['id']}", request_id=context.request_id)
+                    message_id=message["id"], category=notify, preview=message["text"][:240],
+                    dedupe_key=f"{notify}:{message['id']}", request_id=context.request_id)
             for frame in frames:
                 self._enqueue(context, frame)
         await self.drain()

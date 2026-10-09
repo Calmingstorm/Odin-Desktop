@@ -1042,7 +1042,9 @@ class AgentTaskTools:
                 yield
 
         async def _publish(info, text):
-            await self._publish_background(admitted["message"], text, "loop")
+            # A loop's end is set before its closing post; Desktop notifies on it.
+            kind = "loop" if info.status == "running" else "loop_end"
+            await self._publish_background(admitted["message"], text, kind)
 
         def _settled(info):
             outcome = "completed" if info.status == "completed" else (
