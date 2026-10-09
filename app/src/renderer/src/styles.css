@@ -400,6 +400,7 @@ pre code.hljs { display: block; overflow-x: auto; }
 .tool.success .mark { color: var(--ok); }
 .tool.failure .mark { color: var(--bad); }
 .tool.unknown .mark { color: var(--warn); }
+.tool.stopped .mark { color: var(--muted); }
 .tool .name { font-family: var(--font-mono); color: var(--fg); }
 .tool .target, .tool .dur, .tool .exit { color: var(--faint); }
 .tool .summary { flex: 1; min-width: 0; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); color: var(--muted); }
