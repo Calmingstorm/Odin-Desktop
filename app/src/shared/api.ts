@@ -1305,6 +1305,17 @@ export interface NotificationChange {
 /** The window's theme: follow the system, or always dark or light. */
 export type Appearance = 'system' | 'dark' | 'light'
 
+/** Your name and pictures in chat; display only. Pictures are 256 x 256 PNG data URLs. */
+export interface DisplayProfile {
+  /** Empty shows as "You". */
+  name: string
+  user: string | null
+  /** By personality preset key ("custom" for the unsaved custom personality). */
+  personalities: Record<string, string>
+}
+
+export type DisplayPictureTarget = { target: 'user' } | { target: 'personality'; key: string }
+
 export interface Settings {
   autostart: boolean
   notifications: NotificationSettings
@@ -1456,6 +1467,11 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   setAutostart(enabled: boolean): Promise<Result<Settings>>
   setNotifications(change: NotificationChange): Promise<Result<Settings>>
   setAppearance(appearance: Appearance): Promise<Result<Settings>>
+  getDisplayProfile(): Promise<Result<DisplayProfile>>
+  setDisplayName(name: string): Promise<Result<DisplayProfile>>
+  /** A 256 x 256 PNG, base64; the window crops and scales the chosen picture first. */
+  setDisplayPicture(target: DisplayPictureTarget, pngBase64: string): Promise<Result<DisplayProfile>>
+  removeDisplayPicture(target: DisplayPictureTarget): Promise<Result<DisplayProfile>>
   settingsSchema(): Promise<Result<ConfigMeta>>
   settingsSet(params: SettingsSetParams): Promise<Result<SettingsSetResult>>
   /** Odin's POST /api/config/image-models: follow the shipped default, or pin the value in effect. */
@@ -1550,6 +1566,10 @@ export const IPC = {
   setAutostart: 'odin:settings:set-autostart',
   setNotifications: 'odin:settings:set-notifications',
   setAppearance: 'odin:settings:set-appearance',
+  getDisplayProfile: 'odin:display-profile:get',
+  setDisplayName: 'odin:display-profile:set-name',
+  setDisplayPicture: 'odin:display-profile:set-picture',
+  removeDisplayPicture: 'odin:display-profile:remove-picture',
   settingsSchema: 'odin:core-settings:schema',
   settingsSet: 'odin:core-settings:set',
   imageModelIntent: 'odin:core-settings:image-intent',

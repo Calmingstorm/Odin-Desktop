@@ -521,7 +521,9 @@ console.log(JSON.stringify(result));
     ids = [p["id"] for p in prefs]
     assert len(ids) == len(set(ids)), "duplicate app preference"
     persisted = {p["id"] for p in prefs if p["status"] == "persisted"}
-    assert persisted == actual | {"autostart", "drafts[conversation_id]"}
+    # Stores kept outside app-state.json: drafts and the display profile have their own files.
+    assert persisted == actual | {"autostart", "drafts[conversation_id]",
+                                  "display_profile.name", "display_profile.pictures"}
     planned = {p["id"] for p in prefs if p["status"] == "planned"}
     assert planned == set()
     assert not (planned & actual)

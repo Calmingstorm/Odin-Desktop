@@ -11,6 +11,7 @@ import {
   type AppState,
   type Appearance,
   type DesktopInfo,
+  type DisplayProfile,
   type NotificationChange,
   type Result,
   type Settings,
@@ -21,6 +22,7 @@ import type { AttachmentManager } from './attachments'
 import type { ArtifactStore } from './artifacts'
 import type { Broker, Settled } from './broker'
 import type { DraftStore } from './drafts'
+import { DisplayProfileError, type DisplayProfileStore } from './display-profile'
 import type { ReleaseNoticeService } from './release-notice'
 import {
   acknowledgeCleanupSchema,
@@ -59,6 +61,9 @@ import {
   updateConversationSchema,
   parseRequest,
   setAppearanceSchema,
+  displayNameSchema,
+  displayPictureSchema,
+  displayPictureTargetSchema,
   setAutostartSchema,
   setMutedSchema,
   MANAGEMENT_SCHEMAS,
@@ -115,6 +120,8 @@ export interface IpcDeps {
   setNotifications: (change: NotificationChange) => Settings
   /** Applies the theme to the window and saves it with the other app preferences. */
   setAppearance: (appearance: Appearance) => Settings
+  /** Your name and pictures in chat, and a picture per personality (display only). */
+  displayProfile: DisplayProfileStore
   setConversationMuted: (conversationId: string, muted: boolean) => Settings
   appState: () => AppState
   /** Archives only this notice token; resource quarantine and reconciliation remain unchanged. */
@@ -305,6 +312,21 @@ export function registerIpc(deps: IpcDeps): void {
   handle(IPC.setAutostart, setAutostartSchema, (v) => ({ ok: true, result: deps.setAutostart(v.enabled) }))
   handle(IPC.setNotifications, setNotificationsSchema, (v) => ({ ok: true, result: deps.setNotifications(v) }))
   handle(IPC.setAppearance, setAppearanceSchema, (v) => ({ ok: true, result: deps.setAppearance(v.appearance) }))
+  /** A refusal the person can act on comes back as bad_request with its message; anything else is internal. */
+  function displayAnswer(change: () => DisplayProfile): Result<DisplayProfile> {
+    try {
+      return { ok: true, result: change() }
+    } catch (error) {
+      if (error instanceof DisplayProfileError) return { ok: false, error: { code: 'bad_request', message: error.message } }
+      throw error
+    }
+  }
+  handle(IPC.getDisplayProfile, null, () => ({ ok: true, result: deps.displayProfile.read() }))
+  handle(IPC.setDisplayName, displayNameSchema, (v) => displayAnswer(() => deps.displayProfile.setName(v.name)))
+  handle(IPC.setDisplayPicture, displayPictureSchema, (v) =>
+    displayAnswer(() => deps.displayProfile.setPicture(v.target, v.png_base64)))
+  handle(IPC.removeDisplayPicture, displayPictureTargetSchema, (v) =>
+    displayAnswer(() => deps.displayProfile.removePicture(v.target)))
   // The core's settings and Codex accounts: each a named method, validated here; nothing passes through generically.
   handle(IPC.settingsSchema, null, async () => fromSettled(await deps.broker.request('settings.schema')))
   handle(IPC.settingsSet, settingsSetSchema, async (v) => {

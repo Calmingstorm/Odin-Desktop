@@ -6,6 +6,7 @@ import { onCodeCopyClick } from '../code-copy'
 import { plainTextOf, renderMarkdown } from '../markdown'
 import { startThread, type ToolEntry } from '../store'
 import { assistantName } from '../assistant-name'
+import { loadDisplayProfile, personalityPicture, userName, userPicture } from '../stores/display-profile'
 import FileCard from './FileCard.vue'
 import Icon from './Icon.vue'
 import ReportViewer from './ReportViewer.vue'
@@ -31,6 +32,10 @@ const displayRole = computed(() => props.message.role === 'notice' && props.mess
   props.message.request_id && props.message.artifacts?.length ? 'assistant' : props.message.role)
 const messageLabel = computed(() => `${who(displayRole.value)} message at ${time(props.message.created_at)}`)
 const avatar = computed(() => displayRole.value === 'user' ? 'person' : 'info')
+/** Your picture, or the active personality's; null keeps the default icon or Odin's mark. */
+const avatarPicture = computed(() =>
+  displayRole.value === 'user' ? userPicture() : displayRole.value === 'assistant' ? personalityPicture() : null)
+onMounted(() => void loadDisplayProfile())
 watch(copyOpen, async (open) => {
   await nextTick()
   if (open) copyChoices.value?.querySelector<HTMLButtonElement>('button')?.focus()
@@ -67,7 +72,7 @@ onBeforeUnmount(() => {
 })
 
 function who(role: string): string {
-  return role === 'user' ? 'You' : role === 'assistant' ? assistantName() : 'Notice'
+  return role === 'user' ? userName() : role === 'assistant' ? assistantName() : 'Notice'
 }
 
 function time(iso: string): string {
@@ -96,8 +101,9 @@ function onImageError(ref: string): void {
 
 <template>
   <article :id="`m-${message.id}`" :class="['msg', displayRole, { highlight }]" tabindex="-1" :aria-label="messageLabel">
-    <span class="avatar" aria-hidden="true">
-      <img v-if="displayRole === 'assistant'" class="app-icon" :src="appIcon" width="36" height="36" alt="" />
+    <span :class="['avatar', { picture: avatarPicture }]" aria-hidden="true">
+      <img v-if="avatarPicture" class="avatar-picture" :src="avatarPicture" width="36" height="36" alt="" />
+      <img v-else-if="displayRole === 'assistant'" class="app-icon" :src="appIcon" width="36" height="36" alt="" />
       <Icon v-else :name="avatar" :size="18" />
     </span>
     <div class="meta">

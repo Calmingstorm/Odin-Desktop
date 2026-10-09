@@ -347,6 +347,9 @@ code, pre, kbd, samp { font-family: var(--font-mono); }
 }
 .msg.assistant > .avatar { background: var(--gold); color: var(--on-gold); }
 .msg.notice > .avatar { background: var(--accent-soft); color: var(--accent-text); }
+/* Your picture or a personality's, chosen in Settings: round, filling the avatar. */
+.msg > .avatar.picture { background: transparent; overflow: hidden; }
+.msg .avatar-picture { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .msg .meta { display: flex; gap: 8px; align-items: baseline; min-height: 22px; color: var(--faint); font-size: var(--text-xs); margin-bottom: 2px; }
 .msg .who { color: var(--fg); font-size: 14.5px; font-weight: 600; }
 .msg.assistant .who { color: var(--gold-text); }

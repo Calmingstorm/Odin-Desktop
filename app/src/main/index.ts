@@ -14,6 +14,7 @@ import { isAutostartEnabled, setAutostart } from './autostart'
 import { Broker } from './broker'
 import { coreCommand, type CoreLaunch } from './core-command'
 import { CoreSupervisor } from './core-supervisor'
+import { DisplayProfileStore } from './display-profile'
 import { DraftStore } from './drafts'
 import { registerIpc } from './ipc'
 import { DeviceLoginBoundary } from './device-login'
@@ -205,6 +206,7 @@ function run(): void {
   }
 
   const drafts = new DraftStore(join(paths.dataDir, 'drafts.json'))
+  const displayProfile = new DisplayProfileStore(join(paths.configDir, 'display-profile'))
   const deviceLogin = new DeviceLoginBoundary()
   // Until the core announces its own limits. A chunk stays well inside one frame after base64.
   let limits: AttachmentLimits = { attachment_bytes: 25 * 1024 * 1024, chunk_bytes: 512 * 1024 }
@@ -422,6 +424,7 @@ function run(): void {
       broker,
       windowId: () => win?.webContents.id ?? null,
       drafts,
+      displayProfile,
       attachments,
       pickFiles: async () => {
         const chosen = win
