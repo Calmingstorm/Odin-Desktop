@@ -192,6 +192,9 @@ class Scheduler:
         # double-firing when a manual run_now overlaps a tick, a duplicate
         # webhook arrives, or (defensively) two scheduler loops tick at once.
         self._in_flight: set[str] = set()
+        # Told which run of a definition starts, before any action runs (Desktop's
+        # Work registry records the run's binding, for webhooks as for callbacks).
+        self.run_observer: Callable[[dict], None] | None = None
         # Execution history
         _hist_path = history_path or str(self.data_path.parent / "schedule_history.jsonl")
         self.history = ScheduleHistory(_hist_path)
@@ -1665,12 +1668,30 @@ class Scheduler:
                 await self._publish(candidate)
                 return
 
+    def _observe_run_start(self, schedule: dict) -> None:
+        """Hand the run observer the definition carrying this run's binding, before effects.
+
+        Observation never decides whether the run happens: a failing observer is
+        logged and the run goes ahead.
+        """
+        if self.run_observer is None or not schedule.get("run_binding"):
+            return
+        current = next((s for s in self._schedules if s.get("id") == schedule.get("id")), None)
+        if current is None or current.get("run_binding") != schedule["run_binding"]:
+            return
+        try:
+            self.run_observer(current)
+        except Exception:
+            log.exception("Run observer failed for schedule %s; the run continues",
+                          schedule.get("id"))
+
     async def _execute_and_record_inner(self, schedule: dict) -> None:
         admitted = _execution_admission.get()
         if self._connection_provider_installed and not self._admission_is_active(
             admitted, schedule
         ):
             raise ScheduleConnectionUnavailableError(self._connection_availability())
+        self._observe_run_start(schedule)
         if schedule.get("action") == "webhook":
             await self._execute_and_record_webhook(schedule)
             return

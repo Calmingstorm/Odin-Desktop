@@ -251,23 +251,11 @@ class WorkService:
             self._watch(item)
         else:
             result = dict(record, actions=[])
-            if (record["kind"] == "schedule" and item is None and self.scheduler is not None
-                    and record["state"] in {"scheduled", "paused", "running"}):
-                # The scheduler drops a one-time schedule after its run and any
-                # schedule the owner deletes. Neither is still scheduled, but
-                # deleting a definition doesn't end a run already executing: only
-                # the latest admitted run's own recorded result settles it.
-                in_flight = getattr(self.scheduler, "_in_flight", None)
-                if not isinstance(in_flight, (set, frozenset)):
-                    pass  # Running state can't be known; conclude nothing.
-                elif record["manager_id"] in in_flight:
-                    result.update(state="running", settlement={
-                        "state": "pending", "last_run": record["settlement"].get("last_run")})
-                else:
-                    ended = self._ended_schedule_state(record)
-                    result.update(state=ended, settlement={
-                        "state": "unknown" if ended == "unknown" else "settled",
-                        "last_run": record["settlement"].get("last_run")})
+            if record["kind"] == "schedule":
+                # Schedule records end only below; an ended or unconcluded one keeps its state.
+                if item is None and self.scheduler is not None and record["state"] in {
+                        "scheduled", "paused", "running"}:
+                    result = self._ended_schedule_projection(record, result)
             elif record["settlement"]["state"] not in {"settled", "definition"}:
                 result.update(state="interrupted", settlement={"state": "unknown",
                               "resource_release": "unproven"})
@@ -280,6 +268,21 @@ class WorkService:
                 self.events.append("work.updated",
                                    {"kind": result["kind"], "id": result["id"]}, result)
         return json.loads(canonical_json(result))
+
+    def _ended_schedule_projection(self, record, result):
+        """A schedule its scheduler no longer holds: a one-time schedule after its run, or a
+        deleted one. Deleting a definition doesn't end a run already executing; only the
+        latest admitted run's own recorded result settles it."""
+        in_flight = getattr(self.scheduler, "_in_flight", None)
+        if not isinstance(in_flight, (set, frozenset)):
+            return result  # Running state can't be known; conclude nothing.
+        last_run = record["settlement"].get("last_run")
+        if record["manager_id"] in in_flight:
+            return dict(result, state="running",
+                        settlement={"state": "pending", "last_run": last_run})
+        ended = self._ended_schedule_state(record)
+        return dict(result, state=ended, settlement={
+            "state": "unknown" if ended == "unknown" else "settled", "last_run": last_run})
 
     def _ended_schedule_state(self, record):
         """The result of the latest run admitted for this definition, from that run's own entry.

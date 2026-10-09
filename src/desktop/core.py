@@ -479,6 +479,8 @@ class CoreService:
         try:
             # The real scheduler task inherits sealed installation authority,
             # not whichever IPC connection happened to open the window.
+            # Every run, webhooks included, names its binding in Work as it starts.
+            self.engine.deps.scheduler.run_observer = self._observe_schedule_run
             self.engine.deps.scheduler.start(self._scheduled_handlers._on_scheduled_task,
                 self._scheduled_handlers._on_schedule_failure)
         finally:
@@ -570,6 +572,11 @@ class CoreService:
             raise PermissionError("Report requires an admitted background run")
         if background["run_id"] != binding.run_id:
             raise PermissionError("Report run identity differs from admission")
+
+    def _observe_schedule_run(self, definition):
+        """The scheduler's run-start notice: Work records which run of the definition starts."""
+        if definition.get("requester_id") == self.authority.owner_id:
+            self.work.register_schedule(definition)
 
     @asynccontextmanager
     async def _admit_schedule(self, schedule, *, notice_id=None):
