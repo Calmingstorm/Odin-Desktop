@@ -226,9 +226,13 @@ describe('Models canonical references, ownership and negative paths', () => {
   })
   it('saves auxiliary group and explicitly changes follow/pin image intent', async () => {
     const { root } = await models()
-    control(root, settingsControlId('curated', 'openai_codex.auxiliary.model')).type('gpt-6-luna'); control(root, settingsControlId('curated', 'openai_codex.auxiliary.enabled')).fire('change', { target: { checked: true } }); await flush()
+    // The auxiliary model is chosen from the same model list as the main model, not typed.
+    const auxiliary = control(root, settingsControlId('curated', 'openai_codex.auxiliary.model'))
+    expect(auxiliary.tag).toBe('select')
+    expect(auxiliary.findAll((node) => node.tag === 'option').map((node) => node.props.value)).toEqual(['gpt-6.1-sol', 'compat:deepseek-v4-flash', 'compat:reasoner', 'compat:unknown'])
+    choose(root, 'openai_codex.auxiliary.model', 'compat:reasoner'); control(root, settingsControlId('curated', 'openai_codex.auxiliary.enabled')).fire('change', { target: { checked: true } }); await flush()
     root.button('Save auxiliary model').fire('click'); await flush()
-    expect(bridge.providersCodexSet).toHaveBeenCalledWith({ expected_revision: 'rev-1', changes: [{ path: 'openai_codex.auxiliary.model', value: 'gpt-6-luna' }, { path: 'openai_codex.auxiliary.enabled', value: true }] })
+    expect(bridge.providersCodexSet).toHaveBeenCalledWith({ expected_revision: 'rev-1', changes: [{ path: 'openai_codex.auxiliary.model', value: 'compat:reasoner' }, { path: 'openai_codex.auxiliary.enabled', value: true }] })
     expect(root.textContent()).toContain('Following default: host-default')
     expect(root.textContent()).toContain('Pinned: custom-image')
     root.button('Pin current value').fire('click'); await flush(); root.button('Follow default').fire('click'); await flush()

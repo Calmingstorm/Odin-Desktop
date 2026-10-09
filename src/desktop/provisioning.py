@@ -9,12 +9,16 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import yaml
 
-from ..config.model_defaults import DEFAULT_AUXILIARY_MODEL, DEFAULT_MAIN_MODEL
+from ..config.model_defaults import DEFAULT_MAIN_MODEL
 from ..config.schema import Config, load_config
 from ..permissions.persistence import write_private_atomic
 from .authority import OwnerAuthority
 from .paths import ProfilePaths
 from .ssh_sockets import normalize_config_sockets, socket_directory
+
+# A new Desktop profile runs background work (compaction, reflection, the completion
+# judge, follow-ups) on gpt-6.1-sol. Odin's fresh installs use DEFAULT_AUXILIARY_MODEL.
+DESKTOP_AUXILIARY_MODEL = "gpt-6.1-sol"
 
 
 def system_timezone() -> str:
@@ -75,7 +79,7 @@ def fresh_config_document(paths: ProfilePaths) -> dict:
         "openai_codex": {
             "enabled": True,
             "model": DEFAULT_MAIN_MODEL,
-            "auxiliary": {"model": DEFAULT_AUXILIARY_MODEL},
+            "auxiliary": {"model": DESKTOP_AUXILIARY_MODEL},
             "credentials_path": str(secrets / "codex_auth.json"),
         },
         "llm_provider": {"model": DEFAULT_MAIN_MODEL},
