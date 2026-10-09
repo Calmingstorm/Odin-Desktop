@@ -21,7 +21,8 @@
   Next preview ignored the zone you picked. It now says UTC, the preview uses your zone, and a new schedule starts in
   Odin's time zone (Settings → General).
 - A refused schedule or outbound webhook says why (a bad time zone, cron or run time; an unknown event or a blocked
-  address) instead of "Invalid method parameters" or "invalid webhook configuration".
+  address) instead of "Invalid method parameters" or "invalid webhook configuration". A password in a pasted URL is
+  masked in that reason.
 - **Fixed:** `analyze_pdf` was never offered, so its PDF reader never downloaded. It is offered now and downloads the
   reader the first time it runs.
 - **Fixed:** Odin couldn't open his own browser screenshots. Each one is also saved privately in the workspace
