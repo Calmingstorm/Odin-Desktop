@@ -816,7 +816,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   let receipt: unknown
   if (seededWorkProof) {
     await until(async () => (await text('.work-panel')).includes('Harmless completed task') &&
-      (await text('.work-panel')).includes('Resource release is not confirmed'), 'real Work detail and honest unknown release')
+      (await text('.work-panel')).includes('The outcome is not confirmed.'), 'real Work detail and honest unconfirmed outcome')
     const work = await broker.request('work.list')
     assert(work.ok)
     const workItems = (work.result as { items: Array<Record<string, unknown>> }).items
