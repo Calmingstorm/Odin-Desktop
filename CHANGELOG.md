@@ -1,5 +1,56 @@
 # Changelog
 
+## [1.0.5]
+
+- **Fixed:** once an agent, task, loop or process had finished, the engine kept one CPU core at 100% until the app
+  restarted. It now goes idle when the work ends.
+- **Fixed:** an MCP server's tools never reached Odin in chats, even while Settings showed the server connected. Odin
+  now sees and uses them.
+- **Fixed:** knowledge search matched literal words only. It now uses the bundled search model and a full-text index,
+  as Odin does. Documents saved before 1.0.5 are added to the full-text index at the first start.
+- **Fixed:** the auxiliary (background) model didn't start with the app, so summaries and background follow-ups ran
+  on the main model until its setting was saved again. It now starts with the app.
+- **Fixed:** reminders, finished background tasks and loop alerts never raised a desktop notification. They now do,
+  under the same settings as replies: off, quiet hours, muted chats and the focused window.
+- **Fixed:** a text attachment over 4 MiB failed the whole message. The message now goes through with the part of the
+  file that fits, as in Odin.
+- **Settings → Models:** the auxiliary model is chosen from the model list, like the main model. New profiles start
+  it on gpt-6.1-sol; existing profiles keep their choice.
+- **Fixed:** a cron schedule with no time zone runs on UTC, but Settings → Work called it "Odin's time zone", and its
+  Next preview ignored the zone you picked. It now says UTC, the preview uses your zone, and a new schedule starts in
+  Odin's time zone (Settings → General).
+- A refused schedule or outbound webhook says why (a bad time zone, cron or run time; an unknown event or a blocked
+  address) instead of "Invalid method parameters" or "invalid webhook configuration".
+- **Fixed:** `analyze_pdf` was never offered, so its PDF reader never downloaded. It is offered now and downloads the
+  reader the first time it runs.
+- **Fixed:** Odin couldn't open his own browser screenshots. Each one is also saved privately in the workspace
+  folder (`screenshots/`), as generated images are.
+- **Fixed:** failed image, file, screenshot, knowledge, scheduling and agent tool calls showed a green check. They
+  now show as failures.
+- **Fixed:** after Stop, an interrupted wait stayed "running" in the chat. It now shows as stopped.
+- **Fixed:** a background task left a frozen progress post and posted its results twice. Its result now comes once;
+  its Work card shows the progress.
+- **Fixed:** after a restart, a finished process in Work showed "(retained output)" instead of its command.
+- Work keeps the newest 50 finished items of each kind and drops the finished items of a deleted chat. Older finished
+  items are removed; an item whose outcome isn't confirmed stays until it is.
+- A webhook-triggered schedule's Work card says which webhook it waits for, and why it can't run while incoming
+  webhooks are off.
+- Each day of a chat starts with its date (Today, Yesterday or the date), and a message's time shows its full date
+  on hover.
+- Chat titles are one line: line breaks and control characters become spaces, and a blank rename is refused.
+- Turning a skill off says what happened ("Turned off. Odin can't use it until it's turned on again.") instead of
+  Odin's tool advice.
+- **Settings:** every page now follows the layout of General and Models. Data and privacy, Work, Tools, Hosts, MCP
+  and Skills use labelled rows with a visible label for every control, put their actions in the section header,
+  and show Save or Cancel only when something changed.
+  - Knowledge details: pick documents from menus instead of typing their names, with readable results and the full
+    record a click away. Adding a document is its own section.
+  - Learned context lists its entries, with Edit and Delete in place.
+  - Memory lists keys and values in aligned columns, and its editor is a bordered form.
+  - Records lists trajectory files by name; choosing one fills in the file name.
+  - Settings that can be left unset offer Default, so you can go back to the default.
+  - Counts read "1 chunk", not "1 chunks". Tables no longer squeeze short cells to a letter per line.
+
 ## [1.0.4]
 
 - **Fixed:** a schedule Odin set up in chat didn't appear in Work until its first run (or until Settings → Work was
