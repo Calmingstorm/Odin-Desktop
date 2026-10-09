@@ -28,6 +28,7 @@ from ...llm.recovery import generate_with_recovery, preflight_incompatible_effor
 from ...llm.tool_history import normalize_tool_calls
 from ...odin_log import get_logger
 from ...tools.defs.agents import SPAWN_NEUTRAL_REASONING_OPTIONS
+from ...tools.execution_outcome import ToolFailure
 from ...tools.nested_payload import ValidatedNestedPayload
 from ...tools.result_validator import ToolResult
 from ..background_task import (
@@ -793,7 +794,7 @@ class AgentTaskTools:
         steps = inp.get("steps", [])
 
         if not steps or not isinstance(steps, list):
-            return "No steps provided."
+            return ToolFailure("No steps provided.")
         if len(steps) > MAX_STEPS:
             return f"Too many steps ({len(steps)}). Maximum is {MAX_STEPS}."
 
@@ -963,7 +964,7 @@ class AgentTaskTools:
         if task_id:
             task = tasks.get(task_id)
             if not task:
-                return f"No task found with ID `{task_id}`."
+                return ToolFailure(f"No task found with ID `{task_id}`.")
             lines = [
                 f"**{task.description}** [{task.status}]",
                 f"ID: `{task.task_id}` | {len(task.results)}/{len(task.steps)} steps",
@@ -1239,7 +1240,7 @@ class AgentTaskTools:
         goal = inp.get("goal", "")
         parent_id_arg = inp.get("parent_id")
         if not label or not goal:
-            return "Both 'label' and 'goal' are required."
+            return ToolFailure("Both 'label' and 'goal' are required.")
 
         from ...tools.agent_tool_policy import (
             agent_axis_modes,

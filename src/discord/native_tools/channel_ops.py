@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 
 from ...llm.secret_scrubber import scrub_output_secrets
+from ...tools.execution_outcome import ToolFailure
 
 
 class ChannelOpsTools:
@@ -23,14 +24,16 @@ class ChannelOpsTools:
         all recorded participants — not just the bot's own session history.
         """
         if set(inp) - {"limit"}:
-            return "Only 'limit' is accepted; the conversation is the one this request came from."
+            return ToolFailure(
+                "Only 'limit' is accepted; the conversation is the one this request came from."
+            )
         if self.read_visible_history is None:
-            return (
+            return ToolFailure(
                 "Conversation history is unavailable: "
                 "Phase 2 admission and transcript wiring is not implemented."
             )
         if request is None:
-            return "No conversation context available."
+            return ToolFailure("No conversation context available.")
         limit = max(1, min(int(inp.get("limit", 10)), 100))
         try:
             messages = await self.read_visible_history(request, limit=limit)
@@ -43,6 +46,6 @@ class ChannelOpsTools:
                 "Respond with your own summary, analysis, or action.]\n" + result
             )
         except PermissionError:
-            return "Permission denied — cannot read this conversation."
+            return ToolFailure("Permission denied — cannot read this conversation.")
         except Exception as e:
-            return f"Failed to read conversation: {scrub_output_secrets(str(e))}"
+            return ToolFailure(f"Failed to read conversation: {scrub_output_secrets(str(e))}")

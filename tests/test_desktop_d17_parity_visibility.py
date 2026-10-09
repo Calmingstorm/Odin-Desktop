@@ -359,3 +359,47 @@ async def test_generated_image_copy_that_fails_midway_leaves_no_partial_file(gra
 def test_the_shared_media_tool_keeps_no_local_copy_itself():
     """Odin's media tool keeps no copy; only an embedder that overrides the hook (Desktop) does."""
     assert MediaTools._retain_generated_image(object(), b"\x89PNG\r\n\x1a\n") is None
+
+
+
+async def test_failed_image_analysis_settles_as_a_failure(graph, monkeypatch):
+    """L11 (1.0.5): analyze_image returned its failures as plain text, so they settled as
+    success and the chat showed a check mark beside "Unsupported image format" (an SVG)."""
+    import json
+    from types import SimpleNamespace
+
+    from src.tools import safe_fetch
+
+    engine, requests, provider, transcript, artifacts, cid, cfg = graph
+
+    async def svg(url, **kwargs):
+        return SimpleNamespace(status=200, content_type="image/svg+xml", body=b"<svg/>")
+
+    monkeypatch.setattr(safe_fetch, "safe_fetch", svg)
+    await execute(graph, [ToolCall("img", "analyze_image", {"url": "https://example.test/a.svg"})])
+    settled = [json.loads(row[0])["payload"] for row in requests.store.connection.execute(
+        "SELECT payload FROM desktop_delivery_outbox WHERE kind='tool.settled'")]
+    assert [(row["invocation_id"], row["outcome"]) for row in settled] == [("img", "failure")]
+    assert "Unsupported image format" in str(provider.calls[1]["messages"])
+
+
+async def test_native_handlers_return_failures_as_failures_and_empty_answers_as_answers(graph):
+    from src.tools.execution_outcome import ToolFailure, is_tool_failure
+
+    engine, *_ = graph
+    owners = engine.deps.native_tools.owners
+    failures = [
+        await owners["media"]._handle_post_file(None, {}),
+        await owners["media"]._handle_analyze_image(None, {}),
+        await owners["media"]._handle_analyze_image(None, {"url": "ftp://example.test/a.png"}),
+        await owners["knowledge"]._handle_ingest_document({}, "owner"),
+        await owners["knowledge"]._handle_delete_knowledge({"source": "never-added"}),
+        await owners["channel_ops"]._handle_read_conversation(None, {"conversation": "other"}),
+    ]
+    for result in failures:
+        assert isinstance(result, ToolFailure) and is_tool_failure(result), result
+    assert failures[0] == "Both 'host' and 'path' are required."
+    assert failures[4] == "No document found with source 'never-added'."
+    # An empty answer is an answer, not a failure.
+    found = await owners["knowledge"]._handle_search_knowledge({"query": "nothing stored"})
+    assert not is_tool_failure(found)
