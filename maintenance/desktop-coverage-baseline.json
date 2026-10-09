@@ -2809,6 +2809,7 @@
     "app/src/renderer/src/settings-presentation.ts",
     "app/src/renderer/src/skill-config.ts",
     "app/src/renderer/src/skill-editor.ts",
+    "app/src/renderer/src/stopping-label.ts",
     "app/src/renderer/src/store.ts",
     "app/src/renderer/src/stores/browser.ts",
     "app/src/renderer/src/stores/completion.ts",
