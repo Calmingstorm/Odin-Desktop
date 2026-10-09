@@ -291,7 +291,8 @@ async def _composed_core(tmp_path, monkeypatch, *, roots=(), search=True, runtim
     config.search.enabled = search
     read_fd, write_fd = os.pipe()
     core = CoreService(paths, socket_path, token_file, config_provider=lambda _: config,
-        runtime_provider=lambda *_: SimpleNamespace(compatible_client=Provider([]), **(runtime or {})),
+        runtime_provider=lambda *_: SimpleNamespace(
+            compatible_client=Provider([]), **(runtime or {})),
         secret_backend=TemporaryKeyring())
     await core.start(read_fd)
 
@@ -388,7 +389,7 @@ async def test_startup_indexes_knowledge_stored_without_full_text_rows(tmp_path,
     before.close()
     core, _, close = await _composed_core(tmp_path, monkeypatch, files=close.files)
     try:
-        assert [row["source"] for row in core.engine.deps.knowledge_fts.search_knowledge("zebra")] == [
-            "zebra.md"]
+        hits = core.engine.deps.knowledge_fts.search_knowledge("zebra")
+        assert [row["source"] for row in hits] == ["zebra.md"]
     finally:
         await close()

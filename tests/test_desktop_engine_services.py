@@ -68,7 +68,8 @@ async def test_packaged_core_offers_and_dispatches_management_mcp_tools(tmp_path
     config.browser.enabled = False
     config.mcp.enabled = True
     provider = Provider([
-        LLMResponse(tool_calls=[ToolCall("m1", "mcp_fixture_constant", {})], stop_reason="tool_use"),
+        LLMResponse(tool_calls=[ToolCall("m1", "mcp_fixture_constant", {})],
+                    stop_reason="tool_use"),
         LLMResponse(text="The fixture returned its constant."),
     ])
     read_fd, write_fd = os.pipe()
