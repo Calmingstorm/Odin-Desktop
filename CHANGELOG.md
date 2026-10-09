@@ -40,6 +40,8 @@
 - Chat titles are one line: line breaks and control characters become spaces, and a blank rename is refused.
 - Turning a skill off says what happened ("Turned off. Odin can't use it until it's turned on again.") instead of
   Odin's tool advice.
+- On Linux, Odin is listed under Development (Programming in most menus) instead of Utility (Accessories), so docks
+  and window lists that pick an icon by category show a coding icon.
 - **Settings:** every page now follows the layout of General and Models. Data and privacy, Work, Tools, Hosts, MCP
   and Skills use labelled rows with a visible label for every control, put their actions in the section header,
   and show Save or Cancel only when something changed.
@@ -47,7 +49,8 @@
     record a click away. Adding a document is its own section.
   - Learned context lists its entries, with Edit and Delete in place.
   - Memory lists keys and values in aligned columns, and its editor is a bordered form.
-  - Records lists trajectory files by name; choosing one fills in the file name.
+  - Records lists trajectory files by name; choosing one fills in the file name. Closing SSH connection pools says
+    what it closed.
   - Settings that can be left unset offer Default, so you can go back to the default.
   - Counts read "1 chunk", not "1 chunks". Tables no longer squeeze short cells to a letter per line.
 

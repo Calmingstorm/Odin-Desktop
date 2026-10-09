@@ -31,7 +31,7 @@ linux:
       arch: [x64]
     - target: AppImage
       arch: [x64]
-  category: Utility
+  category: Development
   icon: resources/icon.png
   artifactName: odin-desktop-${version}-candidate-${arch}.${ext}
   desktop:
