@@ -455,3 +455,14 @@ async def test_schedule_refusals_say_what_to_fix(tmp_path):
         assert (await request(reader, writer, "schedules.list", {}))["result"] == []
     finally:
         await cleanup(core, writer, rfd, wfd)
+
+
+@pytest.mark.asyncio
+async def test_work_reads_the_webhook_intake_state(tmp_path):
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, Provider())
+    try:
+        # Incoming webhooks are off by default, so a trigger schedule's card says so.
+        assert core.work.trigger_intake() == core.webhooks.intake_state() == "disabled"
+        assert core.webhooks.status()["reason"] == "disabled"
+    finally:
+        await cleanup(core, writer, rfd, wfd)

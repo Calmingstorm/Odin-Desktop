@@ -441,6 +441,7 @@ class CoreService:
             admitting=lambda: self.lifetime.admitting and self.phase == "ready",
             permissions=self.permissions)
         self.schedules.ingress = self.webhooks
+        self.work.trigger_intake = self.webhooks.intake_state
         settings.ingress = self.webhooks
         await self.webhooks.recover()
         # Compose-time test injection shares this same settings owner. All

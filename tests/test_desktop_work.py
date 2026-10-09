@@ -1004,3 +1004,28 @@ async def test_real_control_service_pending_receipt_is_unknown_not_replayed(work
     assert second["error"]["disposition"] == "outcome_unknown"
     assert calls == ["dispatch"]
     assert item._cancel_event.is_set() is False
+
+
+@pytest.mark.asyncio
+async def test_a_trigger_schedule_card_names_its_trigger_and_why_it_cannot_fire(work, tmp_path):
+    """L9 (1.0.5): a webhook-triggered schedule showed only "Created", with nothing saying
+    it waits for a webhook or that incoming webhooks were off so it never runs."""
+    from src.scheduler.scheduler import Scheduler
+
+    service, message, _context = work
+    scheduler = Scheduler(str(tmp_path / "schedules.json"), desktop_recovery=True)
+    service.scheduler = scheduler
+    schedule = await scheduler.add(
+        "On push", "reminder", message.conversation_id, requester_id=message.owner_id,
+        trigger={"source": "github", "event": "push", "repo": "odin"}, message="pushed")
+    intake = ["disabled"]
+    service.trigger_intake = lambda: intake[0]
+    record = service.register_schedule(schedule)
+    assert record["detail"]["trigger"] == {"source": "github", "event": "push", "repo": "odin"}
+    assert record["detail"]["trigger_intake"] == "disabled"
+    intake[0] = "accepting"
+    [listed] = [item for item in service.list()["items"] if item["kind"] == "schedule"]
+    assert listed["detail"]["trigger_intake"] == "accepting"
+    cron = await scheduler.add("Daily", "reminder", message.conversation_id,
+                               requester_id=message.owner_id, cron="0 9 * * *", message="hi")
+    assert "trigger" not in service.register_schedule(cron)["detail"]

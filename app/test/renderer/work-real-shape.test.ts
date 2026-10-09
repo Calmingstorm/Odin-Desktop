@@ -141,4 +141,22 @@ describe('Work real-core projections and steering', () => {
     expect(new Set(ids).size).toBe(ids.length)
     expect(view.root.findAll((node) => node.tag === 'article')).toHaveLength(2)
   })
+
+  it('says what a webhook-triggered schedule waits for, and when incoming webhooks can\'t fire it (1.0.5 L9)', async () => {
+    const triggered = (trigger_intake: string): WorkItem => ({
+      kind: 'schedule', id: `hook-${trigger_intake}`, title: `On push (${trigger_intake})`, state: 'scheduled', actions: ['pause'],
+      detail: { revision: 1, trigger: { source: 'github', event: 'push', repo: 'odin' }, trigger_intake },
+      settlement: { state: 'definition' }
+    })
+    listed = [triggered('disabled'), triggered('accepting')]
+    await work.loadWork()
+    view = mount((await import('../../src/renderer/src/components/WorkList.vue')).default)
+    const cards = view.root.findAll((node) => node.tag === 'article')
+    expect(cards).toHaveLength(2)
+    for (const card of cards) expect(card.textContent()).toContain('Runs on a GitHub webhook, event push, repository odin')
+    const card = (title: string) => cards.find((node) => node.textContent().includes(title))!
+    expect(card('On push (disabled)').textContent()).toContain("Incoming webhooks are off, so this can't run. Turn them on in Settings → Work.")
+    expect(card('On push (accepting)').textContent()).not.toContain('Incoming webhooks')
+  })
 })
+

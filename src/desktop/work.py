@@ -45,6 +45,9 @@ class WorkService:
         self.processes, self.scheduler = processes, scheduler
         self.display_config, self.controls = display_config, controls
         self.authorize_process = None
+        # The webhook ingress's intake state, bound once it exists: a trigger
+        # schedule's card says when incoming webhooks can't fire it.
+        self.trigger_intake = None
         self._locks: dict[tuple[str, str], asyncio.Lock] = {}
         self._watched: set[asyncio.Task] = set()
         with store.transaction() as connection:
@@ -265,6 +268,15 @@ class WorkService:
             detail = {key: item.get(key) for key in ("next_run", "last_run", "last_error",
                       "run_binding", "last_run_binding", "settlement", "inert_reason")}
             detail["revision"] = item.get("_revision", 0)
+            if item.get("trigger"):
+                detail["trigger"] = {key: item["trigger"].get(key)
+                                     for key in ("source", "event", "repo")}
+                intake = self.trigger_intake
+                if callable(intake):
+                    try:
+                        detail["trigger_intake"] = intake()
+                    except Exception:
+                        pass
             # CAS-capable scheduler adapters alone can offer mutations. Never
             # advertise a race-prone legacy mutation as qualified.
             if getattr(self.scheduler, "desktop_control", None) is not None:
