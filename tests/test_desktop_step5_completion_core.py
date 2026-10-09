@@ -89,7 +89,8 @@ async def test_management_ingest_is_visible_to_original_native_knowledge_tools(c
     assert core.engine.deps.readiness()["search_knowledge"] is True
     found = await native._handle_search_knowledge({"query": "shared knowledge"})
     assert "management-reference" in found
-    assert "one shared knowledge store" in found
+    # Full-text hits are Odin's FTS snippets, with the matched words marked.
+    assert "one >>>shared<<< >>>knowledge<<< store" in found
 
 
 async def test_actual_compression_owner_updates_are_visible_over_transport(connected):
