@@ -1,7 +1,10 @@
 """D17 delivery health observes the real durable request graph through IPC."""
 from __future__ import annotations
 
+import asyncio
+import logging
 import os
+from contextlib import contextmanager
 from types import SimpleNamespace
 
 import pytest
@@ -132,6 +135,133 @@ async def test_core_registers_each_scheduled_run_with_work_webhooks_included(com
         core._observe_schedule_run(foreign)  # another requester's definition is not Work's
     finally:
         core.permissions.reset_request_owner(token)
+
+async def _until(condition):
+    for _ in range(500):
+        if condition():
+            return
+        await asyncio.sleep(0)
+    raise AssertionError("the condition never held")
+
+
+@contextmanager
+def _as_owner(core):
+    """The owner context a chat turn's tools run in, which saving a schedule requires."""
+    owner = core.authority.authenticate_local(peer_uid=core.authority.owner_uid)
+    token = core.permissions.set_request_owner(owner)
+    try:
+        yield
+    finally:
+        core.permissions.reset_request_owner(token)
+
+
+def _schedule_states(core, after, schedule_id):
+    return [event["payload"]["state"] for event in core.events.between(after)
+            if event["type"] == "work.updated" and event["payload"]["manager_id"] == schedule_id]
+
+
+async def test_core_work_follows_schedules_saved_outside_schedule_calls(composed):
+    """Odin's schedule tools save and delete through the scheduler alone, never a
+    schedules.* call. The scheduler's change notice brings Work up to date before any run."""
+    core, _provider, _reader, _writer = composed
+    scheduler = core.engine.deps.scheduler
+    cid = core.conversations.create()["conversation"]["id"]
+    high = core.events.high
+    with _as_owner(core):
+        added = await scheduler.add("inert reminder", "reminder", cid, cron="17 3 * * *",
+                                    message="inert", requester_id=core.authority.owner_id)
+        await _until(lambda: _schedule_states(core, high, added["id"]) == ["scheduled"])
+        await scheduler.delete(added["id"])
+        await _until(lambda: _schedule_states(core, high, added["id"]) == [
+            "scheduled", "cancelled"])
+
+
+async def test_core_work_catch_up_failure_is_logged_and_the_next_change_retries(
+        composed, monkeypatch):
+    core, _provider, _reader, _writer = composed
+    scheduler = core.engine.deps.scheduler
+    cid = core.conversations.create()["conversation"]["id"]
+    failures, real = [RuntimeError("inert storage failure")], core.work.sync_schedules
+
+    def flaky():
+        if failures:
+            raise failures.pop()
+        real()
+
+    records = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    logger = logging.getLogger("odin.desktop.core")
+    logger.addHandler(handler)
+    monkeypatch.setattr(core.work, "sync_schedules", flaky)
+    try:
+        high = core.events.high
+        with _as_owner(core):
+            added = await scheduler.add("inert reminder", "reminder", cid, cron="17 3 * * *",
+                                        message="inert", requester_id=core.authority.owner_id)
+        await _until(lambda: records)
+        assert records[0].getMessage() == "Work could not follow a schedule change"
+        assert _schedule_states(core, high, added["id"]) == []
+        # The retry follows a change made outside any turn's owner context: the catch-up
+        # runs with the core's own sealed authority, as the scheduler task does.
+        await scheduler.update(added["id"], description="inert reminder, renamed")
+        await _until(lambda: _schedule_states(core, high, added["id"]) == ["scheduled"])
+    finally:
+        logger.removeHandler(handler)
+
+
+async def test_core_stops_following_the_scheduler_when_it_closes(composed, monkeypatch):
+    core, _provider, _reader, _writer = composed
+    scheduler = core.engine.deps.scheduler
+    await core.close()
+
+    def closed():
+        raise AssertionError("a closed core's Work follows nothing")
+
+    monkeypatch.setattr(core.work, "sync_schedules", closed)
+    core._sync_schedule_work()  # a notice queued before close finds the core closed
+    assert not scheduler._change_subscribers  # webhooks and Work both unsubscribed
+
+
+async def test_core_imports_definitions_saved_before_it_started(tmp_path, monkeypatch):
+    """A schedule an older version saved from chat never reached Work. The next core start
+    imports it, without waiting for the scheduler's next change."""
+    import aiohttp
+
+    monkeypatch.setattr(aiohttp, "ClientSession", lambda *a, **k: pytest.fail("no network"))
+    paths, socket_path, token_file = profile(tmp_path)
+
+    async def run(check):
+        core = service(paths, socket_path, token_file, Provider())
+        core._secret_backend = TemporaryKeyring()
+        read_fd, write_fd = os.pipe()
+        try:
+            await core.start(read_fd)
+            return await check(core)
+        finally:
+            await core.close()
+            os.close(read_fd)
+            os.close(write_fd)
+
+    async def older_version(core):
+        core._schedule_subscription()  # as 1.0.3: nothing tells Work of a tool's save
+        cid = core.conversations.create()["conversation"]["id"]
+        with _as_owner(core):
+            added = await core.engine.deps.scheduler.add(
+                "inert reminder", "reminder", cid, cron="17 3 * * *", message="inert",
+                requester_id=core.authority.owner_id)
+            await asyncio.sleep(0)
+            assert core.work.list({"kind": "schedule"})["items"] == []
+        return added["id"]
+
+    async def listed(core):
+        with _as_owner(core):
+            return [(item["manager_id"], item["state"])
+                    for item in core.work.list({"kind": "schedule"})["items"]]
+
+    schedule_id = await run(older_version)
+    assert await run(listed) == [(schedule_id, "scheduled")]
+
 
 @pytest.mark.parametrize("owner,attribute,replacement,reason", [
     ("core", "delivery", None, "delivery_not_composed"),

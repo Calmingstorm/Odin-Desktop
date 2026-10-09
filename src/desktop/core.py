@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import inspect
 import json
 import time
@@ -253,6 +254,7 @@ class CoreService:
         self._release_runtime_on_close = release_runtime_on_close
         self._receipt_pruner: asyncio.Task | None = None
         self._publication_task: asyncio.Task | None = None
+        self._schedule_subscription = None
         self._publication_ready = asyncio.Event()
         self._published_seq = 0
         self.management: ManagementService | None = None
@@ -481,8 +483,21 @@ class CoreService:
             # not whichever IPC connection happened to open the window.
             # Every run, webhooks included, names its binding in Work as it starts.
             self.engine.deps.scheduler.run_observer = self._observe_schedule_run
+            # Work also follows definitions created, paused or deleted without a
+            # schedules.* call, as Odin's schedule tools do from chat. Its catch-up
+            # runs with this same sealed authority, whatever made the change.
+            loop, sealed = asyncio.get_running_loop(), contextvars.copy_context()
+
+            def schedules_changed():
+                # Called inside the scheduler's lock, perhaps on a worker thread.
+                if not self._closed:
+                    loop.call_soon_threadsafe(self._sync_schedule_work, context=sealed.copy())
+
+            self._schedule_subscription = self.engine.deps.scheduler.subscribe_changes(
+                schedules_changed)
             self.engine.deps.scheduler.start(self._scheduled_handlers._on_scheduled_task,
                 self._scheduled_handlers._on_schedule_failure)
+            self._sync_schedule_work()  # Definitions saved before this core started.
         finally:
             self.permissions.reset_request_owner(schedule_token)
         await self.requests.after_commit()
@@ -572,6 +587,17 @@ class CoreService:
             raise PermissionError("Report requires an admitted background run")
         if background["run_id"] != binding.run_id:
             raise PermissionError("Report run identity differs from admission")
+
+    def _sync_schedule_work(self):
+        """Work catches up with the scheduler. A failure is logged; the next change retries."""
+        if self._closed:
+            return
+        try:
+            self.work.sync_schedules()
+        except Exception:
+            from ..odin_log import get_logger
+
+            get_logger("desktop.core").exception("Work could not follow a schedule change")
 
     def _observe_schedule_run(self, definition):
         """The scheduler's run-start notice: Work records which run of the definition starts."""
@@ -980,6 +1006,9 @@ class CoreService:
         if self._closed:
             return
         self._closed = True
+        if self._schedule_subscription is not None:
+            self._schedule_subscription()
+            self._schedule_subscription = None
         self.lifetime.request_stop("startup_failed")
         self.lifetime.close()
         try:

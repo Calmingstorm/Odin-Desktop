@@ -161,6 +161,32 @@ class WorkService:
                                (sid, gen, canonical_json(record)))
         return self.refresh(record)
 
+    def sync_schedules(self) -> None:
+        """Bring Work up to date with the scheduler after any change to its definitions.
+
+        Odin can create, pause or delete a schedule from chat, which changes the
+        scheduler without any Work call, so the core runs this after each scheduler
+        publication. Owner definitions Work hasn't seen are imported, and every
+        schedule record is refreshed, so a paused or deleted one shows at once. A
+        definition that can't be imported now (its conversation is gone, its owner
+        changed) stays out, as with any other import.
+        """
+        if self.scheduler is None:
+            return
+        for schedule in self.scheduler.list_all():
+            if schedule.get("requester_id") != self.authority.owner_id:
+                continue
+            try:
+                self.register_schedule(schedule)
+            except (PermissionError, ValueError):
+                continue
+        with self.store.transaction() as connection:
+            records = [json.loads(row[0]) for row in connection.execute(
+                "SELECT record FROM desktop_work WHERE kind='schedule' "
+                "ORDER BY id,manager_generation")]
+        for record in records:
+            self.refresh(record)
+
     def _watch(self, item):
         task = _get(item, "_task", _get(item, "_asyncio_task", _get(item, "_exit_task")))
         if task is not None and task not in self._watched:
