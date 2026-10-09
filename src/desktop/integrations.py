@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 from ..config.persistence import _config_file_lock, _load_document
 from ..config.schema import OutboundWebhookTarget
 from ..notifications.outbound_webhooks import OutboundWebhookDispatcher
+from .errors import refusal_reason
 from .management import MethodError
 from .secrets import secret_call
 
@@ -413,7 +414,12 @@ class IntegrationsService:
                     verify_ssl=params.get("verify_ssl", True),
                 )
                 ident = result.id
-        except (ValueError, TypeError):
+        except ValueError as error:
+            # The dispatcher's reason (an unknown event, a blocked address) says what
+            # to fix; its messages never echo the URL or the secret.
+            raise MethodError("bad_request", refusal_reason(
+                error, "invalid webhook configuration")) from None
+        except TypeError:
             raise MethodError("bad_request", "invalid webhook configuration") from None
         if result is None or result is False:
             raise MethodError("not_found", "webhook not found")
