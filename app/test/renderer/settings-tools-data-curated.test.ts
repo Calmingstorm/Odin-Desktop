@@ -245,4 +245,21 @@ describe('Data and privacy nested state', () => {
     expect(v.root.textContent()).not.toContain('Attachment retention')
     expect(v.root.findAll((n) => n.tag === 'button' && n.textContent().includes('Export'))).toHaveLength(0)
   })
+
+  it('lays memory out in fixed columns where only the key and value wrap (1.0.5)', async () => {
+    // Settings cards break words anywhere, which squeezed Pick and Edit to a letter per line.
+    bridge.memoryList!.mockResolvedValue(ok({ global: { count: 1, keys: ['sudo_on_permission_block'] } }))
+    bridge.memoryGet!.mockResolvedValue(ok({ scope: 'global', entries: { sudo_on_permission_block: 'Try sudo -n before reporting a permission failure.' } }))
+    await install([field('learning.enabled')])
+    const v = await view('DataPrivacy')
+    v.root.named('Open Everywhere memory').fire('click')
+    await flush()
+    const table = v.root.findAll((n) => n.tag === 'table' && String(n.props.class).includes('memory'))[0]!
+    expect(table.findAll((n) => n.tag === 'col').map((n) => n.props.class ?? '')).toEqual(['memory-pick', 'memory-key', '', 'memory-edit'])
+    const cells = table.findAll((n) => n.tag === 'td')
+    expect(cells.map((n) => String(n.props.class ?? '').split(' ').includes('wrap'))).toEqual([false, true, true, false])
+    expect(cells[0]!.textContent()).toContain('Pick')
+    expect(cells[3]!.textContent()).toContain('Edit')
+  })
 })
+

@@ -132,11 +132,12 @@ async function removeSource(name: string): Promise<void> {
           </span>
         </div>
         <table v-if="stateStore.memoryEntries[scope]" :id="`memory-entries-${scope}`" :aria-label="`${scopeName(String(scope))} memory entries`" class="runs memory">
+          <colgroup><col class="memory-pick" /><col class="memory-key" /><col /><col class="memory-edit" /></colgroup>
           <tbody>
             <tr v-for="(value, key) in stateStore.memoryEntries[scope]" :key="key">
               <td><label><input v-model="picked[scope]" type="checkbox" :value="key" :aria-label="`Pick ${key} in ${scopeName(String(scope))} memory`" /> Pick</label></td>
-              <td><code>{{ key }}</code></td>
-              <td class="memory-value">{{ show(value) }}</td>
+              <td class="wrap"><code>{{ key }}</code></td>
+              <td class="memory-value wrap">{{ show(value) }}</td>
               <td><button class="ghost" :aria-label="`Edit ${key} in ${scopeName(String(scope))} memory`" @click="editEntry(scope, String(key), value)">Edit</button></td>
             </tr>
           </tbody>
@@ -213,7 +214,7 @@ async function removeSource(name: string): Promise<void> {
               <td>v{{ v.version }}</td>
               <td>{{ v.action }}</td>
               <td>{{ new Date(v.created_at).toLocaleString() }}</td>
-              <td>{{ v.diff_summary }}</td>
+              <td class="wrap">{{ v.diff_summary }}</td>
               <td><button class="ghost" :aria-label="`Restore ${item.source} version ${v.version}`" :disabled="v.action === 'delete' || management.busy[`knowledge:${item.source}`]" @click="restoreVersion(item.source, v.version)">Restore</button></td>
             </tr>
           </tbody>
@@ -247,6 +248,12 @@ async function removeSource(name: string): Promise<void> {
 
 <style scoped>
 .sub-head { margin: 14px var(--settings-padding) 4px; }
+/* Fixed columns: the key and value wrap inside theirs instead of squeezing Pick and Edit. */
+.runs.memory { width: 100%; table-layout: fixed; }
+.runs.memory .memory-pick { width: 5.5rem; }
+.runs.memory .memory-key { width: 30%; }
+.runs.memory .memory-edit { width: 4.5rem; }
+.runs.memory td { vertical-align: top; }
 .knowledge-file-label { font-size: 13px; }
 .knowledge-file-input { width: auto; max-width: 100%; background: transparent; border: 0; padding: 0; }
 .knowledge-file-input::file-selector-button { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 4px 11px; margin-right: 8px; cursor: pointer; }

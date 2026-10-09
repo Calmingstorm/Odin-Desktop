@@ -208,7 +208,7 @@ async function remove(row: ScheduleRow): Promise<void> {
               <td>{{ at(run.timestamp) }}</td>
               <td :class="run.status === 'success' ? 'ok' : run.status === 'failure' ? 'bad' : ''">{{ scheduleRunLabel(run) }}</td>
               <td>{{ (run.duration_ms / 1000).toFixed(1) }} s</td>
-              <td>{{ run.error ?? '' }}</td>
+              <td class="wrap">{{ run.error ?? '' }}</td>
             </tr>
             <tr v-if="!(schedules.history[row.id] ?? []).length"><td>No runs yet.</td></tr>
           </tbody>

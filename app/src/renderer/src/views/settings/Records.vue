@@ -112,7 +112,7 @@ const fullyVerified = computed(() => {
       <tbody>
         <tr v-for="(e, i) in records.audit" :key="i">
           <td>{{ at(e.timestamp) }}</td>
-          <td>
+          <td class="wrap">
             <code>{{ e.tool_name }}</code>
             <details v-if="e.tool_input && Object.keys(e.tool_input).length" class="audit-input">
               <summary :aria-label="`Input for ${e.tool_name} at ${at(e.timestamp)}`">Input</summary>
@@ -120,7 +120,7 @@ const fullyVerified = computed(() => {
             </details>
           </td>
           <td>{{ e.host ?? '' }}</td>
-          <td :class="e.error ? 'bad' : ''">{{ e.error ?? e.result_summary ?? e.detail ?? '' }}</td>
+          <td :class="['wrap', { bad: e.error }]">{{ e.error ?? e.result_summary ?? e.detail ?? '' }}</td>
           <td>{{ e.execution_time_ms !== undefined ? `${e.execution_time_ms} ms` : '' }}</td>
         </tr>
         <tr v-if="records.loaded.audit && !records.audit.length"><td>Nothing recorded.</td></tr>
@@ -146,7 +146,7 @@ const fullyVerified = computed(() => {
         <tr v-for="(e, i) in records.logs" :key="i">
           <td>{{ at(e.timestamp) }}</td>
           <td :class="logLevel(e) === 'ERROR' ? 'bad' : ''">{{ logLevel(e) }}</td>
-          <td><code>{{ e.tool_name }}</code> {{ logMessage(e) }}</td>
+          <td class="wrap"><code>{{ e.tool_name }}</code> {{ logMessage(e) }}</td>
         </tr>
         <tr v-if="records.loaded.logs && !records.logs.length"><td>No entries.</td></tr>
       </tbody>

@@ -863,6 +863,11 @@ label.field-input > input:not([type='checkbox']):not([type='radio']), label.fiel
 .runs td { padding: 2px 12px 2px 0; }
 .runs td.ok { color: var(--ok); }
 .runs td.bad { color: var(--bad); }
+/* Settings cards break long words anywhere, which in a table shrank short cells (a time, a
+   status, a Pick or Edit button) to a letter or two beside one long cell. Short cells keep
+   their words; a .wrap cell takes the long text and wraps it. */
+.settings-card .runs td { white-space: nowrap; overflow-wrap: normal; }
+.settings-card .runs td.wrap { white-space: normal; overflow-wrap: anywhere; }
 
 /* Settings has one width owner; legacy staged panels inherit its left edge too. */
 .shell.settings-open { grid-template-columns: 64px minmax(0, 1fr); }
