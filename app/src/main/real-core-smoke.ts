@@ -830,7 +830,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     assert.equal(controlReceipt.result!.disposition, 'done')
     assert.deepEqual(await run(`window.odin.workControl(${JSON.stringify(controlParams)})`), controlReceipt, 'named bridge must return journaled receipt without repeating cancellation')
     await click('button[aria-label="Refresh work"]')
-    await until(async () => (await text('.work-panel')).includes('cancelled'), 'settled actual task after journaled cancellation')
+    // The cancelled task's own card: other seeded work may already read Stopped.
+    const cancelledState = `.work-panel .work-state.cancelled[id$=${JSON.stringify(`-${encodeURIComponent(`${cancellable.kind}:${cancellable.id}`)}-state`)}]`
+    await until(async () => (await text(cancelledState)) === 'Stopped', 'settled actual task after journaled cancellation')
     screens.push({ screen: 'Work all kinds (agent/process metadata seeds), settled task and journaled receipt', text: await text('.work-panel') })
   } else {
     const work = await broker.request('work.list')
