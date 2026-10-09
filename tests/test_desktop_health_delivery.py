@@ -210,6 +210,27 @@ async def test_core_work_catch_up_failure_is_logged_and_the_next_change_retries(
         logger.removeHandler(handler)
 
 
+async def test_core_queues_one_catch_up_for_notices_that_arrive_before_it_runs(
+        composed, monkeypatch):
+    core, _provider, _reader, _writer = composed
+    scheduler = core.engine.deps.scheduler
+    passes = []
+    monkeypatch.setattr(core.work, "sync_schedules", lambda: passes.append(1))
+
+    def notify():
+        for subscriber in tuple(scheduler._change_subscribers):
+            subscriber()
+
+    for _ in range(3):
+        notify()  # a burst: three publications before the loop runs anything
+    await _until(lambda: passes)
+    for _ in range(20):
+        await asyncio.sleep(0)
+    assert len(passes) == 1
+    notify()  # a change after the pass started queues the next one
+    await _until(lambda: len(passes) == 2)
+
+
 async def test_core_stops_following_the_scheduler_when_it_closes(composed, monkeypatch):
     core, _provider, _reader, _writer = composed
     scheduler = core.engine.deps.scheduler

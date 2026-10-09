@@ -126,14 +126,16 @@ class WorkService:
         self._watch(item)
         return self.refresh(record)
 
-    def register_schedule(self, schedule: dict) -> dict:
+    def register_schedule(self, schedule: dict, *, current=None) -> dict:
         """Trusted scheduler-definition import, not renderer admission.
 
         Scheduled execution owns a separate ``run_binding``. A definition's
         immutable run ID is for its control identity, never a runnable request.
+        ``current`` is a scheduler snapshot by ID that the caller already holds.
         """
         sid = str(schedule["id"])
-        actual = self._items("schedule").get(sid)
+        current = self._items("schedule") if current is None else current
+        actual = current.get(sid)
         if actual is None or actual != schedule:
             raise ValueError("Schedule is not the manager's current definition")
         owner, destination = self._owner_destination("schedule", actual)
@@ -150,7 +152,7 @@ class WorkService:
                 record = json.loads(prior[0])
                 if (record["owner_id"], record["conversation_id"]) != (owner, destination):
                     raise ValueError("Schedule generation destination changed")
-                return self.refresh(record)
+                return self.refresh(record, current)
             record = {"kind": "schedule", "id": str(uuid.uuid4()), "manager_id": sid,
                       "manager_generation": gen,
                       "run_id": str(uuid.uuid4()), "request_id": None, "generation": 1,
@@ -159,7 +161,7 @@ class WorkService:
                       "detail": {}, "actions": [], "settlement": {"state": "pending"}}
             connection.execute("INSERT INTO desktop_work VALUES ('schedule',?,?,?)",
                                (sid, gen, canonical_json(record)))
-        return self.refresh(record)
+        return self.refresh(record, current)
 
     def sync_schedules(self) -> None:
         """Bring Work up to date with the scheduler after any change to its definitions.
@@ -169,23 +171,28 @@ class WorkService:
         publication. Owner definitions Work hasn't seen are imported, and every
         schedule record is refreshed, so a paused or deleted one shows at once. A
         definition that can't be imported now (its conversation is gone, its owner
-        changed) stays out, as with any other import.
+        changed) stays out, as with any other import. One scheduler snapshot serves
+        the whole pass, and each record is refreshed once.
         """
         if self.scheduler is None:
             return
-        for schedule in self.scheduler.list_all():
+        current = self._items("schedule")
+        refreshed = set()
+        for schedule in current.values():
             if schedule.get("requester_id") != self.authority.owner_id:
                 continue
             try:
-                self.register_schedule(schedule)
+                record = self.register_schedule(schedule, current=current)
             except (PermissionError, ValueError):
                 continue
+            refreshed.add((record["manager_id"], record["manager_generation"]))
         with self.store.transaction() as connection:
             records = [json.loads(row[0]) for row in connection.execute(
                 "SELECT record FROM desktop_work WHERE kind='schedule' "
                 "ORDER BY id,manager_generation")]
         for record in records:
-            self.refresh(record)
+            if (record["manager_id"], record["manager_generation"]) not in refreshed:
+                self.refresh(record, current)
 
     def _watch(self, item):
         task = _get(item, "_task", _get(item, "_asyncio_task", _get(item, "_exit_task")))
@@ -270,8 +277,9 @@ class WorkService:
                       settlement=settlement)
         return result
 
-    def refresh(self, record):
-        item = self._items(record["kind"]).get(record["manager_id"])
+    def refresh(self, record, items=None):
+        """``items``: the record kind's manager items by ID, when the caller holds them."""
+        item = (self._items(record["kind"]) if items is None else items).get(record["manager_id"])
         if self._same(record, item):
             result = self._project(record, item)
             self._watch(item)
@@ -368,7 +376,11 @@ class WorkService:
         with self.store.transaction() as connection:
             records = [json.loads(row[0]) for row in connection.execute(
                 "SELECT record FROM desktop_work ORDER BY kind,id,manager_generation")]
-        return [self.refresh(record) for record in records]
+        items = {}  # one read of each kind's manager per pass: the scheduler's is a full copy
+        for record in records:
+            if record["kind"] not in items:
+                items[record["kind"]] = self._items(record["kind"])
+        return [self.refresh(record, items[record["kind"]]) for record in records]
 
     def list(self, params=None) -> dict:
         params = params or {}

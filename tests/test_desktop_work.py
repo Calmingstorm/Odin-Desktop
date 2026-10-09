@@ -749,6 +749,46 @@ async def test_catch_up_imports_only_the_owners_importable_definitions(work, tmp
     assert _stored_schedule_states(service) == {added["id"]: "scheduled"}
 
 
+def _count_reads(service, scheduler, monkeypatch):
+    """Counts full scheduler snapshots and record refreshes, by manager ID."""
+    snapshots, refreshed = [], []
+    real_list_all, real_refresh = scheduler.list_all, service.refresh
+
+    def list_all():
+        snapshots.append(1)
+        return real_list_all()
+
+    def refresh(record, items=None):
+        refreshed.append(record["manager_id"])
+        return real_refresh(record, items)
+
+    monkeypatch.setattr(scheduler, "list_all", list_all)
+    monkeypatch.setattr(service, "refresh", refresh)
+    return snapshots, refreshed
+
+
+async def test_catch_up_reads_the_scheduler_once_and_refreshes_each_record_once(
+        work, tmp_path, monkeypatch):
+    """Each pass copies every definition once, however many there are (Odin, PR #128 r1:
+    1 + 3N full copies took 5.8 s at 500 definitions)."""
+    service, scheduler, message = _chat_scheduler(work, tmp_path)
+    ids = [(await scheduler.add(f"inert {index}", "reminder", message.conversation_id,
+                                cron="17 3 * * *", message="inert",
+                                requester_id=message.owner_id))["id"] for index in range(30)]
+    snapshots, refreshed = _count_reads(service, scheduler, monkeypatch)
+    service.sync_schedules()  # imports all 30
+    assert (len(snapshots), sorted(refreshed)) == (1, sorted(ids))
+    for deleted in ids[:2]:
+        await scheduler.delete(deleted)
+    snapshots.clear(), refreshed.clear()
+    service.sync_schedules()  # 28 current definitions and 2 ended records
+    assert (len(snapshots), sorted(refreshed)) == (1, sorted(ids))
+    assert _stored_schedule_states(service)[ids[0]] == "cancelled"
+    snapshots.clear(), refreshed.clear()
+    service.list({"kind": "schedule"})  # the Work list reads the scheduler once per pass too
+    assert (len(snapshots), sorted(refreshed)) == (1, sorted(ids))
+
+
 def test_a_failing_run_observer_never_stops_the_run(tmp_path):
     from src.scheduler.scheduler import Scheduler
     scheduler = Scheduler(str(tmp_path / "schedules.json"), desktop_recovery=True)

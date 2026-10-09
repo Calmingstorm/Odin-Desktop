@@ -255,6 +255,7 @@ class CoreService:
         self._receipt_pruner: asyncio.Task | None = None
         self._publication_task: asyncio.Task | None = None
         self._schedule_subscription = None
+        self._schedule_sync_queued = False
         self._publication_ready = asyncio.Event()
         self._published_seq = 0
         self.management: ManagementService | None = None
@@ -489,8 +490,10 @@ class CoreService:
             loop, sealed = asyncio.get_running_loop(), contextvars.copy_context()
 
             def schedules_changed():
-                # Called inside the scheduler's lock, perhaps on a worker thread.
-                if not self._closed:
+                # Called inside the scheduler's lock, perhaps on a worker thread. One
+                # queued catch-up covers every change made before it runs.
+                if not self._closed and not self._schedule_sync_queued:
+                    self._schedule_sync_queued = True
                     loop.call_soon_threadsafe(self._sync_schedule_work, context=sealed.copy())
 
             self._schedule_subscription = self.engine.deps.scheduler.subscribe_changes(
@@ -590,6 +593,7 @@ class CoreService:
 
     def _sync_schedule_work(self):
         """Work catches up with the scheduler. A failure is logged; the next change retries."""
+        self._schedule_sync_queued = False  # a change from here on queues the next pass
         if self._closed:
             return
         try:
