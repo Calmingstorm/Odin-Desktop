@@ -321,7 +321,7 @@ _SAME = object()
 
 
 def _ended_schedule(work, tmp_path, history_lines, latest_run="r1", *, removed_run=_SAME,
-                    removal=True, removed_generation="g1"):
+                    removal=True, removed_generation="g1", binding_generation="g1"):
     """A registered schedule its scheduler then removed, with a harmless history file.
 
     `latest_run` is the latest run Work heard start; None means it heard none.
@@ -330,8 +330,8 @@ def _ended_schedule(work, tmp_path, history_lines, latest_run="r1", *, removed_r
     no record of removing it, as after a removal by an older version.
     """
     service, message, _context = work
-    def binding(run_id):
-        return {"run_id": run_id, "generation": "g1"} if run_id else None
+    def binding(run_id, generation="g1"):
+        return {"run_id": run_id, "generation": generation} if run_id else None
     schedule = {"id": "s", "_generation": "g1", "created_at": "fixed",
                 "requester_id": message.owner_id, "channel_id": message.conversation_id,
                 "description": "harmless", "settlement": "completed",
@@ -348,7 +348,8 @@ def _ended_schedule(work, tmp_path, history_lines, latest_run="r1", *, removed_r
     if removal:
         removed.append({"id": "s", "generation": removed_generation, "run_binding": None,
                         "last_run_binding": binding(
-                            latest_run if removed_run is _SAME else removed_run)})
+                            latest_run if removed_run is _SAME else removed_run,
+                            binding_generation)})
     return service
 
 
@@ -400,6 +401,14 @@ def test_removed_schedule_without_its_removal_record_is_unknown(work, tmp_path, 
     service = _ended_schedule(work, tmp_path, [_run("success")], "r1",
                               removal=missing == "other_generation",
                               removed_generation="g0")
+    item = service.list({"kind": "schedule"})["items"][0]
+    assert item["state"] == "unknown" and item["settlement"]["state"] == "unknown"
+
+
+def test_removed_schedule_whose_latest_run_is_an_earlier_generations_is_unknown(work, tmp_path):
+    """The definition moved to a new generation after its last run: that run isn't this
+    generation's, and nothing says this generation never ran."""
+    service = _ended_schedule(work, tmp_path, [_run("success")], "r1", binding_generation="g0")
     item = service.list({"kind": "schedule"})["items"][0]
     assert item["state"] == "unknown" and item["settlement"]["state"] == "unknown"
 
@@ -591,6 +600,66 @@ async def test_one_time_schedule_retired_after_its_run_ends_completed(
         item = view.list({"kind": "schedule"})["items"][0]
         assert item["state"] == "completed" and item["settlement"]["state"] == "settled"
         assert item["detail"]["run_binding"]["run_id"] == seen["run_id"]
+
+
+@pytest.mark.parametrize("action", ["reminder", "webhook"])
+@pytest.mark.parametrize("damage", [
+    None,                    # the complete record: the cancelled newest run is unknown
+    "missing_bindings",      # never "no run", so never cancelled
+    "current_binding_list",  # never the older binding, so never the older success
+    "unsupported_version",   # with the newest binding gone, as if the format changed
+])
+async def test_damaged_removal_record_settles_nothing_after_a_restart(
+        work, tmp_path, action, damage):
+    import json
+    started, finish = asyncio.Event(), asyncio.Event()
+
+    async def run(_payload):
+        started.set()
+        await finish.wait()
+
+    service, scheduler, schedule = await _real_schedule(work, tmp_path, run, action)
+    finish.set()
+    await _earlier_success(service, scheduler, schedule)
+    started.clear()
+    finish.clear()
+    running = asyncio.create_task(scheduler.run_now(schedule["id"]))
+    try:
+        await asyncio.wait_for(started.wait(), 5)
+        await scheduler.delete(schedule["id"])
+        running.cancel()
+    finally:
+        finish.set()
+        try:
+            await running
+        except asyncio.CancelledError:
+            pass
+    path = scheduler.data_path.with_name("schedules_removed.json")
+    doc = json.loads(path.read_text())
+    record = doc["removed"][-1]
+    assert record["run_binding"]["run_id"] != record["last_run_binding"]["run_id"]
+    if damage == "missing_bindings":
+        del record["run_binding"], record["last_run_binding"]
+    elif damage == "current_binding_list":
+        record["run_binding"] = []
+    elif damage == "unsupported_version":
+        doc["version"], record["run_binding"] = 999, None
+    path.write_text(json.dumps(doc))
+    for view in (_restarted(service, tmp_path), service):
+        item = view.list({"kind": "schedule"})["items"][0]
+        assert item["state"] == "unknown" and item["settlement"]["state"] == "unknown"
+
+
+@pytest.mark.parametrize("action", ["reminder", "webhook"])
+async def test_real_schedule_deleted_before_it_ever_ran_ends_cancelled(work, tmp_path, action):
+    async def run(_payload):
+        raise AssertionError("never runs")
+
+    service, scheduler, schedule = await _real_schedule(work, tmp_path, run, action)
+    await scheduler.delete(schedule["id"])
+    for view in (_restarted(service, tmp_path), service):
+        item = view.list({"kind": "schedule"})["items"][0]
+        assert item["state"] == "cancelled" and item["settlement"]["state"] == "settled"
 
 
 @pytest.mark.parametrize("failed", [False, True])

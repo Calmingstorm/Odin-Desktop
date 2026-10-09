@@ -281,8 +281,8 @@ class WorkService:
             # The scheduler's record of the definition as it removed it names its latest
             # run, including one whose start never reached Work.
             result = dict(result, detail=dict(result.get("detail") or {},
-                          run_binding=removed.get("run_binding"),
-                          last_run_binding=removed.get("last_run_binding")))
+                          run_binding=removed["run_binding"],
+                          last_run_binding=removed["last_run_binding"]))
         last_run = record["settlement"].get("last_run")
         if record["manager_id"] in in_flight:
             return dict(result, state="running",
@@ -292,10 +292,11 @@ class WorkService:
             "state": "unknown" if ended == "unknown" else "settled", "last_run": last_run})
 
     def _removed_definition(self, record):
+        """The scheduler's complete removal record for this generation, or None."""
         lookup = getattr(self.scheduler, "removed_definition", None)
         removed = lookup(record["manager_id"]) if callable(lookup) else None
         if (not isinstance(removed, dict)
-                or str(removed.get("generation")) != record["manager_generation"]):
+                or removed.get("generation") != record["manager_generation"]):
             return None
         return removed
 
@@ -306,16 +307,20 @@ class WorkService:
         (`run_binding`, else `last_run_binding`). Only a history entry with that run ID
         settles it: completed, failed or unknown. A run that left no entry (cancelled,
         history unavailable, the core stopped) is unknown, never settled from an older
-        run; a definition removed before any run ends cancelled. Without a removal record
-        (removed by an older version, or the record was pruned) the latest run can't be
-        named, so the ending is unknown: Work's own binding may predate a run it never
-        heard start.
+        run. Only a record whose two bindings are explicitly null says the definition
+        never ran: cancelled. Without a complete removal record (removed by an older
+        version, pruned or damaged) the latest run can't be named, so the ending is
+        unknown: Work's own binding may predate a run it never heard start. So is a latest
+        run that belongs to an earlier generation of the definition.
         """
         if removed is None:
             return "unknown"
-        latest = removed.get("run_binding") or removed.get("last_run_binding")
-        if not isinstance(latest, dict) or not latest.get("run_id"):
+        latest = (removed["run_binding"] if removed["run_binding"] is not None
+                  else removed["last_run_binding"])
+        if latest is None:
             return "cancelled"
+        if latest.get("generation") != removed["generation"]:
+            return "unknown"
         path = getattr(getattr(self.scheduler, "history", None), "path", None)
         try:
             lines = Path(path).read_text(encoding="utf-8").splitlines() if path else []

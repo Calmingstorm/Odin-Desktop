@@ -220,6 +220,11 @@ class Scheduler:
 
     REPLAY_SAFE_ONE_TIME_ACTIONS = frozenset({"reminder", "digest"})
     REMOVED_RECORDS_KEPT = 512
+    REMOVED_RECORDS_VERSION = 1
+    _REMOVED_RECORD_KEYS = frozenset({"id", "generation", "run_binding", "last_run_binding",
+                                      "removed_at"})
+    _RUN_BINDING_KEYS = frozenset({"run_id", "schedule_id", "generation", "owner_id",
+                                   "conversation_id"})
 
     def _tracks_run_start(self, schedule: dict) -> bool:
         return (
@@ -413,20 +418,45 @@ class Scheduler:
             # older run. The next removal rewrites the file.
             log.error("Removed-schedule records are unreadable: %s", e)
             return []
-        records = stored.get("removed") if isinstance(stored, dict) else None
-        if not isinstance(records, list):
-            log.error("Removed-schedule records have an unknown shape; ignoring them")
+        if (not isinstance(stored, dict) or type(stored.get("version")) is not int
+                or stored["version"] != self.REMOVED_RECORDS_VERSION
+                or not isinstance(stored.get("removed"), list)):
+            log.error("Removed-schedule records have an unsupported format; ignoring them")
             return []
         # A record for a definition still present comes from a removal whose
         # schedules.json write never landed: that definition was not removed.
         present = {s.get("id") for s in self._schedules if isinstance(s, dict)}
-        return [r for r in records if isinstance(r, dict) and isinstance(r.get("id"), str)
-                and r["id"] not in present]
+        records = [r for r in stored["removed"] if self._valid_removed_record(r)]
+        if len(records) < len(stored["removed"]):
+            log.error("Ignoring %d incomplete removed-schedule record(s)",
+                      len(stored["removed"]) - len(records))
+        return [r for r in records if r["id"] not in present]
+
+    @classmethod
+    def _valid_removed_record(cls, record) -> bool:
+        """A complete removal record. Only explicit nulls say a definition never ran: a
+        missing or malformed field makes the whole record invalid, never a fallback."""
+        def text(value):
+            return type(value) is str and bool(value)
+
+        def binding(value):
+            return value is None or (
+                type(value) is dict and set(value) == cls._RUN_BINDING_KEYS
+                and text(value["run_id"]) and value["schedule_id"] == record["id"]
+                and text(value["generation"])
+                and all(value[key] is None or type(value[key]) is str
+                        for key in ("owner_id", "conversation_id")))
+
+        return (type(record) is dict and set(record) == cls._REMOVED_RECORD_KEYS
+                and text(record["id"]) and text(record["generation"])
+                and type(record["removed_at"]) is str
+                and binding(record["run_binding"]) and binding(record["last_run_binding"]))
 
     def removed_definition(self, schedule_id: str) -> dict | None:
-        """What a definition this scheduler removed last carried, or None without a record."""
+        """What a definition this scheduler removed last carried, or None without a complete
+        record."""
         record = next((r for r in reversed(self._removed) if r.get("id") == schedule_id), None)
-        return copy.deepcopy(record)
+        return copy.deepcopy(record) if self._valid_removed_record(record) else None
 
     def _removed_after(self, candidate: list[dict]) -> list[dict] | None:
         """The removal records once ``candidate`` is published; None if it removes nothing."""
@@ -456,7 +486,7 @@ class Scheduler:
     def _save_removed(self, removed: list[dict]) -> None:
         tmp = self._removed_path.with_suffix(self._removed_path.suffix + ".tmp")
         with open(tmp, "w") as f:
-            json.dump({"version": 1, "removed": removed}, f, indent=2)
+            json.dump({"version": self.REMOVED_RECORDS_VERSION, "removed": removed}, f, indent=2)
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp, self._removed_path)

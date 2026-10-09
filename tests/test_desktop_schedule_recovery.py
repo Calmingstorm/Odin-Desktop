@@ -1109,3 +1109,67 @@ async def test_scheduler_without_desktop_recovery_keeps_no_removal_records(tmp_p
     assert await scheduler.delete(item["id"])
     assert scheduler.removed_definition(item["id"]) is None
     assert not (tmp_path / "schedules_removed.json").exists()
+
+
+def _damage_removal(doc, damage):
+    record = doc["removed"][-1]
+    if damage == "unsupported_version":
+        doc["version"] = 999
+    elif damage == "boolean_version":
+        doc["version"] = True
+    elif damage == "missing_version":
+        del doc["version"]
+    elif damage == "missing_bindings":
+        del record["run_binding"], record["last_run_binding"]
+    elif damage == "missing_removed_at":
+        del record["removed_at"]
+    elif damage == "extra_field":
+        record["note"] = "inert"
+    elif damage == "current_binding_list":
+        record["run_binding"] = []
+    elif damage == "binding_without_run_id":
+        del record["last_run_binding"]["run_id"]
+    elif damage == "binding_empty_run_id":
+        record["last_run_binding"]["run_id"] = ""
+    elif damage == "binding_of_another_schedule":
+        record["last_run_binding"]["schedule_id"] = "other"
+    elif damage == "binding_extra_field":
+        record["last_run_binding"]["note"] = "inert"
+    elif damage == "null_generation":
+        record["generation"] = None
+    else:
+        assert damage is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("damage", [
+    None, "unsupported_version", "boolean_version", "missing_version", "missing_bindings",
+    "missing_removed_at", "extra_field", "current_binding_list", "binding_without_run_id",
+    "binding_empty_run_id", "binding_of_another_schedule", "binding_extra_field",
+    "null_generation",
+])
+async def test_removed_definition_names_only_complete_records(graph, damage):
+    """A damaged record is never partly trusted: it names nothing at all."""
+    import json
+    scheduler, _, _, _ = graph
+    item = await add(graph)
+    scheduler._callback = AsyncMock()  # inert action
+    await scheduler.run_now(item["id"])
+    assert await scheduler.delete(item["id"])
+    stored = scheduler.removed_definition(item["id"])
+    assert stored["last_run_binding"]["run_id"]
+    doc = json.loads(_removed_path(scheduler).read_text())
+    _damage_removal(doc, damage)
+    _removed_path(scheduler).write_text(json.dumps(doc))
+    reloaded = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    assert reloaded.removed_definition(item["id"]) == (stored if damage is None else None)
+
+
+@pytest.mark.asyncio
+async def test_a_definition_removed_before_any_run_has_explicitly_null_bindings(graph):
+    scheduler, _, _, _ = graph
+    item = await add(graph)
+    assert await scheduler.delete(item["id"])
+    record = Scheduler(str(scheduler.data_path), desktop_recovery=True).removed_definition(
+        item["id"])
+    assert record["run_binding"] is None and record["last_run_binding"] is None
