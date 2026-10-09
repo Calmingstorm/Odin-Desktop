@@ -7,6 +7,7 @@ import { app, dialog, type BrowserWindow } from 'electron'
 import type { Broker } from './broker'
 import type { ConversationSnapshot, ScheduleRow, WebhookIngressStatus } from '../shared/api'
 import type { ConfigField } from '../shared/api'
+import { reportPlainText } from '../shared/report-text'
 import { assertAdvancedInventory, advancedPresentation } from './advanced-capture-contract'
 
 const pause = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
@@ -489,7 +490,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   // Click the real retained buttons, not merely their labels.
   for (const report of ['Status', 'Usage']) {
     await run(`(() => { const button = Array.from(document.querySelectorAll('.status button')).find(b => b.textContent.trim() === ${JSON.stringify(report)}); if (!button || button.disabled) throw new Error('Missing enabled status report action'); button.click(); })()`)
-    const expected = report === 'Status' ? status.version : (reads['usage.get'] as { summary: string }).summary
+    // The panel shows the core's report with its Markdown rendered.
+    const expected = report === 'Status' ? status.version : reportPlainText((reads['usage.get'] as { summary: string }).summary)
     await until(async () => (await text('.composer .panel-text')).includes(expected), `status bar ${report} report`)
     screens.push({ screen: `Status bar / ${report}`, text: await text('.composer .panel-text') })
     await click('.composer .panel button')

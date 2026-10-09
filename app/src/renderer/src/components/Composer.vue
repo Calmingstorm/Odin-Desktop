@@ -5,6 +5,7 @@ import { dispatch, matchCommands, parseCommand } from '../commands'
 import { canAct, chatUnavailable, loadFailure, retry, send, state, stop, type ComposerMode } from '../store'
 import { useStoppingLabel } from '../stopping-label'
 import { unavailableText } from '../capability'
+import { reportParts } from '../../../shared/report-text'
 import { status } from '../stores/status'
 import { assistantName } from '../assistant-name'
 import {
@@ -64,6 +65,10 @@ const notice = computed(() => state.app.link === 'ready' && status.usageUnavaila
 // Local command reports have no chat task terminal event. Announce only
 // readiness and the structural title, never report contents or composer drafts.
 const reportAnnouncement = computed(() => state.panel ? `${state.panel.title} report ready.` : '')
+// A core report shows its bold and code as Odin's Discord replies do; other panels show their text as written.
+const panelParts = computed(() =>
+  state.panel?.report ? reportParts(state.panel.text) : [{ text: state.panel?.text ?? '', bold: false, code: false }]
+)
 const paletteOpen = computed(() => !paletteDismissed.value && text.value.startsWith('/') && !text.value.includes('\n'))
 // Dismissing suggestions changes only their presentation, not what a completed slash command executes.
 const matches = computed(() => (text.value.startsWith('/') && !text.value.includes('\n') ? matchCommands(text.value) : []))
@@ -210,7 +215,7 @@ async function closeReport(): Promise<void> {
       <strong>{{ state.panel.title }}</strong>
       <button type="button" class="ghost" aria-label="Close command report" @click="closeReport">Close</button>
     </div>
-    <pre class="panel-text">{{ state.panel.text }}</pre>
+    <pre class="panel-text"><template v-for="(part, index) in panelParts" :key="index"><strong v-if="part.bold"><code v-if="part.code">{{ part.text }}</code><template v-else>{{ part.text }}</template></strong><code v-else-if="part.code">{{ part.text }}</code><template v-else>{{ part.text }}</template></template></pre>
   </div>
   <form
     :class="['composer-form', { dragging, stopping }]"

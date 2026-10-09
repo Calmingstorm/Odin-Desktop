@@ -79,6 +79,25 @@ describe('review round 1: slash commands', () => {
     expect(calls.usage).toEqual(['7d', '30d'])
     expect(store.state.notice).toMatch(/24h, 7d, 30d, all/)
     expect(store.state.panel?.title).toBe('Usage, 30d')
+    // The core's report is Odin's slash-command text: the panel renders its Markdown.
+    expect(store.state.panel?.report).toBe(true)
+  })
+
+  it('/status and /reload show the core report as a report; the local fallback and setting panels are plain', async () => {
+    const odin = (window as unknown as { odin: Record<string, unknown> }).odin
+    const core = { phase: 'ready', core_instance_id: 'core-1', version: '1.0.4', capabilities: ['chat'] }
+    odin.status = async () => ({ ok: true, result: { ...core, summary: '**Odin v1.0.4** · up 1m' } })
+    await commands.dispatch(command('status'), '')
+    expect(store.state.panel).toEqual({ title: 'Status', text: '**Odin v1.0.4** · up 1m', report: true })
+    odin.status = async () => ({ ok: true, result: core })
+    await commands.dispatch(command('status'), '')
+    expect(store.state.panel).toEqual({ title: 'Status', text: 'Core core-1\nVersion: 1.0.4\nPhase: ready\nCapabilities: chat', report: false })
+    const reload = commands.dispatch(command('reload'), '')
+    releaseReload?.()
+    await reload
+    expect(store.state.panel).toEqual({ title: 'Reload', text: 'Reloaded.', report: true })
+    await commands.dispatch(command('model'), '')
+    expect(store.state.panel?.report).toBe(false)
   })
 
   it('runs one command at a time: a second press while /reload runs makes no second call', async () => {

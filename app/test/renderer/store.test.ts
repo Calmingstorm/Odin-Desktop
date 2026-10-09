@@ -829,7 +829,8 @@ describe('commands and attachments', () => {
     expect(await steer.run('do it differently')).toBe(false)
     expect(store.state.notice).toMatch(/Nothing is running/)
     await commands.COMMANDS.find((c) => c.name === 'status')!.run('')
-    expect(store.state.panel).toEqual({ title: 'Status', text: 'Core core-1: ready.' })
+    // The core's own report, shown as a report (its Markdown rendered), never sent to Odin.
+    expect(store.state.panel).toEqual({ title: 'Status', text: 'Core core-1: ready.', report: true })
     expect(bridge.calls.submit).toHaveLength(0) // nothing went to Odin as a message
   })
 
