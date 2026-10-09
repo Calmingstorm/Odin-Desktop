@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -158,6 +158,27 @@ describe('display profile store', () => {
     expect(statSync(shared).mode & 0o777).toBe(0o755)
     // A folder that does not exist yet has nothing to remove.
     expect(new DisplayProfileStore(join(base, 'missing')).removePicture(user)).toEqual({ name: '', user: null, personalities: [] })
+  })
+
+  // Root reads any folder regardless of mode, so the refusal can only be shown as an ordinary user.
+  it.skipIf(process.getuid?.() === 0)('refuses Remove when the folder cannot be checked, and keeps the pictures', () => {
+    const parent = join(root(), 'config')
+    mkdirSync(parent, { mode: 0o700 })
+    const dir = join(parent, 'display-profile')
+    const store = new DisplayProfileStore(dir)
+    store.setPicture(user, png().toString('base64'))
+    store.setPicture(personality('clippy'), png({ shade: 3 }).toString('base64'))
+    chmodSync(parent, 0o600)  // no traversal: the folder can no longer be looked up
+    try {
+      expect(() => lstatSync(dir)).toThrow(/EACCES/)
+      expect(() => store.removePicture(user)).toThrow(DisplayProfileError)
+      expect(() => store.removePicture(personality('clippy'))).toThrow(DisplayProfileError)
+    } finally {
+      chmodSync(parent, 0o700)
+    }
+    const again = store.read()
+    expect(again.user).toBe(`data:image/png;base64,${png().toString('base64')}`)
+    expect(again.personalities).toEqual([{ key: 'clippy', picture: `data:image/png;base64,${png({ shade: 3 }).toString('base64')}` }])
   })
 
   it('reads a file only when it is a regular file, never through a link', () => {

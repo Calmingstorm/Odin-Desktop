@@ -101,21 +101,21 @@ export class DisplayProfileStore {
     return this.read()
   }
 
-  /** Removing from a folder that exists but is not private is refused, never reported as done: the picture would come
-   * back once the folder is private again. */
+  /** Only a folder that does not exist has nothing to remove. A folder that is not private, or that cannot even be
+   * checked (no access to its parent, for one), is refused, never reported as done: the picture would come back. */
   removePicture(target: DisplayPictureTarget): DisplayProfile {
     const file = pictureFile(target)
     if (this.privateFolder()) rmSync(join(this.dir, file), { force: true })
-    else if (this.present()) throw new DisplayProfileError('The pictures folder is not private, so nothing was removed.')
+    else if (!this.missing()) throw new DisplayProfileError('The pictures folder is not private or could not be checked, so nothing was removed.')
     return this.read()
   }
 
-  private present(): boolean {
+  private missing(): boolean {
     try {
       lstatSync(this.dir)
-      return true
-    } catch {
       return false
+    } catch (error) {
+      return (error as NodeJS.ErrnoException).code === 'ENOENT'
     }
   }
 
