@@ -484,3 +484,22 @@ async def test_a_full_dispatcher_says_so(service):
     with pytest.raises(MethodError) as error:
         await create(service)
     assert error.value.message == "Maximum of 50 webhooks reached"
+
+
+async def test_mistyped_targets_stay_generic_and_unknown_methods_are_named(service, monkeypatch):
+    """L16 (1.0.5) shows the dispatcher's own reasons, which are ValueErrors. A TypeError is
+    an internal shape fault: its text never reaches the form."""
+    from src.desktop import integrations
+
+    def mistyped(self, **fields):
+        raise TypeError("internal signature detail")
+
+    monkeypatch.setattr(integrations.OutboundWebhookDispatcher, "register", mistyped)
+    with pytest.raises(MethodError) as error:
+        await create(service, url="http://127.0.0.1:8123/hook")
+    assert error.value.code == "bad_request"
+    assert str(error.value) == "invalid webhook configuration"
+    assert service.dispatcher.list_webhooks() == []
+    with pytest.raises(MethodError) as unknown:
+        await service.handle("webhooks.outbound.unknown", {})
+    assert unknown.value.code == "not_found"

@@ -607,3 +607,15 @@ async def test_startup_builds_the_saved_auxiliary_without_a_probe(graph, fake_ne
         assert owner.auxiliary is None
     assert fake_network == []  # nothing was sent at startup
     await owner.close()
+
+
+def test_startup_auxiliary_needs_its_primary_and_its_providers_client(graph):
+    """L19 (1.0.5): startup builds the saved auxiliary only when the main model's client and
+    the auxiliary provider's client exist. Otherwise there is none, and nothing is probed."""
+    settings, _, owner, _ = graph
+    settings.config.openai_codex.auxiliary.enabled = True
+    # The main model is a Codex model, and no Codex client was built at startup.
+    assert owner.startup_auxiliary(None) is None
+    # A compatible auxiliary whose provider has no client yet.
+    settings.config.openai_codex.auxiliary.model = "compat:fixture-model"
+    assert owner.startup_auxiliary(object()) is None

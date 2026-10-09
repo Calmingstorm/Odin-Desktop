@@ -225,3 +225,34 @@ async def test_optional_computer_storage_refusal_keeps_transport_without_fake_ma
         await core.close()
         os.close(read_fd)
         os.close(write_fd)
+
+
+async def test_mistyped_parameters_are_refused_without_internal_detail(connected, monkeypatch):
+    """A TypeError is an internal shape fault: the reply says the parameters are invalid
+    and never carries the exception's text. The schedule owner's ValueErrors (1.0.5) are
+    the reasons that do reach the form."""
+    service, reader, writer, _ = connected
+    detail = await request(reader, writer, "tool.detail",
+                           {"request_id": "r", "invocation_id": "i", "unexpected": 1})
+    assert not detail["ok"]
+    assert detail["error"]["code"] == "bad_request"
+    assert detail["error"]["message"] == "Invalid method parameters"
+    # Shapes the core checks before any owner runs name the parameter.
+    created = await request(reader, writer, "conversations.create", {})
+    cid = created["result"]["conversation"]["id"]
+    typed = await request(reader, writer, "messages.list",
+                          {"conversation_id": cid, "limit": 10, "before": 5})
+    assert typed["error"]["message"] == "Invalid parameter: before"
+    bounded = await request(reader, writer, "conversation.snapshot",
+                            {"conversation_id": cid, "limit": 0})
+    assert bounded["error"]["message"] == "limit must be between 1 and 100"
+
+    async def mistyped(*args, **kwargs):
+        raise TypeError("internal signature detail")
+
+    monkeypatch.setattr(service.schedules, "invoke", mistyped)
+    refused = await request(reader, writer, "schedules.validate_cron",
+                            {"expression": "0 9 * * *"})
+    assert not refused["ok"]
+    assert refused["error"]["code"] == "bad_request"
+    assert refused["error"]["message"] == "Invalid method parameters"

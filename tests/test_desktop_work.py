@@ -1050,6 +1050,23 @@ async def test_a_trigger_schedule_card_names_its_trigger_and_why_it_cannot_fire(
                                requester_id=message.owner_id, cron="0 9 * * *", message="hi")
     assert "trigger" not in service.register_schedule(cron)["detail"]
 
+    def unreadable():
+        raise RuntimeError("ingress state unreadable")
+
+    # An unreadable intake state leaves the card without it; the card still projects.
+    service.trigger_intake = unreadable
+    record = service.register_schedule(schedule)
+    assert record["detail"]["trigger"]["source"] == "github"
+    assert "trigger_intake" not in record["detail"]
+
+
+def test_register_refuses_unknown_kinds_and_missing_managers(work):
+    service, message, _context = work
+    with pytest.raises(ValueError, match="Unknown work kind"):
+        service.register("nonsense", "1", message)
+    with pytest.raises(ValueError, match="Manager work does not exist"):
+        service.register("agent", "missing", message)
+
 
 def test_finished_work_is_kept_to_the_newest_and_leaves_with_its_chat(work):
     """L2 (1.0.5): Work kept every finished record forever, and records outlived their

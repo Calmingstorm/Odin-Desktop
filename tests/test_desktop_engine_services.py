@@ -909,3 +909,23 @@ def test_a_saved_name_that_is_a_fifo_is_refused_at_once(tmp_path):
                             text=True, timeout=30, cwd=os.path.dirname(os.path.dirname(__file__)))
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "Owner"
+
+
+async def test_mcp_dispatch_binding_binds_once_and_refuses_unbound_calls():
+    """1.0.5: requests and agents hold this binding before management builds the MCP manager.
+    Unbound it offers no tools and refuses a call; it binds to one manager only."""
+    from types import SimpleNamespace
+
+    from src.desktop.mcp import MCPDispatchBinding
+
+    binding = MCPDispatchBinding()
+    assert binding.has_tool("docs_read") is False
+    with pytest.raises(RuntimeError, match="not bound"):
+        await binding.execute("docs_read", {})
+    manager = SimpleNamespace(has_tool=lambda name: name == "docs_read")
+    binding.bind(manager)
+    binding.bind(manager)
+    assert binding.has_tool("docs_read") and not binding.has_tool("other")
+    with pytest.raises(RuntimeError, match="already bound"):
+        binding.bind(SimpleNamespace(has_tool=lambda name: True))
+    assert binding.target is manager
