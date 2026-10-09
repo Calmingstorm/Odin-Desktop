@@ -5,6 +5,7 @@ import { useStoppingLabel } from '../stopping-label'
 import { unavailableText } from '../capability'
 import { chatAnnouncement, type ChatAnnouncementState } from '../chat-announcements'
 import { assistantName } from '../assistant-name'
+import { dayLabel, sameDay } from '../format'
 import { loadDisplayProfile, pictureFailed, userName, userPicture } from '../stores/display-profile'
 import { loadPersonality } from '../stores/state'
 import Message from './Message.vue'
@@ -287,6 +288,11 @@ function time(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+/** A day heading goes before the first shown message of each day, so times read in their day. */
+function newDay(items: ReadonlyArray<{ created_at: string }>, index: number): boolean {
+  return index === 0 || !sameDay(items[index - 1]!.created_at, items[index]!.created_at)
+}
+
 async function older(): Promise<void> {
   const id = state.activeId
   const el = scroller.value
@@ -322,14 +328,15 @@ async function older(): Promise<void> {
         <button class="ghost" @click="backToLatest">Back to latest</button>
       </div>
       <p v-if="jump.hasBefore" class="jump-edge">Earlier messages aren't shown here.</p>
-      <Message
-        v-for="m in jump.items"
-        :key="m.id"
-        :message="m"
-        :conversation-id="jump.conversationId"
-        :tools="m.request_id ? view.tools[m.request_id] : undefined"
-        :highlight="m.id === state.highlightId"
-      />
+      <template v-for="(m, index) in jump.items" :key="m.id">
+        <p v-if="newDay(jump.items, index)" class="day-divider" role="separator" :aria-label="dayLabel(m.created_at)"><span>{{ dayLabel(m.created_at) }}</span></p>
+        <Message
+          :message="m"
+          :conversation-id="jump.conversationId"
+          :tools="m.request_id ? view.tools[m.request_id] : undefined"
+          :highlight="m.id === state.highlightId"
+        />
+      </template>
       <p v-if="jump.hasAfter" class="jump-edge">Later messages aren't shown here.</p>
     </template>
     <template v-else>
@@ -345,15 +352,16 @@ async function older(): Promise<void> {
         </button>
       </div>
       <p v-if="!messages.length && !pending.length && !running" class="empty">Ask {{ assistantName() }} anything.</p>
-      <Message
-        v-for="m in messages"
-        :key="m.id"
-        :message="m"
-        :conversation-id="state.activeId ?? ''"
-        :tools="m.request_id ? view.tools[m.request_id] : undefined"
-        :highlight="m.id === state.highlightId"
-        actions
-      />
+      <template v-for="(m, index) in messages" :key="m.id">
+        <p v-if="newDay(messages, index)" class="day-divider" role="separator" :aria-label="dayLabel(m.created_at)"><span>{{ dayLabel(m.created_at) }}</span></p>
+        <Message
+          :message="m"
+          :conversation-id="state.activeId ?? ''"
+          :tools="m.request_id ? view.tools[m.request_id] : undefined"
+          :highlight="m.id === state.highlightId"
+          actions
+        />
+      </template>
       <article v-for="p in pending" :key="p.client_submission_id" class="msg user pending">
         <span :class="['avatar', { picture: userPicture() }]" aria-hidden="true">
           <img v-if="userPicture()" class="avatar-picture" :src="userPicture()!" width="36" height="36" alt="" @error="pictureFailed(userPicture()!)" />
