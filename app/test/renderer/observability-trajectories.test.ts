@@ -79,4 +79,16 @@ describe('smallest honest observability and trajectory sections', () => {
     expect(management.busy['connection-pools']).toBe(false)
     expect(view.root.textContent()).toContain('Connection pool actions is unavailable.')
   })
+
+  it('lists trajectory files by name, and choosing one fills the filename to read (1.0.5 L12)', async () => {
+    bridge.trajectoriesList.mockResolvedValue({ ok: true, result: { files: ['2026-10-08.jsonl', '2026-10-09.jsonl'], count: 2 } })
+    view = mount(Trajectories); await flush()
+    await view.root.button('List trajectory files').fire('click'); await flush()
+    expect(view.root.textContent()).not.toContain('"count"')
+    await view.root.button('2026-10-09.jsonl').fire('click'); await flush()
+    expect(view.setup.filename).toBe('2026-10-09.jsonl')
+    bridge.trajectoriesList.mockResolvedValue({ ok: true, result: { files: [], count: 0 } })
+    await view.root.button('List trajectory files').fire('click'); await flush()
+    expect(view.root.textContent()).toContain('No trajectory files yet.')
+  })
 })

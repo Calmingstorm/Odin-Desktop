@@ -88,7 +88,9 @@ class TrajectoriesService:
         if saver is None:
             raise MethodError("capability_unavailable", "trajectory saving not available")
         if method == "trajectories.list":
-            return {"files": await saver.list_files(), "count": saver.count}
+            # The reader never writes, so the writer's counter would always say 0.
+            files = await saver.list_files()
+            return {"files": files, "count": len(files)}
         if method == "trajectories.message":
             message_id = _text(params, "message_id", "")
             entry = await saver.find_by_message_id(message_id)

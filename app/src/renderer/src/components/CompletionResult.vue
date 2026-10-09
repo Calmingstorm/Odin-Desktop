@@ -11,7 +11,7 @@ defineProps<{ resource: string; feature: string }>()
     <p v-if="!completion[resource]?.loaded && !completion[resource]?.busy && !completion[resource]?.error" class="panel-hint">Not read yet.</p>
     <template v-if="completion[resource]?.loaded">
       <p v-if="completion[resource]?.label" class="panel-hint">{{ completion[resource]?.label }}</p>
-      <pre class="manage-json">{{ JSON.stringify(completion[resource]?.value, null, 2) }}</pre>
+      <slot :value="completion[resource]?.value"><pre class="manage-json">{{ JSON.stringify(completion[resource]?.value, null, 2) }}</pre></slot>
     </template>
   </template>
 </template>

@@ -10,6 +10,11 @@ const filters = reactive({ channel_id: '', user_id: '', tool_name: '', errors_on
 function selected(): Record<string, string | number | boolean> {
   return Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== '' && value !== false))
 }
+/** The listed file names; choosing one fills the filename to read. */
+function files(value: unknown): string[] {
+  const list = (value as { files?: unknown } | undefined)?.files
+  return Array.isArray(list) ? list.filter((name): name is string => typeof name === 'string') : []
+}
 async function readTrace(search: boolean): Promise<void> {
   const params = selected()
   const label = JSON.stringify(search ? params : { ...params, filename: filename.value })
@@ -19,7 +24,12 @@ async function readTrace(search: boolean): Promise<void> {
 <template>
   <SettingsSection title="Trajectories" aria-label="Trajectories">
     <button class="ghost" @click="readCompletion('trace-files', () => api.trajectoriesList({}))">List trajectory files</button>
-    <CompletionResult resource="trace-files" feature="Trajectory listing" />
+    <CompletionResult v-slot="{ value }" resource="trace-files" feature="Trajectory listing">
+      <p v-if="!files(value).length" class="panel-hint">No trajectory files yet.</p>
+      <ul v-else class="trace-files">
+        <li v-for="name in files(value)" :key="name"><button class="ghost" :aria-pressed="filename === name" @click="filename = name">{{ name }}</button></li>
+      </ul>
+    </CompletionResult>
     <template v-if="!completion['trace-files']?.unavailable">
       <label>Trajectory filename <input v-model="filename" placeholder="trace.jsonl" /></label>
       <label>Trace channel <input v-model="filters.channel_id" /></label>
