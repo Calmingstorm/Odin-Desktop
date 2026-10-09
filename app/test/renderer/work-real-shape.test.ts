@@ -159,4 +159,3 @@ describe('Work real-core projections and steering', () => {
     expect(card('On push (accepting)').textContent()).not.toContain('Incoming webhooks')
   })
 })
-

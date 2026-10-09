@@ -94,8 +94,10 @@ async function diff(): Promise<void> {
   await read('diff', json(args), () => call(window.odin.knowledgeDiff && (() => window.odin.knowledgeDiff(args))))
 }
 
-/** The merge's own receipt key. It also holds the shared knowledge lock, so adds wait for it. */
-const MERGE = 'knowledge:merge'
+/** The merge's own receipt and in-flight key. It sits outside the `knowledge:<source>` lock
+ * names, because a document may be named "merge". The merge also holds the shared knowledge
+ * lock, so adds wait for it. */
+const MERGE = 'knowledge-merge'
 
 function mergeLocked(keep = keepSource.value.trim(), remove = removeSource.value.trim()): boolean {
   return Boolean(management.busy.knowledge || management.busy[MERGE] || management.busy[`knowledge:${keep}`] || management.busy[`knowledge:${remove}`])
@@ -113,7 +115,9 @@ async function merge(): Promise<void> {
     // including while an unanswered command waits for its late receipt.
     const sourceKeys = ['knowledge', `knowledge:${keep_source}`, `knowledge:${remove_source}`]
     for (const key of sourceKeys) management.busy[key] = true
+    let dispatched = false
     await act(MERGE, async () => {
+      dispatched = true
       const result = await call(window.odin.knowledgeMerge && (() => window.odin.knowledgeMerge({ keep_source, remove_source })))
       mergeUnavailable.value = !result.ok && isUnavailable(result.error)
       return result
@@ -130,6 +134,8 @@ async function merge(): Promise<void> {
       }
       await loadKnowledge()
     })
+    // A command act declines to start never reaches the refresh that releases these locks.
+    if (!dispatched) for (const key of sourceKeys) management.busy[key] = false
   } finally {
     mergeConfirming.value = false
   }
@@ -172,13 +178,21 @@ async function updateLearned(): Promise<void> {
     ...(draft.category !== draft.original.category ? { category: draft.category } : {}) }
   if (!Object.keys(changes).length) return
   const args = { key, ...changes }
+  const sent = { content: draft.content, category: draft.category }
   learnedNoteKey.value = `learned:${key}`
-  const saved = await act(learnedNoteKey.value, async () => {
+  await act(learnedNoteKey.value, async () => {
     const result = await call(window.odin.learnedUpdate && (() => window.odin.learnedUpdate(args)))
     learnedUnavailable.value = !result.ok && isUnavailable(result.error)
     return result
-  }, () => 'Saved.', learned)
-  if (saved && editing.value === draft) editing.value = null
+  }, () => {
+    // Saved, now or by a late receipt. The editor closes only if nothing changed since
+    // the save was sent; newer edits stay open, unsaved against what was saved.
+    if (editing.value === draft) {
+      if (draft.content === sent.content && draft.category === sent.category) editing.value = null
+      else draft.original = { ...sent }
+    }
+    return 'Saved.'
+  }, learned)
 }
 
 async function deleteLearned(key: string): Promise<void> {
@@ -192,8 +206,11 @@ async function deleteLearned(key: string): Promise<void> {
       const result = await call(window.odin.learnedDelete && (() => window.odin.learnedDelete({ key })))
       learnedUnavailable.value = !result.ok && isUnavailable(result.error)
       return result
-    }, () => 'Deleted.', learned)
-    if (editing.value?.key === key) editing.value = null
+    }, () => {
+      // Only a confirmed deletion, now or by a late receipt, closes the entry's editor.
+      if (editing.value?.key === key) editing.value = null
+      return 'Deleted.'
+    }, learned)
   } finally {
     learnedConfirming.value = false
   }
@@ -367,8 +384,8 @@ onMounted(() => void learned())
       </li>
       <li v-if="!learnedEntries.length" class="manage-row manage-desc">Nothing learned yet.</li>
     </ul>
-    <p v-if="listNote" class="manage-note" role="status">{{ listNote }}</p>
     <p v-else class="manage-desc">Not read yet.</p>
+    <p v-if="listNote" class="manage-note" role="status">{{ listNote }}</p>
     <p v-if="learnedUnavailable" class="manage-desc" role="status">{{ unavailableText('Learned context changes') }}</p>
   </SettingsSection>
 </template>

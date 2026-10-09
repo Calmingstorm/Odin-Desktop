@@ -393,3 +393,157 @@ async def test_startup_indexes_knowledge_stored_without_full_text_rows(tmp_path,
         assert [row["source"] for row in hits] == ["zebra.md"]
     finally:
         await close()
+
+
+def _indexed_store(tmp_path):
+    from src.search.fts import FullTextIndex
+
+    fts = FullTextIndex(str(tmp_path / "fts.db"))
+    store = KnowledgeStore(str(tmp_path / "dual-knowledge.db"), fts_index=fts)
+    assert store.available and fts.available
+    return store, fts
+
+
+@pytest.mark.asyncio
+async def test_a_failed_embedder_leaves_full_text_search_working(tmp_path):
+    """Odin's 1.0.5 review, B2: a bundled model that can't load must not break the
+    full-text search that still works. The semantic half is skipped, not fatal."""
+    store, fts = _indexed_store(tmp_path)
+    try:
+        assert await store.ingest("Quarterly zebra inventory notes", "zebra.md", dedup=False) == 1
+
+        class Broken:
+            async def embed(self, text):
+                raise RuntimeError("the bundled model is missing")
+
+        # As with sqlite-vec present: the semantic half runs first and fails.
+        store._has_vec = True
+        hits = await store.search_hybrid("zebra", embedder=Broken(), limit=5)
+        assert [hit["source"] for hit in hits] == ["zebra.md"]
+        # Every later search still answers from full text.
+        assert [hit["source"] for hit in await store.search_hybrid(
+            "zebra", embedder=Broken(), limit=5)] == ["zebra.md"]
+    finally:
+        store.close()
+        fts.close()
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_answers_membership_from_one_inventory(tmp_path):
+    """Odin's 1.0.5 review, B1: reconciliation scanned the unindexed chunk_id column once
+    per chunk, so every restart was quadratic in the chunk count (27 s for 20,000)."""
+    from unittest.mock import patch
+
+    store, fts = _indexed_store(tmp_path)
+    try:
+        for name in ("a.md", "b.md", "c.md"):
+            assert await store.ingest(f"body of {name}", name, dedup=False) == 1
+        per_row = AssertionError("a per-row membership scan")
+        with patch.object(fts, "has_knowledge_chunk", side_effect=per_row):
+            # A fully indexed store: nothing to write, and no per-row scan.
+            assert store.backfill_fts() == 0
+            # A chunk missing from the index is written, then confirmed by one more inventory.
+            assert fts.delete_knowledge_source("a.md") == 1
+            reads = []
+            real = fts.knowledge_chunk_sources
+            with patch.object(fts, "knowledge_chunk_sources",
+                              side_effect=lambda: reads.append(1) or real()):
+                assert store.backfill_fts() == 1
+            assert len(reads) == 2
+        assert fts.has_knowledge_source("a.md")
+        assert store.backfill_fts() == 0
+        # A write the confirming inventory can't vouch for is not counted.
+        assert fts.delete_knowledge_source("b.md") == 1
+        answers = iter([fts.knowledge_chunk_sources(), None])
+        with patch.object(fts, "knowledge_chunk_sources", side_effect=lambda: next(answers)):
+            assert store.backfill_fts() == 0
+    finally:
+        store.close()
+        fts.close()
+
+
+@pytest.mark.asyncio
+async def test_a_first_full_text_migration_is_one_transaction(tmp_path):
+    """Odin's 1.0.5 review, B1: profiles before 1.0.5 have no full-text rows, so the first
+    start migrates every chunk. One replacement per chunk took 66 s for 10,000; the backlog
+    is now written at once, and Odin's per-row reconciliation still covers a failed batch."""
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from src.desktop.services import EngineServices
+    from src.search.fts import FullTextIndex
+
+    db = str(tmp_path / "legacy-knowledge.db")
+    legacy = KnowledgeStore(db)
+    for name in ("a.md", "b.md", "c.md"):
+        assert await legacy.ingest(f"legacy body of {name}", name, dedup=False) == 1
+    legacy.close()
+    fts = FullTextIndex(str(tmp_path / "fts.db"))
+    store = KnowledgeStore(db, fts_index=fts)
+    engine = EngineServices(SimpleNamespace(knowledge_store=store), None)
+    reconcile = engine.reconcile_knowledge_index
+    try:
+        with patch.object(fts, "index_knowledge_chunk",
+                          side_effect=AssertionError("one replacement per chunk")):
+            await reconcile()
+        sources = sorted(source for _, source in fts.knowledge_chunk_sources())
+        assert sources == ["a.md", "b.md", "c.md"]
+        # A failed batch writes nothing, and the per-row reconciliation indexes the rest.
+        assert fts.delete_knowledge_source("b.md") == 1
+        with patch.object(fts, "index_absent_knowledge_chunks", return_value=0):
+            await reconcile()
+        assert fts.has_knowledge_source("b.md")
+    finally:
+        store.close()
+        fts.close()
+
+
+def test_the_backlog_writer_is_all_or_nothing(tmp_path):
+    """The batch writer behind the first full-text migration (review B1): an empty batch
+    writes nothing, and a failed row rolls the whole batch back."""
+    from src.search.fts import FullTextIndex
+
+    fts = FullTextIndex(str(tmp_path / "fts.db"))
+    try:
+        assert fts.index_absent_knowledge_chunks([]) == 0
+        rows = [("c1", "first chunk", "a.md", 0), ("c2", {"not": "text"}, "a.md", 1)]
+        assert fts.index_absent_knowledge_chunks(rows) == 0
+        assert fts.knowledge_chunk_sources() == []
+        assert fts.index_absent_knowledge_chunks(rows[:1]) == 1
+        assert fts.knowledge_chunk_sources() == [("c1", "a.md")]
+    finally:
+        fts.close()
+
+
+@pytest.mark.asyncio
+async def test_the_backlog_step_writes_nothing_it_cannot_read(tmp_path):
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    store, fts = _indexed_store(tmp_path)
+    try:
+        assert await store.ingest("a body", "a.md", dedup=False) == 1
+        assert fts.delete_knowledge_source("a.md") == 1
+        # An unreadable inventory: nothing to compare against, so nothing is written.
+        with patch.object(fts, "knowledge_chunk_sources", return_value=None):
+            assert store.backfill_fts_backlog() == 0
+        # An unreadable chunk table.
+        real = store._conn
+        def unreadable(*args):
+            raise OSError("unreadable")
+
+        store._conn = SimpleNamespace(execute=unreadable)
+        try:
+            assert store.backfill_fts_backlog() == 0
+        finally:
+            store._conn = real
+        assert await store.backfill_fts_backlog_async() == 1
+    finally:
+        store.close()
+        fts.close()
+    # A store with no full-text index has no backlog.
+    plain = KnowledgeStore(str(tmp_path / "plain.db"))
+    try:
+        assert plain.backfill_fts_backlog() == 0
+    finally:
+        plain.close()

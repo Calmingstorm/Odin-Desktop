@@ -256,3 +256,35 @@ async def test_mistyped_parameters_are_refused_without_internal_detail(connected
     assert not refused["ok"]
     assert refused["error"]["code"] == "bad_request"
     assert refused["error"]["message"] == "Invalid method parameters"
+
+
+def test_refusal_reasons_mask_url_credentials():
+    """Odin's 1.0.5 review, B6: a refusal can echo what was typed. A credentialed URL,
+    plain, percent-encoded or bare, is masked; ordinary reasons are unchanged."""
+    from src.desktop.errors import refusal_reason
+
+    for typed, shown in [
+        ("https://user:secret-pass@host.example/x", "https://***@host.example/x"),
+        ("https%3A%2F%2Fuser%3Asecret-pass%40host.example", "https%3A%2F%2F***%40host.example"),
+        ("user:secret-pass@host.example", "user:***@host.example"),
+    ]:
+        reason = refusal_reason(ValueError(f"Unknown time zone: {typed}"))
+        assert reason == f"Unknown time zone: {shown}"
+    plain = "run_at 2026-10-09T12:00:00+00:00 is in the past"
+    assert refusal_reason(ValueError(plain)) == plain
+
+
+async def test_a_refused_schedule_never_echoes_url_credentials(connected):
+    """The same mask on the real IPC path: a credentialed URL pasted as a time zone."""
+    service, reader, writer, _ = connected
+    created = await request(reader, writer, "conversations.create", {})
+    cid = created["result"]["conversation"]["id"]
+    reply = await request(reader, writer, "schedules.save", {
+        "description": "refused zone", "action": "reminder", "cron": "* * * * *",
+        "channel_id": cid,
+        "cron_timezone": "https://review-user:review-password@example.invalid/hook",
+    })
+    assert not reply["ok"]
+    assert reply["error"]["code"] == "bad_request"
+    assert "review-password" not in reply["error"]["message"]
+    assert "https://***@example.invalid/hook" in reply["error"]["message"]

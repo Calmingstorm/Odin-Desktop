@@ -262,4 +262,3 @@ describe('Data and privacy nested state', () => {
     expect(cells[3]!.textContent()).toContain('Edit')
   })
 })
-

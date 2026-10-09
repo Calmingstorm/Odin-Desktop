@@ -367,7 +367,71 @@ describe('State knowledge details and learned context', () => {
     expect(v.root.textContent()).toContain('Learned context changes is unavailable.')
     expect(v.root.textContent()).not.toContain('Kept a.')
     expect(v.root.textContent()).not.toContain('Saved.')
-    expect([management.busy.knowledge, management.busy['knowledge:merge'], management.busy['knowledge:a'], management.busy['knowledge:b'], management.busy['learned:lesson']]).toEqual([false, false, false, false, false])
+    expect([management.busy.knowledge, management.busy['knowledge-merge'], management.busy['knowledge:a'], management.busy['knowledge:b'], management.busy['learned:lesson']]).toEqual([false, false, false, false, false])
     expect((v.setup.editing as { content: string }).content).toBe('draft')
+  })
+
+  it('merges a document named "merge" without wedging the knowledge locks (review B3)', async () => {
+    const v = await view()
+    await withSources('merge', 'other')
+    const { management } = await import('../../src/renderer/src/stores/management')
+    Object.assign(v.setup, { keepSource: 'merge', removeSource: 'other' })
+    const sent = (v.setup.merge as () => Promise<void>)()
+    await answerDialog(true)
+    await sent
+    await flush()
+    expect(odin.knowledgeMerge).toHaveBeenCalledWith({ keep_source: 'merge', remove_source: 'other' })
+    expect([management.busy.knowledge, management.busy['knowledge:merge'], management.busy['knowledge:other'], management.busy['knowledge-merge']]).toEqual([false, false, false, false])
+  })
+
+  it('keeps edits typed while a learned save was on its way (review B4)', async () => {
+    let finish!: (value: unknown) => void
+    odin.learnedUpdate!.mockImplementation(() => new Promise((resolve) => { finish = resolve }))
+    const v = await view()
+    ;(v.setup.startEdit as (entry: Record<string, unknown>) => void)({ key: 'lesson', content: 'Preserve the original' })
+    const draft = v.setup.editing as { content: string; original: { content: string } }
+    draft.content = 'first saved content'
+    const saving = (v.setup.updateLearned as () => Promise<void>)()
+    await flush()
+    expect(odin.learnedUpdate).toHaveBeenCalledWith({ key: 'lesson', content: 'first saved content' })
+    draft.content = 'SECOND unsaved edit while saving'
+    finish({ ok: true, result: { status: 'updated', key: 'lesson' } })
+    await saving
+    await flush()
+    // The newer text stays open, unsaved against what was saved.
+    const kept = v.setup.editing as { content: string; original: { content: string } }
+    expect(kept.content).toBe('SECOND unsaved edit while saving')
+    expect(kept.original.content).toBe('first saved content')
+    expect(v.root.button('Save learned entry').props.disabled).toBe(false)
+    // An unchanged draft still closes once it is saved.
+    odin.learnedUpdate!.mockImplementation(async () => ok({ status: 'updated', key: 'lesson' }))
+    await (v.setup.updateLearned as () => Promise<void>)()
+    await flush()
+    expect(v.setup.editing).toBeNull()
+  })
+
+  it('keeps the editor when a learned deletion is refused, and closes it once one is confirmed (review B5)', async () => {
+    const v = await view()
+    ;(v.setup.startEdit as (entry: Record<string, unknown>) => void)({ key: 'lesson', content: 'Preserve the original' })
+    ;(v.setup.editing as { content: string }).content = 'an unsaved draft'
+    odin.learnedDelete!.mockImplementation(async () => ({ ok: false, error: { code: 'write_failed', message: 'write failed', disposition: 'rejected' } }))
+    const refused = (v.setup.deleteLearned as (key: string) => Promise<void>)('lesson')
+    await answerDialog(true)
+    await refused
+    await flush()
+    expect((v.setup.editing as { content: string }).content).toBe('an unsaved draft')
+    odin.learnedDelete!.mockImplementation(async () => ok({ status: 'deleted', key: 'lesson' }))
+    const confirmed = (v.setup.deleteLearned as (key: string) => Promise<void>)('lesson')
+    await answerDialog(true)
+    await confirmed
+    await flush()
+    expect(v.setup.editing).toBeNull()
+  })
+
+  it('shows loaded learned entries without "Not read yet" (review N1)', async () => {
+    const v = await view()
+    const section = v.root.findAll((node) => node.tag === 'section' && node.props['aria-label'] === 'Learned context')[0]!
+    expect(section.textContent()).toContain('Preserve the original')
+    expect(section.textContent()).not.toContain('Not read yet.')
   })
 })

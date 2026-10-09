@@ -368,4 +368,3 @@ def test_offered_while_the_first_use_download_can_start(wheel_fixture, monkeypat
     monkeypatch.setattr(pdf.importlib.util, "find_spec",
                         lambda name: object() if name == "fitz" else None)
     assert pdf.pdf_available() is True
-

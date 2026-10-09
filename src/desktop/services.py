@@ -148,12 +148,18 @@ class EngineServices:
             gateway.wire_callbacks()
 
     async def reconcile_knowledge_index(self):
-        """Index stored knowledge chunks the full-text index lacks, as Odin's boot does."""
-        backfill = getattr(getattr(self.deps, "knowledge_store", None), "backfill_fts_async", None)
+        """Index stored knowledge chunks the full-text index lacks, as Odin's boot does.
+
+        A backlog (a profile from before 1.0.5 has no full-text rows) is written in one
+        transaction first; Odin's reconciliation then settles orphans and the rest.
+        """
+        store = getattr(self.deps, "knowledge_store", None)
+        backfill = getattr(store, "backfill_fts_async", None)
         if backfill is None:
             return
         try:
-            count = await backfill()
+            backlog = getattr(store, "backfill_fts_backlog_async", None)
+            count = (await backlog() if backlog is not None else 0) + await backfill()
             if count:
                 log.info("Backfilled %d knowledge chunks into FTS index", count)
         except Exception:

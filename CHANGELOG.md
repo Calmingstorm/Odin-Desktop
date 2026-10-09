@@ -7,7 +7,8 @@
 - **Fixed:** an MCP server's tools never reached Odin in chats, even while Settings showed the server connected. Odin
   now sees and uses them.
 - **Fixed:** knowledge search matched literal words only. It now uses the bundled search model and a full-text index,
-  as Odin does. Documents saved before 1.0.5 are added to the full-text index at the first start.
+  as Odin does. Documents saved before 1.0.5 are added to the full-text index at the first start, in one quick step.
+  If the search model can't load, search still matches words.
 - **Fixed:** the auxiliary (background) model didn't start with the app, so summaries and background follow-ups ran
   on the main model until its setting was saved again. It now starts with the app.
 - **Fixed:** reminders, finished background tasks and loop alerts never raised a desktop notification. They now do,
