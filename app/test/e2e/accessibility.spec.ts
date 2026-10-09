@@ -587,7 +587,7 @@ test('real core keyboard status usage and every real settings or unavailable ser
       await expect(page.locator('.settings-body')).not.toContainText('Work (agents, tasks, loops, processes, workflows and schedules) is unavailable')
       const ingress = page.getByRole('region', { name: 'Webhook ingress', exact: true })
       await expect(ingress.getByTestId('webhook-ingress-status')).toContainText('Disabled')
-      await tabTo(ingress.getByRole('switch', { name: 'Enable inbound webhook deliveries', exact: true }))
+      await tabTo(ingress.getByRole('switch', { name: 'Accept incoming webhooks', exact: true }))
       await tabTo(ingress.getByRole('textbox', { name: 'Listen address', exact: true }))
       await activate(page.getByRole('button', { name: 'New schedule', exact: true }))
       const form = page.getByRole('region', { name: 'Schedule form', exact: true })

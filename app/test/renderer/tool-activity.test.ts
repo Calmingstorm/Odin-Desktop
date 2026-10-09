@@ -69,3 +69,21 @@ describe('retained tool details', () => {
     expect(mounted.root.textContent()).not.toContain('Show full output')
   })
 })
+
+describe('unsettled calls (1.0.5 L10)', () => {
+  it('reads running only while its request runs; after Stop the call reads stopped', async () => {
+    const component = (await import('../../src/renderer/src/components/ToolActivity.vue')).default
+    const waiting = { invocation_id: 'wait', tool: 'wait_for_agents', summary: 'wait_for_agents' }
+    for (const [live, label, symbol] of [[true, 'running', '…'], [false, 'stopped', '–']] as const) {
+      mounted.unmount()
+      mounted = mount(component, { entries: [waiting, entry], requestId: 'request', live })
+      await flush()
+      if (!live) mounted.root.findAll((node) => node.props.class === 'tools-toggle')[0]!.fire('click')
+      await flush()
+      const items = mounted.root.findAll((node) => node.tag === 'li')
+      expect(items.map((node) => node.props.class)).toEqual([`tool ${label}`, 'tool success'])
+      expect(items[0]!.textContent()).toContain(`${label}. Show arguments and output.`)
+      expect(items[0]!.findAll((node) => node.props.class === 'mark')[0]!.textContent()).toBe(symbol)
+    }
+  })
+})

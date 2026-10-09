@@ -62,8 +62,15 @@ const more = computed(() => settingsFields('work', 'more-options').flatMap((entr
 }))
 const formKey = computed(() => (editing.value?.original ? `schedule:${editing.value.original.id}` : 'schedule:new'))
 
+/** Odin's own time zone (Settings → General), which a new schedule starts in. */
+const odinZone = computed(() => {
+  const zone = settings.meta?.fields.find((field) => field.path === 'timezone')?.desired
+  return typeof zone === 'string' ? zone : ''
+})
+
 function startNew(): void {
-  editing.value = { form: { ...blankForm(), channel_id: state.activeId ?? '' }, original: null }
+  // A cron without a zone runs on UTC; a new one starts in Odin's zone, as Odin's own schedules do.
+  editing.value = { form: { ...blankForm(), channel_id: state.activeId ?? '', cron_timezone: odinZone.value }, original: null }
   formError.value = ''
 }
 
@@ -101,19 +108,27 @@ async function save(): Promise<void> {
 
 let cronTimer: ReturnType<typeof setTimeout> | undefined
 watch(
-  () => [editing.value?.form.timing, editing.value?.form.cron] as const,
-  ([timing, cron]) => {
+  () => [editing.value?.form.timing, editing.value?.form.cron, editing.value?.form.cron_timezone] as const,
+  ([timing, cron, zone]) => {
     clearTimeout(cronTimer)
-    if (timing === 'cron') cronTimer = setTimeout(() => void checkCron(cron ?? ''), 400)
+    if (timing === 'cron') cronTimer = setTimeout(() => void checkCron(cron ?? '', zone ?? ''), 400)
   }
 )
+/** The preview belongs to the form only while both its cron and its zone are the form's. */
+const cronPreview = computed(() => {
+  const form = editing.value?.form
+  const preview = schedules.cron
+  return form && preview && preview.expression === form.cron && preview.timezone === form.cron_timezone.trim() ? preview : null
+})
+/** Which field the preview's refusal is about: the zone, or the cron itself. */
+const previewErrorField = computed(() => (!cronPreview.value?.error ? '' : cronPreview.value.error.startsWith('Unknown time zone') ? 'cron_timezone' : 'cron'))
 
 function conversationTitle(id: string): string | null {
   return state.conversations.find((c) => c.id === id)?.title ?? null
 }
 
 function when(row: ScheduleRow): string {
-  if (row.cron) return `${row.cron}, ${row.timezone ? `${row.timezone} time` : "Odin's time zone"}`
+  if (row.cron) return `${row.cron}, ${row.timezone ? `${row.timezone} time` : 'UTC'}`
   return row.run_at ? `once, ${new Date(row.run_at).toLocaleString()}` : 'on a trigger'
 }
 
@@ -144,12 +159,11 @@ async function remove(row: ScheduleRow): Promise<void> {
 </script>
 
 <template>
-  <SettingsSection title="Schedules" aria-label="Schedules">
-    <header class="panel-head">
-      <span v-if="!schedules.unavailable" class="panel-hint">{{ counts.total }} schedule{{ counts.total === 1 ? '' : 's' }}, {{ counts.paused }} paused, {{ counts.failing }} failing.</span>
+  <SettingsSection title="Schedules" aria-label="Schedules" :description="schedules.unavailable ? undefined : `${counts.total} schedule${counts.total === 1 ? '' : 's'}, ${counts.paused} paused, ${counts.failing} failing.`">
+    <template #actions>
       <button class="ghost" aria-label="Refresh schedules" @click="loadSchedules">Refresh</button>
       <button v-if="!schedules.unavailable" class="ghost" @click="startNew">New schedule</button>
-    </header>
+    </template>
     <p v-if="schedules.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Scheduling') }}</p>
     <p v-else-if="management.error" class="warn">{{ management.error }}</p>
     <p v-else-if="schedules.loaded && !schedules.list.length" class="manage-desc">No schedules yet. Create one for reminders or recurring work.</p>
@@ -193,7 +207,7 @@ async function remove(row: ScheduleRow): Promise<void> {
               <td>{{ at(run.timestamp) }}</td>
               <td :class="run.status === 'success' ? 'ok' : run.status === 'failure' ? 'bad' : ''">{{ scheduleRunLabel(run) }}</td>
               <td>{{ (run.duration_ms / 1000).toFixed(1) }} s</td>
-              <td>{{ run.error ?? '' }}</td>
+              <td class="wrap">{{ run.error ?? '' }}</td>
             </tr>
             <tr v-if="!(schedules.history[row.id] ?? []).length"><td>No runs yet.</td></tr>
           </tbody>
@@ -243,12 +257,12 @@ async function remove(row: ScheduleRow): Promise<void> {
         <label class="field-input">Repository filter <input v-model="f.trigger_repo" data-testid="schedule-trigger-repo" placeholder="Case-insensitive substring; any when empty" /></label>
       </template>
       <template v-if="f.timing === 'cron'">
-        <label class="field-input">Cron <input v-model="f.cron" :aria-invalid="errorField === 'cron' || Boolean(schedules.cron?.error && schedules.cron.expression === f.cron) ? 'true' : undefined" :aria-describedby="errorField === 'cron' ? 'schedule-form-error' : schedules.cron?.error && schedules.cron.expression === f.cron ? 'schedule-cron-error' : undefined" placeholder="0 9 * * 1-5" spellcheck="false" /></label>
-        <label class="field-input">Time zone <input v-model="f.cron_timezone" list="zones" placeholder="Odin's time zone" /></label>
+        <label class="field-input">Cron <input v-model="f.cron" :aria-invalid="errorField === 'cron' || previewErrorField === 'cron' ? 'true' : undefined" :aria-describedby="errorField === 'cron' ? 'schedule-form-error' : previewErrorField === 'cron' ? 'schedule-cron-error' : undefined" placeholder="0 9 * * 1-5" spellcheck="false" /></label>
+        <label class="field-input">Time zone <input v-model="f.cron_timezone" list="zones" placeholder="UTC" :aria-invalid="previewErrorField === 'cron_timezone' ? 'true' : undefined" :aria-describedby="previewErrorField === 'cron_timezone' ? 'schedule-cron-error' : undefined" /></label>
         <datalist id="zones"><option v-for="z in ZONES" :key="z" :value="z" /></datalist>
-        <p v-if="schedules.cron?.error && schedules.cron.expression === f.cron" id="schedule-cron-error" class="warn" role="status">{{ schedules.cron.error }}</p>
-        <p v-else-if="schedules.cron?.next_runs.length && schedules.cron.expression === f.cron" class="manage-desc">
-          Next: {{ schedules.cron.next_runs.slice(0, 3).map((r) => at(r)).join(', ') }}
+        <p v-if="cronPreview?.error" id="schedule-cron-error" class="warn" role="status">{{ cronPreview.error }}</p>
+        <p v-else-if="cronPreview?.next_runs.length" class="manage-desc">
+          Next: {{ cronPreview.next_runs.slice(0, 3).map((r) => at(r)).join(', ') }}
         </p>
       </template>
       <template v-else-if="f.timing === 'once'">
@@ -308,9 +322,9 @@ async function remove(row: ScheduleRow): Promise<void> {
   <OutboundWebhooks />
 
   <SettingsSection title="Running now" aria-label="Running work">
-    <header class="panel-head">
+    <template #actions>
       <button class="ghost" aria-label="Refresh running work" @click="loadWork">Refresh</button>
-    </header>
+    </template>
     <WorkList :kinds="RUNNING" empty-text="Nothing is running." :unavailable-message="unavailableText('Work (agents, tasks, loops, processes, workflows and schedules)')" />
   </SettingsSection>
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from ...odin_log import get_logger
 from ...scheduler.scheduler import ScheduleConnectionUnavailableError
+from ...tools.execution_outcome import ToolFailure
 from ...tools.nested_payload import ValidatedNestedPayload, validate_nested_payload
 
 log = get_logger("discord")
@@ -116,7 +117,7 @@ class SchedulingTools:
         nested_validated = isinstance(inp, ValidatedNestedPayload)
         validation_error = self._validate_schedule_payload(inp)
         if validation_error:
-            return f"Failed to create schedule: {validation_error}"
+            return ToolFailure(f"Failed to create schedule: {validation_error}")
         try:
             values = dict(
                 description=inp.get("description", "Unnamed task"),
@@ -150,7 +151,7 @@ class SchedulingTools:
         except ScheduleConnectionUnavailableError as e:
             return f"Scheduling unavailable: {e}"
         except ValueError as e:
-            return f"Failed to create schedule: {e}"
+            return ToolFailure(f"Failed to create schedule: {e}")
         except Exception as e:
             return f"Error creating schedule: {e}"
 

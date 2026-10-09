@@ -128,9 +128,9 @@ function lastTest(host: HostRow): string {
 
 <template>
   <SettingsSection title="Hosts" aria-label="Hosts">
-    <header class="panel-head">
+    <template #actions>
       <button v-if="!hosts.unavailable" class="ghost" @click="beginAdd">Add host</button>
-    </header>
+    </template>
     <p v-if="hosts.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Host management') }}</p>
     <template v-else>
     <SettingsRow label="Default host" description="Use this machine when a command does not name one." control-id="hosts-default">

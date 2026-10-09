@@ -11,6 +11,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import Mapping
+from datetime import datetime
 from pathlib import Path
 
 from ..llm.secret_scrubber import scrub_output_secrets
@@ -21,6 +22,9 @@ WORK_COLUMNS = {"kind", "id", "manager_generation", "record"}
 KINDS = frozenset({"agent", "task", "workflow", "loop", "process", "schedule"})
 TERMINAL = frozenset({"completed", "failed", "timeout", "killed", "cancelled",
                       "stopped", "error"})
+# Finished records Work keeps per kind. Older ones, and those of deleted chats, go;
+# a record whose outcome isn't confirmed stays until it settles.
+KEEP_FINISHED = 50
 
 
 def _get(item, key, default=None):
@@ -45,6 +49,9 @@ class WorkService:
         self.processes, self.scheduler = processes, scheduler
         self.display_config, self.controls = display_config, controls
         self.authorize_process = None
+        # The webhook ingress's intake state, bound once it exists: a trigger
+        # schedule's card says when incoming webhooks can't fire it.
+        self.trigger_intake = None
         self._locks: dict[tuple[str, str], asyncio.Lock] = {}
         self._watched: set[asyncio.Task] = set()
         with store.transaction() as connection:
@@ -196,7 +203,10 @@ class WorkService:
 
     def _watch(self, item):
         task = _get(item, "_task", _get(item, "_asyncio_task", _get(item, "_exit_task")))
-        if task is not None and task not in self._watched:
+        # A finished task needs no watch: this refresh already projects its end. Its
+        # done-callback would run at once and refresh again, which re-watched it: a
+        # finished agent, task, loop or process kept the core busy forever.
+        if task is not None and not task.done() and task not in self._watched:
             self._watched.add(task)
             def settled(done):
                 self._watched.discard(done)
@@ -262,6 +272,15 @@ class WorkService:
             detail = {key: item.get(key) for key in ("next_run", "last_run", "last_error",
                       "run_binding", "last_run_binding", "settlement", "inert_reason")}
             detail["revision"] = item.get("_revision", 0)
+            if item.get("trigger"):
+                detail["trigger"] = {key: item["trigger"].get(key)
+                                     for key in ("source", "event", "repo")}
+                intake = self.trigger_intake
+                if callable(intake):
+                    try:
+                        detail["trigger_intake"] = intake()
+                    except Exception:
+                        pass
             # CAS-capable scheduler adapters alone can offer mutations. Never
             # advertise a race-prone legacy mutation as qualified.
             if getattr(self.scheduler, "desktop_control", None) is not None:
@@ -270,10 +289,14 @@ class WorkService:
         if kind not in {"process", "schedule"} and state in TERMINAL and not pending:
             settlement = {"state": "settled", "resource_release": "manager_task_finished",
                           "remote_effects": "not_undone"}
-        result = dict(record, state=state, detail=detail, actions=actions,
-                      title=scrub_output_secrets(str(_get(item, "label",
-                                _get(item, "description", _get(item, "goal",
-                                _get(item, "command", record["id"]))))))[:1000],
+        named = _get(item, "label", _get(item, "description",
+                     _get(item, "goal", _get(item, "command", record["id"]))))
+        title = scrub_output_secrets(str(named))[:1000]
+        if kind == "process" and _get(item, "restored", False) and record.get("title"):
+            # A process restored after a restart has no command (retention never stores
+            # one); the title Work recorded from the live process still names it.
+            title = record["title"]
+        result = dict(record, state=state, detail=detail, actions=actions, title=title,
                       settlement=settlement)
         return result
 
@@ -388,11 +411,43 @@ class WorkService:
             return response_error("unauthorized", "Current profile owner authority required")
         if params.get("kind") is not None and params["kind"] not in KINDS:
             return response_error("bad_request", "Unknown work kind")
+        self.prune()
         items = self.refresh_all()
         return {"items": [r for r in items if r["owner_id"] == self.authority.owner_id
                           and (not params.get("kind") or r["kind"] == params["kind"])
                           and (not params.get("conversation_id") or
                                r["conversation_id"] == params["conversation_id"])]}
+
+    def prune(self) -> int:
+        """Finished, settled records don't pile up: keep the newest ``KEEP_FINISHED`` per
+        kind and drop those whose chat was deleted. Unknown, interrupted and pending
+        records stay. Returns how many records went."""
+        def started(record):
+            value = record.get("started_at")
+            if isinstance(value, (int, float)):
+                return float(value)
+            try:
+                return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+            except ValueError:
+                return 0.0
+
+        with self.store.transaction() as connection:
+            chats = {row[0] for row in connection.execute("SELECT id FROM desktop_conversations")}
+            finished = [record for record in (json.loads(row[0]) for row in connection.execute(
+                "SELECT record FROM desktop_work"))
+                if record["state"] in TERMINAL and record["settlement"].get("state") == "settled"]
+            finished.sort(key=lambda record: (started(record), record["id"]), reverse=True)
+            kept, dropped = {}, 0
+            for record in finished:
+                if record["conversation_id"] in chats:
+                    kept[record["kind"]] = kept.get(record["kind"], 0) + 1
+                    if kept[record["kind"]] <= KEEP_FINISHED:
+                        continue
+                connection.execute("DELETE FROM desktop_work WHERE kind=? AND id=? "
+                                   "AND manager_generation=?", (record["kind"],
+                                   record["manager_id"], record["manager_generation"]))
+                dropped += 1
+        return dropped
 
     def resolve(self, kind: str, id: str) -> dict | None:
         """Resolve the protocol's immutable list ID, never a recycled PID/manager ID."""

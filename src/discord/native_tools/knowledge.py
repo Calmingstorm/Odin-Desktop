@@ -13,6 +13,7 @@ from collections.abc import Callable
 from ...llm.secret_scrubber import scrub_output_secrets
 from ...odin_log import get_logger
 from ...search.errors import InvalidSearchQuery
+from ...tools.execution_outcome import ToolFailure
 from ...tools.output_delivery import RankedOutput
 
 log = get_logger("discord")
@@ -111,7 +112,7 @@ class KnowledgeTools:
         source = inp.get("source", "")
         content = inp.get("content", "")
         if not source or not content:
-            return "Both 'source' and 'content' are required."
+            return ToolFailure("Both 'source' and 'content' are required.")
 
         count = await self._knowledge_store.ingest(
             content=content,
@@ -137,7 +138,7 @@ class KnowledgeTools:
                 f"{detail}; the new content was not stored."
             )
         if outcome == "failure" or count <= 0:
-            return f"Failed to ingest '{source}' — no chunks could be indexed."
+            return ToolFailure(f"Failed to ingest '{source}' — no chunks could be indexed.")
         return f"Ingested '{source}' into knowledge base ({count} chunks indexed)."
 
     async def _handle_bulk_ingest(self, inp: dict, uploader: str) -> str:
@@ -195,7 +196,7 @@ class KnowledgeTools:
 
         count = await self._knowledge_store.delete_source_async(source)
         if count == 0:
-            return f"No document found with source '{source}'."
+            return ToolFailure(f"No document found with source '{source}'.")
         return f"Deleted '{source}' from knowledge base ({count} chunks removed)."
 
     async def _handle_search_audit(self, inp: dict) -> str:

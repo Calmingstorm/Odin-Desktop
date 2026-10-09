@@ -38,3 +38,21 @@ export function basis(value: Measured): string {
   if (value.kind === 'estimated') return 'estimated'
   return "not measured: Odin doesn't know this value"
 }
+
+/** Whether two instants fall on the same day on this computer's clock. */
+export function sameDay(a: string, b: string): boolean {
+  return new Date(a).toDateString() === new Date(b).toDateString()
+}
+
+/** A day heading for the transcript: Today, Yesterday, else the weekday and date (with the year when it isn't this one). */
+export function dayLabel(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso)
+  if (!Number.isFinite(date.getTime())) return ''
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (date.toDateString() === now.toDateString()) return 'Today'
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday'
+  return date.toLocaleDateString([], {
+    weekday: 'long', month: 'long', day: 'numeric', ...(date.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' as const })
+  })
+}

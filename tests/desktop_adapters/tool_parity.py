@@ -86,6 +86,14 @@ REVIEWED_SUBSTITUTIONS = (
         first[0]["input_schema"]["parity_copy_probe"] = True
         assert "parity_copy_probe" not in get_tool_definitions()[0]["input_schema"]'''),
     ("assert [d[\"name\"] for d in defs] == EXPECTED_TOOL_ORDER", "assert [d[\"name\"] for d in defs] == DESKTOP_ORDER"),
+    # Decision F (docs/work/phase-3-app-v1.md): analyze_pdf stays offered while PyMuPDF imports or its pinned
+    # first-use download can start here, so Desktop's dependency gate is pdf_resources.pdf_available().
+    ('        return set() if importlib.util.find_spec("fitz") else {"analyze_pdf"}',
+     '        from src.runtime import pdf_resources\n\n'
+     '        return set() if pdf_resources.pdf_available() else {"analyze_pdf"}'),
+    ('        assert visible is (importlib.util.find_spec("fitz") is not None)',
+     '        from src.runtime import pdf_resources\n\n'
+     '        assert visible is pdf_resources.pdf_available()'),
     ('''            # input_schema passes through by REFERENCE (same object)…
             assert d["input_schema"] is src["input_schema"]''',
      '''            # Phase 1 e620f97 returns isolated schema copies by value.

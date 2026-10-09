@@ -512,9 +512,13 @@ async function remove(account: CodexAccount): Promise<void> {
       <button v-if="dirty(agentPaths.slice(2))" class="ghost" @click="cancel(agentPaths.slice(2))">Cancel agent options</button>
     </SettingsSection>
     <SettingsSection v-if="field('openai_codex.auxiliary.model')" title="Auxiliary model">
-      <SettingsRow label="Model" description="Use a separate model for background work." :control-id="modelId('openai_codex.auxiliary.model')"><input :id="modelId('openai_codex.auxiliary.model')" :value="value('openai_codex.auxiliary.model')" @input="edit('openai_codex.auxiliary.model', ($event.target as HTMLInputElement).value)" /></SettingsRow>
+      <SettingsRow label="Model" description="Use a separate model for background work." :control-id="modelId('openai_codex.auxiliary.model')"><select :id="modelId('openai_codex.auxiliary.model')" :value="value('openai_codex.auxiliary.model')" @change="edit('openai_codex.auxiliary.model', ($event.target as HTMLSelectElement).value)"><option v-for="row in options(String(value('openai_codex.auxiliary.model')))" :key="row.ref" :value="row.ref" :disabled="row.disabled">{{ row.label }}</option></select></SettingsRow>
       <SettingsRow v-if="field('openai_codex.auxiliary.enabled')" label="Enable auxiliary model" :control-id="modelId('openai_codex.auxiliary.enabled')"><SettingsSwitch :id="modelId('openai_codex.auxiliary.enabled')" label="Enable auxiliary model" :checked="value('openai_codex.auxiliary.enabled') === true" @change="edit('openai_codex.auxiliary.enabled', $event)" /></SettingsRow>
-      <div class="settings-editor-actions model-actions"><button :disabled="!dirty(['openai_codex.auxiliary.model', 'openai_codex.auxiliary.enabled']) || busy.auxiliary" @click="groupSave('auxiliary', ['openai_codex.auxiliary.model', 'openai_codex.auxiliary.enabled'])">Save auxiliary model</button><button class="ghost" @click="cancel(['openai_codex.auxiliary.model', 'openai_codex.auxiliary.enabled'])">Cancel auxiliary changes</button></div>
+      <div v-if="dirty(['openai_codex.auxiliary.model', 'openai_codex.auxiliary.enabled'])" class="settings-editor-actions model-actions">
+        <span>Unsaved changes</span>
+        <button :disabled="busy.auxiliary" @click="groupSave('auxiliary', ['openai_codex.auxiliary.model', 'openai_codex.auxiliary.enabled'])">Save auxiliary model</button>
+        <button class="ghost" @click="cancel(['openai_codex.auxiliary.model', 'openai_codex.auxiliary.enabled'])">Cancel auxiliary changes</button>
+      </div>
     </SettingsSection>
     <SettingsSection v-if="present(imagePaths).length" title="Images">
       <SettingEditor v-for="item in present(imagePaths)" :key="item.path" :field="item" :label="label(item.path)" :help="help(item.path)" commit="explicit" />

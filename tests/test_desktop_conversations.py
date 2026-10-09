@@ -246,3 +246,26 @@ def test_validation_refusals_are_durable(graph, method, params):
     result = command(graph, method, params, identity)
     assert result["error"]["code"] == "bad_request"
     assert command(graph, method, params, identity) == result
+
+
+def test_titles_are_one_visible_line_and_a_rename_cannot_blank_one(graph):
+    """L4 (1.0.5): update stored control characters and whitespace-only titles, which the
+    sidebar showed as broken or empty rows; create already fell back to "Chat"."""
+    _, _, conversations, _ = graph
+    created = conversations.create("line one\nline two\u0000nul end")["conversation"]
+    assert created["title"] == "line one line two nul end"
+    assert conversations.create("   ")["conversation"]["title"] == "Chat"
+    assert conversations.create("")["conversation"]["title"] == "Chat"
+    family = "Family 👨‍👩‍👧"
+    renamed = conversations.update(created["id"], created["rev"],
+                                   title=f"\t {family} \r\n")["conversation"]
+    assert renamed["title"] == family  # emoji joiners stay
+    for blank in ("   ", "\n\t", "\u0000"):
+        refused = command(graph, "conversations.update",
+                          {"id": created["id"], "expected_rev": renamed["rev"], "title": blank})
+        assert refused["error"] == {"code": "bad_request",
+                                    "message": "A conversation title can't be blank",
+                                    "disposition": "rejected"}
+    assert conversations.get(created["id"])["title"] == family
+    long = conversations.update(created["id"], renamed["rev"], title="x" * 300)["conversation"]
+    assert long["title"] == "x" * 200

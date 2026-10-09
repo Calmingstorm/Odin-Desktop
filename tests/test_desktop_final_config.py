@@ -165,8 +165,9 @@ def test_final_legacy_host_inventory_needs_real_owner_not_policy(final_owner, tm
 
 
 def test_final_fresh_profile_replaces_removed_server_template(final_owner, monkeypatch):
-    from src.config.model_defaults import DEFAULT_AUXILIARY_MODEL, DEFAULT_MAIN_MODEL
+    from src.config.model_defaults import DEFAULT_MAIN_MODEL
     from src.desktop.profile import provision_fresh_profile
+    from src.desktop.provisioning import DESKTOP_AUXILIARY_MODEL
     # A removed repository-root server template is not silently recreated.
     assert not (Path(__file__).resolve().parents[1] / "config.yml").exists()
     monkeypatch.setattr("src.desktop.profile.runtime_profile_paths", lambda: final_owner.paths)
@@ -176,7 +177,8 @@ def test_final_fresh_profile_replaces_removed_server_template(final_owner, monke
     assert not authority.durability_degraded
     config = load_config(final_owner.paths.config_file)
     assert config.openai_codex.model == DEFAULT_MAIN_MODEL
-    assert config.openai_codex.auxiliary.model == DEFAULT_AUXILIARY_MODEL
+    # A new profile's auxiliary is Desktop's own choice (D20).
+    assert config.openai_codex.auxiliary.model == DESKTOP_AUXILIARY_MODEL
     assert not hasattr(config, "discord")
 
 

@@ -635,8 +635,10 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
     complete module. Runtime qualification remains the named group's job.
     """
     # PR48 review 1 explicitly permits eight Desktop assertion bindings, not
-    # blanket corpus equality waivers. Pin the exact reversible adapter, full
-    # export and independent proof, while retaining the immutable source hash.
+    # blanket corpus equality waivers; Decision F adds the analyze_pdf gate
+    # (offered while its pinned first-use download can start). Pin the exact
+    # reversible adapter, full export and independent proof, while retaining
+    # the immutable source hash.
     if selector == "tests/test_tool_parity.py":
         source_hash = "41aa806975873b2dd35cb0bc8f0c4763350f9a509c2f3c85b63f267be3f0a6c2"
         if (path != "tests/characterization/test_tool_parity.py"
@@ -647,9 +649,9 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             "tests/test_tool_parity.py":
                 "e734b9f088569c37109de900f8bbecf48d6d76885d29c23def4fadd8bf4b3849",
             "tests/desktop_adapters/tool_parity.py":
-                "91c1549e391b702cb7248921069092cec5ed2f099283bfb86f0a56fb1473fcdd",
+                "b1e165ceae0bf345a02da3a07c072104928deae29cac7761a909fce451dfcd53",
             "tests/test_desktop_tool_parity_adaptation.py":
-                "42a97c359c0141011b82e35bfe94f285629fa771d2c8d897f1baa164af4debe9",
+                "16ada88f660e48689d27f8d558e87f835e87c1ff5e6005216738ee7c58da77d0",
         }
         return (_digest(_regular(root, path).read_bytes()) == inherited_hash
                 and all(_digest(_regular(root, name).read_bytes()) == digest

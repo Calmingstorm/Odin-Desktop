@@ -17,7 +17,13 @@ from .authority import OwnerAuthority
 from .commands import CommandJournal, JournalStorageError, JournalStore
 from .controls import ControlService
 from .conversations import ConversationError, ConversationStore
-from .delivery import ArtifactPublisher, DurableDelivery, PublicationEventJournal
+from .delivery import (
+    ArtifactPublisher,
+    DurableDelivery,
+    PublicationEventJournal,
+    background_notification,
+)
+from .errors import refusal_reason
 from .ipc import IpcServer
 from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
@@ -435,6 +441,7 @@ class CoreService:
             admitting=lambda: self.lifetime.admitting and self.phase == "ready",
             permissions=self.permissions)
         self.schedules.ingress = self.webhooks
+        self.work.trigger_intake = self.webhooks.intake_state
         settings.ingress = self.webhooks
         await self.webhooks.recover()
         # Compose-time test injection shares this same settings owner. All
@@ -457,6 +464,8 @@ class CoreService:
             self.commands.prune(time.time() - RECEIPT_RETENTION)
             await self._status_event()
             await self._flush_publications()
+        # Before any client: knowledge stored without full-text rows becomes findable.
+        await self.engine.reconcile_knowledge_index()
         # Odin starts usage reconciliation at boot (OdinBot.setup_hook). It only
         # schedules bounded work, before any client is admitted; failure is logged
         # and never blocks the core. EngineServices.close stops it.
@@ -628,12 +637,14 @@ class CoreService:
     async def _publish_scheduled_notice(self, message, text):
         self.requests.assert_bound_request(message)
         # Scheduled handler notices occur after their producing check/workflow,
-        # not during the skill's own interim message callbacks.
-        return await self.delivery.send(message.channel, text, final=True)
+        # not during the skill's own interim message callbacks. Each is a run's
+        # result (a reminder, a check, a failure alert), so it notifies.
+        return await self.delivery.send(message.channel, text, final=True, notify="schedule")
 
     async def _publish_background(self, message, text, kind=None):
         self.requests.assert_bound_request(message)
-        return await self.delivery.send(message.channel, text)
+        return await self.delivery.send(message.channel, text,
+                                        notify=background_notification(kind, text))
 
     def _register_process(self, info):
         message = self.requests.current_bound_request()
@@ -834,7 +845,11 @@ class CoreService:
                     except PermissionError:
                         return failure("unauthorized",
                                        "Current profile owner authority is required")
-                    except (TypeError, ValueError):
+                    except ValueError as error:
+                        # The scheduler's reason (a bad zone, cron or run time) says
+                        # what to fix, as Odin's API does. TypeError stays generic.
+                        return failure("bad_request", refusal_reason(error))
+                    except TypeError:
                         return failure("bad_request", "Invalid method parameters")
 
                 if request["method"] in READ_METHODS:

@@ -349,3 +349,22 @@ async def test_handler_first_use_failure_is_nonzero_plain_reason_before_host_rea
     assert result == (reason, 1)
     resolver.assert_awaited_once_with()
     tools._acquire_host.assert_not_called()
+
+
+def test_offered_while_the_first_use_download_can_start(wheel_fixture, monkeypatch):
+    """L5 (1.0.5): readiness asked only whether PyMuPDF was importable, so analyze_pdf was
+    never offered and its first-use download (Decision F) could never start. Checking
+    readiness reads the lock only: no request, nothing installed."""
+    state = wheel_fixture
+    monkeypatch.setattr(pdf.importlib.util, "find_spec", lambda name: None)
+    assert pdf.pdf_available() is True
+    assert state.requests == 0 and not state.root.exists()
+    state.lock.write_text("{}")
+    assert pdf.pdf_available() is False
+    state.lock.write_text(json.dumps(state.metadata))
+    monkeypatch.setattr(pdf.os, "uname", lambda: SimpleNamespace(machine="aarch64"))
+    assert pdf.pdf_available() is False
+    # An installed extra needs no lock at all.
+    monkeypatch.setattr(pdf.importlib.util, "find_spec",
+                        lambda name: object() if name == "fitz" else None)
+    assert pdf.pdf_available() is True

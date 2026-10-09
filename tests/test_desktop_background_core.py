@@ -80,6 +80,14 @@ async def session(tmp_path, provider, *, setup_timeout=3):
     return core, reader, writer, cid, read_fd, write_fd
 
 
+def notified(core, category):
+    """The texts of committed messages whose notification intent has this category."""
+    texts = {m["id"]: m["text"] for c in core.conversations.list()["items"]
+             for m in core.transcript.list(c["id"])["items"]}
+    return [texts[intent["message_id"]] for intent in core.delivery.notifications.pending()
+            if intent["category"] == category]
+
+
 async def cleanup(core, writer, read_fd, write_fd):
     writer.close()
     await writer.wait_closed()
@@ -135,6 +143,14 @@ async def test_real_core_native_task_uses_retained_dispatch_and_stored_destinati
         assert work[0]["conversation_id"] == cid
         messages = core.transcript.list(cid)["items"]
         assert any(m["request_id"] == work[0]["request_id"] for m in messages)
+        # L8 (1.0.5): the chat gets the task's result once, with no frozen "0/1" progress
+        # post and no second copy of the step results; Work shows the live progress.
+        task_notices = [m["text"] for m in messages if m["request_id"] == work[0]["request_id"]]
+        assert task_notices[0] == tasks[0].summary_text, task_notices
+        assert not any(text.startswith("**Background Task:") for text in task_notices)
+        assert sum(text.startswith("**Task complete:") for text in task_notices) == 1
+        # L20 (1.0.5): the finished task notifies once, with its summary.
+        assert notified(core, "task") == [tasks[0].summary_text]
         response = await request(reader, writer, "work.control", {
             "control_command_id": "settled-task", "kind": "task", "id": work[0]["id"],
             "action": "cancel"})
@@ -215,6 +231,9 @@ async def test_real_native_loop_uses_sealed_iteration_and_actual_settlement(tmp_
             "SELECT r.state FROM desktop_requests r JOIN desktop_background_requests b "
             "ON b.request_id=r.request_id WHERE b.kind='loop_iteration'"))
         assert len(rows) == 1 and rows[0][0] == "completed"
+        # L20 (1.0.5): the loop's end notifies; its silent iteration posted nothing.
+        assert notified(core, "loop") == [
+            f"Loop `{loops[0].id}` completed after 1 iterations."]
     finally:
         await cleanup(core, writer, rfd, wfd)
 
@@ -268,6 +287,9 @@ async def test_scheduler_background_task_inherits_owner_without_a_window(tmp_pat
                 await asyncio.sleep(.01)
         assert history[-1]["status"] == "success"
         assert history[-1]["run_binding"]["owner_id"] == core.authority.owner_id
+        # L20 (1.0.5): the reminder raises a desktop notification, not only an unread mark.
+        assert notified(core, "schedule") == [
+            "**Scheduled reminder:** The reminder ran without a connected window."]
     finally:
         await cleanup(core, writer, rfd, wfd)
 
@@ -408,4 +430,77 @@ async def test_ipc_process_control_retains_current_host_tool_and_scope_fences(tm
                 variable.reset(changed)
     finally:
         core.permissions.reset_request_owner(token)
+        await cleanup(core, writer, rfd, wfd)
+
+
+@pytest.mark.asyncio
+async def test_schedule_refusals_say_what_to_fix(tmp_path):
+    """L21 (1.0.5): every refused schedule came back as "Invalid method parameters", so
+    Settings → Work could not say what to fix. The scheduler's reason now passes through."""
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, Provider())
+    try:
+        base = {"description": "Refused", "action": "reminder", "channel_id": cid, "message": "x"}
+        for extra, reason in (
+            ({"cron": "0 9 * * *", "cron_timezone": "Mars/Olympus"},
+             "Invalid timezone 'Mars/Olympus': 'No time zone found with key Mars/Olympus'"),
+            ({"cron": "61 25 * * *"}, "Invalid cron expression: 61 25 * * *"),
+            ({}, "Either 'cron', 'run_at', or 'trigger' is required"),
+            ({"run_at": "2020-01-01T00:00:00Z"}, "run_at must be offset-aware and in the future"),
+            ({"cron": "0 9 * * *", "action": "nope"}, "Invalid schedule action"),
+        ):
+            refused = await request(reader, writer, "schedules.save", {**base, **extra})
+            assert refused["ok"] is False
+            assert refused["error"]["code"] == "bad_request"
+            assert refused["error"]["message"] == reason
+        preview = await request(reader, writer, "schedules.validate_cron", {
+            "expression": "0 9 * * *", "timezone": "Mars/Olympus"})
+        assert preview["error"]["message"] == "Unknown time zone: Mars/Olympus"
+        assert (await request(reader, writer, "schedules.list", {}))["result"] == []
+    finally:
+        await cleanup(core, writer, rfd, wfd)
+
+
+@pytest.mark.asyncio
+async def test_work_reads_the_webhook_intake_state(tmp_path):
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, Provider())
+    try:
+        # Incoming webhooks are off by default, so a trigger schedule's card says so.
+        assert core.work.trigger_intake() == core.webhooks.intake_state() == "disabled"
+        assert core.webhooks.status()["reason"] == "disabled"
+    finally:
+        await cleanup(core, writer, rfd, wfd)
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_task_posts_only_its_last_progress_line(tmp_path, monkeypatch):
+    """L8 (1.0.5): with progress posts gone, a cancelled task, which posts no summary,
+    still tells the conversation where it stopped."""
+    provider = ToolProvider("delegate_task", {"description": "Wait for a release", "steps": [
+        {"tool_name": "memory_manage", "tool_input": {"action": "list"}}]})
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, provider)
+    entered = asyncio.Event()
+
+    async def blocked(*args, **kwargs):
+        entered.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(core.engine.deps.tool_executor, "execute", blocked)
+    try:
+        accepted = await request(reader, writer, "submission.send", {
+            "client_submission_id": "task", "conversation_id": cid, "text": "Delegate a wait"})
+        assert accepted["ok"]
+        await asyncio.wait_for(entered.wait(), 5)  # the step runs; the task never finishes
+        [item] = (await request(reader, writer, "work.list", {"kind": "task"}))["result"]["items"]
+        response = await request(reader, writer, "work.control", {
+            "control_command_id": "cancel-task", "kind": "task", "id": item["id"],
+            "action": "cancel"})
+        assert response["ok"], response
+        [task] = core.engine.deps.channel_state.background_tasks.values()
+        async with asyncio.timeout(5):
+            while task.status != "cancelled" or not task._asyncio_task.done():
+                await asyncio.sleep(.01)
+        notices = [m["text"] for m in core.transcript.list(cid)["items"]
+                   if m["request_id"] == item["request_id"]]
+        assert len(notices) == 1 and "(CANCELLED)" in notices[0], notices
+    finally:
         await cleanup(core, writer, rfd, wfd)

@@ -30,7 +30,7 @@ describe('schedule capability refusal after the settings merge', () => {
   it('clears cached list and history, retains the shared unknown-outcome lock, and recovers on a served read', async () => {
     store.schedules.list = [row]
     store.schedules.history.old = [{ status: 'success' } as never]
-    store.schedules.cron = { expression: '0 9 * * *', next_runs: ['old'], error: '' }
+    store.schedules.cron = { expression: '0 9 * * *', timezone: '', next_runs: ['old'], error: '' }
     management.management.busy['schedule:old'] = true
     await store.loadSchedules()
     expect(store.schedules).toMatchObject({ unavailable: true, loaded: true, list: [], history: {}, cron: null })

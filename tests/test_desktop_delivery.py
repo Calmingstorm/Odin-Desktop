@@ -15,6 +15,7 @@ from src.desktop.delivery import (
     LocalDestination,
     PublicationEventJournal,
     RequestContext,
+    background_notification,
 )
 from src.desktop.schema import DOMAIN_COLUMNS
 from src.desktop.transcript import TranscriptStore
@@ -441,3 +442,34 @@ async def test_worker_events_captured_before_retention_and_survive_restart(tmp_p
     assert await delivery.drain() == 1
     assert [frame["type"] for frame in sink.accepted.values()] == ["request.started"]
     store.close()
+
+
+@pytest.mark.asyncio
+async def test_a_notice_notifies_only_when_given_a_category(tmp_path):
+    """L20 (1.0.5): every notice was unread-only, so a reminder or a finished task raised
+    no desktop notification while the window was in the background."""
+    store, events, conversations, transcript, sink, delivery = build(tmp_path / "journal.db")
+    ctx = context(conversations)
+    await delivery.send(ctx, "Background progress")
+    assert delivery.notifications.pending() == []
+    reminder = await delivery.send(ctx, "**Scheduled reminder:** stretch", notify="schedule")
+    assert delivery.notifications.pending() == [{
+        "conversation_id": ctx.conversation_id, "message_id": reminder["id"],
+        "category": "schedule", "preview": "**Scheduled reminder:** stretch",
+        "dedupe_key": f"schedule:{reminder['id']}"}]
+    assert [frame["type"] for frame in sink.accepted.values()].count("notification.intent") == 1
+    store.close()
+
+
+@pytest.mark.parametrize(("kind", "text", "category"), [
+    ("summary", "Task finished", "task"),
+    ("progress", "(Step 1/3)", None),
+    ("followup", "Here is what happened", None),
+    ("loop_end", "Loop `a` completed after 2 iterations.", "loop"),
+    ("loop", "Disk at 40%", None),
+    ("loop", "[ALERT] Disk at 95%", "loop"),
+    ("loop", "[NOTIFY] Build finished", "loop"),
+    (None, "Agent note", None),
+])
+def test_background_posts_notify_on_results_and_loop_alerts_only(kind, text, category):
+    assert background_notification(kind, text) == category

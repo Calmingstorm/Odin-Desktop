@@ -24,11 +24,16 @@ interface Expanded {
 /** Details of the tool calls the user opened, by invocation id. Fetched on demand; nothing is ever run again. */
 const expanded = reactive<Record<string, Expanded | undefined>>({})
 
+/** A call with no outcome is running while its request runs; once the request has ended, it was stopped. */
+function state(entry: ToolEntry): string {
+  return entry.outcome ?? (props.live ? 'running' : 'stopped')
+}
+
 function mark(entry: ToolEntry): string {
   if (entry.outcome === 'success') return '✓'
   if (entry.outcome === 'failure') return '✕'
   if (entry.outcome === 'unknown') return '?'
-  return '…'
+  return props.live ? '…' : '–'
 }
 
 async function toggle(entry: ToolEntry): Promise<void> {
@@ -83,7 +88,7 @@ function until(iso: string): string {
       {{ entries.length }} tool call{{ entries.length === 1 ? '' : 's' }} <span aria-hidden="true">{{ open ? '▾' : '▸' }}</span>
     </button>
     <ul v-if="open" :id="`${uid}-calls`" class="tool-list">
-      <li v-for="e in entries" :key="e.invocation_id" :class="['tool', e.outcome ?? 'running']">
+      <li v-for="e in entries" :key="e.invocation_id" :class="['tool', state(e)]">
         <button
           class="tool-row"
           :aria-expanded="Boolean(expanded[e.invocation_id])"
@@ -93,7 +98,7 @@ function until(iso: string): string {
           @click="toggle(e)"
         >
           <span class="mark" aria-hidden="true">{{ mark(e) }}</span>
-          <span class="sr-only">{{ e.outcome ?? 'running' }}. Show arguments and output. </span>
+          <span class="sr-only">{{ state(e) }}. Show arguments and output. </span>
           <code class="name">{{ e.tool }}</code>
           <span v-if="e.target" class="target">{{ e.target }}</span>
           <span v-if="e.summary && e.summary.trim() !== e.tool" class="summary">{{ e.summary }}</span>

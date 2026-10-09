@@ -71,8 +71,11 @@ async def test_service_readiness_and_integrated_delivery_are_honest(connected):
     assert service.management.tool_catalog is service.engine.deps.tool_catalog
     assert service.management.browser is service.engine.deps.browser_manager
     assert service.engine.deps.skill_manager._config_store.secrets is service.settings.secrets
-    # MCP management is not an unbound foreground request-dispatch promise.
-    assert service.engine.deps.tool_catalog.get_mcp_definitions is None
+    # MCP tools are published only through the manager requests and agents
+    # dispatch to: the engine's binding is bound to management's manager.
+    assert service.engine.deps.mcp_dispatch.target is service.management.mcp.manager
+    assert (service.engine.deps.tool_catalog.get_mcp_definitions
+            == service.management.mcp.get_tool_definitions)
 
 
 async def test_skill_save_publication_receipt_reload_and_revocation(connected):
@@ -222,3 +225,111 @@ async def test_optional_computer_storage_refusal_keeps_transport_without_fake_ma
         await core.close()
         os.close(read_fd)
         os.close(write_fd)
+
+
+async def test_mistyped_parameters_are_refused_without_internal_detail(connected, monkeypatch):
+    """A TypeError is an internal shape fault: the reply says the parameters are invalid
+    and never carries the exception's text. The schedule owner's ValueErrors (1.0.5) are
+    the reasons that do reach the form."""
+    service, reader, writer, _ = connected
+    detail = await request(reader, writer, "tool.detail",
+                           {"request_id": "r", "invocation_id": "i", "unexpected": 1})
+    assert not detail["ok"]
+    assert detail["error"]["code"] == "bad_request"
+    assert detail["error"]["message"] == "Invalid method parameters"
+    # Shapes the core checks before any owner runs name the parameter.
+    created = await request(reader, writer, "conversations.create", {})
+    cid = created["result"]["conversation"]["id"]
+    typed = await request(reader, writer, "messages.list",
+                          {"conversation_id": cid, "limit": 10, "before": 5})
+    assert typed["error"]["message"] == "Invalid parameter: before"
+    bounded = await request(reader, writer, "conversation.snapshot",
+                            {"conversation_id": cid, "limit": 0})
+    assert bounded["error"]["message"] == "limit must be between 1 and 100"
+
+    async def mistyped(*args, **kwargs):
+        raise TypeError("internal signature detail")
+
+    monkeypatch.setattr(service.schedules, "invoke", mistyped)
+    refused = await request(reader, writer, "schedules.validate_cron",
+                            {"expression": "0 9 * * *"})
+    assert not refused["ok"]
+    assert refused["error"]["code"] == "bad_request"
+    assert refused["error"]["message"] == "Invalid method parameters"
+
+
+_PASSWORDS = ["secret-pass", "secret'pass", "secret!$&()*+,;=pass", "secret%27pass",
+              "secret%40pass", "secret%3Apass", "secret@pass"]
+
+
+@pytest.mark.parametrize("password", _PASSWORDS)
+@pytest.mark.parametrize("encoding", ["plain", "js-component", "component", "twice"])
+@pytest.mark.parametrize("wrapper", ["{!r}", "{}", "'{}'", '"{}"'])
+def test_refusal_reasons_mask_url_credentials(password, encoding, wrapper):
+    """Odin's 1.0.5 review, B6: a refusal can echo what was typed. A URL's userinfo is
+    masked as urlsplit reads it (apostrophes and every RFC 3986 sub-delimiter included),
+    plain or percent-encoded once or twice, however the echo is quoted."""
+    from urllib.parse import quote, urlsplit
+
+    from src.desktop.errors import refusal_reason
+
+    typed = f"https://user:{password}@host.example/hook"
+    assert urlsplit(typed).password == password
+    typed = {"plain": typed, "js-component": quote(typed, safe="!'()*"),
+             "component": quote(typed, safe=""),
+             "twice": quote(quote(typed, safe=""), safe="")}[encoding]
+    echoed = wrapper.format(typed)
+    reason = refusal_reason(ValueError(f"Invalid timezone {echoed}: {typed}"))
+    assert password not in reason and quote(password, safe="!'()*") not in reason
+    assert "user" not in reason and reason.count("host.example") == 2
+
+
+@pytest.mark.parametrize("typed, shown", [
+    ("user:secret'pass@host.example", "user:***@host.example"),
+    ("//user:secret@host.example/x", "//***@host.example/x"),
+    ("https://user:secret@[::1]:8080/x", "https://***@[::1]:8080/x"),
+    # Unchanged: nothing secret to mask.
+    ("https://host.example/hook", "https://host.example/hook"),
+    ("git@host.example:org/repo.git", "git@host.example:org/repo.git"),
+    ("run_at 2026-10-09T12:00:00+00:00 is in the past",
+     "run_at 2026-10-09T12:00:00+00:00 is in the past"),
+])
+def test_refusal_reasons_keep_safe_text(typed, shown):
+    from src.desktop.errors import refusal_reason
+
+    assert refusal_reason(ValueError(f"Rejected: {typed}")) == f"Rejected: {shown}"
+
+
+def test_refusal_masking_is_linear_in_the_echoed_length():
+    """A refused value can be long; masking it must not stall the core (round 1's
+    patterns took 4.5 s for 32,000 characters of "a.")."""
+    import time
+
+    from src.desktop.errors import refusal_reason
+
+    started = time.monotonic()
+    for unit in ["a.", "x:,", "a:", "//a", "//@", "%2f%2fa", "%2F%2F%40", "%252f%252fa"]:
+        refusal_reason(ValueError("Rejected: " + unit * (400_000 // len(unit))))
+    assert time.monotonic() - started < 5
+
+
+@pytest.mark.parametrize("cron_timezone", [
+    "https://review-user:review'password@example.invalid/hook",
+    "https%3A%2F%2Freview-user%3Areview'password%40example.invalid%2Fhook",
+])
+async def test_a_refused_schedule_never_echoes_url_credentials(connected, cron_timezone):
+    """The same mask on the real IPC path: a credentialed URL pasted as a time zone,
+    plain or as encodeURIComponent leaves it."""
+    service, reader, writer, _ = connected
+    created = await request(reader, writer, "conversations.create", {})
+    cid = created["result"]["conversation"]["id"]
+    reply = await request(reader, writer, "schedules.save", {
+        "description": "refused zone", "action": "reminder", "cron": "* * * * *",
+        "channel_id": cid, "cron_timezone": cron_timezone,
+    })
+    assert not reply["ok"]
+    assert reply["error"]["code"] == "bad_request"
+    assert "review'password" not in reply["error"]["message"]
+    assert reply["error"]["message"].startswith("Invalid timezone")
+    assert reply["error"]["message"].count("***") == 2
+    assert (await request(reader, writer, "schedules.list"))["result"] == []

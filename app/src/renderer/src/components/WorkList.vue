@@ -61,17 +61,42 @@ function shortTime(value: unknown): string {
   return `${day} ${date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
 }
 
+const SOURCES: Record<string, string> = { generic: 'a generic', github: 'a GitHub', gitea: 'a Gitea', gitlab: 'a GitLab' }
+
+/** What a webhook-triggered schedule waits for: its source, event and repository filters. */
+function triggerText(trigger: unknown): string {
+  if (!trigger || typeof trigger !== 'object') return ''
+  const { source, event, repo } = trigger as Record<string, unknown>
+  const parts = [`${SOURCES[String(source)] ?? 'any'} webhook`]
+  if (typeof event === 'string' && event) parts.push(`event ${event}`)
+  if (typeof repo === 'string' && repo) parts.push(`repository ${repo}`)
+  return parts.join(', ')
+}
+
+const INTAKE_NOTES: Record<string, string> = {
+  disabled: "Incoming webhooks are off, so this can't run. Turn them on in Settings → Work.",
+  unconfigured_bind: 'Incoming webhooks have no address to listen on, so this can\'t run yet.',
+  not_bound: "Incoming webhooks couldn't listen on their address, so this can't run."
+}
+
+/** Why a waiting trigger schedule can't fire now, if it can't. */
+function intakeNote(item: WorkItem): string {
+  if (item.kind !== 'schedule' || !['scheduled', 'paused'].includes(item.state)) return ''
+  return INTAKE_NOTES[String(details(item).trigger_intake)] ?? ''
+}
+
 function times(item: WorkItem): Array<{ label: string; text: string }> {
   const detail = details(item)
   const values: Array<{ label: string; value: unknown }> = [{ label: item.kind === 'schedule' ? 'Created' : 'Started', value: item.started_at }]
+  const trigger = item.kind === 'schedule' ? triggerText(detail.trigger) : ''
   if (item.kind === 'schedule') {
     if (['scheduled', 'paused'].includes(item.state)) values.push({ label: 'Next run', value: detail.next_run })
     values.push({ label: 'Last run', value: detail.last_run })
   }
-  return values.flatMap(({ label, value }) => {
+  return [...(trigger ? [{ label: 'Runs on', text: trigger }] : []), ...values.flatMap(({ label, value }) => {
     const text = shortTime(value)
     return text ? [{ label, text }] : []
-  })
+  })]
 }
 
 function unknownOutcome(item: WorkItem): boolean {
@@ -202,6 +227,7 @@ async function open(conversationId: string, event: MouseEvent): Promise<void> {
       </div>
       <p v-for="value in output(item)" :key="value.label" class="work-output"><strong>{{ value.label }}:</strong> {{ value.text }}</p>
       <p v-if="unknownOutcome(item)" class="work-note">The outcome is not confirmed.</p>
+      <p v-if="intakeNote(item)" class="work-note">{{ intakeNote(item) }}</p>
       <form v-if="item.kind === 'agent' && item.actions.includes('steer') && steering[workKey(item)]" :id="itemId(item, 'steer-form')" class="work-steer" @submit.prevent="submitSteer(item)">
         <label :for="itemId(item, 'steer-text')">Steer {{ workName(item) }}</label>
         <textarea :id="itemId(item, 'steer-text')" v-model="steerText[workKey(item)]" rows="3" :readonly="Boolean(work.busy[workKey(item)])" :aria-describedby="itemId(item, 'steer-help')" />

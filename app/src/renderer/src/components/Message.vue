@@ -108,7 +108,7 @@ function onImageError(ref: string): void {
     </span>
     <div class="meta">
       <span class="who">{{ who(displayRole) }}</span>
-      <time :datetime="message.created_at">{{ time(message.created_at) }}</time>
+      <time :datetime="message.created_at" :title="new Date(message.created_at).toLocaleString()">{{ time(message.created_at) }}</time>
       <span v-if="actions" class="msg-actions">
         <span class="copied" role="status" aria-atomic="true">{{ copied }}</span>
         <button ref="copyButton" class="msg-action" :aria-label="`Copy ${messageLabel}`" :aria-expanded="copyOpen" :aria-controls="`copy-${message.id}`" @click="copyOpen = !copyOpen">Copy</button>

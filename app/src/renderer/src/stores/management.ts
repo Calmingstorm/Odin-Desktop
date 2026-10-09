@@ -318,8 +318,10 @@ export async function testSkill(name: string): Promise<void> {
   }, loadSkills, true)
 }
 
+/** The core's reply is Odin's tool text ("Use enable_skill…"); here the switch is the control. */
 export async function setSkillEnabled(name: string, enabled: boolean): Promise<void> {
-  await act(`skill:${name}`, () => window.odin.skillsSetEnabled({ name, enabled }), (answer) => answer.result, loadSkills)
+  await act(`skill:${name}`, () => window.odin.skillsSetEnabled({ name, enabled }),
+    () => (enabled ? 'Turned on.' : "Turned off. Odin can't use it until it's turned on again."), loadSkills)
 }
 
 /** Once deleted, now or by a late receipt, the editor closes if it shows that skill. */

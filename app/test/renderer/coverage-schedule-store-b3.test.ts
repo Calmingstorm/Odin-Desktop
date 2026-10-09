@@ -57,7 +57,7 @@ describe('B3 real schedule store: cron validation is explicit, ordered and fence
   it('trims the IPC expression, retains the displayed draft, and clears a blank draft without IPC', async () => {
     await store.checkCron(' 0 9 * * * ')
     expect(bridge.schedulesValidateCron).toHaveBeenCalledWith({ expression: '0 9 * * *' })
-    expect(store.schedules.cron).toEqual({ expression: ' 0 9 * * * ', next_runs: ['2026-10-08T09:00:00Z'], error: '' })
+    expect(store.schedules.cron).toEqual({ expression: ' 0 9 * * * ', timezone: '', next_runs: ['2026-10-08T09:00:00Z'], error: '' })
     await store.checkCron(' \t ')
     expect(store.schedules.cron).toBeNull()
     expect(bridge.schedulesValidateCron).toHaveBeenCalledTimes(1)
@@ -66,7 +66,7 @@ describe('B3 real schedule store: cron validation is explicit, ordered and fence
   it('shows validation errors as errors, never as a successful empty next-run list', async () => {
     bridge.schedulesValidateCron.mockResolvedValueOnce(failed('Expected five cron fields'))
     await store.checkCron('not cron')
-    expect(store.schedules.cron).toEqual({ expression: 'not cron', next_runs: [], error: 'Expected five cron fields' })
+    expect(store.schedules.cron).toEqual({ expression: 'not cron', timezone: '', next_runs: [], error: 'Expected five cron fields' })
   })
 
   it('keeps the newer answer when an older request finishes last', async () => {
@@ -76,7 +76,15 @@ describe('B3 real schedule store: cron validation is explicit, ordered and fence
     await store.checkCron('0 9 * * *')
     old.resolve(failed('Stale validation error'))
     await pending
-    expect(store.schedules.cron).toEqual({ expression: '0 9 * * *', next_runs: ['2026-10-08T09:00:00Z'], error: '' })
+    expect(store.schedules.cron).toEqual({ expression: '0 9 * * *', timezone: '', next_runs: ['2026-10-08T09:00:00Z'], error: '' })
+  })
+
+  it('previews in the form\'s time zone, which the scheduler uses for a zoned cron', async () => {
+    await store.checkCron('0 9 * * *', ' America/New_York ')
+    expect(bridge.schedulesValidateCron).toHaveBeenLastCalledWith({ expression: '0 9 * * *', timezone: 'America/New_York' })
+    expect(store.schedules.cron).toEqual({ expression: '0 9 * * *', timezone: 'America/New_York', next_runs: ['2026-10-08T09:00:00Z'], error: '' })
+    await store.checkCron('0 9 * * *', '  ')
+    expect(bridge.schedulesValidateCron).toHaveBeenLastCalledWith({ expression: '0 9 * * *' })
   })
 
   it.each(['blank draft', 'capability refusal'])('does not resurrect a pending answer after %s', async (fence) => {

@@ -28,6 +28,7 @@ from ...llm.recovery import generate_with_recovery, preflight_incompatible_effor
 from ...llm.tool_history import normalize_tool_calls
 from ...odin_log import get_logger
 from ...tools.defs.agents import SPAWN_NEUTRAL_REASONING_OPTIONS
+from ...tools.execution_outcome import ToolFailure
 from ...tools.nested_payload import ValidatedNestedPayload
 from ...tools.result_validator import ToolResult
 from ..background_task import (
@@ -793,7 +794,7 @@ class AgentTaskTools:
         steps = inp.get("steps", [])
 
         if not steps or not isinstance(steps, list):
-            return "No steps provided."
+            return ToolFailure("No steps provided.")
         if len(steps) > MAX_STEPS:
             return f"Too many steps ({len(steps)}). Maximum is {MAX_STEPS}."
 
@@ -853,6 +854,12 @@ class AgentTaskTools:
             raise
 
         async def _publish(kind: str, text: str) -> None:
+            # The task's Work card shows its live progress, so the conversation gets
+            # its result (the summary, then the follow-up) and no progress posts, which
+            # could not be edited in place as on Discord and repeated every step's output.
+            # A cancelled task posts no summary, so its last progress line still goes.
+            if kind == "progress" and task.status != "cancelled":
+                return
             await self._publish_background(background, text, kind)
 
         task.publish = _publish
@@ -963,7 +970,7 @@ class AgentTaskTools:
         if task_id:
             task = tasks.get(task_id)
             if not task:
-                return f"No task found with ID `{task_id}`."
+                return ToolFailure(f"No task found with ID `{task_id}`.")
             lines = [
                 f"**{task.description}** [{task.status}]",
                 f"ID: `{task.task_id}` | {len(task.results)}/{len(task.steps)} steps",
@@ -1042,7 +1049,9 @@ class AgentTaskTools:
                 yield
 
         async def _publish(info, text):
-            await self._publish_background(admitted["message"], text, "loop")
+            # A loop's end is set before its closing post; Desktop notifies on it.
+            kind = "loop" if info.status == "running" else "loop_end"
+            await self._publish_background(admitted["message"], text, kind)
 
         def _settled(info):
             outcome = "completed" if info.status == "completed" else (
@@ -1237,7 +1246,7 @@ class AgentTaskTools:
         goal = inp.get("goal", "")
         parent_id_arg = inp.get("parent_id")
         if not label or not goal:
-            return "Both 'label' and 'goal' are required."
+            return ToolFailure("Both 'label' and 'goal' are required.")
 
         from ...tools.agent_tool_policy import (
             agent_axis_modes,

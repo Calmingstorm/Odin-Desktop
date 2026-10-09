@@ -178,6 +178,10 @@ describe('real management contracts', () => {
     expect(api.skillsSave).toHaveBeenCalledWith({ name: 'hello', code: 'updated', create: false })
     expect(await store.saveSkillConfig('hello', { setting: 'new' })).toBe(true)
     await store.setSkillEnabled('hello', false)
+    // 1.0.5 L15: the note speaks of the switch, not Odin's enable_skill tool.
+    expect(store.management.notes['skill:hello']).toBe("Turned off. Odin can't use it until it's turned on again.")
+    await store.setSkillEnabled('hello', true)
+    expect(store.management.notes['skill:hello']).toBe('Turned on.')
     await store.deleteSkill('broken')
     expect(api.skillsDelete).toHaveBeenCalledWith({ name: 'broken' })
     expect(store.management.unavailable.skills).toBe(false)

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import SettingsSection from './settings/SettingsSection.vue'
+import SettingsRow from './settings/SettingsRow.vue'
 import { computed, onBeforeUnmount, reactive } from 'vue'
 import type { Result } from '../../../shared/api'
 import { isUnavailable, settingsUnavailableText as unavailableText } from '../capability'
@@ -19,6 +20,13 @@ const tails = reactive(Object.fromEntries(['audit', 'logs'].map((key) => [key, {
   lines: string[]; cursor?: string; metadata: Record<string, unknown>; discarded: number
 }>)
 const names = { diffs: 'Audit diffs', failures: 'Audit failures', stats: 'Log statistics', audit: 'Audit tail', logs: 'Log tail' }
+const descriptions = {
+  diffs: 'File changes Odin recorded, newest first. Leave the tool empty for all.',
+  failures: 'Tool calls that failed within the window.',
+  stats: 'How many entries each log holds, by level.',
+  audit: 'The newest lines of the audit record.',
+  logs: "The newest lines of Odin's log."
+}
 const tailBusy = computed(() => tails.audit.loading || tails.logs.loading)
 let alive = true
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -118,35 +126,48 @@ function follow(kind: TailKind): void {
 </script>
 
 <template>
-  <SettingsSection title="Records extras" aria-label="Records extras">
-    <p class="manage-desc">Shows up to 200 recent lines; Follow reads one log at a time.</p>
+  <SettingsSection title="Records extras" aria-label="Records extras" description="Shows up to 200 recent lines; Follow reads one log at a time.">
     <section v-for="kind in (['diffs', 'failures', 'stats'] as const)" :key="kind" :aria-label="names[kind]">
-      <h4>{{ names[kind] }}</h4>
-      <p v-if="reads[kind].unavailable" role="status">{{ unavailableText(names[kind]) }}</p>
-      <template v-else>
-        <label v-if="kind === 'diffs'" class="limit">Audit diffs tool <input v-model="filters.diffs" class="panel-filter" @keydown.enter="read(kind)" /></label>
-        <label v-if="kind === 'failures'" class="limit">Audit failures window in hours <input v-model.number="filters.window" type="number" min="1" max="336" @keydown.enter="read(kind)" /></label>
-        <button class="ghost" :disabled="reads[kind].loading" @click="read(kind)">Read {{ names[kind].toLowerCase() }}</button>
-        <p role="status">{{ reads[kind].loading ? 'Reading…' : reads[kind].loaded ? 'Last successful read shown below.' : 'Not read yet.' }}</p>
-        <p v-if="reads[kind].error" class="warn" role="alert">Couldn't read: {{ reads[kind].error }} No automatic retry.</p>
-      </template>
-      <pre v-if="reads[kind].loaded" class="manage-json">{{ json(reads[kind].result) }}</pre>
+      <SettingsRow :label="names[kind]" :description="descriptions[kind]">
+        <p v-if="reads[kind].unavailable" class="manage-desc" role="status">{{ unavailableText(names[kind]) }}</p>
+        <template v-else>
+          <label v-if="kind === 'diffs'" class="control-field">Tool
+            <input v-model="filters.diffs" placeholder="Any tool" @keydown.enter="read(kind)" />
+          </label>
+          <template v-if="kind === 'failures'">
+            <label class="control-field narrow">Window, in hours
+              <input v-model.number="filters.window" type="number" min="1" max="336" @keydown.enter="read(kind)" />
+            </label>
+          </template>
+          <button class="ghost" :disabled="reads[kind].loading" @click="read(kind)">Read {{ names[kind].toLowerCase() }}</button>
+        </template>
+        <template #note>
+          <template v-if="!reads[kind].unavailable">
+            <p class="manage-desc" role="status">{{ reads[kind].loading ? 'Reading…' : reads[kind].loaded ? 'Last successful read shown below.' : 'Not read yet.' }}</p>
+            <p v-if="reads[kind].error" class="warn" role="alert">Couldn't read: {{ reads[kind].error }} No automatic retry.</p>
+          </template>
+          <pre v-if="reads[kind].loaded" class="manage-json">{{ json(reads[kind].result) }}</pre>
+        </template>
+      </SettingsRow>
     </section>
     <section v-for="kind in (['audit', 'logs'] as const)" :key="kind" :aria-label="names[kind]">
-      <h4>{{ names[kind] }}</h4>
-      <p v-if="tails[kind].unavailable" role="status">{{ unavailableText(names[kind]) }} Follow stopped.</p>
-      <div v-else class="limits">
-        <button class="ghost" :disabled="tailBusy" @click="readTail(kind, true)">Read latest {{ names[kind].toLowerCase() }}</button>
-        <button class="ghost" :disabled="tailBusy || tails[kind].following" :aria-pressed="tails[kind].following" @click="follow(kind)">Follow {{ names[kind].toLowerCase() }}</button>
-        <button class="ghost" :disabled="!tails[kind].following" @click="stop">Stop {{ names[kind].toLowerCase() }}</button>
-      </div>
-      <p role="status">{{ tails[kind].following ? 'Following.' : 'Follow stopped.' }} {{ tails[kind].loading ? 'Reading…' : tails[kind].loaded ? `${tails[kind].lines.length} retained lines.` : 'Not read yet.' }}</p>
-      <p v-if="tails[kind].error && !tails[kind].unavailable" class="warn" role="alert">Couldn't read: {{ tails[kind].error }} Follow stopped. No automatic retry.</p>
-      <template v-if="tails[kind].loaded">
-        <p v-if="tails[kind].discarded" class="manage-desc">{{ tails[kind].discarded }} older lines are no longer shown here. File resets and truncation are listed below.</p>
-        <pre class="manage-json" :aria-label="`${names[kind]} retained lines`">{{ tails[kind].lines.join('\n') }}</pre>
-      </template>
-      <details v-if="Object.keys(tails[kind].metadata).length"><summary>{{ names[kind] }} file details</summary><pre class="manage-json">{{ json(tails[kind].metadata) }}</pre></details>
+      <SettingsRow :label="names[kind]" :description="descriptions[kind]">
+        <p v-if="tails[kind].unavailable" class="manage-desc" role="status">{{ unavailableText(names[kind]) }} Follow stopped.</p>
+        <template v-else>
+          <button class="ghost" :disabled="tailBusy" @click="readTail(kind, true)">Read latest {{ names[kind].toLowerCase() }}</button>
+          <button class="ghost" :disabled="tailBusy || tails[kind].following" :aria-pressed="tails[kind].following" @click="follow(kind)">Follow {{ names[kind].toLowerCase() }}</button>
+          <button class="ghost" :disabled="!tails[kind].following" @click="stop">Stop {{ names[kind].toLowerCase() }}</button>
+        </template>
+        <template #note>
+          <p class="manage-desc" role="status">{{ tails[kind].following ? 'Following.' : 'Follow stopped.' }} {{ tails[kind].loading ? 'Reading…' : tails[kind].loaded ? `${tails[kind].lines.length} retained lines.` : 'Not read yet.' }}</p>
+          <p v-if="tails[kind].error && !tails[kind].unavailable" class="warn" role="alert">Couldn't read: {{ tails[kind].error }} Follow stopped. No automatic retry.</p>
+          <template v-if="tails[kind].loaded">
+            <p v-if="tails[kind].discarded" class="manage-desc">{{ tails[kind].discarded }} older lines are no longer shown here. File resets and truncation are listed below.</p>
+            <pre class="manage-json" :aria-label="`${names[kind]} retained lines`">{{ tails[kind].lines.join('\n') }}</pre>
+          </template>
+          <details v-if="Object.keys(tails[kind].metadata).length"><summary>{{ names[kind] }} file details</summary><pre class="manage-json">{{ json(tails[kind].metadata) }}</pre></details>
+        </template>
+      </SettingsRow>
     </section>
   </SettingsSection>
 </template>

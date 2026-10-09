@@ -45,11 +45,7 @@ const fullyVerified = computed(() => {
   <SettingsSection title="Health" aria-label="Health">
     <p v-if="records.unavailable.health" class="manage-desc" role="status">{{ unavailableText('Health') }}</p>
     <template v-else>
-    <SettingsRow label="Service status">
-      <span v-if="records.health" class="panel-hint">
-        {{ records.health.overall }}: {{ records.health.healthy_count }} healthy, {{ records.health.degraded_count }} degraded,
-        {{ records.health.down_count }} down, {{ records.health.unconfigured_count }} not set up. Checked {{ at(records.health.checked_at) }}.
-      </span>
+    <SettingsRow label="Service status" :description="records.health ? `${records.health.overall}: ${records.health.healthy_count} healthy, ${records.health.degraded_count} degraded, ${records.health.down_count} down, ${records.health.unconfigured_count} not set up. Checked ${at(records.health.checked_at)}.` : undefined">
       <button class="ghost" @click="loadHealth">Check again</button>
     </SettingsRow>
     <p v-if="records.errors.health" class="warn">Couldn't check: {{ records.errors.health }}{{ records.health ? ' Showing the last check.' : '' }}</p>
@@ -68,25 +64,29 @@ const fullyVerified = computed(() => {
   <SettingsSection title="Usage" aria-label="Usage">
     <p v-if="records.unavailable.usage" class="manage-desc" role="status">{{ unavailableText('Usage') }}</p>
     <template v-else>
-    <SettingsRow label="Reported usage">
-      <label class="limit">Period <select v-model="period" :aria-describedby="records.errors.usage ? 'records-usage-error' : undefined" @change="loadUsage(period)">
-        <option value="24h">Last 24 hours</option>
-        <option value="7d">Last 7 days</option>
-        <option value="30d">Last 30 days</option>
-        <option value="all">All time</option>
-      </select></label>
+    <SettingsRow label="Reported usage" description="Tokens and quota the providers reported for the period.">
+      <label class="control-field">Period
+        <select v-model="period" :aria-describedby="records.errors.usage ? 'records-usage-error' : undefined" @change="loadUsage(period)">
+          <option value="24h">Last 24 hours</option>
+          <option value="7d">Last 7 days</option>
+          <option value="30d">Last 30 days</option>
+          <option value="all">All time</option>
+        </select>
+      </label>
+      <template #note>
+        <p v-if="records.errors.usage" id="records-usage-error" class="warn" role="status">Couldn't read usage: {{ records.errors.usage }}{{ records.usage ? ' Showing the last read.' : '' }}</p>
+        <template v-if="records.usage">
+          <p class="manage-desc" :title="basis(records.usage.tokens)">
+            {{ count(records.usage.tokens) }} tokens in {{ usagePeriod }} ({{ basis(records.usage.tokens) }}).
+          </p>
+          <p v-for="q in records.usage.quota" :key="`${q.account}:${q.window}`" class="manage-desc">
+            {{ q.account }}, {{ q.window }} limit:
+            {{ q.used_percent.kind === 'unknown' ? 'use not reported' : `${percent(q.used_percent)} used` }}{{ q.resets_at ? `, resets ${at(q.resets_at)}` : '' }}.
+          </p>
+          <pre v-if="records.usage.summary" class="manage-json">{{ records.usage.summary }}</pre>
+        </template>
+      </template>
     </SettingsRow>
-    <p v-if="records.errors.usage" id="records-usage-error" class="warn" role="status">Couldn't read usage: {{ records.errors.usage }}{{ records.usage ? ' Showing the last read.' : '' }}</p>
-    <template v-if="records.usage">
-      <p class="manage-desc" :title="basis(records.usage.tokens)">
-        {{ count(records.usage.tokens) }} tokens in {{ usagePeriod }} ({{ basis(records.usage.tokens) }}).
-      </p>
-      <p v-for="q in records.usage.quota" :key="`${q.account}:${q.window}`" class="manage-desc">
-        {{ q.account }}, {{ q.window }} limit:
-        {{ q.used_percent.kind === 'unknown' ? 'use not reported' : `${percent(q.used_percent)} used` }}{{ q.resets_at ? `, resets ${at(q.resets_at)}` : '' }}.
-      </p>
-      <pre v-if="records.usage.summary" class="manage-json">{{ records.usage.summary }}</pre>
-    </template>
     </template>
   </SettingsSection>
 
@@ -101,18 +101,24 @@ const fullyVerified = computed(() => {
     <p v-else-if="records.verify" :class="fullyVerified ? 'field-saved' : 'warn'">
       {{ auditVerificationNote(records.verify) }}
     </p>
-    <div class="limits">
-      <label class="limit">Search the audit <input v-model="audit.q" type="search" class="panel-filter" placeholder="Search" :aria-describedby="records.errors.audit ? 'records-audit-error' : undefined" @keydown.enter="loadAudit(audit)" /></label>
-      <label class="limit">Tool <input v-model="audit.tool" class="panel-filter" placeholder="Tool" :aria-describedby="records.errors.audit ? 'records-audit-error' : undefined" @keydown.enter="loadAudit(audit)" /></label>
+    <SettingsRow label="Find tool calls" description="Search the text, or name a tool.">
+      <label class="control-field">Search
+        <input v-model="audit.q" type="search" aria-label="Search the audit" :aria-describedby="records.errors.audit ? 'records-audit-error' : undefined" @keydown.enter="loadAudit(audit)" />
+      </label>
+      <label class="control-field">Tool
+        <input v-model="audit.tool" :aria-describedby="records.errors.audit ? 'records-audit-error' : undefined" @keydown.enter="loadAudit(audit)" />
+      </label>
       <label class="toggle-inline"><input v-model="audit.error_only" type="checkbox" /> Errors only</label>
       <button class="ghost" @click="loadAudit(audit)">Show</button>
-    </div>
-    <p v-if="records.errors.audit" id="records-audit-error" class="warn" role="status">Couldn't read the audit: {{ records.errors.audit }}{{ records.loaded.audit ? ' Showing the last read.' : '' }}</p>
+      <template #note>
+        <p v-if="records.errors.audit" id="records-audit-error" class="warn" role="status">Couldn't read the audit: {{ records.errors.audit }}{{ records.loaded.audit ? ' Showing the last read.' : '' }}</p>
+      </template>
+    </SettingsRow>
     <table class="runs audit">
       <tbody>
         <tr v-for="(e, i) in records.audit" :key="i">
           <td>{{ at(e.timestamp) }}</td>
-          <td>
+          <td class="wrap">
             <code>{{ e.tool_name }}</code>
             <details v-if="e.tool_input && Object.keys(e.tool_input).length" class="audit-input">
               <summary :aria-label="`Input for ${e.tool_name} at ${at(e.timestamp)}`">Input</summary>
@@ -120,7 +126,7 @@ const fullyVerified = computed(() => {
             </details>
           </td>
           <td>{{ e.host ?? '' }}</td>
-          <td :class="e.error ? 'bad' : ''">{{ e.error ?? e.result_summary ?? e.detail ?? '' }}</td>
+          <td :class="['wrap', { bad: e.error }]">{{ e.error ?? e.result_summary ?? e.detail ?? '' }}</td>
           <td>{{ e.execution_time_ms !== undefined ? `${e.execution_time_ms} ms` : '' }}</td>
         </tr>
         <tr v-if="records.loaded.audit && !records.audit.length"><td>Nothing recorded.</td></tr>
@@ -132,21 +138,27 @@ const fullyVerified = computed(() => {
   <SettingsSection title="Logs" aria-label="Logs">
     <p v-if="records.unavailable.logs" class="manage-desc" role="status">{{ unavailableText('Log search') }}</p>
     <template v-else>
-    <SettingsRow label="Find log entries">
-      <label class="limit">Level <select v-model="logs.level" :aria-describedby="records.errors.logs ? 'records-logs-error' : undefined" @change="searchLogs(logs)">
-        <option value="all">Everything</option>
-        <option value="info">Information</option>
-        <option value="error">Errors</option>
-      </select></label>
-      <label class="limit">Search the logs <input v-model="logs.q" type="search" class="panel-filter" placeholder="Search" :aria-describedby="records.errors.logs ? 'records-logs-error' : undefined" @keydown.enter="searchLogs(logs)" /></label>
+    <SettingsRow label="Find log entries" description="Choose a level, or search the text.">
+      <label class="control-field">Level
+        <select v-model="logs.level" :aria-describedby="records.errors.logs ? 'records-logs-error' : undefined" @change="searchLogs(logs)">
+          <option value="all">Everything</option>
+          <option value="info">Information</option>
+          <option value="error">Errors</option>
+        </select>
+      </label>
+      <label class="control-field">Search
+        <input v-model="logs.q" type="search" aria-label="Search the logs" :aria-describedby="records.errors.logs ? 'records-logs-error' : undefined" @keydown.enter="searchLogs(logs)" />
+      </label>
+      <template #note>
+        <p v-if="records.errors.logs" id="records-logs-error" class="warn" role="status">Couldn't search the logs: {{ records.errors.logs }}{{ records.loaded.logs ? ' Showing the last search.' : '' }}</p>
+      </template>
     </SettingsRow>
-    <p v-if="records.errors.logs" id="records-logs-error" class="warn" role="status">Couldn't search the logs: {{ records.errors.logs }}{{ records.loaded.logs ? ' Showing the last search.' : '' }}</p>
     <table class="runs">
       <tbody>
         <tr v-for="(e, i) in records.logs" :key="i">
           <td>{{ at(e.timestamp) }}</td>
           <td :class="logLevel(e) === 'ERROR' ? 'bad' : ''">{{ logLevel(e) }}</td>
-          <td><code>{{ e.tool_name }}</code> {{ logMessage(e) }}</td>
+          <td class="wrap"><code>{{ e.tool_name }}</code> {{ logMessage(e) }}</td>
         </tr>
         <tr v-if="records.loaded.logs && !records.logs.length"><td>No entries.</td></tr>
       </tbody>
@@ -175,7 +187,7 @@ const fullyVerified = computed(() => {
         </div>
         <p class="manage-desc">Started {{ at(t.created_at) }}{{ t.has_checkpoint ? '. Progress is kept.' : '.' }}</p>
       </li>
-      <li v-if="records.turns && !(records.turns.data.turns ?? []).length" class="manage-desc">Nothing preserved.</li>
+      <li v-if="records.turns && !(records.turns.data.turns ?? []).length" class="manage-row manage-desc">Nothing preserved.</li>
     </ul>
     </template>
   </SettingsSection>
@@ -184,31 +196,31 @@ const fullyVerified = computed(() => {
     <p v-if="records.unavailable.computer" class="manage-desc" role="status">{{ unavailableText('Computer use') }}</p>
     <template v-else>
     <SettingsRow label="Session report" description="Read-only status. Manage computer use and check recovery in Tools.">
-      <span v-if="legacy" class="panel-hint">{{ legacy.enabled ? 'On' : 'Off' }}: {{ legacy.state }}.</span>
       <button class="ghost" aria-label="Refresh computer use" @click="loadComputer">Refresh</button>
       <button class="ghost" @click="state.settingsSection = 'tools'">Go to Tools</button>
+      <template #note>
+        <p v-if="legacy" class="manage-desc">{{ legacy.enabled ? 'On' : 'Off' }}: {{ legacy.state }}.</p>
+        <p v-if="records.errors.computer" class="warn">Couldn't read computer use: {{ records.errors.computer }}{{ records.computer ? ' Showing the last read.' : '' }}</p>
+        <template v-if="readiness">
+          <p class="manage-desc">Management: {{ readiness.management_available ? 'available' : 'unavailable' }}.</p>
+          <p v-if="readiness.foreground_available" role="status">Desktop input is available on X11. Each request still needs consent and a verified target. Odin must also accept the request before sending input.</p>
+          <p v-else class="capability-unavailable" role="status">Desktop input is unavailable. Input route: {{ readiness.dispatch }}. Reason: {{ reasonText(readiness.reason) }}.</p>
+          <p v-if="!session" class="manage-desc">No computer-use session is reported. This does not confirm that mouse and keyboard input was released.</p>
+          <p v-else class="manage-desc">Checking recovery in Tools only reviews the recorded session. It does not start a session, send input, or confirm that you checked the computer.</p>
+        </template>
+      </template>
     </SettingsRow>
-    <p v-if="records.errors.computer" class="warn">Couldn't read computer use: {{ records.errors.computer }}{{ records.computer ? ' Showing the last read.' : '' }}</p>
-    <template v-if="readiness">
-      <p class="manage-desc">Management: {{ readiness.management_available ? 'available' : 'unavailable' }}.</p>
-      <p v-if="readiness.foreground_available" role="status">Desktop input is available on X11. Each request still needs consent and a verified target. Odin must also accept the request before sending input.</p>
-      <p v-else class="capability-unavailable" role="status">Desktop input is unavailable. Input route: {{ readiness.dispatch }}. Reason: {{ reasonText(readiness.reason) }}.</p>
-      <p v-if="!session" class="manage-desc">No computer-use session is reported. This does not confirm that mouse and keyboard input was released.</p>
-      <p v-else class="manage-desc">Checking recovery in Tools only reviews the recorded session. It does not start a session, send input, or confirm that you checked the computer.</p>
-    </template>
-    <template v-if="session?.session_id">
-      <div class="manage-line">
-        <code class="manage-name">{{ session.session_id }}</code>
-        <span class="manage-count">generation {{ records.computer ? computerGeneration(records.computer) : '' }}</span>
-        <span :class="['state-chip', session.state === 'quarantined' ? 'failed' : 'disabled']">{{ session.state }}</span>
-      </div>
-      <p v-if="session.recovery" :class="session.recovery.complete ? 'manage-desc' : 'warn'">
-        Recovery: {{ session.recovery.status.replace(/_/g, ' ') }}, because {{ reasonText(session.recovery.reason) }}.
-        {{ session.recovery.complete ? 'Recovery is recorded as complete; this does not confirm input is safe to resume.' : 'Recovery is incomplete. Do not resume desktop input.' }}
-      </p>
-      <p v-if="computerReleaseUncertain(session)" class="warn">Input release remains unverified.</p>
-      <p v-if="management.notes[computerKey]" class="manage-note" role="status">{{ management.notes[computerKey] }}</p>
-    </template>
+    <SettingsRow v-if="session?.session_id" label="Recorded session" :description="`Generation ${records.computer ? computerGeneration(records.computer) : ''}.`">
+      <span class="manage-line"><code class="manage-name">{{ session.session_id }}</code><span :class="['state-chip', session.state === 'quarantined' ? 'failed' : 'disabled']">{{ session.state }}</span></span>
+      <template #note>
+        <p v-if="session.recovery" :class="session.recovery.complete ? 'manage-desc' : 'warn'">
+          Recovery: {{ session.recovery.status.replace(/_/g, ' ') }}, because {{ reasonText(session.recovery.reason) }}.
+          {{ session.recovery.complete ? 'Recovery is recorded as complete; this does not confirm input is safe to resume.' : 'Recovery is incomplete. Do not resume desktop input.' }}
+        </p>
+        <p v-if="computerReleaseUncertain(session)" class="warn">Input release remains unverified.</p>
+        <p v-if="management.notes[computerKey]" class="manage-note" role="status">{{ management.notes[computerKey] }}</p>
+      </template>
+    </SettingsRow>
     </template>
   </SettingsSection>
 </template>

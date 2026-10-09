@@ -150,3 +150,43 @@ async def test_per_attachment_processing_preserves_retained_source_order(tmp_pat
         await core.close()
         os.close(read_fd)
         os.close(write_fd)
+
+
+@pytest.mark.asyncio
+async def test_attachment_too_large_to_retain_keeps_the_turn_and_its_preview(tmp_path, caplog):
+    """L13 (1.0.5): over the per-result retention quota, Odin's intake logs, notes that
+    no cursor was issued and continues with the inline preview; Desktop failed the turn."""
+    paths, socket_path, token_file = profile(tmp_path)
+    provider = RecordingProvider()
+    core = service(paths, socket_path, token_file, provider)
+    read_fd, write_fd = os.pipe()
+    writer = None
+    try:
+        await core.start(read_fd)
+        core.config.attachments.inline_text_max_bytes = 1
+        core.engine.deps.tool_executor._ensure_output_store().per_result_bytes = 8
+        reader, writer, _ = await connect(socket_path)
+        created = await request(reader, writer, "conversations.create", {})
+        cid = created["result"]["conversation"]["id"]
+        ref = await upload(reader, writer, cid, "large.txt", b"More than eight bytes of text")
+        submitted = await request(reader, writer, "submission.send", {
+            "client_submission_id": "too-large", "conversation_id": cid,
+            "text": "Review this file", "attachments": [{"ref": ref, "add_to_knowledge": False}]})
+        assert submitted["ok"]
+        await settled(core)
+        actual = model_text(provider)
+        assert "**Attached file: large.txt**" in actual
+        assert "[Full-content output retrieval unavailable; no cursor was issued.]" in actual
+        assert "labelled source order" not in actual
+        state = core.store.connection.execute(
+            "SELECT state FROM desktop_requests WHERE request_id=?",
+            (submitted["result"]["request_id"],)).fetchone()[0]
+        assert state == "completed"
+        assert "Attachment output retention failed" in caplog.text
+    finally:
+        if writer is not None:
+            writer.close()
+            await writer.wait_closed()
+        await core.close()
+        os.close(read_fd)
+        os.close(write_fd)

@@ -11,7 +11,7 @@ import pytest
 
 from src.agents.manager import AgentInfo, AgentManager, AgentState
 from src.desktop.authority import OwnerAuthority
-from src.desktop.commands import JournalStorageError, JournalStore
+from src.desktop.commands import JournalStorageError, JournalStore, canonical_json
 from src.desktop.controls import ControlService
 from src.desktop.conversations import ConversationStore
 from src.desktop.events import EventJournal
@@ -127,6 +127,26 @@ async def test_process_pid_reuse_cannot_cancel_successor(work):
     assert service.processes.calls == []
 
 
+
+def test_a_restored_process_keeps_the_command_work_recorded(work):
+    """L6 (1.0.5): after a restart a finished process came back without its command
+    (retention never stores one), and its Work card read "(retained output)"."""
+    service, message, _context = work
+    live = ProcessInfo(777, "sleep 40", "localhost", 1, owner_id=message.owner_id,
+                       origin_channel=message.conversation_id, generation="g1")
+    service.processes._processes[777] = live
+    assert service.register("process", "777", message)["title"] == "sleep 40"
+    restored = ProcessInfo(777, "(retained output)", "localhost", 1, owner_id=message.owner_id,
+                           origin_channel=message.conversation_id, generation="g1")
+    restored.restored = True
+    service.processes._processes[777] = restored
+    [card] = service.list()["items"]
+    assert card["title"] == "sleep 40"
+    # A live process is always named from itself.
+    live.command = "sleep 41"
+    service.processes._processes[777] = live
+    assert service.list()["items"][0]["title"] == "sleep 41"
+
 @pytest.mark.asyncio
 async def test_unknown_process_cleanup_never_becomes_done(work):
     service, message, context = work
@@ -218,6 +238,33 @@ async def test_task_status_before_teardown_is_not_settlement(work):
     await asyncio.sleep(0)
     assert service.list()["items"][0]["settlement"]["state"] == "settled"
 
+
+
+@pytest.mark.asyncio
+async def test_a_finished_item_settles_once_and_leaves_the_loop_idle(work, monkeypatch):
+    """1.0.5: settling refreshed the finished item, which re-watched its done task; a done
+    task runs its callback at once, so the core refreshed every Work record forever at
+    full CPU after any agent, task, loop or process finished."""
+    service, message, _context = work
+    item = BackgroundTask("t", "noop", [], message.conversation_id, "Owner",
+                          requester_id=message.owner_id)
+    release = asyncio.Event()
+    item._asyncio_task = asyncio.create_task(release.wait())
+    service.tasks["t"] = item
+    service.register("task", "t", message)
+    calls = []
+    refresh_all = service.refresh_all
+    monkeypatch.setattr(service, "refresh_all", lambda: calls.append(1) or refresh_all())
+    item.status = "completed"
+    release.set()
+    await item._asyncio_task
+    for _ in range(50):
+        await asyncio.sleep(0)
+    assert len(calls) == 1
+    assert service.list()["items"][0]["settlement"]["state"] == "settled"
+    for _ in range(50):
+        await asyncio.sleep(0)
+    assert len(calls) == 2  # that list() itself; nothing more was scheduled
 
 def test_reopen_without_manager_retains_binding_unknown_no_replay(work):
     service, message, _context = work
@@ -977,3 +1024,79 @@ async def test_real_control_service_pending_receipt_is_unknown_not_replayed(work
     assert second["error"]["disposition"] == "outcome_unknown"
     assert calls == ["dispatch"]
     assert item._cancel_event.is_set() is False
+
+
+@pytest.mark.asyncio
+async def test_a_trigger_schedule_card_names_its_trigger_and_why_it_cannot_fire(work, tmp_path):
+    """L9 (1.0.5): a webhook-triggered schedule showed only "Created", with nothing saying
+    it waits for a webhook or that incoming webhooks were off so it never runs."""
+    from src.scheduler.scheduler import Scheduler
+
+    service, message, _context = work
+    scheduler = Scheduler(str(tmp_path / "schedules.json"), desktop_recovery=True)
+    service.scheduler = scheduler
+    schedule = await scheduler.add(
+        "On push", "reminder", message.conversation_id, requester_id=message.owner_id,
+        trigger={"source": "github", "event": "push", "repo": "odin"}, message="pushed")
+    intake = ["disabled"]
+    service.trigger_intake = lambda: intake[0]
+    record = service.register_schedule(schedule)
+    assert record["detail"]["trigger"] == {"source": "github", "event": "push", "repo": "odin"}
+    assert record["detail"]["trigger_intake"] == "disabled"
+    intake[0] = "accepting"
+    [listed] = [item for item in service.list()["items"] if item["kind"] == "schedule"]
+    assert listed["detail"]["trigger_intake"] == "accepting"
+    cron = await scheduler.add("Daily", "reminder", message.conversation_id,
+                               requester_id=message.owner_id, cron="0 9 * * *", message="hi")
+    assert "trigger" not in service.register_schedule(cron)["detail"]
+
+    def unreadable():
+        raise RuntimeError("ingress state unreadable")
+
+    # An unreadable intake state leaves the card without it; the card still projects.
+    service.trigger_intake = unreadable
+    record = service.register_schedule(schedule)
+    assert record["detail"]["trigger"]["source"] == "github"
+    assert "trigger_intake" not in record["detail"]
+
+
+def test_register_refuses_unknown_kinds_and_missing_managers(work):
+    service, message, _context = work
+    with pytest.raises(ValueError, match="Unknown work kind"):
+        service.register("nonsense", "1", message)
+    with pytest.raises(ValueError, match="Manager work does not exist"):
+        service.register("agent", "missing", message)
+
+
+def test_finished_work_is_kept_to_the_newest_and_leaves_with_its_chat(work):
+    """L2 (1.0.5): Work kept every finished record forever, and records outlived their
+    chats. Finished, settled records now keep to the newest per kind; those of a deleted
+    chat go. A record whose outcome isn't confirmed stays."""
+    from src.desktop.work import KEEP_FINISHED
+
+    service, message, _context = work
+    other = service.conversations.create()["conversation"]["id"]
+
+    def finished(id, started, conversation, settlement="settled", state="completed"):
+        record = {"kind": "agent", "id": f"w-{id}", "manager_id": id, "manager_generation": "g",
+                  "run_id": "r", "request_id": "r", "generation": 1,
+                  "owner_id": message.owner_id, "conversation_id": conversation,
+                  "started_at": started, "state": state, "actions": [],
+                  "settlement": {"state": settlement}, "detail": {}}
+        with service.store.transaction() as connection:
+            connection.execute("INSERT INTO desktop_work VALUES (?,?,?,?)",
+                               ("agent", id, "g", canonical_json(record)))
+
+    for index in range(KEEP_FINISHED + 5):
+        finished(f"a{index:03}", 1000.0 + index, message.conversation_id)
+    finished("orphan", 5000.0, other)
+    finished("unconfirmed", 1.0, other, settlement="unknown", state="interrupted")
+    service.conversations.delete(other, service.conversations.get(other)["rev"])
+    assert service.prune() == 5 + 1
+    with service.store.transaction() as connection:
+        left = {row[0] for row in connection.execute("SELECT id FROM desktop_work")}
+    assert left == {f"a{index:03}" for index in range(5, KEEP_FINISHED + 5)} | {"unconfirmed"}
+    assert service.prune() == 0
+    # The Work list the app reads prunes as it lists.
+    finished("oldest", 1.0, message.conversation_id)
+    assert "w-oldest" not in {item["id"] for item in service.list()["items"]}

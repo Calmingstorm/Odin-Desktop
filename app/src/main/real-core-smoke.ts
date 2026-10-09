@@ -1086,11 +1086,24 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       screens.push({ screen: 'Settings / Data and privacy / Memory and knowledge / Context reload', text: await text('section[aria-label="Context"]') })
       assert(!(await text('.settings-body')).includes('Loading'))
       assert((await text('section[aria-label="Named lists"]')).includes('No lists.'))
-      await until(async () => (await count('pre[aria-label="Learned context JSON"]')) === 1, 'real learned context read')
-      assert.deepEqual(JSON.parse(await text('pre[aria-label="Learned context JSON"]')), observations.learned!.result)
+      // Learned context lists the entries the core returns; a fresh profile has none.
+      await until(async () => (await text('ul[aria-label="Learned entries"]')).includes('Nothing learned yet.'), 'real learned context read')
+      assert.equal(await count('ul[aria-label="Learned entries"] button[aria-label^="Edit learned entry"]'),
+        (observations.learned!.result as { entries: unknown[] }).entries.length, 'learned context must list exactly the core entries')
+      // Knowledge details reads saved documents, so a fresh profile offers no reads. Save one as a
+      // person would, through Add a document, then read duplicates through the UI.
+      assert((await text('section[aria-label="Knowledge details"]')).includes('No documents saved yet.'), 'no reads without documents')
+      await setInput('#knowledge-source', 'smoke-note.md')
+      await setInput('#knowledge-content', 'A short note the smoke saves before reading knowledge details.')
+      await click('section[aria-label="Add a document"] .panel-actions button')
+      await until(async () => /Stored as \d+ chunks?\./.test(await text('section[aria-label="Add a document"]')), 'real knowledge ingest through the UI')
+      await until(async () => (await count('form[aria-label="Find knowledge duplicates"]')) === 1, 'knowledge details offers reads for a saved document')
       await click('form[aria-label="Find knowledge duplicates"] button')
       await until(async () => (await count('pre[aria-label="Knowledge duplicates JSON"]')) === 1, 'real knowledge duplicates read')
-      assert.deepEqual(JSON.parse(await text('pre[aria-label="Knowledge duplicates JSON"]')), observations.duplicates!.result)
+      // The complete record sits in a closed disclosure: compare its text, not what is rendered.
+      const duplicates = await run<{ ok: boolean; result?: unknown }>('window.odin.knowledgeDuplicates({})')
+      assert(duplicates.ok, 'knowledge duplicates core read must succeed')
+      assert.deepEqual(JSON.parse(await run<string>(`document.querySelector('pre[aria-label="Knowledge duplicates JSON"]').textContent`)), duplicates.result)
     }
     if (destination === 'Usage, logs and audit') {
       if (seededWorkProof) {

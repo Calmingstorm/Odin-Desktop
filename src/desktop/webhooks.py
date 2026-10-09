@@ -275,6 +275,13 @@ class WebhookIngress:
             if cancelled:
                 raise asyncio.CancelledError
 
+    def intake_state(self):
+        """Whether a trigger schedule can fire now: status() without counting schedules."""
+        config = self.settings.config.webhook
+        return ('closed' if self._closed else 'disabled' if not config.enabled else
+                'unconfigured_bind' if not config.bind_address else
+                'accepting' if self.address else 'not_bound')
+
     def status(self):
         config = self.settings.config.webhook
         eligible = sum(self._eligible(row) for row in self.scheduler.list_all())

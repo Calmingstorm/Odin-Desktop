@@ -66,9 +66,9 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
 
 <template>
   <SettingsSection title="Skills" aria-label="Skills">
-    <header class="panel-head">
+    <template #actions>
       <button v-if="!management.unavailable.skills" class="ghost" @click="newSkill(TEMPLATE)">New skill</button>
-    </header>
+    </template>
     <p v-if="management.unavailable.skills" class="capability-unavailable" role="status">{{ unavailableText('Skill management') }}</p>
     <p v-else-if="management.errors.skills" class="warn">{{ management.errors.skills }}</p>
     <p v-if="!management.unavailable.skills && management.skillTestUnavailable" class="capability-unavailable" role="status">Skill testing is unavailable.</p>

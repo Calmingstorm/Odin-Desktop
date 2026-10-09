@@ -7,6 +7,9 @@ import { act, management } from './management'
 import { activePersonality } from '../assistant-name'
 import { onReady } from '../store'
 
+/** "1 chunk", "3 chunks". */
+export const chunkCount = (count: number): string => `${count} chunk${count === 1 ? '' : 's'}`
+
 type StateResource = 'personality' | 'memory' | 'lists' | 'knowledge' | 'context'
 const features: Record<StateResource, string> = { personality: 'Personality', memory: 'Memory', lists: 'Named list management', knowledge: 'Knowledge', context: 'Context reload' }
 
@@ -205,7 +208,7 @@ function storedIngest(answer: KnowledgeIngest): boolean {
 
 export function ingestNote(answer: KnowledgeIngest): string {
   if (answer.outcome === 'unchanged') return 'Already stored, unchanged.'
-  if (storedIngest(answer)) return `Stored as ${answer.chunks ?? 0} chunks.`
+  if (storedIngest(answer)) return `Stored as ${chunkCount(answer.chunks ?? 0)}.`
   return answer.message ?? answer.status ?? 'No durable storage result was reported.'
 }
 
@@ -232,7 +235,7 @@ export async function reingest(source: string): Promise<void> {
 export async function deleteSource(source: string): Promise<void> {
   if (stateStore.unavailable.knowledge) return
   delete stateStore.versions[source]
-  await act(`knowledge:${source}`, () => command('knowledge', () => window.odin.knowledgeDelete({ source })), (r) => `Deleted, ${r.chunks_removed} chunks.`, loadKnowledge)
+  await act(`knowledge:${source}`, () => command('knowledge', () => window.odin.knowledgeDelete({ source })), (r) => `Deleted, ${chunkCount(r.chunks_removed)}.`, loadKnowledge)
 }
 
 const versionsAsked: Record<string, number> = {}
@@ -251,7 +254,7 @@ export async function restoreVersion(source: string, version: number): Promise<v
   await act(
     `knowledge:${source}`,
     () => command('knowledge', () => window.odin.knowledgeRestore({ source, version })),
-    (r) => `Restored version ${r.version}: ${r.chunks} chunks.`,
+    (r) => `Restored version ${r.version}: ${chunkCount(r.chunks)}.`,
     async () => {
       await loadKnowledge()
       await loadVersions(source)

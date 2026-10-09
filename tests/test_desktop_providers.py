@@ -573,3 +573,49 @@ async def test_removing_last_account_reload_retires_codex_generation(graph):
     assert owner.codex is owner.main is None
     assert old._generation_retired
     await owner.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enabled", [True, False])
+async def test_startup_builds_the_saved_auxiliary_without_a_probe(graph, fake_network, enabled):
+    """L19 (1.0.5): startup adopted only the Codex client, so a saved auxiliary stayed
+    off ("selected auxiliary provider is unavailable") until its setting was saved again.
+    It now comes up with its primary, like Odin's boot: no qualification request."""
+    from types import SimpleNamespace
+
+    from src.desktop.services import EngineServices
+    from src.llm.auxiliary import AuxiliaryLLMClient
+
+    settings, accounts, owner, _ = graph
+    credentials(settings)
+    settings.config.openai_codex.enabled = True
+    settings.config.llm_provider.model = "gpt-6.1-sol"
+    settings.config.openai_codex.auxiliary.enabled = enabled
+    settings.config.openai_codex.auxiliary.model = "gpt-6-luna"
+    wired = []
+    owner.wire_callbacks = lambda: wired.append(owner.auxiliary)
+    await EngineServices(SimpleNamespace(llm_gateway=owner), None).initialize_profile_provider()
+    assert isinstance(owner.codex, CodexChatClient) and owner.codex.auth is accounts.pool
+    if enabled:
+        aux = owner.auxiliary
+        assert isinstance(aux, AuxiliaryLLMClient)
+        assert aux.aux_client is not owner.codex and aux.aux_client.auth is accounts.pool
+        assert aux.aux_client.model == "gpt-6-luna" and aux.aux_client.reasoning_effort is None
+        assert aux.primary_client is owner.codex
+        assert wired == [aux]
+    else:
+        assert owner.auxiliary is None
+    assert fake_network == []  # nothing was sent at startup
+    await owner.close()
+
+
+def test_startup_auxiliary_needs_its_primary_and_its_providers_client(graph):
+    """L19 (1.0.5): startup builds the saved auxiliary only when the main model's client and
+    the auxiliary provider's client exist. Otherwise there is none, and nothing is probed."""
+    settings, _, owner, _ = graph
+    settings.config.openai_codex.auxiliary.enabled = True
+    # The main model is a Codex model, and no Codex client was built at startup.
+    assert owner.startup_auxiliary(None) is None
+    # A compatible auxiliary whose provider has no client yet.
+    settings.config.openai_codex.auxiliary.model = "compat:fixture-model"
+    assert owner.startup_auxiliary(object()) is None

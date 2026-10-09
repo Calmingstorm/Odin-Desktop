@@ -25,7 +25,11 @@ describe('smallest honest observability and trajectory sections', () => {
   it('uses section headings outside report and connection-action cards', () => {
     view = mount(Observability)
     const sections = view.root.findAll((n) => String(n.props.class).split(' ').includes('settings-section'))
-    expect(sections).toHaveLength(7)
+    // One card of read-only reports, a row each, and one card of connection actions.
+    expect(sections.map((section) => section.findAll((n) => n.tag === 'h3')[0]!.textContent())).toEqual(['Diagnostics', 'Connection pool actions'])
+    const rows = (section: (typeof sections)[number]) => section.findAll((n) => String(n.props.class).split(' ').includes('settings-row'))
+    expect(rows(sections[0]!)).toHaveLength(6)
+    expect(rows(sections[1]!)).toHaveLength(2)
     for (const section of sections) {
       expect(section.findAll((n) => n.tag === 'h3')).toHaveLength(1)
       const card = section.findAll((n) => String(n.props.class).split(' ').includes('settings-card'))[0]!
@@ -47,6 +51,27 @@ describe('smallest honest observability and trajectory sections', () => {
     await view.root.button('Read Runtime statistics').fire('click'); await flush()
     expect(view.root.textContent()).toContain('Runtime statistics is unavailable.')
     expect(view.root.textContent()).not.toContain('not measured')
+  })
+  it("closes one host's pool with its typed user, says what closed, and reads each report on request", async () => {
+    bridge.poolsClose.mockResolvedValue({ ok: true, result: { closed: true, host: 'build-box' } })
+    view = mount(Observability); await flush()
+    const field = (caption: string) => view.root.findAll((n) => n.tag === 'label' && n.textContent().trim() === caption)[0]!.find('input')!
+    expect(view.root.button('Close host pool…').props.disabled).toBe(true)
+    field('Host').type('build-box'); field('SSH user (optional)').type('deploy'); await flush()
+    await view.root.button('Close host pool…').fire('click'); await flush()
+    expect(bridge.poolsClose).toHaveBeenCalledWith({ host: 'build-box', ssh_user: 'deploy' })
+    expect(view.root.textContent()).toContain('Closed the SSH connection to build-box.')
+    bridge.poolsClose.mockResolvedValue({ ok: true, result: { closed: false, host: 'build-box' } })
+    await view.root.button('Close host pool…').fire('click'); await flush()
+    expect(view.root.textContent()).toContain('No SSH connection to build-box was open.')
+    bridge.poolsClose.mockResolvedValue({ ok: true, result: { closed_count: 1 } })
+    await view.root.button('Close all pools…').fire('click'); await flush()
+    expect(view.root.textContent()).toContain('Closed 1 SSH connection.')
+    for (const name of ['Recovery statistics', 'Recent recovery', 'Capacity breaker']) await view.root.button(`Read ${name}`).fire('click')
+    await flush()
+    expect(bridge.recoveryStats).toHaveBeenCalledWith({})
+    expect(bridge.recoveryRecent).toHaveBeenCalledWith({ limit: 20 })
+    expect(bridge.capacitySnapshot).toHaveBeenCalledWith({})
   })
   it('requires confirmation before close and calls the named mutation', async () => {
     view = mount(Observability)
@@ -78,5 +103,17 @@ describe('smallest honest observability and trajectory sections', () => {
     await flush()
     expect(management.busy['connection-pools']).toBe(false)
     expect(view.root.textContent()).toContain('Connection pool actions is unavailable.')
+  })
+
+  it('lists trajectory files by name, and choosing one fills the filename to read (1.0.5 L12)', async () => {
+    bridge.trajectoriesList.mockResolvedValue({ ok: true, result: { files: ['2026-10-08.jsonl', '2026-10-09.jsonl'], count: 2 } })
+    view = mount(Trajectories); await flush()
+    await view.root.button('List trajectory files').fire('click'); await flush()
+    expect(view.root.textContent()).not.toContain('"count"')
+    await view.root.button('2026-10-09.jsonl').fire('click'); await flush()
+    expect(view.setup.filename).toBe('2026-10-09.jsonl')
+    bridge.trajectoriesList.mockResolvedValue({ ok: true, result: { files: [], count: 0 } })
+    await view.root.button('List trajectory files').fire('click'); await flush()
+    expect(view.root.textContent()).toContain('No trajectory files yet.')
   })
 })

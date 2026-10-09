@@ -5,7 +5,7 @@ Comment=Odin, your execution agent
 Exec=odin-desktop %U
 Icon=odin-desktop
 Terminal=false
-Categories=Utility;
+Categories=Development;
 StartupWMClass=odin-desktop
 Actions=exit;
 

@@ -61,7 +61,9 @@ describe('Step 5 renderer integration shapes', () => {
   it('keeps the styled native file chooser accessible and loads a document without ingesting it', async () => {
     const v = await view('State')
     const input = v.root.findAll((node) => node.tag === 'input' && node.props.type === 'file')[0]!
-    expect(input.props).toMatchObject({ class: 'knowledge-file-input', 'aria-label': 'Load a text file' })
+    // The native input stays focusable but unseen; its styled label is the button people see.
+    expect(input.props).toMatchObject({ class: 'sr-only', 'aria-label': 'Load a text file' })
+    expect(v.root.findAll((node) => node.tag === 'label' && node.props.for === input.props.id).map((node) => node.textContent().trim())).toEqual(['Choose file…'])
     const text = vi.fn(async () => 'A local document')
     await input.fire('change', { target: { files: [{ name: 'guide.md', text }] } })
     await flush()
@@ -88,7 +90,7 @@ describe('Step 5 renderer integration shapes', () => {
     const v = await view('Records')
     const report = v.root.findAll((n) => n.props['aria-label'] === 'Computer use')[0]!
     expect(report.textContent()).toContain('record-session')
-    expect(report.textContent()).toContain('generation 9')
+    expect(report.textContent()).toContain('Generation 9')
     expect(report.textContent()).toContain('quarantined')
     expect(report.textContent()).toContain('Input release remains unverified.')
     expect(report.textContent()).toContain('Recovery is incomplete. Do not resume desktop input.')

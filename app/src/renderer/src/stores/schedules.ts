@@ -12,7 +12,7 @@ export const schedules = reactive({
   unavailable: false,
   history: {} as Record<string, ScheduleRun[] | undefined>,
   /** The last cron check: the expression, and its next runs or why it's not valid. */
-  cron: null as { expression: string; next_runs: string[]; error: string } | null
+  cron: null as { expression: string; timezone: string; next_runs: string[]; error: string } | null
 })
 
 /** Each read of the list, in order: an older answer never replaces a newer one. */
@@ -89,17 +89,19 @@ export async function deleteSchedule(row: ScheduleRow): Promise<void> {
 let latestCron = 0
 
 /** Checks a cron expression with the core, which answers its next runs. A newer check answers instead of an older one. */
-export async function checkCron(expression: string): Promise<void> {
+/** Previews the next runs as the scheduler computes them: in `timezone`, or UTC without one. */
+export async function checkCron(expression: string, timezone = ''): Promise<void> {
   const mine = ++latestCron
   if (!expression.trim()) {
     schedules.cron = null
     return
   }
-  const result = await window.odin.schedulesValidateCron({ expression: expression.trim() })
+  const zone = timezone.trim()
+  const result = await window.odin.schedulesValidateCron({ expression: expression.trim(), ...(zone ? { timezone: zone } : {}) })
   if (mine !== latestCron) return
   schedules.cron = result.ok
-    ? { expression, next_runs: result.result.next_runs, error: '' }
-    : { expression, next_runs: [], error: result.error.message }
+    ? { expression, timezone: zone, next_runs: result.result.next_runs, error: '' }
+    : { expression, timezone: zone, next_runs: [], error: result.error.message }
 }
 
 // Work controls and automatic scheduler completions can change a definition while Settings is open.

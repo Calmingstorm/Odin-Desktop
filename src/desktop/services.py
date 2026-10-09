@@ -7,7 +7,6 @@ accounting is deliberately separate and runs only after that publication.
 from __future__ import annotations
 
 import asyncio
-import importlib.util
 import mimetypes
 import os
 import time
@@ -36,7 +35,7 @@ from ..discord.turn_recorder import TurnRecorder
 from ..llm.system_prompt import register_user_presets
 from ..odin_log import get_logger
 from ..sessions.manager import CHAT_RESPONSE_MAX_CHARS, summarize_tool_response
-from ..tools.builtin_policy import BuiltinToolPolicy, unavailable_rejection
+from ..tools.builtin_policy import BUILTIN_TOOL_NAMES, BuiltinToolPolicy, unavailable_rejection
 from ..tools.registry import PHASE1_EXECUTOR_TOOL_NAMES
 
 log = get_logger("desktop.services")
@@ -45,11 +44,20 @@ log = get_logger("desktop.services")
 class _ReadyPolicy(BuiltinToolPolicy):
     """Use actual owners and the same live switches at offer and dispatch."""
 
+    def __init__(self, *args, mcp=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._mcp = mcp
+
     def is_available(self, name):
         if self.is_disabled(name):
             return False
         try:
-            return self._get_readiness().get(name) is True
+            if self._get_readiness().get(name) is True:
+                return True
+            # An MCP tool is ready while the manager requests and agents
+            # dispatch to still publishes it. Built-in names are never MCP's.
+            return (self._mcp is not None and name not in BUILTIN_TOOL_NAMES
+                    and self._mcp.has_tool(name) is True)
         except Exception:
             return False
 
@@ -119,18 +127,43 @@ class EngineServices:
 
         def build():
             # An empty or locked vault never becomes a cached empty auth pool.
-            if gateway.codex_accounts.vault.read():
-                return gateway._build("codex", settings.config)
-            return None
+            if not gateway.codex_accounts.vault.read():
+                return None, None
+            client = gateway._build("codex", settings.config)
+            # The saved auxiliary comes up with its primary, as at Odin's boot;
+            # otherwise it stayed off until its setting was saved again.
+            startup_auxiliary = getattr(gateway, "startup_auxiliary", None)
+            auxiliary = startup_auxiliary(client) if callable(startup_auxiliary) else None
+            return client, auxiliary
 
         try:
-            client = await secret_call(build)
+            client, auxiliary = await secret_call(build)
         except (MethodError, SecretStoreError):
             log.warning("Desktop Codex provider unavailable at startup")
             return
         gateway.codex_client = client
+        if auxiliary is not None:
+            gateway.auxiliary_llm_client = auxiliary
         if gateway.active_client is not None:
             gateway.wire_callbacks()
+
+    async def reconcile_knowledge_index(self):
+        """Index stored knowledge chunks the full-text index lacks, as Odin's boot does.
+
+        A backlog (a profile from before 1.0.5 has no full-text rows) is written in one
+        transaction first; Odin's reconciliation then settles orphans and the rest.
+        """
+        store = getattr(self.deps, "knowledge_store", None)
+        backfill = getattr(store, "backfill_fts_async", None)
+        if backfill is None:
+            return
+        try:
+            backlog = getattr(store, "backfill_fts_backlog_async", None)
+            count = (await backlog() if backlog is not None else 0) + await backfill()
+            if count:
+                log.info("Backfilled %d knowledge chunks into FTS index", count)
+        except Exception:
+            log.exception("Knowledge FTS reconciliation failed")
 
     def diagnostics(self):
         """Public, credential-free runtime state for optional engine services."""
@@ -285,6 +318,7 @@ class EngineServices:
         if knowledge is None:
             knowledge = getattr(d.runtime_context, "knowledge_store", None)
         await release(knowledge, "close")
+        await release(getattr(d, "knowledge_fts", None), "close")
         await release(d.turn_store, "close")
         if failures:
             raise RuntimeError("Desktop engine cleanup did not fully complete") from failures[0]
@@ -440,6 +474,9 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     from ..llm.recovery import RecoveryPolicy
     from ..permissions.host_access import HostAccessManager
     from ..scheduler import Scheduler
+    from ..search.bundled_models import bundled_model_roots
+    from ..search.embedder import LocalEmbedder
+    from ..search.fts import FullTextIndex
     from ..sessions import SessionManager
     from ..tools import SkillManager, ToolExecutor
     from ..tools.autonomous_loop import LoopManager
@@ -449,6 +486,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     from ..turn_state import TurnStateStore
     from ..usage.rollup import UsageRollup
     from .integrations import ProfileOutboundWebhookDispatcher
+    from .mcp import MCPDispatchBinding
 
     runtime = runtime_context or SimpleNamespace()
     get_config = (lambda: settings.config) if settings is not None else getattr(runtime, "get_config", lambda: config)
@@ -472,12 +510,23 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
     context = getattr(runtime, "context_loader", None) or ContextLoader(cfg.context.directory)
     context.load()
     knowledge, embedder = getattr(runtime, "knowledge_store", None), getattr(runtime, "embedder", None)
+    knowledge_fts = None
+    if embedder is None and cfg.search.enabled:
+        # As Odin's wiring: search on means an embedder. The package bundles its
+        # model; loading is lazy, off the loop and never a download. A source
+        # checkout has no bundle, so its search stays full-text only.
+        roots = bundled_model_roots()
+        if roots:
+            embedder = LocalEmbedder(model_roots=roots)
     if knowledge is None:
         # Management and native/model tools must share one durable store. A
         # saved management document is not an absent request-side capability.
-        # Embeddings remain the actual injected owner, never fabricated or
-        # downloaded during profile construction; retained FTS works without it.
-        knowledge = KnowledgeStore(str(paths.data_dir / "knowledge.db"))
+        # As Odin's, it ranks full-text and semantic matches together.
+        if cfg.search.enabled:
+            knowledge_fts = FullTextIndex(str(paths.data_dir / "fts.db"))
+            if not knowledge_fts.available:
+                knowledge_fts = None
+        knowledge = KnowledgeStore(str(paths.data_dir / "knowledge.db"), fts_index=knowledge_fts)
     sessions = session_manager or getattr(runtime, "sessions", None)
     if sessions is None:
         sessions = SessionManager(max_history=cfg.sessions.max_history,
@@ -671,7 +720,11 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
                            else browser is not None and get_config().browser.enabled)
         for name in ("email_send", "email_search", "email_read", "email_list_recent"):
             ready[name] = bool(executor._email_config and executor._email_config.enabled)
-        ready["analyze_pdf"] = importlib.util.find_spec("fitz") is not None
+        from ..runtime import pdf_resources
+
+        # Decision F: PyMuPDF downloads on first use, so the tool stays offered
+        # wherever that download can start, not only once it is installed.
+        ready["analyze_pdf"] = pdf_resources.pdf_available()
         ready.update({"parse_time": True, "search_history": True, "search_audit": True,
                       "read_conversation": engine.requests is not None,
                       "generate_file": engine.requests is not None,
@@ -708,12 +761,15 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
                      for name, value in ready.items()}
         return ready
 
-    policy = _ReadyPolicy(get_config, get_readiness=readiness)
+    mcp = getattr(runtime, "mcp_manager", None)
+    # Without a runtime manager (the packaged core), management binds this to its
+    # MCP service's manager; until then requests and agents see no MCP tools.
+    mcp_dispatch = mcp if mcp is not None else MCPDispatchBinding()
+    policy = _ReadyPolicy(get_config, get_readiness=readiness, mcp=mcp_dispatch)
     executor.set_builtin_policy(policy)
     prompt = PromptBuilder(get_config=get_config, context_loader=context, reflector=reflector,
         skill_manager=skills, tool_executor=executor, channel_state=state,
         get_codex_client=lambda: gateway.codex_client, host_registry=hosts, host_access_manager=access)
-    mcp = getattr(runtime, "mcp_manager", None)
     catalog = _ReadyCatalog(policy=policy, get_config=get_config, skill_manager=skills,
         get_mcp_definitions=mcp.get_tool_definitions if mcp else None,
         computer_available=lambda: bool(getattr(owners.get("computer"),
@@ -852,12 +908,12 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         def _generated_image_name():
             return f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}.png"
 
-        def _retain_generated_image(self, data):
+        def _retain_generated_image(self, data, folder="generated-images"):
             # The conversation shows the posted artifact; this owner-only copy in
             # the local workspace is the one the model can open again. The folder
             # must be a private directory this user owns, reached without following
             # a link; otherwise no copy is kept (an OSError the caller absorbs).
-            directory = Path(get_config().tools.local_working_dir) / "generated-images"
+            directory = Path(get_config().tools.local_working_dir) / folder
             try:
                 os.mkdir(directory, 0o700)
             except FileExistsError:
@@ -932,7 +988,8 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         context_loader=context, browser_manager=browser, readiness=readiness, runtime_context=runtime,
         usage_rollup=usage, trajectory_saver=trajectories,
         agent_trajectory_saver=agent_trajectories, window_observer=window_observer,
-        knowledge_store=knowledge, image_backend=image_backend, embedder=embedder,
+        knowledge_store=knowledge, knowledge_fts=knowledge_fts, image_backend=image_backend,
+        embedder=embedder, mcp_dispatch=mcp_dispatch,
         compression_stats=compression_stats, outbound_webhook_dispatcher=outbound)
     d.native_owners = owners
     engine = EngineServices(d, None)
@@ -943,7 +1000,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         delivery=delivery, turn_recorder=recorder, completion_classifier=completion,
         native_tools=dispatcher, tool_executor=executor, permissions=permissions,
         skill_manager=skills, audit=audit, loop_manager=loops, stuck_loop_tracker_cls=StuckLoopTracker,
-        turn_store=ledger, window_observer=window_observer, mcp_manager=mcp,
+        turn_store=ledger, window_observer=window_observer, mcp_manager=mcp_dispatch,
         kill_agents_for_turn=agents.kill_for_turn, get_computer=lambda: owners.get("computer"),
         assert_request=engine._assert_request, request_admission=engine._admit_turn))
     engine.runner = runner
@@ -952,7 +1009,7 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         get_knowledge_store=lambda: knowledge, embedder=embedder, audit=audit, agent_manager=agents,
         loop_manager=loops, agent_trajectory_saver=agent_trajectories,
         get_context_compressor=lambda: compression, tool_loop=runner, turn_recorder=recorder,
-        prompt_builder=prompt, tool_catalog=catalog, mcp_manager=mcp)))
+        prompt_builder=prompt, tool_catalog=catalog, mcp_manager=mcp_dispatch)))
     register_native_handlers(dispatcher)
     # Keep the upstream formatter but bind its sessions façade to this exact
     # admitted request's durable transcript, never compacted session history.

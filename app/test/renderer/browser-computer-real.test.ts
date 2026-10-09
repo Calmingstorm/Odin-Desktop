@@ -105,7 +105,7 @@ describe('real computer management, never foreground admission', () => {
   it('renders actual nested session identity/readiness without flat enabled assumptions', async () => {
     const v = await view('Records')
     expect(v.root.textContent()).toContain('real-session')
-    expect(v.root.textContent()).toContain('generation 7')
+    expect(v.root.textContent()).toContain('Generation 7')
     expect(v.root.textContent()).toContain('Management: available')
     expect(v.root.textContent()).toContain('Desktop input is unavailable')
     expect(v.root.textContent()).not.toContain('Desktop input is available on X11')

@@ -1070,7 +1070,7 @@ export interface ManagementCalls {
   schedulesRun: [{ id: string }, ScheduleRunResult]
   schedulesResetFailures: [{ id: string }, ScheduleRow]
   schedulesHistory: [{ id?: string; limit?: number }, ScheduleRun[]]
-  schedulesValidateCron: [{ expression: string }, { valid: boolean; next_runs: string[] }]
+  schedulesValidateCron: [{ expression: string; timezone?: string }, { valid: boolean; next_runs: string[] }]
   personalityGet: [Empty, Personality]
   personalitySet: [PersonalitySet, { status: string; preset: string }]
   personalityPresetsSave: [{ name: string; display_name?: string; identity?: string; voice?: string }, { status: string; name: string }]

@@ -108,15 +108,14 @@ async function saveLimits(): Promise<void> {
     <p v-if="management.notes.mcp" class="manage-note" role="status">{{ management.notes.mcp }}</p>
   </SettingsSection>
 
-  <SettingsSection title="Servers" aria-label="MCP servers">
-    <header class="panel-head">
+  <SettingsSection title="Servers" aria-label="MCP servers" description="Enabling a local server runs its program on this computer.">
+    <template #actions>
       <button v-if="!management.unavailable.mcp" class="ghost" @click="edit()">Add server</button>
-    </header>
+    </template>
     <p v-if="management.unavailable.mcp" class="capability-unavailable" role="status">{{ unavailableText('MCP management') }}</p>
     <p v-else-if="management.errors.mcp" class="warn">{{ management.errors.mcp }}</p>
     <p v-else-if="!management.mcp" class="manage-desc" role="status">Loading servers…</p>
     <p v-else-if="!management.mcp.servers.length" class="manage-desc">No servers yet. Add a server to connect its tools.</p>
-    <p class="manage-desc">Enabling a local server runs its program on this computer.</p>
     <ul v-if="!management.unavailable.mcp" class="manage-list">
       <li v-for="server in management.mcp?.servers ?? []" :key="server.name" :class="['manage-row', server.state]">
         <div class="mcp-server-line">

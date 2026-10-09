@@ -162,6 +162,16 @@ describe('mounted managed settings missing interactions', () => {
     expect(bridge.memorySet).not.toHaveBeenCalled()
   })
 
+  it('shows Tool progress only when the engine reports its settings', async () => {
+    const root = await view('Tools')
+    expect(root.textContent()).not.toContain('Tool progress')
+    const { settings } = await import('../../src/renderer/src/stores/settings')
+    settings.meta = { revision: 'rev-progress', fields: [{ path: 'tools.streaming.enabled', type: 'boolean', desired: true, effective: true, apply_handler: 'settings.set', sensitivity: 'public', constraints: {}, apply_state: 'applied', enum: null, nullable: false }] } as any
+    await flush()
+    expect(root.textContent()).toContain('Tool progress')
+    expect(root.textContent()).toContain('Tool progress updates')
+  })
+
   it('skips an unnamed timeout draft and removes a named override locally before saving', async () => {
     const root = await view('Tools')
     root.button("Add a tool's own timeout").fire('click')
@@ -171,13 +181,14 @@ describe('mounted managed settings missing interactions', () => {
     expect(bridge.toolsTimeoutsSet).toHaveBeenCalledWith({ default_timeout: 30, overrides: {} })
     root.button("Add a tool's own timeout").fire('click')
     await flush()
-    root.findAll((node) => node.props.placeholder === 'Tool')[0]!.type('read_file')
-    root.findAll((node) => node.props.placeholder === 'Seconds')[0]!.type('12')
+    const toolInputs = () => root.findAll((node) => node.tag === 'input' && /^Tool \d+$/.test(String(node.props['aria-label'] ?? '')))
+    toolInputs()[0]!.type('read_file')
+    root.findAll((node) => node.tag === 'input' && /^Seconds for tool \d+$/.test(String(node.props['aria-label'] ?? '')))[0]!.type('12')
     await flush()
     expect(root.named('Remove timeout for read_file')).toBeTruthy()
     root.named('Remove timeout for read_file').fire('click')
     await flush()
-    expect(root.findAll((node) => node.props.placeholder === 'Tool')).toHaveLength(0)
+    expect(toolInputs()).toHaveLength(0)
     root.button('Save timeouts').fire('click')
     await flush()
     expect(bridge.toolsTimeoutsSet).toHaveBeenCalledTimes(2)

@@ -5,6 +5,7 @@ request, live keyring or graphical environment is used.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 
@@ -89,8 +90,25 @@ async def test_management_ingest_is_visible_to_original_native_knowledge_tools(c
     assert core.engine.deps.readiness()["search_knowledge"] is True
     found = await native._handle_search_knowledge({"query": "shared knowledge"})
     assert "management-reference" in found
-    assert "one shared knowledge store" in found
+    # Full-text hits are Odin's FTS snippets, with the matched words marked.
+    assert "one >>>shared<<< >>>knowledge<<< store" in found
 
+
+
+async def test_analyze_pdf_is_offered_while_its_first_use_download_can_start(
+        connected, monkeypatch):
+    """L5 (1.0.5): readiness required PyMuPDF to be installed already, so the tool was
+    never offered and its first-use download could never start (Decision F)."""
+    from src.runtime import pdf_resources
+
+    core, *_ = connected
+    catalog = core.engine.deps.tool_catalog
+    for available in (True, False):
+        monkeypatch.setattr(pdf_resources, "pdf_available", lambda value=available: value)
+        assert core.engine.deps.readiness()["analyze_pdf"] is available
+        catalog.invalidate()
+        offered = {tool["name"] for tool in catalog.merged_definitions()}
+        assert ("analyze_pdf" in offered) is available
 
 async def test_actual_compression_owner_updates_are_visible_over_transport(connected):
     from src.llm.context_compressor import compress_tool_context
@@ -128,6 +146,12 @@ async def test_persisted_usage_read_is_observed_without_a_second_rollup_writer(c
                        agent_trajectory_directory=str(paths.data_dir / "agent_trajectories"),
                        audit=AuditLogger(str(paths.data_dir / "fixture-usage-audit.jsonl")))
     assert owner.available
+    # A rollup publishes its first backfill pass to the shared store in the background.
+    # Wait for it, so the two reads below observe one state instead of racing it.
+    for _ in range(200):
+        if (await owner.summary("30d"))["coverage"]["backfill_complete"]:
+            break
+        await asyncio.sleep(0.05)
     expected = await owner.summary("30d")
     core.management.runtime.usage = owner
     actual = await request(reader, writer, "observability.usage", {"range": "30d"})

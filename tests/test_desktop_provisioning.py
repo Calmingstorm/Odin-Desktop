@@ -389,3 +389,13 @@ async def test_shallow_app_profile_executes_only_in_its_workspace(tmp_path):
     finally:
         manager.reset_request_owner(token)
         authority.release_runtime()
+
+
+def test_new_profile_runs_background_work_on_gpt_6_1_sol(profile):
+    """A new profile's auxiliary model is gpt-6.1-sol, written to its config, so an
+    existing profile keeps its saved choice and an upgrade moves nobody."""
+    config = ensure_profile(profile.paths, authority=profile.authority)
+    assert config.openai_codex.auxiliary.model == "gpt-6.1-sol"
+    saved = load_config(profile.paths.config_file)
+    assert saved.openai_codex.auxiliary.model == "gpt-6.1-sol"
+    assert "gpt-6.1-sol" in profile.paths.config_file.read_text()

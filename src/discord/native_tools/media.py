@@ -13,6 +13,7 @@ import os
 from collections.abc import Callable
 
 from ...odin_log import get_logger
+from ...tools.execution_outcome import ToolFailure
 
 log = get_logger("media")
 
@@ -48,7 +49,7 @@ class MediaTools:
         """
         raise NotImplementedError(_DELIVERY_UNAVAILABLE)
 
-    def _retain_generated_image(self, data: bytes) -> str | None:
+    def _retain_generated_image(self, data: bytes, folder: str = "generated-images") -> str | None:
         """A local copy of a posted image the model can open again; Desktop keeps one."""
         return None
 
@@ -68,16 +69,27 @@ class MediaTools:
     async def _handle_browser_screenshot(self, message, inp: dict) -> str:
         """Take a browser screenshot and post it as a conversation image."""
         if not self.browser_manager:
-            return "Browser automation is not enabled. Set browser.enabled=true in config."
+            return ToolFailure(
+                "Browser automation is not enabled. Set browser.enabled=true in config."
+            )
         from ...tools.browser import handle_browser_screenshot
 
         try:
             text, screenshot_bytes = await handle_browser_screenshot(self.browser_manager, inp)
             if screenshot_bytes:
                 await self._publish_attachment(message, screenshot_bytes, "screenshot.png")
+                # As for generated images: the posted copy is the conversation's; a
+                # local copy is the one the model can open again (Desktop keeps one).
+                local_copy = None
+                try:
+                    local_copy = self._retain_generated_image(screenshot_bytes, "screenshots")
+                except OSError as e:
+                    log.info("screenshot posted but no local copy was kept: %s", e)
+                if local_copy:
+                    text += f"\nLocal file on localhost: {local_copy}"
             return text
         except Exception as e:
-            return f"Browser screenshot failed: {e}"
+            return ToolFailure(f"Browser screenshot failed: {e}")
 
     async def _handle_generate_file(self, message, inp: dict) -> str:
         """Generate a file from content and post it as a conversation attachment."""
@@ -90,7 +102,7 @@ class MediaTools:
             await self._publish_attachment(message, file_bytes, filename, caption)
             return f"File `{filename}` ({len(file_bytes)} bytes) attached to conversation."
         except Exception as e:
-            return f"Failed to post file: {e}"
+            return ToolFailure(f"Failed to post file: {e}")
 
     async def _handle_post_file(self, message, inp: dict) -> str:
         """Fetch a file from a host and post it to the conversation.
@@ -105,14 +117,14 @@ class MediaTools:
         caption = inp.get("caption", "")
 
         if not host_alias or not path:
-            return "Both 'host' and 'path' are required."
+            return ToolFailure("Both 'host' and 'path' are required.")
 
         requester_id = getattr(message, "owner_id", None)
         if not isinstance(requester_id, str) or not requester_id:
-            return "Permission denied: authenticated owner identity is required."
+            return ToolFailure("Permission denied: authenticated owner identity is required.")
         lease = self.tool_executor.acquire_host_for_user(host_alias, requester_id)
         if not lease:
-            return f"Unknown or disallowed host: {host_alias}"
+            return ToolFailure(f"Unknown or disallowed host: {host_alias}")
         try:
             target = lease.target
             address, ssh_user = target.address, target.ssh_user
@@ -125,11 +137,11 @@ class MediaTools:
                     with open(path, "rb") as f:
                         file_bytes = f.read()
                 except FileNotFoundError:
-                    return f"File not found: {path}"
+                    return ToolFailure(f"File not found: {path}")
                 except PermissionError:
-                    return f"Permission denied reading file: {path}"
+                    return ToolFailure(f"Permission denied reading file: {path}")
                 except OSError as exc:
-                    return f"Failed to read file: {exc}"
+                    return ToolFailure(f"Failed to read file: {exc}")
             else:
                 try:
                     from ...tools.ssh import read_binary_file
@@ -147,16 +159,16 @@ class MediaTools:
                         )
                     )
                     if read_error or file_bytes is None:
-                        return f"Failed to fetch file: {read_error}"
+                        return ToolFailure(f"Failed to fetch file: {read_error}")
                 except TimeoutError:
-                    return "File fetch timed out (30s)."
+                    return ToolFailure("File fetch timed out (30s).")
                 except Exception as e:
-                    return f"Failed to fetch file: {e}"
+                    return ToolFailure(f"Failed to fetch file: {e}")
         finally:
             lease.release()
 
         if not file_bytes:
-            return f"File not found or empty: {path}"
+            return ToolFailure(f"File not found or empty: {path}")
 
         # Size check (conversation attachment limit: 25MB)
         if len(file_bytes) > 25 * 1024 * 1024:
@@ -170,7 +182,7 @@ class MediaTools:
             await self._publish_attachment(message, file_bytes, filename, caption)
             return f"Posted `{filename}` ({len(file_bytes) / 1024:.1f} KB) to conversation."
         except Exception as e:
-            return f"Failed to upload to the conversation: {e}"
+            return ToolFailure(f"Failed to upload to the conversation: {e}")
 
     async def _handle_analyze_image(self, message, inp: dict) -> str | dict:
         """Fetch an image and return a vision block for the LLM to analyze.
@@ -188,7 +200,7 @@ class MediaTools:
         if url:
             # Validate URL scheme to prevent SSRF via file://, ftp://, etc.
             if not url.startswith(("http://", "https://")):
-                return "Only http:// and https:// URLs are supported."
+                return ToolFailure("Only http:// and https:// URLs are supported.")
             # Hardened transport with redirects DISABLED (images never need to
             # follow one): per-hop SSRF validation, pinned connect IP, TLS
             # verification, and a byte cap. Scheme-only validation was not
@@ -207,29 +219,29 @@ class MediaTools:
                     timeout=30.0,
                 )
             except BlockedAddressError:
-                return (
+                return ToolFailure(
                     "URL blocked: targets a private, loopback, link-local, "
                     "or cloud-metadata address (SSRF protection)."
                 )
             except ResponseTooLargeError:
-                return f"Image too large (max {_ANALYZE_IMAGE_MAX_BYTES} bytes)."
+                return ToolFailure(f"Image too large (max {_ANALYZE_IMAGE_MAX_BYTES} bytes).")
             except Exception as e:
-                return f"Failed to fetch image from URL: {e}"
+                return ToolFailure(f"Failed to fetch image from URL: {e}")
             if resp.status != 200:
-                return f"Failed to fetch image from URL (HTTP {resp.status})"
+                return ToolFailure(f"Failed to fetch image from URL (HTTP {resp.status})")
             ct = resp.content_type
             if not ct.startswith("image/"):
-                return f"URL does not point to an image (Content-Type: {ct})"
+                return ToolFailure(f"URL does not point to an image (Content-Type: {ct})")
             image_bytes = resp.body
         elif host and path:
             # Fetch from host as bounded raw bytes
 
             requester_id = getattr(message, "owner_id", None)
             if not isinstance(requester_id, str) or not requester_id:
-                return "Permission denied: authenticated owner identity is required."
+                return ToolFailure("Permission denied: authenticated owner identity is required.")
             lease = self.tool_executor.acquire_host_for_user(host, requester_id)
             if not lease:
-                return f"Unknown or disallowed host: {host}"
+                return ToolFailure(f"Unknown or disallowed host: {host}")
             try:
                 target = lease.target
                 address, ssh_user = target.address, target.ssh_user
@@ -253,20 +265,20 @@ class MediaTools:
             finally:
                 lease.release()
             if read_error:
-                return f"Failed to read image from host: {read_error}"
+                return ToolFailure(f"Failed to read image from host: {read_error}")
         else:
-            return "Provide either 'url' or both 'host' and 'path'."
+            return ToolFailure("Provide either 'url' or both 'host' and 'path'.")
 
         if not image_bytes:
-            return "No image data retrieved."
+            return ToolFailure("No image data retrieved.")
 
         # Enforce 5MB image attachment limit
         if len(image_bytes) > 5 * 1024 * 1024:
-            return "Image exceeds 5MB size limit."
+            return ToolFailure("Image exceeds 5MB size limit.")
 
         media_type = self._detect_image_type(image_bytes)
         if not media_type:
-            return "Unsupported image format. Supported: PNG, JPEG, GIF, WEBP."
+            return ToolFailure("Unsupported image format. Supported: PNG, JPEG, GIF, WEBP.")
 
         b64 = base64.b64encode(image_bytes).decode("ascii")
 
@@ -298,14 +310,14 @@ class MediaTools:
         from ...tools.result_validator import ToolResult
 
         if self.image_selector is None:
-            return "Image generation is not available."
+            return ToolFailure("Image generation is not available.")
 
         prompt_text = inp.get("prompt", "")
         if not prompt_text:
-            return "A 'prompt' describing the image is required."
+            return ToolFailure("A 'prompt' describing the image is required.")
         removed = sorted({"size", "negative", "model", "width", "height"} & inp.keys())
         if removed:
-            return "Unsupported image generation option(s): " + ", ".join(removed)
+            return ToolFailure("Unsupported image generation option(s): " + ", ".join(removed))
 
         # Do not incur a provider effect when durable publication is known unavailable.
         if not self._delivery_available():
@@ -320,11 +332,11 @@ class MediaTools:
             result = await self.image_selector.generate(prompt=prompt_text)
         except ImageGenError as e:
             # These messages are constructed to carry no payload/account data.
-            return f"Image generation failed: {e}"
+            return ToolFailure(f"Image generation failed: {e}")
         except Exception:
             # Never surface a raw provider payload; log without the body.
             log.warning("image generation raised unexpectedly", exc_info=True)
-            return "Image generation failed unexpectedly."
+            return ToolFailure("Image generation failed unexpectedly.")
 
         # Non-sensitive structured record — enums + decoded dims only.
         meta: dict = {

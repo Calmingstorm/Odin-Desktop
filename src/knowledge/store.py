@@ -1091,8 +1091,16 @@ class KnowledgeStore:
         semantic_results = []
         searched = False
         if embedder and self._has_vec:
-            semantic_results = await self.search(query, embedder, limit=limit * 2)
-            searched = True
+            try:
+                semantic_results = await self.search(query, embedder, limit=limit * 2)
+                searched = True
+            except Exception:
+                # An embedder that can't load must not take the working full-text
+                # path down with it: search by text alone, and say so once.
+                if not getattr(self, "_semantic_failure_logged", False):
+                    self._semantic_failure_logged = True
+                    log.warning("Semantic knowledge search failed; searching full text only",
+                                exc_info=True)
         fts_results = []
         if self._fts:
             fts_results = await asyncio.to_thread(
@@ -1129,7 +1137,8 @@ class KnowledgeStore:
         inventory = self._fts.knowledge_chunk_sources()
         if inventory is None:
             return 0
-        orphan_ids = {chunk_id for chunk_id, _source in inventory if chunk_id not in db_ids}
+        indexed_ids = {chunk_id for chunk_id, _source in inventory}
+        orphan_ids = indexed_ids - db_ids
         if orphan_ids:
             removed = self._fts.delete_knowledge_chunks(orphan_ids)
             log.warning(
@@ -1137,26 +1146,54 @@ class KnowledgeStore:
                 removed, len(orphan_ids),
             )
 
-        count = 0
+        # One inventory answers membership for every row. A per-row lookup scans the
+        # unindexed chunk_id column, which made each pass quadratic in the chunk count.
+        attempted = set()
         for row in rows:
             chunk_id, content, source, chunk_index = row
-            if self._fts.has_knowledge_chunk(chunk_id):
+            if str(chunk_id) in indexed_ids or not content:
                 continue
-            if content:
-                indexed = self._fts.index_knowledge_chunk(
-                    chunk_id,
-                    content,
-                    source,
-                    chunk_index,
-                )
-                if indexed and self._fts.has_knowledge_chunk(chunk_id):
-                    count += 1
-        return count
+            if self._fts.index_knowledge_chunk(chunk_id, content, source, chunk_index):
+                attempted.add(str(chunk_id))
+        if not attempted:
+            return 0
+        # Count only the writes a fresh inventory confirms.
+        confirmed = self._fts.knowledge_chunk_sources()
+        if confirmed is None:
+            return 0
+        return len(attempted & {chunk_id for chunk_id, _source in confirmed})
 
     async def backfill_fts_async(self) -> int:
         """Run reconciliation under the write lock, settled through cancellation."""
         async with self._write_lock:
             return await to_thread_settled(self.backfill_fts)
+
+    def backfill_fts_backlog(self) -> int:
+        """Index every chunk the full-text index lacks, in one transaction.
+
+        Odin Desktop profiles before 1.0.5 kept no full-text index, so their first
+        reconciliation migrates every chunk at once. backfill_fts still settles orphans
+        and anything this step could not write.
+        """
+        if not self._fts or not self.available:
+            return 0
+        try:
+            rows = self._conn.execute(  # type: ignore[union-attr]
+                "SELECT chunk_id, content, source, chunk_index FROM knowledge_chunks"
+            ).fetchall()
+        except Exception:
+            return 0
+        inventory = self._fts.knowledge_chunk_sources()
+        if inventory is None:
+            return 0
+        present = {chunk_id for chunk_id, _source in inventory}
+        missing = [row for row in rows if str(row[0]) not in present and row[1]]
+        return self._fts.index_absent_knowledge_chunks(missing) if missing else 0
+
+    async def backfill_fts_backlog_async(self) -> int:
+        """Run the backlog step under the write lock, settled through cancellation."""
+        async with self._write_lock:
+            return await to_thread_settled(self.backfill_fts_backlog)
 
     # ------------------------------------------------------------------
     # Deduplication helpers

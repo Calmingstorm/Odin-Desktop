@@ -71,6 +71,33 @@ def _mapping(value):
     return copy.deepcopy(value)
 
 
+class MCPDispatchBinding:
+    """Requests' and agents' MCP manager when the runtime supplies none.
+
+    The packaged core composes requests before management builds the MCP
+    service, so the runner and agents hold this binding and management binds it
+    to the service's manager. Unbound, it has no tools, exactly like no manager.
+    """
+
+    def __init__(self):
+        self.target = None
+
+    def bind(self, manager):
+        if self.target is not None and self.target is not manager:
+            raise RuntimeError("MCP dispatch is already bound to another manager")
+        self.target = manager
+
+    def has_tool(self, published_name):
+        target = self.target
+        return target is not None and target.has_tool(published_name)
+
+    async def execute(self, published_name, arguments):
+        target = self.target
+        if target is None:
+            raise RuntimeError("MCP dispatch is not bound")
+        return await target.execute(published_name, arguments)
+
+
 class MCPService:
     METHODS = METHODS
     READ_METHODS = READ_METHODS

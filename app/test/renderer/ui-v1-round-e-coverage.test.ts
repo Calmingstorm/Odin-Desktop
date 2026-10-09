@@ -79,7 +79,7 @@ describe('Round E coverage remediation through renderer actions', () => {
     modelControl(root, 'openai_compatible.preset').fire('change', { target: { value: 'openrouter' } }); await flush()
     root.button('Save OpenAI-compatible setup').fire('click'); await flush()
     expect(bridge.providersCompatSet).toHaveBeenCalledExactlyOnceWith({ expected_revision: 'r1', changes: [{ path: 'openai_compatible.preset', value: 'openrouter' }] })
-    modelControl(root, 'openai_codex.auxiliary.model').type('unsaved-model'); await flush()
+    modelControl(root, 'openai_codex.auxiliary.model').fire('change', { target: { value: 'unsaved-model' } }); await flush()
     root.button('Cancel auxiliary changes').fire('click'); await flush()
     expect(modelControl(root, 'openai_codex.auxiliary.model').value).toBe('gpt-6.1-sol')
     expect(bridge.editLeaf).not.toHaveBeenCalled()

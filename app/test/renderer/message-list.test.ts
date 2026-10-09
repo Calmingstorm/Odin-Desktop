@@ -640,3 +640,18 @@ describe('a jumped-to message that has never rendered here (review #87)', () => 
     expect(placements).toEqual([{ block: 'center' }])
   })
 })
+
+describe('day dividers (1.0.5 L3)', () => {
+  it('heads each day\'s first message, so an evening and the next morning read as two days', async () => {
+    const odin = (globalThis as unknown as { window: { odin: Record<string, unknown> } }).window.odin
+    const at = (id: string, created_at: string): Message => ({ id, role: 'assistant', text: id, created_at })
+    const base = (snapshot('c2') as { result: ConversationSnapshot }).result
+    odin.snapshotConversation = async () => ({ ok: true, result: { ...base, messages: { items: [
+      at('evening', '2026-10-08T22:20:00'), at('late', '2026-10-08T23:59:00'), at('morning', '2026-10-09T07:39:00')
+    ], has_more: false } } })
+    await store.select('c2'); await flush()
+    const nodes = scroller.findAll((node) => node.tag === 'article' || node.props.class === 'day-divider')
+    expect(nodes.map((node) => (node.tag === 'article' ? node.textContent() : 'day'))).toEqual(
+      ['day', 'evening', 'late', 'day', 'morning'])
+  })
+})

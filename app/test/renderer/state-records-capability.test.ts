@@ -158,6 +158,8 @@ describe('per-resource state capability handling', () => {
     await flush()
     noControls(panel(v, 'Memory'))
     noControls(panel(v, 'Knowledge'))
+    // Adding a document is its own section; a refused knowledge capability hides it whole.
+    expect(v.root.findAll((node) => node.props['aria-label'] === 'Add a document')).toHaveLength(0)
     odin.memorySet = vi.fn(async () => ok({}))
     odin.knowledgeIngest = vi.fn(async () => ok({ outcome: 'created' }))
     expect(await state.setMemory('global', 'unsaved-key', 'UNSAVED VALUE')).toBe(false)
@@ -169,7 +171,7 @@ describe('per-resource state capability handling', () => {
     await flush()
     expect(v.setup.drafts).toMatchObject({ global: { key: 'unsaved-key', value: 'UNSAVED VALUE' } })
     expect([v.setup.source, v.setup.content]).toEqual(['unsaved.md', 'UNSAVED DOCUMENT'])
-    expect(panel(v, 'Knowledge').button('Add').props.disabled).not.toBe(true)
+    expect(panel(v, 'Add a document').button('Add').props.disabled).not.toBe(true)
   })
 
   it('never resurrects an older detail or search answer after its capability was refused', async () => {

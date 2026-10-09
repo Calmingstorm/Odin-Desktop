@@ -102,6 +102,15 @@ class FullTextIndex:
     def available(self) -> bool:
         return self._conn is not None
 
+    def close(self) -> None:
+        """Close the shared connection when its owner shuts down (idempotent)."""
+        with self._write_lock:
+            if self._conn is not None:
+                try:
+                    self._conn.close()
+                finally:
+                    self._conn = None
+
     def _rollback_after_failure(self) -> None:
         """Discard an uncommitted replacement without masking its cause.
 
@@ -248,6 +257,34 @@ class FullTextIndex:
         except Exception as exc:
             log.error("FTS knowledge replace failed for '%s': %s", source, exc)
             return False
+
+    def index_absent_knowledge_chunks(self, rows) -> int:
+        """Write chunks the inventory shows absent, in one transaction.
+
+        A first full-text migration can hold thousands of chunks. index_knowledge_chunk
+        replaces one row per commit, scanning the unindexed chunk_id column to delete
+        it first; that took minutes for a backlog. These rows are known absent, so they
+        are inserted without the delete. All or nothing: 0 means none was written.
+        """
+        if not self._conn or not rows:
+            return 0
+        try:
+            with self._write_lock:
+                try:
+                    self._conn.executemany(
+                        "INSERT INTO knowledge_fts (chunk_id, content, source, chunk_index) "
+                        "VALUES (?, ?, ?, ?)",
+                        [(str(chunk_id), content, source, str(chunk_index))
+                         for chunk_id, content, source, chunk_index in rows],
+                    )
+                    self._conn.commit()
+                except Exception:
+                    self._conn.rollback()
+                    raise
+            return len(rows)
+        except Exception as e:
+            log.error("FTS knowledge backlog index failed for %d chunk(s): %s", len(rows), e)
+            return 0
 
     def knowledge_chunk_sources(self) -> list[tuple[str, str]] | None:
         """Inventory all FTS chunk owners; None means unreadable, not empty."""

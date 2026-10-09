@@ -469,6 +469,41 @@ class ProviderOwner(LLMGateway):
             strict_aux=any(path.startswith("openai_codex.auxiliary") for path in paths),
         )
 
+    def startup_auxiliary(self, codex_client):
+        """The saved auxiliary for the startup graph, built like Odin's boot does.
+
+        Startup adopts saved settings: the qualification request belongs to a
+        settings change, not to every start. Runs with the startup Codex build,
+        off the loop. None when disabled or when its provider has no client.
+        """
+        config = self.settings.config
+        aux_cfg = config.openai_codex.auxiliary
+        if not aux_cfg.enabled or self.auxiliary_llm_client is not None:
+            return None
+        main = parse_model_ref(config.llm_provider.model, allow_auto=False)
+        primary = (codex_client if main.provider.value == "codex"
+                   else getattr(self, _ATTRS[main.provider.value]))
+        if primary is None:
+            return None
+        aux_ref = parse_model_ref(aux_cfg.model, allow_auto=False)
+        provider = aux_ref.provider.value
+        if provider == "codex":
+            client = (self._build("codex", config, model=aux_ref.model, auxiliary=True)
+                      if codex_client is not None else None)
+        else:
+            client = getattr(self, _ATTRS[provider])
+        if client is None:
+            return None
+        return AuxiliaryLLMClient(
+            client,
+            primary,
+            self.cost_tracker,
+            provider=provider,
+            model=aux_ref.model,
+            owns_aux_client=provider == "codex",
+            primary_model=main.model,
+        )
+
     async def ensure_ready(self):
         """Explicit admission after provisioning, not a network startup hook."""
         async with self.provider_lock:

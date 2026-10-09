@@ -66,6 +66,33 @@ describe('review round 4: Records says what it knows', () => {
     expect((await view('Records')).root.textContent()).toContain('"command": "uptime"')
   })
 
+  it('reads usage for the chosen period, and the audit and logs from their own fields', async () => {
+    const usage = vi.fn(async (period: string) => ok({ period, tokens: { value: 24, kind: 'measured' }, context: {}, summary: '',
+      quota: [{ account: 'Primary', window: 'weekly', used_percent: { kind: 'measured', value: 47 }, resets_at: null }] }))
+    const auditQuery = vi.fn(async () => ok([]))
+    const logsSearch = vi.fn(async () => ok({ entries: [], count: 0 }))
+    Object.assign(odin, { usage, auditQuery, logsSearch })
+    const v = await view('Records')
+    const region = (name: string) => v.root.findAll((n) => n.tag === 'section' && n.props['aria-label'] === name)[0]!
+    const captioned = (root: ReturnType<typeof region>, caption: string) => root.findAll((n) => n.tag === 'label' && n.textContent().trim().startsWith(caption))[0]!
+    captioned(region('Usage'), 'Period').find('select')!.choose(2)
+    await flush()
+    expect(usage).toHaveBeenLastCalledWith('30d')
+    expect(region('Usage').textContent()).toContain('Primary, weekly limit:')
+    const audit = region('Audit')
+    audit.findAll((n) => n.props['aria-label'] === 'Search the audit')[0]!.type('uptime')
+    captioned(audit, 'Tool').find('input')!.type('run_command')
+    await flush()
+    await audit.button('Show').fire('click')
+    await flush()
+    expect(auditQuery).toHaveBeenLastCalledWith({ limit: 100, q: 'uptime', tool: 'run_command' })
+    const logs = region('Logs')
+    logs.findAll((n) => n.props['aria-label'] === 'Search the logs')[0]!.type('timeout')
+    captioned(logs, 'Level').find('select')!.choose(2)
+    await flush()
+    expect(logsSearch).toHaveBeenLastCalledWith({ limit: 200, level: 'error', q: 'timeout' })
+  })
+
   it('names the period the usage shown covers (16.R4.4)', async () => {
     expect((await view('Records')).root.textContent()).toContain('24 tokens in the last 24 hours')
   })

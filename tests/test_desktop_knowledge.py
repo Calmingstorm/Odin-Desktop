@@ -250,3 +250,300 @@ async def test_failed_restore_never_reports_success(knowledge, monkeypatch):
     with pytest.raises(MethodError) as error:
         await service.handle("knowledge.restore", {"source": "doc", "version": 1})
     assert error.value.code == "internal_error"
+
+
+class _TopicEmbedder:
+    """Deterministic vectors by topic, so a paraphrase with no shared words still matches."""
+
+    TOPICS = (("kiwi", "fruit", "weekday", "release"), ("standup", "meeting", "daily"))
+
+    def __init__(self):
+        self.unavailable_reason = None
+
+    async def embed(self, text):
+        lowered = text.lower()
+        vector = [0.0] * 384
+        for index, words in enumerate(self.TOPICS):
+            vector[index] = float(sum(word in lowered for word in words))
+        vector[383] = 0.1
+        return vector
+
+
+async def _composed_core(tmp_path, monkeypatch, *, roots=(), search=True, runtime=None,
+                         files=None):
+    import os
+    from types import SimpleNamespace
+
+    from src.desktop.core import CoreService, profile_config
+    from src.search import bundled_models
+    from tests.test_desktop_core_lifecycle import profile
+    from tests.test_desktop_engine_services import Provider
+    from tests.test_desktop_management_core import TemporaryKeyring
+
+    monkeypatch.setattr(bundled_models, "bundled_model_roots", lambda: tuple(roots))
+    paths, socket_path, token_file = files or profile(tmp_path)
+    config = profile_config(paths)
+    config.openai_codex.enabled = False
+    config.llm_provider.model = "compat:test"
+    config.openai_compatible.enabled = True
+    config.learning.enabled = False
+    config.browser.enabled = False
+    config.search.enabled = search
+    read_fd, write_fd = os.pipe()
+    core = CoreService(paths, socket_path, token_file, config_provider=lambda _: config,
+        runtime_provider=lambda *_: SimpleNamespace(
+            compatible_client=Provider([]), **(runtime or {})),
+        secret_backend=TemporaryKeyring())
+    await core.start(read_fd)
+
+    async def close():
+        await core.close()
+        os.close(read_fd)
+        os.close(write_fd)
+
+    close.files = (paths, socket_path, token_file)
+    return core, paths, close
+
+
+async def _knowledge_health(core):
+    result = await core.management.invoke("health.get", {})
+    assert result["ok"], result
+    return next(item for item in result["result"]["components"] if item["name"] == "knowledge")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", ["bundled", "source checkout", "search off"])
+async def test_packaged_core_composes_the_bundled_embedder_and_full_text_index(
+        tmp_path, monkeypatch, case):
+    """L17 (1.0.5): the packaged core never built an embedder (the bundled model sat
+    unused) nor a full-text index, so knowledge search was literal and health still
+    claimed vector search. Odin's wiring builds both while search is on."""
+    from src.search.embedder import LocalEmbedder
+
+    root = tmp_path / "bundle" / "models" / "bge-small-en-v1.5"
+    core, paths, close = await _composed_core(
+        tmp_path, monkeypatch, roots=(root,) if case == "bundled" else (),
+        search=case != "search off")
+    try:
+        deps = core.engine.deps
+        fts = deps.knowledge_fts
+        if case == "bundled":
+            assert isinstance(deps.embedder, LocalEmbedder)
+            assert deps.embedder._model_roots == (root,)
+        else:
+            assert deps.embedder is None
+        assert core.management.knowledge.embedder is deps.embedder
+        if case == "search off":
+            assert fts is None and deps.knowledge_store._fts is None
+        else:
+            assert deps.knowledge_store._fts is fts and fts.available
+            assert (paths.data_dir / "fts.db").is_file()
+        component = await _knowledge_health(core)
+        semantic = case == "bundled" and deps.knowledge_store._has_vec
+        assert component["metadata"]["vector_search"] is semantic
+        assert ("vector + FTS" if semantic else "FTS only") in component["detail"]
+        if case == "bundled":
+            # The test bundle has no model: the failed lazy load is reported, not hidden.
+            assert await deps.embedder.embed("probe") is None
+            assert "bundled embedding model unavailable" in deps.embedder.unavailable_reason
+            component = await _knowledge_health(core)
+            assert component["metadata"]["vector_search"] is False
+            assert "FTS only" in component["detail"]
+    finally:
+        await close()
+    if fts is not None:
+        assert not fts.available
+
+
+@pytest.mark.asyncio
+async def test_composed_knowledge_search_finds_a_paraphrase_through_the_embedder(
+        tmp_path, monkeypatch):
+    """The composed store, management service and embedder rank meaning, not only words."""
+    core, _, close = await _composed_core(
+        tmp_path, monkeypatch, runtime={"embedder": _TopicEmbedder()})
+    try:
+        if not core.engine.deps.knowledge_store._has_vec:
+            pytest.skip("sqlite-vec is not loadable here")
+        service = core.management.knowledge
+        for source, content in (("kiwi.md", "The kiwi project ships every Tuesday morning."),
+                                ("standup.md", "Our standup is at 9 in the small room.")):
+            await service.handle("knowledge.ingest", {"source": source, "content": content})
+        hits = await service.handle(
+            "knowledge.search", {"q": "which weekday does the fruit release go out"})
+        assert hits[0]["source"] == "kiwi.md"
+        hits = await service.handle("knowledge.search", {"q": "daily meeting"})
+        assert hits[0]["source"] == "standup.md"
+        hits = await service.handle("knowledge.search", {"q": "Tuesday"})
+        assert hits[0]["source"] == "kiwi.md"
+    finally:
+        await close()
+
+
+@pytest.mark.asyncio
+async def test_startup_indexes_knowledge_stored_without_full_text_rows(tmp_path, monkeypatch):
+    """Chunks stored before 1.0.5 had no full-text rows; startup adds them, as Odin's boot."""
+    core, paths, close = await _composed_core(tmp_path, monkeypatch)
+    await close()
+    before = KnowledgeStore(str(paths.data_dir / "knowledge.db"))
+    await before.ingest("Quarterly zebra inventory notes", "zebra.md")
+    before.close()
+    core, _, close = await _composed_core(tmp_path, monkeypatch, files=close.files)
+    try:
+        hits = core.engine.deps.knowledge_fts.search_knowledge("zebra")
+        assert [row["source"] for row in hits] == ["zebra.md"]
+    finally:
+        await close()
+
+
+def _indexed_store(tmp_path):
+    from src.search.fts import FullTextIndex
+
+    fts = FullTextIndex(str(tmp_path / "fts.db"))
+    store = KnowledgeStore(str(tmp_path / "dual-knowledge.db"), fts_index=fts)
+    assert store.available and fts.available
+    return store, fts
+
+
+@pytest.mark.asyncio
+async def test_a_failed_embedder_leaves_full_text_search_working(tmp_path):
+    """Odin's 1.0.5 review, B2: a bundled model that can't load must not break the
+    full-text search that still works. The semantic half is skipped, not fatal."""
+    store, fts = _indexed_store(tmp_path)
+    try:
+        assert await store.ingest("Quarterly zebra inventory notes", "zebra.md", dedup=False) == 1
+
+        class Broken:
+            async def embed(self, text):
+                raise RuntimeError("the bundled model is missing")
+
+        # As with sqlite-vec present: the semantic half runs first and fails.
+        store._has_vec = True
+        hits = await store.search_hybrid("zebra", embedder=Broken(), limit=5)
+        assert [hit["source"] for hit in hits] == ["zebra.md"]
+        # Every later search still answers from full text.
+        assert [hit["source"] for hit in await store.search_hybrid(
+            "zebra", embedder=Broken(), limit=5)] == ["zebra.md"]
+    finally:
+        store.close()
+        fts.close()
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_answers_membership_from_one_inventory(tmp_path):
+    """Odin's 1.0.5 review, B1: reconciliation scanned the unindexed chunk_id column once
+    per chunk, so every restart was quadratic in the chunk count (27 s for 20,000)."""
+    from unittest.mock import patch
+
+    store, fts = _indexed_store(tmp_path)
+    try:
+        for name in ("a.md", "b.md", "c.md"):
+            assert await store.ingest(f"body of {name}", name, dedup=False) == 1
+        per_row = AssertionError("a per-row membership scan")
+        with patch.object(fts, "has_knowledge_chunk", side_effect=per_row):
+            # A fully indexed store: nothing to write, and no per-row scan.
+            assert store.backfill_fts() == 0
+            # A chunk missing from the index is written, then confirmed by one more inventory.
+            assert fts.delete_knowledge_source("a.md") == 1
+            reads = []
+            real = fts.knowledge_chunk_sources
+            with patch.object(fts, "knowledge_chunk_sources",
+                              side_effect=lambda: reads.append(1) or real()):
+                assert store.backfill_fts() == 1
+            assert len(reads) == 2
+        assert fts.has_knowledge_source("a.md")
+        assert store.backfill_fts() == 0
+        # A write the confirming inventory can't vouch for is not counted.
+        assert fts.delete_knowledge_source("b.md") == 1
+        answers = iter([fts.knowledge_chunk_sources(), None])
+        with patch.object(fts, "knowledge_chunk_sources", side_effect=lambda: next(answers)):
+            assert store.backfill_fts() == 0
+    finally:
+        store.close()
+        fts.close()
+
+
+@pytest.mark.asyncio
+async def test_a_first_full_text_migration_is_one_transaction(tmp_path):
+    """Odin's 1.0.5 review, B1: profiles before 1.0.5 have no full-text rows, so the first
+    start migrates every chunk. One replacement per chunk took 66 s for 10,000; the backlog
+    is now written at once, and Odin's per-row reconciliation still covers a failed batch."""
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from src.desktop.services import EngineServices
+    from src.search.fts import FullTextIndex
+
+    db = str(tmp_path / "legacy-knowledge.db")
+    legacy = KnowledgeStore(db)
+    for name in ("a.md", "b.md", "c.md"):
+        assert await legacy.ingest(f"legacy body of {name}", name, dedup=False) == 1
+    legacy.close()
+    fts = FullTextIndex(str(tmp_path / "fts.db"))
+    store = KnowledgeStore(db, fts_index=fts)
+    engine = EngineServices(SimpleNamespace(knowledge_store=store), None)
+    reconcile = engine.reconcile_knowledge_index
+    try:
+        with patch.object(fts, "index_knowledge_chunk",
+                          side_effect=AssertionError("one replacement per chunk")):
+            await reconcile()
+        sources = sorted(source for _, source in fts.knowledge_chunk_sources())
+        assert sources == ["a.md", "b.md", "c.md"]
+        # A failed batch writes nothing, and the per-row reconciliation indexes the rest.
+        assert fts.delete_knowledge_source("b.md") == 1
+        with patch.object(fts, "index_absent_knowledge_chunks", return_value=0):
+            await reconcile()
+        assert fts.has_knowledge_source("b.md")
+    finally:
+        store.close()
+        fts.close()
+
+
+def test_the_backlog_writer_is_all_or_nothing(tmp_path):
+    """The batch writer behind the first full-text migration (review B1): an empty batch
+    writes nothing, and a failed row rolls the whole batch back."""
+    from src.search.fts import FullTextIndex
+
+    fts = FullTextIndex(str(tmp_path / "fts.db"))
+    try:
+        assert fts.index_absent_knowledge_chunks([]) == 0
+        rows = [("c1", "first chunk", "a.md", 0), ("c2", {"not": "text"}, "a.md", 1)]
+        assert fts.index_absent_knowledge_chunks(rows) == 0
+        assert fts.knowledge_chunk_sources() == []
+        assert fts.index_absent_knowledge_chunks(rows[:1]) == 1
+        assert fts.knowledge_chunk_sources() == [("c1", "a.md")]
+    finally:
+        fts.close()
+
+
+@pytest.mark.asyncio
+async def test_the_backlog_step_writes_nothing_it_cannot_read(tmp_path):
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    store, fts = _indexed_store(tmp_path)
+    try:
+        assert await store.ingest("a body", "a.md", dedup=False) == 1
+        assert fts.delete_knowledge_source("a.md") == 1
+        # An unreadable inventory: nothing to compare against, so nothing is written.
+        with patch.object(fts, "knowledge_chunk_sources", return_value=None):
+            assert store.backfill_fts_backlog() == 0
+        # An unreadable chunk table.
+        real = store._conn
+        def unreadable(*args):
+            raise OSError("unreadable")
+
+        store._conn = SimpleNamespace(execute=unreadable)
+        try:
+            assert store.backfill_fts_backlog() == 0
+        finally:
+            store._conn = real
+        assert await store.backfill_fts_backlog_async() == 1
+    finally:
+        store.close()
+        fts.close()
+    # A store with no full-text index has no backlog.
+    plain = KnowledgeStore(str(tmp_path / "plain.db"))
+    try:
+        assert plain.backfill_fts_backlog() == 0
+    finally:
+        plain.close()
