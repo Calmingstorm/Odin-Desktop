@@ -127,6 +127,26 @@ async def test_process_pid_reuse_cannot_cancel_successor(work):
     assert service.processes.calls == []
 
 
+
+def test_a_restored_process_keeps_the_command_work_recorded(work):
+    """L6 (1.0.5): after a restart a finished process came back without its command
+    (retention never stores one), and its Work card read "(retained output)"."""
+    service, message, _context = work
+    live = ProcessInfo(777, "sleep 40", "localhost", 1, owner_id=message.owner_id,
+                       origin_channel=message.conversation_id, generation="g1")
+    service.processes._processes[777] = live
+    assert service.register("process", "777", message)["title"] == "sleep 40"
+    restored = ProcessInfo(777, "(retained output)", "localhost", 1, owner_id=message.owner_id,
+                           origin_channel=message.conversation_id, generation="g1")
+    restored.restored = True
+    service.processes._processes[777] = restored
+    [card] = service.list()["items"]
+    assert card["title"] == "sleep 40"
+    # A live process is always named from itself.
+    live.command = "sleep 41"
+    service.processes._processes[777] = live
+    assert service.list()["items"][0]["title"] == "sleep 41"
+
 @pytest.mark.asyncio
 async def test_unknown_process_cleanup_never_becomes_done(work):
     service, message, context = work

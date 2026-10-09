@@ -285,10 +285,14 @@ class WorkService:
         if kind not in {"process", "schedule"} and state in TERMINAL and not pending:
             settlement = {"state": "settled", "resource_release": "manager_task_finished",
                           "remote_effects": "not_undone"}
-        result = dict(record, state=state, detail=detail, actions=actions,
-                      title=scrub_output_secrets(str(_get(item, "label",
-                                _get(item, "description", _get(item, "goal",
-                                _get(item, "command", record["id"]))))))[:1000],
+        named = _get(item, "label", _get(item, "description",
+                     _get(item, "goal", _get(item, "command", record["id"]))))
+        title = scrub_output_secrets(str(named))[:1000]
+        if kind == "process" and _get(item, "restored", False) and record.get("title"):
+            # A process restored after a restart has no command (retention never stores
+            # one); the title Work recorded from the live process still names it.
+            title = record["title"]
+        result = dict(record, state=state, detail=detail, actions=actions, title=title,
                       settlement=settlement)
         return result
 
