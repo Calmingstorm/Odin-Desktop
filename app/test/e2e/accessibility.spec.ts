@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 
 const appDir = resolve(__dirname, '../..')
+// A source-tree engine reports the product version from app/package.json, as /status shows it.
+const appVersion = (JSON.parse(readFileSync(join(appDir, 'package.json'), 'utf8')) as { version: string }).version
 const axePath = require.resolve('axe-core/axe.min.js')
 let app: ElectronApplication
 let page: Page
@@ -510,7 +512,7 @@ test('real core keyboard status usage and every real settings or unavailable ser
   const saved = await page.evaluate(async (code) => (window as any).odin.skillsSave({ name: 'slice4_constant', code, create: true }), skillCode)
   expect(saved.ok).toBe(true)
   await send('/status')
-  await expect(page.getByRole('region', { name: 'Status', exact: true }).locator('.panel-text')).toContainText('Odin v0.1.0.dev1')
+  await expect(page.getByRole('region', { name: 'Status', exact: true }).locator('.panel-text')).toContainText(`Odin v${appVersion}`)
   await send('/usage')
   await expect(page.getByRole('region', { name: 'Usage, 7d', exact: true }).locator('.panel-text')).toContainText('settled turns 0')
   await expect(page.locator('.statusbar')).not.toContainText('Usage is unavailable in this core')
