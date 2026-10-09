@@ -145,32 +145,31 @@ onMounted(() => readProjection())
 </script>
 
 <template>
-  <SettingsSection title="Outgoing webhooks" aria-label="Outgoing webhooks">
-    <header class="panel-head">
-      <p class="panel-hint">Push events to external targets. This is separate from incoming schedule triggers.</p>
+  <SettingsSection title="Outgoing webhooks" aria-label="Outgoing webhooks" description="Push events to external targets. This is separate from incoming schedule triggers.">
+    <template #actions>
       <button class="ghost" :disabled="busy || loading || confirming" @click="refresh">Refresh outgoing webhooks</button>
       <button class="ghost" :disabled="locked" @click="edit()">Add outbound webhook</button>
-    </header>
+    </template>
     <p v-if="loading" role="status">Loading outgoing targets…</p>
     <p v-else-if="unavailable" role="status">Outgoing webhooks are unavailable.</p>
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="stale && !loading" class="warn">Refresh and inspect targets before changing them. Nothing is automatically replayed.</p>
     <p v-if="management.notes[KEY]" role="status">{{ management.notes[KEY] }}</p>
-    <p v-if="snapshot">{{ snapshot.enabled_count }} of {{ snapshot.webhook_count }} targets enabled.</p>
-    <p v-if="snapshot && !snapshot.webhooks.length">No outbound targets configured.</p>
+    <p v-if="snapshot" class="manage-desc">{{ snapshot.enabled_count }} of {{ snapshot.webhook_count }} targets enabled.</p>
+    <p v-if="snapshot && !snapshot.webhooks.length" class="manage-desc">No outbound targets configured.</p>
     <ul v-if="snapshot" class="manage-list">
       <li v-for="row in snapshot.webhooks" :key="row.id" class="manage-row">
-        <div class="manage-line"><strong>{{ row.name }}</strong><span>{{ row.enabled ? 'Enabled' : 'Disabled' }}</span>
+        <div class="manage-line"><strong>{{ row.name }}</strong><span :class="['state-chip', row.enabled ? 'connected' : 'disabled']">{{ row.enabled ? 'Enabled' : 'Disabled' }}</span>
           <span class="manage-actions">
             <button class="ghost" :aria-label="`Edit outbound webhook ${row.name}`" :disabled="locked" @click="edit(row)">Edit</button>
             <button class="ghost" :aria-label="`Test outbound webhook ${row.name}`" :disabled="locked" @click="test(row)">Test…</button>
             <button class="ghost danger-item" :aria-label="`Delete outbound webhook ${row.name}`" :disabled="locked" @click="remove(row)">Delete…</button>
           </span>
         </div>
-        <p>{{ publicUrl(row.url) }} · {{ privateUrl(row.url) ? 'Private endpoint configured (write-only)' : 'Public endpoint' }} · Signing key: {{ row.has_secret ? 'Configured (write-only)' : 'Not configured' }}</p>
-        <p>Events: {{ row.events.length ? row.events.join(', ') : 'All' }} · Secret scrubbing: {{ row.scrub_secrets ? 'On' : 'Off' }} · TLS verification: {{ row.verify_ssl ? 'On' : 'Off' }}</p>
+        <p class="manage-desc">{{ publicUrl(row.url) }} · {{ privateUrl(row.url) ? 'Private endpoint configured (write-only)' : 'Public endpoint' }} · Signing key: {{ row.has_secret ? 'Configured (write-only)' : 'Not configured' }}</p>
+        <p class="manage-desc">Events: {{ row.events.length ? row.events.join(', ') : 'All' }} · Secret scrubbing: {{ row.scrub_secrets ? 'On' : 'Off' }} · TLS verification: {{ row.verify_ssl ? 'On' : 'Off' }}</p>
       </li>
-      <li v-for="row in snapshot.skipped_webhooks" :key="`skipped:${row.id}`" class="warn">Target {{ row.id }} unavailable: {{ row.reason }}</li>
+      <li v-for="row in snapshot.skipped_webhooks" :key="`skipped:${row.id}`" class="manage-row warn">Target {{ row.id }} unavailable: {{ row.reason }}</li>
     </ul>
     <dialog v-if="draft" ref="editorDialog" class="settings-form-dialog" :aria-label="draft.original ? 'Edit outbound target' : 'Add outbound target'" @cancel.prevent="cancel">
     <form class="settings-form" aria-label="Outbound webhook editor" @submit.prevent="save">

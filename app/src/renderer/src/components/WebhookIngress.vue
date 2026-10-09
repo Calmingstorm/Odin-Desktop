@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import SettingsSection from './settings/SettingsSection.vue'
 import SettingsSwitch from './settings/SettingsSwitch.vue'
+import SettingsRow from './settings/SettingsRow.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { ConfigMeta, CoreStatus, Result, SettingsChange } from '../../../shared/api'
 import { state } from '../store'
@@ -196,50 +197,79 @@ watch(() => [state.recoveryEpoch, state.app.coreInstanceId, state.app.link], () 
   secret.value = ''; pendingSecret = ''; loading.value = false
   error.value = 'Core connection changed. Refresh to obtain current ingress state.'
 }, { flush: 'sync' })
-onMounted(refresh)
+// The first load has no drafts to discard, so it reads without the explicit Refresh notice.
+onMounted(refreshProjection)
 onBeforeUnmount(() => { alive = false; generation += 1; secret.value = ''; pendingSecret = ''; meta.value = null; ingress.value = undefined })
 </script>
 
 <template>
-  <SettingsSection title="Incoming webhooks" aria-label="Webhook ingress" data-testid="webhook-ingress" :aria-busy="busy || loading">
-    <button class="ghost" aria-label="Refresh webhook ingress" aria-describedby="ingress-refresh-help" :disabled="busy" @click="refresh">Refresh</button>
-    <p id="ingress-refresh-help" class="manage-desc">Refresh replaces unsaved listener and source drafts with saved settings and discards any secret draft.</p>
-    <p role="status" aria-atomic="true" data-testid="webhook-ingress-status">{{ statusText }}<template v-if="ingress">. Eligible schedules: {{ ingress.eligible_schedules }}. Unknown deliveries: {{ ingress.unknown_deliveries }}.</template></p>
-    <p v-if="ingress?.address" class="manage-desc">Actual listen address: {{ ingress.address[0] }}:{{ ingress.address[1] }}</p>
-    <p v-if="error" id="ingress-error" class="warn" role="alert">{{ error }}</p>
-    <p v-if="notice" role="status">{{ notice }}</p>
-    <p v-if="meta?.status?.keyring_error" class="warn" role="status">Secret storage is unavailable. Keyring error: {{ meta.status.keyring_error }}. Stored-secret presence and eligibility may be unknown.</p>
-    <p v-if="!available && !loading" role="status">Webhook settings are unavailable. No setup can be changed here.</p>
+  <SettingsSection title="Incoming webhooks" aria-label="Webhook ingress" data-testid="webhook-ingress" :aria-busy="busy || loading"
+    description="Let a service such as GitHub start a webhook-triggered schedule. Off until you turn it on.">
+    <template #actions>
+      <button class="ghost" aria-label="Refresh webhook ingress" aria-describedby="ingress-refresh-help" :disabled="busy" @click="refresh">Refresh</button>
+    </template>
+    <SettingsRow label="Listener" description="Whether Odin is accepting deliveries now.">
+      <template #note>
+        <p role="status" aria-atomic="true" data-testid="webhook-ingress-status" class="manage-desc">{{ statusText }}<template v-if="ingress">. Eligible schedules: {{ ingress.eligible_schedules }}. Unknown deliveries: {{ ingress.unknown_deliveries }}.</template></p>
+        <p v-if="ingress?.address" class="manage-desc">Actual listen address: {{ ingress.address[0] }}:{{ ingress.address[1] }}</p>
+        <p v-if="error" id="ingress-error" class="warn" role="alert">{{ error }}</p>
+        <p v-if="notice" class="manage-desc" role="status">{{ notice }}</p>
+        <p v-if="meta?.status?.keyring_error" class="warn" role="status">Secret storage is unavailable. Keyring error: {{ meta.status.keyring_error }}. Stored-secret presence and eligibility may be unknown.</p>
+        <p v-if="!available && !loading" class="manage-desc" role="status">Webhook settings are unavailable. No setup can be changed here.</p>
+        <p id="ingress-refresh-help" class="sr-only">Refresh replaces unsaved listener and source drafts with saved settings and discards any secret draft.</p>
+      </template>
+    </SettingsRow>
     <template v-if="available">
-      <p class="manage-desc">Opt-in only. The listener stays off until at least one unpaused webhook schedule has a valid conversation and a distinct stored secret. Enabled does not mean accepting.</p>
-      <fieldset :disabled="busy || loading || stale">
-        <legend>Inbound listener setup</legend>
-        <label class="toggle-inline">Enable inbound webhook deliveries <SettingsSwitch id="webhook-ingress-enabled" label="Enable inbound webhook deliveries" :checked="enabled" data-testid="webhook-ingress-enabled" @change="enabled = $event" /></label>
-        <label class="field-input">Listen address <input v-model="bind" data-testid="webhook-ingress-bind" :aria-describedby="error ? 'ingress-error ingress-bind-help' : 'ingress-bind-help'" spellcheck="false" /></label>
-        <p id="ingress-bind-help" class="manage-desc">Use a numeric LAN, tailnet or loopback address, not a wildcard or hostname.</p>
-        <label class="field-input">Listen port <input v-model="port" type="number" min="0" max="65535" data-testid="webhook-ingress-port" :aria-describedby="error ? 'ingress-error' : undefined" /></label>
-        <button class="ghost" :disabled="busy || loading || stale" @click="saveListener">Save listener setup</button>
+      <fieldset class="settings-fieldset" :disabled="busy || loading || stale">
+        <legend class="sr-only">Inbound listener setup</legend>
+        <SettingsRow label="Accept incoming webhooks" description="The listener starts once an unpaused webhook schedule has a conversation and its own secret. On does not mean accepting." control-id="webhook-ingress-enabled">
+          <SettingsSwitch id="webhook-ingress-enabled" label="Accept incoming webhooks" :checked="enabled" data-testid="webhook-ingress-enabled" @change="enabled = $event" />
+        </SettingsRow>
+        <SettingsRow label="Listen address" description="A numeric LAN, tailnet or loopback address, not a wildcard or hostname." control-id="webhook-ingress-bind">
+          <input id="webhook-ingress-bind" v-model="bind" data-testid="webhook-ingress-bind" :aria-describedby="error ? 'ingress-error ingress-bind-help' : 'ingress-bind-help'" spellcheck="false" />
+          <span id="ingress-bind-help" class="sr-only">Use a numeric LAN, tailnet or loopback address, not a wildcard or hostname.</span>
+        </SettingsRow>
+        <SettingsRow label="Listen port" control-id="webhook-ingress-port">
+          <input id="webhook-ingress-port" v-model="port" class="narrow" type="number" min="0" max="65535" data-testid="webhook-ingress-port" :aria-describedby="error ? 'ingress-error' : undefined" />
+        </SettingsRow>
+        <div class="panel-actions"><button class="ghost" :disabled="busy || loading || stale" @click="saveListener">Save listener setup</button></div>
       </fieldset>
-      <fieldset :disabled="busy || loading || stale">
-        <legend>Per-trigger delivery setup</legend>
-        <label class="field-input">Saved webhook schedule <select v-model="selected" data-testid="webhook-ingress-schedule"><option value="">Choose a saved trigger schedule</option><option v-for="item in rows" :key="item.id" :value="item.id">{{ item.description }}{{ item.paused ? ' (paused)' : '' }}</option></select></label>
-        <p v-if="!rows.length" class="manage-desc">Save a schedule with webhook timing before configuring its secret.</p>
-        <template v-if="row">
-          <p v-if="row.trigger?.source === 'gitlab'" role="status">GitLab scheduler matching is supported, but GitLab ingress is unavailable. This panel cannot configure GitLab deliveries.</p>
-          <p v-if="row.paused" role="status">This schedule is paused and cannot accept deliveries.</p>
-          <p v-if="!row.channel_id" role="status">This schedule needs a valid reporting conversation to be eligible.</p>
-          <p role="status">Secret: {{ secretState }}</p>
-          <template v-if="row.trigger?.source !== 'gitlab'">
-            <label class="field-input">Inbound delivery source <select v-model="source" data-testid="webhook-ingress-source"><option value="generic">Generic</option><option value="github">GitHub</option><option value="gitea">Gitea</option></select></label>
-            <p v-if="row.trigger?.source && row.trigger.source !== source" role="status">The inbound source differs from this schedule's source filter. It will not be eligible until those match.</p>
-            <label class="field-input">New per-trigger secret <input v-model="secret" type="password" autocomplete="new-password" spellcheck="false" data-testid="webhook-ingress-secret" aria-describedby="ingress-secret-help" /></label>
-            <p id="ingress-secret-help" class="manage-desc">Write-only. Stored secrets are never filled or read back. Submission clears this draft, even on failure. Source is saved first, then the secret separately.</p>
-            <button class="ghost" :disabled="busy || loading || stale || !secret" @click="saveTrigger">Save trigger source and secret</button>
+      <fieldset class="settings-fieldset" :disabled="busy || loading || stale">
+        <legend class="sr-only">Per-trigger delivery setup</legend>
+        <SettingsRow label="Webhook schedule" description="The saved webhook schedule a delivery starts." control-id="webhook-ingress-schedule">
+          <select id="webhook-ingress-schedule" v-model="selected" data-testid="webhook-ingress-schedule"><option value="">Choose a saved trigger schedule</option><option v-for="item in rows" :key="item.id" :value="item.id">{{ item.description }}{{ item.paused ? ' (paused)' : '' }}</option></select>
+          <template #note>
+            <p v-if="!rows.length" class="manage-desc">Save a schedule with webhook timing before configuring its secret.</p>
+            <template v-if="row">
+              <p v-if="row.trigger?.source === 'gitlab'" class="manage-desc" role="status">GitLab scheduler matching is supported, but GitLab ingress is unavailable. This panel cannot configure GitLab deliveries.</p>
+              <p v-if="row.paused" class="manage-desc" role="status">This schedule is paused and cannot accept deliveries.</p>
+              <p v-if="!row.channel_id" class="manage-desc" role="status">This schedule needs a valid reporting conversation to be eligible.</p>
+              <p class="manage-desc" role="status">Secret: {{ secretState }}</p>
+            </template>
           </template>
-          <button class="ghost" :disabled="busy || loading || stale" @click="clearTriggerSecret">Clear per-trigger secret</button>
-          <p role="status" data-testid="webhook-ingress-selected-status">{{ selectedWarning }}</p>
-          <p v-if="endpoint" class="manage-desc" data-testid="webhook-ingress-endpoint">Delivery route URL (not selected-schedule eligibility proof): {{ endpoint }}</p>
-          <p v-if="authentication" class="manage-desc">{{ authentication }}</p>
+        </SettingsRow>
+        <template v-if="row">
+          <template v-if="row.trigger?.source !== 'gitlab'">
+            <SettingsRow label="Delivery source" description="The service that sends this schedule's webhooks." control-id="webhook-ingress-source">
+              <select id="webhook-ingress-source" v-model="source" data-testid="webhook-ingress-source"><option value="generic">Generic</option><option value="github">GitHub</option><option value="gitea">Gitea</option></select>
+              <template #note>
+                <p v-if="row.trigger?.source && row.trigger.source !== source" class="manage-desc" role="status">The inbound source differs from this schedule's source filter. It will not be eligible until those match.</p>
+              </template>
+            </SettingsRow>
+            <SettingsRow label="New secret" description="Write-only: a stored secret is never shown again. Saving clears this field, even on failure." control-id="webhook-ingress-secret">
+              <input id="webhook-ingress-secret" v-model="secret" type="password" autocomplete="new-password" spellcheck="false" data-testid="webhook-ingress-secret" aria-describedby="ingress-secret-help" />
+              <span id="ingress-secret-help" class="sr-only">Write-only. Stored secrets are never filled or read back. Submission clears this draft, even on failure. Source is saved first, then the secret separately.</span>
+            </SettingsRow>
+          </template>
+          <div class="panel-actions">
+            <button v-if="row.trigger?.source !== 'gitlab'" class="ghost" :disabled="busy || loading || stale || !secret" @click="saveTrigger">Save trigger source and secret</button>
+            <button class="ghost" :disabled="busy || loading || stale" @click="clearTriggerSecret">Clear per-trigger secret</button>
+          </div>
+          <div class="card-block">
+            <p role="status" class="manage-desc" data-testid="webhook-ingress-selected-status">{{ selectedWarning }}</p>
+            <p v-if="endpoint" class="manage-desc" data-testid="webhook-ingress-endpoint">Delivery route URL (not selected-schedule eligibility proof): {{ endpoint }}</p>
+            <p v-if="authentication" class="manage-desc">{{ authentication }}</p>
+          </div>
         </template>
       </fieldset>
     </template>

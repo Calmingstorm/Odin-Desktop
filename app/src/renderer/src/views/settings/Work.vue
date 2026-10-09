@@ -159,12 +159,11 @@ async function remove(row: ScheduleRow): Promise<void> {
 </script>
 
 <template>
-  <SettingsSection title="Schedules" aria-label="Schedules">
-    <header class="panel-head">
-      <span v-if="!schedules.unavailable" class="panel-hint">{{ counts.total }} schedule{{ counts.total === 1 ? '' : 's' }}, {{ counts.paused }} paused, {{ counts.failing }} failing.</span>
+  <SettingsSection title="Schedules" aria-label="Schedules" :description="schedules.unavailable ? undefined : `${counts.total} schedule${counts.total === 1 ? '' : 's'}, ${counts.paused} paused, ${counts.failing} failing.`">
+    <template #actions>
       <button class="ghost" aria-label="Refresh schedules" @click="loadSchedules">Refresh</button>
       <button v-if="!schedules.unavailable" class="ghost" @click="startNew">New schedule</button>
-    </header>
+    </template>
     <p v-if="schedules.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Scheduling') }}</p>
     <p v-else-if="management.error" class="warn">{{ management.error }}</p>
     <p v-else-if="schedules.loaded && !schedules.list.length" class="manage-desc">No schedules yet. Create one for reminders or recurring work.</p>
@@ -323,9 +322,9 @@ async function remove(row: ScheduleRow): Promise<void> {
   <OutboundWebhooks />
 
   <SettingsSection title="Running now" aria-label="Running work">
-    <header class="panel-head">
+    <template #actions>
       <button class="ghost" aria-label="Refresh running work" @click="loadWork">Refresh</button>
-    </header>
+    </template>
     <WorkList :kinds="RUNNING" empty-text="Nothing is running." :unavailable-message="unavailableText('Work (agents, tasks, loops, processes, workflows and schedules)')" />
   </SettingsSection>
 

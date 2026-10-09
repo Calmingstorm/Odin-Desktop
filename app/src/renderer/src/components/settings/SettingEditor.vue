@@ -136,7 +136,8 @@ function blur(event: FocusEvent): void {
       :aria-invalid="invalid || undefined"
       @change="pick(($event.target as HTMLSelectElement).value)"
     >
-      <option v-if="!field.enum.includes(String(current))" :value="current" disabled>Choose a supported value</option>
+      <option v-if="field.nullable" value="">Default</option>
+      <option v-else-if="!field.enum.includes(String(current))" :value="current" disabled>Choose a supported value</option>
       <option v-for="option in field.enum" :key="option" :value="option">{{ option }}</option>
     </select>
     <textarea

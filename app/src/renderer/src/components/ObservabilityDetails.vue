@@ -21,12 +21,12 @@ onLateReceipt((receipt) => {
   if (!receipt.settled.ok && isUnavailable(receipt.settled.error)) closeUnavailable.value = true
 })
 const sections = [
-  { key: 'stats', feature: 'Runtime statistics', run: () => window.odin.observabilityStats({}) },
-  { key: 'recovery-stats', feature: 'Recovery statistics', run: () => window.odin.recoveryStats({}) },
-  { key: 'recovery-recent', feature: 'Recent recovery', run: () => window.odin.recoveryRecent({ limit: 20 }) },
-  { key: 'capacity', feature: 'Capacity breaker', run: () => window.odin.capacitySnapshot({}) },
-  { key: 'ssh-pools', feature: 'SSH connection pools', run: () => window.odin.poolsSsh({}) },
-  { key: 'http-pools', feature: 'HTTP connection pools', run: () => window.odin.poolsHttp({}) }
+  { key: 'stats', feature: 'Runtime statistics', help: 'Requests, tool calls and context compression since Odin started.', run: () => window.odin.observabilityStats({}) },
+  { key: 'recovery-stats', feature: 'Recovery statistics', help: 'How often model requests were retried or recovered.', run: () => window.odin.recoveryStats({}) },
+  { key: 'recovery-recent', feature: 'Recent recovery', help: 'The latest recovery events.', run: () => window.odin.recoveryRecent({ limit: 20 }) },
+  { key: 'capacity', feature: 'Capacity breaker', help: 'Whether model capacity limits are pausing requests.', run: () => window.odin.capacitySnapshot({}) },
+  { key: 'ssh-pools', feature: 'SSH connection pools', help: 'Open SSH connections to your hosts.', run: () => window.odin.poolsSsh({}) },
+  { key: 'http-pools', feature: 'HTTP connection pools', help: 'Open web connections Odin keeps for reuse.', run: () => window.odin.poolsHttp({}) }
 ]
 const refreshPools = async (): Promise<void> => {
   await Promise.all(sections.slice(-2).map((section) => readCompletion(section.key, section.run)))
@@ -44,18 +44,28 @@ async function closePools(all: boolean): Promise<void> {
 }
 </script>
 <template>
-  <SettingsSection v-for="section in sections" :key="section.key" :title="section.feature" :aria-label="section.feature">
-    <SettingsRow label="Latest report"><button class="ghost" @click="readCompletion(section.key, section.run)">Read {{ section.feature }}</button></SettingsRow>
-    <CompletionResult :resource="section.key" :feature="section.feature" />
+  <SettingsSection title="Diagnostics" aria-label="Diagnostics" description="Read-only reports from the running engine.">
+    <section v-for="section in sections" :key="section.key" :aria-label="section.feature">
+      <SettingsRow :label="section.feature" :description="section.help">
+        <button class="ghost" @click="readCompletion(section.key, section.run)">Read {{ section.feature }}</button>
+        <template #note><CompletionResult :resource="section.key" :feature="section.feature" /></template>
+      </SettingsRow>
+    </section>
   </SettingsSection>
   <SettingsSection title="Connection pool actions" aria-label="Connection pool actions">
     <p v-if="closeUnavailable" role="status">{{ unavailableText('Connection pool actions') }}</p>
     <template v-else>
-      <SettingsRow label="Host connections" description="Close existing SSH connections; new work opens new ones.">
-      <label>Pool host <input v-model="host" /></label>
-      <label>Pool SSH user (optional) <input v-model="sshUser" /></label>
-      <button class="ghost" :disabled="!host || management.busy['connection-pools']" @click="closePools(false)">Close host pool…</button>
-      <button class="ghost" :disabled="management.busy['connection-pools']" @click="closePools(true)">Close all pools…</button>
+      <SettingsRow label="Host connections" description="Close existing SSH connections to one host; new work opens new ones.">
+        <label class="control-field">Host
+          <input v-model="host" />
+        </label>
+        <label class="control-field">SSH user (optional)
+          <input v-model="sshUser" />
+        </label>
+        <button class="ghost" :disabled="!host || management.busy['connection-pools']" @click="closePools(false)">Close host pool…</button>
+      </SettingsRow>
+      <SettingsRow label="All connections" description="Close every SSH connection. Web connections are unchanged.">
+        <button class="ghost" :disabled="management.busy['connection-pools']" @click="closePools(true)">Close all pools…</button>
       </SettingsRow>
     </template>
     <p v-if="management.notes['connection-pools']" role="status">{{ management.notes['connection-pools'] }}</p>

@@ -144,34 +144,35 @@ onMounted(async () => {
 
   <SettingsSection title="Computer use" aria-label="Computer use">
     <SettingEditor v-for="entry in computerFields" :key="entry.key" :field="entry.field!" :label="entry.label" :help="entry.help" />
-    <SettingsRow label="Desktop availability" description="Turning this on is not consent to control your desktop."><button class="ghost" aria-label="Refresh computer use" @click="loadComputer">Refresh</button></SettingsRow>
-    <p v-if="records.unavailable.computer" role="status">{{ unavailableText('Computer use') }}</p>
-    <p v-if="records.errors.computer" class="warn">Couldn't read computer use: {{ records.errors.computer }}{{ records.computer ? ' Showing the last read.' : '' }}</p>
-    <template v-if="readiness">
-      <p v-if="readiness.foreground_available" role="status">Foreground computer use is available on X11. Each request still needs consent and a verified target.</p>
-      <p v-else class="capability-unavailable" role="status">Desktop input is unavailable: {{ reasonText(readiness.reason) }}.</p>
-      <p class="manage-desc">X11 requires your current signed-in desktop. Wayland input is not supported here; switching this on does not change that.</p>
-      <p v-if="!session" class="manage-desc">No session is reported. This does not confirm that mouse and keyboard input was released.</p>
-      <p v-else class="manage-desc">Check recovery only reviews the recorded session. It does not start a session or send input.</p>
-    </template>
-    <p v-if="legacy" class="manage-desc">{{ legacy.enabled ? 'On' : 'Off' }}: {{ legacy.state }}.</p>
-    <template v-if="session?.session_id">
-      <SettingsRow label="Computer-use session" :description="session.state === 'quarantined' ? 'Odin lost track of a computer-use session. Check recovery before using computer use again.' : `Session state: ${session.state}`">
-        <button v-if="session.state === 'quarantined' && readiness" class="ghost" :aria-label="`Check recovery for session ${session.session_id}`" :disabled="management.busy[computerKey] || !readiness.management_available" @click="reconcile">Check recovery</button>
-        <button v-else-if="session.state === 'quarantined'" class="ghost danger-item" :aria-label="`Release session ${session.session_id}…`" :disabled="management.busy[computerKey]" @click="reconcile">Release…</button>
-      </SettingsRow>
-      <details class="computer-session-details"><summary>Session details</summary><p class="manage-desc">Session: {{ session.session_id }} · State: {{ session.state }}</p></details>
-      <p v-if="session.recovery" :class="session.recovery.complete ? 'manage-desc' : 'warn'">Recovery: {{ session.recovery.status.replace(/_/g, ' ') }}, because {{ reasonText(session.recovery.reason) }}. {{ session.recovery.complete ? 'Recovery is recorded as complete; this does not grant desktop input.' : 'Recovery is incomplete. Do not resume desktop input.' }}</p>
-      <p v-if="computerReleaseUncertain(session)" class="warn">Input release remains unverified.</p>
-      <p v-if="management.notes[computerKey]" class="manage-note" role="status">{{ management.notes[computerKey] }}</p>
-    </template>
+    <SettingsRow label="Desktop availability" description="Turning this on is not consent to control your desktop.">
+      <button class="ghost" aria-label="Refresh computer use" @click="loadComputer">Refresh</button>
+      <template #note>
+        <p v-if="legacy" class="manage-desc">{{ legacy.enabled ? 'On' : 'Off' }}: {{ legacy.state }}.</p>
+        <p v-if="records.unavailable.computer" role="status">{{ unavailableText('Computer use') }}</p>
+        <p v-if="records.errors.computer" class="warn">Couldn't read computer use: {{ records.errors.computer }}{{ records.computer ? ' Showing the last read.' : '' }}</p>
+        <template v-if="readiness">
+          <p v-if="readiness.foreground_available" role="status">Foreground computer use is available on X11. Each request still needs consent and a verified target.</p>
+          <p v-else class="capability-unavailable" role="status">Desktop input is unavailable: {{ reasonText(readiness.reason) }}.</p>
+          <p class="manage-desc">X11 requires your current signed-in desktop. Wayland input is not supported here; switching this on does not change that.</p>
+          <p v-if="!session" class="manage-desc">No session is reported. This does not confirm that mouse and keyboard input was released.</p>
+          <p v-else class="manage-desc">Check recovery only reviews the recorded session. It does not start a session or send input.</p>
+        </template>
+      </template>
+    </SettingsRow>
+    <SettingsRow v-if="session?.session_id" label="Computer-use session" :description="session.state === 'quarantined' ? 'Odin lost track of a computer-use session. Check recovery before using computer use again.' : `Session state: ${session.state}`">
+      <button v-if="session.state === 'quarantined' && readiness" class="ghost" :aria-label="`Check recovery for session ${session.session_id}`" :disabled="management.busy[computerKey] || !readiness.management_available" @click="reconcile">Check recovery</button>
+      <button v-else-if="session.state === 'quarantined'" class="ghost danger-item" :aria-label="`Release session ${session.session_id}…`" :disabled="management.busy[computerKey]" @click="reconcile">Release…</button>
+      <template #note>
+        <details class="computer-session-details"><summary>Session details</summary><p class="manage-desc">Session: {{ session.session_id }} · State: {{ session.state }}</p></details>
+        <p v-if="session.recovery" :class="session.recovery.complete ? 'manage-desc' : 'warn'">Recovery: {{ session.recovery.status.replace(/_/g, ' ') }}, because {{ reasonText(session.recovery.reason) }}. {{ session.recovery.complete ? 'Recovery is recorded as complete; this does not grant desktop input.' : 'Recovery is incomplete. Do not resume desktop input.' }}</p>
+        <p v-if="computerReleaseUncertain(session)" class="warn">Input release remains unverified.</p>
+        <p v-if="management.notes[computerKey]" class="manage-note" role="status">{{ management.notes[computerKey] }}</p>
+      </template>
+    </SettingsRow>
   </SettingsSection>
 
   <SettingsSection title="Built-in tools" aria-label="Built-in tools">
-    <SettingsRow label="Find a tool" control-id="tool-filter">
-      <span v-if="!management.unavailable.tools && management.tools" class="panel-hint">
-        {{ management.tools.tools.length }} tools, {{ management.tools.disabled_count }} switched off. Permissions still apply.
-      </span>
+    <SettingsRow label="Find a tool" control-id="tool-filter" :description="!management.unavailable.tools && management.tools ? `${management.tools.tools.length} tools, ${management.tools.disabled_count} switched off. Permissions still apply.` : undefined">
       <label v-if="!management.unavailable.tools" class="sr-only" for="tool-filter">Filter tools</label><input v-if="!management.unavailable.tools" id="tool-filter" v-model="filter" class="panel-filter" type="search" placeholder="Filter" />
     </SettingsRow>
     <p v-if="management.unavailable.tools" class="capability-unavailable" role="status">{{ unavailableText('Tool management') }}</p>
@@ -202,20 +203,26 @@ onMounted(async () => {
   </SettingsSection>
 
   <details class="settings-more"><summary>More options</summary>
-    <SettingsSection title="Tool progress">
+    <SettingsSection v-if="toolMore.length" title="Tool progress">
       <SettingEditor v-for="entry in toolMore" :key="entry.key" :field="entry.field!" :label="entry.label" :help="entry.help" />
     </SettingsSection>
-  <SettingsSection title="Timeouts" aria-label="Tool timeouts">
-    <SettingsRow label="Tool deadlines" description="Changes apply to new calls; running calls keep their deadlines." />
+  <SettingsSection title="Timeouts" aria-label="Tool timeouts" description="Changes apply to new calls; running calls keep their deadlines.">
     <p v-if="management.unavailable.timeouts" class="capability-unavailable" role="status">{{ unavailableText('Tool timeout management') }}</p>
     <p v-else-if="management.errors.timeouts" class="warn">{{ management.errors.timeouts }}</p>
     <template v-if="!management.unavailable.timeouts">
-    <label class="field-input">Default, in seconds <input v-model="defaultTimeout" type="number" min="1" :aria-invalid="timeoutErrorField === 'default' || undefined" :aria-describedby="timeoutErrorField === 'default' ? 'tool-timeout-error' : undefined" /></label>
-    <div v-for="(row, index) in overrides" :key="index" class="field-input">
-      <label>Tool {{ index + 1 }} <input v-model="row.name" list="tool-names" placeholder="Tool" /></label>
-      <label>Seconds for tool {{ index + 1 }} <input v-model="row.seconds" type="number" min="1" placeholder="Seconds" :aria-invalid="timeoutErrorField === index || undefined" :aria-describedby="timeoutErrorField === index ? 'tool-timeout-error' : undefined" /></label>
+    <SettingsRow label="Default" description="How long any tool may run before it times out." control-id="tool-timeout-default">
+      <input id="tool-timeout-default" v-model="defaultTimeout" class="narrow" type="number" min="1" aria-label="Default, in seconds" :aria-invalid="timeoutErrorField === 'default' || undefined" :aria-describedby="timeoutErrorField === 'default' ? 'tool-timeout-error' : undefined" />
+      <span class="control-suffix" aria-hidden="true">seconds</span>
+    </SettingsRow>
+    <SettingsRow v-for="(row, index) in overrides" :key="index" :label="row.name || `Tool ${index + 1}`" description="This tool's own deadline.">
+      <label class="control-field">Tool
+        <input v-model="row.name" list="tool-names" :aria-label="`Tool ${index + 1}`" />
+      </label>
+      <label class="control-field narrow">Seconds
+        <input v-model="row.seconds" type="number" min="1" :aria-label="`Seconds for tool ${index + 1}`" :aria-invalid="timeoutErrorField === index || undefined" :aria-describedby="timeoutErrorField === index ? 'tool-timeout-error' : undefined" />
+      </label>
       <button class="ghost" :aria-label="`Remove timeout for ${row.name || `tool ${index + 1}`}`" @click="overrides.splice(index, 1)">Remove</button>
-    </div>
+    </SettingsRow>
     <datalist id="tool-names">
       <option v-for="tool in management.tools?.tools ?? []" :key="tool.name" :value="tool.name" />
     </datalist>

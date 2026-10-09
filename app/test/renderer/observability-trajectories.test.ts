@@ -25,7 +25,11 @@ describe('smallest honest observability and trajectory sections', () => {
   it('uses section headings outside report and connection-action cards', () => {
     view = mount(Observability)
     const sections = view.root.findAll((n) => String(n.props.class).split(' ').includes('settings-section'))
-    expect(sections).toHaveLength(7)
+    // One card of read-only reports, a row each, and one card of connection actions.
+    expect(sections.map((section) => section.findAll((n) => n.tag === 'h3')[0]!.textContent())).toEqual(['Diagnostics', 'Connection pool actions'])
+    const rows = (section: (typeof sections)[number]) => section.findAll((n) => String(n.props.class).split(' ').includes('settings-row'))
+    expect(rows(sections[0]!)).toHaveLength(6)
+    expect(rows(sections[1]!)).toHaveLength(2)
     for (const section of sections) {
       expect(section.findAll((n) => n.tag === 'h3')).toHaveLength(1)
       const card = section.findAll((n) => String(n.props.class).split(' ').includes('settings-card'))[0]!

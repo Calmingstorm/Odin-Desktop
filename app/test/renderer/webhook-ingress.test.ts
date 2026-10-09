@@ -210,12 +210,14 @@ describe('inbound listener observed state and write-only setup', () => {
     v.setup.secret = 'draft'; await call(v, 'saveTrigger')
     expect(bridge.settingsSet).not.toHaveBeenCalled()
   })
-  it('exposes wrapping labels, write-only hint, status, fieldset and busy bindings', async () => {
+  it('exposes visible labels, write-only hint, status, fieldset and busy bindings', async () => {
     const v = await open()
     for (const node of v.root.findAll((n) => ['input', 'select'].includes(n.tag))) {
+      // Each control has a visible label: one that wraps it, or the row label that names it with for.
       let label = node.parent
       while (label && label.tag !== 'label') label = label.parent
-      expect(label?.textContent().trim()).toBeTruthy()
+      const explicit = node.props.id ? v.root.findAll((n) => n.tag === 'label' && n.props.for === node.props.id)[0] : undefined
+      expect((label ?? explicit)?.textContent().trim(), `${node.tag} ${node.props['data-testid'] ?? ''} needs a visible label`).toBeTruthy()
     }
     const password = control(v, 'webhook-ingress-secret')
     expect(password.props.type).toBe('password'); expect(password.props.autocomplete).toBe('new-password')

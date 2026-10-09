@@ -891,11 +891,17 @@ label.field-input > input:not([type='checkbox']):not([type='radio']), label.fiel
 .settings-content .settings-card > .manage-list > .manage-row { padding: 16px var(--settings-padding); }
 .settings-content .settings-card > .panel-actions, .settings-content .settings-card > .field-input { margin: 12px var(--settings-padding); }
 .settings-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 40%); column-gap: 24px; row-gap: 8px; padding: 16px var(--settings-padding, 18px); min-width: 0; }
-.settings-row + .settings-row, .setting-editor + .setting-editor { border-top: 1px solid var(--line); }
+.settings-row + .settings-row, .setting-editor + .setting-editor,
+/* Rows grouped in a section or form, and lists set between rows, keep the separator rows get. */
+.settings-card > :is(section, form) + :is(section, form) > .settings-row:first-child,
+.settings-card > .settings-row + :is(section, form) > .settings-row:first-child,
+.settings-card > :is(section, form, .manage-list) + .settings-row,
+.settings-card > .settings-row + .manage-list > .manage-row:first-child { border-top: 1px solid var(--line); }
 .settings-row-copy { min-width: 0; }
 .settings-row-copy label, .settings-row-copy > span { font-weight: 600; font-size: 13px; }
 .settings-row-copy p { font-size: 12px; color: var(--muted); margin: 6px 0 0; line-height: 1.5; }
-.settings-row-control { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.settings-row-control { position: relative; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.settings-row-control > .sr-only { top: 0; left: 0; }
 .settings-row-control input:not([type=checkbox]), .settings-row-control select, .settings-row-control textarea { width: 100%; min-width: 0; max-width: 100%; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; }
 .settings-row-control textarea { resize: vertical; }
 .settings-segmented { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; padding: 3px; gap: 2px; flex-wrap: wrap; }
@@ -905,6 +911,37 @@ label.field-input > input:not([type='checkbox']):not([type='radio']), label.fiel
 .settings-row-note:empty { display: none; }
 .settings-row-note p { margin: 0; line-height: 1.5; }
 .settings-row-full-width .settings-row-control { grid-column: 1 / -1; }
+/* Results, code and tables placed in a settings card keep the card's inset, as rows do. */
+.settings-card > pre, .settings-card > .card-block { margin: 12px var(--settings-padding); }
+.settings-card > .runs { margin: 4px var(--settings-padding) 16px; max-width: calc(100% - 2 * var(--settings-padding)); }
+.settings-card > .manage-list > li:not(.manage-row) { padding: 12px var(--settings-padding); }
+.settings-row-note pre.manage-json { margin: 6px 0 0; }
+.settings-row-note .manage-desc:first-child, .settings-row-note .warn:first-child { margin-top: 0; }
+.settings-row-control input.narrow { width: 7rem; flex: none; }
+.settings-row-control .control-suffix { color: var(--muted); font-size: 13px; }
+/* A control that shares its row with others carries its own small visible caption. */
+.settings-row-control .control-field { display: grid; gap: 4px; flex: 1 1 9rem; min-width: 0; font-size: 12px; color: var(--muted); }
+.settings-row-control .control-field.narrow { flex: 0 0 7rem; }
+.settings-row-control .control-field.wide { flex-basis: 100%; }
+.settings-row-control .control-field > :is(input, select) { font-size: var(--text-base); color: var(--fg); min-height: 40px; }
+.settings-row-control:has(> .control-field) { align-items: flex-end; }
+.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; width: 100%; }
+.trace-files { list-style: none; padding: 0; margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.settings-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.settings-card > .settings-fieldset + .settings-fieldset, .settings-card > .settings-row + .settings-fieldset { border-top: 1px solid var(--line); }
+.settings-fieldset > .panel-actions { margin: 4px var(--settings-padding) 16px; }
+.card-block > p:first-child { margin-top: 0; }
+/* Text set straight in a card or a list row reads at the card's help size; warnings keep their colour. */
+:where(.settings-card, .settings-card .manage-row) > :where(p, div.warn) { font-size: 13px; line-height: 1.5; }
+.settings-card .work-empty { margin: 12px var(--settings-padding); max-width: none; font-size: 12px; }
+/* Every button in a card is one size, in tables and disclosure toggles too. */
+.settings-card .runs button, .settings-card .manage-more { font-size: var(--text-base); }
+.runs th { text-align: left; font-weight: 600; padding: 2px 12px 4px 0; }
+.settings-row-note .computer-session-details { margin: 6px 0; }
+/* An editor opened inside a list row: its own bordered group of rows. */
+.inline-editor { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; }
+.inline-editor > .settings-editor-actions { padding: 0 var(--settings-padding) 16px; }
+.settings-card button, .settings-card .settings-row-copy label { overflow-wrap: normal; }
 .settings-switch { appearance: none; position: relative; width: 38px; height: 22px; border-radius: 999px; border: 1px solid var(--muted); background: var(--raise); cursor: pointer; flex: none; margin: 0; }
 .settings-switch::before { content: ''; position: absolute; width: 14px; height: 14px; top: 3px; left: 3px; border-radius: 50%; background: var(--muted); }
 .settings-switch:checked { background: var(--accent); border-color: var(--accent); }

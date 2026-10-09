@@ -62,7 +62,9 @@ async function remove(): Promise<void> {
 </template>
 
 <style scoped>
-.avatar-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.avatar-picker { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+/* The visually hidden input stays inside the picker, never past the settings content's edge. */
+.avatar-file { top: 0; left: 0; }
 .avatar-preview {
   display: grid; place-items: center; flex: none; width: 48px; height: 48px; overflow: hidden;
   border-radius: 50%; background: var(--raise); color: var(--muted);

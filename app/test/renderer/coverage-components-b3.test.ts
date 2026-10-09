@@ -342,9 +342,10 @@ describe('B3 release and trajectory controls', () => {
   it('passes selected trajectory filters to read/search/list/message APIs and hides unsupported controls', async () => {
     const view = await screen('TrajectoryDetails')
     expect(view.root.button('Read trajectory').props.disabled).toBe(true)
-    const inputs = view.root.findAll((n) => n.tag === 'input')
-    inputs[0]!.type('trace.jsonl'); inputs[1]!.type('channel'); inputs[2]!.type('user'); inputs[3]!.type('run_command'); inputs[4]!.type('25')
-    inputs[5]!.checked = true; inputs[5]!.fire('change'); inputs[6]!.type('message-1'); await flush()
+    // Each control is found by its visible label, not by its position on the page.
+    const field = (caption: string) => view.root.findAll((n) => n.tag === 'label' && n.textContent().trim() === caption)[0]!.find('input')!
+    field('File name').type('trace.jsonl'); field('Conversation').type('channel'); field('User').type('user'); field('Tool').type('run_command'); field('Limit').type('25')
+    const errorsOnly = field('Errors only'); errorsOnly.checked = true; errorsOnly.fire('change'); field('Message ID').type('message-1'); await flush()
     await view.root.button('List trajectory files').fire('click'); expect(api.trajectoriesList).toHaveBeenCalledWith({})
     await view.root.button('Read trajectory').fire('click'); expect(api.trajectoriesRead).toHaveBeenCalledWith({ filename: 'trace.jsonl', channel_id: 'channel', user_id: 'user', tool_name: 'run_command', limit: 25, errors_only: true })
     await view.root.button('Search trajectories').fire('click'); expect(api.trajectoriesSearch).toHaveBeenCalledWith({ channel_id: 'channel', user_id: 'user', tool_name: 'run_command', limit: 25, errors_only: true })
