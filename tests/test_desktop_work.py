@@ -11,7 +11,7 @@ import pytest
 
 from src.agents.manager import AgentInfo, AgentManager, AgentState
 from src.desktop.authority import OwnerAuthority
-from src.desktop.commands import JournalStorageError, JournalStore
+from src.desktop.commands import JournalStorageError, JournalStore, canonical_json
 from src.desktop.controls import ControlService
 from src.desktop.conversations import ConversationStore
 from src.desktop.events import EventJournal
@@ -1049,3 +1049,37 @@ async def test_a_trigger_schedule_card_names_its_trigger_and_why_it_cannot_fire(
     cron = await scheduler.add("Daily", "reminder", message.conversation_id,
                                requester_id=message.owner_id, cron="0 9 * * *", message="hi")
     assert "trigger" not in service.register_schedule(cron)["detail"]
+
+
+def test_finished_work_is_kept_to_the_newest_and_leaves_with_its_chat(work):
+    """L2 (1.0.5): Work kept every finished record forever, and records outlived their
+    chats. Finished, settled records now keep to the newest per kind; those of a deleted
+    chat go. A record whose outcome isn't confirmed stays."""
+    from src.desktop.work import KEEP_FINISHED
+
+    service, message, _context = work
+    other = service.conversations.create()["conversation"]["id"]
+
+    def finished(id, started, conversation, settlement="settled", state="completed"):
+        record = {"kind": "agent", "id": f"w-{id}", "manager_id": id, "manager_generation": "g",
+                  "run_id": "r", "request_id": "r", "generation": 1,
+                  "owner_id": message.owner_id, "conversation_id": conversation,
+                  "started_at": started, "state": state, "actions": [],
+                  "settlement": {"state": settlement}, "detail": {}}
+        with service.store.transaction() as connection:
+            connection.execute("INSERT INTO desktop_work VALUES (?,?,?,?)",
+                               ("agent", id, "g", canonical_json(record)))
+
+    for index in range(KEEP_FINISHED + 5):
+        finished(f"a{index:03}", 1000.0 + index, message.conversation_id)
+    finished("orphan", 5000.0, other)
+    finished("unconfirmed", 1.0, other, settlement="unknown", state="interrupted")
+    service.conversations.delete(other, service.conversations.get(other)["rev"])
+    assert service.prune() == 5 + 1
+    with service.store.transaction() as connection:
+        left = {row[0] for row in connection.execute("SELECT id FROM desktop_work")}
+    assert left == {f"a{index:03}" for index in range(5, KEEP_FINISHED + 5)} | {"unconfirmed"}
+    assert service.prune() == 0
+    # The Work list the app reads prunes as it lists.
+    finished("oldest", 1.0, message.conversation_id)
+    assert "w-oldest" not in {item["id"] for item in service.list()["items"]}

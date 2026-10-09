@@ -11,6 +11,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import Mapping
+from datetime import datetime
 from pathlib import Path
 
 from ..llm.secret_scrubber import scrub_output_secrets
@@ -21,6 +22,9 @@ WORK_COLUMNS = {"kind", "id", "manager_generation", "record"}
 KINDS = frozenset({"agent", "task", "workflow", "loop", "process", "schedule"})
 TERMINAL = frozenset({"completed", "failed", "timeout", "killed", "cancelled",
                       "stopped", "error"})
+# Finished records Work keeps per kind. Older ones, and those of deleted chats, go;
+# a record whose outcome isn't confirmed stays until it settles.
+KEEP_FINISHED = 50
 
 
 def _get(item, key, default=None):
@@ -407,11 +411,43 @@ class WorkService:
             return response_error("unauthorized", "Current profile owner authority required")
         if params.get("kind") is not None and params["kind"] not in KINDS:
             return response_error("bad_request", "Unknown work kind")
+        self.prune()
         items = self.refresh_all()
         return {"items": [r for r in items if r["owner_id"] == self.authority.owner_id
                           and (not params.get("kind") or r["kind"] == params["kind"])
                           and (not params.get("conversation_id") or
                                r["conversation_id"] == params["conversation_id"])]}
+
+    def prune(self) -> int:
+        """Finished, settled records don't pile up: keep the newest ``KEEP_FINISHED`` per
+        kind and drop those whose chat was deleted. Unknown, interrupted and pending
+        records stay. Returns how many records went."""
+        def started(record):
+            value = record.get("started_at")
+            if isinstance(value, (int, float)):
+                return float(value)
+            try:
+                return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+            except ValueError:
+                return 0.0
+
+        with self.store.transaction() as connection:
+            chats = {row[0] for row in connection.execute("SELECT id FROM desktop_conversations")}
+            finished = [record for record in (json.loads(row[0]) for row in connection.execute(
+                "SELECT record FROM desktop_work"))
+                if record["state"] in TERMINAL and record["settlement"].get("state") == "settled"]
+            finished.sort(key=lambda record: (started(record), record["id"]), reverse=True)
+            kept, dropped = {}, 0
+            for record in finished:
+                if record["conversation_id"] in chats:
+                    kept[record["kind"]] = kept.get(record["kind"], 0) + 1
+                    if kept[record["kind"]] <= KEEP_FINISHED:
+                        continue
+                connection.execute("DELETE FROM desktop_work WHERE kind=? AND id=? "
+                                   "AND manager_generation=?", (record["kind"],
+                                   record["manager_id"], record["manager_generation"]))
+                dropped += 1
+        return dropped
 
     def resolve(self, kind: str, id: str) -> dict | None:
         """Resolve the protocol's immutable list ID, never a recycled PID/manager ID."""
