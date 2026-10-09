@@ -12,8 +12,8 @@ GENERATOR = "scripts/maintenance/fresh_profile_parity.py"
 TEST = "tests/test_desktop_fresh_profile_parity.py"
 CITATIONS = ("docs/design/00-brief.md", "docs/design/prompt-changes.md")
 BASELINE_OBSERVATION_SHA256 = "73649ce984d9d1564d54a38010af2d98124911779d708acfca0adced90df73e8"
-DESKTOP_OBSERVATION_SHA256 = "f137caea1fc2a7d162390d0bca8304f251701e9f69bbdaf93e90b9b7a6ff5b8b"
-DELTA_SHA256 = "7de8ebd512be626adc16053ac4db9bdeccfcb714b9a8433f4d030b212bc31419"
+DESKTOP_OBSERVATION_SHA256 = "c873d966628a8755dff6dd14c873526b1127dc3b9866b2fdf4587bade178323b"
+DELTA_SHA256 = "2ed313505efb0880f25d120445df2fded8a2ef81b27db0ff17e62899688edf5a"
 ABSENT = {"absent": True}
 
 
@@ -109,6 +109,10 @@ def approval_for(path):
         return {"kind": "prompt-changes", "status": "approved",
                 "reference": ("docs/design/prompt-changes.md; part C interface changes, "
                               "channel-ID removal")}
+    if path == "settings.openai_codex.auxiliary.model":
+        return {"kind": "D-decision", "status": "approved",
+                "reference": ("docs/design/00-brief.md; decision D20 row "
+                              "(background work on gpt-6.1-sol)")}
     if path in {"access.unauthenticated_hosts", "settings.tools.governor.admin_can_override",
                 "settings.tools.governor.owner_can_override"}:
         return {"kind": "D-decision", "status": "approved",
@@ -181,7 +185,8 @@ def expand_deltas(rows):
             raise ValueError("delta row needs exact path, values and citation")
         path, old, new, citation = row
         approval = approval_for(path)
-        expected = ("D10" if "decision D10" in approval["reference"] else
+        expected = ("D20" if "decision D20" in approval["reference"] else
+                    "D10" if "decision D10" in approval["reference"] else
                     "D5" if "decision D5" in approval["reference"] else
                     "D17" if "decision D17" in approval["reference"] else
                     "removed surface" if approval["kind"] == "removed surface" else

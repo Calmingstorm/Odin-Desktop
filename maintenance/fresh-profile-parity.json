@@ -82,6 +82,12 @@
       "D5"
     ],
     [
+      "settings.openai_codex.auxiliary.model",
+      "gpt-6-luna",
+      "gpt-6.1-sol",
+      "D20"
+    ],
+    [
       "settings.openai_codex.credentials_path",
       "./data/codex_auth.json",
       "$PROFILE_HOME/.local/share/odin-desktop/default/secrets/codex_auth.json",
@@ -309,9 +315,9 @@
     ]
   ],
   "hashes": {
-    "docs/design/00-brief.md": "a561cab03a2bcfd69ba7b2d6a7f40f622a467e26efc1e70993b8ad6cb3e75645",
+    "docs/design/00-brief.md": "479f2cfffc130558f8740afa01d676f9d4c6bb5b1c6ede7eb91d6f6a4cda85f6",
     "docs/design/prompt-changes.md": "3e685af175e5195c489ae4af3f4d08fe2fcfbd20050002428047573d972f4b12",
-    "scripts/maintenance/fresh_profile_parity.py": "7a4a444413f3477fb0db329b9b0303f4e16c70cff3309c736961a0cbf73bf290",
+    "scripts/maintenance/fresh_profile_parity.py": "821d74c807b8046976e47ec54c8ed9b68543108416fc82ed2a796ce2c6f3d43b",
     "src/config/__init__.py": "7624b8d6c9f55d85ee27ca3e714b5d180dd81f990d74fa4f96773f7ead37eacb",
     "src/config/apply_registry.py": "dea437516cef985b364a05562326ab22656b1be5fe289e427b3de509661eaca8",
     "src/config/environment.py": "467efdc279210a6a69e0780077ba211c96c86de988d676b2aab0e3028b0239c3",
@@ -328,7 +334,7 @@
     "src/config/workspace_paths.py": "c3f926db2ce3463c0343edce093525abdccc50148fde6a35b0cec088006ec274",
     "src/desktop/authority.py": "e1f92faf9354f78cc87d445091f92e8764d89ae1c9a7795f9513b197029edd79",
     "src/desktop/paths.py": "54b434214483a1a3230419f72aed03edba75722f1f0067472b4d19865bd243af",
-    "src/desktop/provisioning.py": "b925c18da9b3105d1c884f37c7c8f7d2f55ff68f131202682cf5fa0bdc0f45b8",
+    "src/desktop/provisioning.py": "9a526494692268d6059142aae940f21e6f24cad829e6a191ac1f8fd8285ef4d1",
     "src/desktop/secrets.py": "4306c1418667f843c07a28d14f58b608e1a806bae58c702a639d66773e3f7416",
     "src/desktop/settings.py": "3dffdb7c587c53d83377cb57444672f3c8a5772f256d62a20ead2990ca4d4adf",
     "src/desktop/ssh_pool.py": "372886abaaa40248574754a3b2046f50b5d35846c56451311403c0334f10edd0",
@@ -360,11 +366,11 @@
     "src/tools/hosts/trust.py": "3fec73e26d24be800596c0e6e8bb6a7c474441e138e4de36b93b466a8470b913",
     "src/tools/http_probe_ops.py": "a07dde8f1ca37f7b85017a4cb7bbbfcfa830a6d901d3b87cf941856f369a98ae",
     "src/tools/risk_classifier.py": "60ba605878d4c4d6493c38a743c9d0f234ff272778e9fe2f3bb7125a2a3700dc",
-    "tests/test_desktop_fresh_profile_parity.py": "5b20060c8667f8d8b82ce31a4d92fac145edd58a915add2dd0c4ab9013623f9b"
+    "tests/test_desktop_fresh_profile_parity.py": "f7697f1fe6641040b9481fae558aac1f6707844ad44412a7adf247a14ae7e412"
   },
   "observations": {
     "baseline_sha256": "73649ce984d9d1564d54a38010af2d98124911779d708acfca0adced90df73e8",
-    "desktop_sha256": "f137caea1fc2a7d162390d0bca8304f251701e9f69bbdaf93e90b9b7a6ff5b8b"
+    "desktop_sha256": "c873d966628a8755dff6dd14c873526b1127dc3b9866b2fdf4587bade178323b"
   },
   "schema_version": 1
 }
