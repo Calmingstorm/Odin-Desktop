@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.4]
+
+- **Fixed:** a schedule Odin set up in chat didn't appear in Work until its first run (or until Settings → Work was
+  opened), so it had no Pause or Cancel there. Work now shows it as soon as Odin creates it, and a schedule Odin
+  pauses or deletes in chat changes in Work right away. Schedules saved before 1.0.4 appear when the app starts.
+- **Fixed:** the `/status`, `/usage` and `/reload` reports showed Markdown marks such as `**`. Their headings are bold
+  and file names show as code, as in Odin's replies on Discord, and each line keeps its layout.
+
 ## [1.0.3]
 
 - **Your name and picture in chat:** Settings → General → Your profile. Your messages show them instead of "You",
