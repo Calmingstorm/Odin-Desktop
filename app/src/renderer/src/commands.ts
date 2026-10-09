@@ -57,7 +57,7 @@ export const COMMANDS: PaletteCommand[] = [
       const result = await window.odin.status()
       if (!result.ok) return note(resultMessage(result, 'Core status'))
       const core = result.result
-      showPanel('Status', core.summary ?? `Core ${core.core_instance_id}\nVersion: ${core.version}\nPhase: ${core.phase}\nCapabilities: ${core.capabilities.join(', ')}`)
+      showPanel('Status', core.summary ?? `Core ${core.core_instance_id}\nVersion: ${core.version}\nPhase: ${core.phase}\nCapabilities: ${core.capabilities.join(', ')}`, core.summary !== undefined)
     }
   },
   {
@@ -72,7 +72,7 @@ export const COMMANDS: PaletteCommand[] = [
       }
       const result = await window.odin.usage(range)
       if (!result.ok) return note(resultMessage(result, 'Usage'))
-      showPanel(`Usage, ${range}`, result.result.summary)
+      showPanel(`Usage, ${range}`, result.result.summary, true)
     }
   },
   {
@@ -82,7 +82,7 @@ export const COMMANDS: PaletteCommand[] = [
     run: async () => {
       const result = await window.odin.reload('context')
       if (!result.ok) return note(resultMessage(result, 'Context reload'))
-      showPanel('Reload', result.result.summary)
+      showPanel('Reload', result.result.summary, true)
     }
   },
   {

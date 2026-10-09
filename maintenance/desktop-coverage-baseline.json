@@ -660,6 +660,11 @@
         "covered": 3,
         "missing": 0,
         "total": 3
+      },
+      "app/src/shared/report-text.ts": {
+        "covered": 45,
+        "missing": 0,
+        "total": 45
       }
     },
     "total": {
@@ -2862,6 +2867,7 @@
     "app/src/renderer/src/work-accessibility.ts",
     "app/src/renderer/src/work-format.ts",
     "app/src/shared/api.ts",
+    "app/src/shared/report-text.ts",
     "src/desktop/__init__.py",
     "src/desktop/artifacts.py",
     "src/desktop/attachments.py",

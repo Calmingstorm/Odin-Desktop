@@ -677,6 +677,118 @@ async def test_idle_real_schedule_deleted_after_a_run_ends_with_it(work, tmp_pat
     assert item["state"] == ("failed" if failed else "completed")
 
 
+def _chat_scheduler(work, tmp_path):
+    """A real Scheduler that Work reads, with nothing that tells Work of a change: Odin's
+    schedule tools save from chat to the scheduler alone."""
+    from src.scheduler.scheduler import Scheduler
+    service, message, _context = work
+    service.scheduler = Scheduler(str(tmp_path / "schedules.json"), desktop_recovery=True)
+    return service, service.scheduler, message
+
+
+def _stored_schedule_states(service):
+    """Each stored schedule record's state, read without a Work refresh."""
+    import json as _json
+    with service.store.transaction() as connection:
+        rows = connection.execute(
+            "SELECT record FROM desktop_work WHERE kind='schedule'").fetchall()
+    return {(record := _json.loads(row[0]))["manager_id"]: record["state"] for row in rows}
+
+
+def _work_events(service, after):
+    return [(event["payload"]["manager_id"], event["payload"]["state"])
+            for event in service.events.between(after) if event["type"] == "work.updated"]
+
+
+async def test_schedule_odin_saves_from_chat_is_in_work_before_it_ever_runs(work, tmp_path):
+    service, scheduler, message = _chat_scheduler(work, tmp_path)
+    added = await scheduler.add("inert reminder", "reminder", message.conversation_id,
+                                cron="17 3 * * *", message="inert", requester_id=message.owner_id)
+    assert service.list({"kind": "schedule"})["items"] == []  # nothing has told Work
+    high = service.events.high
+    service.sync_schedules()
+    assert _work_events(service, high) == [(added["id"], "scheduled")]
+    [item] = service.list({"kind": "schedule"})["items"]
+    assert (item["manager_id"], item["state"], item["actions"]) == (
+        added["id"], "scheduled", ["cancel", "pause", "run_now"])
+    high = service.events.high
+    service.sync_schedules()  # nothing changed: no record or event changes
+    assert _work_events(service, high) == []
+
+
+async def test_schedule_paused_or_deleted_from_chat_shows_at_the_next_catch_up(work, tmp_path):
+    service, scheduler, message = _chat_scheduler(work, tmp_path)
+    added = await scheduler.add("inert reminder", "reminder", message.conversation_id,
+                                cron="17 3 * * *", message="inert", requester_id=message.owner_id)
+    service.sync_schedules()
+    await scheduler.update(added["id"], paused=True)
+    service.sync_schedules()
+    assert _stored_schedule_states(service) == {added["id"]: "paused"}
+    await scheduler.delete(added["id"])
+    high = service.events.high
+    service.sync_schedules()
+    # Deleted before it ever ran: cancelled, with no Work list needed to end it.
+    assert _stored_schedule_states(service) == {added["id"]: "cancelled"}
+    assert _work_events(service, high) == [(added["id"], "cancelled")]
+
+
+async def test_catch_up_imports_only_the_owners_importable_definitions(work, tmp_path):
+    service, _message, _context = work
+    service.sync_schedules()  # no scheduler composed: nothing to follow
+    service, scheduler, message = _chat_scheduler(work, tmp_path)
+    foreign = await scheduler.add("inert foreign", "reminder", message.conversation_id,
+                                  cron="0 0 * * *", message="inert", requester_id="someone-else")
+    orphan = await scheduler.add("inert orphan", "reminder", "c_missing", cron="0 0 * * *",
+                                 message="inert", requester_id=message.owner_id)
+    added = await scheduler.add("inert reminder", "reminder", message.conversation_id,
+                                cron="0 0 * * *", message="inert", requester_id=message.owner_id)
+    service.sync_schedules()
+    # Another requester's definition is never Work's; one whose conversation is gone can't
+    # be imported, and doesn't keep the definitions after it out.
+    assert [s["id"] for s in scheduler.list_all()] == [foreign["id"], orphan["id"], added["id"]]
+    assert _stored_schedule_states(service) == {added["id"]: "scheduled"}
+
+
+def _count_reads(service, scheduler, monkeypatch):
+    """Counts full scheduler snapshots and record refreshes, by manager ID."""
+    snapshots, refreshed = [], []
+    real_list_all, real_refresh = scheduler.list_all, service.refresh
+
+    def list_all():
+        snapshots.append(1)
+        return real_list_all()
+
+    def refresh(record, items=None):
+        refreshed.append(record["manager_id"])
+        return real_refresh(record, items)
+
+    monkeypatch.setattr(scheduler, "list_all", list_all)
+    monkeypatch.setattr(service, "refresh", refresh)
+    return snapshots, refreshed
+
+
+async def test_catch_up_reads_the_scheduler_once_and_refreshes_each_record_once(
+        work, tmp_path, monkeypatch):
+    """Each pass copies every definition once, however many there are (Odin, PR #128 r1:
+    1 + 3N full copies took 5.8 s at 500 definitions)."""
+    service, scheduler, message = _chat_scheduler(work, tmp_path)
+    ids = [(await scheduler.add(f"inert {index}", "reminder", message.conversation_id,
+                                cron="17 3 * * *", message="inert",
+                                requester_id=message.owner_id))["id"] for index in range(30)]
+    snapshots, refreshed = _count_reads(service, scheduler, monkeypatch)
+    service.sync_schedules()  # imports all 30
+    assert (len(snapshots), sorted(refreshed)) == (1, sorted(ids))
+    for deleted in ids[:2]:
+        await scheduler.delete(deleted)
+    snapshots.clear(), refreshed.clear()
+    service.sync_schedules()  # 28 current definitions and 2 ended records
+    assert (len(snapshots), sorted(refreshed)) == (1, sorted(ids))
+    assert _stored_schedule_states(service)[ids[0]] == "cancelled"
+    snapshots.clear(), refreshed.clear()
+    service.list({"kind": "schedule"})  # the Work list reads the scheduler once per pass too
+    assert (len(snapshots), sorted(refreshed)) == (1, sorted(ids))
+
+
 def test_a_failing_run_observer_never_stops_the_run(tmp_path):
     from src.scheduler.scheduler import Scheduler
     scheduler = Scheduler(str(tmp_path / "schedules.json"), desktop_recovery=True)

@@ -159,8 +159,9 @@ export const state = reactive({
   jump: null as { conversationId: string; messageId: string; items: Message[]; hasBefore: boolean; hasAfter: boolean } | null,
   /** The message a jump points at, highlighted and scrolled into view. */
   highlightId: null as string | null,
-  /** Output of a command such as /status, shown in the window and never sent to Odin. */
-  panel: null as { title: string; text: string } | null,
+  /** Output of a command such as /status, shown in the window and never sent to Odin. A core report is Odin's
+   *  slash-command text and keeps its Markdown (shared/report-text.ts); other panels are plain text. */
+  panel: null as { title: string; text: string; report?: boolean } | null,
   /** Chat or the settings menu. */
   view: 'chat' as 'chat' | 'settings',
   /** Retained section only, never a local readiness or completion flag. */
@@ -243,8 +244,8 @@ function notifyReady(): void {
   for (const listener of readyListeners) listener()
 }
 
-export function showPanel(title: string, text: string): void {
-  state.panel = { title, text }
+export function showPanel(title: string, text: string, report = false): void {
+  state.panel = { title, text, report }
 }
 
 const TERMINAL = new Set([
