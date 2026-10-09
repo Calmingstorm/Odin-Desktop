@@ -512,7 +512,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
       await click('.composer .panel button')
     } else {
       const summary = (reads['usage.get'] as { summary: string }).summary
-      await until(async () => (await text('.composer .panel-text')).includes(summary), '/usage report')
+      await until(async () => (await text('.composer .panel-text')).includes(reportPlainText(summary)), '/usage report')
       assert(await run<boolean>(`!Array.from(document.querySelectorAll('.status [role="status"]')).some(e => /Usage.*unavailable/i.test(e.textContent))`), 'served usage must not present capability refusal')
       screens.push({ screen: '/usage', text: await text('.composer .panel-text') })
       await click('.composer .panel button')
