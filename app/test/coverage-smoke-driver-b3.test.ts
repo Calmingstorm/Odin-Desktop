@@ -66,6 +66,8 @@ function fixture(provider = false, seeded = false, fault = '') {
   let compat = false, modelConfigured = false, resumePending = provider, attached = false, compatibleSetupOpen = false
   let skill = false, skillRuns = 0, mcp = false, mcpEnabled = false, revision = 0
   let outputPages = 0, reportPage = 0, cancelled = false, ingressEnabled = false, secret = '', sourceSecret = ''
+  // Knowledge details reads saved documents: the smoke saves one through Add a document first.
+  let knowledgeSaved = false, duplicatesRead = false
   let webhookRow: any, nextId = 0
   let running: any = null, queued: any[] = []
   const messages: any[] = provider ? [{ id: 'm_seed', role: 'user', text: 'Preserved request', request_id: 'r_seed' }] : []
@@ -232,7 +234,7 @@ function fixture(provider = false, seeded = false, fault = '') {
     if (selector === '.codex-accounts') return seeded ? 'No accounts. Add an account to use Codex.' : 'keyring unavailable'
     if (selector === '.skill-editor .manage-json') return 'harmless constant'
     if (selector === '.mcp-tools') return 'constant'
-    if (selector === 'pre[aria-label="Learned context JSON"]') return JSON.stringify({ entries: [] })
+    if (selector === 'ul[aria-label="Learned entries"]') return 'Nothing learned yet.'
     if (selector === 'pre[aria-label="Knowledge duplicates JSON"]') return JSON.stringify({ exact: [], near: [] })
     if (/section\[aria-label="(?:Audit diffs|Audit failures|Log statistics)"\] pre/.test(selector)) return selector.includes('Log statistics') ? '{}' : '{"entries":[]}'
     if (selector === 'section[aria-label="Runtime statistics"] pre') return '{"risk":{}}'
@@ -242,6 +244,8 @@ function fixture(provider = false, seeded = false, fault = '') {
       Personality: 'preset personality', 'Built-in tools': fault === 'invented-tool-measurement' ? 'run_command\nCost: not reported. Risk: not reported.' : 'run_command', 'Tool timeouts': 'Default seconds Timeouts',
       Skills: 'New skill slice4_constant ' + skillRuns + ' runs', MCP: '1 of 1 servers connected 1 tools available', 'MCP servers': 'Add server slice4_local connected',
       Hosts: 'localhost', "Odin's key": 'ssh-ed25519 inert', Memory: '0 entries', 'Named lists': 'No lists.', Knowledge: 'Knowledge',
+      'Knowledge details': knowledgeSaved ? 'Knowledge details Chunks' : 'Knowledge details No documents saved yet. Add one above.',
+      'Add a document': knowledgeSaved ? 'Add a document Stored as 1 chunk.' : 'Add a document',
       Health: 'healthy degraded down not set up 1 host(s) configured', Usage: 'tokens in 7d (measured)',
       'Computer use': 'Refresh no session Desktop input is unavailable. Input route: none. Reason: computer disabled.', 'Browser runtime': 'unavailable', Context: 'Context reloaded context directory does not exist; nothing is loaded',
       Schedules: seeded ? 'D12 manual recovery check Recovery required No effects were replayed ' + (webhookRow?.description ?? '') : 'No schedules yet.',
@@ -250,7 +254,7 @@ function fixture(provider = false, seeded = false, fault = '') {
     }
     const panel = selector.match(/^section\[aria-label=(?:"([^"]+)"|([^\]]+))\]/)?.slice(1).find(Boolean)
     if (panel && panel in panels) {
-      if (['Memory', 'Named lists', 'Knowledge', 'Context'].includes(panel) && section !== 'Data and privacy') throw new Error('State panel outside its Data and privacy owner')
+      if (['Memory', 'Named lists', 'Knowledge', 'Knowledge details', 'Add a document', 'Context'].includes(panel) && section !== 'Data and privacy') throw new Error('State panel outside its Data and privacy owner')
       if (['Health', 'Usage', 'Computer use', 'Audit', 'Logs', 'Turn state', 'Audit diffs', 'Audit failures', 'Log statistics', 'Runtime statistics'].includes(panel) && section !== 'Usage, logs and audit') throw new Error('Records panel outside its Data and privacy subsection')
       if (selector.endsWith('.capability-unavailable')) return 'Desktop input is unavailable. Input route: none. Reason: computer disabled.'
       return panels[panel]!
@@ -259,7 +263,7 @@ function fixture(provider = false, seeded = false, fault = '') {
     if (['body', '.main', 'nav[aria-label="Conversations"]', '.search-panel', '.composer', '.attachments', '[data-testid="webhook-ingress"]'].includes(selector)) return 'inert rendered ' + selector
     throw new Error('Unmodeled text ' + selector)
   }
-  const absent = new Set(['.sidebar-notice', '#conversation-search-error', '.working, .msg.pending', '.message-scroll .msg.assistant', '.account', '.settings-body .warn', '.settings-body [role=alert]', '.settings-body .account', '.settings-body .work-item, .settings-body .account', 'section[aria-label="Computer use"] .manage-name, section[aria-label="Computer use"] .manage-actions', 'section[aria-label="Running work"] .work-item', 'section[aria-label="OpenRouter models"] li'])
+  const absent = new Set(['.sidebar-notice', '#conversation-search-error', '.working, .msg.pending', '.message-scroll .msg.assistant', '.account', '.settings-body .warn', '.settings-body [role=alert]', '.settings-body .account', '.settings-body .work-item, .settings-body .account', 'section[aria-label="Computer use"] .manage-name, section[aria-label="Computer use"] .manage-actions', 'section[aria-label="Running work"] .work-item', 'section[aria-label="OpenRouter models"] li', 'ul[aria-label="Learned entries"] button[aria-label^="Edit learned entry"]'])
   function size(selector: string): number {
     if (absent.has(selector)) return 0
     if (selector.endsWith(' .capability-unavailable')) return selector.startsWith('section[aria-label="Computer use"]') ? 1 : 0
@@ -280,6 +284,8 @@ function fixture(provider = false, seeded = false, fault = '') {
     if (selector === '.first-run button') return 0
     if (selector === '.tool-output button:not([aria-disabled=true])') return outputPages === 1 ? 1 : 0
     if (selector === '[data-testid="webhook-ingress-endpoint"]') return sourceSecret ? 1 : 0
+    if (selector === 'form[aria-label="Find knowledge duplicates"]') return knowledgeSaved ? 1 : 0
+    if (selector === 'pre[aria-label="Knowledge duplicates JSON"]') return duplicatesRead ? 1 : 0
     return 1
   }
   const nodes = new Map<string, any>()
@@ -323,6 +329,8 @@ function fixture(provider = false, seeded = false, fault = '') {
         else if (selector === 'Save listener setup') ingressEnabled = true
         else if (selector === 'Save trigger source and secret') { sourceSecret = secret; secret = '' }
         else if (selector === 'Clear per-trigger secret') sourceSecret = ''
+        else if (selector === 'section[aria-label="Add a document"] .panel-actions button') { knowledgeSaved = true; operations.push(['knowledge-save', node('#knowledge-source').value]) }
+        else if (selector === 'form[aria-label="Find knowledge duplicates"] button' && knowledgeSaved) duplicatesRead = true
       }
     }; nodes.set(selector, n); return n
   }
