@@ -1,8 +1,10 @@
 // Your name and picture in chat, and a picture per personality. Display only: none of it reaches Odin's prompt.
 // Kept in the profile's config folder as owner-only files: profile.json, user.png and personality-<key>.png.
 import { randomBytes } from 'node:crypto'
-import { lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync,
+  writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { crc32, inflateSync } from 'node:zlib'
 import type { DisplayPictureTarget, DisplayProfile } from '../shared/api'
 
 export const MAX_NAME_CHARS = 40
@@ -17,11 +19,46 @@ const PERSONALITY_FILE = /^personality-((?:[0-9a-f]{2})+)\.png$/
 /** A refusal the person can act on; its message is shown as is. */
 export class DisplayProfileError extends Error {}
 
-/** A 256 x 256 PNG of at most 512 KB, by its signature and header. The window decodes it in its sandbox. */
+/** A complete 256 x 256 PNG of at most 512 KB, as the window's canvas writes it: 8-bit truecolour, with or without
+ * alpha, not interlaced. Every chunk's CRC matches, the image data inflates to exactly its rows, each row has a valid
+ * filter, and nothing follows IEND. A truncated or damaged file is not a picture. */
 export function validPicture(bytes: Buffer): boolean {
-  return bytes.length > 24 && bytes.length <= MAX_PICTURE_BYTES &&
-    bytes.subarray(0, 8).equals(PNG_SIGNATURE) && bytes.toString('latin1', 12, 16) === 'IHDR' &&
-    bytes.readUInt32BE(16) === PICTURE_SIZE && bytes.readUInt32BE(20) === PICTURE_SIZE
+  if (bytes.length > MAX_PICTURE_BYTES || bytes.length < 8 || !bytes.subarray(0, 8).equals(PNG_SIGNATURE)) return false
+  const data: Buffer[] = []
+  let bytesPerPixel = 0
+  let offset = 8
+  for (let index = 0; offset + 12 <= bytes.length; index++) {
+    const length = bytes.readUInt32BE(offset)
+    const type = bytes.toString('latin1', offset + 4, offset + 8)
+    const end = offset + 12 + length
+    if (end > bytes.length || bytes.readUInt32BE(end - 4) !== crc32(bytes.subarray(offset + 4, end - 4))) return false
+    const body = bytes.subarray(offset + 8, end - 4)
+    if (index === 0) {
+      if (type !== 'IHDR' || length !== 13) return false
+      // Bytes per pixel for the 8-bit colour types a canvas writes: truecolour (2) and with alpha (6).
+      bytesPerPixel = body[9] === 2 ? 3 : body[9] === 6 ? 4 : 0
+      if (body.readUInt32BE(0) !== PICTURE_SIZE || body.readUInt32BE(4) !== PICTURE_SIZE || body[8] !== 8 ||
+          !bytesPerPixel || body[10] !== 0 || body[11] !== 0 || body[12] !== 0) return false
+    } else if (type === 'IHDR') {
+      return false
+    } else if (type === 'IDAT') {
+      data.push(body)
+    } else if (type === 'IEND') {
+      if (end !== bytes.length || !data.length) return false
+      const row = 1 + PICTURE_SIZE * bytesPerPixel
+      let pixels: Buffer
+      try {
+        pixels = inflateSync(Buffer.concat(data), { maxOutputLength: row * PICTURE_SIZE + 1 })
+      } catch {
+        return false
+      }
+      if (pixels.length !== row * PICTURE_SIZE) return false
+      for (let start = 0; start < pixels.length; start += row) if (pixels[start]! > 4) return false
+      return true
+    }
+    offset = end
+  }
+  return false
 }
 
 function pictureFile(target: DisplayPictureTarget): string {
@@ -34,15 +71,15 @@ function pictureFile(target: DisplayPictureTarget): string {
 export class DisplayProfileStore {
   constructor(private readonly dir: string) {}
 
-  /** What chat shows. A missing, unsafe or damaged file reads as not set. */
+  /** What chat shows. A missing, unsafe or damaged file reads as not set. Personality pictures are a list, so no
+   * preset key (such as `__proto__`) can meet an object's own machinery on either side of the bridge. */
   read(): DisplayProfile {
-    const empty: DisplayProfile = { name: '', user: null, personalities: {} }
-    if (!this.privateFolder()) return empty
-    const personalities: Record<string, string> = {}
-    for (const entry of readdirSync(this.dir)) {
+    if (!this.privateFolder()) return { name: '', user: null, personalities: [] }
+    const personalities: DisplayProfile['personalities'] = []
+    for (const entry of readdirSync(this.dir).sort()) {
       const match = PERSONALITY_FILE.exec(entry)
       const picture = match ? this.picture(entry) : null
-      if (match && picture) personalities[Buffer.from(match[1]!, 'hex').toString('utf8')] = picture
+      if (match && picture) personalities.push({ key: Buffer.from(match[1]!, 'hex').toString('utf8'), picture })
     }
     return { name: this.name(), user: this.picture('user.png'), personalities }
   }
@@ -97,9 +134,24 @@ export class DisplayProfileStore {
     }
   }
 
+  /** A regular file's bytes, opened without following a link; null for anything else. */
+  private readFile(file: string): Buffer | null {
+    let descriptor: number | undefined
+    try {
+      descriptor = openSync(join(this.dir, file), constants.O_RDONLY | constants.O_NOFOLLOW)
+      const info = fstatSync(descriptor)
+      return info.isFile() && info.size <= MAX_PICTURE_BYTES ? readFileSync(descriptor) : null
+    } catch {
+      return null
+    } finally {
+      if (descriptor !== undefined) closeSync(descriptor)
+    }
+  }
+
   private name(): string {
     try {
-      const data: unknown = JSON.parse(readFileSync(join(this.dir, 'profile.json'), 'utf8'))
+      const bytes = this.readFile('profile.json')
+      const data: unknown = bytes ? JSON.parse(bytes.toString('utf8')) : null
       const name = data && typeof data === 'object' ? (data as { name?: unknown }).name : undefined
       return typeof name === 'string' && name.length <= MAX_NAME_CHARS && !/[\u0000-\u001f\u007f]/.test(name) ? name : ''
     } catch {
@@ -108,12 +160,7 @@ export class DisplayProfileStore {
   }
 
   private picture(file: string): string | null {
-    try {
-      if (!lstatSync(join(this.dir, file)).isFile()) return null
-      const bytes = readFileSync(join(this.dir, file))
-      return validPicture(bytes) ? `data:image/png;base64,${bytes.toString('base64')}` : null
-    } catch {
-      return null
-    }
+    const bytes = this.readFile(file)
+    return bytes && validPicture(bytes) ? `data:image/png;base64,${bytes.toString('base64')}` : null
   }
 }

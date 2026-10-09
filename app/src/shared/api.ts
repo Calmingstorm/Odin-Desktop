@@ -1310,8 +1310,9 @@ export interface DisplayProfile {
   /** Empty shows as "You". */
   name: string
   user: string | null
-  /** By personality preset key ("custom" for the unsaved custom personality). */
-  personalities: Record<string, string>
+  /** One per personality preset key ("custom" for the unsaved custom personality). A list, not an object keyed by
+   * preset key, so a key such as `__proto__` is just data. */
+  personalities: Array<{ key: string; picture: string }>
 }
 
 export type DisplayPictureTarget = { target: 'user' } | { target: 'personality'; key: string }

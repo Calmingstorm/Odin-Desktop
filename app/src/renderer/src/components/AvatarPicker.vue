@@ -3,7 +3,7 @@
 // saved at 256 x 256 by the app; it is display only.
 import { ref, useId } from 'vue'
 import type { DisplayPictureTarget } from '../../../shared/api'
-import { ACCEPTED_PICTURES, removeDisplayPicture, saveDisplayPicture } from '../stores/display-profile'
+import { ACCEPTED_PICTURES, pictureFailed, removeDisplayPicture, saveDisplayPicture, shownPicture } from '../stores/display-profile'
 import Icon from './Icon.vue'
 
 const props = defineProps<{
@@ -48,7 +48,7 @@ async function remove(): Promise<void> {
 <template>
   <div class="avatar-picker">
     <span class="avatar-preview" aria-hidden="true">
-      <img v-if="picture" :src="picture" alt="" />
+      <img v-if="shownPicture(picture)" :src="picture!" alt="" @error="pictureFailed(picture!)" />
       <img v-else-if="fallback" class="fallback" :src="fallback" alt="" />
       <Icon v-else name="person" :size="22" />
     </span>

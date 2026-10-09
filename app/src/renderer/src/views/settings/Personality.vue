@@ -135,7 +135,7 @@ function cancelPreset(): void {
       </select>
     </SettingsRow>
     <SettingsRow v-if="pictureFor.key" label="Picture" :description="`Shown beside ${pictureFor.name}'s replies while this personality is in use.`">
-      <AvatarPicker :target="pictureTarget" :picture="displayProfile.personalities[pictureFor.key] ?? null" :label="`${pictureFor.name}'s picture`" :fallback="appIcon" />
+      <AvatarPicker :target="pictureTarget" :picture="displayProfile.personalities.get(pictureFor.key) ?? null" :label="`${pictureFor.name}'s picture`" :fallback="appIcon" />
     </SettingsRow>
     <template v-if="shown">
       <SettingsRow label="Identity" full-width><p class="manage-desc">{{ shown.identity }}</p></SettingsRow>

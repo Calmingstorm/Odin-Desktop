@@ -6,7 +6,7 @@ import { onCodeCopyClick } from '../code-copy'
 import { plainTextOf, renderMarkdown } from '../markdown'
 import { startThread, type ToolEntry } from '../store'
 import { assistantName } from '../assistant-name'
-import { loadDisplayProfile, personalityPicture, userName, userPicture } from '../stores/display-profile'
+import { loadDisplayProfile, personalityPicture, pictureFailed, userName, userPicture } from '../stores/display-profile'
 import FileCard from './FileCard.vue'
 import Icon from './Icon.vue'
 import ReportViewer from './ReportViewer.vue'
@@ -102,7 +102,7 @@ function onImageError(ref: string): void {
 <template>
   <article :id="`m-${message.id}`" :class="['msg', displayRole, { highlight }]" tabindex="-1" :aria-label="messageLabel">
     <span :class="['avatar', { picture: avatarPicture }]" aria-hidden="true">
-      <img v-if="avatarPicture" class="avatar-picture" :src="avatarPicture" width="36" height="36" alt="" />
+      <img v-if="avatarPicture" class="avatar-picture" :src="avatarPicture" width="36" height="36" alt="" @error="pictureFailed(avatarPicture)" />
       <img v-else-if="displayRole === 'assistant'" class="app-icon" :src="appIcon" width="36" height="36" alt="" />
       <Icon v-else :name="avatar" :size="18" />
     </span>

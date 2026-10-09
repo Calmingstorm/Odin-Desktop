@@ -10,9 +10,13 @@ export const PICTURE_SIZE = 256
 export const displayProfile = reactive({
   name: '',
   user: null as string | null,
-  personalities: {} as Record<string, string>,
+  /** By preset key, in a Map: a key such as `__proto__` or `constructor` is just data. */
+  personalities: new Map<string, string>(),
   loaded: false
 })
+
+/** Pictures this window failed to decode: shown as the default mark or icon instead of a broken image. */
+const unreadable = reactive(new Set<string>())
 
 let loading: Promise<void> | null = null
 
@@ -21,9 +25,19 @@ function settle(result: Result<DisplayProfile>): string | null {
   if (!result.ok) return result.error.message
   displayProfile.name = result.result.name
   displayProfile.user = result.result.user
-  displayProfile.personalities = { ...result.result.personalities }
+  displayProfile.personalities = new Map(result.result.personalities.map(({ key, picture }) => [key, picture]))
   displayProfile.loaded = true
   return null
+}
+
+/** A picture the window can show, or null for the fallback. */
+export function shownPicture(picture: string | null | undefined): string | null {
+  return picture && !unreadable.has(picture) ? picture : null
+}
+
+/** An avatar image that failed to decode: show its fallback from now on. */
+export function pictureFailed(picture: string): void {
+  unreadable.add(picture)
 }
 
 /** Loads once; later calls share it. A failed load is tried again by the next call. A page without the app's bridge
@@ -44,12 +58,12 @@ export function userName(): string {
 }
 
 export function userPicture(): string | null {
-  return displayProfile.user
+  return shownPicture(displayProfile.user)
 }
 
 /** The active personality's picture, or null for the default Odin mark. */
 export function personalityPicture(key: string | undefined = activePersonality.value?.preset): string | null {
-  return key ? displayProfile.personalities[key] ?? null : null
+  return key === undefined ? null : shownPicture(displayProfile.personalities.get(key))
 }
 
 /** Null when saved; otherwise why not. */
@@ -96,18 +110,33 @@ export function base64(bytes: Uint8Array): string {
   return btoa(text)
 }
 
+/** Each change to a picture target starts a new generation. A picture still being prepared when a newer change
+ * starts (another picture, or its removal, such as when its preset is deleted) is dropped, never saved over it. */
+const pictureGenerations = new Map<string, number>()
+
+function nextGeneration(target: DisplayPictureTarget): () => boolean {
+  const key = target.target === 'user' ? 'user' : `personality:${target.key}`
+  const generation = (pictureGenerations.get(key) ?? 0) + 1
+  pictureGenerations.set(key, generation)
+  return () => pictureGenerations.get(key) === generation
+}
+
 /** Null when saved; otherwise why not. */
 export async function saveDisplayPicture(target: DisplayPictureTarget, file: Blob): Promise<string | null> {
+  const current = nextGeneration(target)
   let png: string
   try {
     png = await squarePicture(file)
   } catch (error) {
     return (error as Error).message
   }
+  // Checked and sent with no await between, so a later change always reaches the app after this one.
+  if (!current()) return 'That picture was replaced or removed before it was saved.'
   return settle(await window.odin.setDisplayPicture(target, png))
 }
 
-/** Null when removed; otherwise why not. */
+/** Null when removed; otherwise why not. A picture for the same target still being prepared is dropped. */
 export async function removeDisplayPicture(target: DisplayPictureTarget): Promise<string | null> {
+  nextGeneration(target)
   return settle(await window.odin.removeDisplayPicture(target))
 }
