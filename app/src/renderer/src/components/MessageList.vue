@@ -5,6 +5,7 @@ import { useStoppingLabel } from '../stopping-label'
 import { unavailableText } from '../capability'
 import { chatAnnouncement, type ChatAnnouncementState } from '../chat-announcements'
 import { assistantName } from '../assistant-name'
+import { loadDisplayProfile, pictureFailed, userName, userPicture } from '../stores/display-profile'
 import { loadPersonality } from '../stores/state'
 import Message from './Message.vue'
 import ResumeBanner from './ResumeBanner.vue'
@@ -174,7 +175,8 @@ function canFollow(): boolean {
 }
 
 // The chat names the assistant after the active personality. A failed read keeps the default name.
-onMounted(() => { loadPersonality().catch(() => undefined) })
+// Names and pictures load with the chat itself, so an empty chat's pending message shows them too.
+onMounted(() => { loadPersonality().catch(() => undefined); void loadDisplayProfile() })
 
 onMounted(() => {
   if (typeof ResizeObserver === 'undefined') return
@@ -353,9 +355,12 @@ async function older(): Promise<void> {
         actions
       />
       <article v-for="p in pending" :key="p.client_submission_id" class="msg user pending">
-        <span class="avatar" aria-hidden="true"><Icon name="person" :size="18" /></span>
+        <span :class="['avatar', { picture: userPicture() }]" aria-hidden="true">
+          <img v-if="userPicture()" class="avatar-picture" :src="userPicture()!" width="36" height="36" alt="" @error="pictureFailed(userPicture()!)" />
+          <Icon v-else name="person" :size="18" />
+        </span>
         <div class="meta">
-          <span class="who">You</span>
+          <span class="who">{{ userName() }}</span>
           <span class="state">{{
             p.status === 'sending' ? 'sending…' : p.status === 'unknown' ? 'outcome unknown; it will not be sent again' : 'sent, waiting for confirmation'
           }}</span>

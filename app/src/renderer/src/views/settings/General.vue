@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, reactive } from 'vue'
-import type { Appearance, NotificationChange, DesktopInfo } from '../../../../shared/api'
+import type { Appearance, NotificationChange, DesktopInfo, DisplayPictureTarget } from '../../../../shared/api'
 import ReleaseNotice from '../../components/ReleaseNotice.vue'
 import { state } from '../../store'
 import SettingsSection from '../../components/settings/SettingsSection.vue'
 import SettingsRow from '../../components/settings/SettingsRow.vue'
 import SettingsSwitch from '../../components/settings/SettingsSwitch.vue'
 import OdinImport from '../../components/settings/OdinImport.vue'
+import AvatarPicker from '../../components/AvatarPicker.vue'
+import { displayProfile, loadDisplayProfile, saveDisplayName } from '../../stores/display-profile'
 import { settings } from '../../stores/settings'
 import { status, linkLabel } from '../../stores/status'
 import { GENERAL_TIMEZONE } from '../../settings-presentation'
@@ -48,6 +50,34 @@ async function diagnostics(): Promise<void> {
   catch { support.diagnostics = 'Diagnostics could not be copied.' }
 }
 onMounted(readInfo)
+
+// Your name and picture in chat. Odin calls you by the name; the picture is display only.
+const userTarget: DisplayPictureTarget = { target: 'user' }
+const nameDraft = ref<string | null>(null)
+const nameValue = computed(() => nameDraft.value ?? displayProfile.name)
+const nameState = reactive({ busy: false, error: '', note: '' })
+function editName(event: Event): void {
+  nameDraft.value = (event.target as HTMLInputElement).value
+  nameState.note = ''
+}
+async function saveName(): Promise<void> {
+  if (nameState.busy || nameDraft.value === null) return
+  const sent = nameDraft.value
+  nameState.busy = true
+  nameState.error = ''
+  nameState.note = ''
+  try {
+    const failure = await saveDisplayName(sent)
+    if (failure) nameState.error = failure
+    else {
+      nameState.note = 'Saved.'
+      if (nameDraft.value === sent) nameDraft.value = null
+    }
+  } finally {
+    nameState.busy = false
+  }
+}
+onMounted(() => void loadDisplayProfile())
 
 const THEMES: Array<{ value: Appearance; label: string }> = [
   { value: 'system', label: 'System' },
@@ -115,6 +145,16 @@ async function quiet(key: 'start' | 'end'): Promise<void> {
 
 <template>
   <ReleaseNotice />
+  <SettingsSection title="Your profile">
+    <SettingsRow label="Your name" description="Shown on your messages instead of “You”, and what Odin calls you." control-id="display-name">
+      <input id="display-name" :value="nameValue" maxlength="40" placeholder="You" autocomplete="off" @input="editName" @keydown.enter.prevent="saveName" />
+      <button class="ghost" aria-label="Save your name" :aria-disabled="nameState.busy || nameDraft === null" @click="saveName">Save</button>
+      <template #note><p v-if="nameState.error" class="warn" role="alert">{{ nameState.error }}</p><p v-else-if="nameState.note" role="status">{{ nameState.note }}</p></template>
+    </SettingsRow>
+    <SettingsRow label="Your picture" description="Shown beside your messages.">
+      <AvatarPicker :target="userTarget" :picture="displayProfile.user" label="your picture" />
+    </SettingsRow>
+  </SettingsSection>
   <SettingsSection title="Time">
     <SettingsRow v-if="timezone" :label="GENERAL_TIMEZONE.label" description="Used for schedules and dates." control-id="settings-curated-timezone">
       <div class="settings-timezone" role="group" aria-label="Time zone selection">

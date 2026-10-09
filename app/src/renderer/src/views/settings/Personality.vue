@@ -4,10 +4,15 @@ import { ask } from '../../dialog'
 import { settingsUnavailableText as unavailableText } from '../../capability'
 import { management } from '../../stores/management'
 import { deletePreset, loadPersonality, savePersonality, savePreset, stateStore } from '../../stores/state'
+import { displayProfile, loadDisplayProfile, removeDisplayPicture } from '../../stores/display-profile'
+import AvatarPicker from '../../components/AvatarPicker.vue'
+import type { DisplayPictureTarget } from '../../../../shared/api'
+import appIcon from '../../../../../resources/icon.svg'
 import SettingsSection from '../../components/settings/SettingsSection.vue'
 import SettingsRow from '../../components/settings/SettingsRow.vue'
 
 onMounted(loadPersonality)
+onMounted(() => void loadDisplayProfile())
 
 /** The choice as edited here. Each field follows what Odin has until the user changes it. */
 const choice = reactive({ preset: '', custom_name: '', custom_identity: '', custom_voice: '' })
@@ -87,8 +92,17 @@ async function saveAsPreset(): Promise<void> {
 
 async function remove(name: string): Promise<void> {
   const confirmed = await ask({ title: 'Delete this preset?', message: `${name} is removed. If it's in use, Odin goes back to his own.`, confirmLabel: 'Delete', danger: true })
-  if (confirmed) await deletePreset(name)
+  // Its chat picture goes with it.
+  if (confirmed && await deletePreset(name)) await removeDisplayPicture({ target: 'personality', key: name })
 }
+
+/** The picture for the personality chosen above: per preset key, "custom" for the custom personality. */
+const pictureFor = computed(() => {
+  const key = choice.preset
+  const name = key === 'custom' ? choice.custom_name : stateStore.personality?.presets[key]?.name
+  return { key, name: (name ?? '').split(',')[0]!.trim() || 'Odin' }
+})
+const pictureTarget = computed<DisplayPictureTarget>(() => ({ target: 'personality', key: pictureFor.value.key }))
 
 function cancel(): void {
   const saved = stateStore.personality
@@ -119,6 +133,9 @@ function cancelPreset(): void {
         <option v-for="key in stateStore.personality.user_presets" :key="key" :value="key">{{ savedPresetLabel(key) }}</option>
         <option value="custom">Custom</option>
       </select>
+    </SettingsRow>
+    <SettingsRow v-if="pictureFor.key" label="Picture" :description="`Shown beside ${pictureFor.name}'s replies while this personality is in use.`">
+      <AvatarPicker :target="pictureTarget" :picture="displayProfile.personalities.get(pictureFor.key) ?? null" :label="`${pictureFor.name}'s picture`" :fallback="appIcon" />
     </SettingsRow>
     <template v-if="shown">
       <SettingsRow label="Identity" full-width><p class="manage-desc">{{ shown.identity }}</p></SettingsRow>

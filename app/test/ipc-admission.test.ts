@@ -9,6 +9,8 @@ vi.mock('electron', () => ({ ipcMain: {
 
 import { registerIpc } from '../src/main/ipc'
 
+const profile = { name: 'Aaron', user: null, personalities: {} }
+
 describe('Exit admission boundary', () => {
   beforeEach(() => handlers.clear())
   function fixture() {
@@ -30,7 +32,13 @@ describe('Exit admission boundary', () => {
       setNotifications: vi.fn(() => ({})),
       setAppearance: vi.fn(() => ({ appearance: 'light' })),
       setConversationMuted: vi.fn(() => ({})),
-      appState: () => ({ link: 'ready' })
+      appState: () => ({ link: 'ready' }),
+      displayProfile: {
+        read: vi.fn(() => profile),
+        setName: vi.fn(() => profile),
+        setPicture: vi.fn(() => profile),
+        removePicture: vi.fn(() => profile)
+      }
     }
     registerIpc(deps as unknown as IpcDeps)
     const event = { sender: { id: 1 }, senderFrame: frame }
@@ -48,7 +56,8 @@ describe('Exit admission boundary', () => {
       [IPC.setAppearance, { appearance: 'light' }],
       [IPC.pickFiles, undefined],
       [IPC.status, undefined],
-      [IPC.copyText, { text: 'late clipboard' }]
+      [IPC.copyText, { text: 'late clipboard' }],
+      [IPC.setDisplayName, { name: 'late name' }]
     ] as const) {
       expect(await call(channel, raw)).toEqual({ ok: false, error: {
         code: 'busy', message: 'Odin is stopping.', disposition: 'not_dispatched'
@@ -60,8 +69,50 @@ describe('Exit admission boundary', () => {
     expect(deps.setAppearance).not.toHaveBeenCalled()
     expect(deps.pickFiles).not.toHaveBeenCalled()
     expect(deps.copyText).not.toHaveBeenCalled()
+    expect(deps.displayProfile.setName).not.toHaveBeenCalled()
     expect(deps.broker.request).not.toHaveBeenCalled()
     expect(await call(IPC.getAppState)).toEqual({ link: 'ready' })
+  })
+
+  it('keeps your name and pictures in the app, refusing bad input before the store', async () => {
+    const { deps, call } = fixture()
+    const picture = Buffer.from('fixture').toString('base64')
+    expect(await call(IPC.getDisplayProfile)).toEqual({ ok: true, result: profile })
+    expect(await call(IPC.setDisplayName, { name: 'Aaron' })).toEqual({ ok: true, result: profile })
+    expect(deps.displayProfile.setName).toHaveBeenCalledExactlyOnceWith('Aaron')
+    expect(await call(IPC.setDisplayPicture, { target: { target: 'personality', key: 'clippy' }, png_base64: picture }))
+      .toEqual({ ok: true, result: profile })
+    expect(deps.displayProfile.setPicture).toHaveBeenCalledExactlyOnceWith({ target: 'personality', key: 'clippy' }, picture)
+    expect(await call(IPC.removeDisplayPicture, { target: { target: 'user' } })).toEqual({ ok: true, result: profile })
+    expect(deps.displayProfile.removePicture).toHaveBeenCalledExactlyOnceWith({ target: 'user' })
+    for (const [channel, raw] of [
+      [IPC.setDisplayName, { name: 5 }],
+      [IPC.setDisplayName, { name: 'Aaron', extra: 1 }],
+      [IPC.setDisplayPicture, { target: { target: 'personality' }, png_base64: picture }],
+      [IPC.setDisplayPicture, { target: { target: 'personality', key: '' }, png_base64: picture }],
+      [IPC.setDisplayPicture, { target: { target: 'someone' }, png_base64: picture }],
+      [IPC.setDisplayPicture, { target: { target: 'user' }, png_base64: 'A'.repeat(699_053) }],
+      [IPC.removeDisplayPicture, { target: { target: 'user', key: 'x' } }]
+    ] as const) {
+      expect(await call(channel, raw)).toMatchObject({ ok: false })
+    }
+    expect(deps.displayProfile.setName).toHaveBeenCalledTimes(1)
+    expect(deps.displayProfile.setPicture).toHaveBeenCalledTimes(1)
+    expect(deps.displayProfile.removePicture).toHaveBeenCalledTimes(1)
+    expect(deps.broker.request).not.toHaveBeenCalled()
+  })
+
+  it('reports a store refusal plainly and anything else as an internal error', async () => {
+    const { DisplayProfileError } = await import('../src/main/display-profile')
+    const { deps, call } = fixture()
+    deps.displayProfile.setName.mockImplementationOnce(() => { throw new DisplayProfileError('Use up to 40 characters on one line.') })
+    expect(await call(IPC.setDisplayName, { name: 'x' })).toEqual({
+      ok: false, error: { code: 'bad_request', message: 'Use up to 40 characters on one line.' }
+    })
+    deps.displayProfile.setName.mockImplementationOnce(() => { throw new Error('disk detail') })
+    expect(await call(IPC.setDisplayName, { name: 'x' })).toEqual({
+      ok: false, error: { code: 'internal', message: 'Internal app error.' }
+    })
   })
 
   it('still admits ordinary requests before Exit', async () => {

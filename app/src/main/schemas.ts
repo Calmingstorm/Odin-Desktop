@@ -213,6 +213,15 @@ export const steerSchema = controlSchema.extend({ text: z.string().min(1).max(4_
 export const setAutostartSchema = z.object({ enabled: z.boolean() }).strict()
 export const setAppearanceSchema = z.object({ appearance: z.enum(['system', 'dark', 'light']) }).strict()
 
+const displayPictureTarget = z.discriminatedUnion('target', [
+  z.object({ target: z.literal('user') }).strict(),
+  z.object({ target: z.literal('personality'), key: z.string().min(1).max(100) }).strict()
+])
+export const displayNameSchema = z.object({ name: z.string().max(200) }).strict()
+// 512 KB of PNG is at most 699,052 base64 characters.
+export const displayPictureSchema = z.object({ target: displayPictureTarget, png_base64: z.string().min(1).max(699_052) }).strict()
+export const displayPictureTargetSchema = z.object({ target: displayPictureTarget }).strict()
+
 // An opaque notice token, not a path, journal record supplied by the window, or a core operation.
 export const acknowledgeCleanupSchema = z.object({ id: z.string().min(1).max(128).refine((id) => id.trim().length > 0) }).strict()
 

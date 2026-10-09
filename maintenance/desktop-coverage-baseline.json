@@ -51,6 +51,11 @@
         "missing": 1,
         "total": 39
       },
+      "app/src/main/display-profile.ts": {
+        "covered": 54,
+        "missing": 2,
+        "total": 56
+      },
       "app/src/main/drafts.ts": {
         "covered": 26,
         "missing": 2,
@@ -205,6 +210,11 @@
         "covered": 18,
         "missing": 0,
         "total": 18
+      },
+      "app/src/renderer/src/components/AvatarPicker.vue": {
+        "covered": 19,
+        "missing": 0,
+        "total": 19
       },
       "app/src/renderer/src/components/ChatStatus.vue": {
         "covered": 15,
@@ -520,6 +530,11 @@
         "covered": 133,
         "missing": 2,
         "total": 135
+      },
+      "app/src/renderer/src/stores/display-profile.ts": {
+        "covered": 46,
+        "missing": 1,
+        "total": 47
       },
       "app/src/renderer/src/stores/hosts.ts": {
         "covered": 134,
@@ -2725,6 +2740,7 @@
     "app/src/main/core-command.ts",
     "app/src/main/core-supervisor.ts",
     "app/src/main/device-login.ts",
+    "app/src/main/display-profile.ts",
     "app/src/main/drafts.ts",
     "app/src/main/framing.ts",
     "app/src/main/identity.ts",
@@ -2756,6 +2772,7 @@
     "app/src/renderer/src/code-copy.ts",
     "app/src/renderer/src/commands.ts",
     "app/src/renderer/src/components/AttachmentTray.vue",
+    "app/src/renderer/src/components/AvatarPicker.vue",
     "app/src/renderer/src/components/ChatStatus.vue",
     "app/src/renderer/src/components/CleanupNotice.vue",
     "app/src/renderer/src/components/CodexAccounts.vue",
@@ -2819,6 +2836,7 @@
     "app/src/renderer/src/stores/browser.ts",
     "app/src/renderer/src/stores/completion.ts",
     "app/src/renderer/src/stores/composer.ts",
+    "app/src/renderer/src/stores/display-profile.ts",
     "app/src/renderer/src/stores/hosts.ts",
     "app/src/renderer/src/stores/locks.ts",
     "app/src/renderer/src/stores/management.ts",

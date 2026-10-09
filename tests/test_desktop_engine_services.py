@@ -1,5 +1,9 @@
 """Actual composed upstream runner and durable local publication."""
 import asyncio
+import json
+import os
+import subprocess
+import sys
 
 import pytest
 
@@ -10,7 +14,7 @@ from src.desktop.commands import JournalStore
 from src.desktop.conversations import ConversationError, ConversationStore
 from src.desktop.delivery import ArtifactPublisher, DurableDelivery, PublicationEventJournal
 from src.desktop.paths import ProfilePaths
-from src.desktop.requests import RequestService
+from src.desktop.requests import RequestService, owner_display_name
 from src.desktop.services import build_engine_services
 from src.desktop.transcript import TranscriptStore
 from src.discord.tool_loop import ToolLoopRunner
@@ -772,3 +776,70 @@ async def test_preserved_generation_two_stays_fenced_after_new_lineage_turn(grap
     await asyncio.wait_for(asyncio.gather(*requests._tasks), 10)
     assert "NEW LINEAGE ANSWER" in str(provider.calls[-1]["messages"])
     assert "OLD" not in str(provider.calls[-1]["messages"])
+
+
+def _saved_name(config_dir, content, *, mode=0o700):
+    """The app's display profile, as Settings, General, Your profile saves it."""
+    folder = config_dir / "display-profile"
+    folder.mkdir(mode=0o700, exist_ok=True)
+    folder.chmod(mode)
+    (folder / "profile.json").write_text(content)
+    (folder / "profile.json").chmod(0o600)
+    return folder
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("saved", "called"), [(None, "Owner"), ("Intolerance", "Intolerance")])
+async def test_odin_calls_you_by_the_name_set_in_settings(graph, saved, called):
+    """As Odin knows your Discord display name: the message tag and the request preamble."""
+    requests, engine, provider, transcript, cid = graph
+    if saved:
+        _saved_name(requests.authority.paths.config_dir, json.dumps({"name": saved}))
+    requests.submit({"client_submission_id": "named", "conversation_id": cid, "text": "Who am I?"})
+    await requests.after_commit()
+    await asyncio.gather(*requests._tasks)
+    sent = json.dumps(provider.calls[0]["messages"])
+    assert f"[{called}]: Who am I?" in sent
+    assert engine.deps.sessions.get_history(cid)[0]["content"] == f"[{called}]: Who am I?"
+    other = "Owner" if saved else "Intolerance"
+    assert f"[{other}]" not in sent
+
+
+@pytest.mark.parametrize("content", [
+    "{not json", json.dumps({"name": ""}), json.dumps({"name": "   "}),
+    json.dumps({"name": "x" * 41}),
+    json.dumps({"name": "two\nlines"}), json.dumps({"name": 7}), json.dumps(["Intolerance"]),
+    json.dumps({"name": "Intolerance", "pad": "x" * 5000}),
+])
+def test_an_unusable_saved_name_means_owner(tmp_path, content):
+    _saved_name(tmp_path, content)
+    assert owner_display_name(tmp_path) == "Owner"
+
+
+def test_the_saved_name_is_read_only_under_the_apps_own_rules(tmp_path):
+    assert owner_display_name(None) == "Owner"
+    assert owner_display_name(tmp_path) == "Owner"  # nothing saved
+    folder = _saved_name(tmp_path, json.dumps({"name": "Intolerance"}))
+    assert owner_display_name(tmp_path) == "Intolerance"
+    folder.chmod(0o755)  # a folder others can read is not the app's private profile
+    assert owner_display_name(tmp_path) == "Owner"
+    folder.chmod(0o700)
+    elsewhere = tmp_path / "elsewhere.json"
+    elsewhere.write_text(json.dumps({"name": "Someone else"}))
+    (folder / "profile.json").unlink()
+    (folder / "profile.json").symlink_to(elsewhere)  # never through a link
+    assert owner_display_name(tmp_path) == "Owner"
+
+
+def test_a_saved_name_that_is_a_fifo_is_refused_at_once(tmp_path):
+    """A FIFO opened for reading waits for a writer unless opened non-blocking. The read runs in a
+    child process with a time limit, so a regression fails here instead of hanging the suite."""
+    folder = tmp_path / "display-profile"
+    folder.mkdir(mode=0o700)
+    os.mkfifo(folder / "profile.json", 0o600)
+    code = ("import sys; from src.desktop.requests import owner_display_name; "
+            "print(owner_display_name(sys.argv[1]))")
+    result = subprocess.run([sys.executable, "-c", code, str(tmp_path)], capture_output=True,
+                            text=True, timeout=30, cwd=os.path.dirname(os.path.dirname(__file__)))
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "Owner"

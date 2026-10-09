@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.3]
+
+- **Your name and picture in chat:** Settings → General → Your profile. Your messages show them instead of "You",
+  and Odin calls you by that name.
+- **A picture for each personality:** Settings → Personality. Replies show the active personality's picture, so a
+  custom personality such as Clippy can have its own face. Without a picture, the Odin mark stays.
+- Pictures stay on this computer. The app crops a PNG, JPEG or WebP image (up to 2 MB) to its centred square and keeps
+  a 256 × 256 copy in your profile. Odin and the model never see your pictures.
+
 ## [1.0.2]
 
 - **Fixed:** the "unknown outcome" line under a task, and the status bar count, never went away. They now have a
