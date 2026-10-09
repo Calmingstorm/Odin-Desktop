@@ -119,16 +119,23 @@ class EngineServices:
 
         def build():
             # An empty or locked vault never becomes a cached empty auth pool.
-            if gateway.codex_accounts.vault.read():
-                return gateway._build("codex", settings.config)
-            return None
+            if not gateway.codex_accounts.vault.read():
+                return None, None
+            client = gateway._build("codex", settings.config)
+            # The saved auxiliary comes up with its primary, as at Odin's boot;
+            # otherwise it stayed off until its setting was saved again.
+            startup_auxiliary = getattr(gateway, "startup_auxiliary", None)
+            auxiliary = startup_auxiliary(client) if callable(startup_auxiliary) else None
+            return client, auxiliary
 
         try:
-            client = await secret_call(build)
+            client, auxiliary = await secret_call(build)
         except (MethodError, SecretStoreError):
             log.warning("Desktop Codex provider unavailable at startup")
             return
         gateway.codex_client = client
+        if auxiliary is not None:
+            gateway.auxiliary_llm_client = auxiliary
         if gateway.active_client is not None:
             gateway.wire_callbacks()
 
