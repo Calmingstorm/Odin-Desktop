@@ -16,7 +16,7 @@ const repository = resolve(__dirname, '../..')
 export const SERVED_CAPABILITIES = ['status.get', 'events.subscribe', 'runtime.shutdown', 'submission.send', 'notifications.ack', ...[
   'attachments.begin', 'attachments.chunk', 'attachments.commit', 'attachments.cancel',
   'artifacts.read', 'tool.detail', 'tool.output',
-  'control.stop', 'control.steer', 'control.resume',
+  'control.stop', 'control.steer', 'control.resume', 'effects.acknowledge',
   'work.list', 'work.control', 'reports.page',
   'schedules.list', 'schedules.save', 'schedules.delete', 'schedules.run',
   'schedules.reset_failures', 'schedules.history', 'schedules.validate_cron',

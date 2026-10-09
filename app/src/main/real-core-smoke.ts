@@ -54,7 +54,7 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
   'providers.compat.diagnostic', 'models.status', 'models.provider.get', 'models.provider.set',
   'models.main.set', 'models.agents.get', 'models.agents.set', 'models.discover', 'personality.get', 'personality.set', 'personality.presets.save', 'personality.presets.delete',
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
-  'control.stop', 'control.steer', 'control.resume',
+  'control.stop', 'control.steer', 'control.resume', 'effects.acknowledge',
   'work.list', 'work.control', 'reports.page',
   'schedules.list', 'schedules.save', 'schedules.delete', 'schedules.run',
   'schedules.reset_failures', 'schedules.history', 'schedules.validate_cron',
