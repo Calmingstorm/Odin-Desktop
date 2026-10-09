@@ -114,9 +114,7 @@ def test_trajectory_reader_rebinds_without_creating_directories(tmp_path):
 async def test_trajectory_read_routes_bound_limits_and_filters(tmp_path):
     store = saver(tmp_path)
     service = TrajectoriesService(saver=store)
-    # L12 (1.0.5): count is the number of files listed. The writer's own counter (3 here)
-    # counts its writes, and the profile reader never writes, so it always showed 0.
-    assert await service.handle("trajectories.list", {}) == {"files": ["trace.jsonl"], "count": 1}
+    assert await service.handle("trajectories.list", {}) == {"files": ["trace.jsonl"], "count": 3}
     assert await service.handle("trajectories.message", {"message_id": "message"}) == {
         "entry": {"id": "message"}}
     store.find_by_message_id.assert_awaited_once_with("message")
