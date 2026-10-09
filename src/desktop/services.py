@@ -9,7 +9,9 @@ from __future__ import annotations
 import asyncio
 import importlib.util
 import mimetypes
+import os
 import time
+import uuid
 from collections.abc import Mapping
 from contextvars import ContextVar
 from copy import deepcopy
@@ -845,6 +847,38 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         async def _publish_attachment(self, message, data, filename, caption=""):
             artifact = make_artifact(message, data, filename, publication_tool.get())
             return await delivery.send(message.channel, caption, files=[artifact], tool_output=True)
+
+        @staticmethod
+        def _generated_image_name():
+            return f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}.png"
+
+        def _retain_generated_image(self, data):
+            # The conversation shows the posted artifact; this owner-only copy in
+            # the local workspace is the one the model can open again. The folder
+            # must be a private directory this user owns, reached without following
+            # a link; otherwise no copy is kept (an OSError the caller absorbs).
+            directory = Path(get_config().tools.local_working_dir) / "generated-images"
+            try:
+                os.mkdir(directory, 0o700)
+            except FileExistsError:
+                pass
+            folder = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                info = os.fstat(folder)
+                if info.st_uid != os.geteuid() or info.st_mode & 0o077:
+                    raise PermissionError(f"{directory} is not a private directory")
+                name = self._generated_image_name()
+                leaf = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                               0o600, dir_fd=folder)
+                try:
+                    with os.fdopen(leaf, "wb") as handle:
+                        handle.write(data)
+                except BaseException:
+                    os.unlink(name, dir_fd=folder)
+                    raise
+            finally:
+                os.close(folder)
+            return str(directory / name)
 
         async def _handle_generate_file(self, message, inp):
             token = publication_tool.set("generate_file")

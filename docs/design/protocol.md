@@ -177,6 +177,7 @@ The app never executes artifact content (no HTML or SVG rendering); it shows ima
 | `work.list` | `{kind?, conversation_id?}` | `{items: [{kind, id, title, state, conversation_id?, request_id?, started_at?, detail, actions}]}`. `kind` is `agent`, `task`, `loop`, `process`, `schedule` or `workflow`. `actions` lists the controls Odin offers for that item now, so the app never guesses them. |
 | `work.control` | `{control_command_id, kind, id, action}` | `{disposition}`. `action` is one of the item's `actions`: `stop`, `cancel`, `restart`, `pause`, `resume` or `run_now`. `disposition` is `requested` (settled later as `work.updated`), `done`, or `not_available` when the item no longer offers that action. |
 | `control.resume` | `{control_command_id, conversation_id, request_id, generation}` | `{disposition: "admitted" or "rejected", reason?}`. Guarded resume binds the exact preserved request: one whose latest outcome is `interrupted` or `suspended`. Unknown effects reject it, and so does other work running in the conversation. Admitted work starts again as that request with a new `generation`. |
+| `effects.acknowledge` | `{control_command_id, conversation_id, request_id, generation}` | `{disposition: "acknowledged", "already_acknowledged" or "not_found", remaining: 0}`. The owner dismisses the unknown-outcome notice of an ended request. Presentation only: the operation ledger keeps the effects unknown, nothing is replayed, and resume still refuses the request. The first acknowledgement appends `effects.resolved` `{conversation_id, request_id, generation, remaining: 0}`, and later snapshots leave the request out of `unresolved` (it stays in `recent` with its count). |
 
 ### Status, usage and reload
 
@@ -279,7 +280,7 @@ Each method has the Odin shape of the listed route.
 | `tool.started` | `{conversation_id, request_id, invocation_id, tool, target?, summary}` (scrubbed) |
 | `tool.settled` | `{conversation_id, request_id, invocation_id, outcome, exit_code?, duration_ms, evidence_ref?}`. `outcome` is one of `success`, `failure`, `unknown`. |
 | `control.receipt` | `{conversation_id, request_id, generation, control_command_id, kind, disposition}`. `kind` is `stop` or `steer`. `disposition` is one of `requested`, `confirmed`, `queued`, `consumed`, `closed`, `stale_binding`. |
-| `effects.resolved` | `{conversation_id, request_id, generation, remaining}`. Unknown effects of that request were reconciled; when `remaining` is 0 it leaves `unresolved`. How effects are reconciled is defined in Phase 2. |
+| `effects.resolved` | `{conversation_id, request_id, generation, remaining}`. Unknown effects of that request were reconciled; when `remaining` is 0 it leaves `unresolved`. Since 1.0.2 the owner's `effects.acknowledge` sends it with `remaining: 0`: a dismissal of the notice, not a resolution of the effects. |
 
 **No event ever carries reply text that the guards have not accepted** (D9).
 

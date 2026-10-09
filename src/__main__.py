@@ -520,7 +520,12 @@ def main() -> None:
     os.environ["ODIN_DESKTOP_DATA_DIR"] = str(options.paths.data_dir)
     log = logging.getLogger("odin.desktop")
     # App captures stderr; no second file handler or live logging configuration.
+    # One root handler gives every line local time, level and logger name (Python's
+    # bare last-resort handler printed other loggers' warnings without either).
+    # odin.desktop reports INFO; every other logger keeps the default WARNING floor.
     handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s",
+                                           "%Y-%m-%d %H:%M:%S%z"))
     stop_diagnostic = None
 
     def final_stop_record(record) -> bool:
@@ -530,17 +535,23 @@ def main() -> None:
         return True
 
     handler.addFilter(final_stop_record)
-    log.addHandler(handler)
+    logging.getLogger().addHandler(handler)
     log.setLevel(logging.INFO)
-    if not _enable_process_containment(log):
-        raise SystemExit(1)
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    reaper = AdoptedZombieReaper()
-    exit_code = 0
-    service = CoreService(
-        options.paths, options.socket, options.token_file, release_runtime_on_close=False
-    )
+    try:
+        if not _enable_process_containment(log):
+            raise SystemExit(1)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        reaper = AdoptedZombieReaper()
+        exit_code = 0
+        service = CoreService(
+            options.paths, options.socket, options.token_file, release_runtime_on_close=False
+        )
+    except BaseException:
+        # The run's own cleanup below never starts; don't leave the root handler.
+        logging.getLogger().removeHandler(handler)
+        handler.close()
+        raise
 
     async def supervised() -> int:
         reaper.start()
@@ -577,7 +588,7 @@ def main() -> None:
         # the kernel lock only by ending this incarnation, never early here.
         service.release_runtime()
         asyncio.set_event_loop(None)
-        log.removeHandler(handler)
+        logging.getLogger().removeHandler(handler)
         handler.close()
     if exit_code:
         raise SystemExit(exit_code)

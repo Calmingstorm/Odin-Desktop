@@ -11,6 +11,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import Mapping
+from pathlib import Path
 
 from ..llm.secret_scrubber import scrub_output_secrets
 from ..web.api._agent_display import agent_display_policy
@@ -250,7 +251,12 @@ class WorkService:
             self._watch(item)
         else:
             result = dict(record, actions=[])
-            if record["settlement"]["state"] not in {"settled", "definition"}:
+            if record["kind"] == "schedule":
+                # Schedule records end only below; an ended or unconcluded one keeps its state.
+                if item is None and self.scheduler is not None and record["state"] in {
+                        "scheduled", "paused", "running"}:
+                    result = self._ended_schedule_projection(record, result)
+            elif record["settlement"]["state"] not in {"settled", "definition"}:
                 result.update(state="interrupted", settlement={"state": "unknown",
                               "resource_release": "unproven"})
         if result != record:
@@ -262,6 +268,75 @@ class WorkService:
                 self.events.append("work.updated",
                                    {"kind": result["kind"], "id": result["id"]}, result)
         return json.loads(canonical_json(result))
+
+    def _ended_schedule_projection(self, record, result):
+        """A schedule its scheduler no longer holds: a one-time schedule after its run, or a
+        deleted one. Deleting a definition doesn't end a run already executing; only the
+        latest run's own recorded result settles it."""
+        in_flight = getattr(self.scheduler, "_in_flight", None)
+        if not isinstance(in_flight, (set, frozenset)):
+            return result  # Running state can't be known; conclude nothing.
+        removed = self._removed_definition(record)
+        if removed is not None:
+            # The scheduler's record of the definition as it removed it names its latest
+            # run, including one whose start never reached Work.
+            result = dict(result, detail=dict(result.get("detail") or {},
+                          run_binding=removed["run_binding"],
+                          last_run_binding=removed["last_run_binding"]))
+        last_run = record["settlement"].get("last_run")
+        if record["manager_id"] in in_flight:
+            return dict(result, state="running",
+                        settlement={"state": "pending", "last_run": last_run})
+        ended = self._ended_schedule_state(record["manager_id"], removed)
+        return dict(result, state=ended, settlement={
+            "state": "unknown" if ended == "unknown" else "settled", "last_run": last_run})
+
+    def _removed_definition(self, record):
+        """The scheduler's complete removal record for this generation, or None."""
+        lookup = getattr(self.scheduler, "removed_definition", None)
+        removed = lookup(record["manager_id"]) if callable(lookup) else None
+        if (not isinstance(removed, dict)
+                or removed.get("generation") != record["manager_generation"]):
+            return None
+        return removed
+
+    def _ended_schedule_state(self, schedule_id, removed):
+        """The result of the definition's latest run, from that run's own history entry.
+
+        The scheduler's removal record names the latest run the definition had
+        (`run_binding`, else `last_run_binding`). Only a history entry with that run ID
+        settles it: completed, failed or unknown. A run that left no entry (cancelled,
+        history unavailable, the core stopped) is unknown, never settled from an older
+        run. Only a record whose two bindings are explicitly null says the definition
+        never ran: cancelled. Without a complete removal record (removed by an older
+        version, pruned or damaged) the latest run can't be named, so the ending is
+        unknown: Work's own binding may predate a run it never heard start. So is a latest
+        run that belongs to an earlier generation of the definition.
+        """
+        if removed is None:
+            return "unknown"
+        latest = (removed["run_binding"] if removed["run_binding"] is not None
+                  else removed["last_run_binding"])
+        if latest is None:
+            return "cancelled"
+        if latest.get("generation") != removed["generation"]:
+            return "unknown"
+        path = getattr(getattr(self.scheduler, "history", None), "path", None)
+        try:
+            lines = Path(path).read_text(encoding="utf-8").splitlines() if path else []
+        except (OSError, UnicodeError, TypeError):
+            lines = []
+        for line in reversed(lines):
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if (type(entry) is dict and entry.get("schedule_id") == schedule_id
+                    and type(entry.get("run_binding")) is dict
+                    and entry["run_binding"].get("run_id") == latest["run_id"]):
+                return {"success": "completed", "failure": "failed"}.get(entry.get("status"),
+                                                                         "unknown")
+        return "unknown"
 
     def refresh_all(self):
         with self.store.transaction() as connection:

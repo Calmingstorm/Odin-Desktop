@@ -287,6 +287,42 @@ def test_all_unknown_effects_preserved_as_wire_count(service):
     assert len(json.loads(requests.get_request(rid)["unknown_effects"])) == 1100
 
 
+
+@pytest.mark.asyncio
+async def test_acknowledged_unknown_effects_leave_unresolved_but_stay_recorded(service):
+    from src.desktop.controls import ControlService
+    from src.discord.channel_state import ChannelStateRegistry
+    requests, cid, engine, _delivery, store = service
+    rid = requests.submit(params(cid))["request_id"]
+    with store.transaction() as db:
+        db.execute("UPDATE desktop_requests SET state='running' WHERE request_id=?", (rid,))
+    ledger = engine.deps.turn_store
+    with ledger._write_lock:
+        db = ledger._require()
+        db.execute("""INSERT INTO operations
+            (source,channel_id,message_id,turn_generation,generation_seq,tool_call_id,state,
+             tool_name,effect_class,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            ("conversation", cid, rid, "ledger-gen", 1, "call-1", "OUTCOME_UNKNOWN",
+             "harmless_fake", "EXTERNAL_EFFECT_CAPABLE", 0, 0))
+        db.commit()
+    requests._finish(requests.fetch_request(cid, rid), "completed")
+    assert [row["request_id"] for row in requests.snapshot(cid)["unresolved"]] == [rid]
+    controls = ControlService(store, requests.events, requests, ChannelStateRegistry(),
+                              authority=requests.authority, permissions=requests.permissions)
+    answer = await controls.dispatch("effects.acknowledge", {
+        "control_command_id": "ack", "conversation_id": cid, "request_id": rid,
+        "generation": 1})
+    assert answer["result"]["disposition"] == "acknowledged"
+    state = requests.snapshot(cid)
+    assert state["unresolved"] == []
+    assert state["recent"][0]["unknown_effects"] == 1
+    assert state["controls"] == []  # never shown as a Steer/Stop line
+    with ledger._write_lock:
+        assert ledger._require().execute(
+            "SELECT state FROM operations WHERE tool_call_id='call-1'").fetchone()[0] == \
+            "OUTCOME_UNKNOWN"
+
+
 @pytest.mark.asyncio
 async def test_tool_outbox_projection_survives_retention_and_pairs_invocations(service):
     from src.desktop.delivery import DurableDelivery

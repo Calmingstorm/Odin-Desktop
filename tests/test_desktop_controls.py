@@ -306,6 +306,51 @@ async def test_restart_closes_lost_steering_without_replaying_input_or_confirmin
     assert inbox.inbox.qsize() == 1  # simulated dead predecessor only, never new mailbox
 
 
+
+def resolved_events(h):
+    return [frame["payload"] for frame in h.events.between(0)
+            if frame["type"] == "effects.resolved"]
+
+
+async def test_acknowledge_dismisses_settled_unknown_effects_once(h):
+    h.requests.add(state="completed", unknown_effects=[{"tool_call_id": "call-1"}])
+    first = await h.controls.dispatch("effects.acknowledge", h.params("ack-1"))
+    assert first == {"ok": True, "result": {"disposition": "acknowledged", "remaining": 0}}
+    assert resolved_events(h) == [{"conversation_id": "c", "request_id": "r", "generation": 1,
+                                   "remaining": 0}]
+    # The same command is answered from its receipt; another command finds it already done.
+    assert await h.controls.dispatch("effects.acknowledge", h.params("ack-1")) == first
+    again = await h.controls.dispatch("effects.acknowledge", h.params("ack-2"))
+    assert again["result"]["disposition"] == "already_acknowledged"
+    assert len(resolved_events(h)) == 1
+    # Presentation only: the request keeps its unknown effects and its state.
+    row = h.requests.get_request("r")
+    assert row["state"] == "completed" and json.loads(row["unknown_effects"])
+
+
+@pytest.mark.parametrize(("state", "effects", "target"), [
+    ("running", [{"tool_call_id": "call-1"}], {}),
+    ("completed", [], {}),
+    ("completed", [{"tool_call_id": "call-1"}], {"generation": 2}),
+    ("completed", [{"tool_call_id": "call-1"}], {"conversation_id": "other"}),
+    ("completed", [{"tool_call_id": "call-1"}], {"request_id": "missing"}),
+])
+async def test_acknowledge_only_matches_ended_requests_with_unknown_effects(h, state, effects,
+                                                                         target):
+    h.requests.add(state=state, unknown_effects=effects)
+    answer = await h.controls.dispatch("effects.acknowledge", h.params("ack", **target))
+    assert answer == {"ok": True, "result": {"disposition": "not_found", "remaining": 0}}
+    assert resolved_events(h) == []
+
+
+async def test_acknowledge_requires_the_current_owner(h):
+    h.requests.add(state="completed", unknown_effects=[{"tool_call_id": "call-1"}])
+    h.authorized = False
+    answer = await h.controls.dispatch("effects.acknowledge", h.params("ack"))
+    assert answer["error"]["code"] == "unauthorized"
+    assert resolved_events(h) == []
+
+
 @pytest.fixture
 def integrated_graph(request):
     """Use the actual stacked engine fixture when running composed gates.

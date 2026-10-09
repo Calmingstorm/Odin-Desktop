@@ -339,14 +339,19 @@ class ManagementService:
             )
         else:
             knowledge = KnowledgeService(core.paths)
+        # The copied health checks read Odin's bot attribute names.
         observed = SimpleNamespace(config=settings.config, llm_gateway=providers,
-                                   tool_executor=executor, knowledge_store=None,
-                                   skill_manager=skills, mcp_manager=mcp.manager)
+                                   tool_executor=executor, knowledge_store=None, knowledge=None,
+                                   skill_manager=skills, mcp_manager=mcp.manager,
+                                   sessions=getattr(deps, "sessions", None),
+                                   scheduler=getattr(deps, "scheduler", None),
+                                   loop_manager=getattr(deps, "loop_manager", None),
+                                   agent_manager=getattr(deps, "agent_manager", None))
         diagnostics = WorkspaceDiagnostics(lambda: executor)
 
         async def health():
             observed.config = settings.config
-            observed.knowledge_store = knowledge._store
+            observed.knowledge_store = observed.knowledge = knowledge._store
             # Sample the current composed owner on every read. A compose-time
             # boolean would remain healthy after request/store/core shutdown.
             observed.delivery_readiness = getattr(core, "delivery_readiness", False)

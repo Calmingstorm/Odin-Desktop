@@ -2,12 +2,17 @@
 
 import json
 import os
+import re
 from pathlib import Path
 
 import pytest
 
 from src.desktop.authority import OwnerAuthority
 from src.desktop.paths import ProfilePaths
+
+# A formatted core log line: local time with offset, level, logger name.
+LOG_TIME = r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{4} "
+LOG_LINE = re.compile(LOG_TIME + r"[A-Z]+ [\w.]+: ")
 
 
 def test_app_roots_follow_explicit_paths_and_xdg_cache(tmp_path):
@@ -271,6 +276,32 @@ def test_entry_uses_containment_and_finalize_barrier(tmp_path, monkeypatch):
     assert stages == ["contain", "reaper-start", "run", "reaper-stop", "finalize", "release"]
 
 
+@pytest.mark.parametrize("failure", ["containment", "construction"])
+def test_entry_removes_its_log_handler_when_startup_fails_early(tmp_path, monkeypatch, failure):
+    import logging
+
+    from src import __main__ as entry
+    from src.desktop import core
+
+    monkeypatch.setattr(entry.sys, "argv", ["desktop", "--socket", str(tmp_path / "run.sock"),
+                         "--token-file", str(tmp_path / "config/ipc.token"), "--profile", "work",
+                         "--data-dir", str(tmp_path / "data")])
+    monkeypatch.setenv("HOME", str(tmp_path))
+    for key in ("ODIN_DESKTOP_PROFILE", "ODIN_DESKTOP_TOKEN_FILE", "ODIN_DESKTOP_DATA_DIR"):
+        monkeypatch.setenv(key, "unselected-fixture")
+    monkeypatch.setattr(entry, "_enable_process_containment",
+                        lambda log: failure != "containment")
+
+    class Unbuildable:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("inert construction failure")
+
+    monkeypatch.setattr(core, "CoreService", Unbuildable)
+    before = list(logging.getLogger().handlers)
+    with pytest.raises(SystemExit if failure == "containment" else RuntimeError):
+        entry.main()
+    assert logging.getLogger().handlers == before
+
 def test_entry_failure_enters_finalization_before_any_error_logging(tmp_path, monkeypatch):
     import logging
 
@@ -465,6 +496,11 @@ async def test_real_core_accepts_node_style_socketpair_stdin_and_exits_on_parent
             _, stderr = await asyncio.wait_for(process.communicate(), 10)
             assert process.returncode == 0, stderr
             assert not socket_path.exists()
+            # Every log line carries local time, level and logger name, including
+            # other loggers' warnings that used to print bare.
+            lines = [line for line in stderr.decode().splitlines() if line.strip()]
+            assert lines and all(LOG_LINE.match(line) for line in lines), lines
+            assert re.fullmatch(LOG_TIME + r"INFO odin\.desktop: Odin stopped", lines[-1])
         finally:
             parent.close()
             child.close()
@@ -586,6 +622,7 @@ async def test_real_core_start_failure_names_credential_path_without_credential(
         assert process.returncode == 1
         assert len(stderr.splitlines()) == 1
         assert b"Odin stopped:" in stderr
+        assert re.match(LOG_TIME + r"INFO odin\.desktop: Odin stopped: ", stderr.decode())
         assert (b"PermissionError" if unsafe else b"FileNotFoundError") in stderr
         assert str(token_file).encode() in stderr
         assert token not in stderr

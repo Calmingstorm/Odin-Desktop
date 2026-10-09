@@ -48,6 +48,10 @@ class MediaTools:
         """
         raise NotImplementedError(_DELIVERY_UNAVAILABLE)
 
+    def _retain_generated_image(self, data: bytes) -> str | None:
+        """A local copy of a posted image the model can open again; Desktop keeps one."""
+        return None
+
     @staticmethod
     def _detect_image_type(data: bytes) -> str | None:
         """Detect image media type from file magic bytes."""
@@ -348,6 +352,14 @@ class MediaTools:
         meta["delivery_status"] = "posted"
         # Phase 2 artifacts need an authorized store reference, not a CDN URL.
         meta["attachment_url_available"] = False
+        # Where Odin returns the attachment URL, Desktop returns a local copy so
+        # analyze_image and post_file can use the image again.
+        local_copy = None
+        try:
+            local_copy = self._retain_generated_image(result.data)
+        except OSError as e:
+            log.info("image posted but no local copy was kept: %s", e)
+        meta["local_copy_available"] = local_copy is not None
         log.info(
             "image generated: backend=%s model=%s decoded=%dx%d route=%s",
             result.backend, result.image_model, result.width, result.height, result.route,
@@ -356,6 +368,7 @@ class MediaTools:
             output=(
                 f"Image generated ({result.width}x{result.height}, "
                 f"{len(result.data) / 1024:.1f} KB) and posted."
+                + (f" Local file on localhost: {local_copy}" if local_copy else "")
             ),
             tool_name="generate_image",
             audit_metadata=meta,

@@ -63,6 +63,23 @@ def test_details_scrub_arguments_labeled_previews_and_never_page_tail(stores):
     assert count == 1
 
 
+
+def test_validated_nested_payload_arguments_are_recorded_and_scrubbed(stores):
+    """schedule_task's adapter-validated input is a dict subclass; its details must exist."""
+    from src.tools.nested_payload import ValidatedNestedPayload
+    _journal, _evidence, _artifacts, details, _clock, allowed, _hosts = stores
+    allowed.add("schedule_task")
+    arguments = ValidatedNestedPayload({"description": "harmless", "message": "fired",
+                                        "nested": ValidatedNestedPayload({"token": "secret-x"})})
+    details.record(request_id="request", invocation_id="invocation", owner="owner",
+                   conversation_id="conversation", tool="schedule_task",
+                   arguments=arguments, delivered_output="Scheduled 08038caf")
+    detail = details.detail("request", "invocation", owner="owner")
+    assert detail["tool"] == "schedule_task"
+    assert detail["arguments"]["description"] == "harmless"
+    assert detail["arguments"]["nested"]["token"] == "[REDACTED]"
+    assert "secret-x" not in str(detail)
+
 def test_scope_tool_and_host_rechecked_every_page(stores):
     _, evidence, _, details, _, allowed, generation = stores
     hosts = ({"alias": "local", "generation": 1},)

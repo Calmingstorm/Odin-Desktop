@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert'
 import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { dialog, type BrowserWindow } from 'electron'
+import { app, dialog, type BrowserWindow } from 'electron'
 import type { Broker } from './broker'
 import type { ConversationSnapshot, ScheduleRow, WebhookIngressStatus } from '../shared/api'
 import type { ConfigField } from '../shared/api'
@@ -169,7 +169,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   const status = result.result as RealCoreStatus
   if (!process.env.ODIN_SMOKE_PROVIDER_BASE_URL) assertFreshManagementStatus(status, seededWorkProof)
   assert.equal(status.core_instance_id, broker.coreInstanceId)
-  assert.equal(status.version, process.env.ODIN_SMOKE_EXPECT_VERSION ?? '0.1.0.dev1')
+  // One version number: the engine reports the release it shipped in.
+  assert.equal(status.version, process.env.ODIN_SMOKE_EXPECT_VERSION ?? app.getVersion())
   for (const method of ['status.get', 'events.subscribe', 'runtime.shutdown', 'settings.schema', 'settings.set',
     'conversations.list', 'conversations.create', 'messages.list', 'conversation.snapshot', 'search.query',
     'submission.send', 'control.stop', 'control.steer', 'control.resume',
