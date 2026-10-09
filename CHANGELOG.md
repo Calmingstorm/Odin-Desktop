@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.0.2]
+
+- **Fixed:** the "unknown outcome" line under a task, and the status bar count, never went away. They now have a
+  Dismiss button. Dismissing hides the notice only: the actions stay unknown and are never repeated.
+- **Fixed:** Odin couldn't look at an image he had just generated. Each generated image is also saved privately in
+  the workspace folder (`generated-images/`), and Odin is told where, so he can describe it or post it again.
+- **Fixed:** a one-time schedule that had run stayed under Scheduled in Work, shown as still running. It now moves to
+  Finished with its run's result. A deleted schedule moves to Finished too: `cancelled` if it never ran, otherwise
+  its last run's result, or `unknown` when that result was never recorded. Schedules deleted, and one-time
+  schedules that finished, before 1.0.2 show as `unknown`, because their last run can't be confirmed.
+- **Fixed:** Settings, Records reported "unhealthy" with chat history, knowledge, the scheduler, loops and agents "not
+  initialised" while all of them worked.
+- **Fixed:** some tool calls, such as `schedule_task`, showed no details when expanded.
+- **Fixed:** `/status` and Settings showed the engine as 0.1.0.dev1. They now show the release number.
+- Notices, Steer and Stop lines and task outcome lines line up with the messages, and Steer and Stop lines go away
+  when their task ends. A stopped task no longer says so twice.
+- While Stop waits for a running step to finish, the button and the working line name the step and how long it has
+  been running.
+- Work cards show what each item is, a plain state, local times, the result or last error, and their buttons, without
+  internal identifiers.
+- The window no longer scrolls past the bottom of the app.
+- Tool rows no longer repeat the tool name.
+- Every line in the engine log starts with its date, time, level and source.
+
 ## [1.0.1]
 
 - **Fixed:** a saved personality, such as one brought over with Import from Odin, applied only until the app
