@@ -1,7 +1,10 @@
+import { execFileSync, spawnSync } from 'node:child_process'
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { crc32, deflateSync } from 'node:zlib'
+import { buildSync } from 'esbuild'
 import { afterEach, describe, expect, it } from 'vitest'
 import { DisplayProfileError, DisplayProfileStore, MAX_PICTURE_BYTES, validPicture } from '../src/main/display-profile'
 
@@ -180,5 +183,30 @@ describe('display profile store', () => {
     expect(store.removePicture(user).user).toBeNull()
     expect(store.removePicture(user).user).toBeNull()  // already gone: still fine
     expect(store.removePicture(personality('never-set')).personalities).toEqual([])
+  })
+})
+
+describe('special files', () => {
+  it('refuses FIFOs at once instead of waiting for a writer', () => {
+    // A FIFO opened for reading waits for a writer unless opened non-blocking, which would stall Electron's main
+    // thread. The real store runs in a child process with a time limit, so a regression fails here, never hangs.
+    const base = root()
+    const dir = join(base, 'display-profile')
+    const store = new DisplayProfileStore(dir)
+    store.setName('Aaron')
+    const clippy = `personality-${Buffer.from('clippy').toString('hex')}.png`
+    store.setPicture(personality('clippy'), png().toString('base64'))
+    rmSync(join(dir, 'profile.json'))
+    rmSync(join(dir, clippy))
+    for (const file of ['profile.json', 'user.png', clippy]) execFileSync('mkfifo', ['-m', '600', join(dir, file)])
+    const bundle = join(base, 'store.mjs')
+    buildSync({ entryPoints: [resolve(__dirname, '../src/main/display-profile.ts')], bundle: true, platform: 'node',
+      format: 'esm', outfile: bundle, logLevel: 'silent' })
+    const script = `import { DisplayProfileStore } from ${JSON.stringify(pathToFileURL(bundle).href)}
+console.log(JSON.stringify(new DisplayProfileStore(${JSON.stringify(dir)}).read()))`
+    const child = spawnSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf8', timeout: 10_000 })
+    expect(child.error).toBeUndefined()  // ETIMEDOUT had it blocked on a FIFO
+    expect(child.status).toBe(0)
+    expect(JSON.parse(child.stdout)).toEqual({ name: '', user: null, personalities: [] })
   })
 })

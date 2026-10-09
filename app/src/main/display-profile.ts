@@ -134,11 +134,13 @@ export class DisplayProfileStore {
     }
   }
 
-  /** A regular file's bytes, opened without following a link; null for anything else. */
+  /** A regular file's bytes, opened without following a link; null for anything else. Non-blocking, so a FIFO or other
+   * special file opens at once instead of waiting for a writer on the main thread, and the descriptor check refuses it.
+   * A regular file reads the same either way. */
   private readFile(file: string): Buffer | null {
     let descriptor: number | undefined
     try {
-      descriptor = openSync(join(this.dir, file), constants.O_RDONLY | constants.O_NOFOLLOW)
+      descriptor = openSync(join(this.dir, file), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK)
       const info = fstatSync(descriptor)
       return info.isFile() && info.size <= MAX_PICTURE_BYTES ? readFileSync(descriptor) : null
     } catch {
