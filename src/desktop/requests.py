@@ -887,11 +887,22 @@ class RequestService:
                             attachment, content_index=len(retained_content)))
                 content += "\n\n".join(text_parts)
                 if retained_content:
-                    manifest = self.engine.deps.tool_executor.retain_attachments(
-                        retained_content, tool_name="get_tool_output",
-                        user_id=message.owner_id, channel_id=message.conversation_id)
-                    content += ("\n[Full attachment contents in labelled source order.]\n"
-                                + canonical_json(manifest))
+                    # As Odin's intake: contents too large to retain (the per-result
+                    # quota) never fail the turn; the model keeps the inline preview.
+                    try:
+                        manifest = self.engine.deps.tool_executor.retain_attachments(
+                            retained_content, tool_name="get_tool_output",
+                            user_id=message.owner_id, channel_id=message.conversation_id)
+                    except Exception:
+                        from ..odin_log import get_logger
+
+                        get_logger("desktop.requests").exception(
+                            "Attachment output retention failed")
+                        content += ("\n[Full-content output retrieval unavailable; "
+                                    "no cursor was issued.]")
+                    else:
+                        content += ("\n[Full attachment contents in labelled source order.]\n"
+                                    + canonical_json(manifest))
             result = (await self.engine.runner.run_resumed(st) if st is not None
                       else await self.engine.run(message, content=content, image_blocks=images))
             # A returned result owns its existing guarded reply. Publication or
