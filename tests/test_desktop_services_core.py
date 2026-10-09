@@ -71,8 +71,11 @@ async def test_service_readiness_and_integrated_delivery_are_honest(connected):
     assert service.management.tool_catalog is service.engine.deps.tool_catalog
     assert service.management.browser is service.engine.deps.browser_manager
     assert service.engine.deps.skill_manager._config_store.secrets is service.settings.secrets
-    # MCP management is not an unbound foreground request-dispatch promise.
-    assert service.engine.deps.tool_catalog.get_mcp_definitions is None
+    # MCP tools are published only through the manager requests and agents
+    # dispatch to: the engine's binding is bound to management's manager.
+    assert service.engine.deps.mcp_dispatch.target is service.management.mcp.manager
+    assert (service.engine.deps.tool_catalog.get_mcp_definitions
+            == service.management.mcp.get_tool_definitions)
 
 
 async def test_skill_save_publication_receipt_reload_and_revocation(connected):
