@@ -854,6 +854,12 @@ class AgentTaskTools:
             raise
 
         async def _publish(kind: str, text: str) -> None:
+            # The task's Work card shows its live progress, so the conversation gets
+            # its result (the summary, then the follow-up) and no progress posts, which
+            # could not be edited in place as on Discord and repeated every step's output.
+            # A cancelled task posts no summary, so its last progress line still goes.
+            if kind == "progress" and task.status != "cancelled":
+                return
             await self._publish_background(background, text, kind)
 
         task.publish = _publish

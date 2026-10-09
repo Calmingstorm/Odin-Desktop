@@ -143,11 +143,14 @@ async def test_real_core_native_task_uses_retained_dispatch_and_stored_destinati
         assert work[0]["conversation_id"] == cid
         messages = core.transcript.list(cid)["items"]
         assert any(m["request_id"] == work[0]["request_id"] for m in messages)
-        # L20 (1.0.5): the finished task notifies once, with its summary; progress does not.
+        # L8 (1.0.5): the chat gets the task's result once, with no frozen "0/1" progress
+        # post and no second copy of the step results; Work shows the live progress.
         task_notices = [m["text"] for m in messages if m["request_id"] == work[0]["request_id"]]
-        assert len(task_notices) >= 2, task_notices
-        summary = notified(core, "task")
-        assert len(summary) == 1 and summary[0] == tasks[0].summary_text
+        assert task_notices[0] == tasks[0].summary_text, task_notices
+        assert not any(text.startswith("**Background Task:") for text in task_notices)
+        assert sum(text.startswith("**Task complete:") for text in task_notices) == 1
+        # L20 (1.0.5): the finished task notifies once, with its summary.
+        assert notified(core, "task") == [tasks[0].summary_text]
         response = await request(reader, writer, "work.control", {
             "control_command_id": "settled-task", "kind": "task", "id": work[0]["id"],
             "action": "cancel"})
@@ -464,5 +467,40 @@ async def test_work_reads_the_webhook_intake_state(tmp_path):
         # Incoming webhooks are off by default, so a trigger schedule's card says so.
         assert core.work.trigger_intake() == core.webhooks.intake_state() == "disabled"
         assert core.webhooks.status()["reason"] == "disabled"
+    finally:
+        await cleanup(core, writer, rfd, wfd)
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_task_posts_only_its_last_progress_line(tmp_path, monkeypatch):
+    """L8 (1.0.5): with progress posts gone, a cancelled task, which posts no summary,
+    still tells the conversation where it stopped."""
+    provider = ToolProvider("delegate_task", {"description": "Wait for a release", "steps": [
+        {"tool_name": "memory_manage", "tool_input": {"action": "list"}}]})
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, provider)
+    entered = asyncio.Event()
+
+    async def blocked(*args, **kwargs):
+        entered.set()
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(core.engine.deps.tool_executor, "execute", blocked)
+    try:
+        accepted = await request(reader, writer, "submission.send", {
+            "client_submission_id": "task", "conversation_id": cid, "text": "Delegate a wait"})
+        assert accepted["ok"]
+        await asyncio.wait_for(entered.wait(), 5)  # the step runs; the task never finishes
+        [item] = (await request(reader, writer, "work.list", {"kind": "task"}))["result"]["items"]
+        response = await request(reader, writer, "work.control", {
+            "control_command_id": "cancel-task", "kind": "task", "id": item["id"],
+            "action": "cancel"})
+        assert response["ok"], response
+        [task] = core.engine.deps.channel_state.background_tasks.values()
+        async with asyncio.timeout(5):
+            while task.status != "cancelled" or not task._asyncio_task.done():
+                await asyncio.sleep(.01)
+        notices = [m["text"] for m in core.transcript.list(cid)["items"]
+                   if m["request_id"] == item["request_id"]]
+        assert len(notices) == 1 and "(CANCELLED)" in notices[0], notices
     finally:
         await cleanup(core, writer, rfd, wfd)
