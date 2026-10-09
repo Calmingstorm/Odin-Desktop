@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -144,10 +145,26 @@ class ConversationStore:
             return {"items": [{**item, "activity": self.activity(self.state(item["id"]))}
                               for item in records], "watermark": self.events.high}
 
+    @staticmethod
+    def _title(value, fallback: str | None) -> str:
+        """A title is one line of visible text of up to 200 characters.
+
+        Control characters and line breaks become spaces; emoji joiners stay. A
+        blank title falls back to ``fallback``, or is refused without one.
+        """
+        if type(value) is not str:
+            raise ConversationError("bad_request", "Invalid parameter: title")
+        text = "".join(" " if unicodedata.category(char) in {"Cc", "Zl", "Zp"} else char
+                       for char in value).strip()
+        if not text:
+            if fallback is None:
+                raise ConversationError("bad_request", "A conversation title can't be blank")
+            text = fallback
+        return text[:200]
+
     def create(self, title: str = "Chat", parent_id: str | None = None,
                from_message_id: str | None = None) -> dict:
-        if type(title) is not str:
-            raise ConversationError("bad_request", "Invalid parameter: title")
+        title = self._title(title, "Chat")
         if parent_id is None and from_message_id is not None:
             raise ConversationError("bad_request", "from_message_id requires parent_id")
         with domain_transaction(self.store) as db:
@@ -160,7 +177,7 @@ class ConversationStore:
                 inherited = self.transcript.model_context(parent_id, through_position=cutoff[0])
                 origin = {"conversation_id": parent_id, "message_id": cutoff[1],
                           "title": parent["title"]}
-            record = {"id": "c_" + uuid4().hex, "title": (title or "Chat")[:200],
+            record = {"id": "c_" + uuid4().hex, "title": title,
                       "rev": 1, "parent_id": parent_id, "inherited_from": origin,
                       "updated_at": now(), "unread": 0, "archived": False}
             db.execute("INSERT INTO desktop_conversations(id,record) VALUES (?,?)",
@@ -188,14 +205,14 @@ class ConversationStore:
         return record
 
     def update(self, id: str, expected_rev: int, **changes) -> dict:
-        if "title" in changes and type(changes["title"]) is not str:
-            raise ConversationError("bad_request", "Invalid parameter: title")
+        if "title" in changes:
+            changes["title"] = self._title(changes["title"], None)
         if "archived" in changes and type(changes["archived"]) is not bool:
             raise ConversationError("bad_request", "Invalid parameter: archived")
         with domain_transaction(self.store):
             record = self._revision(id, expected_rev)
             if "title" in changes:
-                record["title"] = changes["title"][:200]
+                record["title"] = changes["title"]
             if "archived" in changes:
                 record["archived"] = changes["archived"]
             self._changed(record)
