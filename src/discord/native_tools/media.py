@@ -48,7 +48,7 @@ class MediaTools:
         """
         raise NotImplementedError(_DELIVERY_UNAVAILABLE)
 
-    def _retain_generated_image(self, data: bytes) -> str | None:
+    def _retain_generated_image(self, data: bytes, folder: str = "generated-images") -> str | None:
         """A local copy of a posted image the model can open again; Desktop keeps one."""
         return None
 
@@ -75,6 +75,15 @@ class MediaTools:
             text, screenshot_bytes = await handle_browser_screenshot(self.browser_manager, inp)
             if screenshot_bytes:
                 await self._publish_attachment(message, screenshot_bytes, "screenshot.png")
+                # As for generated images: the posted copy is the conversation's; a
+                # local copy is the one the model can open again (Desktop keeps one).
+                local_copy = None
+                try:
+                    local_copy = self._retain_generated_image(screenshot_bytes, "screenshots")
+                except OSError as e:
+                    log.info("screenshot posted but no local copy was kept: %s", e)
+                if local_copy:
+                    text += f"\nLocal file on localhost: {local_copy}"
             return text
         except Exception as e:
             return f"Browser screenshot failed: {e}"

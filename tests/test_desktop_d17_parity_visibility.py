@@ -189,6 +189,53 @@ async def test_generated_image_result_names_no_attachment_url(graph, monkeypatch
     assert len(files) == 1
 
 
+async def test_browser_screenshot_result_names_a_local_copy(graph, monkeypatch, tmp_path):
+    """L7 (1.0.5): a screenshot reached the chat but not the model, so Odin could not read
+    his own screenshot. As for generated images (1.0.2), the result names a local copy."""
+    from src.tools import browser as browser_tools
+
+    engine, requests, provider, transcript, artifacts, cid, cfg = graph
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(mode=0o700)
+    cfg.tools.local_working_dir = str(workspace)
+    cfg.browser.enabled = True
+    image = io.BytesIO()
+    Image.new("RGB", (2, 2), "blue").save(image, format="PNG")
+
+    summary_text = "Screenshot of **Example** (https://example.test/) — HTTP 200, 1 KB"
+
+    async def screenshot(manager, inp):
+        assert inp == {"url": "https://example.test/"}
+        return summary_text, image.getvalue()
+
+    monkeypatch.setattr(browser_tools, "handle_browser_screenshot", screenshot)
+    policy = engine.deps.tool_executor._builtin_policy
+    ready = policy._get_readiness
+    monkeypatch.setattr(policy, "_get_readiness", lambda: {**ready(), "browser_screenshot": True})
+    owner = engine.deps.native_tools.owners["media"]
+    monkeypatch.setattr(owner, "browser_manager", object())
+    original = type(owner)._handle_browser_screenshot
+    results = []
+
+    async def recorded(self, message, inp):
+        results.append(await original(self, message, inp))
+        return results[-1]
+
+    monkeypatch.setattr(type(owner), "_handle_browser_screenshot", recorded)
+    await execute(graph, [ToolCall("shot", "browser_screenshot", {"url": "https://example.test/"})])
+    [result] = results
+    summary, location = result.split("\n")
+    assert summary == summary_text
+    assert location.startswith("Local file on localhost: ")
+    saved = Path(location.removeprefix("Local file on localhost: "))
+    assert saved.parent == workspace / "screenshots"
+    assert saved.read_bytes() == image.getvalue()
+    assert stat.S_IMODE(saved.stat().st_mode) == 0o600
+    assert summary in str(provider.calls[1]["messages"])
+    files = [row for row in transcript.list(cid)["items"] if row.get("artifacts")]
+    assert len(files) == 1
+
+
 async def test_generated_image_without_a_local_copy_is_still_posted(graph, monkeypatch):
     engine, _requests, _provider, transcript, _artifacts, cid, _cfg = graph
     image = io.BytesIO()

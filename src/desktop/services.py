@@ -902,12 +902,12 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         def _generated_image_name():
             return f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}.png"
 
-        def _retain_generated_image(self, data):
+        def _retain_generated_image(self, data, folder="generated-images"):
             # The conversation shows the posted artifact; this owner-only copy in
             # the local workspace is the one the model can open again. The folder
             # must be a private directory this user owns, reached without following
             # a link; otherwise no copy is kept (an OSError the caller absorbs).
-            directory = Path(get_config().tools.local_working_dir) / "generated-images"
+            directory = Path(get_config().tools.local_working_dir) / folder
             try:
                 os.mkdir(directory, 0o700)
             except FileExistsError:
