@@ -496,6 +496,11 @@
         "missing": 0,
         "total": 4
       },
+      "app/src/renderer/src/stopping-label.ts": {
+        "covered": 21,
+        "missing": 0,
+        "total": 21
+      },
       "app/src/renderer/src/store.ts": {
         "covered": 603,
         "missing": 53,
@@ -2809,6 +2814,7 @@
     "app/src/renderer/src/settings-presentation.ts",
     "app/src/renderer/src/skill-config.ts",
     "app/src/renderer/src/skill-editor.ts",
+    "app/src/renderer/src/stopping-label.ts",
     "app/src/renderer/src/store.ts",
     "app/src/renderer/src/stores/browser.ts",
     "app/src/renderer/src/stores/completion.ts",

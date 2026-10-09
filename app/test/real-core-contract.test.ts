@@ -6,11 +6,15 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import type { ConversationSnapshot, CoreEvent } from '../src/shared/api'
 import { PROTOCOL, type Settled, type Welcome } from '../src/main/broker'
 import { FILE_CONTENT, IMAGE_BYTES, PAGED_TEXT, REPLY, TOOL_REPLY } from './real-core-provider-fixture.mjs'
+
 import { AttachmentManager } from '../src/main/attachments'
 import { assertIsolated, onceEvent, RealCoreHarness, usageSettled, waitFor, SERVED_CAPABILITIES } from './real-core-harness'
 import { assertFreshManagementStatus, realCoreCapabilities, type RealCoreStatus } from '../src/main/real-core-smoke'
 import { assertRealCoreIsolation } from '../scripts/real-core-isolation.mjs'
 import { assertIsolated as assertSmokeIsolated } from './real-core-smoke-seed'
+
+// A source-tree engine reports the product version from app/package.json.
+const appVersion = (JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8')) as { version: string }).version
 
 // Intentional module-level hard failure if someone invokes this file with the normal/unisolated Vitest gate.
 assertIsolated()
@@ -58,12 +62,12 @@ describe('actual app Broker ↔ repository real core', () => {
 
   test('authenticates the handshake, reads real status and replays events after a cursor', async () => {
     expect(realCoreCapabilities).toEqual(SERVED_CAPABILITIES)
-    expect(realCoreCapabilities).toHaveLength(180)
+    expect(realCoreCapabilities).toHaveLength(181)
     expect(new Set(realCoreCapabilities).size).toBe(realCoreCapabilities.length)
     const { broker, welcome } = await core.connect()
     expect(welcome).toMatchObject({
       protocol: { major: PROTOCOL.major }, profile_id: 'default', capabilities, features: [],
-      core: { version: '0.1.0.dev1' }
+      core: { version: appVersion }
     })
     expect(welcome.core.instance_id).toMatch(/^[a-f0-9-]{36}$/)
     expect(welcome.max_frame).toBe(4 * 1024 * 1024)

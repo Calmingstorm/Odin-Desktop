@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 
 const appDir = resolve(__dirname, '../..')
+// A source-tree engine reports the product version from app/package.json, as /status shows it.
+const appVersion = (JSON.parse(readFileSync(join(appDir, 'package.json'), 'utf8')) as { version: string }).version
 const axePath = require.resolve('axe-core/axe.min.js')
 let app: ElectronApplication
 let page: Page
@@ -510,7 +512,7 @@ test('real core keyboard status usage and every real settings or unavailable ser
   const saved = await page.evaluate(async (code) => (window as any).odin.skillsSave({ name: 'slice4_constant', code, create: true }), skillCode)
   expect(saved.ok).toBe(true)
   await send('/status')
-  await expect(page.getByRole('region', { name: 'Status', exact: true }).locator('.panel-text')).toContainText('Odin v0.1.0.dev1')
+  await expect(page.getByRole('region', { name: 'Status', exact: true }).locator('.panel-text')).toContainText(`Odin v${appVersion}`)
   await send('/usage')
   await expect(page.getByRole('region', { name: 'Usage, 7d', exact: true }).locator('.panel-text')).toContainText('settled turns 0')
   await expect(page.locator('.statusbar')).not.toContainText('Usage is unavailable in this core')
@@ -872,18 +874,16 @@ test('narrow window: Work sits above the chat, so no covered control stays in th
   await expect(message).toBeVisible()
 })
 
-test('keyboard and accessibility tree preserve unknown work settlement and steer boundaries', async () => {
+test('keyboard and accessibility tree preserve honest unknown work outcomes and steer boundaries', async () => {
   await launch(false, 'work-settlement')
   await activate(page.locator('.work-toggle'))
   const row = page.locator('.work-item').filter({ hasText: 'Unknown release audit' })
-  await expect(row).toContainText('Settlement')
-  await expect(row).toContainText('unknown')
-  await expect(row).toContainText('unproven')
-  await expect(row).toContainText('Resource release is not confirmed')
+  await expect(row).toContainText('The outcome is not confirmed.')
+  await expect(row).not.toContainText(/Settlement|Resource release|unproven/)
   await audit('work-unknown-settlement')
   const tree = await ax('work-unknown-settlement')
-  expect(tree).toContain('Work settlement')
-  expect(tree).toContain('Resource release')
+  expect(tree).toContain('The outcome is not confirmed.')
+  expect(tree).not.toMatch(/Settlement|Work settlement|Resource release|unproven/)
   const steer = row.getByRole('button', { name: 'Steer agent: Unknown release audit', exact: true })
   await activate(steer)
   const input = row.getByRole('textbox', { name: 'Steer agent: Unknown release audit', exact: true })
@@ -893,8 +893,8 @@ test('keyboard and accessibility tree preserve unknown work settlement and steer
   await expect(row.getByRole('button', { name: 'Send steer to agent: Unknown release audit', exact: true })).toHaveAttribute('aria-disabled', 'false')
   await audit('work-steer-form')
   const steerTree = await ax('work-steer-form')
-  expect(steerTree).toContain('Queued is not consumed')
-  expect(steerTree).toContain('Unknown outcomes are not retried')
+  expect(steerTree).toContain('The agent reads this at its next step.')
+  expect(steerTree).not.toMatch(/Queued is not consumed|Unknown outcomes are not retried/)
 })
 
 test('rejected assistant drafts never enter DOM or real AX tree, structural announcements remain quiet', async () => {

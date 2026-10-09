@@ -17,6 +17,7 @@ from ..turn_state.store import TurnKey, TurnStatus
 from .commands import canonical_json, response_error
 from .conversations import ConversationError, domain_transaction, now, require_string
 from .errors import NoLLMProviderError
+from .package_status import product_version
 
 REQUEST_SCHEMA = {
     "desktop_requests": {"request_id", "conversation_id", "message_id", "owner", "generation",
@@ -500,10 +501,16 @@ class RequestService:
             bound.update((row["request_id"], row["generation"]) for row in queued)
             controls = [control for control in controls
                         if (control["request_id"], control["generation"]) in bound]
+        acknowledged = set()
+        if "desktop_controls" in tables:
+            acknowledged = {(row[0], row[1]) for row in self.store.connection.execute(
+                "SELECT request_id,generation FROM desktop_controls WHERE conversation_id=? "
+                "AND kind='acknowledge' AND disposition='confirmed'", (conversation_id,))}
         running = {**bind(active[0]), "started_at": active[0]["started_at"]} if active else None
         return {"running": running,
                 "queued": queued, "recent": terminal[-20:],
-                "unresolved": [row for row in terminal if row["unknown_effects"]],
+                "unresolved": [row for row in terminal if row["unknown_effects"] and
+                               (row["request_id"], row["generation"]) not in acknowledged],
                 "tools": self._snapshot_tools(conversation_id, tables), "controls": controls}
 
     def _snapshot_tools(self, conversation_id, tables):
@@ -716,7 +723,7 @@ class RequestService:
             return hashlib.sha256(text.encode("utf-8")).hexdigest()
         lease, disposition = await asyncio.to_thread(
             store.admit_turn_sync, message.turn_key, guild_id=None, user_id=message.owner_id,
-            content_digest=compute_content_digest(message.content), code_version="0.1.0.dev1",
+            content_digest=compute_content_digest(message.content), code_version=product_version(),
             prompt_policy_hash=digest(system_prompt),
             tool_catalog_hash=digest(",".join(sorted(
                 tool.get("name", "") for tool in (tools or [])))),

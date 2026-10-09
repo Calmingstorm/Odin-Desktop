@@ -29,6 +29,8 @@ export function workKey(item: Pick<WorkItem, 'kind' | 'id' | 'manager_id'>): str
 }
 
 const ACTIVE = new Set(['admitted', 'running', 'starting', 'stopping'])
+/** The states the core gives a schedule its scheduler no longer holds. */
+const ENDED_SCHEDULE = new Set(['completed', 'failed', 'cancelled', 'unknown'])
 
 export const GROUPS: Array<{ kind: WorkKind; label: string }> = [
   { kind: 'agent', label: 'Agents' },
@@ -82,7 +84,8 @@ export function kindLabel(kind: WorkKind): string {
  */
 export function bySection(): Array<{ kind: string; label: string; items: WorkItem[] }> {
   const recent = (a: WorkItem, b: WorkItem): number => workStartedMillis(b.started_at) - workStartedMillis(a.started_at)
-  const scheduled = (item: WorkItem): boolean => item.kind === 'schedule'
+  // A schedule the scheduler no longer holds (a one-time run that finished, or a deleted one) is finished work.
+  const scheduled = (item: WorkItem): boolean => item.kind === 'schedule' && !ENDED_SCHEDULE.has(item.state)
   return [
     { kind: 'running', label: 'Running now', items: work.items.filter((i) => !scheduled(i) && isActive(i)).sort(recent) },
     { kind: 'scheduled', label: 'Scheduled', items: work.items.filter(scheduled)
@@ -149,7 +152,7 @@ function answerNote(action: WorkAction, result: Result<WorkControlReceipt>): str
   if (!result.ok) return resultMessage(result, 'Work controls')
   const receipt = result.result
   if (action === 'steer' && receipt.disposition === 'queued') {
-    return `Steer: queued${receipt.sequence === undefined ? '' : ` (sequence ${receipt.sequence})`}. Queued is not consumed.`
+    return `Steer queued; the agent hasn't read it yet.${receipt.sequence === undefined ? '' : ` (sequence ${receipt.sequence})`}`
   }
   return `${actionLabel(action)}: ${DISPOSITIONS[receipt.disposition] ?? receipt.disposition}${receipt.reason ? ` (${receipt.reason})` : ''}`
 }

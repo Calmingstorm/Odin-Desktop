@@ -1416,6 +1416,9 @@ export interface OdinApi extends ManagementApi, SettingsShapedApi {
   snapshotConversation(params: { conversation_id: string; limit?: number }): Promise<Result<ConversationSnapshot>>
   submit(params: SubmitParams): Promise<Result<{ disposition: string; request_id?: string; message_id?: string }>>
   stop(params: ControlTarget): Promise<Result<{ disposition: string }>>
+  acknowledgeEffects(params: ControlTarget): Promise<Result<{
+    disposition: 'acknowledged' | 'already_acknowledged' | 'not_found'; remaining: number
+  }>>
   steer(params: ControlTarget & { text: string }): Promise<Result<{ disposition: string; sequence?: number }>>
   usage(period: '24h' | '7d' | '30d' | 'all'): Promise<Result<UsageResult>>
   reload(scope: 'skills' | 'config' | 'context'): Promise<Result<{ disposition: string; summary: string }>>
@@ -1519,6 +1522,7 @@ export const IPC = {
   snapshotConversation: 'odin:conversation:snapshot',
   submit: 'odin:submit',
   stop: 'odin:stop',
+  acknowledgeEffects: 'odin:effects:acknowledge',
   steer: 'odin:steer',
   usage: 'odin:usage',
   reload: 'odin:reload',

@@ -39,6 +39,16 @@ const corpus = JSON.parse(execFileSync(process.env.ODIN_DESKTOP_ENGINE_PYTHON ||
   }, encoding: 'utf8', timeout: 120_000 }))
 type Store = typeof import('../../src/renderer/src/store')
 let store: Store
+// started_at and generation are the renderer's own observed timing (the Stop label's clock),
+// kept across a refresh only for the same live run; the core's snapshot never carries them.
+function coreToolFields<T extends { started_at?: unknown; generation?: unknown }>(tools: Record<string, T[]>) {
+  return Object.fromEntries(Object.entries(tools).map(([id, entries]) => [id, entries.map((entry) => {
+    const core = { ...entry }
+    delete core.started_at
+    delete core.generation
+    return core
+  })]))
+}
 
 beforeEach(async () => {
   vi.resetModules()
@@ -60,7 +70,8 @@ describe('real desktop chat contracts', () => {
     expect(view.messages.map((m) => m.role)).toEqual(['user'])
     expect(view.queued).toEqual(corpus.after_reply.queued)
     expect(view.queued[0]?.message_id).toBe(corpus.admitted.message_id)
-    expect(view.tools).toEqual(corpus.after_reply.tools)
+    expect(coreToolFields(view.tools)).toEqual(corpus.after_reply.tools)
+    for (const entry of Object.values(view.tools).flat()) expect(Date.parse(entry.started_at ?? '')).not.toBeNaN()
     for (const event of corpus.reply_events as CoreEvent[]) store.applyEvent(event)
     expect(view.messages).toEqual(corpus.after_reply.messages.items)
     expect(view.messages.find((m) => m.role === 'assistant')?.text).toBe('Committed needle')

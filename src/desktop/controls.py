@@ -28,6 +28,9 @@ def _now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
+# A request that has ended; only these can carry unknown effects to dismiss.
+SETTLED_REQUEST_STATES = frozenset({"completed", "failed", "cancelled", "interrupted", "suspended"})
+
 class ControlService:
     """Service seam; request execution remains exclusively RequestService's job.
 
@@ -61,7 +64,7 @@ class ControlService:
     async def dispatch(self, method: str, params: dict, *, on_notice=None) -> dict:
         if method == "work.control":
             return await self._work_control(params)
-        if method not in {"control.stop", "control.steer", "control.resume"}:
+        if method not in {"control.stop", "control.steer", "control.resume", "effects.acknowledge"}:
             return response_error("not_found", "Unknown control method")
         if (type(params) is not dict
                 or any(type(params.get(key)) is not str or not params[key]
@@ -84,6 +87,9 @@ class ControlService:
                     return cached
                 if method == "control.resume":
                     answer = await self._resume(normalized, on_notice=on_notice)
+                    self._finish(command_id, answer)
+                elif method == "effects.acknowledge":
+                    answer = self._acknowledge(normalized)
                     self._finish(command_id, answer)
                 else:
                     answer = self._stop_or_steer(method, normalized)
@@ -176,6 +182,39 @@ class ControlService:
                                 params["request_id"], params["generation"],
                                 method.split(".")[1], time.time()))
         return None
+
+    def _acknowledge(self, params: dict) -> dict:
+        """The owner has seen a finished task's unknown effects and dismisses the notice.
+
+        Presentation only: the operation ledger keeps the effects unknown, so
+        nothing is resolved, replayed or made resumable by this receipt.
+        """
+        cid, rid, generation = (params["conversation_id"], params["request_id"],
+                                params["generation"])
+        with self.store.transaction() as connection:
+            row = connection.execute("SELECT state,unknown_effects FROM desktop_requests "
+                                     "WHERE request_id=? AND generation=? AND conversation_id=?",
+                                     (rid, generation, cid)).fetchone()
+            earlier = connection.execute("""SELECT 1 FROM desktop_controls WHERE request_id=?
+                AND generation=? AND kind='acknowledge' AND disposition='confirmed'
+                AND control_command_id<>?""",
+                                         (rid, generation, params["control_command_id"])).fetchone()
+            if (row is None or row["state"] not in SETTLED_REQUEST_STATES
+                    or not json.loads(row["unknown_effects"])):
+                disposition = "not_found"
+            elif earlier is not None:
+                disposition = "already_acknowledged"
+            else:
+                disposition = "acknowledged"
+            connection.execute("UPDATE desktop_controls SET disposition=? "
+                               "WHERE control_command_id=?",
+                               ("confirmed" if disposition == "acknowledged" else disposition,
+                                params["control_command_id"]))
+            if disposition == "acknowledged":
+                self.events.append("effects.resolved", {"kind": "request", "id": rid},
+                                   {"conversation_id": cid, "request_id": rid,
+                                    "generation": generation, "remaining": 0})
+        return {"ok": True, "result": {"disposition": disposition, "remaining": 0}}
 
     def _finish(self, command_id: str, answer: dict) -> None:
         with self.store.transaction() as connection:

@@ -94,6 +94,45 @@ async def test_health_delivery_ready_after_startup_and_real_guarded_turn(compose
     assert_ready(after["result"])
 
 
+
+async def test_health_reads_the_composed_engine_parts_not_odin_bot_names(composed):
+    """Sessions, knowledge, scheduler, loops and agents are composed; none is "not initialised"."""
+    core, _provider, reader, writer = composed
+    health = await request(reader, writer, "health.get")
+    assert health["ok"], health
+    components = {item["name"]: item for item in health["result"]["components"]}
+    for name in ("sessions", "knowledge", "scheduler", "loops", "agents"):
+        assert components[name]["status"] == "ok", components[name]
+        assert "not initialised" not in components[name]["detail"]
+    deps = core.engine.deps
+    assert components["scheduler"]["metadata"]["count"] == len(deps.scheduler.list_all())
+    assert components["agents"]["metadata"]["total"] == len(deps.agent_manager._agents)
+
+
+async def test_core_registers_each_scheduled_run_with_work_webhooks_included(composed):
+    """The scheduler's run observer is the core's own, so a webhook run, which never reaches the
+    callback admission, still names its binding in Work as it starts."""
+    core, _provider, _reader, _writer = composed
+    scheduler = core.engine.deps.scheduler
+    assert scheduler.run_observer == core._observe_schedule_run
+    cid = core.conversations.create()["conversation"]["id"]
+    owner = core.authority.authenticate_local(peer_uid=core.authority.owner_uid)
+    token = core.permissions.set_request_owner(owner)
+    try:
+        added = await scheduler.add("inert webhook", "webhook", cid, cron="0 0 * * *",
+                                    requester_id=core.authority.owner_id,
+                                    webhook_config={"url": "https://example.invalid/x"})
+        current = next(s for s in scheduler._schedules if s["id"] == added["id"])
+        current["run_binding"] = {"run_id": "r-start", "generation": current["_generation"]}
+        scheduler._observe_run_start(dict(current))
+        listed = core.work.list({"kind": "schedule"})["items"]
+        [item] = [i for i in listed if i["manager_id"] == added["id"]]
+        assert item["detail"]["run_binding"]["run_id"] == "r-start"
+        foreign = {**current, "requester_id": "someone-else"}
+        core._observe_schedule_run(foreign)  # another requester's definition is not Work's
+    finally:
+        core.permissions.reset_request_owner(token)
+
 @pytest.mark.parametrize("owner,attribute,replacement,reason", [
     ("core", "delivery", None, "delivery_not_composed"),
     ("delivery", "store", None, "delivery_store_unbound"),

@@ -170,13 +170,13 @@ describe('scrolling to the latest messages', () => {
     view.unresolved = [{ request_id: 'uncertain', generation: 1, at: '2026-10-05T00:00:00Z', outcome: 'failed', unknown_effects: 2 }]
     store.state.pending.push({ client_submission_id: 'pending', conversation_id: 'c1', text: 'Uncertain submission', status: 'unknown' })
     for (const status of ['consumed', 'queued', 'unknown'] as const) store.state.controls.push({ control_command_id: status, kind: 'steer', conversation_id: 'c1', request_id: 'active', generation: 1, status, text: `Steer ${status}`, detail: 'Receipt detail' })
-    store.state.controls.push({ control_command_id: 'old-stop', kind: 'stop', conversation_id: 'c1', request_id: 'ended', generation: 1, status: 'unknown' })
+    store.state.controls.push({ control_command_id: 'active-stop', kind: 'stop', conversation_id: 'c1', request_id: 'active', generation: 1, status: 'unknown' })
     await flush()
     expect(mounted.root.textContent()).toContain('1 follow-up queued')
     expect(mounted.root.textContent()).toContain('Odin has read it: Receipt detail')
     expect(mounted.root.textContent()).toContain('waiting for Odin to read it: Receipt detail')
     expect(mounted.root.textContent()).toContain('outcome unknown; it will not be sent again: Receipt detail')
-    expect(mounted.root.textContent()).toContain('2 action(s) with an unknown outcome. They will not be repeated.')
+    expect(mounted.root.textContent()).toContain('2 actions with an unknown outcome. They will not be repeated.')
     expect(mounted.root.findAll((node) => node.props['aria-label'] === 'Control receipts')[0]!.textContent()).toContain('Stopoutcome unknown; it will not be sent again')
     await settle()
   })
@@ -312,14 +312,93 @@ describe('scrolling to the latest messages', () => {
     expect(scroller.scrollTop).toBe(7500)
   })
 
-  it('keeps confirmed Stop and consumed Steer receipts after their run ends', async () => {
+  it('shows Stop and Steer only for the live request and generation, then removes both when it ends', async () => {
     const view = store.state.views.c1!
+    view.running = { request_id: 'ended', generation: 1, started_at: '2026-10-05T00:00:00Z' }
     view.controls.stop = { control_command_id: 'stop', kind: 'stop', request_id: 'ended', generation: 1, status: 'confirmed' }
     view.controls.steer = { control_command_id: 'steer', kind: 'steer', request_id: 'ended', generation: 1, status: 'consumed' }
+    store.state.controls.push({ control_command_id: 'wrong-generation', kind: 'stop', conversation_id: 'c1', request_id: 'ended', generation: 2, status: 'unknown' })
     await flush()
     expect(mounted.root.textContent()).toContain('confirmed by Odin')
     expect(mounted.root.textContent()).toContain('Odin has read it')
+    expect(mounted.root.textContent()).not.toContain('outcome unknown; it will not be sent again')
+    view.running = null
+    await flush()
+    expect(mounted.root.textContent()).not.toContain('confirmed by Odin')
+    expect(mounted.root.textContent()).not.toContain('Odin has read it')
+    // Local command history is retained for late receipts/idempotency, but not displayed as chat history.
+    expect(store.state.controls).toHaveLength(1)
+    await settle()
   })
+
+  it('does not resurrect local controls when a fresh snapshot has no running task or controls', async () => {
+    store.state.controls.push({ control_command_id: 'local-stop', kind: 'stop', conversation_id: 'c1', request_id: 'ended', generation: 1, status: 'confirmed' },
+      { control_command_id: 'local-steer', kind: 'steer', conversation_id: 'c1', request_id: 'ended', generation: 1, status: 'consumed' })
+    await store.openLatest('c1'); await flush()
+    expect(store.state.views.c1!.controls).toEqual({})
+    expect(mounted.root.textContent()).not.toContain('confirmed by Odin')
+    expect(mounted.root.textContent()).not.toContain('Odin has read it')
+    await settle()
+  })
+
+  it('keeps a bare stopped outcome until that request gets an assistant reply, not an unrelated reply or notice', async () => {
+    const view = store.state.views.c1!
+    view.recent.push({ request_id: 'stopped', generation: 1, outcome: 'cancelled', unknown_effects: 0, at: '2026-10-05T00:00:00Z' })
+    view.messages.push({ ...message('notice'), role: 'notice', request_id: 'stopped' })
+    await flush()
+    expect(mounted.root.textContent()).toContain('The task was stopped.')
+    view.messages.push({ ...message('reply'), request_id: 'stopped', text: 'Task stopped by user. The current step completed.' })
+    await flush()
+    expect(mounted.root.textContent()).not.toContain('The task was stopped.')
+    expect(mounted.root.textContent()).toContain('Task stopped by user.')
+    await settle()
+  })
+
+  it('keeps unresolved effects visible while dismissing and waiting for a late confirmation', async () => {
+    const view = store.state.views.c1!
+    view.unresolved = [{ request_id: 'unknown', generation: 1, outcome: 'failed', unknown_effects: 1, at: '2026-10-05T00:00:00Z' }]
+    let answer!: (value: unknown) => void
+    const acknowledgeEffects = vi.fn(() => new Promise((resolve) => { answer = resolve }))
+    Object.assign(window.odin, { acknowledgeEffects })
+    await flush()
+    expect(mounted.root.textContent()).toContain('1 action with an unknown outcome. It will not be repeated.')
+    const pending = mounted.root.button('Dismiss').fire('click')
+    await flush()
+    expect(mounted.root.button('Dismissing…').props.disabled).toBe(true)
+    expect(view.unresolved).toHaveLength(1)
+    answer({ ok: false, error: { code: 'no_receipt', message: 'No receipt yet.', disposition: 'outcome_unknown' } })
+    await pending; await flush()
+    expect(mounted.root.button('Waiting for confirmation').props.disabled).toBe(true)
+    expect(view.unresolved).toHaveLength(1)
+    expect(acknowledgeEffects).toHaveBeenCalledTimes(1)
+    store.applyEvent({ seq: 2, cursor: '2', type: 'effects.resolved', entity: { kind: 'request', id: 'unknown' },
+      at: '2026-10-05T00:00:00Z', payload: { conversation_id: 'c1', request_id: 'unknown', generation: 1, remaining: 0 } })
+    await flush()
+    expect(mounted.root.textContent()).not.toContain('1 action with an unknown outcome')
+  })
+  it('ticks the stopping working line from tool.started and falls back when the tool settles', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-10-05T00:01:10Z'))
+      const view = store.state.views.c1!
+      view.running = { request_id: 'stopping-task', generation: 3, started_at: '2026-10-04T00:00:00Z' }
+      store.state.controls.push({ control_command_id: 'stop', conversation_id: 'c1', kind: 'stop', request_id: 'stopping-task', generation: 3, status: 'requested' })
+      store.applyEvent({ seq: 2, cursor: '2', type: 'tool.started', entity: { kind: 'request', id: 'stopping-task' }, at: '2026-10-05T00:00:00Z',
+        payload: { conversation_id: 'c1', request_id: 'stopping-task', generation: 3, invocation_id: 'call', tool: 'run_command', summary: 'run_command' } })
+      await flush()
+      expect(mounted.root.textContent()).toContain('Stopping… waiting for run_command to finish (1:10)')
+      await vi.advanceTimersByTimeAsync(1000); await flush()
+      expect(mounted.root.textContent()).toContain('Stopping… waiting for run_command to finish (1:11)')
+      store.applyEvent({ seq: 3, cursor: '3', type: 'tool.settled', entity: { kind: 'request', id: 'stopping-task' }, at: '2026-10-05T00:01:11Z',
+        payload: { conversation_id: 'c1', request_id: 'stopping-task', generation: 3, invocation_id: 'call', outcome: 'success' } })
+      await flush()
+      const line = mounted.root.findAll((node) => node.props.class === 'working-line')[0]!
+      expect(line.textContent()).toBe('Stopping…')
+      expect(vi.getTimerCount()).toBe(0)
+    } finally { vi.useRealTimers() }
+    await settle()
+  })
+
   it('keeps tool receipts after failure without inventing an assistant reply', async () => {
     const view = store.state.views.c1!
     view.running = { request_id: 'failed-task', generation: 1, started_at: '2026-10-05T00:00:00Z' }

@@ -22,7 +22,7 @@ from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
 from .management import ManagementService
 from .package_state import PackageUpgrade, inspect_profile
-from .package_status import PackageStatus
+from .package_status import PackageStatus, product_version
 from .paths import ProfilePaths
 from .reports import ReportBinding, ReportDelivery, ReportService
 from .requests import RequestService
@@ -38,7 +38,7 @@ from .ssh_sockets import socket_directory
 from .tool_details import ToolDetailsStore
 from .transcript import TranscriptStore
 
-VERSION = "0.1.0.dev1"
+VERSION = product_version()
 CONVERSATION_METHODS = frozenset({
     "conversations.list", "conversations.create", "conversations.update",
     "conversations.delete", "conversations.reset_context", "conversations.mark_read",
@@ -48,7 +48,8 @@ SEARCH_METHODS = frozenset({"search.query", "messages.around"})
 ATTACHMENT_METHODS = frozenset({"attachments.begin", "attachments.chunk",
                                 "attachments.commit", "attachments.cancel"})
 RESULT_METHODS = frozenset({"artifacts.read", "tool.detail", "tool.output"})
-CONTROL_METHODS = frozenset({"control.stop", "control.steer", "control.resume", "work.control"})
+CONTROL_METHODS = frozenset({"control.stop", "control.steer", "control.resume", "work.control",
+                             "effects.acknowledge"})
 WORK_METHODS = frozenset({"work.list", "reports.page", "turn_state.list"})
 SCHEDULE_METHODS = frozenset({"schedules.list", "schedules.save", "schedules.delete",
     "schedules.run", "schedules.reset_failures", "schedules.history", "schedules.validate_cron"})
@@ -176,6 +177,10 @@ def validate_params(method: str, params: object) -> dict | None:
         "control.steer": {
             "control_command_id": str, "conversation_id": str,
             "request_id": str, "generation": int, "text": str,
+        },
+        "effects.acknowledge": {
+            "control_command_id": str, "conversation_id": str,
+            "request_id": str, "generation": int,
         },
     }
     optional = {
@@ -474,6 +479,8 @@ class CoreService:
         try:
             # The real scheduler task inherits sealed installation authority,
             # not whichever IPC connection happened to open the window.
+            # Every run, webhooks included, names its binding in Work as it starts.
+            self.engine.deps.scheduler.run_observer = self._observe_schedule_run
             self.engine.deps.scheduler.start(self._scheduled_handlers._on_scheduled_task,
                 self._scheduled_handlers._on_schedule_failure)
         finally:
@@ -565,6 +572,11 @@ class CoreService:
             raise PermissionError("Report requires an admitted background run")
         if background["run_id"] != binding.run_id:
             raise PermissionError("Report run identity differs from admission")
+
+    def _observe_schedule_run(self, definition):
+        """The scheduler's run-start notice: Work records which run of the definition starts."""
+        if definition.get("requester_id") == self.authority.owner_id:
+            self.work.register_schedule(definition)
 
     @asynccontextmanager
     async def _admit_schedule(self, schedule, *, notice_id=None):

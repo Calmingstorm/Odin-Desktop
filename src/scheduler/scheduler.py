@@ -192,12 +192,20 @@ class Scheduler:
         # double-firing when a manual run_now overlaps a tick, a duplicate
         # webhook arrives, or (defensively) two scheduler loops tick at once.
         self._in_flight: set[str] = set()
+        # Told which run of a definition starts, before any action runs (Desktop's
+        # Work registry records the run's binding, for webhooks as for callbacks).
+        self.run_observer: Callable[[dict], None] | None = None
         # Execution history
         _hist_path = history_path or str(self.data_path.parent / "schedule_history.jsonl")
         self.history = ScheduleHistory(_hist_path)
         self._http_session: aiohttp.ClientSession | None = None
         self._load()
         self._degrade_removed_trigger_sources()
+        # Desktop keeps what each removed definition last carried (its generation and
+        # run bindings), so Work can settle a deleted or retired schedule from its own
+        # latest run even when Work never heard that run start.
+        self._removed_path = self.data_path.with_name(self.data_path.stem + "_removed.json")
+        self._removed: list[dict] = self._load_removed() if desktop_recovery else []
         for schedule in self._schedules:
             self._resolve_interrupted_run(schedule)
             if self.desktop_recovery and not schedule.get("inert_reason"):
@@ -211,6 +219,12 @@ class Scheduler:
                     )
 
     REPLAY_SAFE_ONE_TIME_ACTIONS = frozenset({"reminder", "digest"})
+    REMOVED_RECORDS_KEPT = 512
+    REMOVED_RECORDS_VERSION = 1
+    _REMOVED_RECORD_KEYS = frozenset({"id", "generation", "run_binding", "last_run_binding",
+                                      "removed_at"})
+    _RUN_BINDING_KEYS = frozenset({"run_id", "schedule_id", "generation", "owner_id",
+                                   "conversation_id"})
 
     def _tracks_run_start(self, schedule: dict) -> bool:
         return (
@@ -394,6 +408,89 @@ class Scheduler:
         if advanced:
             log.info("Advanced %d stale cron schedule(s) to next future run", advanced)
 
+    def _load_removed(self) -> list[dict]:
+        try:
+            stored = json.loads(self._removed_path.read_text())
+        except FileNotFoundError:
+            return []
+        except (OSError, ValueError) as e:
+            # Without its record a removed schedule settles as unknown, never from an
+            # older run. The next removal rewrites the file.
+            log.error("Removed-schedule records are unreadable: %s", e)
+            return []
+        if (not isinstance(stored, dict) or type(stored.get("version")) is not int
+                or stored["version"] != self.REMOVED_RECORDS_VERSION
+                or not isinstance(stored.get("removed"), list)):
+            log.error("Removed-schedule records have an unsupported format; ignoring them")
+            return []
+        # A record for a definition still present comes from a removal whose
+        # schedules.json write never landed: that definition was not removed.
+        present = {s.get("id") for s in self._schedules if isinstance(s, dict)}
+        records = [r for r in stored["removed"] if self._valid_removed_record(r)]
+        if len(records) < len(stored["removed"]):
+            log.error("Ignoring %d incomplete removed-schedule record(s)",
+                      len(stored["removed"]) - len(records))
+        return [r for r in records if r["id"] not in present]
+
+    @classmethod
+    def _valid_removed_record(cls, record) -> bool:
+        """A complete removal record. Only explicit nulls say a definition never ran: a
+        missing or malformed field makes the whole record invalid, never a fallback."""
+        def text(value):
+            return type(value) is str and bool(value)
+
+        def binding(value):
+            return value is None or (
+                type(value) is dict and set(value) == cls._RUN_BINDING_KEYS
+                and text(value["run_id"]) and value["schedule_id"] == record["id"]
+                and text(value["generation"])
+                and all(value[key] is None or type(value[key]) is str
+                        for key in ("owner_id", "conversation_id")))
+
+        return (type(record) is dict and set(record) == cls._REMOVED_RECORD_KEYS
+                and text(record["id"]) and text(record["generation"])
+                and type(record["removed_at"]) is str
+                and binding(record["run_binding"]) and binding(record["last_run_binding"]))
+
+    def removed_definition(self, schedule_id: str) -> dict | None:
+        """What a definition this scheduler removed last carried, or None without a complete
+        record."""
+        record = next((r for r in reversed(self._removed) if r.get("id") == schedule_id), None)
+        return copy.deepcopy(record) if self._valid_removed_record(record) else None
+
+    def _removed_after(self, candidate: list[dict]) -> list[dict] | None:
+        """The removal records once ``candidate`` is published; None if it removes nothing."""
+        if not self.desktop_recovery:
+            return None
+        kept = {s.get("id") for s in candidate}
+        removed_at = datetime.now(UTC).isoformat()
+        dropped = [{"id": s.get("id"),
+                    "generation": s.get("_generation", s.get("created_at")),
+                    "run_binding": copy.deepcopy(s.get("run_binding")),
+                    "last_run_binding": copy.deepcopy(s.get("last_run_binding")),
+                    "removed_at": removed_at}
+                   for s in self._schedules if s.get("id") not in kept]
+        if not dropped:
+            return None
+        ids = {record["id"] for record in dropped}
+        earlier = [r for r in self._removed if r.get("id") not in ids]
+        return (earlier + dropped)[-self.REMOVED_RECORDS_KEPT:]
+
+    def _write_publication(self, removed: list[dict] | None) -> None:
+        # Removal records land before the definitions leave schedules.json, so a
+        # removed definition always has its record.
+        if removed is not None:
+            self._save_removed(removed)
+        self._save()
+
+    def _save_removed(self, removed: list[dict]) -> None:
+        tmp = self._removed_path.with_suffix(self._removed_path.suffix + ".tmp")
+        with open(tmp, "w") as f:
+            json.dump({"version": self.REMOVED_RECORDS_VERSION, "removed": removed}, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, self._removed_path)
+
     def _save(self) -> None:
         # Atomic write: serialize to a temp file, fsync, then replace. A crash
         # mid-write must never truncate schedules.json (which _load would then
@@ -437,9 +534,10 @@ class Scheduler:
         # A completed one-time definition retires with its last durable entry.
         candidate = [s for s in candidate if not (
             s.get("_retire_after_history") and "_interrupted_run_history" not in s)]
+        removed = self._removed_after(candidate)
         writer = copy.copy(self)
         writer._schedules = candidate
-        write = asyncio.create_task(asyncio.to_thread(writer._save))
+        write = asyncio.create_task(asyncio.to_thread(writer._write_publication, removed))
         cancelled = False
         while not write.done():
             try:
@@ -449,6 +547,8 @@ class Scheduler:
                 # cancel the task wrapping the still-running writer thread.
                 cancelled = True
         write.result()  # A failed write must never publish the candidate.
+        if removed is not None:
+            self._removed = removed
         self._schedules = candidate
         for callback in tuple(self._change_subscribers):
             try:
@@ -1665,12 +1765,30 @@ class Scheduler:
                 await self._publish(candidate)
                 return
 
+    def _observe_run_start(self, schedule: dict) -> None:
+        """Hand the run observer the definition carrying this run's binding, before effects.
+
+        Observation never decides whether the run happens: a failing observer is
+        logged and the run goes ahead.
+        """
+        if self.run_observer is None or not schedule.get("run_binding"):
+            return
+        current = next((s for s in self._schedules if s.get("id") == schedule.get("id")), None)
+        if current is None or current.get("run_binding") != schedule["run_binding"]:
+            return
+        try:
+            self.run_observer(copy.deepcopy(current))
+        except Exception:
+            log.exception("Run observer failed for schedule %s; the run continues",
+                          schedule.get("id"))
+
     async def _execute_and_record_inner(self, schedule: dict) -> None:
         admitted = _execution_admission.get()
         if self._connection_provider_installed and not self._admission_is_active(
             admitted, schedule
         ):
             raise ScheduleConnectionUnavailableError(self._connection_availability())
+        self._observe_run_start(schedule)
         if schedule.get("action") == "webhook":
             await self._execute_and_record_webhook(schedule)
             return

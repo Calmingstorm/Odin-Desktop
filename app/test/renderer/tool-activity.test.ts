@@ -25,6 +25,23 @@ beforeEach(async () => {
 afterEach(() => mounted.unmount())
 
 describe('retained tool details', () => {
+  it('shows the tool name only once when the summary repeats it', () => {
+    const row = mounted.root.findAll((node) => node.props.class === 'tool-row')[0]!
+    expect(row.textContent().match(/run_command/g)).toHaveLength(1)
+    expect(row.findAll((node) => node.props.class === 'summary')).toHaveLength(0)
+  })
+
+  it('retains a distinct summary and deduplicates whitespace-padded names', async () => {
+    mounted.unmount()
+    const component = (await import('../../src/renderer/src/components/ToolActivity.vue')).default
+    mounted = mount(component, { entries: [{ ...entry, summary: '  run_command  ' },
+      { ...entry, invocation_id: 'second', summary: 'Check disk usage' }], requestId: 'request', live: true })
+    await flush()
+    const rows = mounted.root.findAll((node) => node.props.class === 'tool-row')
+    expect(rows[0]!.textContent().match(/run_command/g)).toHaveLength(1)
+    expect(rows[1]!.textContent()).toContain('Check disk usage')
+  })
+
   it('does not let an old read replace a collapsed and reopened invocation', async () => {
     const toggle = mounted.setup.toggle as (value: Entry) => Promise<void>
     const first = toggle(entry)

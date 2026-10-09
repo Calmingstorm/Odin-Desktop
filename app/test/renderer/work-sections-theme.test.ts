@@ -33,6 +33,15 @@ describe('the Work column groups work by what it is doing', () => {
     expect(listed).toEqual(work.items.map((i) => `${i.kind}:${i.id}`).sort())
   })
 
+  it('files a schedule the scheduler no longer holds under Finished', () => {
+    work.items = [item('schedule', 'next', 'scheduled', 50), item('schedule', 'ran', 'completed', 80),
+      item('schedule', 'gone', 'cancelled', 70), item('schedule', 'bad', 'failed', 60), item('schedule', 'paused', 'paused', 40)]
+    expect(bySection().map((s) => [s.label, s.items.map((i) => i.id)])).toEqual([
+      ['Scheduled', ['next', 'paused']],
+      ['Finished', ['ran', 'gone', 'bad']]
+    ])
+  })
+
   it('shows each item with its kind in the column, and keeps kind groups elsewhere', async () => {
     const column = mount(WorkList, { sections: true })
     await flush()
@@ -45,7 +54,7 @@ describe('the Work column groups work by what it is doing', () => {
     await flush()
     const groups = settings.root.findAll((host) => host.tag === 'h2').map((h) => h.textContent().replace(/\s+/g, ' ').trim())
     expect(groups).toEqual(grouped().map((g) => `${g.label} ${g.items.length}`))
-    expect(settings.root.findAll((host) => String(host.props.class ?? '') === 'work-kind')).toHaveLength(0)
+    expect(settings.root.findAll((host) => String(host.props.class ?? '') === 'work-kind')).toHaveLength(work.items.length)
     settings.unmount()
   })
 })

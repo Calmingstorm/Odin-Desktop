@@ -124,7 +124,7 @@ describe('status in the chat header, the status bar and the rail', () => {
     await flush()
     expect(buttons(bar.root)).toEqual(['Status', 'Usage', 'degraded degraded', 'unavailable unavailable'])
     expect(bar.root.textContent()).toContain('2 awaiting receipt')
-    expect(bar.root.textContent()).toContain('3 unknown effects')
+    expect(bar.root.textContent()).toContain('3 actions with unknown outcomes')
     expect(bar.root.textContent()).toContain('Cleanup needs attention')
     expect(bar.root.textContent()).not.toContain('Start at login')
     bar.root.button('degraded degraded').fire('click')

@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert'
 import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { dialog, type BrowserWindow } from 'electron'
+import { app, dialog, type BrowserWindow } from 'electron'
 import type { Broker } from './broker'
 import type { ConversationSnapshot, ScheduleRow, WebhookIngressStatus } from '../shared/api'
 import type { ConfigField } from '../shared/api'
@@ -54,7 +54,7 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
   'providers.compat.diagnostic', 'models.status', 'models.provider.get', 'models.provider.set',
   'models.main.set', 'models.agents.get', 'models.agents.set', 'models.discover', 'personality.get', 'personality.set', 'personality.presets.save', 'personality.presets.delete',
   'tools.list', 'tools.set_enabled', 'tools.timeouts.get', 'tools.timeouts.set',
-  'control.stop', 'control.steer', 'control.resume',
+  'control.stop', 'control.steer', 'control.resume', 'effects.acknowledge',
   'work.list', 'work.control', 'reports.page',
   'schedules.list', 'schedules.save', 'schedules.delete', 'schedules.run',
   'schedules.reset_failures', 'schedules.history', 'schedules.validate_cron',
@@ -169,7 +169,8 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   const status = result.result as RealCoreStatus
   if (!process.env.ODIN_SMOKE_PROVIDER_BASE_URL) assertFreshManagementStatus(status, seededWorkProof)
   assert.equal(status.core_instance_id, broker.coreInstanceId)
-  assert.equal(status.version, process.env.ODIN_SMOKE_EXPECT_VERSION ?? '0.1.0.dev1')
+  // One version number: the engine reports the release it shipped in.
+  assert.equal(status.version, process.env.ODIN_SMOKE_EXPECT_VERSION ?? app.getVersion())
   for (const method of ['status.get', 'events.subscribe', 'runtime.shutdown', 'settings.schema', 'settings.set',
     'conversations.list', 'conversations.create', 'messages.list', 'conversation.snapshot', 'search.query',
     'submission.send', 'control.stop', 'control.steer', 'control.resume',
@@ -815,7 +816,7 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
   let receipt: unknown
   if (seededWorkProof) {
     await until(async () => (await text('.work-panel')).includes('Harmless completed task') &&
-      (await text('.work-panel')).includes('Resource release is not confirmed'), 'real Work detail and honest unknown release')
+      (await text('.work-panel')).includes('The outcome is not confirmed.'), 'real Work detail and honest unconfirmed outcome')
     const work = await broker.request('work.list')
     assert(work.ok)
     const workItems = (work.result as { items: Array<Record<string, unknown>> }).items
@@ -829,7 +830,9 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     assert.equal(controlReceipt.result!.disposition, 'done')
     assert.deepEqual(await run(`window.odin.workControl(${JSON.stringify(controlParams)})`), controlReceipt, 'named bridge must return journaled receipt without repeating cancellation')
     await click('button[aria-label="Refresh work"]')
-    await until(async () => (await text('.work-panel')).includes('cancelled'), 'settled actual task after journaled cancellation')
+    // The cancelled task's own card: other seeded work may already read Stopped.
+    const cancelledState = `.work-panel .work-state.cancelled[id$=${JSON.stringify(`-${encodeURIComponent(`${cancellable.kind}:${cancellable.id}`)}-state`)}]`
+    await until(async () => (await text(cancelledState)) === 'Stopped', 'settled actual task after journaled cancellation')
     screens.push({ screen: 'Work all kinds (agent/process metadata seeds), settled task and journaled receipt', text: await text('.work-panel') })
   } else {
     const work = await broker.request('work.list')

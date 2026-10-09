@@ -220,7 +220,8 @@ function fixture(provider = false, seeded = false, fault = '') {
     if (selector === '.composer .panel-text') return panelText
     if (selector === '.report-body') return reportPage ? 'no rerun' : 'produced once'
     if (selector === '.rail-link') return 'Connected'
-    if (selector === '.work-panel') return seeded ? 'Harmless completed task Resource release is not confirmed ' + (cancelled ? 'cancelled' : '') : 'No work'
+    if (selector === '.work-panel') return seeded ? 'Harmless completed task The outcome is not confirmed. ' + (cancelled ? 'Stopped' : '') : 'No work'
+    if (selector === `.work-panel .work-state.cancelled[id$="-${encodeURIComponent('task:w_1')}-state"]`) return cancelled ? 'Stopped' : ''
     if (selector === '.tool-output pre') return fullOutput()
     if (selector === '.tool-detail') return 'preview'
     if (selector === '.tool-output button') return outputPages > 1 ? 'All output loaded' : 'Load more'

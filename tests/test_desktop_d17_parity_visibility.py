@@ -1,8 +1,13 @@
 """Catalog repairs use real owners, durable effects and no network transports."""
 import asyncio
 import base64
+import errno
 import io
+import os
+import stat
+from pathlib import Path
 
+import pytest
 import pytest_asyncio
 from PIL import Image
 
@@ -15,6 +20,7 @@ from src.desktop.paths import ProfilePaths
 from src.desktop.requests import RequestService
 from src.desktop.services import build_engine_services
 from src.desktop.transcript import TranscriptStore
+from src.discord.native_tools.media import MediaTools
 from src.llm.codex_auth import CodexAuth
 from src.llm.types import LLMResponse, ToolCall
 from src.permissions.manager import PermissionManager
@@ -51,6 +57,9 @@ async def graph(tmp_path, monkeypatch):
     cfg.llm_provider.model = "compat:test"
     cfg.openai_compatible.enabled = True
     cfg.learning.enabled = False
+    # Generated images keep a local copy in the workspace: never the real default one.
+    cfg.tools.local_working_dir = str(paths.data_dir.parent / "workspace")
+    (paths.data_dir.parent / "workspace").mkdir(mode=0o700)
     auth = CodexAuth(cfg.openai_codex.credentials_path)
     auth._save({"access_token": "d17-inert", "account_id": "d17-local", "expires_at": 4102444800})
     provider = Provider([])
@@ -134,9 +143,16 @@ async def test_image_auth_visibility_has_real_selector_and_durable_publication(g
     assert seen == ["two blue pixels"]
 
 
-async def test_generated_image_result_names_no_attachment_url(graph, monkeypatch):
-    """Approved D19-031: a durable artifact replaces Odin's Discord attachment URL."""
+async def test_generated_image_result_names_no_attachment_url(graph, monkeypatch, tmp_path):
+    """Approved D19-031: a durable artifact replaces Odin's Discord attachment URL.
+
+    1.0.2 (D17 parity): the result names the owner-only local copy instead, so the model can
+    open its image again the way Odin uses the attachment URL.
+    """
     engine, requests, provider, transcript, artifacts, cid, cfg = graph
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(mode=0o700)
+    cfg.tools.local_working_dir = str(workspace)
     image = io.BytesIO()
     Image.new("RGB", (2, 2), "green").save(image, format="PNG")
 
@@ -160,8 +176,139 @@ async def test_generated_image_result_names_no_attachment_url(graph, monkeypatch
     assert result.audit_metadata["delivery_status"] == "posted"
     assert result.audit_metadata["attachment_url_available"] is False
     assert result.output.startswith("Image generated (2x2, ")
-    assert result.output.endswith(" and posted.")
+    suffix = " and posted. Local file on localhost: "
+    assert suffix in result.output
+    saved = Path(result.output.split(suffix, 1)[1])
+    assert saved.parent == workspace / "generated-images"
+    assert saved.read_bytes() == image.getvalue()
+    assert stat.S_IMODE(saved.stat().st_mode) == 0o600
+    assert result.audit_metadata["local_copy_available"] is True
     assert "URL" not in result.output and "http" not in result.output
     assert result.output in str(provider.calls[1]["messages"])
     files = [row for row in transcript.list(cid)["items"] if row.get("artifacts")]
     assert len(files) == 1
+
+
+async def test_generated_image_without_a_local_copy_is_still_posted(graph, monkeypatch):
+    engine, _requests, _provider, transcript, _artifacts, cid, _cfg = graph
+    image = io.BytesIO()
+    Image.new("RGB", (2, 2), "red").save(image, format="PNG")
+
+    async def generate(*, prompt):
+        return ImageResult(image.getvalue(), "image/png", 2, 2, "openai", "inert-network-fixture")
+
+    def unwritable(self, data):
+        raise OSError("read-only workspace")
+
+    monkeypatch.setattr(engine.deps.image_backend, "generate", generate)
+    owner = engine.deps.native_tools.owners["media"]
+    monkeypatch.setattr(type(owner), "_retain_generated_image", unwritable)
+    original = type(owner)._handle_generate_image
+    results = []
+
+    async def recorded(self, message, inp):
+        results.append(await original(self, message, inp))
+        return results[-1]
+
+    monkeypatch.setattr(type(owner), "_handle_generate_image", recorded)
+    await execute(graph, [ToolCall("image", "generate_image", {"prompt": "two red pixels"})])
+    [result] = results
+    assert result.ok and result.output.endswith(" and posted.")
+    assert result.audit_metadata["local_copy_available"] is False
+    assert len([row for row in transcript.list(cid)["items"] if row.get("artifacts")]) == 1
+
+
+
+async def _generate_once(graph, monkeypatch, color):
+    engine = graph[0]
+    image = io.BytesIO()
+    Image.new("RGB", (2, 2), color).save(image, format="PNG")
+
+    async def generate(*, prompt):
+        return ImageResult(image.getvalue(), "image/png", 2, 2, "openai", "inert-network-fixture")
+
+    monkeypatch.setattr(engine.deps.image_backend, "generate", generate)
+    owner = engine.deps.native_tools.owners["media"]
+    original = type(owner)._handle_generate_image
+    results = []
+
+    async def recorded(self, message, inp):
+        results.append(await original(self, message, inp))
+        return results[-1]
+
+    monkeypatch.setattr(type(owner), "_handle_generate_image", recorded)
+    await execute(graph, [ToolCall("image", "generate_image", {"prompt": f"two {color} pixels"})])
+    [result] = results
+    return result
+
+
+@pytest.mark.parametrize("folder", ["permissive", "linked"])
+async def test_generated_image_copy_needs_a_private_folder_of_its_own(graph, monkeypatch, tmp_path,
+                                                                     folder):
+    """An existing shared folder, or a link elsewhere, gets no copy; the image is still posted."""
+    cfg = graph[-1]
+    workspace = Path(cfg.tools.local_working_dir)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    if folder == "permissive":
+        (workspace / "generated-images").mkdir()
+        (workspace / "generated-images").chmod(0o755)
+        target = workspace / "generated-images"
+    else:
+        outside.chmod(0o777)
+        (workspace / "generated-images").symlink_to(outside, target_is_directory=True)
+        target = outside
+    result = await _generate_once(graph, monkeypatch, "blue")
+    assert result.ok and result.output.endswith(" and posted.")
+    assert result.audit_metadata["local_copy_available"] is False
+    assert list(target.iterdir()) == []
+    if folder == "permissive":
+        assert stat.S_IMODE(target.stat().st_mode) == 0o755  # never chmod'ed behind the owner
+
+
+async def test_generated_image_copy_never_replaces_an_existing_file(graph, monkeypatch):
+    engine, cfg = graph[0], graph[-1]
+    folder = Path(cfg.tools.local_working_dir) / "generated-images"
+    folder.mkdir(mode=0o700)
+    owner = engine.deps.native_tools.owners["media"]
+    monkeypatch.setattr(type(owner), "_generated_image_name",
+                        staticmethod(lambda: "20260101-000000-01234567.png"))
+    existing = folder / "20260101-000000-01234567.png"
+    existing.write_bytes(b"keep me")
+    result = await _generate_once(graph, monkeypatch, "green")
+    assert result.ok and result.output.endswith(" and posted.")
+    assert existing.read_bytes() == b"keep me"
+    assert sorted(path.name for path in folder.iterdir()) == [existing.name]
+
+
+async def test_generated_image_copy_that_fails_midway_leaves_no_partial_file(graph, monkeypatch):
+    """A write that fails part-way, as on a full disk, removes what landed and reports it."""
+    engine, cfg = graph[0], graph[-1]
+    owner = engine.deps.native_tools.owners["media"]
+    folder = Path(cfg.tools.local_working_dir) / "generated-images"
+    real_fdopen = os.fdopen
+
+    class FullDisk:
+        def __init__(self, fd, mode):
+            self.handle = real_fdopen(fd, mode)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.handle.close()
+
+        def write(self, data):
+            self.handle.write(data[:16])  # part of the image lands first
+            raise OSError(errno.ENOSPC, "inert: no space left on device")
+
+    with monkeypatch.context() as m:
+        m.setattr(os, "fdopen", FullDisk)
+        with pytest.raises(OSError, match="no space left"):
+            owner._retain_generated_image(b"\x89PNG\r\n\x1a\n" + bytes(64))
+    assert folder.is_dir() and list(folder.iterdir()) == []
+
+
+def test_the_shared_media_tool_keeps_no_local_copy_itself():
+    """Odin's media tool keeps no copy; only an embedder that overrides the hook (Desktop) does."""
+    assert MediaTools._retain_generated_image(object(), b"\x89PNG\r\n\x1a\n") is None
