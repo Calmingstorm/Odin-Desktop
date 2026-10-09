@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -316,26 +317,38 @@ def test_unqualified_schedule_controls_not_advertised(work):
 
 
 
-def _ended_schedule(work, tmp_path, history_lines, latest_run="r1"):
-    """A registered schedule its scheduler then no longer holds, with a harmless history file.
+_SAME = object()
 
-    `latest_run` is the run ID the record names as the latest admitted run (each run
-    registers its binding when it starts); None means no run was ever admitted.
+
+def _ended_schedule(work, tmp_path, history_lines, latest_run="r1", *, removed_run=_SAME,
+                    removal=True, removed_generation="g1"):
+    """A registered schedule its scheduler then removed, with a harmless history file.
+
+    `latest_run` is the latest run Work heard start; None means it heard none.
+    `removed_run` is the latest run the scheduler's removal record names (by default the
+    same run; None means the definition never ran). Without `removal` the scheduler has
+    no record of removing it, as after a removal by an older version.
     """
     service, message, _context = work
+    def binding(run_id):
+        return {"run_id": run_id, "generation": "g1"} if run_id else None
     schedule = {"id": "s", "_generation": "g1", "created_at": "fixed",
                 "requester_id": message.owner_id, "channel_id": message.conversation_id,
                 "description": "harmless", "settlement": "completed",
-                "last_run_binding": ({"run_id": latest_run, "generation": "g1"}
-                                     if latest_run else None)}
-    held = [schedule]
+                "last_run_binding": binding(latest_run)}
+    held, removed = [schedule], []
     history = tmp_path / "schedule_history.jsonl"
     history.write_text("".join(line + "\n" for line in history_lines))
-    service.scheduler = SimpleNamespace(list_all=lambda: list(held), _in_flight=set(),
-                                        history=SimpleNamespace(path=history))
+    service.scheduler = SimpleNamespace(
+        list_all=lambda: list(held), _in_flight=set(), history=SimpleNamespace(path=history),
+        removed_definition=lambda sid: next((dict(r) for r in removed if r["id"] == sid), None))
     record = service.register_schedule(schedule)
     assert record["state"] == "scheduled"
     held.clear()
+    if removal:
+        removed.append({"id": "s", "generation": removed_generation, "run_binding": None,
+                        "last_run_binding": binding(
+                            latest_run if removed_run is _SAME else removed_run)})
     return service
 
 
@@ -364,6 +377,31 @@ def test_schedule_the_scheduler_dropped_ends_with_its_latest_run(work, tmp_path,
     assert item["state"] == expected
     assert item["settlement"]["state"] == ("unknown" if expected == "unknown" else "settled")
     assert item["actions"] == []
+
+
+@pytest.mark.parametrize(("history", "expected"), [
+    ([_run("success", "r1"), _run("failure", "r2")], "failed"),
+    ([_run("success", "r1")], "unknown"),          # r2 left no entry: never r1's success
+    ([_run("success", "r1"), _run("success", "r2")], "completed"),
+])
+def test_removed_schedule_settles_from_the_scheduler_record_not_works_older_binding(
+        work, tmp_path, history, expected):
+    """Work last heard r1 start; the scheduler removed the definition after r2."""
+    service = _ended_schedule(work, tmp_path, history, "r1", removed_run="r2")
+    item = service.list({"kind": "schedule"})["items"][0]
+    assert item["state"] == expected
+    assert item["detail"]["last_run_binding"]["run_id"] == "r2"
+
+
+@pytest.mark.parametrize("missing", ["no_record", "other_generation"])
+def test_removed_schedule_without_its_removal_record_is_unknown(work, tmp_path, missing):
+    """Removed by an older version, or the record was pruned: the latest run can't be named,
+    so even Work's own binding with a matching success settles nothing."""
+    service = _ended_schedule(work, tmp_path, [_run("success")], "r1",
+                              removal=missing == "other_generation",
+                              removed_generation="g0")
+    item = service.list({"kind": "schedule"})["items"][0]
+    assert item["state"] == "unknown" and item["settlement"]["state"] == "unknown"
 
 
 def test_schedule_is_not_ended_without_a_scheduler_or_while_it_is_held(work, tmp_path):
@@ -420,6 +458,30 @@ async def _earlier_success(service, scheduler, schedule):
     assert service.list({"kind": "schedule"})["items"][0]["state"] == "scheduled"
 
 
+def _lose_next_work_write(service):
+    """Exactly the next Work transaction fails, as a locked database would; later ones work."""
+    import sqlite3
+    real, pending = service.store.transaction, [True]
+
+    def transaction(*args, **kwargs):
+        if pending[0]:
+            pending[0] = False
+            raise sqlite3.OperationalError("inert: database is locked")
+        return real(*args, **kwargs)
+    service.store.transaction = transaction
+    return pending
+
+
+def _durable_run_ids(service):
+    """The run IDs Work's stored schedule record names, read without a Work refresh."""
+    import json as _json
+    with service.store.transaction() as connection:
+        [row] = connection.execute(
+            "SELECT record FROM desktop_work WHERE kind='schedule'").fetchall()
+    detail = _json.loads(row[0])["detail"]
+    return {(detail.get(key) or {}).get("run_id") for key in ("run_binding", "last_run_binding")}
+
+
 def _restarted(service, tmp_path):
     from src.scheduler.scheduler import Scheduler
     again = WorkService(service.store, service.events, authority=service.authority,
@@ -432,6 +494,7 @@ def _restarted(service, tmp_path):
 
 @pytest.mark.parametrize("action", ["reminder", "webhook"])
 @pytest.mark.parametrize("earlier", [False, True])
+@pytest.mark.parametrize("notice", ["observed", "lost"])
 @pytest.mark.parametrize(("ending", "expected"), [
     ("success", "completed"),            # its own success
     ("failure", "failed"),               # an earlier success never settles a failing run
@@ -439,16 +502,21 @@ def _restarted(service, tmp_path):
     ("history_unavailable", "unknown"),  # the run's entry couldn't be written
 ])
 async def test_schedule_deleted_while_running_settles_only_from_that_run(
-        work, tmp_path, action, earlier, ending, expected):
-    started, finish, failing = asyncio.Event(), asyncio.Event(), [False]
+        work, tmp_path, action, earlier, notice, ending, expected):
+    """`lost`: the Work write as the newest run starts fails once, so Work never hears it
+    start. Nothing reads Work during the run; a restarted Work reads first."""
+    started, finish, failing, seen = asyncio.Event(), asyncio.Event(), [False], {}
 
     async def run(_payload):
+        current = next(s for s in seen["scheduler"].list_all() if s["id"] == seen["id"])
+        seen["run_id"] = current["run_binding"]["run_id"]
         started.set()
         await finish.wait()
         if failing[0]:
             raise RuntimeError("inert run failure")
 
     service, scheduler, schedule = await _real_schedule(work, tmp_path, run, action)
+    seen.update(scheduler=scheduler, id=schedule["id"])
     if earlier:
         finish.set()
         await _earlier_success(service, scheduler, schedule)
@@ -459,6 +527,7 @@ async def test_schedule_deleted_while_running_settles_only_from_that_run(
         async def unavailable(**_entry):
             raise OSError("inert: history disk unavailable")
         scheduler.history.record = unavailable
+    lost = _lose_next_work_write(service) if notice == "lost" else [False]
     running = asyncio.create_task(scheduler.run_now(schedule["id"]))
     try:
         await asyncio.wait_for(started.wait(), 5)
@@ -471,10 +540,13 @@ async def test_schedule_deleted_while_running_settles_only_from_that_run(
             await running
         except (asyncio.CancelledError, OSError):
             pass
-    for view in (service, _restarted(service, tmp_path)):
+    assert lost == [False]  # the observer's write took the one failure
+    assert (seen["run_id"] in _durable_run_ids(service)) == (notice == "observed")
+    for view in (_restarted(service, tmp_path), service):
         item = view.list({"kind": "schedule"})["items"][0]
         assert item["state"] == expected
         assert item["settlement"]["state"] == ("unknown" if expected == "unknown" else "settled")
+        assert item["detail"]["run_binding"]["run_id"] == seen["run_id"]
 
 
 @pytest.mark.parametrize("action", ["reminder", "webhook"])
@@ -499,16 +571,26 @@ async def test_schedule_deleted_while_running_shows_running(work, tmp_path, acti
 
 
 @pytest.mark.parametrize("action", ["reminder", "webhook"])
-async def test_one_time_schedule_retired_after_its_run_ends_completed(work, tmp_path, action):
+@pytest.mark.parametrize("notice", ["observed", "lost"])
+async def test_one_time_schedule_retired_after_its_run_ends_completed(
+        work, tmp_path, action, notice):
+    seen = {}
+
     async def run(_payload):
-        return None
+        current = next(s for s in seen["scheduler"].list_all() if s["id"] == seen["id"])
+        seen["run_id"] = current["run_binding"]["run_id"]
 
     service, scheduler, schedule = await _real_schedule(work, tmp_path, run, action, one_time=True)
+    seen.update(scheduler=scheduler, id=schedule["id"])
+    lost = _lose_next_work_write(service) if notice == "lost" else [False]
     await scheduler.run_now(schedule["id"])
     assert scheduler.list_all() == []  # the scheduler retired it itself
-    for view in (service, _restarted(service, tmp_path)):
+    assert lost == [False]
+    assert (seen["run_id"] in _durable_run_ids(service)) == (notice == "observed")
+    for view in (_restarted(service, tmp_path), service):
         item = view.list({"kind": "schedule"})["items"][0]
         assert item["state"] == "completed" and item["settlement"]["state"] == "settled"
+        assert item["detail"]["run_binding"]["run_id"] == seen["run_id"]
 
 
 @pytest.mark.parametrize("failed", [False, True])
@@ -536,9 +618,15 @@ def test_a_failing_run_observer_never_stops_the_run(tmp_path):
 
     scheduler.run_observer = broken
     schedule = {"id": "s", "run_binding": {"run_id": "r1"}}
-    scheduler._schedules = [dict(schedule)]
+    scheduler._schedules = [copy.deepcopy(schedule)]
     scheduler._observe_run_start(schedule)  # logged, not raised
     assert seen == ["r1"]
+
+    def mutating(definition):
+        definition["run_binding"]["run_id"] = "changed by the observer"
+    scheduler.run_observer = mutating
+    scheduler._observe_run_start(schedule)
+    assert scheduler._schedules == [schedule]  # the observer gets a copy
     scheduler._observe_run_start({"id": "s", "run_binding": {"run_id": "other"}})
     assert seen == ["r1"]  # a stale binding is never reported as the starting run
 

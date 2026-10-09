@@ -201,6 +201,11 @@ class Scheduler:
         self._http_session: aiohttp.ClientSession | None = None
         self._load()
         self._degrade_removed_trigger_sources()
+        # Desktop keeps what each removed definition last carried (its generation and
+        # run bindings), so Work can settle a deleted or retired schedule from its own
+        # latest run even when Work never heard that run start.
+        self._removed_path = self.data_path.with_name(self.data_path.stem + "_removed.json")
+        self._removed: list[dict] = self._load_removed() if desktop_recovery else []
         for schedule in self._schedules:
             self._resolve_interrupted_run(schedule)
             if self.desktop_recovery and not schedule.get("inert_reason"):
@@ -214,6 +219,7 @@ class Scheduler:
                     )
 
     REPLAY_SAFE_ONE_TIME_ACTIONS = frozenset({"reminder", "digest"})
+    REMOVED_RECORDS_KEPT = 512
 
     def _tracks_run_start(self, schedule: dict) -> bool:
         return (
@@ -397,6 +403,64 @@ class Scheduler:
         if advanced:
             log.info("Advanced %d stale cron schedule(s) to next future run", advanced)
 
+    def _load_removed(self) -> list[dict]:
+        try:
+            stored = json.loads(self._removed_path.read_text())
+        except FileNotFoundError:
+            return []
+        except (OSError, ValueError) as e:
+            # Without its record a removed schedule settles as unknown, never from an
+            # older run. The next removal rewrites the file.
+            log.error("Removed-schedule records are unreadable: %s", e)
+            return []
+        records = stored.get("removed") if isinstance(stored, dict) else None
+        if not isinstance(records, list):
+            log.error("Removed-schedule records have an unknown shape; ignoring them")
+            return []
+        # A record for a definition still present comes from a removal whose
+        # schedules.json write never landed: that definition was not removed.
+        present = {s.get("id") for s in self._schedules if isinstance(s, dict)}
+        return [r for r in records if isinstance(r, dict) and isinstance(r.get("id"), str)
+                and r["id"] not in present]
+
+    def removed_definition(self, schedule_id: str) -> dict | None:
+        """What a definition this scheduler removed last carried, or None without a record."""
+        record = next((r for r in reversed(self._removed) if r.get("id") == schedule_id), None)
+        return copy.deepcopy(record)
+
+    def _removed_after(self, candidate: list[dict]) -> list[dict] | None:
+        """The removal records once ``candidate`` is published; None if it removes nothing."""
+        if not self.desktop_recovery:
+            return None
+        kept = {s.get("id") for s in candidate}
+        removed_at = datetime.now(UTC).isoformat()
+        dropped = [{"id": s.get("id"),
+                    "generation": s.get("_generation", s.get("created_at")),
+                    "run_binding": copy.deepcopy(s.get("run_binding")),
+                    "last_run_binding": copy.deepcopy(s.get("last_run_binding")),
+                    "removed_at": removed_at}
+                   for s in self._schedules if s.get("id") not in kept]
+        if not dropped:
+            return None
+        ids = {record["id"] for record in dropped}
+        earlier = [r for r in self._removed if r.get("id") not in ids]
+        return (earlier + dropped)[-self.REMOVED_RECORDS_KEPT:]
+
+    def _write_publication(self, removed: list[dict] | None) -> None:
+        # Removal records land before the definitions leave schedules.json, so a
+        # removed definition always has its record.
+        if removed is not None:
+            self._save_removed(removed)
+        self._save()
+
+    def _save_removed(self, removed: list[dict]) -> None:
+        tmp = self._removed_path.with_suffix(self._removed_path.suffix + ".tmp")
+        with open(tmp, "w") as f:
+            json.dump({"version": 1, "removed": removed}, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, self._removed_path)
+
     def _save(self) -> None:
         # Atomic write: serialize to a temp file, fsync, then replace. A crash
         # mid-write must never truncate schedules.json (which _load would then
@@ -440,9 +504,10 @@ class Scheduler:
         # A completed one-time definition retires with its last durable entry.
         candidate = [s for s in candidate if not (
             s.get("_retire_after_history") and "_interrupted_run_history" not in s)]
+        removed = self._removed_after(candidate)
         writer = copy.copy(self)
         writer._schedules = candidate
-        write = asyncio.create_task(asyncio.to_thread(writer._save))
+        write = asyncio.create_task(asyncio.to_thread(writer._write_publication, removed))
         cancelled = False
         while not write.done():
             try:
@@ -452,6 +517,8 @@ class Scheduler:
                 # cancel the task wrapping the still-running writer thread.
                 cancelled = True
         write.result()  # A failed write must never publish the candidate.
+        if removed is not None:
+            self._removed = removed
         self._schedules = candidate
         for callback in tuple(self._change_subscribers):
             try:
@@ -1680,7 +1747,7 @@ class Scheduler:
         if current is None or current.get("run_binding") != schedule["run_binding"]:
             return
         try:
-            self.run_observer(current)
+            self.run_observer(copy.deepcopy(current))
         except Exception:
             log.exception("Run observer failed for schedule %s; the run continues",
                           schedule.get("id"))

@@ -1014,3 +1014,98 @@ async def test_one_time_success_keeps_unknown_history_until_it_is_durable(tmp_pa
     assert scheduler.list_all() == []
     assert len(await scheduler.history.query(item["id"], status="unknown")) == 1
     assert Scheduler(str(data_path), desktop_recovery=True).list_all() == []
+
+
+def _removed_path(scheduler):
+    return scheduler.data_path.with_name("schedules_removed.json")
+
+
+@pytest.mark.asyncio
+async def test_removed_definition_keeps_its_latest_run_across_a_restart(graph):
+    scheduler, _, _, _ = graph
+    item = await add(graph)
+    scheduler._callback = AsyncMock()  # inert action
+    await scheduler.run_now(item["id"])
+    [definition] = scheduler.list_all()
+    assert definition["last_run_binding"]["run_id"]
+    assert scheduler.removed_definition(item["id"]) is None
+    assert await scheduler.delete(item["id"])
+    for view in (scheduler, Scheduler(str(scheduler.data_path), desktop_recovery=True)):
+        record = view.removed_definition(item["id"])
+        assert record["generation"] == definition["_generation"]
+        assert record["last_run_binding"] == definition["last_run_binding"]
+        assert record["run_binding"] is None
+    assert _removed_path(scheduler).exists()
+
+
+@pytest.mark.asyncio
+async def test_a_definition_leaves_only_once_its_removal_record_is_stored(graph, monkeypatch):
+    scheduler, _, _, _ = graph
+    item = await add(graph)
+    with monkeypatch.context() as m:
+        def failed(self, removed):
+            raise OSError("injected removal record write failure")
+        m.setattr(Scheduler, "_save_removed", failed)
+        with pytest.raises(OSError, match="injected removal record"):
+            await scheduler.delete(item["id"])
+    assert [s["id"] for s in scheduler.list_all()] == [item["id"]]
+    assert scheduler.removed_definition(item["id"]) is None
+    reloaded = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    assert [s["id"] for s in reloaded.list_all()] == [item["id"]]
+    assert await scheduler.delete(item["id"])
+    assert scheduler.removed_definition(item["id"])["id"] == item["id"]
+
+
+@pytest.mark.asyncio
+async def test_a_record_for_a_definition_still_present_is_dropped_on_load(graph, monkeypatch):
+    """The removal record landed but schedules.json didn't: the definition was not removed."""
+    import json
+    scheduler, _, _, _ = graph
+    item = await add(graph)
+    with monkeypatch.context() as m:
+        def failed(self):
+            raise OSError("injected schedule store write failure")
+        m.setattr(Scheduler, "_save", failed)
+        with pytest.raises(OSError, match="injected schedule store"):
+            await scheduler.delete(item["id"])
+    stored = json.loads(_removed_path(scheduler).read_text())["removed"]
+    assert [record["id"] for record in stored] == [item["id"]]
+    assert scheduler.removed_definition(item["id"]) is None
+    reloaded = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    assert [s["id"] for s in reloaded.list_all()] == [item["id"]]
+    assert reloaded.removed_definition(item["id"]) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("content", ["{not json", "[]", '{"removed": {}}'])
+async def test_unreadable_removal_records_name_nothing_and_are_rewritten(graph, content):
+    import json
+    scheduler, _, _, _ = graph
+    first, second = await add(graph), await add(graph)
+    assert await scheduler.delete(first["id"])
+    _removed_path(scheduler).write_text(content)
+    reloaded = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    assert reloaded.removed_definition(first["id"]) is None
+    assert await reloaded.delete(second["id"])
+    stored = json.loads(_removed_path(scheduler).read_text())["removed"]
+    assert [record["id"] for record in stored] == [second["id"]]
+
+
+@pytest.mark.asyncio
+async def test_removal_records_keep_the_newest(graph, monkeypatch):
+    scheduler, _, _, _ = graph
+    monkeypatch.setattr(Scheduler, "REMOVED_RECORDS_KEPT", 2)
+    items = [await add(graph) for _ in range(3)]
+    for item in items:
+        assert await scheduler.delete(item["id"])
+    kept = [item["id"] for item in items if scheduler.removed_definition(item["id"])]
+    assert kept == [items[1]["id"], items[2]["id"]]
+
+
+@pytest.mark.asyncio
+async def test_scheduler_without_desktop_recovery_keeps_no_removal_records(tmp_path):
+    scheduler = Scheduler(str(tmp_path / "schedules.json"))
+    item = await scheduler.add("inert", "reminder", "1", cron="0 0 * * *")
+    assert await scheduler.delete(item["id"])
+    assert scheduler.removed_definition(item["id"]) is None
+    assert not (tmp_path / "schedules_removed.json").exists()

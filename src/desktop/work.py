@@ -272,29 +272,48 @@ class WorkService:
     def _ended_schedule_projection(self, record, result):
         """A schedule its scheduler no longer holds: a one-time schedule after its run, or a
         deleted one. Deleting a definition doesn't end a run already executing; only the
-        latest admitted run's own recorded result settles it."""
+        latest run's own recorded result settles it."""
         in_flight = getattr(self.scheduler, "_in_flight", None)
         if not isinstance(in_flight, (set, frozenset)):
             return result  # Running state can't be known; conclude nothing.
+        removed = self._removed_definition(record)
+        if removed is not None:
+            # The scheduler's record of the definition as it removed it names its latest
+            # run, including one whose start never reached Work.
+            result = dict(result, detail=dict(result.get("detail") or {},
+                          run_binding=removed.get("run_binding"),
+                          last_run_binding=removed.get("last_run_binding")))
         last_run = record["settlement"].get("last_run")
         if record["manager_id"] in in_flight:
             return dict(result, state="running",
                         settlement={"state": "pending", "last_run": last_run})
-        ended = self._ended_schedule_state(record)
+        ended = self._ended_schedule_state(record["manager_id"], removed)
         return dict(result, state=ended, settlement={
             "state": "unknown" if ended == "unknown" else "settled", "last_run": last_run})
 
-    def _ended_schedule_state(self, record):
-        """The result of the latest run admitted for this definition, from that run's own entry.
+    def _removed_definition(self, record):
+        lookup = getattr(self.scheduler, "removed_definition", None)
+        removed = lookup(record["manager_id"]) if callable(lookup) else None
+        if (not isinstance(removed, dict)
+                or str(removed.get("generation")) != record["manager_generation"]):
+            return None
+        return removed
 
-        Each run registers its binding when it starts, so the record names the latest
-        admitted run (`run_binding`, else `last_run_binding`). Only a history entry with
-        that run ID settles it: completed, failed or unknown. A run that left no entry
-        (cancelled, history unavailable, the core stopped) is unknown, never settled from
-        an older run; a definition with no admitted run ends cancelled.
+    def _ended_schedule_state(self, schedule_id, removed):
+        """The result of the definition's latest run, from that run's own history entry.
+
+        The scheduler's removal record names the latest run the definition had
+        (`run_binding`, else `last_run_binding`). Only a history entry with that run ID
+        settles it: completed, failed or unknown. A run that left no entry (cancelled,
+        history unavailable, the core stopped) is unknown, never settled from an older
+        run; a definition removed before any run ends cancelled. Without a removal record
+        (removed by an older version, or the record was pruned) the latest run can't be
+        named, so the ending is unknown: Work's own binding may predate a run it never
+        heard start.
         """
-        detail = record.get("detail") or {}
-        latest = detail.get("run_binding") or detail.get("last_run_binding")
+        if removed is None:
+            return "unknown"
+        latest = removed.get("run_binding") or removed.get("last_run_binding")
         if not isinstance(latest, dict) or not latest.get("run_id"):
             return "cancelled"
         path = getattr(getattr(self.scheduler, "history", None), "path", None)
@@ -307,7 +326,7 @@ class WorkService:
                 entry = json.loads(line)
             except ValueError:
                 continue
-            if (type(entry) is dict and entry.get("schedule_id") == record["manager_id"]
+            if (type(entry) is dict and entry.get("schedule_id") == schedule_id
                     and type(entry.get("run_binding")) is dict
                     and entry["run_binding"].get("run_id") == latest["run_id"]):
                 return {"success": "completed", "failure": "failed"}.get(entry.get("status"),
