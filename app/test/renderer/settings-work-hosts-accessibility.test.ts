@@ -67,7 +67,7 @@ describe('P3.4 settings work/hosts/state/records structural accessibility', () =
     const { schedules } = await import('../../src/renderer/src/stores/schedules')
     const editing = v.setup.editing as { form: { cron: string } }
     editing.form.cron = 'bad cron'
-    schedules.cron = { expression: 'bad cron', error: 'Invalid cron', next_runs: [] }
+    schedules.cron = { expression: 'bad cron', timezone: '', error: 'Invalid cron', next_runs: [] }
     await flush()
     const invalid = v.root.findAll((n) => n.props['aria-invalid'] === 'true')
     expect(invalid).toHaveLength(1)

@@ -1,5 +1,6 @@
 """Authenticated protocol schedules domain composed with Odin's scheduler."""
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from croniter import croniter
 
@@ -58,9 +59,17 @@ class ScheduleService:
             return [s for s in self.scheduler.list_all() if s.get("requester_id") == owner_id]
         if method == "schedules.validate_cron":
             expression = params.get("expression", "")
+            # The form's zone, as the scheduler evaluates a zoned cron; none means UTC.
+            zone = params.get("timezone")
+            if zone is not None and (not isinstance(zone, str) or not zone.strip()):
+                raise ValueError("timezone must be a non-empty string")
             if not isinstance(expression, str) or not croniter.is_valid(expression):
                 return {"valid": False, "next_runs": []}
-            iterator = croniter(expression, datetime.now(UTC))
+            try:
+                start = datetime.now(ZoneInfo(zone.strip()) if zone else UTC)
+            except (ZoneInfoNotFoundError, ValueError):
+                raise ValueError(f"Unknown time zone: {zone.strip()}") from None
+            iterator = croniter(expression, start)
             return {"valid": True, "next_runs": [iterator.get_next(datetime).isoformat()
                                                 for _ in range(5)]}
         if method == "schedules.history":

@@ -153,6 +153,30 @@ async def test_protocol_authority_timing_destination_and_history(graph):
 
 
 @pytest.mark.asyncio
+async def test_cron_preview_uses_the_forms_time_zone(graph):
+    """L1 (1.0.5): the preview ignored the form's zone, so a zoned cron previewed in UTC."""
+    from zoneinfo import ZoneInfo
+
+    _, service, owner, _ = graph
+
+    async def preview(**params):
+        return await service.invoke(
+            "schedules.validate_cron", {"expression": "0 9 * * *", **params}, owner=owner)
+
+    utc = [datetime.fromisoformat(value) for value in (await preview())["next_runs"]]
+    assert {(value.astimezone(UTC).hour, value.minute) for value in utc} == {(9, 0)}
+    tokyo = [datetime.fromisoformat(value) for value in (await preview(timezone=" Asia/Tokyo "))[
+        "next_runs"]]
+    assert {value.astimezone(ZoneInfo("Asia/Tokyo")).hour for value in tokyo} == {9}
+    assert {value.astimezone(UTC).hour for value in tokyo} == {0}
+    with pytest.raises(ValueError, match="^Unknown time zone: Mars/Olympus$"):
+        await preview(timezone="Mars/Olympus")
+    for bad in ("", "  ", 7):
+        with pytest.raises(ValueError, match="timezone must be a non-empty string"):
+            await preview(timezone=bad)
+
+
+@pytest.mark.asyncio
 async def test_reserved_run_keeps_destination_during_edit(graph):
     scheduler, service, owner, cid = graph
     item = await add(graph)

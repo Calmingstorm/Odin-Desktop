@@ -74,3 +74,34 @@ describe('review round 4: a schedule save that lands finds the form it belongs t
     expect(editing()).toBeNull()
   })
 })
+
+describe('cron time zones (1.0.5 L1)', () => {
+  it('starts a new schedule in Odin\'s time zone and calls a zone-less cron UTC, as it runs', async () => {
+    const { settings } = await import('../../src/renderer/src/stores/settings')
+    settings.meta = { fields: [{ path: 'timezone', desired: 'America/New_York' }] } as never
+    call('startNew')
+    expect(editing()!.form.cron_timezone).toBe('America/New_York')
+    expect(call('when', { ...ROW, timezone: '' })).toBe('0 9 * * *, UTC')
+    expect(call('when', ROW)).toBe('0 9 * * *, UTC time')
+    expect(call('when', { ...ROW, timezone: 'Europe/Paris' })).toBe('0 9 * * *, Europe/Paris time')
+    settings.meta = null
+    call('startNew')
+    expect(editing()!.form.cron_timezone).toBe('')
+  })
+
+  it('shows a preview only while it matches both the form\'s cron and its zone', async () => {
+    const { schedules } = await import('../../src/renderer/src/stores/schedules')
+    call('startNew')
+    Object.assign(editing()!.form, { cron: '0 9 * * *', cron_timezone: 'Asia/Tokyo' })
+    schedules.cron = { expression: '0 9 * * *', timezone: '', next_runs: ['2026-10-10T09:00:00+00:00'], error: '' }
+    await flush()
+    expect(view.root.textContent()).not.toContain('Next:')
+    schedules.cron = { expression: '0 9 * * *', timezone: 'Asia/Tokyo', next_runs: ['2026-10-10T00:00:00+00:00'], error: '' }
+    await flush()
+    expect(view.root.textContent()).toContain('Next:')
+    schedules.cron = { expression: '0 9 * * *', timezone: 'Asia/Tokyo', next_runs: [], error: 'Unknown time zone: Asia/Tokyo' }
+    await flush()
+    const invalid = view.root.findAll((node) => node.props['aria-invalid'] === 'true')
+    expect(invalid.map((node) => node.props.list ?? node.props.placeholder)).toEqual(['zones'])
+  })
+})

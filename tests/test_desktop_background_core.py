@@ -428,3 +428,30 @@ async def test_ipc_process_control_retains_current_host_tool_and_scope_fences(tm
     finally:
         core.permissions.reset_request_owner(token)
         await cleanup(core, writer, rfd, wfd)
+
+
+@pytest.mark.asyncio
+async def test_schedule_refusals_say_what_to_fix(tmp_path):
+    """L21 (1.0.5): every refused schedule came back as "Invalid method parameters", so
+    Settings → Work could not say what to fix. The scheduler's reason now passes through."""
+    core, reader, writer, cid, rfd, wfd = await session(tmp_path, Provider())
+    try:
+        base = {"description": "Refused", "action": "reminder", "channel_id": cid, "message": "x"}
+        for extra, reason in (
+            ({"cron": "0 9 * * *", "cron_timezone": "Mars/Olympus"},
+             "Invalid timezone 'Mars/Olympus': 'No time zone found with key Mars/Olympus'"),
+            ({"cron": "61 25 * * *"}, "Invalid cron expression: 61 25 * * *"),
+            ({}, "Either 'cron', 'run_at', or 'trigger' is required"),
+            ({"run_at": "2020-01-01T00:00:00Z"}, "run_at must be offset-aware and in the future"),
+            ({"cron": "0 9 * * *", "action": "nope"}, "Invalid schedule action"),
+        ):
+            refused = await request(reader, writer, "schedules.save", {**base, **extra})
+            assert refused["ok"] is False
+            assert refused["error"]["code"] == "bad_request"
+            assert refused["error"]["message"] == reason
+        preview = await request(reader, writer, "schedules.validate_cron", {
+            "expression": "0 9 * * *", "timezone": "Mars/Olympus"})
+        assert preview["error"]["message"] == "Unknown time zone: Mars/Olympus"
+        assert (await request(reader, writer, "schedules.list", {}))["result"] == []
+    finally:
+        await cleanup(core, writer, rfd, wfd)

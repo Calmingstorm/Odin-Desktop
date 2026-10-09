@@ -473,7 +473,7 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
   schedulesRun: z.object({ id: scheduleId }).strict(),
   schedulesResetFailures: z.object({ id: scheduleId }).strict(),
   schedulesHistory: z.object({ id: scheduleId.optional(), limit: z.number().int().min(1).max(500).optional() }).strict(),
-  schedulesValidateCron: z.object({ expression: z.string().min(1).max(256) }).strict(),
+  schedulesValidateCron: z.object({ expression: z.string().min(1).max(256), timezone: z.string().min(1).max(64).optional() }).strict(),
   personalityGet: empty,
   personalitySet: z
     .object({

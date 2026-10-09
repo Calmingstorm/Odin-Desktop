@@ -210,6 +210,15 @@ def validate_params(method: str, params: object) -> dict | None:
     return None
 
 
+def _refusal_reason(error: Exception) -> str:
+    """The first line of a validation refusal, secret-scrubbed and bounded for display."""
+    from ..llm.secret_scrubber import scrub_output_secrets
+
+    lines = [line.strip() for line in str(error).splitlines() if line.strip()]
+    reason = scrub_output_secrets(lines[0])[:300] if lines else ""
+    return reason or "Invalid method parameters"
+
+
 class CoreService:
     """One lifetime profile owner, one journal store, one listener."""
 
@@ -843,7 +852,11 @@ class CoreService:
                     except PermissionError:
                         return failure("unauthorized",
                                        "Current profile owner authority is required")
-                    except (TypeError, ValueError):
+                    except ValueError as error:
+                        # The scheduler's reason (a bad zone, cron or run time) says
+                        # what to fix, as Odin's API does. TypeError stays generic.
+                        return failure("bad_request", _refusal_reason(error))
+                    except TypeError:
                         return failure("bad_request", "Invalid method parameters")
 
                 if request["method"] in READ_METHODS:
