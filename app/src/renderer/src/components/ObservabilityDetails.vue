@@ -40,7 +40,15 @@ async function closePools(all: boolean): Promise<void> {
     if (!result.ok && isUnknownOutcome(result.error)) pendingClose = result.error.command_id
     if (!result.ok && isUnavailable(result.error)) closeUnavailable.value = true
     return result
-  }, (answer) => JSON.stringify(answer), refreshPools)
+  }, receipt, refreshPools)
+}
+
+/** The core's closure answer in words: one host ({closed, host}) or every pool ({closed_count}). */
+function receipt(answer: unknown): string {
+  const value = (answer && typeof answer === 'object' ? answer : {}) as { closed?: unknown; host?: unknown; closed_count?: unknown }
+  if (typeof value.closed_count === 'number') return `Closed ${value.closed_count} SSH connection${value.closed_count === 1 ? '' : 's'}.`
+  if (typeof value.host === 'string') return value.closed === true ? `Closed the SSH connection to ${value.host}.` : `No SSH connection to ${value.host} was open.`
+  return 'Closed.'
 }
 </script>
 <template>

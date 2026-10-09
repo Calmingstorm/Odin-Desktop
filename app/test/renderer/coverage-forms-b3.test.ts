@@ -127,6 +127,7 @@ describe('B3 Hosts: settings, confirmation and enrollment controls', () => {
     v.root.button('Copy the command').fire('click'); await flush(); expect(bridge.copyText).toHaveBeenCalledWith('install')
     v.root.button('Next').fire('click'); await flush(); expect(hosts.enrollment.step).toBe(3)
     field(v.root, 'Expected fingerprints', 'textarea').type('SHA256:expected'); v.root.button('Scan and compare').fire('click'); expect(actions.scan).toHaveBeenCalled()
+    v.root.button('Back').fire('click'); await flush(); expect(hosts.enrollment.step).toBe(2)
     hosts.enrollment.step = 4; await flush(); v.root.button('Test the connection').fire('click'); expect(actions.testConnection).toHaveBeenCalled()
     hosts.enrollment.step = 5; hosts.enrollment.tested = true; await flush(); v.root.button('Activate').fire('click'); expect(actions.activate).toHaveBeenCalled()
   })
@@ -154,6 +155,16 @@ describe('B3 MCP: patches and form ownership', () => {
     await flush()
     expect((v.setup.limits as { perServer: unknown }).perServer).toBe(12)
     await v.root.button('Save limits').fire('click'); expect(actions.setMcpLimits).toHaveBeenCalledWith({ max_published_tools_per_server: 12, max_published_tools_global: 40 })
+  })
+  it('sends removals of saved headers and variables, and a narrowed tool list', async () => {
+    const v = await fixture()
+    v.root.named('Edit tools').fire('click'); await flush()
+    const box = (text: string) => v.root.findAll((n) => n.tag === 'label' && n.textContent().trim() === text)[0]!.find('input')!
+    for (const text of ['Remove header Authorization', 'Remove variable ENV']) { const input = box(text); input.checked = true; input.fire('change') }
+    v.root.findAll((n) => n.tag === 'label' && n.textContent().trim().startsWith('Only these tools'))[0]!.find('textarea')!.type('read\nsearch')
+    await flush()
+    await invoke(v, 'save')
+    expect(actions.saveMcp).toHaveBeenCalledWith(expect.objectContaining({ name: 'tools', tool_allowlist: ['read', 'search'], headers_remove: ['Authorization'], env_remove: ['ENV'] }))
   })
   it('rejects invalid timeout, submits a typed patch, retains newer edits, and closes an unchanged successful form', async () => {
     const v = await fixture()

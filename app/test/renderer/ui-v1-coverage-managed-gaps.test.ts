@@ -162,6 +162,16 @@ describe('mounted managed settings missing interactions', () => {
     expect(bridge.memorySet).not.toHaveBeenCalled()
   })
 
+  it('shows Tool progress only when the engine reports its settings', async () => {
+    const root = await view('Tools')
+    expect(root.textContent()).not.toContain('Tool progress')
+    const { settings } = await import('../../src/renderer/src/stores/settings')
+    settings.meta = { revision: 'rev-progress', fields: [{ path: 'tools.streaming.enabled', type: 'boolean', desired: true, effective: true, apply_handler: 'settings.set', sensitivity: 'public', constraints: {}, apply_state: 'applied', enum: null, nullable: false }] } as any
+    await flush()
+    expect(root.textContent()).toContain('Tool progress')
+    expect(root.textContent()).toContain('Tool progress updates')
+  })
+
   it('skips an unnamed timeout draft and removes a named override locally before saving', async () => {
     const root = await view('Tools')
     root.button("Add a tool's own timeout").fire('click')

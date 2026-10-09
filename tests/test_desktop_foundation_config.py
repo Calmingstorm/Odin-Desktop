@@ -77,9 +77,10 @@ def test_migrations_cannot_write_outside_desktop_profile(tmp_path):
     assert path.read_text() == "{}\n"
 
 def test_fresh_profile_explicit_model_intent_and_no_import(tmp_path, monkeypatch):
-    from src.config.model_defaults import DEFAULT_AUXILIARY_MODEL, DEFAULT_MAIN_MODEL
+    from src.config.model_defaults import DEFAULT_MAIN_MODEL
     from src.desktop.paths import ProfilePaths
     from src.desktop.profile import provision_fresh_profile
+    from src.desktop.provisioning import DESKTOP_AUXILIARY_MODEL
     for key, suffix in (
         ("XDG_CONFIG_HOME", "config"),
         ("XDG_DATA_HOME", "data"),
@@ -92,7 +93,8 @@ def test_fresh_profile_explicit_model_intent_and_no_import(tmp_path, monkeypatch
     cfg = load_config(paths.config_file)
     assert cfg.openai_codex.model == DEFAULT_MAIN_MODEL
     assert cfg.llm_provider.model == DEFAULT_MAIN_MODEL
-    assert cfg.openai_codex.auxiliary.model == DEFAULT_AUXILIARY_MODEL
+    # A new profile's auxiliary is Desktop's own choice (D20), written to its config.
+    assert cfg.openai_codex.auxiliary.model == DESKTOP_AUXILIARY_MODEL
     assert paths.config_file.stat().st_mode & 0o777 == 0o600
     with pytest.raises(FileExistsError):
         provision_fresh_profile(paths)
