@@ -51,7 +51,7 @@ async function diagnostics(): Promise<void> {
 }
 onMounted(readInfo)
 
-// Your name and picture in chat (display only; Odin never sees them).
+// Your name and picture in chat. Odin calls you by the name; the picture is display only.
 const userTarget: DisplayPictureTarget = { target: 'user' }
 const nameDraft = ref<string | null>(null)
 const nameValue = computed(() => nameDraft.value ?? displayProfile.name)
@@ -146,7 +146,7 @@ async function quiet(key: 'start' | 'end'): Promise<void> {
 <template>
   <ReleaseNotice />
   <SettingsSection title="Your profile">
-    <SettingsRow label="Your name" description="Shown on your messages instead of “You”. Odin doesn't see it." control-id="display-name">
+    <SettingsRow label="Your name" description="Shown on your messages instead of “You”, and what Odin calls you." control-id="display-name">
       <input id="display-name" :value="nameValue" maxlength="40" placeholder="You" autocomplete="off" @input="editName" @keydown.enter.prevent="saveName" />
       <button class="ghost" aria-label="Save your name" :aria-disabled="nameState.busy || nameDraft === null" @click="saveName">Save</button>
       <template #note><p v-if="nameState.error" class="warn" role="alert">{{ nameState.error }}</p><p v-else-if="nameState.note" role="status">{{ nameState.note }}</p></template>

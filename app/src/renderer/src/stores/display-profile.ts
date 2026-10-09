@@ -1,4 +1,5 @@
-// Your name and picture in chat, and a picture per personality. Display only: Odin never sees them.
+// Your name and picture in chat, and a picture per personality. Odin calls you by the name (the engine reads it from
+// the profile); the pictures are display only and never reach Odin.
 import { reactive } from 'vue'
 import type { DisplayPictureTarget, DisplayProfile, Result } from '../../../shared/api'
 import { activePersonality } from '../assistant-name'

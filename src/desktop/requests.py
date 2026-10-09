@@ -4,6 +4,9 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
+import re
+import stat
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
@@ -26,6 +29,46 @@ REQUEST_SCHEMA = {
     "desktop_submissions": {"client_submission_id", "binding", "response"},
 }
 _execution = ContextVar("desktop_engine_execution", default=None)
+OWNER_NAME = "Owner"
+_DISPLAY_NAME_CHARS = 40
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def owner_display_name(config_dir) -> str:
+    """What Odin calls you: the name set in Settings, General, Your profile.
+
+    Odin uses your Discord display name the same way. The app keeps the name in the profile's
+    ``display-profile/profile.json``; it is read under the app's own rules. The folder must be a
+    private directory you own, the file is opened without following a link or waiting on a
+    special file, and the name is one line of at most 40 characters. Anything else means the
+    default, "Owner".
+    """
+    if config_dir is None:
+        return OWNER_NAME
+    folder = os.path.join(os.fspath(config_dir), "display-profile")
+    try:
+        info = os.lstat(folder)
+        if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid()
+                or info.st_mode & 0o077):
+            return OWNER_NAME
+        descriptor = os.open(os.path.join(folder, "profile.json"),
+                             os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        return OWNER_NAME
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 4096:
+            return OWNER_NAME
+        data = json.loads(os.read(descriptor, 4097).decode("utf-8"))
+    except (OSError, ValueError):
+        return OWNER_NAME
+    finally:
+        os.close(descriptor)
+    name = data.get("name") if isinstance(data, dict) else None
+    if (not isinstance(name, str) or not name.strip() or len(name) > _DISPLAY_NAME_CHARS
+            or _CONTROL_CHARS.search(name)):
+        return OWNER_NAME
+    return name
 
 
 @dataclass(frozen=True, slots=True)
@@ -597,10 +640,13 @@ class RequestService:
         from .delivery import LocalDestination, RequestContext
         destination = LocalDestination(RequestContext(conversation_id, request_id,
             row["generation"], row["owner"], row["message_id"]), self.delivery)
+        # The name you set in Settings, read as the request runs: what Odin calls you.
+        paths = getattr(self.authority, "paths", None)
+        name = owner_display_name(getattr(paths, "config_dir", None))
         return EngineRequest(conversation_id, request_id, row["generation"], row["owner"],
-                             "Owner", row["message_id"], row["text"],
+                             name, row["message_id"], row["text"],
                              destination,
-                             LocalAuthor(row["owner"], "Owner"), self._seal,
+                             LocalAuthor(row["owner"], name), self._seal,
                              tuple(json.loads(row["attachments"])))
 
     def assert_request(self, message, *, allow_terminal=False):

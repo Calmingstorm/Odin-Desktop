@@ -1,4 +1,5 @@
-// Your name and picture in chat, and a picture per personality. Display only: none of it reaches Odin's prompt.
+// Your name and picture in chat, and a picture per personality. The engine reads the name from profile.json, as Odin
+// uses your Discord display name (src/desktop/requests.py owner_display_name); the pictures never reach Odin.
 // Kept in the profile's config folder as owner-only files: profile.json, user.png and personality-<key>.png.
 import { randomBytes } from 'node:crypto'
 import { closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync,

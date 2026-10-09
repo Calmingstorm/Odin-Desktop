@@ -120,7 +120,7 @@ export interface IpcDeps {
   setNotifications: (change: NotificationChange) => Settings
   /** Applies the theme to the window and saves it with the other app preferences. */
   setAppearance: (appearance: Appearance) => Settings
-  /** Your name and pictures in chat, and a picture per personality (display only). */
+  /** Your name and pictures in chat, and a picture per personality. The engine reads the name; pictures are display only. */
   displayProfile: DisplayProfileStore
   setConversationMuted: (conversationId: string, muted: boolean) => Settings
   appState: () => AppState

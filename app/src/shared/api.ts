@@ -1305,7 +1305,7 @@ export interface NotificationChange {
 /** The window's theme: follow the system, or always dark or light. */
 export type Appearance = 'system' | 'dark' | 'light'
 
-/** Your name and pictures in chat; display only. Pictures are 256 x 256 PNG data URLs. */
+/** Your name and pictures in chat. Odin calls you by the name; pictures are display only, 256 x 256 PNG data URLs. */
 export interface DisplayProfile {
   /** Empty shows as "You". */
   name: string
