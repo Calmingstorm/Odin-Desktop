@@ -250,3 +250,145 @@ async def test_failed_restore_never_reports_success(knowledge, monkeypatch):
     with pytest.raises(MethodError) as error:
         await service.handle("knowledge.restore", {"source": "doc", "version": 1})
     assert error.value.code == "internal_error"
+
+
+class _TopicEmbedder:
+    """Deterministic vectors by topic, so a paraphrase with no shared words still matches."""
+
+    TOPICS = (("kiwi", "fruit", "weekday", "release"), ("standup", "meeting", "daily"))
+
+    def __init__(self):
+        self.unavailable_reason = None
+
+    async def embed(self, text):
+        lowered = text.lower()
+        vector = [0.0] * 384
+        for index, words in enumerate(self.TOPICS):
+            vector[index] = float(sum(word in lowered for word in words))
+        vector[383] = 0.1
+        return vector
+
+
+async def _composed_core(tmp_path, monkeypatch, *, roots=(), search=True, runtime=None,
+                         files=None):
+    import os
+    from types import SimpleNamespace
+
+    from src.desktop.core import CoreService, profile_config
+    from src.search import bundled_models
+    from tests.test_desktop_core_lifecycle import profile
+    from tests.test_desktop_engine_services import Provider
+    from tests.test_desktop_management_core import TemporaryKeyring
+
+    monkeypatch.setattr(bundled_models, "bundled_model_roots", lambda: tuple(roots))
+    paths, socket_path, token_file = files or profile(tmp_path)
+    config = profile_config(paths)
+    config.openai_codex.enabled = False
+    config.llm_provider.model = "compat:test"
+    config.openai_compatible.enabled = True
+    config.learning.enabled = False
+    config.browser.enabled = False
+    config.search.enabled = search
+    read_fd, write_fd = os.pipe()
+    core = CoreService(paths, socket_path, token_file, config_provider=lambda _: config,
+        runtime_provider=lambda *_: SimpleNamespace(compatible_client=Provider([]), **(runtime or {})),
+        secret_backend=TemporaryKeyring())
+    await core.start(read_fd)
+
+    async def close():
+        await core.close()
+        os.close(read_fd)
+        os.close(write_fd)
+
+    close.files = (paths, socket_path, token_file)
+    return core, paths, close
+
+
+async def _knowledge_health(core):
+    result = await core.management.invoke("health.get", {})
+    assert result["ok"], result
+    return next(item for item in result["result"]["components"] if item["name"] == "knowledge")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", ["bundled", "source checkout", "search off"])
+async def test_packaged_core_composes_the_bundled_embedder_and_full_text_index(
+        tmp_path, monkeypatch, case):
+    """L17 (1.0.5): the packaged core never built an embedder (the bundled model sat
+    unused) nor a full-text index, so knowledge search was literal and health still
+    claimed vector search. Odin's wiring builds both while search is on."""
+    from src.search.embedder import LocalEmbedder
+
+    root = tmp_path / "bundle" / "models" / "bge-small-en-v1.5"
+    core, paths, close = await _composed_core(
+        tmp_path, monkeypatch, roots=(root,) if case == "bundled" else (),
+        search=case != "search off")
+    try:
+        deps = core.engine.deps
+        fts = deps.knowledge_fts
+        if case == "bundled":
+            assert isinstance(deps.embedder, LocalEmbedder)
+            assert deps.embedder._model_roots == (root,)
+        else:
+            assert deps.embedder is None
+        assert core.management.knowledge.embedder is deps.embedder
+        if case == "search off":
+            assert fts is None and deps.knowledge_store._fts is None
+        else:
+            assert deps.knowledge_store._fts is fts and fts.available
+            assert (paths.data_dir / "fts.db").is_file()
+        component = await _knowledge_health(core)
+        semantic = case == "bundled" and deps.knowledge_store._has_vec
+        assert component["metadata"]["vector_search"] is semantic
+        assert ("vector + FTS" if semantic else "FTS only") in component["detail"]
+        if case == "bundled":
+            # The test bundle has no model: the failed lazy load is reported, not hidden.
+            assert await deps.embedder.embed("probe") is None
+            assert "bundled embedding model unavailable" in deps.embedder.unavailable_reason
+            component = await _knowledge_health(core)
+            assert component["metadata"]["vector_search"] is False
+            assert "FTS only" in component["detail"]
+    finally:
+        await close()
+    if fts is not None:
+        assert not fts.available
+
+
+@pytest.mark.asyncio
+async def test_composed_knowledge_search_finds_a_paraphrase_through_the_embedder(
+        tmp_path, monkeypatch):
+    """The composed store, management service and embedder rank meaning, not only words."""
+    core, _, close = await _composed_core(
+        tmp_path, monkeypatch, runtime={"embedder": _TopicEmbedder()})
+    try:
+        if not core.engine.deps.knowledge_store._has_vec:
+            pytest.skip("sqlite-vec is not loadable here")
+        service = core.management.knowledge
+        for source, content in (("kiwi.md", "The kiwi project ships every Tuesday morning."),
+                                ("standup.md", "Our standup is at 9 in the small room.")):
+            await service.handle("knowledge.ingest", {"source": source, "content": content})
+        hits = await service.handle(
+            "knowledge.search", {"q": "which weekday does the fruit release go out"})
+        assert hits[0]["source"] == "kiwi.md"
+        hits = await service.handle("knowledge.search", {"q": "daily meeting"})
+        assert hits[0]["source"] == "standup.md"
+        hits = await service.handle("knowledge.search", {"q": "Tuesday"})
+        assert hits[0]["source"] == "kiwi.md"
+    finally:
+        await close()
+
+
+@pytest.mark.asyncio
+async def test_startup_indexes_knowledge_stored_without_full_text_rows(tmp_path, monkeypatch):
+    """Chunks stored before 1.0.5 had no full-text rows; startup adds them, as Odin's boot."""
+    core, paths, close = await _composed_core(tmp_path, monkeypatch)
+    await close()
+    before = KnowledgeStore(str(paths.data_dir / "knowledge.db"))
+    await before.ingest("Quarterly zebra inventory notes", "zebra.md")
+    before.close()
+    core, _, close = await _composed_core(tmp_path, monkeypatch, files=close.files)
+    try:
+        assert [row["source"] for row in core.engine.deps.knowledge_fts.search_knowledge("zebra")] == [
+            "zebra.md"]
+    finally:
+        await close()

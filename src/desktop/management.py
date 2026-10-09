@@ -61,6 +61,31 @@ class MethodError(Exception):
         return response_error(self.code, self.message, self.disposition)
 
 
+class _KnowledgeHealth:
+    """The copied knowledge check reads ``_has_vec`` as "semantic search works".
+
+    That takes the vector extension and a composed embedder whose model has not
+    failed to load; the extension alone made health claim vector search the
+    store could not run.
+    """
+
+    def __init__(self, store, embedder):
+        self._store, self._embedder = store, embedder
+
+    @property
+    def available(self):
+        return self._store.available
+
+    def count(self):
+        return self._store.count()
+
+    @property
+    def _has_vec(self):
+        embedder = self._embedder
+        return bool(getattr(self._store, "_has_vec", False) and embedder is not None
+                    and getattr(embedder, "unavailable_reason", None) is None)
+
+
 class ManagementService:
     """One set of domain owners attached to the core's authenticated profile."""
 
@@ -115,7 +140,7 @@ class ManagementService:
         from .integrations import IntegrationsService, ProfileOutboundWebhookDispatcher
         from .knowledge import KnowledgeService
         from .learned_context import LearnedContextService
-        from .mcp import MCPService
+        from .mcp import MCPDispatchBinding, MCPService
         from .model_settings import ModelSettingsService
         from .observability import ObservabilityService
         from .openrouter_admin import OpenRouterAdminService
@@ -241,13 +266,18 @@ class ManagementService:
             # Preserve the request engine's policy, catalog and all consumers.
             catalog = deps.tool_catalog
             catalog.skill_manager = skills
-            # Part A management is not a new request-dispatch binding. Only
-            # publish MCP through an already bound runtime manager.
-            catalog.get_mcp_definitions = (mcp.get_tool_definitions
-                                           if bound_mcp is mcp.manager else None)
+            # Publish MCP tools only through the manager requests and agents
+            # dispatch to: the runtime's, or (packaged core) this service's,
+            # bound into the engine's dispatch binding here.
+            dispatch = getattr(deps, "mcp_dispatch", bound_mcp)
+            if isinstance(dispatch, MCPDispatchBinding):
+                dispatch.bind(mcp.manager)
+                dispatch = dispatch.target
+            dispatching = dispatch is mcp.manager
+            catalog.get_mcp_definitions = mcp.get_tool_definitions if dispatching else None
             catalog.computer_available = lambda: computer.published_available
             deps.management_owned_browser = browser is deps.browser_manager
-            deps.management_owned_mcp = bound_mcp is mcp.manager
+            deps.management_owned_mcp = dispatching
             # The retained manager is a producer, not just a late transport.
             # Its management wrapper remains the single close owner, but the
             # engine must await it before declaring producers quiesced.
@@ -351,7 +381,9 @@ class ManagementService:
 
         async def health():
             observed.config = settings.config
-            observed.knowledge_store = observed.knowledge = knowledge._store
+            observed.knowledge_store = knowledge._store
+            observed.knowledge = (None if knowledge._store is None
+                                  else _KnowledgeHealth(knowledge._store, knowledge.embedder))
             # Sample the current composed owner on every read. A compose-time
             # boolean would remain healthy after request/store/core shutdown.
             observed.delivery_readiness = getattr(core, "delivery_readiness", False)

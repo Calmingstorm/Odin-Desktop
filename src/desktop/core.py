@@ -457,6 +457,8 @@ class CoreService:
             self.commands.prune(time.time() - RECEIPT_RETENTION)
             await self._status_event()
             await self._flush_publications()
+        # Before any client: knowledge stored without full-text rows becomes findable.
+        await self.engine.reconcile_knowledge_index()
         # Odin starts usage reconciliation at boot (OdinBot.setup_hook). It only
         # schedules bounded work, before any client is admitted; failure is logged
         # and never blocks the core. EngineServices.close stops it.

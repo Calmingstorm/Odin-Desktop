@@ -43,6 +43,71 @@ class Provider:
         self.closed = True
 
 
+
+@pytest.mark.asyncio
+async def test_packaged_core_offers_and_dispatches_management_mcp_tools(tmp_path):
+    """L14 (1.0.5): with no runtime MCP manager (the packaged core), management built its
+    own, but requests and agents dispatched to none and the catalog published nothing, so
+    a connected server's tools never reached the model. A real stdio server end to end."""
+    import os
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    from src.desktop.core import CoreService, profile_config
+    from src.desktop.mcp import MCPDispatchBinding
+    from tests.test_desktop_core_lifecycle import profile
+    from tests.test_desktop_management_core import TemporaryKeyring
+
+    fixture = Path(__file__).parents[1] / "app" / "test" / "harmless-mcp-stdio.py"
+    paths, socket_path, token_file = profile(tmp_path)
+    config = profile_config(paths)
+    config.openai_codex.enabled = False
+    config.llm_provider.model = "compat:test"
+    config.openai_compatible.enabled = True
+    config.learning.enabled = False
+    config.browser.enabled = False
+    config.mcp.enabled = True
+    provider = Provider([
+        LLMResponse(tool_calls=[ToolCall("m1", "mcp_fixture_constant", {})], stop_reason="tool_use"),
+        LLMResponse(text="The fixture returned its constant."),
+    ])
+    read_fd, write_fd = os.pipe()
+    core = CoreService(paths, socket_path, token_file, config_provider=lambda _: config,
+        runtime_provider=lambda *_: SimpleNamespace(compatible_client=provider),
+        secret_backend=TemporaryKeyring())
+    try:
+        await core.start(read_fd)
+        binding = core.engine.deps.mcp_dispatch
+        assert isinstance(binding, MCPDispatchBinding)
+        assert binding.target is core.management.mcp.manager
+        # The engine awaits the dispatched-to service before declaring producers quiesced.
+        assert core.engine.deps.management_mcp_service is core.management.mcp
+        saved = await core.management.invoke("mcp.save", {
+            "name": "fixture", "command": sys.executable, "args": [str(fixture)]})
+        assert saved["ok"], saved
+        catalog = core.engine.deps.tool_catalog
+        assert "mcp_fixture_constant" in {tool["name"] for tool in catalog.merged_definitions()}
+        cid = core.conversations.create()["conversation"]["id"]
+        owner = core.authority.authenticate_local(peer_uid=core.authority.owner_uid)
+        token = PermissionManager.set_request_owner(owner)
+        try:
+            receipt = core.requests.submit({"client_submission_id": "mcp",
+                "conversation_id": cid, "text": "Call the fixture tool"})
+        finally:
+            PermissionManager.reset_request_owner(token)
+        await core.requests.after_commit()
+        await asyncio.gather(*core.requests._tasks)
+        assert core.requests.get_request(receipt["request_id"])["state"] == "completed"
+        assert "mcp_fixture_constant" in {tool["name"] for tool in provider.calls[0]["tools"]}
+        assert "harmless constant" in json.dumps(provider.calls[1]["messages"])
+        assert core.transcript.read_conversation(cid)[-1]["text"] == (
+            "The fixture returned its constant.")
+    finally:
+        await core.close()
+        os.close(read_fd)
+        os.close(write_fd)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mcp_shutdown_fails", [False, True])
 async def test_management_mutation_governs_retained_request_runner(tmp_path, mcp_shutdown_fails):

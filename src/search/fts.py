@@ -102,6 +102,15 @@ class FullTextIndex:
     def available(self) -> bool:
         return self._conn is not None
 
+    def close(self) -> None:
+        """Close the shared connection when its owner shuts down (idempotent)."""
+        with self._write_lock:
+            if self._conn is not None:
+                try:
+                    self._conn.close()
+                finally:
+                    self._conn = None
+
     def _rollback_after_failure(self) -> None:
         """Discard an uncommitted replacement without masking its cause.
 
