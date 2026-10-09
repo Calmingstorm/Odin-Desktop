@@ -219,6 +219,33 @@ async def test_task_status_before_teardown_is_not_settlement(work):
     assert service.list()["items"][0]["settlement"]["state"] == "settled"
 
 
+
+@pytest.mark.asyncio
+async def test_a_finished_item_settles_once_and_leaves_the_loop_idle(work, monkeypatch):
+    """1.0.5: settling refreshed the finished item, which re-watched its done task; a done
+    task runs its callback at once, so the core refreshed every Work record forever at
+    full CPU after any agent, task, loop or process finished."""
+    service, message, _context = work
+    item = BackgroundTask("t", "noop", [], message.conversation_id, "Owner",
+                          requester_id=message.owner_id)
+    release = asyncio.Event()
+    item._asyncio_task = asyncio.create_task(release.wait())
+    service.tasks["t"] = item
+    service.register("task", "t", message)
+    calls = []
+    refresh_all = service.refresh_all
+    monkeypatch.setattr(service, "refresh_all", lambda: calls.append(1) or refresh_all())
+    item.status = "completed"
+    release.set()
+    await item._asyncio_task
+    for _ in range(50):
+        await asyncio.sleep(0)
+    assert len(calls) == 1
+    assert service.list()["items"][0]["settlement"]["state"] == "settled"
+    for _ in range(50):
+        await asyncio.sleep(0)
+    assert len(calls) == 2  # that list() itself; nothing more was scheduled
+
 def test_reopen_without_manager_retains_binding_unknown_no_replay(work):
     service, message, _context = work
     agent(service, message)

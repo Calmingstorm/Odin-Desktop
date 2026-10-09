@@ -196,7 +196,10 @@ class WorkService:
 
     def _watch(self, item):
         task = _get(item, "_task", _get(item, "_asyncio_task", _get(item, "_exit_task")))
-        if task is not None and task not in self._watched:
+        # A finished task needs no watch: this refresh already projects its end. Its
+        # done-callback would run at once and refresh again, which re-watched it: a
+        # finished agent, task, loop or process kept the core busy forever.
+        if task is not None and not task.done() and task not in self._watched:
             self._watched.add(task)
             def settled(done):
                 self._watched.discard(done)
