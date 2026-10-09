@@ -93,6 +93,22 @@ async def test_management_ingest_is_visible_to_original_native_knowledge_tools(c
     assert "one >>>shared<<< >>>knowledge<<< store" in found
 
 
+
+async def test_analyze_pdf_is_offered_while_its_first_use_download_can_start(
+        connected, monkeypatch):
+    """L5 (1.0.5): readiness required PyMuPDF to be installed already, so the tool was
+    never offered and its first-use download could never start (Decision F)."""
+    from src.runtime import pdf_resources
+
+    core, *_ = connected
+    catalog = core.engine.deps.tool_catalog
+    for available in (True, False):
+        monkeypatch.setattr(pdf_resources, "pdf_available", lambda value=available: value)
+        assert core.engine.deps.readiness()["analyze_pdf"] is available
+        catalog.invalidate()
+        offered = {tool["name"] for tool in catalog.merged_definitions()}
+        assert ("analyze_pdf" in offered) is available
+
 async def test_actual_compression_owner_updates_are_visible_over_transport(connected):
     from src.llm.context_compressor import compress_tool_context
 

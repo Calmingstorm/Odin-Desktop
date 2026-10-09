@@ -7,7 +7,6 @@ accounting is deliberately separate and runs only after that publication.
 from __future__ import annotations
 
 import asyncio
-import importlib.util
 import mimetypes
 import os
 import time
@@ -715,7 +714,11 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
                            else browser is not None and get_config().browser.enabled)
         for name in ("email_send", "email_search", "email_read", "email_list_recent"):
             ready[name] = bool(executor._email_config and executor._email_config.enabled)
-        ready["analyze_pdf"] = importlib.util.find_spec("fitz") is not None
+        from ..runtime import pdf_resources
+
+        # Decision F: PyMuPDF downloads on first use, so the tool stays offered
+        # wherever that download can start, not only once it is installed.
+        ready["analyze_pdf"] = pdf_resources.pdf_available()
         ready.update({"parse_time": True, "search_history": True, "search_audit": True,
                       "read_conversation": engine.requests is not None,
                       "generate_file": engine.requests is not None,

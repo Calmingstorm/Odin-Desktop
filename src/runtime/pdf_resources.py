@@ -12,6 +12,7 @@ import asyncio
 import fcntl
 import hashlib
 import importlib
+import importlib.util
 import json
 import os
 import shutil
@@ -71,6 +72,24 @@ def _read_lock() -> dict:
         raise PdfUnavailable(
             "PDF support download cannot start: the pinned wheel lock is missing or invalid."
         ) from exc
+
+
+def pdf_available() -> bool:
+    """Whether analyze_pdf can run here, without importing or downloading anything.
+
+    True when PyMuPDF is importable, or when its pinned first-use download can
+    start (a valid lock for this platform): Decision F keeps the tool offered.
+    """
+    try:
+        if importlib.util.find_spec("fitz") is not None:
+            return True
+    except (ImportError, ValueError):
+        pass
+    try:
+        _read_lock()
+    except PdfUnavailable:
+        return False
+    return True
 
 
 def _download_wheel(url: str, destination: Path) -> None:
