@@ -5,6 +5,7 @@ request, live keyring or graphical environment is used.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 
@@ -145,6 +146,12 @@ async def test_persisted_usage_read_is_observed_without_a_second_rollup_writer(c
                        agent_trajectory_directory=str(paths.data_dir / "agent_trajectories"),
                        audit=AuditLogger(str(paths.data_dir / "fixture-usage-audit.jsonl")))
     assert owner.available
+    # A rollup publishes its first backfill pass to the shared store in the background.
+    # Wait for it, so the two reads below observe one state instead of racing it.
+    for _ in range(200):
+        if (await owner.summary("30d"))["coverage"]["backfill_complete"]:
+            break
+        await asyncio.sleep(0.05)
     expected = await owner.summary("30d")
     core.management.runtime.usage = owner
     actual = await request(reader, writer, "observability.usage", {"range": "30d"})

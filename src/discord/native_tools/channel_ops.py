@@ -27,8 +27,9 @@ class ChannelOpsTools:
             return ToolFailure(
                 "Only 'limit' is accepted; the conversation is the one this request came from."
             )
+        # D19 pins this unreachable backstop as plain text (test_desktop_d19_unreachable.py).
         if self.read_visible_history is None:
-            return ToolFailure(
+            return (
                 "Conversation history is unavailable: "
                 "Phase 2 admission and transcript wiring is not implemented."
             )
