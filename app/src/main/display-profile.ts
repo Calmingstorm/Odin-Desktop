@@ -101,10 +101,22 @@ export class DisplayProfileStore {
     return this.read()
   }
 
+  /** Removing from a folder that exists but is not private is refused, never reported as done: the picture would come
+   * back once the folder is private again. */
   removePicture(target: DisplayPictureTarget): DisplayProfile {
     const file = pictureFile(target)
     if (this.privateFolder()) rmSync(join(this.dir, file), { force: true })
+    else if (this.present()) throw new DisplayProfileError('The pictures folder is not private, so nothing was removed.')
     return this.read()
+  }
+
+  private present(): boolean {
+    try {
+      lstatSync(this.dir)
+      return true
+    } catch {
+      return false
+    }
   }
 
   /** The folder, when it is a real directory this user owns with no group or other access. Never a link. */

@@ -152,7 +152,12 @@ describe('display profile store', () => {
     const store = new DisplayProfileStore(shared)
     expect(() => store.setPicture(user, png().toString('base64'))).toThrow(DisplayProfileError)
     expect(store.read()).toEqual({ name: '', user: null, personalities: [] })  // not read from it either
+    // Nor removed from it: Remove is refused rather than reported as done, so nothing comes back later.
+    expect(() => store.removePicture(user)).toThrow(DisplayProfileError)
+    expect(readdirSync(shared)).toEqual(['user.png'])
     expect(statSync(shared).mode & 0o777).toBe(0o755)
+    // A folder that does not exist yet has nothing to remove.
+    expect(new DisplayProfileStore(join(base, 'missing')).removePicture(user)).toEqual({ name: '', user: null, personalities: [] })
   })
 
   it('reads a file only when it is a regular file, never through a link', () => {
