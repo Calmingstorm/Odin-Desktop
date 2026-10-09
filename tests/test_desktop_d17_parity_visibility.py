@@ -1,7 +1,9 @@
 """Catalog repairs use real owners, durable effects and no network transports."""
 import asyncio
 import base64
+import errno
 import io
+import os
 import stat
 from pathlib import Path
 
@@ -18,6 +20,7 @@ from src.desktop.paths import ProfilePaths
 from src.desktop.requests import RequestService
 from src.desktop.services import build_engine_services
 from src.desktop.transcript import TranscriptStore
+from src.discord.native_tools.media import MediaTools
 from src.llm.codex_auth import CodexAuth
 from src.llm.types import LLMResponse, ToolCall
 from src.permissions.manager import PermissionManager
@@ -276,3 +279,36 @@ async def test_generated_image_copy_never_replaces_an_existing_file(graph, monke
     assert result.ok and result.output.endswith(" and posted.")
     assert existing.read_bytes() == b"keep me"
     assert sorted(path.name for path in folder.iterdir()) == [existing.name]
+
+
+async def test_generated_image_copy_that_fails_midway_leaves_no_partial_file(graph, monkeypatch):
+    """A write that fails part-way, as on a full disk, removes what landed and reports it."""
+    engine, cfg = graph[0], graph[-1]
+    owner = engine.deps.native_tools.owners["media"]
+    folder = Path(cfg.tools.local_working_dir) / "generated-images"
+    real_fdopen = os.fdopen
+
+    class FullDisk:
+        def __init__(self, fd, mode):
+            self.handle = real_fdopen(fd, mode)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self.handle.close()
+
+        def write(self, data):
+            self.handle.write(data[:16])  # part of the image lands first
+            raise OSError(errno.ENOSPC, "inert: no space left on device")
+
+    with monkeypatch.context() as m:
+        m.setattr(os, "fdopen", FullDisk)
+        with pytest.raises(OSError, match="no space left"):
+            owner._retain_generated_image(b"\x89PNG\r\n\x1a\n" + bytes(64))
+    assert folder.is_dir() and list(folder.iterdir()) == []
+
+
+def test_the_shared_media_tool_keeps_no_local_copy_itself():
+    """Odin's media tool keeps no copy; only an embedder that overrides the hook (Desktop) does."""
+    assert MediaTools._retain_generated_image(object(), b"\x89PNG\r\n\x1a\n") is None

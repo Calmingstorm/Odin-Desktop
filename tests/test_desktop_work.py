@@ -370,6 +370,7 @@ def _run(status, run_id="r1", generation="g1", schedule_id="s"):
     ([_run("success", schedule_id="other")], "r1", "unknown"),
     ([], None, "cancelled"),                       # no run was ever admitted
     (["not json", _run("success")], "r1", "completed"),
+    ([_run("success"), "not json"], "r1", "completed"),  # met first by the newest-first scan
 ])
 def test_schedule_the_scheduler_dropped_ends_with_its_latest_run(work, tmp_path, history, latest,
                                                                  expected):
