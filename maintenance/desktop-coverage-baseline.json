@@ -51,6 +51,11 @@
         "missing": 1,
         "total": 39
       },
+      "app/src/main/display-profile.ts": {
+        "covered": 54,
+        "missing": 2,
+        "total": 56
+      },
       "app/src/main/drafts.ts": {
         "covered": 26,
         "missing": 2,
@@ -205,6 +210,11 @@
         "covered": 18,
         "missing": 0,
         "total": 18
+      },
+      "app/src/renderer/src/components/AvatarPicker.vue": {
+        "covered": 19,
+        "missing": 0,
+        "total": 19
       },
       "app/src/renderer/src/components/ChatStatus.vue": {
         "covered": 15,
@@ -520,6 +530,11 @@
         "covered": 133,
         "missing": 2,
         "total": 135
+      },
+      "app/src/renderer/src/stores/display-profile.ts": {
+        "covered": 46,
+        "missing": 1,
+        "total": 47
       },
       "app/src/renderer/src/stores/hosts.ts": {
         "covered": 134,
