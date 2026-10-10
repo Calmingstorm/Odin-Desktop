@@ -37,7 +37,10 @@ def flatten(node, prefix="settings"):
 
 
 def source_paths(root):
-    directories = ("src/config", "src/permissions", "src/tools/hosts", "src/tools/handlers")
+    # The platform package selects the profile layout, keyring backend and file locks the
+    # fresh profile runs on, so its sources are part of what this proof pins.
+    directories = ("src/config", "src/permissions", "src/tools/hosts", "src/tools/handlers",
+                   "src/desktop/platform")
     explicit = ("src/desktop/authority.py", "src/desktop/paths.py", "src/desktop/provisioning.py",
                 "src/desktop/settings.py", "src/desktop/secrets.py", "src/runtime_paths.py",
                 "src/desktop/ssh_sockets.py", "src/desktop/ssh_pool.py",

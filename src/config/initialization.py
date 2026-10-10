@@ -15,7 +15,6 @@ widen a listener.
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import json
 import os
 import secrets
@@ -27,6 +26,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import TypeVar
 
+from ..desktop.platform import locks
 from .environment import warn_group_writable_directory_once
 
 STATE_VERSION = 1
@@ -608,7 +608,7 @@ class InitializationStore:
                         raise InitializationError(
                             "initialization lock has unsafe ownership or mode"
                         )
-                    fcntl.flock(fd, fcntl.LOCK_EX)
+                    locks.lock_exclusive(fd)
                 except (OSError, InitializationError) as exc:
                     if fd is not None:
                         with contextlib.suppress(OSError):
@@ -623,7 +623,7 @@ class InitializationStore:
                     yield
                 finally:
                     with contextlib.suppress(OSError):
-                        fcntl.flock(fd, fcntl.LOCK_UN)  # type: ignore[arg-type]
+                        locks.unlock(fd)  # type: ignore[arg-type]
                     os.close(fd)  # type: ignore[arg-type]
                     self._parent_fd = None
                     self._parent_identity = None

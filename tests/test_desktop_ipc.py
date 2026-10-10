@@ -412,10 +412,42 @@ def test_cli_connection_failure_scrubbed(tmp_path, capsys):
 
 @pytest.mark.asyncio
 async def test_local_client_refuses_foreign_uid_before_token_send(monkeypatch):
-    monkeypatch.setattr("src.desktop.local_client.peer_uid", lambda _sock: os.geteuid() + 1)
+    """Client side only: a listener owned by another user never receives a byte, let alone
+    the token. The server keeps its own peer check (test_peer_rejection_checks_os_primitive)."""
+    from src.desktop import local_client
+    from src.desktop.platform import current_platform
+
+    real = current_platform().ipc
+    written = []
+
+    class ForeignListener:
+        owner = real.owner
+        load_token = staticmethod(real.load_token)
+
+        @staticmethod
+        def peer(_writer):
+            return real.owner + 1
+
+        @staticmethod
+        async def connect(path):
+            reader, writer = await real.connect(path)
+            send = writer.write
+
+            def record(data):
+                written.append(bytes(data))
+                return send(data)
+
+            writer.write = record
+            return reader, writer
+
+    class ForeignPlatform:
+        ipc = ForeignListener()
+
+    monkeypatch.setattr(local_client, "current_platform", ForeignPlatform)
     async with fixture_server() as (server, token_file, _, calls):
         with pytest.raises(PermissionError, match="foreign IPC listener"):
             await LocalClient.connect(server.socket_path, token_file)
+        assert written == []
         assert not calls and not server.connections
 
 
@@ -700,3 +732,19 @@ async def test_idle_subscriber_revocation_prevents_unsolicited_event(monkeypatch
         assert await client.reader.read() == b""
         assert connection.event_seq == 0
         await client.close()
+
+
+@pytest.mark.asyncio
+async def test_diagnostic_run_exits_nonzero_when_the_core_says_bye(monkeypatch):
+    """The diagnostics command reports failure when the core ends the connection instead
+    of answering, and the request is never dispatched."""
+    from argparse import Namespace
+
+    from src.desktop import local_client
+
+    async with fixture_server() as (server, token_file, authority, calls):
+        monkeypatch.setattr(authority, "accepts", lambda _context: False)
+        args = Namespace(socket=server.socket_path, token_file=token_file, profile="default",
+                         method="status.get")
+        assert await local_client._run(args) == 1
+        assert not calls

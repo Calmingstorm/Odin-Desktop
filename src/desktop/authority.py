@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import json
 import os
 import stat
@@ -11,6 +10,7 @@ from dataclasses import dataclass, field
 
 from ..permissions.persistence import write_private_atomic
 from .paths import ProfilePaths
+from .platform import locks
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,7 +132,7 @@ class OwnerAuthority:
                 or stat.S_IMODE(info.st_mode) != 0o600
             ):
                 raise PermissionError("unsafe profile identity lock")
-            fcntl.flock(fd, fcntl.LOCK_EX)
+            locks.lock_exclusive(fd)
             yield
         finally:
             os.close(fd)
@@ -233,7 +233,7 @@ class OwnerAuthority:
                 or stat.S_IMODE(info.st_mode) != 0o600
             ):
                 raise PermissionError("unsafe runtime lock")
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            locks.lock_exclusive(fd, blocking=False)
             current = os.stat(self.paths.config_dir / ".core.lock", follow_symlinks=False)
             if (current.st_dev, current.st_ino) != (info.st_dev, info.st_ino):
                 raise PermissionError("profile ownership lock changed")

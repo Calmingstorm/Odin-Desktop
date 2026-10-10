@@ -9,7 +9,6 @@ Failures are not cached, so an offline first use can be retried later.
 from __future__ import annotations
 
 import asyncio
-import fcntl
 import hashlib
 import importlib
 import importlib.util
@@ -29,6 +28,7 @@ from pathlib import Path, PurePosixPath
 from types import ModuleType
 
 from ..desktop.paths import private_directory
+from ..desktop.platform import locks
 from ..runtime_paths import runtime_install_root, runtime_profile_paths
 
 _MAX_WHEEL_BYTES = 100 * 1024 * 1024
@@ -172,7 +172,7 @@ def _install_pdf() -> ModuleType:
     private_directory(root)
     installed = root / lock["sha256"]
     with (root / ".install.lock").open("a+b") as mutex:
-        fcntl.flock(mutex, fcntl.LOCK_EX)
+        locks.lock_exclusive(mutex)
         if installed.is_dir():
             try:
                 return _load_install(installed)

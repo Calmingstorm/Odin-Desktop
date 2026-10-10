@@ -10,15 +10,12 @@ command admission or snapshot/replay/publication ordering.
 from __future__ import annotations
 
 import asyncio
-import errno
-import os
-import socket
-import stat
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from . import ipc_auth
 from .authority import OwnerAuthority, OwnerContext
+from .platform import current_platform
 from .protocol import (
     HANDSHAKE_TIMEOUT,
     MAX_FRAME,
@@ -73,79 +70,20 @@ class IpcServer:
         self._tasks: set[asyncio.Task] = set()
         self._writers: set[asyncio.StreamWriter] = set()
         self._server = None
-        self._parent_fd = None
-        self._socket_identity = None
+        self._ipc = current_platform().ipc
+        self.endpoint = self._ipc.endpoint(self.socket_path)
         self._token = None
         self._closing = False
 
     async def start(self) -> None:
         if self._server is not None or self._closing:
             raise RuntimeError("IPC server already started or closed")
-        self._token = ipc_auth.load_token(self.token_file)
-        path, parent = ipc_auth.private_parent(self.socket_path, create=True)
-        self._parent_fd = parent
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self._token = self._ipc.load_token(self.token_file)
         try:
-            if len(os.fsencode(path)) > 107:
-                raise ValueError("IPC socket path too long")
-            await self._remove_stale_socket()
-            # Descriptor-relative bind prevents parent-link replacement during startup.
-            sock.bind(f"/proc/self/fd/{parent}/{path.name}")
-            info = os.stat(path.name, dir_fd=parent, follow_symlinks=False)
-            self._socket_identity = (info.st_dev, info.st_ino)
-            os.chmod(path.name, 0o600, dir_fd=parent, follow_symlinks=False)
-            sock.listen(socket.SOMAXCONN)
-            sock.setblocking(False)
-            self._server = await asyncio.start_unix_server(self._accept, sock=sock)
+            self._server = await self.endpoint.listen(self._accept)
         except BaseException:
-            sock.close()
-            self._unlink_owned_socket()
-            os.close(parent)
-            self._parent_fd = None
             self._token = None
             raise
-
-    async def _remove_stale_socket(self) -> None:
-        try:
-            info = os.stat(self.socket_path.name, dir_fd=self._parent_fd,
-                           follow_symlinks=False)
-        except FileNotFoundError:
-            return
-        if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.geteuid():
-            raise PermissionError("existing IPC path is not an owned socket")
-        probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        probe.setblocking(False)
-        try:
-            try:
-                await asyncio.wait_for(asyncio.get_running_loop().sock_connect(
-                    probe, f"/proc/self/fd/{self._parent_fd}/{self.socket_path.name}"), 1.0)
-            except OSError as error:
-                if error.errno != errno.ECONNREFUSED:
-                    raise RuntimeError("IPC listener state unproven") from None
-            except TimeoutError:
-                raise RuntimeError("IPC listener state unproven") from None
-            else:
-                # Any live listener is protected, without needing its protocol/token.
-                raise RuntimeError("IPC listener already active")
-        finally:
-            probe.close()
-        current = os.stat(self.socket_path.name, dir_fd=self._parent_fd,
-                          follow_symlinks=False)
-        if (current.st_dev, current.st_ino) != (info.st_dev, info.st_ino):
-            raise RuntimeError("IPC socket changed during probe")
-        os.unlink(self.socket_path.name, dir_fd=self._parent_fd)
-
-    def _unlink_owned_socket(self) -> None:
-        if self._parent_fd is None or self._socket_identity is None:
-            return
-        try:
-            info = os.stat(self.socket_path.name, dir_fd=self._parent_fd,
-                           follow_symlinks=False)
-            if stat.S_ISSOCK(info.st_mode) and (info.st_dev, info.st_ino) == self._socket_identity:
-                os.unlink(self.socket_path.name, dir_fd=self._parent_fd)
-        except FileNotFoundError:
-            pass
-        self._socket_identity = None
 
     def _accept(self, reader, writer):
         if self._closing:
@@ -168,8 +106,8 @@ class IpcServer:
         connection = None
         unlock_tasks = set()
         try:
-            uid = ipc_auth.peer_uid(writer.get_extra_info("socket"))
-            if uid != os.geteuid():
+            uid = self._ipc.peer(writer)
+            if uid != self._ipc.owner:
                 await self._bye(writer, "unauthorized")
                 return
             hello = await asyncio.wait_for(read_frame(reader, self.max_frame), HANDSHAKE_TIMEOUT)
@@ -297,9 +235,6 @@ class IpcServer:
 
     def _cleanup_socket(self) -> None:
         try:
-            self._unlink_owned_socket()
+            self.endpoint.close()
         finally:
-            if self._parent_fd is not None:
-                os.close(self._parent_fd)
-                self._parent_fd = None
             self._token = None

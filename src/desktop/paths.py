@@ -124,7 +124,9 @@ class ProfilePaths:
         The token remains app-owned. No file is opened or provisioned here.
         Cache uses the same XDG/profile namespace as the app.
         """
-        defaults = cls.from_xdg(profile_id, environ=environ, home=home)
+        from .platform import current_platform
+
+        defaults = current_platform().profile_paths(profile_id, environ=environ, home=home)
         token_file, data_dir = Path(token_file), Path(data_dir)
         for path in (token_file, data_dir):
             if (not path.is_absolute() or ".." in path.parts

@@ -665,6 +665,21 @@
         "covered": 45,
         "missing": 0,
         "total": 45
+      },
+      "app/src/main/platform/contracts.ts": {
+        "covered": 0,
+        "missing": 0,
+        "total": 0
+      },
+      "app/src/main/platform/index.ts": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "app/src/main/platform/linux.ts": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
       }
     },
     "total": {
@@ -2725,6 +2740,31 @@
         "covered": 2,
         "missing": 1,
         "total": 3
+      },
+      "src/desktop/platform/__init__.py": {
+        "covered": 11,
+        "missing": 0,
+        "total": 11
+      },
+      "src/desktop/platform/contracts.py": {
+        "covered": 17,
+        "missing": 0,
+        "total": 17
+      },
+      "src/desktop/platform/linux.py": {
+        "covered": 19,
+        "missing": 0,
+        "total": 19
+      },
+      "src/desktop/platform/linux_ipc.py": {
+        "covered": 85,
+        "missing": 7,
+        "total": 92
+      },
+      "src/desktop/platform/locks.py": {
+        "covered": 13,
+        "missing": 0,
+        "total": 13
       }
     },
     "total": {
@@ -2759,6 +2799,9 @@
     "app/src/main/package-ownership.ts",
     "app/src/main/package-state.ts",
     "app/src/main/paths.ts",
+    "app/src/main/platform/contracts.ts",
+    "app/src/main/platform/index.ts",
+    "app/src/main/platform/linux.ts",
     "app/src/main/real-core-smoke.ts",
     "app/src/main/release-notice.ts",
     "app/src/main/schemas.ts",
@@ -2901,6 +2944,11 @@
     "src/desktop/package_state.py",
     "src/desktop/package_status.py",
     "src/desktop/paths.py",
+    "src/desktop/platform/__init__.py",
+    "src/desktop/platform/contracts.py",
+    "src/desktop/platform/linux.py",
+    "src/desktop/platform/linux_ipc.py",
+    "src/desktop/platform/locks.py",
     "src/desktop/profile.py",
     "src/desktop/protocol.py",
     "src/desktop/providers.py",

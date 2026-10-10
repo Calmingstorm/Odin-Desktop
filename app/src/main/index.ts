@@ -10,7 +10,6 @@ import { IPC, type AppState, type Appearance, type CoreEvent, type LinkState, ty
 import { AppearanceController, loadAppearance } from './appearance'
 import { ArtifactStore, safeFileName } from './artifacts'
 import { AttachmentManager, type AttachmentLimits } from './attachments'
-import { isAutostartEnabled, setAutostart } from './autostart'
 import { Broker } from './broker'
 import { coreCommand, type CoreLaunch } from './core-command'
 import { CoreSupervisor } from './core-supervisor'
@@ -20,9 +19,7 @@ import { registerIpc } from './ipc'
 import { DeviceLoginBoundary } from './device-login'
 import { decideSecondInstance, decideWindowClose, parseLaunchFlags, showWhenReady, type LifecycleState } from './lifecycle'
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
-import { ensureProfileDirs, ensureToken, profilePaths } from './paths'
-import { inspectPackagedState } from './package-state'
-import { acquirePackagedApp, admitPackagedApp } from './package-ownership'
+import { currentPlatform } from './platform'
 import { realCoreSmoke } from './real-core-smoke'
 import { ReleaseNoticeService } from './release-notice'
 import { onboardingSmoke } from './onboarding-smoke'
@@ -30,10 +27,12 @@ import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppSchem
 import { APP_ORIGIN } from './security-policy'
 import { OdinTray, detectTray } from './tray'
 import { boundedShutdown, CleanupJournal, resourceCleanupSource } from './shutdown'
-import { installKdeLogoutHook, startSessionMonitor } from './session-logout'
 import { showNativeNotification } from './native-notifications'
 import { configureIdentity } from './identity'
 import { WindowStateController, loadWindowState, objectRecord, restoreWindowState, windowBackend, type WindowState, type WindowBackend } from './window-state'
+
+// The OS-specific pieces (profile paths, start at login, package ownership, session end), chosen once.
+const platform = currentPlatform()
 
 configureIdentity(app)
 registerAppScheme()
@@ -49,11 +48,11 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   if (app.isPackaged) {
     void (async () => {
-      let guardian: Awaited<ReturnType<typeof acquirePackagedApp>> | undefined
+      let guardian: Awaited<ReturnType<typeof platform.acquirePackagedApp>> | undefined
       try {
-        guardian = await acquirePackagedApp(profilePaths(), process.resourcesPath, process.env)
-        inspectPackagedState(profilePaths(), process.resourcesPath, process.env)
-        await admitPackagedApp(guardian)
+        guardian = await platform.acquirePackagedApp(platform.profilePaths(), process.resourcesPath, process.env)
+        platform.inspectPackagedState(platform.profilePaths(), process.resourcesPath, process.env)
+        await platform.admitPackagedApp(guardian)
         // Keep stdin open through real process exit. EOF plus fresh cleanup
         // receipts releases the guardian, not a pre-exit event or bare PID.
         guardian.once('exit', () => app.exit(1))
@@ -71,9 +70,9 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 function run(): void {
-  const paths = profilePaths()
-  ensureProfileDirs(paths)
-  ensureToken(paths)
+  const paths = platform.profilePaths()
+  platform.ensureProfileDirs(paths)
+  platform.ensureToken(paths)
 
   const appStateFile = paths.appStatePath
   // Separate app-owned evidence from the engine's identity-checked bootstrap profile.
@@ -302,7 +301,7 @@ function run(): void {
     win.focus()
   }
 
-  const settings = (): Settings => ({ autostart: isAutostartEnabled(undefined, launchCommand()), notifications: notificationSettings,
+  const settings = (): Settings => ({ autostart: platform.isAutostartEnabled(undefined, launchCommand()), notifications: notificationSettings,
     appearance: currentAppearance() })
 
   const shutdown = boundedShutdown({
@@ -332,8 +331,8 @@ function run(): void {
     exit: (code) => app.exit(code)
   })
   const exitOdin = async (code = 0): Promise<void> => { await shutdown(code) }
-  const sessionMonitor = startSessionMonitor(launch, () => { void exitOdin() })
-  const logoutHook = installKdeLogoutHook(launchCommand())
+  const sessionMonitor = platform.startSessionMonitor(launch, () => { void exitOdin() })
+  const logoutHook = platform.installLogoutHook(launchCommand())
 
   // Main-only hooks; not exposed through IPC/preload. The E2E runner enforces isolation before launch.
   if (!app.isPackaged && process.env.ODIN_APP_E2E === '1'
@@ -456,7 +455,7 @@ function run(): void {
         if (!savePersisted()) { setupReminderHidden = previous; throw new Error('App preferences could not be persisted') }
       },
       setAutostart: (enabled) => {
-        setAutostart(enabled, launchCommand())
+        platform.setAutostart(enabled, launchCommand())
         return settings()
       },
       setNotifications: (change) => {
