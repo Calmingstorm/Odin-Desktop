@@ -136,6 +136,13 @@ def test_private_state_needs_a_local_drive(monkeypatch):
         windows_files.canonical(r"\\server\share\odin-desktop\test")
 
 
+def test_long_path_drives_count_as_local_and_relative_paths_are_refused():
+    assert windows_files._local_drive("\\\\?\\C:\\Users\\x")
+    assert not windows_files._local_drive("\\\\server\\share\\x")
+    with pytest.raises(ValueError, match="absolute"):
+        windows_files.canonical("relative\\odin-desktop")
+
+
 def test_publish_replaces_flushes_and_leaves_no_temporary(profile_root):
     private_directory(profile_root)
     with held(profile_root) as chain:

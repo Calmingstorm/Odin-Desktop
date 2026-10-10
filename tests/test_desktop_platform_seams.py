@@ -54,6 +54,16 @@ def test_other_systems_are_refused_as_before(fresh_platform, monkeypatch, tmp_pa
                               data_dir=tmp_path / "data")
 
 
+def test_linux_workspace_member_is_the_pinned_resolver(tmp_path):
+    from src.tools.workspace import resolve_workspace
+
+    expected = resolve_workspace(str(tmp_path / "pinned"))
+    member = LinuxPlatform().resolve_workspace(str(tmp_path / "member"))
+    assert member == (tmp_path / "member").resolve()
+    assert expected == (tmp_path / "pinned").resolve()
+    assert type(LinuxPlatform().secret_backend(paths=None)).__name__ == "_SecretServiceBackend"
+
+
 def test_linux_profile_paths_are_the_xdg_paths(fresh_platform, monkeypatch, tmp_path):
     environ = {"XDG_CONFIG_HOME": str(tmp_path / "cfg"), "XDG_DATA_HOME": str(tmp_path / "share")}
     assert (LinuxPlatform().profile_paths("work", environ=environ, home=tmp_path)

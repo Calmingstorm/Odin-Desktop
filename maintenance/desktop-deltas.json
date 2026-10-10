@@ -4605,7 +4605,7 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -4734,7 +4734,7 @@
         "tests/test_audit_rotation_integrity_snapshot_coverage.py": "6a8995b28188e5a64d3cb00d9707a1f87891f8eb9d6a2cb259d62cf7b468b6d6",
         "tests/test_audit_signing.py": "f85926250b60a19450c80f507b5899be9186ebd8e28b16ffc5a7b0003b8282bc",
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -5561,7 +5561,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/test_desktop_platform_seams.py": "81a979eea57b23105698359994f32780a6a5207fa3d2a06d5318f659a9c70910",
+        "tests/test_desktop_platform_seams.py": "69713b1ed7a1cc69bc79885606557363ff795c4988a644c79b198141780f12ea",
         "tests/test_environment_source_editor.py": "79f5ab55b6c82849069cc2c5a4fb6b343fad792dda26780ecf72ec4afe522eff"
       },
       "tests": [
@@ -5742,7 +5742,7 @@
         "tests/test_config_ceiling_migration.py": "d8985d24f6287b2252da079d8f7163a2b97f27326703617129c6aa9dcaa6fc7b",
         "tests/test_desktop_foundation_config.py": "29b7cd3930d68b74ad55eba7bbd6ad9b54e48ec2debf1e2d527f80f29c321660",
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -5817,7 +5817,7 @@
         "tests/test_desktop_phase2_review_integrations.py": "a34fbeb3ac6843d78666dc4dcc27777be62ee2b5b1775e28e768db4e19dfcef6",
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
         "tests/test_webhook_persistence.py": "23f7600e92357f68a1cb50bd2b31f0ef8c6c077943872ff0934f6e24dc39d231",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -8265,7 +8265,7 @@
         "tests/test_desktop_core_lifecycle.py": "6ee476b3fb3af1ac8ab2abd98e20867c2f17870e0fabc018a206d24848b99f60",
         "tests/test_desktop_foundation.py": "15d9fe10ca2516e4be5e05d1edc170969146c28ef98f72ca7c987c003ad2f4ef",
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -8942,7 +8942,7 @@
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
         "tests/test_desktop_receipt_retention.py": "987ed6dc17ca1efb7bbe2582c7116cb0b23745edfb48efe933c0c3ff6fe4ef69",
         "tests/test_desktop_resume_trigger.py": "1d20c2357369f70d6e4fb8f9832f4a67771f1c418999eb1388ac837823387279",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -9708,7 +9708,7 @@
         "tests/test_desktop_core_lifecycle.py": "6ee476b3fb3af1ac8ab2abd98e20867c2f17870e0fabc018a206d24848b99f60",
         "tests/test_desktop_ipc.py": "dd2b176946b201efb7317769d06b2e3812e64b00f3548a75d91b8605d0e79599",
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -9925,7 +9925,7 @@
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
         "tests/test_desktop_resource_cleanup.py": "b7a0323bfd8a2b3cf4df1bdd53ea7c171e65f3d43a34de534bce3868980f2a5c",
         "tests/test_desktop_startup_stop.py": "5457cf38697bbe25db3fb60b8ab867f1c61211ce7de467ec48e6eefdb62243af",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -10221,7 +10221,7 @@
         "tests/test_desktop_core_entry.py": "fb06470d0a5bb84424d8e533e1b7616bfed05d7bcb79d1e5f2c4daecff900b3f",
         "tests/test_desktop_package_state.py": "441f74119aa13cb64289c662eac33e7f959ed302c79a1d3a8a977496351395e1",
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -10308,7 +10308,7 @@
         "tests/test_desktop_core_paths.py": "5ec32d57ddc58bdff4e18d488e91b6a34401788ff0bd44222f32ce2400cd13ea",
         "tests/test_desktop_foundation.py": "15d9fe10ca2516e4be5e05d1edc170969146c28ef98f72ca7c987c003ad2f4ef",
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -10355,8 +10355,8 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/test_desktop_platform_seams.py": "81a979eea57b23105698359994f32780a6a5207fa3d2a06d5318f659a9c70910",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/test_desktop_platform_seams.py": "69713b1ed7a1cc69bc79885606557363ff795c4988a644c79b198141780f12ea",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -10400,7 +10400,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/test_desktop_platform_seams.py": "81a979eea57b23105698359994f32780a6a5207fa3d2a06d5318f659a9c70910"
+        "tests/test_desktop_platform_seams.py": "69713b1ed7a1cc69bc79885606557363ff795c4988a644c79b198141780f12ea"
       },
       "tests": [
         "tests/test_desktop_platform_seams.py"
@@ -10437,7 +10437,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/test_desktop_platform_seams.py": "81a979eea57b23105698359994f32780a6a5207fa3d2a06d5318f659a9c70910"
+        "tests/test_desktop_platform_seams.py": "69713b1ed7a1cc69bc79885606557363ff795c4988a644c79b198141780f12ea"
       },
       "tests": [
         "tests/test_desktop_platform_seams.py"
@@ -10475,7 +10475,7 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_ipc.py": "dd2b176946b201efb7317769d06b2e3812e64b00f3548a75d91b8605d0e79599",
-        "tests/test_desktop_platform_seams.py": "81a979eea57b23105698359994f32780a6a5207fa3d2a06d5318f659a9c70910"
+        "tests/test_desktop_platform_seams.py": "69713b1ed7a1cc69bc79885606557363ff795c4988a644c79b198141780f12ea"
       },
       "tests": [
         "tests/test_desktop_ipc.py",
@@ -10513,9 +10513,9 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/test_desktop_platform_seams.py": "81a979eea57b23105698359994f32780a6a5207fa3d2a06d5318f659a9c70910",
+        "tests/test_desktop_platform_seams.py": "69713b1ed7a1cc69bc79885606557363ff795c4988a644c79b198141780f12ea",
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -10597,7 +10597,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -10640,8 +10640,8 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/test_desktop_platform_seams.py": "81a979eea57b23105698359994f32780a6a5207fa3d2a06d5318f659a9c70910",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/test_desktop_platform_seams.py": "69713b1ed7a1cc69bc79885606557363ff795c4988a644c79b198141780f12ea",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -10685,7 +10685,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -10729,7 +10729,7 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -10774,7 +10774,7 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -10818,7 +10818,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -10861,7 +10861,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -10904,7 +10904,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -10947,7 +10947,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -11627,7 +11627,7 @@
         "tests/test_desktop_provisioning.py": "7be65519db51782a73d330fe748e1402e478ac2325e5adfbc2dbbe795bddf0bb",
         "tests/test_desktop_settings.py": "66667a07c39ebe9286d9eb9519d5993223c0cf922f8ffd99414cf1c0b025d6d7",
         "tests/test_desktop_ssh_sockets.py": "a04b37f7655cf155c5879772d95d94af53e6577685adf5720a878fcebb243797",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -11779,7 +11779,7 @@
         "tests/test_desktop_resume_trigger.py": "1d20c2357369f70d6e4fb8f9832f4a67771f1c418999eb1388ac837823387279",
         "tests/test_desktop_skill_delivery.py": "0894865a62d710c09dd40336851196285ad61f08683608b48db298c4b5b7aef8",
         "tests/test_desktop_step8_review_cli.py": "d484ad83e5d67613673a091a2e56a7a47782a5806ba787fe760602adcb63b6b7",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -11844,7 +11844,7 @@
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
         "tests/test_desktop_request_core.py": "590e19f97501a9e550790a03bfc4c1d052a9afd6ec5f5a6f72fb5ec43908261c",
         "tests/test_desktop_resource_cleanup.py": "b7a0323bfd8a2b3cf4df1bdd53ea7c171e65f3d43a34de534bce3868980f2a5c",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -12143,7 +12143,7 @@
       "test_sha256": {
         "tests/test_desktop_secret_domain_threads.py": "4ca46537fd9d7f8f13bb506b64e63735d9985072cf345d0fa5006f6c2f86d757",
         "tests/test_desktop_startup_stop.py": "5457cf38697bbe25db3fb60b8ab867f1c61211ce7de467ec48e6eefdb62243af",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -12443,7 +12443,7 @@
       "test_sha256": {
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
         "tests/test_desktop_ssh_sockets.py": "a04b37f7655cf155c5879772d95d94af53e6577685adf5720a878fcebb243797",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -13029,7 +13029,7 @@
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
         "tests/test_desktop_services_core.py": "e5398d36acc43db84a2f82c5fe415e23ade96acd3e7b6ff5b3a7a8bc130dd2c4",
         "tests/test_desktop_workspace_diagnostics.py": "8cd7484fda815b442f8806ff89839bd6045295f14f13944acc867338416ebb23",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -18025,7 +18025,7 @@
       "test_sha256": {
         "tests/test_desktop_host_parity.py": "130a3bca7baf8e1f0016619b5a2b16c92d5d6561c38cc35802e98617a26af198",
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -18459,7 +18459,7 @@
       "test_sha256": {
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
         "tests/test_provider_truth.py": "5361dd3dfc99cae09148def29ed8cdd14a9a86d507159a637597e352ed3eba40",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -18712,7 +18712,7 @@
       "test_sha256": {
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
         "tests/test_window_observer.py": "8df113168f7d220d99c68b71fe1571391e4102b7ced1095fa3501825a8943896",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -18996,7 +18996,7 @@
         "tests/test_desktop_host_parity.py": "130a3bca7baf8e1f0016619b5a2b16c92d5d6561c38cc35802e98617a26af198",
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
         "tests/test_desktop_shared_foundation.py": "c5af0cda4c56839971406fb36e42a4a1b68eb572d66b041515f75401907e52e5",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -19204,7 +19204,7 @@
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
         "tests/test_desktop_settings.py": "66667a07c39ebe9286d9eb9519d5993223c0cf922f8ffd99414cf1c0b025d6d7",
         "tests/test_desktop_strip_root.py": "88ce41cffa66de4b893fd69d6da3066186aa0f5b23df11e281bf36f56e7641ef",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -19599,7 +19599,7 @@
         "tests/test_desktop_schedule_recovery.py": "5ae36a000d86665e6a8ef5b80f7f2100bf483e0431563f007b277324000af4bd",
         "tests/test_schedule_history.py": "2b9b5b2b702f148200b352d9f5318101226f26293884509522a719631c6ff4aa",
         "tests/test_scheduler_history.py": "eaabf2303770ca3de1af9ad011eb6b4b7981b6d283b35cd6a8445992ff376623",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -20407,7 +20407,7 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -23076,7 +23076,7 @@
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
         "tests/test_desktop_ssh_sockets.py": "a04b37f7655cf155c5879772d95d94af53e6577685adf5720a878fcebb243797",
         "tests/test_desktop_step8_review_helpers.py": "32bad83c65d554e68eab3f9290775ded2d3600a6191e462b0baf235d14090e7c",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -24892,7 +24892,7 @@
         "tests/test_desktop_auto_resume.py": "61dd0a932428c839eddb2755836565bdc4444614b778bd60298272db3ac2daed",
         "tests/test_desktop_checkpoint_concurrency.py": "997c7d4b04ee37ca3d9d906c3b60e4a958d57b0477bccc96062b0bf2ca9efc44",
         "tests/test_desktop_platform_variants.py": "a49c4ee5837d9cbed920dbf0a48e72f5e8b9322301acadcff195b921f355ac19",
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -39100,7 +39100,7 @@
       ]
     },
     {
-      "after_sha256": "81a979eea57b23105698359994f32780a6a5207fa3d2a06d5318f659a9c70910",
+      "after_sha256": "69713b1ed7a1cc69bc79885606557363ff795c4988a644c79b198141780f12ea",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -39116,7 +39116,7 @@
       "patch": [
         {
           "end": 0,
-          "new_base64": "IiIiVGhlIERlc2t0b3AgZW5naW5lJ3Mgb3BlcmF0aW5nLXN5c3RlbSBzZWFtcyBrZWVwIExpbnV4IGV4YWN0bHkgYXMgaXQgd2FzLiIiIgpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgb3MKaW1wb3J0IHN1YnByb2Nlc3MKaW1wb3J0IHN5cwpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKCmltcG9ydCBweXRlc3QKCmZyb20gc3JjLmRlc2t0b3AgaW1wb3J0IHBsYXRmb3JtIGFzIGRlc2t0b3BfcGxhdGZvcm0KZnJvbSBzcmMuZGVza3RvcC5wYXRocyBpbXBvcnQgUHJvZmlsZVBhdGhzCmZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0gaW1wb3J0IGN1cnJlbnRfcGxhdGZvcm0sIGxvY2tzCmZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0ubGludXggaW1wb3J0IExpbnV4UGxhdGZvcm0KClJPT1QgPSBQYXRoKF9fZmlsZV9fKS5yZXNvbHZlKCkucGFyZW50c1sxXQoKCkBweXRlc3QuZml4dHVyZQpkZWYgZnJlc2hfcGxhdGZvcm0oKToKICAgIGN1cnJlbnRfcGxhdGZvcm0uY2FjaGVfY2xlYXIoKQogICAgeWllbGQKICAgIGN1cnJlbnRfcGxhdGZvcm0uY2FjaGVfY2xlYXIoKQoKCmRlZiB0ZXN0X2xpbnV4X2lzX2Nob3Nlbl9vbmNlKGZyZXNoX3BsYXRmb3JtKToKICAgIGZpcnN0ID0gY3VycmVudF9wbGF0Zm9ybSgpCiAgICBhc3NlcnQgaXNpbnN0YW5jZShmaXJzdCwgTGludXhQbGF0Zm9ybSkgYW5kIGZpcnN0Lm5hbWUgPT0gImxpbnV4IgogICAgYXNzZXJ0IGN1cnJlbnRfcGxhdGZvcm0oKSBpcyBmaXJzdAoKCmRlZiB0ZXN0X3dpbmRvd3NfaXNfc2VsZWN0ZWRfd2l0aF9pdHNfcGhhc2VfMmJfbWVtYmVyc19yZWZ1c2VkKGZyZXNoX3BsYXRmb3JtLCBtb25rZXlwYXRjaCk6CiAgICBmcm9tIHNyYy5kZXNrdG9wLnBsYXRmb3JtLndpbmRvd3MgaW1wb3J0IFdpbmRvd3NQbGF0Zm9ybQoKICAgIG1vbmtleXBhdGNoLnNldGF0dHIoZGVza3RvcF9wbGF0Zm9ybS5zeXMsICJwbGF0Zm9ybSIsICJ3aW4zMiIpCiAgICBwbGF0Zm9ybSA9IGN1cnJlbnRfcGxhdGZvcm0oKQogICAgYXNzZXJ0IGlzaW5zdGFuY2UocGxhdGZvcm0sIFdpbmRvd3NQbGF0Zm9ybSkgYW5kIHBsYXRmb3JtLm5hbWUgPT0gIndpbmRvd3MiCiAgICBhc3NlcnQgcGxhdGZvcm0uY29tcHV0ZXJfc3VwcG9ydGVkIGlzIEZhbHNlCiAgICB3aXRoIHB5dGVzdC5yYWlzZXMoTm90SW1wbGVtZW50ZWRFcnJvciwgbWF0Y2g9InBoYXNlIDJiIik6CiAgICAgICAgcGxhdGZvcm0uaXBjICAjIG5vcWE6IEIwMTggLSB0aGUgcHJvcGVydHkgaXRzZWxmIHJlZnVzZXMKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhOb3RJbXBsZW1lbnRlZEVycm9yLCBtYXRjaD0icGhhc2UgMmIiKToKICAgICAgICBwbGF0Zm9ybS5jb3JlX2xpZmV0aW1lKCkKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhWYWx1ZUVycm9yLCBtYXRjaD0iYm91bmQgdG8gYSBwcm9maWxlIik6CiAgICAgICAgcGxhdGZvcm0uc2VjcmV0X2JhY2tlbmQoKQoKCkBweXRlc3QubWFyay5wYXJhbWV0cml6ZSgic3lzdGVtIiwgWyJkYXJ3aW4iLCAiZnJlZWJzZDE0Il0pCmRlZiB0ZXN0X290aGVyX3N5c3RlbXNfYXJlX3JlZnVzZWRfYXNfYmVmb3JlKGZyZXNoX3BsYXRmb3JtLCBtb25rZXlwYXRjaCwgdG1wX3BhdGgsIHN5c3RlbSk6CiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKGRlc2t0b3BfcGxhdGZvcm0uc3lzLCAicGxhdGZvcm0iLCBzeXN0ZW0pCiAgICB3aXRoIHB5dGVzdC5yYWlzZXMoTm90SW1wbGVtZW50ZWRFcnJvciwgbWF0Y2g9ImRlc2t0b3AgcHJvdmlzaW9uaW5nIGlzIExpbnV4LW9ubHkiKToKICAgICAgICBjdXJyZW50X3BsYXRmb3JtKCkKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhOb3RJbXBsZW1lbnRlZEVycm9yLCBtYXRjaD0iZGVza3RvcCBwcm92aXNpb25pbmcgaXMgTGludXgtb25seSIpOgogICAgICAgIFByb2ZpbGVQYXRocy5mcm9tX2FwcCgiZGVmYXVsdCIsIHRva2VuX2ZpbGU9dG1wX3BhdGggLyAiY29uZmlnL2lwYy50b2tlbiIsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGRhdGFfZGlyPXRtcF9wYXRoIC8gImRhdGEiKQoKCmRlZiB0ZXN0X2xpbnV4X3Byb2ZpbGVfcGF0aHNfYXJlX3RoZV94ZGdfcGF0aHMoZnJlc2hfcGxhdGZvcm0sIG1vbmtleXBhdGNoLCB0bXBfcGF0aCk6CiAgICBlbnZpcm9uID0geyJYREdfQ09ORklHX0hPTUUiOiBzdHIodG1wX3BhdGggLyAiY2ZnIiksICJYREdfREFUQV9IT01FIjogc3RyKHRtcF9wYXRoIC8gInNoYXJlIil9CiAgICBhc3NlcnQgKExpbnV4UGxhdGZvcm0oKS5wcm9maWxlX3BhdGhzKCJ3b3JrIiwgZW52aXJvbj1lbnZpcm9uLCBob21lPXRtcF9wYXRoKQogICAgICAgICAgICA9PSBQcm9maWxlUGF0aHMuZnJvbV94ZGcoIndvcmsiLCBlbnZpcm9uPWVudmlyb24sIGhvbWU9dG1wX3BhdGgpKQogICAgYXBwID0gUHJvZmlsZVBhdGhzLmZyb21fYXBwKCJ3b3JrIiwgdG9rZW5fZmlsZT10bXBfcGF0aCAvICJhcHAvaXBjLnRva2VuIiwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBkYXRhX2Rpcj10bXBfcGF0aCAvICJhcHAtZGF0YSIsIGVudmlyb249ZW52aXJvbiwgaG9tZT10bXBfcGF0aCkKICAgIGFzc2VydCBhcHAuY2FjaGVfZGlyID09IFByb2ZpbGVQYXRocy5mcm9tX3hkZygid29yayIsIGVudmlyb249ZW52aXJvbiwgaG9tZT10bXBfcGF0aCkuY2FjaGVfZGlyCgogICAgZnJvbSBzcmMucnVudGltZV9wYXRocyBpbXBvcnQgcnVudGltZV9wcm9maWxlX3BhdGhzCgogICAgZm9yIGtleSBpbiAoIk9ESU5fREVTS1RPUF9EQVRBX0RJUiIsICJPRElOX0RFU0tUT1BfVE9LRU5fRklMRSIpOgogICAgICAgIG1vbmtleXBhdGNoLmRlbGVudihrZXksIHJhaXNpbmc9RmFsc2UpCiAgICBtb25rZXlwYXRjaC5zZXRlbnYoIk9ESU5fREVTS1RPUF9QUk9GSUxFIiwgIndvcmsiKQogICAgYXNzZXJ0IHJ1bnRpbWVfcHJvZmlsZV9wYXRocygpID09IFByb2ZpbGVQYXRocy5mcm9tX3hkZygid29yayIpCgoKZGVmIHRlc3RfbG9ja3NfZXhjbHVkZV9hX3NlY29uZF9ob2xkZXIodG1wX3BhdGgpOgogICAgcGF0aCA9IHRtcF9wYXRoIC8gIi5sb2NrIgogICAgZmlyc3QgPSBvcy5vcGVuKHBhdGgsIG9zLk9fQ1JFQVQgfCBvcy5PX1JEV1IsIDBvNjAwKQogICAgc2Vjb25kID0gb3Mub3BlbihwYXRoLCBvcy5PX1JEV1IpCiAgICB0cnk6CiAgICAgICAgbG9ja3MubG9ja19leGNsdXNpdmUoZmlyc3QpCiAgICAgICAgd2l0aCBweXRlc3QucmFpc2VzKEJsb2NraW5nSU9FcnJvcik6CiAgICAgICAgICAgIGxvY2tzLmxvY2tfZXhjbHVzaXZlKHNlY29uZCwgYmxvY2tpbmc9RmFsc2UpCiAgICAgICAgbG9ja3MudW5sb2NrKGZpcnN0KQogICAgICAgIGxvY2tzLmxvY2tfZXhjbHVzaXZlKHNlY29uZCwgYmxvY2tpbmc9RmFsc2UpCiAgICAgICAgd2l0aCBwYXRoLm9wZW4oImErYiIpIGFzIHN0cmVhbSwgcHl0ZXN0LnJhaXNlcyhCbG9ja2luZ0lPRXJyb3IpOgogICAgICAgICAgICBsb2Nrcy5sb2NrX2V4Y2x1c2l2ZShzdHJlYW0sIGJsb2NraW5nPUZhbHNlKQogICAgZmluYWxseToKICAgICAgICBvcy5jbG9zZShmaXJzdCkKICAgICAgICBvcy5jbG9zZShzZWNvbmQpCgoKZGVmIHRlc3RfbG9ja3NfcmVmdXNlX29uX2Ffc3lzdGVtX3dpdGhvdXRfZmNudGwobW9ua2V5cGF0Y2gpOgogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihsb2NrcywgImZjbnRsIiwgTm9uZSkKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhOb3RJbXBsZW1lbnRlZEVycm9yKToKICAgICAgICBsb2Nrcy5sb2NrX2V4Y2x1c2l2ZSgwKQogICAgd2l0aCBweXRlc3QucmFpc2VzKE5vdEltcGxlbWVudGVkRXJyb3IpOgogICAgICAgIGxvY2tzLnVubG9jaygwKQoKCmRlZiB0ZXN0X3Byb2ZpbGVfbW9kdWxlc19sb2FkX3dpdGhvdXRfZmNudGwoKToKICAgICIiIlRoZXNlIG1vZHVsZXMgbm8gbG9uZ2VyIG5lZWQgZmNudGwganVzdCB0byBsb2FkLCBzbyB0aGV5IGNhbiBsb2FkIG9uIFdpbmRvd3MgbGF0ZXIuIiIiCiAgICBzY3JpcHQgPSAoCiAgICAgICAgImltcG9ydCBzeXM7IHN5cy5tb2R1bGVzWydmY250bCddID0gTm9uZVxuIgogICAgICAgICJpbXBvcnQgc3JjLmNvbmZpZy5lbnZpcm9ubWVudCwgc3JjLmNvbmZpZy5pbml0aWFsaXphdGlvblxuIgogICAgICAgICJpbXBvcnQgc3JjLmRlc2t0b3AuYXV0aG9yaXR5LCBzcmMucnVudGltZS5wZGZfcmVzb3VyY2VzXG4iCiAgICAgICAgImZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0gaW1wb3J0IGxvY2tzXG4iCiAgICAgICAgInRyeTpcbiAgICBsb2Nrcy5sb2NrX2V4Y2x1c2l2ZSgwKVxuZXhjZXB0IE5vdEltcGxlbWVudGVkRXJyb3I6XG4gICAgcHJpbnQoJ3JlZnVzZWQnKVxuIgogICAgKQogICAgcmVzdWx0ID0gc3VicHJvY2Vzcy5ydW4oW3N5cy5leGVjdXRhYmxlLCAiLWMiLCBzY3JpcHRdLCBjd2Q9Uk9PVCwgY2FwdHVyZV9vdXRwdXQ9VHJ1ZSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgIHRleHQ9VHJ1ZSwgdGltZW91dD02MCkKICAgIGFzc2VydCByZXN1bHQucmV0dXJuY29kZSA9PSAwLCByZXN1bHQuc3RkZXJyCiAgICBhc3NlcnQgcmVzdWx0LnN0ZG91dC5zdHJpcCgpID09ICJyZWZ1c2VkIgoKCmRlZiB0ZXN0X3RoZV9rZXlyaW5nX2JhY2tlbmRfY29tZXNfZnJvbV90aGVfcGxhdGZvcm0obW9ua2V5cGF0Y2gsIHRtcF9wYXRoKToKICAgICIiIlRoZSBzdG9yZSBzdGlsbCBidWlsZHMgaXRzIGRlZmF1bHQgYmFja2VuZCBsYXppbHksIGFuZCBhIGJhY2tlbmQgdGhhdCBjYW4ndCBzdGFydAogICAgaXMgc3RpbGwgcmVwb3J0ZWQgYXMgYW4gdW5hdmFpbGFibGUga2V5cmluZy4iIiIKICAgIGZyb20gc3JjLmRlc2t0b3AgaW1wb3J0IHNlY3JldHMKCiAgICBjbGFzcyBCYWNrZW5kOgogICAgICAgIHBhc3MKCiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKHNlY3JldHMsICJfU2VjcmV0U2VydmljZUJhY2tlbmQiLCBCYWNrZW5kKQogICAgYXNzZXJ0IGlzaW5zdGFuY2UoTGludXhQbGF0Zm9ybSgpLnNlY3JldF9iYWNrZW5kKCksIEJhY2tlbmQpCiAgICBzdG9yZSA9IHNlY3JldHMuUHJvZmlsZVNlY3JldFN0b3JlKFByb2ZpbGVQYXRocy5mcm9tX3hkZygid29yayIsIGVudmlyb249e30sIGhvbWU9dG1wX3BhdGgpKQogICAgYXNzZXJ0IGlzaW5zdGFuY2Uoc3RvcmUuX2FkYXB0ZXIoKSwgQmFja2VuZCkKCiAgICBkZWYgdW5hdmFpbGFibGUoKToKICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoIm5vIHNlc3Npb24gYnVzIikKCiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKHNlY3JldHMsICJfU2VjcmV0U2VydmljZUJhY2tlbmQiLCB1bmF2YWlsYWJsZSkKICAgIGJyb2tlbiA9IHNlY3JldHMuUHJvZmlsZVNlY3JldFN0b3JlKFByb2ZpbGVQYXRocy5mcm9tX3hkZygid29yayIsIGVudmlyb249e30sIGhvbWU9dG1wX3BhdGgpKQogICAgd2l0aCBweXRlc3QucmFpc2VzKHNlY3JldHMuU2VjcmV0U3RvcmVFcnJvciwgbWF0Y2g9IlByb2ZpbGUga2V5cmluZyBpcyB1bmF2YWlsYWJsZSIpOgogICAgICAgIGJyb2tlbi5fYWRhcHRlcigpCgoKZGVmIHRlc3RfdGhlX2NvcmVfbGlmZXRpbWVfYWRtaXRzX3VudGlsX3RoZV9maXJzdF9zdG9wKCk6CiAgICBmcm9tIHNyYy5kZXNrdG9wLmxpZmVjeWNsZSBpbXBvcnQgQ29yZUxpZmV0aW1lCgogICAgbGlmZXRpbWUgPSBMaW51eFBsYXRmb3JtKCkuY29yZV9saWZldGltZSgpCiAgICBhc3NlcnQgdHlwZShsaWZldGltZSkgaXMgQ29yZUxpZmV0aW1lCiAgICBhc3NlcnQgbGlmZXRpbWUuYWRtaXR0aW5nIGFuZCBsaWZldGltZS5yZWFzb24gaXMgTm9uZSBhbmQgbm90IGxpZmV0aW1lLnN0b3BwaW5nLmlzX3NldCgpCiAgICBsaWZldGltZS5yZXF1ZXN0X3N0b3AoImZpcnN0IikKICAgIGxpZmV0aW1lLnJlcXVlc3Rfc3RvcCgic2Vjb25kIikKICAgIGFzc2VydCBub3QgbGlmZXRpbWUuYWRtaXR0aW5nIGFuZCBsaWZldGltZS5yZWFzb24gPT0gImZpcnN0IiBhbmQgbGlmZXRpbWUuc3RvcHBpbmcuaXNfc2V0KCkKCgpkZWYgdGVzdF9saW51eF9vYmplY3RzX3Byb3ZpZGVfZXZlcnlfY29udHJhY3RfbWVtYmVyKHRtcF9wYXRoKToKICAgICIiIldoYXQgZWFjaCBjb250cmFjdCBkZWNsYXJlcywgdGhlIExpbnV4IGltcGxlbWVudGF0aW9uIHByb3ZpZGVzLCBzbyBhIFdpbmRvd3MKICAgIGltcGxlbWVudGF0aW9uIGNhbiBiZSBoZWxkIHRvIHRoZSBzYW1lIGxpc3QuIiIiCiAgICBmcm9tIHNyYy5kZXNrdG9wIGltcG9ydCBzZWNyZXRzCiAgICBmcm9tIHNyYy5kZXNrdG9wLnBsYXRmb3JtIGltcG9ydCBjb250cmFjdHMKICAgIGZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0ubGludXhfaXBjIGltcG9ydCBMaW51eElwYywgVW5peFNvY2tldEVuZHBvaW50CgogICAgZGVmIG1lbWJlcnMocHJvdG9jb2wpOgogICAgICAgIGRlY2xhcmVkID0ge25hbWUgZm9yIG5hbWUgaW4gdmFycyhwcm90b2NvbCkKICAgICAgICAgICAgICAgICAgICBpZiBub3QgbmFtZS5zdGFydHN3aXRoKCJfIikgYW5kIG5hbWUgbm90IGluIHsiX19hbm5vdGF0aW9uc19fIn19CiAgICAgICAgcmV0dXJuIGRlY2xhcmVkIHwgc2V0KGdldGF0dHIocHJvdG9jb2wsICJfX2Fubm90YXRpb25zX18iLCB7fSkpCgogICAgcGxhdGZvcm0gPSBMaW51eFBsYXRmb3JtKCkKICAgIGltcGxlbWVudGF0aW9ucyA9IHsKICAgICAgICBjb250cmFjdHMuUGxhdGZvcm06IHBsYXRmb3JtLAogICAgICAgIGNvbnRyYWN0cy5JcGNUcmFuc3BvcnQ6IExpbnV4SXBjKCksCiAgICAgICAgY29udHJhY3RzLklwY0VuZHBvaW50OiBVbml4U29ja2V0RW5kcG9pbnQodG1wX3BhdGggLyAiY29yZS5zb2NrIiksCiAgICAgICAgY29udHJhY3RzLlNlY3JldEJhY2tlbmQ6IHNlY3JldHMuX1NlY3JldFNlcnZpY2VCYWNrZW5kKCksCiAgICAgICAgY29udHJhY3RzLkNvcmVMaWZldGltZTogcGxhdGZvcm0uY29yZV9saWZldGltZSgpLAogICAgfQogICAgZm9yIHByb3RvY29sLCBpbXBsZW1lbnRhdGlvbiBpbiBpbXBsZW1lbnRhdGlvbnMuaXRlbXMoKToKICAgICAgICBtaXNzaW5nID0gc29ydGVkKG5hbWUgZm9yIG5hbWUgaW4gbWVtYmVycyhwcm90b2NvbCkgaWYgbm90IGhhc2F0dHIoaW1wbGVtZW50YXRpb24sIG5hbWUpKQogICAgICAgIGFzc2VydCBub3QgbWlzc2luZywgZiJ7cHJvdG9jb2wuX19uYW1lX199IGxhY2tzIHttaXNzaW5nfSIK",
+          "new_base64": "IiIiVGhlIERlc2t0b3AgZW5naW5lJ3Mgb3BlcmF0aW5nLXN5c3RlbSBzZWFtcyBrZWVwIExpbnV4IGV4YWN0bHkgYXMgaXQgd2FzLiIiIgpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgb3MKaW1wb3J0IHN1YnByb2Nlc3MKaW1wb3J0IHN5cwpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKCmltcG9ydCBweXRlc3QKCmZyb20gc3JjLmRlc2t0b3AgaW1wb3J0IHBsYXRmb3JtIGFzIGRlc2t0b3BfcGxhdGZvcm0KZnJvbSBzcmMuZGVza3RvcC5wYXRocyBpbXBvcnQgUHJvZmlsZVBhdGhzCmZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0gaW1wb3J0IGN1cnJlbnRfcGxhdGZvcm0sIGxvY2tzCmZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0ubGludXggaW1wb3J0IExpbnV4UGxhdGZvcm0KClJPT1QgPSBQYXRoKF9fZmlsZV9fKS5yZXNvbHZlKCkucGFyZW50c1sxXQoKCkBweXRlc3QuZml4dHVyZQpkZWYgZnJlc2hfcGxhdGZvcm0oKToKICAgIGN1cnJlbnRfcGxhdGZvcm0uY2FjaGVfY2xlYXIoKQogICAgeWllbGQKICAgIGN1cnJlbnRfcGxhdGZvcm0uY2FjaGVfY2xlYXIoKQoKCmRlZiB0ZXN0X2xpbnV4X2lzX2Nob3Nlbl9vbmNlKGZyZXNoX3BsYXRmb3JtKToKICAgIGZpcnN0ID0gY3VycmVudF9wbGF0Zm9ybSgpCiAgICBhc3NlcnQgaXNpbnN0YW5jZShmaXJzdCwgTGludXhQbGF0Zm9ybSkgYW5kIGZpcnN0Lm5hbWUgPT0gImxpbnV4IgogICAgYXNzZXJ0IGN1cnJlbnRfcGxhdGZvcm0oKSBpcyBmaXJzdAoKCmRlZiB0ZXN0X3dpbmRvd3NfaXNfc2VsZWN0ZWRfd2l0aF9pdHNfcGhhc2VfMmJfbWVtYmVyc19yZWZ1c2VkKGZyZXNoX3BsYXRmb3JtLCBtb25rZXlwYXRjaCk6CiAgICBmcm9tIHNyYy5kZXNrdG9wLnBsYXRmb3JtLndpbmRvd3MgaW1wb3J0IFdpbmRvd3NQbGF0Zm9ybQoKICAgIG1vbmtleXBhdGNoLnNldGF0dHIoZGVza3RvcF9wbGF0Zm9ybS5zeXMsICJwbGF0Zm9ybSIsICJ3aW4zMiIpCiAgICBwbGF0Zm9ybSA9IGN1cnJlbnRfcGxhdGZvcm0oKQogICAgYXNzZXJ0IGlzaW5zdGFuY2UocGxhdGZvcm0sIFdpbmRvd3NQbGF0Zm9ybSkgYW5kIHBsYXRmb3JtLm5hbWUgPT0gIndpbmRvd3MiCiAgICBhc3NlcnQgcGxhdGZvcm0uY29tcHV0ZXJfc3VwcG9ydGVkIGlzIEZhbHNlCiAgICB3aXRoIHB5dGVzdC5yYWlzZXMoTm90SW1wbGVtZW50ZWRFcnJvciwgbWF0Y2g9InBoYXNlIDJiIik6CiAgICAgICAgcGxhdGZvcm0uaXBjICAjIG5vcWE6IEIwMTggLSB0aGUgcHJvcGVydHkgaXRzZWxmIHJlZnVzZXMKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhOb3RJbXBsZW1lbnRlZEVycm9yLCBtYXRjaD0icGhhc2UgMmIiKToKICAgICAgICBwbGF0Zm9ybS5jb3JlX2xpZmV0aW1lKCkKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhWYWx1ZUVycm9yLCBtYXRjaD0iYm91bmQgdG8gYSBwcm9maWxlIik6CiAgICAgICAgcGxhdGZvcm0uc2VjcmV0X2JhY2tlbmQoKQoKCkBweXRlc3QubWFyay5wYXJhbWV0cml6ZSgic3lzdGVtIiwgWyJkYXJ3aW4iLCAiZnJlZWJzZDE0Il0pCmRlZiB0ZXN0X290aGVyX3N5c3RlbXNfYXJlX3JlZnVzZWRfYXNfYmVmb3JlKGZyZXNoX3BsYXRmb3JtLCBtb25rZXlwYXRjaCwgdG1wX3BhdGgsIHN5c3RlbSk6CiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKGRlc2t0b3BfcGxhdGZvcm0uc3lzLCAicGxhdGZvcm0iLCBzeXN0ZW0pCiAgICB3aXRoIHB5dGVzdC5yYWlzZXMoTm90SW1wbGVtZW50ZWRFcnJvciwgbWF0Y2g9ImRlc2t0b3AgcHJvdmlzaW9uaW5nIGlzIExpbnV4LW9ubHkiKToKICAgICAgICBjdXJyZW50X3BsYXRmb3JtKCkKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhOb3RJbXBsZW1lbnRlZEVycm9yLCBtYXRjaD0iZGVza3RvcCBwcm92aXNpb25pbmcgaXMgTGludXgtb25seSIpOgogICAgICAgIFByb2ZpbGVQYXRocy5mcm9tX2FwcCgiZGVmYXVsdCIsIHRva2VuX2ZpbGU9dG1wX3BhdGggLyAiY29uZmlnL2lwYy50b2tlbiIsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGRhdGFfZGlyPXRtcF9wYXRoIC8gImRhdGEiKQoKCmRlZiB0ZXN0X2xpbnV4X3dvcmtzcGFjZV9tZW1iZXJfaXNfdGhlX3Bpbm5lZF9yZXNvbHZlcih0bXBfcGF0aCk6CiAgICBmcm9tIHNyYy50b29scy53b3Jrc3BhY2UgaW1wb3J0IHJlc29sdmVfd29ya3NwYWNlCgogICAgZXhwZWN0ZWQgPSByZXNvbHZlX3dvcmtzcGFjZShzdHIodG1wX3BhdGggLyAicGlubmVkIikpCiAgICBtZW1iZXIgPSBMaW51eFBsYXRmb3JtKCkucmVzb2x2ZV93b3Jrc3BhY2Uoc3RyKHRtcF9wYXRoIC8gIm1lbWJlciIpKQogICAgYXNzZXJ0IG1lbWJlciA9PSAodG1wX3BhdGggLyAibWVtYmVyIikucmVzb2x2ZSgpCiAgICBhc3NlcnQgZXhwZWN0ZWQgPT0gKHRtcF9wYXRoIC8gInBpbm5lZCIpLnJlc29sdmUoKQogICAgYXNzZXJ0IHR5cGUoTGludXhQbGF0Zm9ybSgpLnNlY3JldF9iYWNrZW5kKHBhdGhzPU5vbmUpKS5fX25hbWVfXyA9PSAiX1NlY3JldFNlcnZpY2VCYWNrZW5kIgoKCmRlZiB0ZXN0X2xpbnV4X3Byb2ZpbGVfcGF0aHNfYXJlX3RoZV94ZGdfcGF0aHMoZnJlc2hfcGxhdGZvcm0sIG1vbmtleXBhdGNoLCB0bXBfcGF0aCk6CiAgICBlbnZpcm9uID0geyJYREdfQ09ORklHX0hPTUUiOiBzdHIodG1wX3BhdGggLyAiY2ZnIiksICJYREdfREFUQV9IT01FIjogc3RyKHRtcF9wYXRoIC8gInNoYXJlIil9CiAgICBhc3NlcnQgKExpbnV4UGxhdGZvcm0oKS5wcm9maWxlX3BhdGhzKCJ3b3JrIiwgZW52aXJvbj1lbnZpcm9uLCBob21lPXRtcF9wYXRoKQogICAgICAgICAgICA9PSBQcm9maWxlUGF0aHMuZnJvbV94ZGcoIndvcmsiLCBlbnZpcm9uPWVudmlyb24sIGhvbWU9dG1wX3BhdGgpKQogICAgYXBwID0gUHJvZmlsZVBhdGhzLmZyb21fYXBwKCJ3b3JrIiwgdG9rZW5fZmlsZT10bXBfcGF0aCAvICJhcHAvaXBjLnRva2VuIiwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBkYXRhX2Rpcj10bXBfcGF0aCAvICJhcHAtZGF0YSIsIGVudmlyb249ZW52aXJvbiwgaG9tZT10bXBfcGF0aCkKICAgIGFzc2VydCBhcHAuY2FjaGVfZGlyID09IFByb2ZpbGVQYXRocy5mcm9tX3hkZygid29yayIsIGVudmlyb249ZW52aXJvbiwgaG9tZT10bXBfcGF0aCkuY2FjaGVfZGlyCgogICAgZnJvbSBzcmMucnVudGltZV9wYXRocyBpbXBvcnQgcnVudGltZV9wcm9maWxlX3BhdGhzCgogICAgZm9yIGtleSBpbiAoIk9ESU5fREVTS1RPUF9EQVRBX0RJUiIsICJPRElOX0RFU0tUT1BfVE9LRU5fRklMRSIpOgogICAgICAgIG1vbmtleXBhdGNoLmRlbGVudihrZXksIHJhaXNpbmc9RmFsc2UpCiAgICBtb25rZXlwYXRjaC5zZXRlbnYoIk9ESU5fREVTS1RPUF9QUk9GSUxFIiwgIndvcmsiKQogICAgYXNzZXJ0IHJ1bnRpbWVfcHJvZmlsZV9wYXRocygpID09IFByb2ZpbGVQYXRocy5mcm9tX3hkZygid29yayIpCgoKZGVmIHRlc3RfbG9ja3NfZXhjbHVkZV9hX3NlY29uZF9ob2xkZXIodG1wX3BhdGgpOgogICAgcGF0aCA9IHRtcF9wYXRoIC8gIi5sb2NrIgogICAgZmlyc3QgPSBvcy5vcGVuKHBhdGgsIG9zLk9fQ1JFQVQgfCBvcy5PX1JEV1IsIDBvNjAwKQogICAgc2Vjb25kID0gb3Mub3BlbihwYXRoLCBvcy5PX1JEV1IpCiAgICB0cnk6CiAgICAgICAgbG9ja3MubG9ja19leGNsdXNpdmUoZmlyc3QpCiAgICAgICAgd2l0aCBweXRlc3QucmFpc2VzKEJsb2NraW5nSU9FcnJvcik6CiAgICAgICAgICAgIGxvY2tzLmxvY2tfZXhjbHVzaXZlKHNlY29uZCwgYmxvY2tpbmc9RmFsc2UpCiAgICAgICAgbG9ja3MudW5sb2NrKGZpcnN0KQogICAgICAgIGxvY2tzLmxvY2tfZXhjbHVzaXZlKHNlY29uZCwgYmxvY2tpbmc9RmFsc2UpCiAgICAgICAgd2l0aCBwYXRoLm9wZW4oImErYiIpIGFzIHN0cmVhbSwgcHl0ZXN0LnJhaXNlcyhCbG9ja2luZ0lPRXJyb3IpOgogICAgICAgICAgICBsb2Nrcy5sb2NrX2V4Y2x1c2l2ZShzdHJlYW0sIGJsb2NraW5nPUZhbHNlKQogICAgZmluYWxseToKICAgICAgICBvcy5jbG9zZShmaXJzdCkKICAgICAgICBvcy5jbG9zZShzZWNvbmQpCgoKZGVmIHRlc3RfbG9ja3NfcmVmdXNlX29uX2Ffc3lzdGVtX3dpdGhvdXRfZmNudGwobW9ua2V5cGF0Y2gpOgogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihsb2NrcywgImZjbnRsIiwgTm9uZSkKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhOb3RJbXBsZW1lbnRlZEVycm9yKToKICAgICAgICBsb2Nrcy5sb2NrX2V4Y2x1c2l2ZSgwKQogICAgd2l0aCBweXRlc3QucmFpc2VzKE5vdEltcGxlbWVudGVkRXJyb3IpOgogICAgICAgIGxvY2tzLnVubG9jaygwKQoKCmRlZiB0ZXN0X3Byb2ZpbGVfbW9kdWxlc19sb2FkX3dpdGhvdXRfZmNudGwoKToKICAgICIiIlRoZXNlIG1vZHVsZXMgbm8gbG9uZ2VyIG5lZWQgZmNudGwganVzdCB0byBsb2FkLCBzbyB0aGV5IGNhbiBsb2FkIG9uIFdpbmRvd3MgbGF0ZXIuIiIiCiAgICBzY3JpcHQgPSAoCiAgICAgICAgImltcG9ydCBzeXM7IHN5cy5tb2R1bGVzWydmY250bCddID0gTm9uZVxuIgogICAgICAgICJpbXBvcnQgc3JjLmNvbmZpZy5lbnZpcm9ubWVudCwgc3JjLmNvbmZpZy5pbml0aWFsaXphdGlvblxuIgogICAgICAgICJpbXBvcnQgc3JjLmRlc2t0b3AuYXV0aG9yaXR5LCBzcmMucnVudGltZS5wZGZfcmVzb3VyY2VzXG4iCiAgICAgICAgImZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0gaW1wb3J0IGxvY2tzXG4iCiAgICAgICAgInRyeTpcbiAgICBsb2Nrcy5sb2NrX2V4Y2x1c2l2ZSgwKVxuZXhjZXB0IE5vdEltcGxlbWVudGVkRXJyb3I6XG4gICAgcHJpbnQoJ3JlZnVzZWQnKVxuIgogICAgKQogICAgcmVzdWx0ID0gc3VicHJvY2Vzcy5ydW4oW3N5cy5leGVjdXRhYmxlLCAiLWMiLCBzY3JpcHRdLCBjd2Q9Uk9PVCwgY2FwdHVyZV9vdXRwdXQ9VHJ1ZSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgIHRleHQ9VHJ1ZSwgdGltZW91dD02MCkKICAgIGFzc2VydCByZXN1bHQucmV0dXJuY29kZSA9PSAwLCByZXN1bHQuc3RkZXJyCiAgICBhc3NlcnQgcmVzdWx0LnN0ZG91dC5zdHJpcCgpID09ICJyZWZ1c2VkIgoKCmRlZiB0ZXN0X3RoZV9rZXlyaW5nX2JhY2tlbmRfY29tZXNfZnJvbV90aGVfcGxhdGZvcm0obW9ua2V5cGF0Y2gsIHRtcF9wYXRoKToKICAgICIiIlRoZSBzdG9yZSBzdGlsbCBidWlsZHMgaXRzIGRlZmF1bHQgYmFja2VuZCBsYXppbHksIGFuZCBhIGJhY2tlbmQgdGhhdCBjYW4ndCBzdGFydAogICAgaXMgc3RpbGwgcmVwb3J0ZWQgYXMgYW4gdW5hdmFpbGFibGUga2V5cmluZy4iIiIKICAgIGZyb20gc3JjLmRlc2t0b3AgaW1wb3J0IHNlY3JldHMKCiAgICBjbGFzcyBCYWNrZW5kOgogICAgICAgIHBhc3MKCiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKHNlY3JldHMsICJfU2VjcmV0U2VydmljZUJhY2tlbmQiLCBCYWNrZW5kKQogICAgYXNzZXJ0IGlzaW5zdGFuY2UoTGludXhQbGF0Zm9ybSgpLnNlY3JldF9iYWNrZW5kKCksIEJhY2tlbmQpCiAgICBzdG9yZSA9IHNlY3JldHMuUHJvZmlsZVNlY3JldFN0b3JlKFByb2ZpbGVQYXRocy5mcm9tX3hkZygid29yayIsIGVudmlyb249e30sIGhvbWU9dG1wX3BhdGgpKQogICAgYXNzZXJ0IGlzaW5zdGFuY2Uoc3RvcmUuX2FkYXB0ZXIoKSwgQmFja2VuZCkKCiAgICBkZWYgdW5hdmFpbGFibGUoKToKICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoIm5vIHNlc3Npb24gYnVzIikKCiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKHNlY3JldHMsICJfU2VjcmV0U2VydmljZUJhY2tlbmQiLCB1bmF2YWlsYWJsZSkKICAgIGJyb2tlbiA9IHNlY3JldHMuUHJvZmlsZVNlY3JldFN0b3JlKFByb2ZpbGVQYXRocy5mcm9tX3hkZygid29yayIsIGVudmlyb249e30sIGhvbWU9dG1wX3BhdGgpKQogICAgd2l0aCBweXRlc3QucmFpc2VzKHNlY3JldHMuU2VjcmV0U3RvcmVFcnJvciwgbWF0Y2g9IlByb2ZpbGUga2V5cmluZyBpcyB1bmF2YWlsYWJsZSIpOgogICAgICAgIGJyb2tlbi5fYWRhcHRlcigpCgoKZGVmIHRlc3RfdGhlX2NvcmVfbGlmZXRpbWVfYWRtaXRzX3VudGlsX3RoZV9maXJzdF9zdG9wKCk6CiAgICBmcm9tIHNyYy5kZXNrdG9wLmxpZmVjeWNsZSBpbXBvcnQgQ29yZUxpZmV0aW1lCgogICAgbGlmZXRpbWUgPSBMaW51eFBsYXRmb3JtKCkuY29yZV9saWZldGltZSgpCiAgICBhc3NlcnQgdHlwZShsaWZldGltZSkgaXMgQ29yZUxpZmV0aW1lCiAgICBhc3NlcnQgbGlmZXRpbWUuYWRtaXR0aW5nIGFuZCBsaWZldGltZS5yZWFzb24gaXMgTm9uZSBhbmQgbm90IGxpZmV0aW1lLnN0b3BwaW5nLmlzX3NldCgpCiAgICBsaWZldGltZS5yZXF1ZXN0X3N0b3AoImZpcnN0IikKICAgIGxpZmV0aW1lLnJlcXVlc3Rfc3RvcCgic2Vjb25kIikKICAgIGFzc2VydCBub3QgbGlmZXRpbWUuYWRtaXR0aW5nIGFuZCBsaWZldGltZS5yZWFzb24gPT0gImZpcnN0IiBhbmQgbGlmZXRpbWUuc3RvcHBpbmcuaXNfc2V0KCkKCgpkZWYgdGVzdF9saW51eF9vYmplY3RzX3Byb3ZpZGVfZXZlcnlfY29udHJhY3RfbWVtYmVyKHRtcF9wYXRoKToKICAgICIiIldoYXQgZWFjaCBjb250cmFjdCBkZWNsYXJlcywgdGhlIExpbnV4IGltcGxlbWVudGF0aW9uIHByb3ZpZGVzLCBzbyBhIFdpbmRvd3MKICAgIGltcGxlbWVudGF0aW9uIGNhbiBiZSBoZWxkIHRvIHRoZSBzYW1lIGxpc3QuIiIiCiAgICBmcm9tIHNyYy5kZXNrdG9wIGltcG9ydCBzZWNyZXRzCiAgICBmcm9tIHNyYy5kZXNrdG9wLnBsYXRmb3JtIGltcG9ydCBjb250cmFjdHMKICAgIGZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0ubGludXhfaXBjIGltcG9ydCBMaW51eElwYywgVW5peFNvY2tldEVuZHBvaW50CgogICAgZGVmIG1lbWJlcnMocHJvdG9jb2wpOgogICAgICAgIGRlY2xhcmVkID0ge25hbWUgZm9yIG5hbWUgaW4gdmFycyhwcm90b2NvbCkKICAgICAgICAgICAgICAgICAgICBpZiBub3QgbmFtZS5zdGFydHN3aXRoKCJfIikgYW5kIG5hbWUgbm90IGluIHsiX19hbm5vdGF0aW9uc19fIn19CiAgICAgICAgcmV0dXJuIGRlY2xhcmVkIHwgc2V0KGdldGF0dHIocHJvdG9jb2wsICJfX2Fubm90YXRpb25zX18iLCB7fSkpCgogICAgcGxhdGZvcm0gPSBMaW51eFBsYXRmb3JtKCkKICAgIGltcGxlbWVudGF0aW9ucyA9IHsKICAgICAgICBjb250cmFjdHMuUGxhdGZvcm06IHBsYXRmb3JtLAogICAgICAgIGNvbnRyYWN0cy5JcGNUcmFuc3BvcnQ6IExpbnV4SXBjKCksCiAgICAgICAgY29udHJhY3RzLklwY0VuZHBvaW50OiBVbml4U29ja2V0RW5kcG9pbnQodG1wX3BhdGggLyAiY29yZS5zb2NrIiksCiAgICAgICAgY29udHJhY3RzLlNlY3JldEJhY2tlbmQ6IHNlY3JldHMuX1NlY3JldFNlcnZpY2VCYWNrZW5kKCksCiAgICAgICAgY29udHJhY3RzLkNvcmVMaWZldGltZTogcGxhdGZvcm0uY29yZV9saWZldGltZSgpLAogICAgfQogICAgZm9yIHByb3RvY29sLCBpbXBsZW1lbnRhdGlvbiBpbiBpbXBsZW1lbnRhdGlvbnMuaXRlbXMoKToKICAgICAgICBtaXNzaW5nID0gc29ydGVkKG5hbWUgZm9yIG5hbWUgaW4gbWVtYmVycyhwcm90b2NvbCkgaWYgbm90IGhhc2F0dHIoaW1wbGVtZW50YXRpb24sIG5hbWUpKQogICAgICAgIGFzc2VydCBub3QgbWlzc2luZywgZiJ7cHJvdG9jb2wuX19uYW1lX199IGxhY2tzIHttaXNzaW5nfSIK",
           "old_base64": "",
           "start": 0
         }
@@ -39130,7 +39130,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/test_desktop_platform_seams.py": "81a979eea57b23105698359994f32780a6a5207fa3d2a06d5318f659a9c70910"
+        "tests/test_desktop_platform_seams.py": "69713b1ed7a1cc69bc79885606557363ff795c4988a644c79b198141780f12ea"
       },
       "tests": [
         "tests/test_desktop_platform_seams.py"
@@ -47771,7 +47771,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -47814,7 +47814,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -47827,7 +47827,7 @@
       ]
     },
     {
-      "after_sha256": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+      "after_sha256": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -47843,7 +47843,7 @@
       "patch": [
         {
           "end": 0,
-          "new_base64": "IiIiVGhlIFdpbmRvd3MgcHJpdmF0ZS1zdG9yYWdlIGNvbnRyYWN0IChwaGFzZSAyIHBsYW4gQTIgYW5kIEE1KSwgb24gcmVhbCBOVEZTLiIiIgpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgX3dpbmFwaQppbXBvcnQgb3MKaW1wb3J0IHN1YnByb2Nlc3MKaW1wb3J0IHN5cwppbXBvcnQgdGhyZWFkaW5nCmltcG9ydCB0aW1lCgppbXBvcnQgcHl0ZXN0Cgpmcm9tIHNyYy5kZXNrdG9wLnBsYXRmb3JtIGltcG9ydCB3aW4zMiwgd2luZG93c19maWxlcwpmcm9tIHNyYy5kZXNrdG9wLnBsYXRmb3JtLndpbmRvd3NfZmlsZXMgaW1wb3J0ICgKICAgIEhlbGRDaGFpbiwKICAgIGRhY2xfaXNfcHJpdmF0ZSwKICAgIGVuc3VyZV9wcml2YXRlLAogICAgZmx1c2hfb2JqZWN0LAogICAgaGVsZCwKICAgIG9wZW5fZmlsZSwKICAgIHByaXZhdGVfZGlyZWN0b3J5LAogICAgcHVibGlzaCwKICAgIHJlYWRfZmlsZSwKICAgIHJlbW92ZSwKICAgIHJldGlyZSwKICAgIHRvbWJzdG9uZXMsCikKCgpkZWYgc2VjdXJpdHlfb2YocGF0aCwgKiwgZGlyZWN0b3J5KToKICAgIGZsYWdzID0gd2luMzIuRklMRV9GTEFHX09QRU5fUkVQQVJTRV9QT0lOVAogICAgaWYgZGlyZWN0b3J5OgogICAgICAgIGZsYWdzIHw9IHdpbjMyLkZJTEVfRkxBR19CQUNLVVBfU0VNQU5USUNTCiAgICBzaGFyZSA9IHdpbjMyLkZJTEVfU0hBUkVfUkVBRCB8IHdpbjMyLkZJTEVfU0hBUkVfV1JJVEUgfCB3aW4zMi5GSUxFX1NIQVJFX0RFTEVURQogICAgaGFuZGxlID0gd2luMzIuY3JlYXRlX2ZpbGUocGF0aCwgd2luMzIuUkVBRF9DT05UUk9MIHwgd2luMzIuRklMRV9SRUFEX0FUVFJJQlVURVMsIHNoYXJlLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgd2luMzIuT1BFTl9FWElTVElORywgZmxhZ3MpCiAgICB0cnk6CiAgICAgICAgcmV0dXJuIHdpbjMyLm9iamVjdF9zZWN1cml0eShoYW5kbGUpCiAgICBmaW5hbGx5OgogICAgICAgIHdpbjMyLmNsb3NlKGhhbmRsZSkKCgpkZWYgdGVzdF9wcml2YXRlX2RpcmVjdG9yeV9jcmVhdGVzX2V2ZXJ5X25hbWVzcGFjZV9mb2xkZXJfcHJpdmF0ZShwcm9maWxlX3Jvb3QpOgogICAgdGFyZ2V0ID0gcHJvZmlsZV9yb290IC8gImRhdGEiIC8gInNlY3JldHMiCiAgICBwcml2YXRlX2RpcmVjdG9yeSh0YXJnZXQpCiAgICBmb3IgcGF0aCBpbiAocHJvZmlsZV9yb290LnBhcmVudCwgcHJvZmlsZV9yb290LCBwcm9maWxlX3Jvb3QgLyAiZGF0YSIsIHRhcmdldCk6CiAgICAgICAgc2VjdXJpdHkgPSBzZWN1cml0eV9vZihwYXRoLCBkaXJlY3Rvcnk9VHJ1ZSkKICAgICAgICBhc3NlcnQgc2VjdXJpdHkub3duZXIgaW4gd2luZG93c19maWxlcy5vd25fc2lkcygpCiAgICAgICAgYXNzZXJ0IGRhY2xfaXNfcHJpdmF0ZShzZWN1cml0eSkKCgpkZWYgdGVzdF9leGlzdGluZ19icm9hZF9uYW1lc3BhY2VfZm9sZGVyX2lzX3JlcGFpcmVkKHByb2ZpbGVfcm9vdCwgc2RkbCk6CiAgICBmb2xkZXIgPSBwcm9maWxlX3Jvb3QgLyAiZGF0YSIKICAgIGZvbGRlci5ta2RpcihwYXJlbnRzPVRydWUpCiAgICBzZGRsKGZvbGRlciwgIkQ6UChBO09JQ0k7RkE7OztXRCkoQTtPSUNJO0ZBOzs7T1cpIiwgZGlyZWN0b3J5PVRydWUpCiAgICBhc3NlcnQgbm90IGRhY2xfaXNfcHJpdmF0ZShzZWN1cml0eV9vZihmb2xkZXIsIGRpcmVjdG9yeT1UcnVlKSkKICAgIHByaXZhdGVfZGlyZWN0b3J5KGZvbGRlcikKICAgIGFzc2VydCBkYWNsX2lzX3ByaXZhdGUoc2VjdXJpdHlfb2YoZm9sZGVyLCBkaXJlY3Rvcnk9VHJ1ZSkpCgoKZGVmIHRlc3RfbnVsbF9kYWNsX25hbWVzcGFjZV9mb2xkZXJfaXNfcmVwYWlyZWRfYW5kX25ldmVyX3ByaXZhdGUocHJvZmlsZV9yb290LCBzZGRsKToKICAgIGZvbGRlciA9IHByb2ZpbGVfcm9vdCAvICJjYWNoZSIKICAgIGZvbGRlci5ta2RpcihwYXJlbnRzPVRydWUpCiAgICBzZGRsKGZvbGRlciwgIkQ6Tk9fQUNDRVNTX0NPTlRST0wiLCBkaXJlY3Rvcnk9VHJ1ZSkKICAgIHNlY3VyaXR5ID0gc2VjdXJpdHlfb2YoZm9sZGVyLCBkaXJlY3Rvcnk9VHJ1ZSkKICAgIGFzc2VydCBub3Qgc2VjdXJpdHkuZGFjbF9wcmVzZW50IGFuZCBub3QgZGFjbF9pc19wcml2YXRlKHNlY3VyaXR5KQogICAgcHJpdmF0ZV9kaXJlY3RvcnkoZm9sZGVyKQogICAgYXNzZXJ0IGRhY2xfaXNfcHJpdmF0ZShzZWN1cml0eV9vZihmb2xkZXIsIGRpcmVjdG9yeT1UcnVlKSkKCgpkZWYgdGVzdF9lbXB0eV9kYWNsX2lzX25vdF9hX251bGxfZGFjbCgpOgogICAgZW1wdHkgPSB3aW4zMi5PYmplY3RTZWN1cml0eSh3aW5kb3dzX2ZpbGVzLnVzZXJfc2lkKCksIFRydWUsIFRydWUsICgpKQogICAgbnVsbCA9IHdpbjMyLk9iamVjdFNlY3VyaXR5KHdpbmRvd3NfZmlsZXMudXNlcl9zaWQoKSwgRmFsc2UsIEZhbHNlLCAoKSkKICAgIGFzc2VydCBkYWNsX2lzX3ByaXZhdGUoZW1wdHkpIGFuZCBub3QgZGFjbF9pc19wcml2YXRlKG51bGwpCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKCJhY2UiLCBbCiAgICAoNSwgMCwgMSwgTm9uZSksICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAjIGFuIG9iamVjdCBBQ0U6IHVucmVhZGFibGUgaGVyZQogICAgKDksIDAsIDEsIE5vbmUpLCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIyBhIGNhbGxiYWNrIEFDRQogICAgKHdpbjMyLkFDQ0VTU19BTExPV0VEX0FDRV9UWVBFLCAwLCAxLCAiUy0xLTEtMCIpLCAgIyBFdmVyeW9uZQpdKQpkZWYgdGVzdF91bnN1cHBvcnRlZF9vcl9mb3JlaWduX2dyYW50c19mYWlsX2Nsb3NlZChhY2UpOgogICAgYXNzZXJ0IG5vdCBkYWNsX2lzX3ByaXZhdGUod2luMzIuT2JqZWN0U2VjdXJpdHkod2luZG93c19maWxlcy51c2VyX3NpZCgpLCBUcnVlLCBUcnVlLCAoYWNlLCkpKQoKCkBweXRlc3QubWFyay5wYXJhbWV0cml6ZSgiYWNlIiwgWwogICAgKHdpbjMyLkFDQ0VTU19ERU5JRURfQUNFX1RZUEUsIDAsIDEsICJTLTEtMS0wIiksCiAgICAod2luMzIuQUNDRVNTX0FMTE9XRURfQUNFX1RZUEUsIHdpbjMyLklOSEVSSVRfT05MWV9BQ0UsIDEsICJTLTEtMS0wIiksCiAgICAod2luMzIuQUNDRVNTX0FMTE9XRURfQUNFX1RZUEUsIDAsIDAsICJTLTEtMS0wIiksCl0pCmRlZiB0ZXN0X2VudHJpZXNfdGhhdF9ncmFudF9ub3RoaW5nX2hlcmVfYXJlX2hhcm1sZXNzKGFjZSk6CiAgICBhc3NlcnQgZGFjbF9pc19wcml2YXRlKHdpbjMyLk9iamVjdFNlY3VyaXR5KHdpbmRvd3NfZmlsZXMudXNlcl9zaWQoKSwgVHJ1ZSwgVHJ1ZSwgKGFjZSwpKSkKCgpkZWYgdGVzdF9oZWxkX2NoYWluX2Jsb2Nrc19yZW5hbWluZ19hbnlfYW5jZXN0b3IocHJvZmlsZV9yb290KToKICAgIHRhcmdldCA9IHByb2ZpbGVfcm9vdCAvICJkYXRhIgogICAgcHJpdmF0ZV9kaXJlY3RvcnkodGFyZ2V0KQogICAgd2l0aCBoZWxkKHRhcmdldCk6CiAgICAgICAgd2l0aCBweXRlc3QucmFpc2VzKFBlcm1pc3Npb25FcnJvcik6CiAgICAgICAgICAgIG9zLnJlbmFtZShwcm9maWxlX3Jvb3QsIHByb2ZpbGVfcm9vdC53aXRoX25hbWUoIm1vdmVkIikpCiAgICAgICAgd2l0aCBweXRlc3QucmFpc2VzKFBlcm1pc3Npb25FcnJvcik6CiAgICAgICAgICAgIG9zLnJlbmFtZSh0YXJnZXQsIHRhcmdldC53aXRoX25hbWUoIm1vdmVkIikpCiAgICBvcy5yZW5hbWUodGFyZ2V0LCB0YXJnZXQud2l0aF9uYW1lKCJtb3ZlZCIpKQoKCmRlZiB0ZXN0X2hlbGRfY2hhaW5fcmVmdXNlc19hX2p1bmN0aW9uX3N1YnN0aXR1dGVkX2Zvcl9hX2ZvbGRlcihwcm9maWxlX3Jvb3QsIHRtcF9wYXRoKToKICAgIHByaXZhdGVfZGlyZWN0b3J5KHByb2ZpbGVfcm9vdCAvICJyZWFsIikKICAgIGVsc2V3aGVyZSA9IHRtcF9wYXRoIC8gImVsc2V3aGVyZSIKICAgIGVsc2V3aGVyZS5ta2RpcigpCiAgICBfd2luYXBpLkNyZWF0ZUp1bmN0aW9uKHN0cihlbHNld2hlcmUpLCBzdHIocHJvZmlsZV9yb290IC8gImxpbmsiKSkKICAgICMgQSBqdW5jdGlvbiBpbiB0aGUgcmVxdWVzdGVkIHBhdGggaXMgcmVzb2x2ZWQgb25jZSAoTGludXgncyByZWFscGF0aCksIHNvIHRoZQogICAgIyBoZWxkIGNoYWluIG5hbWVzIHRoZSByZWFsIGZvbGRlcjsgb25lIG1ldCB3aGlsZSBob2xkaW5nIGlzIHJlZnVzZWQuCiAgICBjaGFpbiA9IEhlbGRDaGFpbihwcm9maWxlX3Jvb3QgLyAibGluayIpCiAgICB0cnk6CiAgICAgICAgYXNzZXJ0IG9zLnBhdGgubm9ybWNhc2Uoc3RyKGNoYWluLnBhdGgpKSA9PSBvcy5wYXRoLm5vcm1jYXNlKHN0cihlbHNld2hlcmUucmVzb2x2ZSgpKSkKICAgIGZpbmFsbHk6CiAgICAgICAgY2hhaW4uY2xvc2UoKQogICAgaGFuZGxlID0gd2luMzIuY3JlYXRlX2ZpbGUoCiAgICAgICAgcHJvZmlsZV9yb290IC8gImxpbmsiLCB3aW4zMi5SRUFEX0NPTlRST0wgfCB3aW4zMi5GSUxFX1JFQURfQVRUUklCVVRFUywKICAgICAgICB3aW4zMi5GSUxFX1NIQVJFX1JFQUQgfCB3aW4zMi5GSUxFX1NIQVJFX1dSSVRFLCB3aW4zMi5PUEVOX0VYSVNUSU5HLAogICAgICAgIHdpbjMyLkZJTEVfRkxBR19CQUNLVVBfU0VNQU5USUNTIHwgd2luMzIuRklMRV9GTEFHX09QRU5fUkVQQVJTRV9QT0lOVCkKICAgIHRyeToKICAgICAgICB3aXRoIHB5dGVzdC5yYWlzZXMoT1NFcnJvciwgbWF0Y2g9ImxpbmsiKToKICAgICAgICAgICAgd2luZG93c19maWxlcy5fdmVyaWZ5X2RpcmVjdG9yeShoYW5kbGUsIHByb2ZpbGVfcm9vdCAvICJsaW5rIiwgbmFtZXNwYWNlPVRydWUsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAga2luZD0icHJvZmlsZSIpCiAgICBmaW5hbGx5OgogICAgICAgIHdpbjMyLmNsb3NlKGhhbmRsZSkKCgpkZWYgdGVzdF9wcml2YXRlX3N0YXRlX25lZWRzX2FfbG9jYWxfZHJpdmUobW9ua2V5cGF0Y2gpOgogICAgZGVmIGNvbnRhY3RlZChwYXRoLCAqYXJncywgKiprd2FyZ3MpOgogICAgICAgIHJhaXNlIEFzc2VydGlvbkVycm9yKCJhIG5ldHdvcmsgcGF0aCB3YXMgcmVzb2x2ZWQiKQoKICAgIG1vbmtleXBhdGNoLnNldGF0dHIob3MucGF0aCwgInJlYWxwYXRoIiwgY29udGFjdGVkKQogICAgd2l0aCBweXRlc3QucmFpc2VzKFBlcm1pc3Npb25FcnJvciwgbWF0Y2g9ImxvY2FsIGZpeGVkIE5URlMiKToKICAgICAgICB3aW5kb3dzX2ZpbGVzLmNhbm9uaWNhbChyIlxcc2VydmVyXHNoYXJlXG9kaW4tZGVza3RvcFx0ZXN0IikKCgpkZWYgdGVzdF9wdWJsaXNoX3JlcGxhY2VzX2ZsdXNoZXNfYW5kX2xlYXZlc19ub190ZW1wb3JhcnkocHJvZmlsZV9yb290KToKICAgIHByaXZhdGVfZGlyZWN0b3J5KHByb2ZpbGVfcm9vdCkKICAgIHdpdGggaGVsZChwcm9maWxlX3Jvb3QpIGFzIGNoYWluOgogICAgICAgIGFzc2VydCBwdWJsaXNoKGNoYWluLCAic3RhdGUuanNvbiIsIGIib25lIikgaXMgVHJ1ZQogICAgICAgIGFzc2VydCBwdWJsaXNoKGNoYWluLCAic3RhdGUuanNvbiIsIGIidHdvIikgaXMgVHJ1ZQogICAgICAgIGFzc2VydCByZWFkX2ZpbGUoY2hhaW4sICJzdGF0ZS5qc29uIikgPT0gYiJ0d28iCiAgICBhc3NlcnQgc29ydGVkKG9zLmxpc3RkaXIocHJvZmlsZV9yb290KSkgPT0gWyJzdGF0ZS5qc29uIl0KICAgIGFzc2VydCBkYWNsX2lzX3ByaXZhdGUoc2VjdXJpdHlfb2YocHJvZmlsZV9yb290IC8gInN0YXRlLmpzb24iLCBkaXJlY3Rvcnk9RmFsc2UpKQoKCmRlZiB0ZXN0X3B1Ymxpc2hfd2FpdHNfb3V0X2FfcmVhZGVyX3dpdGhvdXRfZGVsZXRlX3NoYXJpbmcocHJvZmlsZV9yb290KToKICAgIHByaXZhdGVfZGlyZWN0b3J5KHByb2ZpbGVfcm9vdCkKICAgIHdpdGggaGVsZChwcm9maWxlX3Jvb3QpIGFzIGNoYWluOgogICAgICAgIHB1Ymxpc2goY2hhaW4sICJzdGF0ZS5qc29uIiwgYiJvbGQiKQogICAgICAgIHJlYWRlciA9IG9wZW4ocHJvZmlsZV9yb290IC8gInN0YXRlLmpzb24iLCAicmIiKSAgIyBub3FhOiBTSU0xMTUgLSBoZWxkIGFjcm9zcyB0aGUgcmVwbGFjZQogICAgICAgIHJlbGVhc2VyID0gdGhyZWFkaW5nLlRpbWVyKDAuMiwgcmVhZGVyLmNsb3NlKQogICAgICAgIHJlbGVhc2VyLnN0YXJ0KCkKICAgICAgICB0cnk6CiAgICAgICAgICAgIGFzc2VydCBwdWJsaXNoKGNoYWluLCAic3RhdGUuanNvbiIsIGIibmV3IikgaXMgVHJ1ZQogICAgICAgIGZpbmFsbHk6CiAgICAgICAgICAgIHJlbGVhc2VyLmpvaW4oKQogICAgICAgIGFzc2VydCByZWFkX2ZpbGUoY2hhaW4sICJzdGF0ZS5qc29uIikgPT0gYiJuZXciCgoKZGVmIHRlc3RfcHVibGlzaF9mYWlsdXJlX2JlZm9yZV90aGVfcmVuYW1lX2tlZXBzX3RoZV9vbGRfdmFsdWUocHJvZmlsZV9yb290LCBtb25rZXlwYXRjaCk6CiAgICBwcml2YXRlX2RpcmVjdG9yeShwcm9maWxlX3Jvb3QpCiAgICB3aXRoIGhlbGQocHJvZmlsZV9yb290KSBhcyBjaGFpbjoKICAgICAgICBwdWJsaXNoKGNoYWluLCAic3RhdGUuanNvbiIsIGIib2xkIikKCiAgICAgICAgZGVmIGJyb2tlbihoYW5kbGUsIGRhdGEpOgogICAgICAgICAgICByYWlzZSBPU0Vycm9yKCJkaXNrIGZ1bGwiKQoKICAgICAgICBtb25rZXlwYXRjaC5zZXRhdHRyKHdpbjMyLCAid3JpdGVfYWxsIiwgYnJva2VuKQogICAgICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhPU0Vycm9yLCBtYXRjaD0iZGlzayBmdWxsIik6CiAgICAgICAgICAgIHB1Ymxpc2goY2hhaW4sICJzdGF0ZS5qc29uIiwgYiJuZXciKQogICAgICAgIGFzc2VydCByZWFkX2ZpbGUoY2hhaW4sICJzdGF0ZS5qc29uIikgPT0gYiJvbGQiCiAgICBhc3NlcnQgb3MubGlzdGRpcihwcm9maWxlX3Jvb3QpID09IFsic3RhdGUuanNvbiJdCgoKZGVmIHRlc3RfcHVibGlzaF9mYWlsZWRfZmluYWxfZmx1c2hfaXNfY29tbWl0dGVkX2J1dF91bnByb3Zlbihwcm9maWxlX3Jvb3QsIG1vbmtleXBhdGNoKToKICAgIHByaXZhdGVfZGlyZWN0b3J5KHByb2ZpbGVfcm9vdCkKICAgIGNhbGxzID0gW10KICAgIHJlYWwgPSB3aW4zMi5mbHVzaAoKICAgIGRlZiBzZWNvbmRfZmFpbHMoaGFuZGxlKToKICAgICAgICBjYWxscy5hcHBlbmQoaGFuZGxlKQogICAgICAgIGlmIGxlbihjYWxscykgPT0gMjoKICAgICAgICAgICAgcmFpc2UgT1NFcnJvcigiZmx1c2ggZmFpbGVkIikKICAgICAgICByZWFsKGhhbmRsZSkKCiAgICB3aXRoIGhlbGQocHJvZmlsZV9yb290KSBhcyBjaGFpbjoKICAgICAgICBtb25rZXlwYXRjaC5zZXRhdHRyKHdpbjMyLCAiZmx1c2giLCBzZWNvbmRfZmFpbHMpCiAgICAgICAgYXNzZXJ0IHB1Ymxpc2goY2hhaW4sICJzdGF0ZS5qc29uIiwgYiJuZXciKSBpcyBGYWxzZQogICAgICAgIG1vbmtleXBhdGNoLnNldGF0dHIod2luMzIsICJmbHVzaCIsIHJlYWwpCiAgICAgICAgYXNzZXJ0IHJlYWRfZmlsZShjaGFpbiwgInN0YXRlLmpzb24iKSA9PSBiIm5ldyIKCgpkZWYgdGVzdF9wdWJsaXNoX3JlZnVzZXNfdG9fcmVwbGFjZV9hX2hhcmRfbGlua2VkX3RhcmdldChwcm9maWxlX3Jvb3QpOgogICAgcHJpdmF0ZV9kaXJlY3RvcnkocHJvZmlsZV9yb290KQogICAgd2l0aCBoZWxkKHByb2ZpbGVfcm9vdCkgYXMgY2hhaW46CiAgICAgICAgcHVibGlzaChjaGFpbiwgInN0YXRlLmpzb24iLCBiIm9sZCIpCiAgICAgICAgb3MubGluayhwcm9maWxlX3Jvb3QgLyAic3RhdGUuanNvbiIsIHByb2ZpbGVfcm9vdCAvICJhbGlhcy5qc29uIikKICAgICAgICB3aXRoIHB5dGVzdC5yYWlzZXMoUGVybWlzc2lvbkVycm9yKToKICAgICAgICAgICAgb3Blbl9maWxlKGNoYWluLCAic3RhdGUuanNvbiIpCgoKZGVmIHRlc3RfcmV0aXJlX3JlbmFtZXNfdG9fYV90b21ic3RvbmVfdGhlbl9mbHVzaGVzKHByb2ZpbGVfcm9vdCk6CiAgICBwcml2YXRlX2RpcmVjdG9yeShwcm9maWxlX3Jvb3QpCiAgICB3aXRoIGhlbGQocHJvZmlsZV9yb290KSBhcyBjaGFpbjoKICAgICAgICBwdWJsaXNoKGNoYWluLCAiYXVkaXQubG9nLnJlcGFpci1yZXF1aXJlZCIsIGIicGVuZGluZ1xuIikKICAgICAgICB0b21ic3RvbmUgPSByZXRpcmUoY2hhaW4sICJhdWRpdC5sb2cucmVwYWlyLXJlcXVpcmVkIikKICAgICAgICBhc3NlcnQgbm90IChwcm9maWxlX3Jvb3QgLyAiYXVkaXQubG9nLnJlcGFpci1yZXF1aXJlZCIpLmV4aXN0cygpCiAgICAgICAgYXNzZXJ0IHRvbWJzdG9uZXMoY2hhaW4sICJhdWRpdC5sb2cucmVwYWlyLXJlcXVpcmVkIikgPT0gW3RvbWJzdG9uZV0KICAgICAgICByZW1vdmUoY2hhaW4sIHRvbWJzdG9uZSkKICAgICAgICBhc3NlcnQgdG9tYnN0b25lcyhjaGFpbiwgImF1ZGl0LmxvZy5yZXBhaXItcmVxdWlyZWQiKSA9PSBbXQoKCmRlZiB0ZXN0X3JldGlyZV93aXRoX2FfZmFpbGVkX2ZsdXNoX2xlYXZlc190aGVfdG9tYnN0b25lKHByb2ZpbGVfcm9vdCwgbW9ua2V5cGF0Y2gpOgogICAgcHJpdmF0ZV9kaXJlY3RvcnkocHJvZmlsZV9yb290KQogICAgd2l0aCBoZWxkKHByb2ZpbGVfcm9vdCkgYXMgY2hhaW46CiAgICAgICAgcHVibGlzaChjaGFpbiwgIm1hcmtlciIsIGIieCIpCgogICAgICAgIGRlZiBmYWlsaW5nKGhhbmRsZSk6CiAgICAgICAgICAgIHJhaXNlIE9TRXJyb3IoImZsdXNoIGZhaWxlZCIpCgogICAgICAgIG1vbmtleXBhdGNoLnNldGF0dHIod2luMzIsICJmbHVzaCIsIGZhaWxpbmcpCiAgICAgICAgd2l0aCBweXRlc3QucmFpc2VzKE9TRXJyb3IsIG1hdGNoPSJmbHVzaCBmYWlsZWQiKToKICAgICAgICAgICAgcmV0aXJlKGNoYWluLCAibWFya2VyIikKICAgICAgICBtb25rZXlwYXRjaC51bmRvKCkKICAgICAgICBhc3NlcnQgbm90IChwcm9maWxlX3Jvb3QgLyAibWFya2VyIikuZXhpc3RzKCkKICAgICAgICBhc3NlcnQgbGVuKHRvbWJzdG9uZXMoY2hhaW4sICJtYXJrZXIiKSkgPT0gMQoKCmRlZiB0ZXN0X3RvbWJzdG9uZV9yZWNvZ25pdGlvbl9pc19leGFjdChwcm9maWxlX3Jvb3QpOgogICAgcHJpdmF0ZV9kaXJlY3RvcnkocHJvZmlsZV9yb290KQogICAgZm9yIG5hbWUgaW4gKCJtYXJrZXIucmV0aXJpbmctIiArICJhIiAqIDMxLCAibWFya2VyLnJldGlyaW5nLSIgKyAiQSIgKiAzMiwKICAgICAgICAgICAgICAgICAibWFya2VyeC5yZXRpcmluZy0iICsgImEiICogMzIsICJtYXJrZXIucmV0aXJpbmctIiArICJhIiAqIDMyICsgIi50bXAiKToKICAgICAgICAocHJvZmlsZV9yb290IC8gbmFtZSkud3JpdGVfYnl0ZXMoYiIiKQogICAgKHByb2ZpbGVfcm9vdCAvICgibWFya2VyLnJldGlyaW5nLSIgKyAiYiIgKiAzMikpLndyaXRlX2J5dGVzKGIiIikKICAgIHdpdGggaGVsZChwcm9maWxlX3Jvb3QpIGFzIGNoYWluOgogICAgICAgIGFzc2VydCB0b21ic3RvbmVzKGNoYWluLCAibWFya2VyIikgPT0gWyJtYXJrZXIucmV0aXJpbmctIiArICJiIiAqIDMyXQoKCmRlZiB0ZXN0X2ZsdXNoX29iamVjdF9uZWVkc190aGVfZmlsZV9hbmRfd3JpdGVzX25vdGhpbmcocHJvZmlsZV9yb290KToKICAgIHByaXZhdGVfZGlyZWN0b3J5KHByb2ZpbGVfcm9vdCkKICAgIHdpdGggaGVsZChwcm9maWxlX3Jvb3QpIGFzIGNoYWluOgogICAgICAgIHB1Ymxpc2goY2hhaW4sICJoaXN0b3J5Lmpzb25sIiwgYiJsaW5lXG4iKQogICAgICAgIGZsdXNoX29iamVjdChjaGFpbiwgImhpc3RvcnkuanNvbmwiKQogICAgICAgIGFzc2VydCByZWFkX2ZpbGUoY2hhaW4sICJoaXN0b3J5Lmpzb25sIikgPT0gYiJsaW5lXG4iCiAgICAgICAgd2l0aCBweXRlc3QucmFpc2VzKEZpbGVOb3RGb3VuZEVycm9yKToKICAgICAgICAgICAgZmx1c2hfb2JqZWN0KGNoYWluLCAibWlzc2luZyIpCgoKZGVmIHRlc3RfZW5zdXJlX3ByaXZhdGVfcmVwYWlyc19hX2Jyb2FkX2NoaWxkX2FjbChwcm9maWxlX3Jvb3QsIHNkZGwpOgogICAgcHJpdmF0ZV9kaXJlY3RvcnkocHJvZmlsZV9yb290KQogICAgcGF0aCA9IHByb2ZpbGVfcm9vdCAvICJ0dXJucy5zcWxpdGUzIgogICAgcGF0aC53cml0ZV9ieXRlcyhiIiIpCiAgICBzZGRsKHBhdGgsICJEOlBBSShBOztGQTs7O1dEKShBOztGQTs7O09XKSIsIGRpcmVjdG9yeT1GYWxzZSkKICAgIGFzc2VydCBub3QgZGFjbF9pc19wcml2YXRlKHNlY3VyaXR5X29mKHBhdGgsIGRpcmVjdG9yeT1GYWxzZSkpCiAgICB3aXRoIGhlbGQocHJvZmlsZV9yb290KSBhcyBjaGFpbjoKICAgICAgICBlbnN1cmVfcHJpdmF0ZShjaGFpbiwgInR1cm5zLnNxbGl0ZTMiKQogICAgYXNzZXJ0IGRhY2xfaXNfcHJpdmF0ZShzZWN1cml0eV9vZihwYXRoLCBkaXJlY3Rvcnk9RmFsc2UpKQoKCmRlZiB0ZXN0X3BhcnRpYWxfZmFpbHVyZV9yZWxlYXNlc19ldmVyeV9oZWxkX2hhbmRsZShwcm9maWxlX3Jvb3QsIG1vbmtleXBhdGNoKToKICAgIHByaXZhdGVfZGlyZWN0b3J5KHByb2ZpbGVfcm9vdCAvICJkYXRhIikKICAgIG9wZW5lZCwgY2xvc2VkID0gW10sIFtdCiAgICByZWFsX2NyZWF0ZSwgcmVhbF9jbG9zZSA9IHdpbjMyLmNyZWF0ZV9maWxlLCB3aW4zMi5jbG9zZQoKICAgIGRlZiBjb3VudGluZ19jcmVhdGUoKmFyZ3MsICoqa3dhcmdzKToKICAgICAgICBoYW5kbGUgPSByZWFsX2NyZWF0ZSgqYXJncywgKiprd2FyZ3MpCiAgICAgICAgb3BlbmVkLmFwcGVuZChoYW5kbGUpCiAgICAgICAgcmV0dXJuIGhhbmRsZQoKICAgIGRlZiBjb3VudGluZ19jbG9zZShoYW5kbGUpOgogICAgICAgIGNsb3NlZC5hcHBlbmQoaGFuZGxlKQogICAgICAgIHJlYWxfY2xvc2UoaGFuZGxlKQoKICAgIGRlZiBib29tKCphcmdzLCAqKmt3YXJncyk6CiAgICAgICAgcmFpc2UgT1NFcnJvcigidmVyaWZpY2F0aW9uIGZhaWxlZCIpCgogICAgbW9ua2V5cGF0Y2guc2V0YXR0cih3aW4zMiwgImNyZWF0ZV9maWxlIiwgY291bnRpbmdfY3JlYXRlKQogICAgbW9ua2V5cGF0Y2guc2V0YXR0cih3aW4zMiwgImNsb3NlIiwgY291bnRpbmdfY2xvc2UpCiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKHdpbmRvd3NfZmlsZXMsICJfdmVyaWZ5X2RpcmVjdG9yeSIsIGJvb20pCiAgICB3aXRoIHB5dGVzdC5yYWlzZXMoT1NFcnJvciwgbWF0Y2g9InZlcmlmaWNhdGlvbiBmYWlsZWQiKToKICAgICAgICBIZWxkQ2hhaW4ocHJvZmlsZV9yb290IC8gImRhdGEiKQogICAgYXNzZXJ0IG9wZW5lZCBhbmQgc29ydGVkKG9wZW5lZCkgPT0gc29ydGVkKGNsb3NlZCkKCgpkZWYgdGVzdF9hbm90aGVyX3Byb2Nlc3NfY2Fubm90X3JlbmFtZV9hX2hlbGRfZm9sZGVyKHByb2ZpbGVfcm9vdCk6CiAgICB0YXJnZXQgPSBwcm9maWxlX3Jvb3QgLyAiZGF0YSIKICAgIHByaXZhdGVfZGlyZWN0b3J5KHRhcmdldCkKICAgIHNjcmlwdCA9ICgiaW1wb3J0IG9zLCBzeXNcbiIKICAgICAgICAgICAgICAidHJ5OlxuICAgIG9zLnJlbmFtZShzeXMuYXJndlsxXSwgc3lzLmFyZ3ZbMl0pXG4iCiAgICAgICAgICAgICAgImV4Y2VwdCBQZXJtaXNzaW9uRXJyb3I6XG4gICAgc3lzLmV4aXQoMylcbiIpCiAgICB3aXRoIGhlbGQodGFyZ2V0KToKICAgICAgICByZXN1bHQgPSBzdWJwcm9jZXNzLnJ1bigKICAgICAgICAgICAgW3N5cy5leGVjdXRhYmxlLCAiLWMiLCBzY3JpcHQsIHN0cih0YXJnZXQpLCBzdHIodGFyZ2V0LndpdGhfbmFtZSgibW92ZWQiKSldLAogICAgICAgICAgICB0aW1lb3V0PTYwKQogICAgYXNzZXJ0IHJlc3VsdC5yZXR1cm5jb2RlID09IDMKICAgIGFzc2VydCB0YXJnZXQuZXhpc3RzKCkKCgpkZWYgdGVzdF9yZW5hbWVfcmV0cnlfZ2l2ZXNfdXBfYWZ0ZXJfaXRzX2JvdW5kKHByb2ZpbGVfcm9vdCwgbW9ua2V5cGF0Y2gpOgogICAgcHJpdmF0ZV9kaXJlY3RvcnkocHJvZmlsZV9yb290KQogICAgYXR0ZW1wdHMgPSBbXQoKICAgIGRlZiBhbHdheXNfc2hhcmVkKGhhbmRsZSwgbmFtZSwgKiwgcmVwbGFjZSk6CiAgICAgICAgYXR0ZW1wdHMuYXBwZW5kKG5hbWUpCiAgICAgICAgcmFpc2Ugd2luMzIuZXJyb3Iod2luMzIuRVJST1JfU0hBUklOR19WSU9MQVRJT04pCgogICAgbW9ua2V5cGF0Y2guc2V0YXR0cih3aW4zMiwgInJlbmFtZV9ieV9oYW5kbGUiLCBhbHdheXNfc2hhcmVkKQogICAgbW9ua2V5cGF0Y2guc2V0YXR0cih3aW5kb3dzX2ZpbGVzLCAiX1JFTkFNRV9SRVRSWV9TRUNPTkRTIiwgMCkKICAgIHN0YXJ0ZWQgPSB0aW1lLm1vbm90b25pYygpCiAgICB3aXRoIGhlbGQocHJvZmlsZV9yb290KSBhcyBjaGFpbiwgcHl0ZXN0LnJhaXNlcyhQZXJtaXNzaW9uRXJyb3IpOgogICAgICAgIHB1Ymxpc2goY2hhaW4sICJzdGF0ZS5qc29uIiwgYiJ4IikKICAgIGFzc2VydCBsZW4oYXR0ZW1wdHMpID09IHdpbmRvd3NfZmlsZXMuX1JFTkFNRV9SRVRSSUVTCiAgICBhc3NlcnQgdGltZS5tb25vdG9uaWMoKSAtIHN0YXJ0ZWQgPCAzMAogICAgYXNzZXJ0IG9zLmxpc3RkaXIocHJvZmlsZV9yb290KSA9PSBbXQo=",
+          "new_base64": "IiIiVGhlIFdpbmRvd3MgcHJpdmF0ZS1zdG9yYWdlIGNvbnRyYWN0IChwaGFzZSAyIHBsYW4gQTIgYW5kIEE1KSwgb24gcmVhbCBOVEZTLiIiIgpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgX3dpbmFwaQppbXBvcnQgb3MKaW1wb3J0IHN1YnByb2Nlc3MKaW1wb3J0IHN5cwppbXBvcnQgdGhyZWFkaW5nCmltcG9ydCB0aW1lCgppbXBvcnQgcHl0ZXN0Cgpmcm9tIHNyYy5kZXNrdG9wLnBsYXRmb3JtIGltcG9ydCB3aW4zMiwgd2luZG93c19maWxlcwpmcm9tIHNyYy5kZXNrdG9wLnBsYXRmb3JtLndpbmRvd3NfZmlsZXMgaW1wb3J0ICgKICAgIEhlbGRDaGFpbiwKICAgIGRhY2xfaXNfcHJpdmF0ZSwKICAgIGVuc3VyZV9wcml2YXRlLAogICAgZmx1c2hfb2JqZWN0LAogICAgaGVsZCwKICAgIG9wZW5fZmlsZSwKICAgIHByaXZhdGVfZGlyZWN0b3J5LAogICAgcHVibGlzaCwKICAgIHJlYWRfZmlsZSwKICAgIHJlbW92ZSwKICAgIHJldGlyZSwKICAgIHRvbWJzdG9uZXMsCikKCgpkZWYgc2VjdXJpdHlfb2YocGF0aCwgKiwgZGlyZWN0b3J5KToKICAgIGZsYWdzID0gd2luMzIuRklMRV9GTEFHX09QRU5fUkVQQVJTRV9QT0lOVAogICAgaWYgZGlyZWN0b3J5OgogICAgICAgIGZsYWdzIHw9IHdpbjMyLkZJTEVfRkxBR19CQUNLVVBfU0VNQU5USUNTCiAgICBzaGFyZSA9IHdpbjMyLkZJTEVfU0hBUkVfUkVBRCB8IHdpbjMyLkZJTEVfU0hBUkVfV1JJVEUgfCB3aW4zMi5GSUxFX1NIQVJFX0RFTEVURQogICAgaGFuZGxlID0gd2luMzIuY3JlYXRlX2ZpbGUocGF0aCwgd2luMzIuUkVBRF9DT05UUk9MIHwgd2luMzIuRklMRV9SRUFEX0FUVFJJQlVURVMsIHNoYXJlLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgd2luMzIuT1BFTl9FWElTVElORywgZmxhZ3MpCiAgICB0cnk6CiAgICAgICAgcmV0dXJuIHdpbjMyLm9iamVjdF9zZWN1cml0eShoYW5kbGUpCiAgICBmaW5hbGx5OgogICAgICAgIHdpbjMyLmNsb3NlKGhhbmRsZSkKCgpkZWYgdGVzdF9wcml2YXRlX2RpcmVjdG9yeV9jcmVhdGVzX2V2ZXJ5X25hbWVzcGFjZV9mb2xkZXJfcHJpdmF0ZShwcm9maWxlX3Jvb3QpOgogICAgdGFyZ2V0ID0gcHJvZmlsZV9yb290IC8gImRhdGEiIC8gInNlY3JldHMiCiAgICBwcml2YXRlX2RpcmVjdG9yeSh0YXJnZXQpCiAgICBmb3IgcGF0aCBpbiAocHJvZmlsZV9yb290LnBhcmVudCwgcHJvZmlsZV9yb290LCBwcm9maWxlX3Jvb3QgLyAiZGF0YSIsIHRhcmdldCk6CiAgICAgICAgc2VjdXJpdHkgPSBzZWN1cml0eV9vZihwYXRoLCBkaXJlY3Rvcnk9VHJ1ZSkKICAgICAgICBhc3NlcnQgc2VjdXJpdHkub3duZXIgaW4gd2luZG93c19maWxlcy5vd25fc2lkcygpCiAgICAgICAgYXNzZXJ0IGRhY2xfaXNfcHJpdmF0ZShzZWN1cml0eSkKCgpkZWYgdGVzdF9leGlzdGluZ19icm9hZF9uYW1lc3BhY2VfZm9sZGVyX2lzX3JlcGFpcmVkKHByb2ZpbGVfcm9vdCwgc2RkbCk6CiAgICBmb2xkZXIgPSBwcm9maWxlX3Jvb3QgLyAiZGF0YSIKICAgIGZvbGRlci5ta2RpcihwYXJlbnRzPVRydWUpCiAgICBzZGRsKGZvbGRlciwgIkQ6UChBO09JQ0k7RkE7OztXRCkoQTtPSUNJO0ZBOzs7T1cpIiwgZGlyZWN0b3J5PVRydWUpCiAgICBhc3NlcnQgbm90IGRhY2xfaXNfcHJpdmF0ZShzZWN1cml0eV9vZihmb2xkZXIsIGRpcmVjdG9yeT1UcnVlKSkKICAgIHByaXZhdGVfZGlyZWN0b3J5KGZvbGRlcikKICAgIGFzc2VydCBkYWNsX2lzX3ByaXZhdGUoc2VjdXJpdHlfb2YoZm9sZGVyLCBkaXJlY3Rvcnk9VHJ1ZSkpCgoKZGVmIHRlc3RfbnVsbF9kYWNsX25hbWVzcGFjZV9mb2xkZXJfaXNfcmVwYWlyZWRfYW5kX25ldmVyX3ByaXZhdGUocHJvZmlsZV9yb290LCBzZGRsKToKICAgIGZvbGRlciA9IHByb2ZpbGVfcm9vdCAvICJjYWNoZSIKICAgIGZvbGRlci5ta2RpcihwYXJlbnRzPVRydWUpCiAgICBzZGRsKGZvbGRlciwgIkQ6Tk9fQUNDRVNTX0NPTlRST0wiLCBkaXJlY3Rvcnk9VHJ1ZSkKICAgIHNlY3VyaXR5ID0gc2VjdXJpdHlfb2YoZm9sZGVyLCBkaXJlY3Rvcnk9VHJ1ZSkKICAgIGFzc2VydCBub3Qgc2VjdXJpdHkuZGFjbF9wcmVzZW50IGFuZCBub3QgZGFjbF9pc19wcml2YXRlKHNlY3VyaXR5KQogICAgcHJpdmF0ZV9kaXJlY3RvcnkoZm9sZGVyKQogICAgYXNzZXJ0IGRhY2xfaXNfcHJpdmF0ZShzZWN1cml0eV9vZihmb2xkZXIsIGRpcmVjdG9yeT1UcnVlKSkKCgpkZWYgdGVzdF9lbXB0eV9kYWNsX2lzX25vdF9hX251bGxfZGFjbCgpOgogICAgZW1wdHkgPSB3aW4zMi5PYmplY3RTZWN1cml0eSh3aW5kb3dzX2ZpbGVzLnVzZXJfc2lkKCksIFRydWUsIFRydWUsICgpKQogICAgbnVsbCA9IHdpbjMyLk9iamVjdFNlY3VyaXR5KHdpbmRvd3NfZmlsZXMudXNlcl9zaWQoKSwgRmFsc2UsIEZhbHNlLCAoKSkKICAgIGFzc2VydCBkYWNsX2lzX3ByaXZhdGUoZW1wdHkpIGFuZCBub3QgZGFjbF9pc19wcml2YXRlKG51bGwpCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKCJhY2UiLCBbCiAgICAoNSwgMCwgMSwgTm9uZSksICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAjIGFuIG9iamVjdCBBQ0U6IHVucmVhZGFibGUgaGVyZQogICAgKDksIDAsIDEsIE5vbmUpLCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIyBhIGNhbGxiYWNrIEFDRQogICAgKHdpbjMyLkFDQ0VTU19BTExPV0VEX0FDRV9UWVBFLCAwLCAxLCAiUy0xLTEtMCIpLCAgIyBFdmVyeW9uZQpdKQpkZWYgdGVzdF91bnN1cHBvcnRlZF9vcl9mb3JlaWduX2dyYW50c19mYWlsX2Nsb3NlZChhY2UpOgogICAgYXNzZXJ0IG5vdCBkYWNsX2lzX3ByaXZhdGUod2luMzIuT2JqZWN0U2VjdXJpdHkod2luZG93c19maWxlcy51c2VyX3NpZCgpLCBUcnVlLCBUcnVlLCAoYWNlLCkpKQoKCkBweXRlc3QubWFyay5wYXJhbWV0cml6ZSgiYWNlIiwgWwogICAgKHdpbjMyLkFDQ0VTU19ERU5JRURfQUNFX1RZUEUsIDAsIDEsICJTLTEtMS0wIiksCiAgICAod2luMzIuQUNDRVNTX0FMTE9XRURfQUNFX1RZUEUsIHdpbjMyLklOSEVSSVRfT05MWV9BQ0UsIDEsICJTLTEtMS0wIiksCiAgICAod2luMzIuQUNDRVNTX0FMTE9XRURfQUNFX1RZUEUsIDAsIDAsICJTLTEtMS0wIiksCl0pCmRlZiB0ZXN0X2VudHJpZXNfdGhhdF9ncmFudF9ub3RoaW5nX2hlcmVfYXJlX2hhcm1sZXNzKGFjZSk6CiAgICBhc3NlcnQgZGFjbF9pc19wcml2YXRlKHdpbjMyLk9iamVjdFNlY3VyaXR5KHdpbmRvd3NfZmlsZXMudXNlcl9zaWQoKSwgVHJ1ZSwgVHJ1ZSwgKGFjZSwpKSkKCgpkZWYgdGVzdF9oZWxkX2NoYWluX2Jsb2Nrc19yZW5hbWluZ19hbnlfYW5jZXN0b3IocHJvZmlsZV9yb290KToKICAgIHRhcmdldCA9IHByb2ZpbGVfcm9vdCAvICJkYXRhIgogICAgcHJpdmF0ZV9kaXJlY3RvcnkodGFyZ2V0KQogICAgd2l0aCBoZWxkKHRhcmdldCk6CiAgICAgICAgd2l0aCBweXRlc3QucmFpc2VzKFBlcm1pc3Npb25FcnJvcik6CiAgICAgICAgICAgIG9zLnJlbmFtZShwcm9maWxlX3Jvb3QsIHByb2ZpbGVfcm9vdC53aXRoX25hbWUoIm1vdmVkIikpCiAgICAgICAgd2l0aCBweXRlc3QucmFpc2VzKFBlcm1pc3Npb25FcnJvcik6CiAgICAgICAgICAgIG9zLnJlbmFtZSh0YXJnZXQsIHRhcmdldC53aXRoX25hbWUoIm1vdmVkIikpCiAgICBvcy5yZW5hbWUodGFyZ2V0LCB0YXJnZXQud2l0aF9uYW1lKCJtb3ZlZCIpKQoKCmRlZiB0ZXN0X2hlbGRfY2hhaW5fcmVmdXNlc19hX2p1bmN0aW9uX3N1YnN0aXR1dGVkX2Zvcl9hX2ZvbGRlcihwcm9maWxlX3Jvb3QsIHRtcF9wYXRoKToKICAgIHByaXZhdGVfZGlyZWN0b3J5KHByb2ZpbGVfcm9vdCAvICJyZWFsIikKICAgIGVsc2V3aGVyZSA9IHRtcF9wYXRoIC8gImVsc2V3aGVyZSIKICAgIGVsc2V3aGVyZS5ta2RpcigpCiAgICBfd2luYXBpLkNyZWF0ZUp1bmN0aW9uKHN0cihlbHNld2hlcmUpLCBzdHIocHJvZmlsZV9yb290IC8gImxpbmsiKSkKICAgICMgQSBqdW5jdGlvbiBpbiB0aGUgcmVxdWVzdGVkIHBhdGggaXMgcmVzb2x2ZWQgb25jZSAoTGludXgncyByZWFscGF0aCksIHNvIHRoZQogICAgIyBoZWxkIGNoYWluIG5hbWVzIHRoZSByZWFsIGZvbGRlcjsgb25lIG1ldCB3aGlsZSBob2xkaW5nIGlzIHJlZnVzZWQuCiAgICBjaGFpbiA9IEhlbGRDaGFpbihwcm9maWxlX3Jvb3QgLyAibGluayIpCiAgICB0cnk6CiAgICAgICAgYXNzZXJ0IG9zLnBhdGgubm9ybWNhc2Uoc3RyKGNoYWluLnBhdGgpKSA9PSBvcy5wYXRoLm5vcm1jYXNlKHN0cihlbHNld2hlcmUucmVzb2x2ZSgpKSkKICAgIGZpbmFsbHk6CiAgICAgICAgY2hhaW4uY2xvc2UoKQogICAgaGFuZGxlID0gd2luMzIuY3JlYXRlX2ZpbGUoCiAgICAgICAgcHJvZmlsZV9yb290IC8gImxpbmsiLCB3aW4zMi5SRUFEX0NPTlRST0wgfCB3aW4zMi5GSUxFX1JFQURfQVRUUklCVVRFUywKICAgICAgICB3aW4zMi5GSUxFX1NIQVJFX1JFQUQgfCB3aW4zMi5GSUxFX1NIQVJFX1dSSVRFLCB3aW4zMi5PUEVOX0VYSVNUSU5HLAogICAgICAgIHdpbjMyLkZJTEVfRkxBR19CQUNLVVBfU0VNQU5USUNTIHwgd2luMzIuRklMRV9GTEFHX09QRU5fUkVQQVJTRV9QT0lOVCkKICAgIHRyeToKICAgICAgICB3aXRoIHB5dGVzdC5yYWlzZXMoT1NFcnJvciwgbWF0Y2g9ImxpbmsiKToKICAgICAgICAgICAgd2luZG93c19maWxlcy5fdmVyaWZ5X2RpcmVjdG9yeShoYW5kbGUsIHByb2ZpbGVfcm9vdCAvICJsaW5rIiwgbmFtZXNwYWNlPVRydWUsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAga2luZD0icHJvZmlsZSIpCiAgICBmaW5hbGx5OgogICAgICAgIHdpbjMyLmNsb3NlKGhhbmRsZSkKCgpkZWYgdGVzdF9wcml2YXRlX3N0YXRlX25lZWRzX2FfbG9jYWxfZHJpdmUobW9ua2V5cGF0Y2gpOgogICAgZGVmIGNvbnRhY3RlZChwYXRoLCAqYXJncywgKiprd2FyZ3MpOgogICAgICAgIHJhaXNlIEFzc2VydGlvbkVycm9yKCJhIG5ldHdvcmsgcGF0aCB3YXMgcmVzb2x2ZWQiKQoKICAgIG1vbmtleXBhdGNoLnNldGF0dHIob3MucGF0aCwgInJlYWxwYXRoIiwgY29udGFjdGVkKQogICAgd2l0aCBweXRlc3QucmFpc2VzKFBlcm1pc3Npb25FcnJvciwgbWF0Y2g9ImxvY2FsIGZpeGVkIE5URlMiKToKICAgICAgICB3aW5kb3dzX2ZpbGVzLmNhbm9uaWNhbChyIlxcc2VydmVyXHNoYXJlXG9kaW4tZGVza3RvcFx0ZXN0IikKCgpkZWYgdGVzdF9sb25nX3BhdGhfZHJpdmVzX2NvdW50X2FzX2xvY2FsX2FuZF9yZWxhdGl2ZV9wYXRoc19hcmVfcmVmdXNlZCgpOgogICAgYXNzZXJ0IHdpbmRvd3NfZmlsZXMuX2xvY2FsX2RyaXZlKCJcXFxcP1xcQzpcXFVzZXJzXFx4IikKICAgIGFzc2VydCBub3Qgd2luZG93c19maWxlcy5fbG9jYWxfZHJpdmUoIlxcXFxzZXJ2ZXJcXHNoYXJlXFx4IikKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhWYWx1ZUVycm9yLCBtYXRjaD0iYWJzb2x1dGUiKToKICAgICAgICB3aW5kb3dzX2ZpbGVzLmNhbm9uaWNhbCgicmVsYXRpdmVcXG9kaW4tZGVza3RvcCIpCgoKZGVmIHRlc3RfcHVibGlzaF9yZXBsYWNlc19mbHVzaGVzX2FuZF9sZWF2ZXNfbm9fdGVtcG9yYXJ5KHByb2ZpbGVfcm9vdCk6CiAgICBwcml2YXRlX2RpcmVjdG9yeShwcm9maWxlX3Jvb3QpCiAgICB3aXRoIGhlbGQocHJvZmlsZV9yb290KSBhcyBjaGFpbjoKICAgICAgICBhc3NlcnQgcHVibGlzaChjaGFpbiwgInN0YXRlLmpzb24iLCBiIm9uZSIpIGlzIFRydWUKICAgICAgICBhc3NlcnQgcHVibGlzaChjaGFpbiwgInN0YXRlLmpzb24iLCBiInR3byIpIGlzIFRydWUKICAgICAgICBhc3NlcnQgcmVhZF9maWxlKGNoYWluLCAic3RhdGUuanNvbiIpID09IGIidHdvIgogICAgYXNzZXJ0IHNvcnRlZChvcy5saXN0ZGlyKHByb2ZpbGVfcm9vdCkpID09IFsic3RhdGUuanNvbiJdCiAgICBhc3NlcnQgZGFjbF9pc19wcml2YXRlKHNlY3VyaXR5X29mKHByb2ZpbGVfcm9vdCAvICJzdGF0ZS5qc29uIiwgZGlyZWN0b3J5PUZhbHNlKSkKCgpkZWYgdGVzdF9wdWJsaXNoX3dhaXRzX291dF9hX3JlYWRlcl93aXRob3V0X2RlbGV0ZV9zaGFyaW5nKHByb2ZpbGVfcm9vdCk6CiAgICBwcml2YXRlX2RpcmVjdG9yeShwcm9maWxlX3Jvb3QpCiAgICB3aXRoIGhlbGQocHJvZmlsZV9yb290KSBhcyBjaGFpbjoKICAgICAgICBwdWJsaXNoKGNoYWluLCAic3RhdGUuanNvbiIsIGIib2xkIikKICAgICAgICByZWFkZXIgPSBvcGVuKHByb2ZpbGVfcm9vdCAvICJzdGF0ZS5qc29uIiwgInJiIikgICMgbm9xYTogU0lNMTE1IC0gaGVsZCBhY3Jvc3MgdGhlIHJlcGxhY2UKICAgICAgICByZWxlYXNlciA9IHRocmVhZGluZy5UaW1lcigwLjIsIHJlYWRlci5jbG9zZSkKICAgICAgICByZWxlYXNlci5zdGFydCgpCiAgICAgICAgdHJ5OgogICAgICAgICAgICBhc3NlcnQgcHVibGlzaChjaGFpbiwgInN0YXRlLmpzb24iLCBiIm5ldyIpIGlzIFRydWUKICAgICAgICBmaW5hbGx5OgogICAgICAgICAgICByZWxlYXNlci5qb2luKCkKICAgICAgICBhc3NlcnQgcmVhZF9maWxlKGNoYWluLCAic3RhdGUuanNvbiIpID09IGIibmV3IgoKCmRlZiB0ZXN0X3B1Ymxpc2hfZmFpbHVyZV9iZWZvcmVfdGhlX3JlbmFtZV9rZWVwc190aGVfb2xkX3ZhbHVlKHByb2ZpbGVfcm9vdCwgbW9ua2V5cGF0Y2gpOgogICAgcHJpdmF0ZV9kaXJlY3RvcnkocHJvZmlsZV9yb290KQogICAgd2l0aCBoZWxkKHByb2ZpbGVfcm9vdCkgYXMgY2hhaW46CiAgICAgICAgcHVibGlzaChjaGFpbiwgInN0YXRlLmpzb24iLCBiIm9sZCIpCgogICAgICAgIGRlZiBicm9rZW4oaGFuZGxlLCBkYXRhKToKICAgICAgICAgICAgcmFpc2UgT1NFcnJvcigiZGlzayBmdWxsIikKCiAgICAgICAgbW9ua2V5cGF0Y2guc2V0YXR0cih3aW4zMiwgIndyaXRlX2FsbCIsIGJyb2tlbikKICAgICAgICB3aXRoIHB5dGVzdC5yYWlzZXMoT1NFcnJvciwgbWF0Y2g9ImRpc2sgZnVsbCIpOgogICAgICAgICAgICBwdWJsaXNoKGNoYWluLCAic3RhdGUuanNvbiIsIGIibmV3IikKICAgICAgICBhc3NlcnQgcmVhZF9maWxlKGNoYWluLCAic3RhdGUuanNvbiIpID09IGIib2xkIgogICAgYXNzZXJ0IG9zLmxpc3RkaXIocHJvZmlsZV9yb290KSA9PSBbInN0YXRlLmpzb24iXQoKCmRlZiB0ZXN0X3B1Ymxpc2hfZmFpbGVkX2ZpbmFsX2ZsdXNoX2lzX2NvbW1pdHRlZF9idXRfdW5wcm92ZW4ocHJvZmlsZV9yb290LCBtb25rZXlwYXRjaCk6CiAgICBwcml2YXRlX2RpcmVjdG9yeShwcm9maWxlX3Jvb3QpCiAgICBjYWxscyA9IFtdCiAgICByZWFsID0gd2luMzIuZmx1c2gKCiAgICBkZWYgc2Vjb25kX2ZhaWxzKGhhbmRsZSk6CiAgICAgICAgY2FsbHMuYXBwZW5kKGhhbmRsZSkKICAgICAgICBpZiBsZW4oY2FsbHMpID09IDI6CiAgICAgICAgICAgIHJhaXNlIE9TRXJyb3IoImZsdXNoIGZhaWxlZCIpCiAgICAgICAgcmVhbChoYW5kbGUpCgogICAgd2l0aCBoZWxkKHByb2ZpbGVfcm9vdCkgYXMgY2hhaW46CiAgICAgICAgbW9ua2V5cGF0Y2guc2V0YXR0cih3aW4zMiwgImZsdXNoIiwgc2Vjb25kX2ZhaWxzKQogICAgICAgIGFzc2VydCBwdWJsaXNoKGNoYWluLCAic3RhdGUuanNvbiIsIGIibmV3IikgaXMgRmFsc2UKICAgICAgICBtb25rZXlwYXRjaC5zZXRhdHRyKHdpbjMyLCAiZmx1c2giLCByZWFsKQogICAgICAgIGFzc2VydCByZWFkX2ZpbGUoY2hhaW4sICJzdGF0ZS5qc29uIikgPT0gYiJuZXciCgoKZGVmIHRlc3RfcHVibGlzaF9yZWZ1c2VzX3RvX3JlcGxhY2VfYV9oYXJkX2xpbmtlZF90YXJnZXQocHJvZmlsZV9yb290KToKICAgIHByaXZhdGVfZGlyZWN0b3J5KHByb2ZpbGVfcm9vdCkKICAgIHdpdGggaGVsZChwcm9maWxlX3Jvb3QpIGFzIGNoYWluOgogICAgICAgIHB1Ymxpc2goY2hhaW4sICJzdGF0ZS5qc29uIiwgYiJvbGQiKQogICAgICAgIG9zLmxpbmsocHJvZmlsZV9yb290IC8gInN0YXRlLmpzb24iLCBwcm9maWxlX3Jvb3QgLyAiYWxpYXMuanNvbiIpCiAgICAgICAgd2l0aCBweXRlc3QucmFpc2VzKFBlcm1pc3Npb25FcnJvcik6CiAgICAgICAgICAgIG9wZW5fZmlsZShjaGFpbiwgInN0YXRlLmpzb24iKQoKCmRlZiB0ZXN0X3JldGlyZV9yZW5hbWVzX3RvX2FfdG9tYnN0b25lX3RoZW5fZmx1c2hlcyhwcm9maWxlX3Jvb3QpOgogICAgcHJpdmF0ZV9kaXJlY3RvcnkocHJvZmlsZV9yb290KQogICAgd2l0aCBoZWxkKHByb2ZpbGVfcm9vdCkgYXMgY2hhaW46CiAgICAgICAgcHVibGlzaChjaGFpbiwgImF1ZGl0LmxvZy5yZXBhaXItcmVxdWlyZWQiLCBiInBlbmRpbmdcbiIpCiAgICAgICAgdG9tYnN0b25lID0gcmV0aXJlKGNoYWluLCAiYXVkaXQubG9nLnJlcGFpci1yZXF1aXJlZCIpCiAgICAgICAgYXNzZXJ0IG5vdCAocHJvZmlsZV9yb290IC8gImF1ZGl0LmxvZy5yZXBhaXItcmVxdWlyZWQiKS5leGlzdHMoKQogICAgICAgIGFzc2VydCB0b21ic3RvbmVzKGNoYWluLCAiYXVkaXQubG9nLnJlcGFpci1yZXF1aXJlZCIpID09IFt0b21ic3RvbmVdCiAgICAgICAgcmVtb3ZlKGNoYWluLCB0b21ic3RvbmUpCiAgICAgICAgYXNzZXJ0IHRvbWJzdG9uZXMoY2hhaW4sICJhdWRpdC5sb2cucmVwYWlyLXJlcXVpcmVkIikgPT0gW10KCgpkZWYgdGVzdF9yZXRpcmVfd2l0aF9hX2ZhaWxlZF9mbHVzaF9sZWF2ZXNfdGhlX3RvbWJzdG9uZShwcm9maWxlX3Jvb3QsIG1vbmtleXBhdGNoKToKICAgIHByaXZhdGVfZGlyZWN0b3J5KHByb2ZpbGVfcm9vdCkKICAgIHdpdGggaGVsZChwcm9maWxlX3Jvb3QpIGFzIGNoYWluOgogICAgICAgIHB1Ymxpc2goY2hhaW4sICJtYXJrZXIiLCBiIngiKQoKICAgICAgICBkZWYgZmFpbGluZyhoYW5kbGUpOgogICAgICAgICAgICByYWlzZSBPU0Vycm9yKCJmbHVzaCBmYWlsZWQiKQoKICAgICAgICBtb25rZXlwYXRjaC5zZXRhdHRyKHdpbjMyLCAiZmx1c2giLCBmYWlsaW5nKQogICAgICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhPU0Vycm9yLCBtYXRjaD0iZmx1c2ggZmFpbGVkIik6CiAgICAgICAgICAgIHJldGlyZShjaGFpbiwgIm1hcmtlciIpCiAgICAgICAgbW9ua2V5cGF0Y2gudW5kbygpCiAgICAgICAgYXNzZXJ0IG5vdCAocHJvZmlsZV9yb290IC8gIm1hcmtlciIpLmV4aXN0cygpCiAgICAgICAgYXNzZXJ0IGxlbih0b21ic3RvbmVzKGNoYWluLCAibWFya2VyIikpID09IDEKCgpkZWYgdGVzdF90b21ic3RvbmVfcmVjb2duaXRpb25faXNfZXhhY3QocHJvZmlsZV9yb290KToKICAgIHByaXZhdGVfZGlyZWN0b3J5KHByb2ZpbGVfcm9vdCkKICAgIGZvciBuYW1lIGluICgibWFya2VyLnJldGlyaW5nLSIgKyAiYSIgKiAzMSwgIm1hcmtlci5yZXRpcmluZy0iICsgIkEiICogMzIsCiAgICAgICAgICAgICAgICAgIm1hcmtlcngucmV0aXJpbmctIiArICJhIiAqIDMyLCAibWFya2VyLnJldGlyaW5nLSIgKyAiYSIgKiAzMiArICIudG1wIik6CiAgICAgICAgKHByb2ZpbGVfcm9vdCAvIG5hbWUpLndyaXRlX2J5dGVzKGIiIikKICAgIChwcm9maWxlX3Jvb3QgLyAoIm1hcmtlci5yZXRpcmluZy0iICsgImIiICogMzIpKS53cml0ZV9ieXRlcyhiIiIpCiAgICB3aXRoIGhlbGQocHJvZmlsZV9yb290KSBhcyBjaGFpbjoKICAgICAgICBhc3NlcnQgdG9tYnN0b25lcyhjaGFpbiwgIm1hcmtlciIpID09IFsibWFya2VyLnJldGlyaW5nLSIgKyAiYiIgKiAzMl0KCgpkZWYgdGVzdF9mbHVzaF9vYmplY3RfbmVlZHNfdGhlX2ZpbGVfYW5kX3dyaXRlc19ub3RoaW5nKHByb2ZpbGVfcm9vdCk6CiAgICBwcml2YXRlX2RpcmVjdG9yeShwcm9maWxlX3Jvb3QpCiAgICB3aXRoIGhlbGQocHJvZmlsZV9yb290KSBhcyBjaGFpbjoKICAgICAgICBwdWJsaXNoKGNoYWluLCAiaGlzdG9yeS5qc29ubCIsIGIibGluZVxuIikKICAgICAgICBmbHVzaF9vYmplY3QoY2hhaW4sICJoaXN0b3J5Lmpzb25sIikKICAgICAgICBhc3NlcnQgcmVhZF9maWxlKGNoYWluLCAiaGlzdG9yeS5qc29ubCIpID09IGIibGluZVxuIgogICAgICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhGaWxlTm90Rm91bmRFcnJvcik6CiAgICAgICAgICAgIGZsdXNoX29iamVjdChjaGFpbiwgIm1pc3NpbmciKQoKCmRlZiB0ZXN0X2Vuc3VyZV9wcml2YXRlX3JlcGFpcnNfYV9icm9hZF9jaGlsZF9hY2wocHJvZmlsZV9yb290LCBzZGRsKToKICAgIHByaXZhdGVfZGlyZWN0b3J5KHByb2ZpbGVfcm9vdCkKICAgIHBhdGggPSBwcm9maWxlX3Jvb3QgLyAidHVybnMuc3FsaXRlMyIKICAgIHBhdGgud3JpdGVfYnl0ZXMoYiIiKQogICAgc2RkbChwYXRoLCAiRDpQQUkoQTs7RkE7OztXRCkoQTs7RkE7OztPVykiLCBkaXJlY3Rvcnk9RmFsc2UpCiAgICBhc3NlcnQgbm90IGRhY2xfaXNfcHJpdmF0ZShzZWN1cml0eV9vZihwYXRoLCBkaXJlY3Rvcnk9RmFsc2UpKQogICAgd2l0aCBoZWxkKHByb2ZpbGVfcm9vdCkgYXMgY2hhaW46CiAgICAgICAgZW5zdXJlX3ByaXZhdGUoY2hhaW4sICJ0dXJucy5zcWxpdGUzIikKICAgIGFzc2VydCBkYWNsX2lzX3ByaXZhdGUoc2VjdXJpdHlfb2YocGF0aCwgZGlyZWN0b3J5PUZhbHNlKSkKCgpkZWYgdGVzdF9wYXJ0aWFsX2ZhaWx1cmVfcmVsZWFzZXNfZXZlcnlfaGVsZF9oYW5kbGUocHJvZmlsZV9yb290LCBtb25rZXlwYXRjaCk6CiAgICBwcml2YXRlX2RpcmVjdG9yeShwcm9maWxlX3Jvb3QgLyAiZGF0YSIpCiAgICBvcGVuZWQsIGNsb3NlZCA9IFtdLCBbXQogICAgcmVhbF9jcmVhdGUsIHJlYWxfY2xvc2UgPSB3aW4zMi5jcmVhdGVfZmlsZSwgd2luMzIuY2xvc2UKCiAgICBkZWYgY291bnRpbmdfY3JlYXRlKCphcmdzLCAqKmt3YXJncyk6CiAgICAgICAgaGFuZGxlID0gcmVhbF9jcmVhdGUoKmFyZ3MsICoqa3dhcmdzKQogICAgICAgIG9wZW5lZC5hcHBlbmQoaGFuZGxlKQogICAgICAgIHJldHVybiBoYW5kbGUKCiAgICBkZWYgY291bnRpbmdfY2xvc2UoaGFuZGxlKToKICAgICAgICBjbG9zZWQuYXBwZW5kKGhhbmRsZSkKICAgICAgICByZWFsX2Nsb3NlKGhhbmRsZSkKCiAgICBkZWYgYm9vbSgqYXJncywgKiprd2FyZ3MpOgogICAgICAgIHJhaXNlIE9TRXJyb3IoInZlcmlmaWNhdGlvbiBmYWlsZWQiKQoKICAgIG1vbmtleXBhdGNoLnNldGF0dHIod2luMzIsICJjcmVhdGVfZmlsZSIsIGNvdW50aW5nX2NyZWF0ZSkKICAgIG1vbmtleXBhdGNoLnNldGF0dHIod2luMzIsICJjbG9zZSIsIGNvdW50aW5nX2Nsb3NlKQogICAgbW9ua2V5cGF0Y2guc2V0YXR0cih3aW5kb3dzX2ZpbGVzLCAiX3ZlcmlmeV9kaXJlY3RvcnkiLCBib29tKQogICAgd2l0aCBweXRlc3QucmFpc2VzKE9TRXJyb3IsIG1hdGNoPSJ2ZXJpZmljYXRpb24gZmFpbGVkIik6CiAgICAgICAgSGVsZENoYWluKHByb2ZpbGVfcm9vdCAvICJkYXRhIikKICAgIGFzc2VydCBvcGVuZWQgYW5kIHNvcnRlZChvcGVuZWQpID09IHNvcnRlZChjbG9zZWQpCgoKZGVmIHRlc3RfYW5vdGhlcl9wcm9jZXNzX2Nhbm5vdF9yZW5hbWVfYV9oZWxkX2ZvbGRlcihwcm9maWxlX3Jvb3QpOgogICAgdGFyZ2V0ID0gcHJvZmlsZV9yb290IC8gImRhdGEiCiAgICBwcml2YXRlX2RpcmVjdG9yeSh0YXJnZXQpCiAgICBzY3JpcHQgPSAoImltcG9ydCBvcywgc3lzXG4iCiAgICAgICAgICAgICAgInRyeTpcbiAgICBvcy5yZW5hbWUoc3lzLmFyZ3ZbMV0sIHN5cy5hcmd2WzJdKVxuIgogICAgICAgICAgICAgICJleGNlcHQgUGVybWlzc2lvbkVycm9yOlxuICAgIHN5cy5leGl0KDMpXG4iKQogICAgd2l0aCBoZWxkKHRhcmdldCk6CiAgICAgICAgcmVzdWx0ID0gc3VicHJvY2Vzcy5ydW4oCiAgICAgICAgICAgIFtzeXMuZXhlY3V0YWJsZSwgIi1jIiwgc2NyaXB0LCBzdHIodGFyZ2V0KSwgc3RyKHRhcmdldC53aXRoX25hbWUoIm1vdmVkIikpXSwKICAgICAgICAgICAgdGltZW91dD02MCkKICAgIGFzc2VydCByZXN1bHQucmV0dXJuY29kZSA9PSAzCiAgICBhc3NlcnQgdGFyZ2V0LmV4aXN0cygpCgoKZGVmIHRlc3RfcmVuYW1lX3JldHJ5X2dpdmVzX3VwX2FmdGVyX2l0c19ib3VuZChwcm9maWxlX3Jvb3QsIG1vbmtleXBhdGNoKToKICAgIHByaXZhdGVfZGlyZWN0b3J5KHByb2ZpbGVfcm9vdCkKICAgIGF0dGVtcHRzID0gW10KCiAgICBkZWYgYWx3YXlzX3NoYXJlZChoYW5kbGUsIG5hbWUsICosIHJlcGxhY2UpOgogICAgICAgIGF0dGVtcHRzLmFwcGVuZChuYW1lKQogICAgICAgIHJhaXNlIHdpbjMyLmVycm9yKHdpbjMyLkVSUk9SX1NIQVJJTkdfVklPTEFUSU9OKQoKICAgIG1vbmtleXBhdGNoLnNldGF0dHIod2luMzIsICJyZW5hbWVfYnlfaGFuZGxlIiwgYWx3YXlzX3NoYXJlZCkKICAgIG1vbmtleXBhdGNoLnNldGF0dHIod2luZG93c19maWxlcywgIl9SRU5BTUVfUkVUUllfU0VDT05EUyIsIDApCiAgICBzdGFydGVkID0gdGltZS5tb25vdG9uaWMoKQogICAgd2l0aCBoZWxkKHByb2ZpbGVfcm9vdCkgYXMgY2hhaW4sIHB5dGVzdC5yYWlzZXMoUGVybWlzc2lvbkVycm9yKToKICAgICAgICBwdWJsaXNoKGNoYWluLCAic3RhdGUuanNvbiIsIGIieCIpCiAgICBhc3NlcnQgbGVuKGF0dGVtcHRzKSA9PSB3aW5kb3dzX2ZpbGVzLl9SRU5BTUVfUkVUUklFUwogICAgYXNzZXJ0IHRpbWUubW9ub3RvbmljKCkgLSBzdGFydGVkIDwgMzAKICAgIGFzc2VydCBvcy5saXN0ZGlyKHByb2ZpbGVfcm9vdCkgPT0gW10K",
           "old_base64": "",
           "start": 0
         }
@@ -47857,7 +47857,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -47900,7 +47900,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -47943,7 +47943,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
@@ -47986,7 +47986,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/windows/test_windows_files.py": "62111eb7e407948f2aa4de7d7414bd74003e11b20d2cf8707d5ad5fabbac2349",
+        "tests/windows/test_windows_files.py": "1992df6e871251896e2ecdbe44aa60b6dfbca1bec338e87b0b026699faad61a6",
         "tests/windows/test_windows_platform.py": "4f564d1e5c33a61b131b3c1ab67771f332a302a5de00e98c3a3b0e9fa558ccc2",
         "tests/windows/test_windows_sites.py": "bec9bbe5e79ec4e7a3ac1e25f00350dd7b5bda1e4139d80c508ea24355278880",
         "tests/windows/test_windows_sites_more.py": "f52502ba747d0953192f5f548abf3877691ef9dafc522171d3ff50a56d4e504f"
