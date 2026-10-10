@@ -16,11 +16,18 @@ process of its own, where :class:`WindowsOs` stands in for the ``os`` module of
   Names are single components that Windows takes as written: no separators,
   streams, devices, wildcards or trailing dots and spaces.
 * Renames never replace, and deletes take the name away at once (POSIX
-  semantics, NTFS). Directory flushes are the journal's; mode bits other than
-  owner-only privacy have no Windows meaning and are left to the folder's ACL.
+  semantics, NTFS). Directory flushes are the journal's.
+* Owner-only modes are privacy: entries created with one get a private DACL as they are
+  created, and ``fchmod`` to one makes the entry private by its handle (an original
+  remembers what it had, so a later ``fchmod`` gives that back on rollback). Other mode
+  bits have no Windows meaning: anything else takes the folder's inherited ACL, as a new
+  file would. A retained artifact that can't be made private is recorded, and reported
+  with the rollback, never raised over it.
 """
 from __future__ import annotations
 
+import contextlib
+import ctypes
 import errno
 import msvcrt
 import ntpath
@@ -31,7 +38,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import win32
-from .windows_files import canonical
+from .windows_files import canonical, same_object
 
 _DIRECTORY_ACCESS = (win32.FILE_LIST_DIRECTORY | win32.FILE_TRAVERSE | win32.FILE_READ_ATTRIBUTES
                      | win32.READ_CONTROL | win32.SYNCHRONIZE)
@@ -41,6 +48,68 @@ _NO_FOLLOW = win32.FILE_FLAG_OPEN_REPARSE_POINT | win32.FILE_FLAG_BACKUP_SEMANTI
 _BAD_NAME = re.compile(r'[\\/:*?"<>|\x00-\x1f]|[. ]$')
 _DEVICES = re.compile(r"(?i)(CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|(COM|LPT)[0-9¹²³])(\..*)?")
 _WINDOWS_ABSOLUTE = re.compile(r"^[A-Za-z]:[\\/]")
+_ACE = re.compile(r"\([^()]*\)")
+
+
+def _private(mode: int) -> bool:
+    return not mode & 0o077
+
+
+def _identity(handle) -> tuple[int, int, int]:
+    info = win32.file_information(handle)
+    return info.dwVolumeSerialNumber, info.nFileIndexHigh, info.nFileIndexLow
+
+
+def _dacl_sddl(handle) -> str:
+    """The object's DACL, its protection included, as SDDL."""
+    descriptor = win32.PVOID()
+    status = win32.GetSecurityInfo(handle, win32.SE_FILE_OBJECT, win32.DACL_SECURITY_INFORMATION,
+                                   None, None, None, None, ctypes.byref(descriptor))
+    if status:
+        raise win32.error(status)
+    try:
+        text = win32.PVOID()
+        win32.check(win32.ConvertSecurityDescriptorToStringSecurityDescriptorW(
+            descriptor, win32.SDDL_REVISION_1, win32.DACL_SECURITY_INFORMATION,
+            ctypes.byref(text), None))
+        try:
+            return ctypes.wstring_at(text.value)
+        finally:
+            win32.LocalFree(text)
+    finally:
+        win32.LocalFree(descriptor)
+
+
+def _restore_dacl(handle, sddl: str | None) -> None:
+    """``sddl``'s own entries and protection again (inherited ones come from the folder);
+    without one, the folder's inherited ACL alone."""
+    protected, entries = False, ""
+    if sddl is not None:
+        head = sddl.partition("(")[0]
+        protected = "P" in head.removeprefix("D:")
+        for ace in _ACE.findall(sddl):
+            flags = ace[1:-1].split(";")[1]
+            if "ID" not in {flags[i:i + 2] for i in range(0, len(flags), 2)}:
+                entries += ace
+    info = win32.DACL_SECURITY_INFORMATION | (
+        win32.PROTECTED_DACL_SECURITY_INFORMATION if protected
+        else win32.UNPROTECTED_DACL_SECURITY_INFORMATION)
+    with win32.SecurityDescriptor("D:" + ("P" if protected else "") + entries) as descriptor:
+        status = win32.SetSecurityInfo(handle, win32.SE_FILE_OBJECT, info, None, None,
+                                       descriptor.dacl(), None)
+    if status:
+        raise win32.error(status)
+
+
+@contextlib.contextmanager
+def _private_attributes(mode: int):
+    """Security attributes that make a new entry private as it is created, for owner-only
+    modes; otherwise none (the folder's inherited ACL)."""
+    if not _private(mode):
+        yield None
+        return
+    with win32.SecurityDescriptor(win32.PRIVATE_SDDL) as descriptor:
+        yield descriptor.attributes()
 
 
 def _name(name: str) -> str:
@@ -98,6 +167,9 @@ class WindowsOs:
         self._folders: dict[int, Path] = {}  # directory descriptor -> the folder it holds
         self._chains: dict[int, list[int]] = {}  # root descriptor -> the folders above it
         self._created: set[str] = set()  # folders this run made, by normalized path
+        self._original_security: dict[tuple[int, int, int], str] = {}  # entry -> DACL before
+        self._made: set[tuple[int, int, int]] = set()  # files this run created
+        self.privacy_failures: list[str] = []  # retained artifacts that couldn't be made private
 
     # --- Paths -------------------------------------------------------------------------------
 
@@ -122,7 +194,8 @@ class WindowsOs:
     # --- Opening -----------------------------------------------------------------------------
 
     def _hold_folder(self, path: Path, *, deletable: bool) -> int:
-        access = _DIRECTORY_ACCESS | (win32.DELETE if deletable else 0)
+        # A folder this run made may also be published and given its final ACL.
+        access = _DIRECTORY_ACCESS | (win32.DELETE | win32.WRITE_DAC if deletable else 0)
         handle = win32.create_file(path, access, _HELD_SHARE, win32.OPEN_EXISTING, _NO_FOLLOW)
         try:
             if _is_link(handle):
@@ -140,17 +213,19 @@ class WindowsOs:
         """The root, held with every folder above it, from the volume down."""
         if not isinstance(path, str) or not _WINDOWS_ABSOLUTE.match(path):
             raise OSError(errno.EINVAL, "the root must be an absolute local path", str(path))
+        admitted = None
         if flags & self.O_NOFOLLOW:
-            probe = win32.create_file(path, win32.FILE_READ_ATTRIBUTES, _ALL_SHARE,
-                                      win32.OPEN_EXISTING, _NO_FOLLOW)
-            try:
-                if _is_link(probe):
-                    raise OSError(errno.ELOOP, "a link is refused", path)
-            finally:
-                win32.close(probe)
-        resolved = canonical(path)  # local fixed drives only, resolved once
+            # Held, without delete sharing and with data access (attribute-only handles
+            # don't count in sharing checks), until the root below is held: nothing can
+            # rename or replace the admitted folder meanwhile, and the root must be it.
+            admitted = win32.create_file(path, _DIRECTORY_ACCESS, _HELD_SHARE,
+                                         win32.OPEN_EXISTING, _NO_FOLLOW)
+            if _is_link(admitted):
+                win32.close(admitted)
+                raise OSError(errno.ELOOP, "a link is refused", path)
         chain: list[int] = []
         try:
+            resolved = canonical(path)  # local fixed drives only, resolved once
             current = Path(resolved.parts[0])
             for name in resolved.parts[1:]:
                 handle = win32.create_file(current, _DIRECTORY_ACCESS, _HELD_SHARE,
@@ -166,7 +241,8 @@ class WindowsOs:
                 # Renames that never replace and deletes that take the name at once.
                 problem = OSError(errno.EOPNOTSUPP, "apply_patch on Windows needs an NTFS volume",
                                   path)
-            elif ntpath.normcase(win32.final_path(handle)) != ntpath.normcase(str(resolved)):
+            elif (ntpath.normcase(win32.final_path(handle)) != ntpath.normcase(str(resolved))
+                    or (admitted is not None and not same_object(admitted, handle))):
                 problem = OSError(errno.ESTALE, "the root changed while it was being held", path)
             if problem is not None:
                 self.close(fd)
@@ -175,6 +251,9 @@ class WindowsOs:
             for handle in chain:
                 win32.close(handle)
             raise
+        finally:
+            if admitted is not None:
+                win32.close(admitted)
         self._chains[fd] = chain
         return fd
 
@@ -192,14 +271,18 @@ class WindowsOs:
             win32.GENERIC_WRITE if writing else 0)
         if flags & self.O_CREAT:
             disposition = win32.CREATE_NEW if flags & self.O_EXCL else win32.OPEN_ALWAYS
+            access |= win32.READ_CONTROL | win32.WRITE_DAC  # its creator sets its final ACL
         else:
             disposition = win32.OPEN_EXISTING
-        handle = win32.create_file(target, access, _ALL_SHARE, disposition,
-                                   win32.FILE_FLAG_OPEN_REPARSE_POINT
-                                   | win32.FILE_ATTRIBUTE_NORMAL)
+        with _private_attributes(mode if flags & self.O_CREAT else 0o777) as attributes:
+            handle = win32.create_file(target, access, _ALL_SHARE, disposition,
+                                       win32.FILE_FLAG_OPEN_REPARSE_POINT
+                                       | win32.FILE_ATTRIBUTE_NORMAL, attributes)
         try:
             if _is_link(handle):
                 raise OSError(errno.ELOOP, "a link is refused", str(target))
+            if flags & self.O_CREAT and flags & self.O_EXCL:
+                self._made.add(_identity(handle))
             return msvcrt.open_osfhandle(handle, os.O_RDWR if writing else os.O_RDONLY)
         except BaseException:
             win32.close(handle)
@@ -231,8 +314,9 @@ class WindowsOs:
 
     def mkdir(self, path, mode=0o777, *, dir_fd=None) -> None:
         target = self._path(path, dir_fd)
-        if not win32.CreateDirectoryW(str(target), None):
-            raise win32.error(filename=str(target))
+        with _private_attributes(mode) as attributes:
+            if not win32.CreateDirectoryW(str(target), attributes):
+                raise win32.error(filename=str(target))
         self._created.add(ntpath.normcase(str(target)))
 
     def _open_for_delete(self, target: Path, *, directory: bool) -> tuple[int, bool]:
@@ -288,25 +372,65 @@ class WindowsOs:
             win32.close(handle)
 
     def chmod(self, path, mode, *, dir_fd=None, follow_symlinks=True) -> None:
-        """Owner-only modes make the entry private; other modes are the folder's ACL."""
+        """An owner-only mode makes a retained artifact private (``apply_patch`` uses it for
+        nothing else). A repair that fails is recorded, never raised over the rollback."""
         if follow_symlinks:
             raise OSError(errno.EINVAL, "apply_patch changes entries without following links")
-        if mode & 0o077:
+        if not _private(mode):
             return
         target = self._path(path, dir_fd)
-        handle = win32.create_file(target, win32.READ_CONTROL | win32.WRITE_DAC
-                                   | win32.FILE_READ_ATTRIBUTES, _ALL_SHARE,
-                                   win32.OPEN_EXISTING, _NO_FOLLOW)
         try:
-            if _is_link(handle):
-                raise OSError(errno.ELOOP, "a link is refused", str(target))
-            win32.set_private_dacl(handle)
-        finally:
-            win32.close(handle)
+            handle = win32.create_file(target, win32.READ_CONTROL | win32.WRITE_DAC
+                                       | win32.FILE_READ_ATTRIBUTES, _ALL_SHARE,
+                                       win32.OPEN_EXISTING, _NO_FOLLOW)
+            try:
+                if _is_link(handle):
+                    raise OSError(errno.ELOOP, "a link is refused", str(target))
+                win32.set_private_dacl(handle)
+            finally:
+                win32.close(handle)
+        except OSError as exc:
+            self.privacy_failures.append(
+                f"{target}: could not be made private: {type(exc).__name__}: {exc}")
 
-    @staticmethod
-    def fchmod(fd, mode) -> None:
-        """Mode bits have no Windows meaning here; the folder's ACL applies."""
+    @contextlib.contextmanager
+    def _security_handle(self, fd):
+        """A handle that may change ``fd``'s DACL: a held folder's own, else the file reopened
+        by its handle (no path is involved)."""
+        handle = msvcrt.get_osfhandle(fd)
+        if fd in self._folders:
+            yield handle
+            return
+        reopened = win32.ReOpenFile(handle, win32.READ_CONTROL | win32.WRITE_DAC
+                                    | win32.FILE_READ_ATTRIBUTES, _ALL_SHARE, 0)
+        if reopened in (None, win32.INVALID_HANDLE_VALUE):
+            raise win32.error()
+        try:
+            yield reopened
+        finally:
+            win32.close(reopened)
+
+    def _made_here(self, fd, key) -> bool:
+        folder = self._folders.get(fd)
+        if folder is not None:
+            return ntpath.normcase(str(folder)) in self._created
+        return key in self._made
+
+    def fchmod(self, fd, mode) -> None:
+        """Owner-only: private, by the handle; an original remembers what it had. Any other
+        mode gives an original back what it had, and gives an entry this run made the
+        folder's inherited ACL, as a new file would have. Untouched entries keep theirs."""
+        with self._security_handle(fd) as handle:
+            key = _identity(handle)
+            made = self._made_here(fd, key)
+            if _private(mode):
+                if not made:
+                    self._original_security.setdefault(key, _dacl_sddl(handle))
+                win32.set_private_dacl(handle)
+            elif key in self._original_security:
+                _restore_dacl(handle, self._original_security.pop(key))
+            elif made:
+                _restore_dacl(handle, None)
 
     @staticmethod
     def fchown(fd, uid, gid) -> None:

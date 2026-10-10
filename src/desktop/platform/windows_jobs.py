@@ -42,7 +42,8 @@ class JobShell(SupervisedShell):
     def __init__(self, running: JobProcess):  # no supervisor worker or control socket here
         process = running.process
         self._running = running
-        self._empty = False
+        self._empty = False  # once True, settled for good
+        self._settling = asyncio.Lock()  # the exit watch, kill and shutdown settle one at a time
         self.stdin = process.stdin
         self.stdout = process.stdout
         self.stderr = process.stderr
@@ -63,16 +64,21 @@ class JobShell(SupervisedShell):
         return self.returncode
 
     async def terminate_tree(self, grace: float = 3.0) -> bool:
-        """End every process in the job; True only once the job is seen empty."""
-        if self._empty:
-            return True
-        if not self._running.job:
-            return False  # never ask about job 0: Windows would answer for the engine's own job
-        self._empty = await terminate(self._running, timeout=grace + _SETTLE_SECONDS)
-        if self._empty:
-            self.returncode = self._running.process.returncode
-            release(self._running)
-        return self._empty
+        """End every process in the job; True only once each of them has ended.
+
+        Callers settle one at a time, so the job handle is never let go while another is
+        still asking about it, and a success is never undone by a later caller.
+        """
+        async with self._settling:
+            if self._empty:
+                return True
+            if not self._running.job:
+                return False  # never ask about job 0: Windows would answer for the engine's job
+            if await terminate(self._running, timeout=grace + _SETTLE_SECONDS):
+                self._empty = True
+                self.returncode = self._running.process.returncode
+                release(self._running)
+            return self._empty
 
 
 async def create_job_shell(command, *, stdin=None, stdout=None, stderr=None,

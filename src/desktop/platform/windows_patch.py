@@ -17,31 +17,55 @@ import subprocess
 import sys
 
 
+def install(apply_patch):
+    """``apply_patch``'s Windows primitives, only in this process (which exists for one patch)."""
+    from . import windows_dirfd
+
+    shim = windows_dirfd.WindowsOs()
+    apply_patch.os = shim
+    apply_patch._DirectoryRegistry.__init__ = windows_dirfd.directory_registry_init
+    apply_patch._DirectoryRegistry.display = windows_dirfd.directory_registry_display
+    return shim
+
+
+def envelope(apply_patch, shim, root: str, plan_text: str) -> dict:
+    """The Linux runner's envelope for one plan. A retained artifact that couldn't be made
+    private is reported with the rollback's own failures, never in place of them."""
+    from . import windows_dirfd
+
+    try:
+        plan = json.loads(plan_text)
+        changed = apply_patch.apply_plan(root, plan,
+                                         rename_noreplace=windows_dirfd.rename_noreplace)
+        return {"ok": True, "changed": changed}
+    except apply_patch.PatchRollbackError as exc:
+        return {"ok": False, "error": str(exc), "rollback_failed": True,
+                "rollback_failures": [*exc.failures, *shim.privacy_failures],
+                "recovery_artifacts": exc.recovery_artifacts}
+    except BaseException as exc:  # noqa: BLE001 - the Linux runner's envelope, every failure
+        error = f"{type(exc).__name__}: {exc}"
+        if shim.privacy_failures:
+            error += "; " + "; ".join(shim.privacy_failures)
+        return {"ok": False, "error": error, "rollback_failed": False}
+
+
 def main() -> int:
     """The child: apply the plan on stdin under the root in argv, print the envelope."""
     from ...tools import apply_patch
-    from . import windows_dirfd
 
-    # Only in this process, which exists for one patch.
-    apply_patch.os = windows_dirfd.WindowsOs()
-    apply_patch._DirectoryRegistry.__init__ = windows_dirfd.directory_registry_init
-    apply_patch._DirectoryRegistry.display = windows_dirfd.directory_registry_display
-    try:
-        plan = json.loads(sys.stdin.read())
-        changed = apply_patch.apply_plan(sys.argv[1], plan,
-                                         rename_noreplace=windows_dirfd.rename_noreplace)
-        result = {"ok": True, "changed": changed}
-    except apply_patch.PatchRollbackError as exc:
-        result = {"ok": False, "error": str(exc), "rollback_failed": True,
-                  "rollback_failures": exc.failures, "recovery_artifacts": exc.recovery_artifacts}
-    except BaseException as exc:  # noqa: BLE001 - the Linux runner's envelope, every failure
-        result = {"ok": False, "error": f"{type(exc).__name__}: {exc}", "rollback_failed": False}
+    shim = install(apply_patch)
+    result = envelope(apply_patch, shim, sys.argv[1], sys.stdin.read())
     print(json.dumps(result, ensure_ascii=True, separators=(",", ":")))
     return 0
 
 
+def _unconfirmed(ended: bool) -> str:
+    return "" if ended else "; its process could not be confirmed ended"
+
+
 async def run_patch(root: str, plan_json: str, timeout: float) -> tuple[int, str]:
     """The plan applied by a child in a job of its own: its exit code and output."""
+    from ...observability.diagnostics import safe_error
     from ...tools.execution_outcome import mark_dispatch_uncertain
     from .windows_exec import release, spawn, terminate
 
@@ -53,11 +77,17 @@ async def run_patch(root: str, plan_json: str, timeout: float) -> tuple[int, str
             running.process.communicate(plan_json.encode("ascii")), timeout)
     except TimeoutError:
         mark_dispatch_uncertain()
-        await terminate(running)
-        return 1, f"apply_patch timed out after {timeout} seconds; its outcome is unknown"
+        ended = await terminate(running)
+        return 1, (f"apply_patch timed out after {timeout} seconds; its outcome is unknown"
+                   + _unconfirmed(ended))
     except asyncio.CancelledError:
         await terminate(running)
         raise
+    except Exception as exc:  # the child may still be committing: end it before letting go
+        mark_dispatch_uncertain()
+        ended = await terminate(running)
+        return 1, (f"apply_patch failed while it ran ({safe_error(exc)}); its outcome is unknown"
+                   + _unconfirmed(ended))
     finally:
         release(running)
     code = running.process.returncode or 0

@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from types import SimpleNamespace
 
@@ -270,3 +272,120 @@ async def test_the_job_filter_loses_nothing_but_progress():
     source.feed_eof()
     await wx.filter_progress(source, target)
     assert await target.read() == b"first\r\n" + long_line + b"tail\r\n"
+
+
+# --- Verified settlement, live output and the run_script texts (Odin's 3a review) -------------
+
+
+async def test_a_member_that_cant_be_pinned_is_never_verified_ended(monkeypatch):
+    running = await wx.spawn([PYTHON, "-I", "-S", "-c", "import time; time.sleep(60)"])
+    try:
+        def unopenable(*args):
+            ctypes.set_last_error(5)  # access denied proves nothing about the process
+            return 0
+
+        monkeypatch.setattr(wx.win32, "OpenProcess", unopenable)
+        assert wx._member(running.job, running.pid) is None
+        assert not await wx.terminate(running, timeout=1)  # the job empties, unverified
+
+        def vanished(*args):
+            ctypes.set_last_error(87)  # no such process: it has ended
+            return 0
+
+        monkeypatch.setattr(wx.win32, "OpenProcess", vanished)
+        assert wx._member(running.job, running.pid) == 0
+        assert await wx.terminate(running, timeout=5)
+    finally:
+        monkeypatch.undo()
+        wx.release(running)
+
+
+async def test_the_filter_passes_live_output_on_at_once():
+    source, target = asyncio.StreamReader(), asyncio.StreamReader()
+    filtering = asyncio.ensure_future(wx.filter_progress(source, target))
+    source.feed_data(b"10%\r20%\r")  # no newline, no end of output
+    assert await asyncio.wait_for(target.read(8), 2) == b"10%\r20%\r"
+    source.feed_data(b"Name: ")
+    assert await asyncio.wait_for(target.read(6), 2) == b"Name: "
+    source.feed_data(b"x\r\n")
+    assert await asyncio.wait_for(target.read(3), 2) == b"x\r\n"
+    source.feed_data(b"#< CLI")  # at a line's start this might begin a record: it waits ...
+    source.feed_data(b"XML\r\n" + BLOCK + b"30%\r")  # ... and was one
+    assert await asyncio.wait_for(target.read(4), 2) == b"30%\r"
+    source.feed_eof()
+    await filtering
+    assert await target.read() == b""
+
+
+def test_run_scripts_texts_say_where_each_default_applies():
+    from src.tools.registry import TOOLS
+
+    (run_script,) = [tool for tool in TOOLS if tool["name"] == "run_script"]
+    (adjusted,) = wx.apply_shell_contracts([run_script])
+    assert "Interpreters: bash (default)" not in adjusted["description"]
+    assert "on this Windows computer powershell (default)" in adjusted["description"]
+    assert "on remote hosts bash (default)" in adjusted["description"]
+    assert adjusted["input_schema"]["properties"]["interpreter"]["description"] == (
+        "Interpreter (default: powershell on this Windows computer, bash on remote hosts)")
+    assert run_script["input_schema"]["properties"]["interpreter"]["description"] == (
+        "Interpreter (default: bash)")  # Linux's own definition is untouched
+    assert wx.apply_shell_contracts([adjusted]) == [adjusted]
+
+
+@pytest.mark.parametrize("chunks, expected", [
+    ([b"10%\r20%\r"], [b"10%\r20%\r", b""]),  # CR-only progress goes on at once
+    ([b"#< CL", b"IXML\r\n", BLOCK[:60], BLOCK[60:] + b"after\r\n"],
+     [b"", b"", b"", b"after\r\n", b""]),  # a record split across reads waits, then goes
+    ([b"say ", b"#< CLIXML\r\n"], [b"say ", b"#< CLIXML\r\n", b""]),  # mid-line: not a header
+    ([b"#", b"!\n"], [b"", b"#!\n", b""]),  # a lone '#' waits for its next byte
+    ([b"value <Ob", b"server>\n"], [b"value ", b"<Observer>\n", b""]),
+    ([b'<Objs Version="1" xmlns="x"><S S="Error">e</S></Objs>\n'],
+     [b'<Objs Version="1" xmlns="x"><S S="Error">e</S></Objs>\n', b""]),  # not progress
+    ([b'<Objs Version="1.1.0.1" ' + b"x" * 70000], [b'<Objs Version="1.1.0.1" ' + b"x" * 70000,
+                                                     b""]),  # past the bound: not a record
+    ([b"tail #"], [b"tail #", b""]),
+    ([b"#"], [b"", b"#"]),  # held to the end, then given back
+])
+def test_the_progress_filter_holds_only_what_might_be_a_record(chunks, expected):
+    progress = wx.ProgressFilter()
+    assert [*(progress.feed(chunk) for chunk in chunks), progress.finish()] == expected
+
+
+async def test_bytes_held_to_the_end_still_arrive():
+    source, target = asyncio.StreamReader(), asyncio.StreamReader()
+    source.feed_data(b"#")
+    source.feed_eof()
+    await wx.filter_progress(source, target)
+    assert await target.read() == b"#"
+
+
+async def test_a_membership_question_that_fails_proves_nothing(monkeypatch):
+    running = await wx.spawn([PYTHON, "-I", "-S", "-c", "import time; time.sleep(60)"])
+    try:
+        monkeypatch.setattr(wx.win32, "IsProcessInJob", lambda *args: 0)
+        assert wx._member(running.job, running.pid) is None
+    finally:
+        monkeypatch.undo()
+        assert await wx.terminate(running)
+        wx.release(running)
+
+
+def test_a_script_takes_a_free_name_and_cleans_up_a_failed_write(tmp_path, monkeypatch):
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    names = iter(["taken", "free"])
+    monkeypatch.setattr(wx.secrets, "token_hex", lambda size: next(names))
+    (tmp_path / "s.taken.ps1").write_bytes(b"someone else's")
+    assert wx.write_script("Write-Output hi", "s.ps1", "powershell") == str(tmp_path / "s.free.ps1")
+    assert (tmp_path / "s.taken.ps1").read_bytes() == b"someone else's"
+    monkeypatch.setattr(wx.secrets, "token_hex", lambda size: "taken")
+    with pytest.raises(FileExistsError, match="no free name"):
+        wx.write_script("Write-Output hi", "s.ps1", "powershell")
+
+    def failing(handle, data):
+        raise OSError(112, "There is not enough space on the disk")
+
+    monkeypatch.setattr(wx.secrets, "token_hex", lambda size: "fresh")
+    monkeypatch.setattr(wx.win32, "write_all", failing)
+    with pytest.raises(OSError, match="not enough space"):
+        wx.write_script("Write-Output hi", "s.ps1", "powershell")
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["s.free.ps1", "s.taken.ps1"]

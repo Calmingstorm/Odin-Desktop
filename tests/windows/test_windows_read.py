@@ -104,3 +104,14 @@ def test_the_port_prints_what_gawk_printed_for_every_shared_case(tmp_path):
         assert (returned, hashlib.sha256(output.encode()).hexdigest()) == (code, digest), (
             name, delivery_budget, raw_mode, start, count)
 
+
+
+def test_devices_and_pipes_are_refused_without_a_read(tmp_path):
+    for path in (r"\\.\pipe\odin-read-test", r"\\?\pipe\odin-read-test", str(tmp_path / "NUL")):
+        for raw_mode in (False, True):
+            code, text = windows_read.read_local(path, start=1, start_label="1", count=10,
+                                                 budget=1000, raw_mode=raw_mode)
+            assert code == 2 and text.endswith(": not a regular file\n"), (path, text)
+    (tmp_path / "file.txt").write_bytes(b"ok\n")
+    assert windows_read.read_local(str(tmp_path / "file.txt"), start=1, start_label="1",
+                                   count=10, budget=1000, raw_mode=False)[0] == 0

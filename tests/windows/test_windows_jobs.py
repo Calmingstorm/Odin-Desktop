@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -147,3 +148,24 @@ async def test_a_line_longer_than_a_chunk_arrives_whole(tmp_path):
     finally:
         await shell.terminate_tree()
     assert data == b"x" * 200000 + b"END\r\ntail\r\n"
+
+
+# --- Settlement and live output (Odin's 3a review, B5 and B7) ---------------------------------
+
+
+async def test_concurrent_settlements_agree_and_let_go_once(tmp_path):
+    shell = await create_job_shell("Start-Sleep 30", stdout=asyncio.subprocess.PIPE,
+                                   stderr=asyncio.subprocess.STDOUT, cwd=str(tmp_path))
+    assert await asyncio.gather(shell.terminate_tree(), shell.terminate_tree()) == [True, True]
+    assert shell._running.job == 0 and await shell.terminate_tree() is True
+
+
+async def test_live_progress_reaches_a_poll_before_the_job_ends(registry):
+    pid = await started(registry, "[Console]::Out.Write('10%' + [char]13); "
+                                  "[Console]::Out.Flush(); Start-Sleep 30")
+    text, deadline = "", time.monotonic() + 20
+    while "10%" not in text and time.monotonic() < deadline:
+        await asyncio.sleep(0.5)
+        text = await registry.poll(pid)
+    assert "10%" in text and registry._processes[pid].status == "running", text
+    await registry.kill(pid)

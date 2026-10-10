@@ -1,14 +1,20 @@
 """run_script on this Windows computer (phase 3 plan C5)."""
 from __future__ import annotations
 
+import asyncio
 import functools
 import os
+import subprocess
+import tempfile
+import threading
 from types import SimpleNamespace
 
 import pytest
 
 from src.desktop.platform import windows_exec as wx
+from src.desktop.platform.windows_files import dacl_is_private
 from src.desktop.platform.windows_tools import exec_command, handle_run_script
+from tests.windows.test_windows_adversarial import security_of
 
 
 def tool(tmp_path, *, address="127.0.0.1", allowed=True, exec_override=None):
@@ -113,3 +119,55 @@ def test_python_falls_back_from_the_store_stub_to_odins_own(tmp_path, monkeypatc
 
 def test_powershell_quoting_doubles_every_quote_it_honors():
     assert wx.ps_quote("C:\\O'Brien\u2019s\\x.ps1") == "'C:\\O''Brien\u2019\u2019s\\x.ps1'"
+
+
+# --- The script file's life and privacy (Odin's 3a review, B8 and B9) -------------------------
+
+
+async def test_a_cancelled_script_leaves_no_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    proceed, discarded = threading.Event(), asyncio.Event()
+    real_write, real_discard = wx.write_script, wx._discard
+
+    def held_write(*args):
+        proceed.wait(10)  # the worker is still writing when its caller is cancelled
+        return real_write(*args)
+
+    def watched_discard(created):
+        real_discard(created)
+        discarded.set()
+
+    monkeypatch.setattr(wx, "write_script", held_write)
+    monkeypatch.setattr(wx, "_discard", watched_discard)
+    task = asyncio.ensure_future(wx.run_local_script(tool(tmp_path), "127.0.0.1", "root",
+                                                     "powershell", "Write-Output hi", "late.ps1"))
+    await asyncio.sleep(0.5)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    proceed.set()
+    await asyncio.wait_for(discarded.wait(), 10)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_script_that_cant_be_written_leaves_no_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    with pytest.raises(UnicodeEncodeError):
+        wx.write_script("Write-Output '\ud800'", "broken.ps1", "powershell")
+    assert list(tmp_path.iterdir()) == []
+
+
+async def test_the_script_file_is_private_whatever_temp_allows(tmp_path, monkeypatch):
+    folder = tmp_path / "shared"
+    folder.mkdir()
+    subprocess.run(["icacls", str(folder), "/grant", "*S-1-1-0:(OI)(CI)R"], check=True,
+                   capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+    monkeypatch.setattr(tempfile, "tempdir", str(folder))
+    path = wx.write_script("Write-Output hi", "private.ps1", "powershell")
+    try:
+        assert dacl_is_private(security_of(path))
+    finally:
+        os.unlink(path)
+    code, text = await run(tool(tmp_path), "Write-Output 'from a private file'")
+    assert code == 0 and "from a private file" in text
+    assert list(folder.iterdir()) == []

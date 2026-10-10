@@ -20,6 +20,7 @@ import contextlib
 import ctypes
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -158,15 +159,19 @@ async def spawn(argv: list[str], *, cwd: str | None = None, env: dict | None = N
     return JobProcess(process, job, process.pid)
 
 
-def _member(job, pid: int) -> int:
-    """A handle to wait on ``pid``, or 0 when it's gone or no longer in ``job``."""
+def _member(job, pid: int) -> int | None:
+    """A handle to wait on ``pid``; 0 when it has affirmatively ended (no such process, or
+    the PID now names one outside ``job``); None when it couldn't be pinned, which proves
+    nothing and is asked again."""
     handle = win32.OpenProcess(win32.SYNCHRONIZE | win32.PROCESS_QUERY_LIMITED_INFORMATION,
                                False, pid)
     if not handle:
-        return 0
+        return 0 if ctypes.get_last_error() == win32.ERROR_INVALID_PARAMETER else None
     member = win32.BOOL()
-    # The PID was read before the open: wait only on a process still in this job.
-    if win32.IsProcessInJob(handle, job, ctypes.byref(member)) and member.value:
+    if not win32.IsProcessInJob(handle, job, ctypes.byref(member)):
+        win32.close(handle)
+        return None
+    if member.value:
         return handle
     win32.close(handle)
     return 0
@@ -176,24 +181,27 @@ async def terminate(running: JobProcess, timeout: float = _TERMINATE_SECONDS) ->
     """End every process in the job; True once each one has ended (within ``timeout``).
 
     A process leaves the job's list a moment before it has finished ending, so every
-    member is held by a handle, from before the job is ended, and waited for.
+    member is held by a handle, from before the job is ended, and waited for. A member
+    that couldn't be pinned keeps the answer False until it is (or is shown to be gone).
     """
     deadline = time.monotonic() + timeout
-    handles: dict[int, int] = {}  # held to the end, so no PID is reused meanwhile
+    handles: dict[int, int | None] = {}  # held to the end, so no PID is reused meanwhile
 
     def listed() -> list[int] | None:
         try:
             members = job_process_ids(running.job)
         except OSError:
-            return None
-        for pid in members:
-            if pid not in handles:
+            members = None
+        unpinned = [pid for pid, handle in handles.items() if handle is None]
+        for pid in {*(members or ()), *unpinned}:
+            if handles.get(pid) is None:
                 handles[pid] = _member(running.job, pid)
         return members
 
     def ended() -> bool:
-        return all(win32.WaitForSingleObject(handle, 0) == win32.WAIT_OBJECT_0
-                   for handle in handles.values() if handle)
+        return all(handle is not None
+                   and (not handle or win32.WaitForSingleObject(handle, 0) == win32.WAIT_OBJECT_0)
+                   for handle in handles.values())
 
     try:
         listed()
@@ -243,27 +251,68 @@ def strip_progress(text: str) -> str:
     return _PROGRESS.sub("", text)
 
 
+_HEADER_LINES = (b"#< CLIXML\r\n", b"#< CLIXML\n")
+_BLOCK_START = b'<Objs Version="'
+_HOLD_LIMIT = 65536  # a record is about 1 KB: anything longer that might start one doesn't
+
+
+class ProgressFilter:
+    """Bytes in, the same bytes out without PowerShell's progress records. What can't begin
+    a record goes straight on (a CR-only progress line, a prompt without a newline); only a
+    possible record's beginning waits, and never more than ``_HOLD_LIMIT`` bytes of it."""
+
+    def __init__(self) -> None:
+        self._pending = b""
+        self._line_start = True  # whether the pending bytes begin a line
+
+    def feed(self, data: bytes) -> bytes:
+        self._pending += data
+        return self._take(final=False)
+
+    def finish(self) -> bytes:
+        return self._take(final=True)
+
+    def _take(self, *, final: bool) -> bytes:
+        # A sentinel keeps a header from matching at the start of a line already begun.
+        marked = (b"" if self._line_start else b"\0") + self._pending
+        data = _PROGRESS_BYTES.sub(b"", marked)[0 if self._line_start else 1:]
+        hold = len(data) if final else self._hold(data)
+        out, self._pending = data[:hold], data[hold:]
+        if out:
+            self._line_start = out.endswith(b"\n")
+        return out
+
+    def _hold(self, data: bytes) -> int:
+        """Where the bytes that might still become a record begin (``len(data)``: none)."""
+        hold = len(data)
+        last_line = data.rfind(b"\n") + 1
+        if (last_line or self._line_start) and data[last_line:] and any(
+                header.startswith(data[last_line:]) for header in _HEADER_LINES):
+            hold = last_line
+        start = data.find(_BLOCK_START)
+        while start != -1:
+            if b"</Objs>" not in data[start:]:
+                hold = min(hold, start)
+                break
+            start = data.find(_BLOCK_START, start + 1)
+        for size in range(len(_BLOCK_START) - 1, 0, -1):
+            if data.endswith(_BLOCK_START[:size]):
+                hold = min(hold, len(data) - size)
+                break
+        return len(data) if len(data) - hold > _HOLD_LIMIT else hold
+
+
 async def filter_progress(source: asyncio.StreamReader, target: asyncio.StreamReader) -> None:
-    """Copy a PowerShell's output without its progress records, whole lines at a time."""
-    pending = b""
+    """Copy a PowerShell's output without its progress records, as it comes."""
+    progress = ProgressFilter()
     try:
         while chunk := await source.read(65536):
-            pending += chunk
-            cut = pending.rfind(b"\n") + 1
-            if not cut and len(pending) >= 65536:  # one long line: passed on as it comes
-                cut = len(pending)
-            if cut:
-                _feed(target, pending[:cut])
-                pending = pending[cut:]
-        _feed(target, pending)
+            if out := progress.feed(chunk):
+                target.feed_data(out)
+        if out := progress.finish():
+            target.feed_data(out)
     finally:
         target.feed_eof()
-
-
-def _feed(target: asyncio.StreamReader, data: bytes) -> None:
-    data = _PROGRESS_BYTES.sub(b"", data)
-    if data:
-        target.feed_data(data)
 
 
 async def _stream(running: JobProcess, timeout: int, on_output: OutputCallback) -> tuple[int, str]:
@@ -464,18 +513,44 @@ def ps_quote(text: str) -> str:
 
 
 def write_script(script: str, filename: str | None, interpreter: str) -> str:
-    """The script in a new temporary file only this user can open; PowerShell's gets a BOM."""
+    """The script in a new temporary file, private from the moment it exists: its own
+    owner-only DACL, whatever the temporary folder lets others do. PowerShell's gets a BOM.
+    A script that can't be written leaves no file."""
     extension = SCRIPT_EXTENSIONS[interpreter]
     stem = os.path.basename(filename or "") or "odin_script"
     if stem.lower().endswith(extension):
         stem = stem[:-len(extension)]
     stem = re.sub(r"[^A-Za-z0-9_.-]", "_", stem)[:64] or "odin_script"
-    descriptor, path = tempfile.mkstemp(prefix=stem + ".", suffix=extension)
     # Windows PowerShell 5.1 reads a file without a BOM in the ANSI code page.
-    encoding = "utf-8-sig" if interpreter == "powershell" else "utf-8"
-    with os.fdopen(descriptor, "w", encoding=encoding, newline="") as handle:
-        handle.write(script)
+    data = script.encode("utf-8-sig" if interpreter == "powershell" else "utf-8")
+    folder = tempfile.gettempdir()
+    with win32.SecurityDescriptor(win32.PRIVATE_SDDL) as descriptor:
+        for _ in range(100):
+            path = os.path.join(folder, f"{stem}.{secrets.token_hex(8)}{extension}")
+            try:
+                handle = win32.create_file(path, win32.GENERIC_WRITE, 0, win32.CREATE_NEW,
+                                           win32.FILE_ATTRIBUTE_NORMAL, descriptor.attributes())
+            except FileExistsError:
+                continue
+            break
+        else:
+            raise FileExistsError("no free name for the script's temporary file")
+    try:
+        win32.write_all(handle, data)
+    except BaseException:
+        win32.close(handle)
+        with contextlib.suppress(OSError):
+            os.unlink(path)
+        raise
+    win32.close(handle)
     return path
+
+
+def _discard(created: asyncio.Future) -> None:
+    """A file a cancelled caller never received goes as soon as it exists."""
+    if not created.cancelled() and created.exception() is None:
+        with contextlib.suppress(OSError):
+            os.unlink(created.result())
 
 
 async def run_local_script(executor, address: str, ssh_user: str, interpreter: str, script: str,
@@ -489,7 +564,12 @@ async def run_local_script(executor, address: str, ssh_user: str, interpreter: s
         program = interpreter_command(interpreter)
     except ScriptRefusedError as exc:
         return 1, str(exc)
-    path = await asyncio.to_thread(write_script, script, filename, interpreter)
+    created = asyncio.ensure_future(asyncio.to_thread(write_script, script, filename, interpreter))
+    try:
+        path = await asyncio.shield(created)
+    except asyncio.CancelledError:
+        created.add_done_callback(_discard)  # the worker can't be stopped; its file can
+        raise
     try:
         command = "& " + " ".join(ps_quote(part) for part in [*program, path])
         return await executor._exec_command(address, command, ssh_user, on_output=on_output,
@@ -515,6 +595,27 @@ def resolve_local_shell(mode: str = "auto"):
     return ShellChoice(SHELL_NAME, powershell())
 
 
+# run_script's own text names bash as the default everywhere; on Windows it says where.
+_INTERPRETERS = "Interpreters: bash (default), python3, python, sh, node, ruby, perl. "
+_WINDOWS_INTERPRETERS = (
+    "Interpreters: on this Windows computer powershell (default), python3, python, node, ruby, "
+    "perl; on remote hosts bash (default), python3, python, sh, node, ruby, perl. ")
+_INTERPRETER_FIELD = ("Interpreter (default: powershell on this Windows computer, bash on remote "
+                      "hosts)")
+
+
+def _windows_interpreters(tool: dict) -> dict:
+    description = tool["description"].replace(_INTERPRETERS, _WINDOWS_INTERPRETERS)
+    tool = {**tool, "description": description}
+    schema = tool.get("input_schema")
+    if schema and "interpreter" in schema.get("properties", {}):
+        properties = schema["properties"]
+        tool["input_schema"] = {**schema, "properties": {
+            **properties, "interpreter": {**properties["interpreter"],
+                                          "description": _INTERPRETER_FIELD}}}
+    return tool
+
+
 def apply_shell_contracts(definitions: list[dict], mode: str = "auto") -> list[dict]:
     """``apply_shell_contracts`` on Windows: the descriptions name Windows PowerShell 5.1."""
     if mode == "auto":
@@ -522,11 +623,10 @@ def apply_shell_contracts(definitions: list[dict], mode: str = "auto") -> list[d
         jobs = f"New local jobs run under {SHELL_LABEL}"
         checks = f"Local command checks run under {SHELL_LABEL}"
         scripts = (
-            "On this Windows computer powershell is the default interpreter, and a PowerShell "
-            "script ends with its exit N, 1 for an uncaught error, otherwise 0. python and "
-            "python3 use the Python launcher, python on PATH or Odin's own Python; node, ruby and "
-            "perl come from PATH; bash and sh aren't available here. Remote hosts keep bash as "
-            "the default.")
+            "On this Windows computer a PowerShell script ends with its exit N, 1 for an uncaught "
+            "error, otherwise 0. python and python3 use the Python launcher, python on PATH or "
+            "Odin's own Python; node, ruby and perl come from PATH; bash and sh aren't available "
+            "here.")
     else:
         missing = f"{mode} isn't available on this Windows host"
         command = f"New local commands are refused because {missing}"
@@ -544,7 +644,7 @@ def apply_shell_contracts(definitions: list[dict], mode: str = "auto") -> list[d
     markers = (" Local commands run under ", " New local commands are refused because ",
                " New local jobs run under ", " New local jobs are refused because ",
                " Local command checks run under ", " New local command checks are refused because ",
-               " On this Windows computer powershell is the default interpreter",
+               " On this Windows computer a PowerShell script ends with",
                " Scripts on this computer are refused because ")
     result = []
     for tool in definitions:
@@ -555,5 +655,6 @@ def apply_shell_contracts(definitions: list[dict], mode: str = "auto") -> list[d
             for marker in markers:
                 body = body.partition(marker)[0]
             description = body + " " + clauses[name] + separator + footer
-        result.append({**tool, "description": description})
+        tool = {**tool, "description": description}
+        result.append(_windows_interpreters(tool) if name == "run_script" else tool)
     return result

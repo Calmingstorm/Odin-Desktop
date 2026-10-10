@@ -174,4 +174,3 @@ def test_windows_subclasses_were_reviewed_against_what_they_override():
     changed = [key for key, digest in OVERRIDE_SOURCES.items()
                if hashlib.sha256(_member_source(*key.split(":")).encode()).hexdigest() != digest]
     assert not changed, f"review the Windows overrides of: {changed}"
-

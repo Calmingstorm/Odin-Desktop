@@ -70,6 +70,7 @@ FILE_RENAME_FLAG_POSIX_SEMANTICS = 0x2
 ERROR_FILE_NOT_FOUND = 2
 ERROR_PATH_NOT_FOUND = 3
 ERROR_ACCESS_DENIED = 5
+ERROR_INVALID_PARAMETER = 87
 ERROR_SHARING_VIOLATION = 32
 ERROR_LOCK_VIOLATION = 33
 ERROR_FILE_EXISTS = 80
@@ -84,6 +85,7 @@ SE_FILE_OBJECT = 1
 OWNER_SECURITY_INFORMATION = 0x1
 DACL_SECURITY_INFORMATION = 0x4
 PROTECTED_DACL_SECURITY_INFORMATION = 0x80000000
+UNPROTECTED_DACL_SECURITY_INFORMATION = 0x20000000
 SDDL_REVISION_1 = 1
 SE_DACL_PRESENT = 0x0004
 SE_DACL_PROTECTED = 0x1000
@@ -116,6 +118,7 @@ THREAD_SUSPEND_RESUME = 0x0002
 TH32CS_SNAPTHREAD = 0x00000004
 CREATE_SUSPENDED = 0x00000004
 WAIT_OBJECT_0 = 0x00000000
+FILE_TYPE_DISK = 0x0001
 FILE_TYPE_PIPE = 0x0003
 
 # Job objects.
@@ -263,6 +266,10 @@ ConvertStringSecurityDescriptorToSecurityDescriptorW = _declare(
     advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW,
     [wintypes.LPCWSTR, DWORD, ctypes.POINTER(PVOID), ctypes.POINTER(wintypes.ULONG)],
 )
+ConvertSecurityDescriptorToStringSecurityDescriptorW = _declare(
+    advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW,
+    [PVOID, DWORD, DWORD, ctypes.POINTER(PVOID), ctypes.POINTER(wintypes.ULONG)],
+)
 GetSecurityInfo = _declare(
     advapi32.GetSecurityInfo,
     [HANDLE, ctypes.c_int, DWORD, ctypes.POINTER(PVOID), ctypes.POINTER(PVOID),
@@ -318,6 +325,7 @@ QueryInformationJobObject = _declare(
 AssignProcessToJobObject = _declare(kernel32.AssignProcessToJobObject, [HANDLE, HANDLE])
 IsProcessInJob = _declare(kernel32.IsProcessInJob, [HANDLE, HANDLE, ctypes.POINTER(BOOL)])
 GetFileType = _declare(kernel32.GetFileType, [HANDLE], DWORD)
+ReOpenFile = _declare(kernel32.ReOpenFile, [HANDLE, DWORD, DWORD, DWORD], HANDLE)
 ReadFile = _declare(
     kernel32.ReadFile,
     [HANDLE, ctypes.c_void_p, DWORD, ctypes.POINTER(DWORD), ctypes.POINTER(OVERLAPPED)])

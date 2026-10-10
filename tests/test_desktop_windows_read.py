@@ -184,4 +184,3 @@ def test_the_shared_vectors_are_gawks_own(tmp_path, monkeypatch):
             "start_line": start, "raw": raw_mode}))
         returned, output = awk_output(captured["command"])
         assert (returned, hashlib.sha256(output.encode()).hexdigest()) == (code, digest), name
-

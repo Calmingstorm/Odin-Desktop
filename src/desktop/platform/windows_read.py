@@ -14,8 +14,10 @@ handler's parsing, secret scrubbing and framing stay one code path.
 from __future__ import annotations
 
 import base64
+import errno
 import os
 import re
+import stat
 from collections.abc import Iterator
 
 _WINDOWS_ABSOLUTE = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\)")
@@ -149,10 +151,26 @@ def raw(path, *, start: int, start_label: str, count: int, budget: int) -> bytes
     return base64.b64encode(bytes(content)) + b"\n" + metadata.encode("ascii")
 
 
+# The device namespaces: pipes, consoles and raw devices, not files (a drive path written
+# with \\?\ is a file).
+_DEVICE_PATH = re.compile(r"^[\\/][\\/][.?][\\/](?![A-Za-z]:[\\/])")
+
+
+def _regular_file(path: str) -> None:
+    """Refuse what isn't a regular file: reading a device or a pipe can block for good, and
+    a worker thread can't be stopped. Device paths are refused before anything is opened."""
+    if _DEVICE_PATH.match(path):
+        raise OSError(errno.EINVAL, "not a regular file", path)
+    with open(path, "rb") as stream:  # a device name (NUL, CON) opens as a device: no read
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise OSError(errno.EINVAL, "not a regular file", path)
+
+
 def read_local(path: str, *, start: int, start_label: str, count: int, budget: int,
                raw_mode: bool) -> tuple[int, str]:
     """``(exit code, output)`` as the host transport returns them for the awk command."""
     try:
+        _regular_file(path)
         if raw_mode:
             data = raw(path, start=start, start_label=start_label, count=count, budget=budget)
         else:
