@@ -519,7 +519,7 @@ async def audit_initialize_chain(self) -> None:
     must not stop recording new actions. Only an uncertain tail fences
     writes. A restart can settle a stale intent without rewriting history.
     """
-    from src.audit.logger import GENESIS_HASH, aiofiles, json, log, os, verify_log  # noqa: I001
+    from src.audit.logger import GENESIS_HASH, aiofiles, json, log, verify_log  # noqa: I001
     async with self._persist_lock:
         if self._chain_initialized:
             return
@@ -530,7 +530,9 @@ async def audit_initialize_chain(self) -> None:
             async with aiofiles.open(self.path, encoding="utf-8") as f:
                 lines = await f.readlines()
                 if self.repair_required:
-                    os.fsync(f.fileno())
+                    # Windows: a read-only handle can't be flushed; flush the log
+                    # through a handle with write access instead.
+                    flush_path(self.path)
         except Exception as exc:
             # An unreadable file proves neither a broken chain nor a torn
             # append. Retry initialization before the next persist.

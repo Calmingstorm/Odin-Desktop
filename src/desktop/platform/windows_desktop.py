@@ -396,12 +396,14 @@ def _package_reader(path):
     path = Path(path)
     with held(path.parent.resolve(strict=False)) as chain:
         try:
-            handle = open_file(chain, path.name)
+            # Write access only so a caller's os.fsync works: Windows can't flush a
+            # read-only handle. Nothing here writes.
+            handle = open_file(chain, path.name, write=True)
         except FileNotFoundError:
             raise
         except OSError:
             raise PackageStateError("Unsafe package state file; original state preserved") from None
-        with os.fdopen(to_fd(handle, os.O_RDONLY), "rb") as stream:
+        with os.fdopen(to_fd(handle, os.O_RDWR), "rb") as stream:
             yield stream
 
 

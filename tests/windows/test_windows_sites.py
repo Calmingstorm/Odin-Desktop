@@ -157,6 +157,10 @@ def test_fresh_profile_provisioning_and_package_records(paths):
     assert record["state"] == "committed"
     backup = paths.data_dir / "package-backups" / record["backup"]
     assert (backup / "manifest.json").is_file()
+    # The next start re-reads and flushes the existing record, then verifies the backup.
+    again = PackageUpgrade(paths, authority, "9.9.9")
+    again.prepare()
+    assert again.record is None
     authority.release_runtime()
 
 
