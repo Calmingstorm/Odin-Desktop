@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 
 from . import win32
-from .windows_files import held, namespace_of, publish, read_file, remove
+from .windows_files import OWN_NAMESPACE, held, publish, read_file, remove
 
 _LIMIT = 1 << 20  # A DPAPI blob of the store's 64 KiB maximum is far below this.
 
@@ -24,7 +24,7 @@ class DpapiSecretBackend:
         return hashlib.sha256(f"{service}\0{name}".encode()).hexdigest() + ".dpapi"
 
     def _chain(self):
-        return held(self.directory, create=True, namespace=namespace_of(self.directory))
+        return held(self.directory, create=True, namespace=OWN_NAMESPACE)
 
     def get_password(self, service: str, name: str) -> str | None:
         with self._chain() as chain:

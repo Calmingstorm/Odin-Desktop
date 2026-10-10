@@ -966,6 +966,7 @@ class AuditLogger:
                         )
             self._chain_initialized = True
 
+    @windows_variant("src.desktop.platform.windows_engine:audit_open_verify_snapshot")
     async def _open_verify_snapshot(self) -> list[dict]:
         """Open bounded descriptors of every retained generation under the append lock.
 

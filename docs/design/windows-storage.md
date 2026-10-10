@@ -19,9 +19,14 @@ source; this page records what Windows does differently from Linux and why. Linu
   then every folder from the volume root down is opened and held with list and traverse access and without delete
   sharing. While the chain is held no folder in it can be renamed, deleted or replaced, so a path under it names the
   held objects. Every open, create, replace, removal and SQLite connection happens under such a chain, through the
-  object it verified. That covers each read, append, rotation and prune of the audit log and schedule history, and the
-  turn-state store, which holds both its folders for its whole life and gives SQLite and its blobs the held, resolved
-  paths (an alias in the configured path can't redirect them after the check).
+  object it verified. That covers each read, append, rotation, integrity check and prune of the audit log and schedule
+  history, and the turn-state store, which holds both its folders for its whole life and gives SQLite and its blobs the
+  held, resolved paths (an alias in the configured path can't redirect them after the check).
+  - A chain resolves once: the namespace it repairs comes from that same resolution.
+  - **Private endpoints.** The folder a SQLite database or its blobs live in (the turn-state store and the
+    conversation journal) is judged and repaired like a namespace folder wherever it resolved, so a junction to an
+    outside folder can't hand SQLite a wide inheritable DACL. One that isn't ours and isn't private is refused before
+    SQLite opens.
   - Missing folders are created beneath the held part with the private descriptor, then held themselves.
   - A junction or symlink met while holding is refused.
   - The innermost handle's final path must equal the resolved path.
@@ -50,8 +55,9 @@ source; this page records what Windows does differently from Linux and why. Linu
   Lock files are held without delete sharing, so a locked file can't be swapped out. The runtime lock is rechecked
   through its handle on every authority check (still regular, ours and private, and still the named file), so a lock
   shared after it was taken stops authenticating, as Linux's mode check does.
-- **Handles** are released on every path: chains close with their owner (the turn-state store's with `close`), and a
-  file refused before it becomes a descriptor is closed there.
+- **Handles** are released on every path: chains close with their owner (the turn-state store's with `close`), a
+  file refused before it becomes a descriptor is closed there, and a turn-state constructor that fails closes its
+  SQLite connection at once rather than leaving it to garbage collection.
 
 ## Publication and durability
 

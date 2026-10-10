@@ -567,3 +567,79 @@ def test_journal_initialization_barrier_failure_is_a_storage_error(paths, monkey
     monkeypatch.undo()
     store = JournalStore(database, "test", identity="install:owner")
     store.close()
+
+
+# --- before the commit point: the consumer keeps its prior state -------------------------------
+
+
+async def test_interrupted_history_refused_before_its_append_keeps_history_and_outbox(graph, sddl):
+    from src.desktop.schedules import ScheduleService
+    from src.scheduler.scheduler import Scheduler
+
+    scheduler, service, owner, cid = graph
+    item = await service.invoke("schedules.save", {
+        "description": "Example", "action": "reminder", "channel_id": cid,
+        "cron": "* * * * *"}, owner=owner)
+    await scheduler._mark_run_started(item)
+    history = scheduler.history.path
+    if not history.exists():
+        history.write_text("", newline="")
+    before = history.read_bytes()
+    sddl(history, "D:P(A;;FA;;;WD)", directory=False)  # refused before any byte is written
+    restarted = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    await ScheduleService(restarted, authority=service.authority,
+                          conversations=service.conversations).recover()
+    assert history.read_bytes() == before
+    again = Scheduler(str(scheduler.data_path), desktop_recovery=True)
+    assert again.list_all()[0]["_interrupted_run_history"][0]["run_binding"] == item["run_binding"]
+    sddl(history, f"D:P(A;;FA;;;{windows_files.user_sid()})", directory=False)
+    await ScheduleService(again, authority=service.authority,
+                          conversations=service.conversations).recover()
+    assert "_interrupted_run_history" not in again.list_all()[0]
+    assert len(await again.history.query(item["id"])) == 1
+
+
+def test_cleanup_finish_failing_before_its_commit_point_keeps_the_running_record(
+        paths, monkeypatch):
+    from src.desktop.resource_cleanup import ResourceCleanupError, ResourceCleanupJournal
+
+    path = paths.data_dir / "resource-cleanup.json"
+    journal = ResourceCleanupJournal(path)
+    prior = path.read_bytes()
+
+    def refused(handle, data):
+        raise OSError("write failed")
+
+    monkeypatch.setattr(win32, "write_all", refused)
+    with pytest.raises(OSError) as raised:
+        journal.finish({"engine": {"state": "released"}})
+    monkeypatch.undo()
+    assert not isinstance(raised.value, ResourceCleanupError)  # the caller sees the failure itself
+    assert path.read_bytes() == prior and json.loads(prior)["state"] == "running"
+    with held(path.parent) as chain:
+        assert [name for name in os.listdir(chain.path) if name.endswith(".tmp")] == []
+
+
+def test_journal_initialization_failing_before_its_commit_point_keeps_the_database(
+        paths, monkeypatch):
+    import hashlib
+
+    import src.desktop.schema as schema
+    from src.desktop.commands import JournalStorageError, JournalStore
+
+    database = paths.data_dir / "journal" / "transport.sqlite3"
+    JournalStore(database, "test", identity="install:owner").close()
+    before = hashlib.sha256(database.read_bytes()).hexdigest()
+
+    def refused(*args, **kwargs):
+        raise RuntimeError("schema check failed")
+
+    monkeypatch.setattr(schema, "validate_domains", refused)
+    with pytest.raises(JournalStorageError):
+        JournalStore(database, "test", identity="install:owner")
+    monkeypatch.undo()
+    assert hashlib.sha256(database.read_bytes()).hexdigest() == before
+    moved = database.parent.with_name("moved")
+    os.rename(database.parent, moved)  # nothing is left open or held
+    os.rename(moved, database.parent)
+    JournalStore(database, "test", identity="install:owner").close()

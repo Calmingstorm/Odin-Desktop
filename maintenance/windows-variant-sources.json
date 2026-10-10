@@ -4,6 +4,7 @@
   "src/audit/logger.py:_append_durable -> src.desktop.platform.windows_engine:audit_append_durable": "b142e0027f78f6e43dea63d7a454f3060d532d634bb42d101019bfe4d3a63e61",
   "src/audit/logger.py:_maybe_rotate -> src.desktop.platform.windows_engine:audit_maybe_rotate": "4993a26e038cce3ff6ecaec2cfaa5390b1c14b3d91a155ef22b14b450ab10394",
   "src/audit/logger.py:_open_read_snapshot -> src.desktop.platform.windows_engine:audit_open_read_snapshot": "aa4c08249b33dc65584260c1ff573531cb799ad1aae77948531bd663a4c420a9",
+  "src/audit/logger.py:_open_verify_snapshot -> src.desktop.platform.windows_engine:audit_open_verify_snapshot": "cfe4a205846e5d87a7f140ceafaa6f022ae51ec947d8f129b02e80da602e3a97",
   "src/audit/logger.py:initialize_chain -> src.desktop.platform.windows_engine:audit_initialize_chain": "980585312db5a1a6025f075e93204232ae8a552cfab91c54de8ed26363e901c2",
   "src/config/migrations.py:_atomic_write_marker -> src.desktop.platform.windows_engine:atomic_write_marker": "70ad6dae73dc85dc9485ac67b3b4a453571a8854a1c93c5172a3f55fbc17a597",
   "src/config/migrations.py:_claim_legacy_marker -> src.desktop.platform.windows_engine:claim_legacy_marker": "a35e746a75628290023966f0827e519b4290e86a5ba28e096501acd15a54e817",

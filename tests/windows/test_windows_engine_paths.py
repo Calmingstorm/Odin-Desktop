@@ -180,7 +180,7 @@ def test_turn_state_reopens_existing_blobs_and_reports_a_closed_store(paths):
         reopened.load_blob_sync(reference)
 
 
-def test_a_damaged_database_leaves_the_store_off_and_releases_its_folders(paths):
+def test_a_damaged_database_leaves_the_store_off_and_releases_everything(paths, caplog):
     from src.turn_state.store import TurnStateStore
 
     folder = paths.data_dir / "turn_state"
@@ -188,11 +188,10 @@ def test_a_damaged_database_leaves_the_store_off_and_releases_its_folders(paths)
     (folder / "turns.sqlite3").write_bytes(b"not a database" * 100)
     store = TurnStateStore(folder / "turns.sqlite3")
     assert not store.available
-    # Our chains are released. (Linux's constructor leaves its failed connection to
-    # garbage collection, which pytest's captured log record delays, so the database
-    # folder itself is not renamed here.)
+    assert any(record.exc_info for record in caplog.records)  # the traceback is retained
+    store.close()
     assert store._windows_chain is None and store._windows_blob_chain is None
-    os.rename(folder / "blobs", folder / "blobs-moved")
+    os.rename(folder, folder.with_name("moved"))  # the failed connection is closed too
 
 
 def test_a_constructor_that_raises_releases_its_folders(paths, monkeypatch):
@@ -201,7 +200,7 @@ def test_a_constructor_that_raises_releases_its_folders(paths, monkeypatch):
     def broken(self, *args, **kwargs):
         raise RuntimeError("constructor failed")
 
-    monkeypatch.setattr(TurnStateStore.__init__, "linux_original", broken)
+    monkeypatch.setattr(engine, "turn_state_linux_init", broken)
     folder = paths.data_dir / "turn_state"
     with pytest.raises(RuntimeError):
         TurnStateStore(folder / "turns.sqlite3")

@@ -21,11 +21,11 @@ from pathlib import Path
 
 from . import win32
 from .windows_files import (
+    OWN_NAMESPACE,
     HeldChain,
     file_size,
     flush_object,
     held,
-    namespace_of,
     open_file,
     own_sids,
     publish,
@@ -61,7 +61,6 @@ def load_token(token_file) -> str:
 
 def journal_store_init(self, path, profile_id, *, identity=None) -> None:
     from ..commands import JournalStorageError
-    from ..paths import private_directory
     from ..schema import validate_domains
 
     self.profile_id = profile_id
@@ -76,10 +75,12 @@ def journal_store_init(self, path, profile_id, *, identity=None) -> None:
         raise ValueError("Expected a profile identifier")
     try:
         path = Path(path)
-        private_directory(path.parent)
         # The chain stays held for the connection's lifetime: SQLite opens by path,
         # and the held folders keep that path naming them (Linux: /proc/self/fd).
-        self._windows_chain = chain = HeldChain(path.parent)
+        # Its folder is a private endpoint wherever it resolved: SQLite creates its
+        # sidecars there with what that folder passes on.
+        self._windows_chain = chain = HeldChain(path.parent, create=True, namespace=OWN_NAMESPACE,
+                                                private_leaf=True)
         for name in (path.name, path.name + "-journal", path.name + "-wal", path.name + "-shm"):
             try:
                 win32.close(open_file(chain, name))
@@ -488,7 +489,7 @@ def package_backup(self):
         root.mkdir(mode=0o700)
     except FileExistsError:
         try:
-            with held(root, namespace=namespace_of(root)):
+            with held(root, namespace=OWN_NAMESPACE):
                 pass
         except OSError:
             raise PackageStateError("Unsafe package backup directory") from None

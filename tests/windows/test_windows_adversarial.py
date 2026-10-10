@@ -115,9 +115,38 @@ async def test_rotation_renames_names_and_never_writes_through_a_link(paths):
     logger._max_bytes = 10
     await record(logger, 1)
     os.link(victim, log.with_name("audit.jsonl.1"))
-    await record(logger, 2)  # rotation refuses the linked generation and logs it
+    await record(logger, 2)  # rotation moves names only; nothing is written through the link
     assert victim.read_text() == "unchanged\n"
     assert acks[0] == "durable"
+
+
+async def test_integrity_verification_reports_linked_and_shared_generations(paths, sddl):
+    log = paths.data_dir / "audit.jsonl"
+    logger, _ = audit(log)
+    await record(logger, 1)
+    outside = paths.data_dir / "elsewhere.jsonl"
+    outside.write_bytes(log.read_bytes())  # a valid signed segment, copied out of the store
+    os.link(outside, log.with_name("audit.jsonl.1"))
+    shared = log.with_name("audit.jsonl.2")
+    shared.write_bytes(log.read_bytes())
+    sddl(shared, EVERYONE_FILE, directory=False)
+    result = await logger.verify_integrity()
+    status = {segment["file"]: segment["status"] for segment in result["segments"]}
+    assert status["audit.jsonl"] == "verified"
+    assert status["audit.jsonl.1"] == "unreadable" and status["audit.jsonl.2"] == "unreadable"
+    assert result["valid"] is False
+
+
+async def test_integrity_verification_refuses_a_symlinked_generation(paths):
+    log = paths.data_dir / "audit.jsonl"
+    logger, _ = audit(log)
+    await record(logger, 1)
+    outside = paths.data_dir / "elsewhere.jsonl"
+    outside.write_bytes(log.read_bytes())
+    symlink_or_skip(outside, log.with_name("audit.jsonl.1"))
+    result = await logger.verify_integrity()
+    status = {segment["file"]: segment["status"] for segment in result["segments"]}
+    assert status["audit.jsonl.1"] == "unreadable"
 
 
 async def test_the_audit_snapshot_skips_a_linked_generation(paths):
@@ -190,14 +219,16 @@ def test_turn_state_uses_its_held_path_after_an_ancestor_alias_moves(paths, monk
         folder.mkdir()
     alias = paths.data_dir / "alias"
     _winapi.CreateJunction(str(first), str(alias))
-    original = TurnStateStore.__init__.linux_original
+    import src.desktop.platform.windows_engine as engine
+
+    original = engine.turn_state_linux_init
 
     def rebind_then_open(self, *args, **kwargs):
         os.rmdir(alias)  # removes the junction itself, not its target
         _winapi.CreateJunction(str(second), str(alias))
         return original(self, *args, **kwargs)
 
-    monkeypatch.setattr(TurnStateStore.__init__, "linux_original", rebind_then_open)
+    monkeypatch.setattr(engine, "turn_state_linux_init", rebind_then_open)
     store = TurnStateStore(alias / "turn_state" / "turns.sqlite3")
     try:
         assert store.available
@@ -262,6 +293,61 @@ def test_inherit_only_wide_grants_are_repaired_before_sqlite_creates_files(paths
         for name in ("turns.sqlite3", "turns.sqlite3-wal", "turns.sqlite3-shm"):
             if (folder / name).exists():
                 assert dacl_is_private(security_of(folder / name)), name
+    finally:
+        store.close()
+
+
+BROAD_TARGET = "D:P(A;OICI;FA;;;OW)(A;OICI;FA;;;SY)(A;OICI;0x1200a9;;;WD)"
+
+
+def test_a_store_folder_resolving_outside_the_profile_is_private_before_sqlite(
+        paths, tmp_path, sddl, monkeypatch):
+    import src.desktop.platform.windows_engine as engine
+    from src.turn_state.store import TurnStateStore
+
+    target = tmp_path / "TurnStateTarget"
+    target.mkdir()
+    sddl(target, BROAD_TARGET, directory=True)  # the owner, plus everyone may read, inherited
+    _winapi.CreateJunction(str(target), str(paths.data_dir / "turn_state"))
+    at_connect = []
+    original = engine.turn_state_linux_init
+
+    def checked(self, *args, **kwargs):
+        at_connect.append(dacl_is_private(security_of(target, directory=True), children=True))
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(engine, "turn_state_linux_init", checked)
+    store = TurnStateStore(paths.data_dir / "turn_state" / "turns.sqlite3")
+    try:
+        assert store.available and at_connect == [True]
+        for name in ("turns.sqlite3", "turns.sqlite3-wal", "turns.sqlite3-shm"):
+            if (target / name).exists():
+                assert dacl_is_private(security_of(target / name)), name
+    finally:
+        store.close()
+
+
+def test_a_journal_folder_resolving_outside_the_profile_is_private_before_sqlite(
+        paths, tmp_path, sddl, monkeypatch):
+    import src.desktop.platform.windows_desktop as desktop
+    from src.desktop.commands import JournalStore
+
+    target = tmp_path / "JournalTarget"
+    target.mkdir()
+    sddl(target, BROAD_TARGET, directory=True)
+    _winapi.CreateJunction(str(target), str(paths.data_dir / "journal"))
+    at_connect = []
+    connect = desktop.sqlite3.connect
+
+    def checked(*args, **kwargs):
+        at_connect.append(dacl_is_private(security_of(target, directory=True), children=True))
+        return connect(*args, **kwargs)
+
+    monkeypatch.setattr(desktop.sqlite3, "connect", checked)
+    store = JournalStore(paths.data_dir / "journal" / "transport.sqlite3", "test")
+    try:
+        assert at_connect == [True]
+        assert dacl_is_private(security_of(target / "transport.sqlite3"))
     finally:
         store.close()
 

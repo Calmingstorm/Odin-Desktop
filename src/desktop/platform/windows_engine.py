@@ -22,13 +22,13 @@ from pathlib import Path, PurePosixPath
 
 from . import win32
 from .windows_files import (
+    OWN_NAMESPACE,
     HeldChain,
     ensure_private,
     file_size,
     flush_object,
     flush_path,
     held,
-    namespace_of,
     open_file,
     open_plain,
     open_stream,
@@ -48,7 +48,7 @@ _WRITE_NEW = win32.GENERIC_WRITE | win32.DELETE | win32.READ_CONTROL | win32.FIL
 def _publish_path(path, data: bytes, *, create: bool = False) -> bool:
     """A5 replace of ``path``: False means committed but durability unproven."""
     path = Path(path)
-    namespace = namespace_of(path.parent) if create else frozenset()
+    namespace = OWN_NAMESPACE if create else frozenset()
     with held(path.parent, create=create, namespace=namespace) as chain:
         return publish(chain, path.name, data)
 
@@ -430,6 +430,20 @@ def _verify_audit(path, key: str) -> dict:
     return result
 
 
+def _hold_or_error(folder):
+    """The held folder, or the error that stops holding it (reported per generation)."""
+    try:
+        return HeldChain(folder)
+    except OSError as exc:
+        return exc
+
+
+def _verified_generation(chain, path):
+    if isinstance(chain, OSError):
+        raise chain
+    return open_stream(chain, path.name, "rb")
+
+
 async def audit_append_durable(self, line: str) -> None:
     """Linux's durable append, with its I/O under the held folder.
 
@@ -616,7 +630,7 @@ def turn_state_init(self, db_path, *, blob_dir=None, lease_ttl=None):
     """
     import threading
 
-    from src.turn_state.store import DEFAULT_LEASE_TTL, TurnStateStore, log
+    from src.turn_state.store import DEFAULT_LEASE_TTL, log
 
     lease_ttl = DEFAULT_LEASE_TTL if lease_ttl is None else lease_ttl
     database = Path(db_path)
@@ -624,9 +638,11 @@ def turn_state_init(self, db_path, *, blob_dir=None, lease_ttl=None):
     self._windows_chain = self._windows_blob_chain = None
     chains = []
     try:
-        chains.append(HeldChain(database.parent, create=True,
-                                namespace=namespace_of(database.parent)))
-        chains.append(HeldChain(blobs, create=True, namespace=namespace_of(blobs)))
+        # Both folders are private endpoints wherever they resolved: SQLite and the
+        # blobs create files there with what those folders pass on.
+        chains.append(HeldChain(database.parent, create=True, namespace=OWN_NAMESPACE,
+                                private_leaf=True))
+        chains.append(HeldChain(blobs, create=True, namespace=OWN_NAMESPACE, private_leaf=True))
         database_chain, blob_chain = chains
         for entry in os.scandir(blob_chain.path):
             is_folder = entry.is_dir(follow_symlinks=False)
@@ -648,7 +664,7 @@ def turn_state_init(self, db_path, *, blob_dir=None, lease_ttl=None):
         self.legacy_effect_free_reconciled = 0
         return
     try:
-        TurnStateStore.__init__.linux_original(
+        turn_state_linux_init(
             self, str(database_chain.child(database.name)), blob_dir=str(blob_chain.path),
             lease_ttl=lease_ttl)
     except BaseException:
@@ -800,6 +816,135 @@ async def audit_initialize_chain(self) -> None:
                         "Cleared stale audit append marker; tail is complete and parseable",
                     )
         self._chain_initialized = True
+
+
+# Lifted from the Linux original.
+async def audit_open_verify_snapshot(self) -> list[dict]:
+    """Open bounded descriptors of every retained generation under the append lock.
+
+    Unlike search, verification reports unreadable positions and interior
+    gaps. Scan outside the lock; descriptor identity survives rotation.
+    """
+    from src.audit.logger import BinaryIO, cast, os  # noqa: I001
+    rows: list[dict] = []
+    seen: set[tuple[int, int]] = set()
+    chain = None
+    try:
+        async with self._persist_lock:
+            present: list[int] = []
+            # Windows: every generation is opened and verified in the held folder.
+            chain = _hold_or_error(self.path.parent)
+            for index in range(self._max_files + 1):
+                path = self.path if index == 0 else self.path.with_name(
+                    self.path.name + f".{index}")
+                row = {"file": path.name, "position": index, "handle": None, "size": 0,
+                       "open_error": None, "absent": False}
+                try:
+                    handle = _verified_generation(chain, path)
+                except FileNotFoundError:
+                    row["absent"] = True
+                    rows.append(row)
+                    continue
+                except OSError as exc:
+                    row["open_error"] = type(exc).__name__
+                    rows.append(row)
+                    present.append(index)
+                    continue
+                try:
+                    stat = os.fstat(handle.fileno())
+                except OSError as exc:
+                    handle.close()
+                    row["open_error"] = type(exc).__name__
+                    rows.append(row)
+                    present.append(index)
+                    continue
+                identity = (stat.st_dev, stat.st_ino)
+                if identity in seen:
+                    handle.close()
+                    continue
+                seen.add(identity)
+                row.update(handle=handle, size=stat.st_size)
+                rows.append(row)
+                present.append(index)
+        if isinstance(chain, HeldChain):
+            chain.close()
+        highest = max((index for index in present if index > 0), default=0)
+        return [
+            row for row in rows
+            if not row["absent"] or row["position"] == 0 or row["position"] < highest
+        ]
+    except BaseException:
+        if isinstance(chain, HeldChain):
+            chain.close()
+        for row in rows:
+            if row["handle"] is not None:
+                cast(BinaryIO, row["handle"]).close()
+        raise
+
+
+# Lifted from the Linux original.
+def turn_state_linux_init(
+    self,
+    db_path: str | Path,
+    *,
+    blob_dir: str | Path | None = None,
+    lease_ttl: float,
+) -> None:
+    from src.turn_state.store import Path, _DDL, log, os, sqlite3, threading  # noqa: I001
+    self.db_path = str(db_path)
+    self.lease_ttl = lease_ttl
+    self._blob_dir = Path(blob_dir) if blob_dir else Path(self.db_path).parent / "blobs"
+    self._write_lock = threading.Lock()
+    self._conn: sqlite3.Connection | None = None
+    self.legacy_effect_free_reconciled = 0
+    conn = None
+    try:
+        # Checkpoints carry the model transcript (user content, tool
+        # arguments) — secret-adjacent material. Everything here is
+        # owner-only: directories 0700, DB + WAL/SHM + blobs 0600
+        # (review blocker #8, PR #242).
+        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+        self._blob_dir.mkdir(parents=True, exist_ok=True)
+        os.chmod(Path(self.db_path).parent, 0o700)
+        os.chmod(self._blob_dir, 0o700)
+        # Worker-thread reads share this connection with auto-resume and
+        # owner controls. CPython 3.12's statement cache can mix columns
+        # or return empty tuples when the same SELECT runs concurrently
+        # (python/cpython#118172), falsely rejecting an intact checkpoint.
+        # SQLite serialization alone does not protect that Python cache.
+        conn = sqlite3.connect(
+            self.db_path, check_same_thread=False, cached_statements=0
+        )
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=30000")
+        conn.executescript(_DDL)
+        self.legacy_effect_free_reconciled = self._migrate_schema_sync(conn)
+        conn.commit()
+        log.info(
+            "Turn-state legacy migration reconciled %d effect-free "
+            "OUTCOME_UNKNOWN operation(s)",
+            self.legacy_effect_free_reconciled,
+        )
+        self._restrict_db_modes()
+        self._conn = conn
+        swept = self._boot_sweep_sync()
+        if swept["turns"] or swept["ops"]:
+            log.warning(
+                "Turn-state boot sweep: %d stale ACTIVE turn(s) suspended, "
+                "%d in-flight op(s) settled by effect class",
+                swept["turns"], swept["ops"],
+            )
+    except Exception:
+        log.exception(
+            "TurnStateStore init failed — checkpoint durability DISABLED "
+            "for this process (turns run legacy, work is not preserved)"
+        )
+        # Windows: the failed connection closes now, not when garbage collection
+        # finds it; a log record holding the traceback would keep its folder busy.
+        if conn is not None:
+            with contextlib.suppress(Exception):
+                conn.close()
+        self._conn = None
 
 
 # Lifted from the Linux original.

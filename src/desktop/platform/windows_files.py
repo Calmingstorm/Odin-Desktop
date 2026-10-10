@@ -213,13 +213,25 @@ def _verify_directory(handle, path, *, namespace: bool, kind: str) -> None:
         raise _refuse(f"foreign {kind} ancestor", path)
 
 
+# ``namespace=OWN_NAMESPACE``: the namespace of the path this chain resolved, so the
+# check and the held objects come from one resolution.
+OWN_NAMESPACE = "own"
+
+
 class HeldChain:
-    """Folder handles held from the volume root down to ``path``."""
+    """Folder handles held from the volume root down to ``path``.
+
+    ``private_leaf`` marks the final folder as a private endpoint (one SQLite or its
+    blobs live in): it is judged and repaired like a namespace folder wherever it
+    resolved, even outside ``odin-desktop\\<profile>``.
+    """
 
     def __init__(self, path, *, create: bool = False, namespace=frozenset(), kind: str = "profile",
-                 repair: bool = True):
+                 repair: bool = True, private_leaf: bool = False):
         self.path = canonical(path)
         self.handles: list[int] = []
+        if namespace == OWN_NAMESPACE:
+            namespace = _namespace_of_resolved(self.path)
         try:
             parts = self.path.parts
             current = Path(parts[0])
@@ -228,9 +240,10 @@ class HeldChain:
             if (win32.volume_filesystem(handle) != "NTFS"
                     or win32.drive_type(parts[0]) != win32.DRIVE_FIXED):
                 raise _refuse("private state needs a local fixed NTFS volume", current)
-            for name in parts[1:]:
+            for index, name in enumerate(parts[1:], start=1):
                 current = current / name
-                owned = repair and current in namespace
+                endpoint = private_leaf and index == len(parts) - 1
+                owned = repair and (current in namespace or endpoint)
                 try:
                     handle = _open_directory(current)
                 except FileNotFoundError:
@@ -293,7 +306,11 @@ def namespace_of(path) -> frozenset[Path]:
     no more open than the private folder above it. A Windows child is checked
     against its own DACL, so each folder below the profile is kept private too.
     """
-    parts = canonical(path).parts
+    return _namespace_of_resolved(canonical(path))
+
+
+def _namespace_of_resolved(resolved: Path) -> frozenset[Path]:
+    parts = resolved.parts
     for index, name in enumerate(parts[:-1]):
         if name.lower() == "odin-desktop" and _PROFILE_COMPONENT.fullmatch(parts[index + 1]):
             return frozenset(Path(*parts[:end]) for end in range(index + 1, len(parts) + 1))
@@ -302,9 +319,8 @@ def namespace_of(path) -> frozenset[Path]:
 
 def private_directory(path, *, repair_namespace: bool = True) -> None:
     """The Windows ``paths.private_directory``: create missing folders private; check the rest."""
-    resolved = canonical(path)
-    namespace = namespace_of(resolved) if repair_namespace else frozenset()
-    with held(resolved, create=True, namespace=namespace):
+    namespace = OWN_NAMESPACE if repair_namespace else frozenset()
+    with held(path, create=True, namespace=namespace):
         pass
 
 
