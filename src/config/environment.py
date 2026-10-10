@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import hashlib
 import io
 import logging
@@ -18,6 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv.parser import parse_stream
+
+from ..desktop.platform import locks
 
 
 class EnvironmentSourceError(RuntimeError):
@@ -229,7 +230,7 @@ def _source_lock(key: str):
                 or stat.S_IMODE(lock_stat.st_mode) != 0o600
             ):
                 raise EnvironmentSourceError("unsafe environment lock file")
-            fcntl.flock(fd, fcntl.LOCK_EX)
+            locks.lock_exclusive(fd)
             yield
         finally:
             os.close(fd)

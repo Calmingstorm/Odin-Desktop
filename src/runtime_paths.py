@@ -24,4 +24,6 @@ def runtime_profile_paths():
         return ProfilePaths.from_app(
             profile, token_file=Path(token_file), data_dir=Path(data_dir)
         )
-    return ProfilePaths.from_xdg(profile)
+    from .desktop.platform import current_platform
+
+    return current_platform().profile_paths(profile)

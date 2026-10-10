@@ -412,7 +412,9 @@ def test_cli_connection_failure_scrubbed(tmp_path, capsys):
 
 @pytest.mark.asyncio
 async def test_local_client_refuses_foreign_uid_before_token_send(monkeypatch):
-    monkeypatch.setattr("src.desktop.local_client.peer_uid", lambda _sock: os.geteuid() + 1)
+    # The peer check lives in the platform's transport, shared by server and client;
+    # "foreign IPC listener" is the client's own refusal, raised before any token is sent.
+    monkeypatch.setattr(ipc_auth, "peer_uid", lambda _sock: os.geteuid() + 1)
     async with fixture_server() as (server, token_file, _, calls):
         with pytest.raises(PermissionError, match="foreign IPC listener"):
             await LocalClient.connect(server.socket_path, token_file)

@@ -5,13 +5,11 @@ import argparse
 import asyncio
 import json
 import math
-import os
-import stat
 import sys
 import uuid
 from pathlib import Path
 
-from .ipc_auth import load_token, peer_uid, private_parent
+from .platform import current_platform
 from .protocol import HANDSHAKE_TIMEOUT, MAX_FRAME, ProtocolError, encode_frame, read_frame
 
 
@@ -25,19 +23,11 @@ class LocalClient:
     @classmethod
     async def connect(cls, socket_path: Path | str, token_file: Path | str,
                       profile_id: str = "default") -> LocalClient:
-        token = load_token(token_file)
-        path, parent = private_parent(socket_path)
+        ipc = current_platform().ipc
+        token = ipc.load_token(token_file)
+        reader, writer = await ipc.connect(socket_path)
         try:
-            info = os.stat(path.name, dir_fd=parent, follow_symlinks=False)
-            if (not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.geteuid()
-                    or stat.S_IMODE(info.st_mode) != 0o600):
-                raise PermissionError("unsafe IPC socket")
-            reader, writer = await asyncio.wait_for(asyncio.open_unix_connection(
-                f"/proc/self/fd/{parent}/{path.name}"), HANDSHAKE_TIMEOUT)
-        finally:
-            os.close(parent)
-        try:
-            if peer_uid(writer.get_extra_info("socket")) != os.geteuid():
+            if ipc.peer(writer) != ipc.owner:
                 raise PermissionError("foreign IPC listener")
             writer.write(encode_frame({"t": "hello", "protocol": {"major": 0, "minor": 2},
                                        "client": {"name": "odin-cli", "version": "0"},

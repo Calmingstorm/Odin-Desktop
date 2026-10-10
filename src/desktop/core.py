@@ -25,12 +25,12 @@ from .delivery import (
 )
 from .errors import refusal_reason
 from .ipc import IpcServer
-from .ipc_auth import load_token
 from .lifecycle import CoreLifetime
 from .management import ManagementService
 from .package_state import PackageUpgrade, inspect_profile
 from .package_status import PackageStatus, product_version
 from .paths import ProfilePaths
+from .platform import current_platform
 from .reports import ReportBinding, ReportDelivery, ReportService
 from .requests import RequestService
 from .resource_cleanup import (
@@ -341,7 +341,7 @@ class CoreService:
         # Refuse newer state before identity/bootstrap/store constructors write.
         package_record = inspect_profile(self.paths, package_version=get_version())
         # The app creates the credential. Validate it before bootstrap adopts any state.
-        load_token(self.token_file)
+        current_platform().ipc.load_token(self.token_file)
         self.authority = OwnerAuthority(self.paths, app_bootstrap=True)
         self.authority.acquire_runtime()
         upgrade = PackageUpgrade(self.paths, self.authority, get_version())
