@@ -190,6 +190,9 @@ async function sealedCore(options: FakeOptions = {}) {
     connection += 1
     const mine = connection
     sockets.push(socket)
+    socket.on('error', () => {
+      /* the broker may close first; a late answer then fails, as a real core's would */
+    })
     const plain = new FrameDecoder(4096)
     let transcript: Buffer | null = null
     let keys: ReturnType<typeof sessionKeys> | null = null
