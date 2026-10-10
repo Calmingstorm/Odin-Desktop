@@ -702,3 +702,19 @@ async def test_idle_subscriber_revocation_prevents_unsolicited_event(monkeypatch
         assert await client.reader.read() == b""
         assert connection.event_seq == 0
         await client.close()
+
+
+@pytest.mark.asyncio
+async def test_diagnostic_run_exits_nonzero_when_the_core_says_bye(monkeypatch):
+    """The diagnostics command reports failure when the core ends the connection instead
+    of answering, and the request is never dispatched."""
+    from argparse import Namespace
+
+    from src.desktop import local_client
+
+    async with fixture_server() as (server, token_file, authority, calls):
+        monkeypatch.setattr(authority, "accepts", lambda _context: False)
+        args = Namespace(socket=server.socket_path, token_file=token_file, profile="default",
+                         method="status.get")
+        assert await local_client._run(args) == 1
+        assert not calls
