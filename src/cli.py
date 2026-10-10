@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .desktop import local_client
 from .desktop.paths import ProfilePaths
+from .desktop.platform.variants import windows_variant
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +20,7 @@ class CoreOptions:
     paths: ProfilePaths
 
 
+@windows_variant("src.desktop.platform.windows_ipc:parse_core_args")
 def parse_core_args(argv: Sequence[str] | None = None) -> CoreOptions:
     parser = argparse.ArgumentParser(description="App-supervised Odin Desktop core")
     parser.add_argument("--socket", type=Path, required=True)

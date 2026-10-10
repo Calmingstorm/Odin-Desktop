@@ -16,6 +16,7 @@ OPENSSH_TEMP_SUFFIX_BYTES = 17
 REGISTRY_SOCKET_NAME = "host-" + "0" * 32
 
 
+@windows_variant("src.desktop.platform.windows_desktop:check_socket_path")
 def check_socket_path(path: str) -> None:
     required = max(len(os.fsencode(path)), len(os.fsencode(os.path.abspath(path))))
     required += OPENSSH_TEMP_SUFFIX_BYTES

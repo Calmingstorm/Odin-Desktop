@@ -13,14 +13,16 @@ from src.desktop.platform.windows import WindowsPlatform, windows_profile_paths
 from src.desktop.platform.windows_files import dacl_is_private, held, private_directory
 
 
-def test_windows_is_selected_and_its_2a_transport_fails_closed():
+def test_windows_is_selected_with_its_pipe_transport_and_lifetime():
+    from src.desktop.platform.windows_ipc import WindowsIpc
+    from src.desktop.platform.windows_process import WindowsCoreLifetime
+
     platform = current_platform()
     assert isinstance(platform, WindowsPlatform) and platform.name == "windows"
     assert platform.computer_supported is False
-    with pytest.raises(NotImplementedError, match="phase 2b"):
-        platform.ipc  # noqa: B018 - the property itself refuses
-    with pytest.raises(NotImplementedError, match="phase 2b"):
-        platform.core_lifetime()
+    assert isinstance(platform.ipc, WindowsIpc) and platform.ipc is platform.ipc
+    lifetime = platform.core_lifetime()
+    assert isinstance(lifetime, WindowsCoreLifetime) and lifetime.admitting
 
 
 def test_profile_lives_under_local_appdata(tmp_path):
@@ -197,3 +199,28 @@ def test_the_engine_entry_modules_import_on_windows():
     for name in ("src.__main__", "src.cli", "src.desktop.core", "src.desktop.services",
                  "src.desktop.package_state", "src.desktop.package_ownership"):
         importlib.import_module(name)
+
+
+def test_ssh_control_socket_paths_have_no_unix_length_bound_on_windows(tmp_path):
+    from src.desktop.ssh_sockets import REGISTRY_SOCKET_NAME, check_socket_path
+
+    long_folder = tmp_path / ("x" * 120)
+    check_socket_path(str(long_folder / REGISTRY_SOCKET_NAME))  # Linux would refuse this
+    with pytest.raises(ValueError, match="invalid"):
+        check_socket_path("C:\\odin\\bad\0name")
+
+
+async def test_computer_management_reports_windows_without_opening_a_store():
+    import asyncio
+
+    from src.desktop.computer_binding import ComputerBindingService
+
+    service = ComputerBindingService.__new__(ComputerBindingService)
+    service._lifecycle = asyncio.Lock()
+    service._closed, service._started, service._startup_error = False, False, None
+    await service.start()
+    assert service._startup_error == "computer_unsupported_on_windows"
+    assert not service._started
+    service._closed = True
+    with pytest.raises(Exception, match="closed"):
+        await service.start()

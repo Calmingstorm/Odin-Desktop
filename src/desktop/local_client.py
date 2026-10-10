@@ -10,6 +10,7 @@ import uuid
 from pathlib import Path
 
 from .platform import current_platform
+from .platform.variants import windows_variant
 from .protocol import HANDSHAKE_TIMEOUT, MAX_FRAME, ProtocolError, encode_frame, read_frame
 
 
@@ -21,6 +22,7 @@ class LocalClient:
         self.max_frame = welcome["max_frame"]
 
     @classmethod
+    @windows_variant("src.desktop.platform.windows_ipc:local_client_connect")
     async def connect(cls, socket_path: Path | str, token_file: Path | str,
                       profile_id: str = "default") -> LocalClient:
         ipc = current_platform().ipc

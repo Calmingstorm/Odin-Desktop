@@ -99,6 +99,25 @@ LOCKFILE_FAIL_IMMEDIATELY = 0x1
 LOCKFILE_EXCLUSIVE_LOCK = 0x2
 
 CRYPTPROTECT_UI_FORBIDDEN = 0x1
+
+# Named pipes and processes.
+PIPE_ACCESS_DUPLEX = 0x00000003
+FILE_FLAG_FIRST_PIPE_INSTANCE = 0x00080000
+FILE_FLAG_OVERLAPPED = 0x40000000
+PIPE_TYPE_BYTE = 0x00000000
+PIPE_READMODE_BYTE = 0x00000000
+PIPE_WAIT = 0x00000000
+PIPE_REJECT_REMOTE_CLIENTS = 0x00000008
+PIPE_UNLIMITED_INSTANCES = 255
+PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+PROCESS_TERMINATE = 0x0001
+WAIT_OBJECT_0 = 0x00000000
+FILE_TYPE_PIPE = 0x0003
+
+# Job objects.
+JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+JOB_OBJECT_BASIC_PROCESS_ID_LIST_CLASS = 3
+JOB_OBJECT_EXTENDED_LIMIT_INFORMATION_CLASS = 9
 SYSTEM_BOOT_ENVIRONMENT_INFORMATION_CLASS = 90
 
 
@@ -136,6 +155,37 @@ class OVERLAPPED(ctypes.Structure):
         ("Offset", DWORD),
         ("OffsetHigh", DWORD),
         ("hEvent", HANDLE),
+    ]
+
+
+class IO_COUNTERS(ctypes.Structure):  # noqa: N801 - the Windows API's own name
+    _fields_ = [(name, ctypes.c_ulonglong) for name in (
+        "ReadOperationCount", "WriteOperationCount", "OtherOperationCount",
+        "ReadTransferCount", "WriteTransferCount", "OtherTransferCount")]
+
+
+class JOBOBJECT_BASIC_LIMIT_INFORMATION(ctypes.Structure):  # noqa: N801 - the Windows API's own name
+    _fields_ = [
+        ("PerProcessUserTimeLimit", ctypes.c_longlong),
+        ("PerJobUserTimeLimit", ctypes.c_longlong),
+        ("LimitFlags", DWORD),
+        ("MinimumWorkingSetSize", ctypes.c_size_t),
+        ("MaximumWorkingSetSize", ctypes.c_size_t),
+        ("ActiveProcessLimit", DWORD),
+        ("Affinity", ctypes.c_size_t),
+        ("PriorityClass", DWORD),
+        ("SchedulingClass", DWORD),
+    ]
+
+
+class JOBOBJECT_EXTENDED_LIMIT_INFORMATION(ctypes.Structure):  # noqa: N801 - the Windows API's own name
+    _fields_ = [
+        ("BasicLimitInformation", JOBOBJECT_BASIC_LIMIT_INFORMATION),
+        ("IoInfo", IO_COUNTERS),
+        ("ProcessMemoryLimit", ctypes.c_size_t),
+        ("JobMemoryLimit", ctypes.c_size_t),
+        ("PeakProcessMemoryUsed", ctypes.c_size_t),
+        ("PeakJobMemoryUsed", ctypes.c_size_t),
     ]
 
 
@@ -237,6 +287,39 @@ CryptUnprotectData = _declare(
     [ctypes.POINTER(DATA_BLOB), ctypes.POINTER(wintypes.LPWSTR), ctypes.POINTER(DATA_BLOB), PVOID,
      PVOID, DWORD, ctypes.POINTER(DATA_BLOB)],
 )
+CreateNamedPipeW = _declare(
+    kernel32.CreateNamedPipeW,
+    [wintypes.LPCWSTR, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD,
+     ctypes.POINTER(SECURITY_ATTRIBUTES)],
+    HANDLE)
+GetNamedPipeClientProcessId = _declare(
+    kernel32.GetNamedPipeClientProcessId, [HANDLE, ctypes.POINTER(wintypes.ULONG)])
+GetNamedPipeServerProcessId = _declare(
+    kernel32.GetNamedPipeServerProcessId, [HANDLE, ctypes.POINTER(wintypes.ULONG)])
+OpenProcess = _declare(kernel32.OpenProcess, [DWORD, BOOL, DWORD], HANDLE)
+GetCurrentProcessId = _declare(kernel32.GetCurrentProcessId, [], DWORD)
+TerminateProcess = _declare(kernel32.TerminateProcess, [HANDLE, wintypes.UINT])
+GetExitCodeProcess = _declare(kernel32.GetExitCodeProcess, [HANDLE, ctypes.POINTER(DWORD)])
+WaitForSingleObject = _declare(kernel32.WaitForSingleObject, [HANDLE, DWORD], DWORD)
+CreateEventW = _declare(
+    kernel32.CreateEventW,
+    [ctypes.POINTER(SECURITY_ATTRIBUTES), BOOL, BOOL, wintypes.LPCWSTR], HANDLE)
+SetEvent = _declare(kernel32.SetEvent, [HANDLE])
+CreateJobObjectW = _declare(
+    kernel32.CreateJobObjectW, [ctypes.POINTER(SECURITY_ATTRIBUTES), wintypes.LPCWSTR], HANDLE)
+SetInformationJobObject = _declare(
+    kernel32.SetInformationJobObject, [HANDLE, ctypes.c_int, PVOID, DWORD])
+QueryInformationJobObject = _declare(
+    kernel32.QueryInformationJobObject, [HANDLE, ctypes.c_int, PVOID, DWORD, ctypes.POINTER(DWORD)])
+AssignProcessToJobObject = _declare(kernel32.AssignProcessToJobObject, [HANDLE, HANDLE])
+IsProcessInJob = _declare(kernel32.IsProcessInJob, [HANDLE, HANDLE, ctypes.POINTER(BOOL)])
+GetFileType = _declare(kernel32.GetFileType, [HANDLE], DWORD)
+ReadFile = _declare(
+    kernel32.ReadFile,
+    [HANDLE, ctypes.c_void_p, DWORD, ctypes.POINTER(DWORD), ctypes.POINTER(OVERLAPPED)])
+PeekNamedPipe = _declare(
+    kernel32.PeekNamedPipe,
+    [HANDLE, PVOID, DWORD, ctypes.POINTER(DWORD), ctypes.POINTER(DWORD), ctypes.POINTER(DWORD)])
 NtQuerySystemInformation = _declare(
     ntdll.NtQuerySystemInformation,
     [ctypes.c_int, PVOID, wintypes.ULONG, ctypes.POINTER(wintypes.ULONG)],
@@ -291,9 +374,10 @@ def sid_string(sid) -> str:
         LocalFree(ctypes.cast(text, PVOID))
 
 
-def _token_sid(information_class: int) -> str:
+def _token_sid(information_class: int, *, process=None) -> str:
     token = HANDLE()
-    check(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, ctypes.byref(token)))
+    check(OpenProcessToken(GetCurrentProcess() if process is None else process, TOKEN_QUERY,
+                           ctypes.byref(token)))
     try:
         needed = DWORD()
         GetTokenInformation(token, information_class, None, 0, ctypes.byref(needed))
@@ -309,6 +393,25 @@ def _token_sid(information_class: int) -> str:
 def current_user_sid() -> str:
     """The SID string of this process's token user."""
     return _token_sid(TOKEN_USER_CLASS)
+
+
+def process_user_sid(pid: int) -> str:
+    """The SID string of another process's token user."""
+    process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not process:
+        raise error()
+    try:
+        return _token_sid(TOKEN_USER_CLASS, process=process)
+    finally:
+        close(process)
+
+
+def pipe_peer_sid(handle, *, client: bool) -> str:
+    """The user SID of the process at the other end of a named pipe."""
+    pid = wintypes.ULONG()
+    query = GetNamedPipeClientProcessId if client else GetNamedPipeServerProcessId
+    check(query(handle, ctypes.byref(pid)))
+    return process_user_sid(pid.value)
 
 
 def default_owner_sid() -> str:

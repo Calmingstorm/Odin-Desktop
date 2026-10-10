@@ -1,8 +1,8 @@
 """Windows: the Desktop engine's platform members.
 
-The profile lives under the user's local (not roaming) AppData. Until phase 2b
-brings the named-pipe transport and the Windows core lifetime, those members
-refuse, so selecting Windows never looks like a usable core.
+The profile lives under the user's local (not roaming) AppData. The transport is
+an owner-only named pipe with a sealed session. Until the Windows core lifetime
+arrives, that member refuses, so a Windows core never starts half-built.
 """
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import ntpath
 import os
 import re
 from collections.abc import Mapping
+from functools import cached_property
 from pathlib import Path
 
 _PROFILE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
@@ -45,9 +46,12 @@ class WindowsPlatform:
     name = "windows"
     computer_supported = False
 
-    @property
+    @cached_property
     def ipc(self):
-        raise NotImplementedError("the Windows app-to-engine transport arrives with phase 2b")
+        """The app ↔ engine transport: an owner-only named pipe with a sealed session."""
+        from .windows_ipc import WindowsIpc
+
+        return WindowsIpc()
 
     def secret_backend(self, paths=None):
         """The profile's DPAPI store; it needs the selected profile's folders."""
@@ -58,7 +62,10 @@ class WindowsPlatform:
         return DpapiSecretBackend(paths)
 
     def core_lifetime(self):
-        raise NotImplementedError("the Windows core lifetime arrives with phase 2b")
+        """Signals through ``signal.signal``; the parent pipe read by a native thread."""
+        from .windows_process import WindowsCoreLifetime
+
+        return WindowsCoreLifetime()
 
     def profile_paths(self, profile_id: str = "default", *,
                       environ: Mapping[str, str] | None = None, home: Path | str | None = None):

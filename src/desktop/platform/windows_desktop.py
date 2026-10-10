@@ -542,3 +542,38 @@ def package_backup(self):
     _sync_directory(root)
     _sync_directory(self.paths.data_dir)
     return backup
+
+
+# --- ssh_sockets --------------------------------------------------------------------------
+
+
+def check_socket_path(path: str) -> None:
+    """``check_socket_path`` on Windows: no OpenSSH control socket, so no AF_UNIX bound.
+
+    The Linux bound is the 108-byte Unix socket path OpenSSH's ControlPath needs.
+    Windows' OpenSSH has no ControlMaster, so the engine creates no such socket here
+    (SSH itself arrives in phase 3); a profile under a normal ``%LOCALAPPDATA%``
+    already exceeds the Linux bound.
+    """
+    if "\0" in path:
+        raise ValueError("Desktop SSH control socket path is invalid")
+
+
+# --- computer_binding -----------------------------------------------------------------------
+
+
+async def computer_binding_start(self):
+    """``ComputerBindingService.start`` on Windows: computer use isn't available here yet.
+
+    No computer store opens. As when Linux can't open that store, the transport
+    keeps working, only the read methods are offered, and ``computer.status``
+    reports why.
+    """
+    from ..management import MethodError
+
+    async with self._lifecycle:
+        if self._closed:
+            raise MethodError("capability_unavailable", "Computer management is closed")
+        if self._started:
+            return
+        self._startup_error = "computer_unsupported_on_windows"

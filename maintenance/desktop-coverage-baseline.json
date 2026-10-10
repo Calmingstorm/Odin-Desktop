@@ -181,6 +181,11 @@
         "missing": 2,
         "total": 88
       },
+      "app/src/main/windows-session.ts": {
+        "covered": 111,
+        "missing": 3,
+        "total": 114
+      },
       "app/src/preload/index.ts": {
         "covered": 102,
         "missing": 0,
@@ -683,9 +688,9 @@
       }
     },
     "total": {
-      "covered": 8396,
-      "missing": 330,
-      "total": 8726
+      "covered": 8507,
+      "missing": 333,
+      "total": 8840
     }
   },
   "exceptions": {},
@@ -2811,6 +2816,7 @@
     "app/src/main/shutdown.ts",
     "app/src/main/tray.ts",
     "app/src/main/window-state.ts",
+    "app/src/main/windows-session.ts",
     "app/src/preload/index.ts",
     "app/src/renderer/src/App.vue",
     "app/src/renderer/src/artifacts.ts",
@@ -2956,7 +2962,9 @@
     "src/desktop/platform/windows_desktop.py",
     "src/desktop/platform/windows_engine.py",
     "src/desktop/platform/windows_files.py",
+    "src/desktop/platform/windows_ipc.py",
     "src/desktop/platform/windows_locks.py",
+    "src/desktop/platform/windows_process.py",
     "src/desktop/platform/windows_secrets.py",
     "src/desktop/platform/windows_workspace.py",
     "src/desktop/profile.py",
@@ -3022,10 +3030,20 @@
         "missing": 43,
         "total": 329
       },
+      "src/desktop/platform/windows_ipc.py": {
+        "covered": 164,
+        "missing": 29,
+        "total": 193
+      },
       "src/desktop/platform/windows_locks.py": {
         "covered": 9,
         "missing": 0,
         "total": 9
+      },
+      "src/desktop/platform/windows_process.py": {
+        "covered": 271,
+        "missing": 13,
+        "total": 284
       },
       "src/desktop/platform/windows_secrets.py": {
         "covered": 30,
@@ -3039,9 +3057,9 @@
       }
     },
     "total": {
-      "covered": 1536,
-      "missing": 192,
-      "total": 1728
+      "covered": 1971,
+      "missing": 234,
+      "total": 2205
     }
   }
 }

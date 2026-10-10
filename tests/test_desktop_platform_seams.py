@@ -29,17 +29,14 @@ def test_linux_is_chosen_once(fresh_platform):
     assert current_platform() is first
 
 
-def test_windows_is_selected_with_its_phase_2b_members_refused(fresh_platform, monkeypatch):
+def test_windows_is_selected_on_win32(fresh_platform, monkeypatch):
+    """Its members run natively in tests/windows; here only selection and the profile binding."""
     from src.desktop.platform.windows import WindowsPlatform
 
     monkeypatch.setattr(desktop_platform.sys, "platform", "win32")
     platform = current_platform()
     assert isinstance(platform, WindowsPlatform) and platform.name == "windows"
     assert platform.computer_supported is False
-    with pytest.raises(NotImplementedError, match="phase 2b"):
-        platform.ipc  # noqa: B018 - the property itself refuses
-    with pytest.raises(NotImplementedError, match="phase 2b"):
-        platform.core_lifetime()
     with pytest.raises(ValueError, match="bound to a profile"):
         platform.secret_backend()
 

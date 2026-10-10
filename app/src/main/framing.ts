@@ -30,6 +30,11 @@ export class FrameDecoder {
     this.maxFrame = maxFrame
   }
 
+  /** Bytes received but not yet a complete frame. */
+  get pendingBytes(): number {
+    return this.buffered.length
+  }
+
   push(chunk: Buffer): Record<string, unknown>[] {
     this.buffered = this.buffered.length === 0 ? chunk : Buffer.concat([this.buffered, chunk])
     const frames: Record<string, unknown>[] = []

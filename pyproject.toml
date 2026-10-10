@@ -29,6 +29,8 @@ dependencies = [
     "dbus-next>=0.2.3,<1",
     # Windows has no system time-zone database; zoneinfo reads this package instead.
     "tzdata>=2025.2; sys_platform == 'win32'",
+    # AES-GCM for the Windows app-to-engine session; Linux already has it via SecretStorage.
+    "cryptography>=50,<51; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
