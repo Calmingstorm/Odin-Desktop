@@ -25,7 +25,6 @@ from .delivery import (
 )
 from .errors import refusal_reason
 from .ipc import IpcServer
-from .lifecycle import CoreLifetime
 from .management import ManagementService
 from .package_state import PackageUpgrade, inspect_profile
 from .package_status import PackageStatus, product_version
@@ -251,7 +250,7 @@ class CoreService:
         self.turn_state = None
         self.computer_foreground = None
         self.computer_unavailable_reason = None
-        self.lifetime = CoreLifetime()
+        self.lifetime = current_platform().core_lifetime()
         self._serial = asyncio.Lock()
         self._closed = False
         self._close_complete = False

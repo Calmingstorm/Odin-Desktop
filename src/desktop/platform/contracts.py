@@ -41,9 +41,42 @@ class IpcTransport(Protocol):
         """The connected process's owner, from the OS, never from the client."""
 
 
+class SecretBackend(Protocol):
+    """The OS keyring holding the profile's secrets."""
+
+    def get_password(self, service: str, name: str) -> str | None: ...
+
+    def set_password(self, service: str, name: str, value: str) -> None: ...
+
+    def delete_password(self, service: str, name: str) -> None: ...
+
+    def unlock(self) -> bool: ...
+
+
+class CoreLifetime(Protocol):
+    """The core's single shutdown edge: OS signals and loss of the app."""
+
+    stopping: asyncio.Event
+    reason: str | None
+
+    def watch_signals(self) -> None: ...
+
+    def watch_parent(self, stdin_fd: int) -> None: ...
+
+    def request_stop(self, reason: str) -> None: ...
+
+    async def wait(self) -> None: ...
+
+    def close(self) -> None: ...
+
+
 class Platform(Protocol):
     name: str
     ipc: IpcTransport
+
+    def secret_backend(self) -> SecretBackend: ...
+
+    def core_lifetime(self) -> CoreLifetime: ...
 
     def profile_paths(
         self,

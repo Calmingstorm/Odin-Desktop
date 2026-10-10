@@ -10,6 +10,7 @@ from contextlib import closing
 from contextvars import ContextVar
 
 from .paths import ProfilePaths
+from .platform import current_platform
 
 
 class SecretStoreError(RuntimeError):
@@ -219,7 +220,7 @@ class ProfileSecretStore:
     def _adapter(self):
         if self._backend is None:
             try:
-                self._backend = _SecretServiceBackend()
+                self._backend = current_platform().secret_backend()
             except Exception:
                 raise SecretStoreError("Profile keyring is unavailable") from None
         return self._backend

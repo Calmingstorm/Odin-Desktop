@@ -16,6 +16,18 @@ class LinuxPlatform:
 
         return LinuxIpc()
 
+    def secret_backend(self):
+        """The profile keyring: the desktop session's Secret Service."""
+        from .. import secrets
+
+        return secrets._SecretServiceBackend()
+
+    def core_lifetime(self):
+        """Signals and the parent pipe, watched on the event loop."""
+        from ..lifecycle import CoreLifetime
+
+        return CoreLifetime()
+
     def profile_paths(
         self,
         profile_id: str = "default",

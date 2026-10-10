@@ -93,3 +93,32 @@ def test_profile_modules_load_without_fcntl():
                             text=True, timeout=60)
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == "refused"
+
+
+def test_the_keyring_backend_comes_from_the_platform(monkeypatch, tmp_path):
+    """The store still builds its default backend lazily, and a backend that can't start
+    is still reported as an unavailable keyring."""
+    from src.desktop import secrets
+
+    class Backend:
+        pass
+
+    monkeypatch.setattr(secrets, "_SecretServiceBackend", Backend)
+    assert isinstance(LinuxPlatform().secret_backend(), Backend)
+    store = secrets.ProfileSecretStore(ProfilePaths.from_xdg("work", environ={}, home=tmp_path))
+    assert isinstance(store._adapter(), Backend)
+
+    def unavailable():
+        raise RuntimeError("no session bus")
+
+    monkeypatch.setattr(secrets, "_SecretServiceBackend", unavailable)
+    broken = secrets.ProfileSecretStore(ProfilePaths.from_xdg("work", environ={}, home=tmp_path))
+    with pytest.raises(secrets.SecretStoreError, match="Profile keyring is unavailable"):
+        broken._adapter()
+
+
+def test_the_core_lifetime_is_the_existing_class():
+    from src.desktop.lifecycle import CoreLifetime
+
+    lifetime = LinuxPlatform().core_lifetime()
+    assert type(lifetime) is CoreLifetime and lifetime.admitting
