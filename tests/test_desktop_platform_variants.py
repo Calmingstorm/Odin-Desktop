@@ -104,3 +104,33 @@ def test_every_variant_exists_with_the_original_parameters():
         variant = definitions[name]
         assert _parameters(variant) == _parameters(node), f"{source}:{node.name} -> {target}"
         assert isinstance(variant, ast.AsyncFunctionDef) == isinstance(node, ast.AsyncFunctionDef)
+
+
+PINS = ROOT / "maintenance/windows-variant-sources.json"
+
+
+def _original_sources():
+    """SHA-256 of each routed Linux function's own source, from its def line to its end."""
+    import hashlib
+
+    sources = {}
+    for source, node, target in _decorated():
+        lines = (ROOT / source).read_text(encoding="utf-8").splitlines()
+        text = "\n".join(lines[node.lineno - 1:node.end_lineno]) + "\n"
+        sources[f"{source}:{node.name} -> {target}"] = hashlib.sha256(text.encode()).hexdigest()
+    return sources
+
+
+def test_each_windows_variant_was_reviewed_against_its_linux_original():
+    """A routed Linux function that changes needs its Windows variant reviewed.
+
+    Update maintenance/windows-variant-sources.json only after that review:
+    the variant mirrors the Linux body with its POSIX steps replaced.
+    """
+    import json
+
+    recorded = json.loads(PINS.read_text(encoding="utf-8"))
+    current = _original_sources()
+    assert set(current) == set(recorded), "routed functions and pins differ"
+    changed = sorted(key for key in current if current[key] != recorded[key])
+    assert not changed, f"review these Windows variants against their changed originals: {changed}"
