@@ -7,11 +7,15 @@ The contract (phase 2 plan, A2 and A5):
   held without delete sharing. Each one is checked not to be a reparse point and to
   have an admitted owner. While the chain is held no component can be renamed,
   deleted or replaced, so a path under it names the held objects.
-* **Volumes.** Private state lives on local fixed NTFS volumes only.
+* **Volumes.** Private state lives on local fixed NTFS volumes only. A UNC path or a
+  drive letter of any other type (a mapped network drive among them) is refused
+  before anything resolves it.
 * **Private objects.** Our folders and files may grant access only to the user,
   OWNER RIGHTS, SYSTEM and Administrators. A null DACL, an allow entry for anyone
-  else, or an entry type we can't read refuses. Our own namespace objects are
-  repaired to the private descriptor when the user owns them, as Linux repairs 0700.
+  else, or an entry type we can't read refuses. A namespace folder is judged with
+  what its new children would inherit too. Our own namespace objects are repaired to
+  the private descriptor when the user owns them, as Linux repairs 0700; a SYSTEM or
+  Administrators one must already be private.
 * **Barriers.** A Windows barrier flushes the object whose name changed, through a
   handle naming it. Microsoft documents that file-system metadata is cached and that a
   file must be flushed to store its metadata changes. This is recorded as a Windows
@@ -64,23 +68,29 @@ def _trusted_ancestor_owners() -> frozenset[str]:
                       win32.TRUSTED_INSTALLER_SID})
 
 
-def dacl_is_private(security: win32.ObjectSecurity) -> bool:
+def dacl_is_private(security: win32.ObjectSecurity, *, children: bool = False) -> bool:
     """True when nobody outside the admitted principals is granted anything.
 
     A null DACL grants everyone, so it is not private. A valid empty DACL grants
-    nobody and is. Deny entries and inherit-only entries grant nothing on this
-    object. Any other entry type fails closed.
+    nobody and is. Deny entries grant nothing. An inherit-only entry grants nothing
+    on this object; with ``children`` (a folder we create files in) an entry that new
+    children would inherit counts too, where CREATOR OWNER becomes their creator.
+    Any other entry type fails closed.
     """
     if not security.dacl_present:
         return False
     admitted = _admitted()
+    inheritable = win32.OBJECT_INHERIT_ACE | win32.CONTAINER_INHERIT_ACE
     for kind, flags, mask, sid in security.aces:
         if kind == win32.ACCESS_DENIED_ACE_TYPE:
             continue
         if kind != win32.ACCESS_ALLOWED_ACE_TYPE:
             return False
-        if flags & win32.INHERIT_ONLY_ACE or not mask:
+        if not mask:
             continue
+        if flags & win32.INHERIT_ONLY_ACE:
+            if not children or not flags & inheritable or sid == win32.CREATOR_OWNER_SID:
+                continue
         if sid not in admitted:
             return False
     return True
@@ -90,24 +100,37 @@ def _refuse(reason: str, path) -> PermissionError:
     return PermissionError(errno.EACCES, reason, str(path))
 
 
-def _local_drive(text: str) -> bool:
+def _drive_root(text: str) -> str | None:
     if text.startswith("\\\\?\\") and text[5:6] == ":":
         text = text[4:]
     drive = ntpath.splitdrive(text)[0]
-    return len(drive) == 2 and drive[1] == ":"
+    return drive + "\\" if len(drive) == 2 and drive[1] == ":" else None
 
 
-def canonical(path) -> Path:
-    """Require a local drive path, then resolve it once.
+def _local_drive(text: str) -> bool:
+    return _drive_root(text) is not None
 
-    A network path is refused before anything resolves it, so no share is ever
-    contacted on its behalf.
+
+def require_local(path) -> Path:
+    """Refuse anything but a local fixed drive, before anything resolves the path.
+
+    UNC paths and drive letters of any other type, a mapped network drive among
+    them, are refused here, so no share is contacted on their behalf. (A local
+    symbolic link to a network target, which needs the symbolic-link privilege to
+    create, is followed by the later one-time resolution, whose result is refused.)
     """
     path = Path(path)
     if not path.is_absolute() or ".." in path.parts or any(ord(c) < 32 for c in str(path)):
         raise ValueError("private paths must be absolute")
-    if not _local_drive(str(path)):
+    root = _drive_root(str(path))
+    if root is None or win32.drive_type(root) != win32.DRIVE_FIXED:
         raise _refuse("private state needs a local fixed NTFS volume", path)
+    return path
+
+
+def canonical(path) -> Path:
+    """Require a local fixed drive path, then resolve it once (Linux: ``realpath``)."""
+    path = require_local(path)
     resolved = os.path.realpath(path)
     if resolved.startswith("\\\\?\\") and resolved[5:6] == ":":
         resolved = resolved[4:]
@@ -173,14 +196,18 @@ def _verify_directory(handle, path, *, namespace: bool, kind: str) -> None:
         raise NotADirectoryError(errno.ENOTDIR, "not a folder", str(path))
     security = win32.object_security(handle)
     if namespace:
+        # Files are created here, so what they would inherit counts as well.
         if security.owner in own_sids():
-            if not dacl_is_private(security):
+            if not dacl_is_private(security, children=True):
                 _repair_dacl(handle, path, directory=True)
-                if not dacl_is_private(win32.object_security(handle)):
+                if not dacl_is_private(win32.object_security(handle), children=True):
                     raise _refuse(f"{kind} directory must be owner-private (0700)", path)
             return
         if security.owner in (win32.SYSTEM_SID, win32.ADMINISTRATORS_SID):
-            return  # Usable, but not ours to repair (Linux: a root-owned folder).
+            # Not ours to repair (Linux: a root-owned folder), so it must be private already.
+            if not dacl_is_private(security, children=True):
+                raise _refuse(f"{kind} directory is shared and not ours to repair", path)
+            return
         raise _refuse(f"foreign {kind} ancestor", path)
     if security.owner not in _trusted_ancestor_owners():
         raise _refuse(f"foreign {kind} ancestor", path)
@@ -238,6 +265,13 @@ class HeldChain:
 
     def __exit__(self, *exc):
         self.close()
+
+    def __del__(self):
+        # A safety net only: owners close their chains explicitly.
+        try:
+            self.close()
+        except Exception:  # noqa: BLE001 - interpreter teardown
+            pass
 
 
 @contextmanager
@@ -361,6 +395,25 @@ def to_fd(handle: int, flags: int) -> int:
         raise
 
 
+def open_stream(chain: HeldChain, name: str, mode: str = "rb", *, encoding: str | None = None,
+                newline: str | None = None, create: bool = False, links: bool = True):
+    """A Python file over ``name``, opened and verified inside the held folder.
+
+    Modes with ``a`` append at the end of the file on every write, as ``O_APPEND``.
+    """
+    writing = any(flag in mode for flag in "aw+")
+    handle = open_file(chain, name, write=writing, create=create, links=links)
+    flags = os.O_RDWR if writing else os.O_RDONLY
+    if "a" in mode:
+        flags |= os.O_APPEND
+    fd = to_fd(handle, flags)
+    try:
+        return os.fdopen(fd, mode, encoding=encoding, newline=newline)
+    except BaseException:
+        os.close(fd)
+        raise
+
+
 def read_file(chain: HeldChain, name: str, *, limit: int | None = None,
               links: bool = True) -> bytes:
     fd = to_fd(open_file(chain, name, links=links), os.O_RDONLY)
@@ -455,6 +508,23 @@ def publish(chain: HeldChain, name: str, data: bytes) -> bool:
         raise
     finally:
         win32.close(handle)
+
+
+def rename_member(chain: HeldChain, name: str, target: str, *, replace: bool = True,
+                  missing_ok: bool = False) -> bool:
+    """Rename ``name`` to ``target`` in the held folder, by the verified object's handle."""
+    destination = chain.child(target)
+    try:
+        handle = open_file(chain, name, delete=True, links=False)
+    except FileNotFoundError:
+        if missing_ok:
+            return False
+        raise
+    try:
+        _rename(handle, destination, replace=replace)
+    finally:
+        win32.close(handle)
+    return True
 
 
 def flush_object(chain: HeldChain, name: str, *, links: bool = True) -> None:

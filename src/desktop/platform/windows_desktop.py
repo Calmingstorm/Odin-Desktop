@@ -266,11 +266,13 @@ def owner_display_name(config_dir) -> str:
                 return OWNER_NAME
             handle = open_file(chain, "profile.json", links=False)
             try:
-                if file_size(handle) > 4096:
-                    return OWNER_NAME
+                oversized = file_size(handle) > 4096
             except BaseException:
                 win32.close(handle)
                 raise
+            if oversized:
+                win32.close(handle)
+                return OWNER_NAME
             with os.fdopen(to_fd(handle, os.O_RDONLY), "rb") as stream:
                 data = json.loads(stream.read(4097).decode("utf-8"))
     except (OSError, ValueError):
@@ -394,7 +396,8 @@ def _package_reader(path):
     from ..package_state import PackageStateError
 
     path = Path(path)
-    with held(path.parent.resolve(strict=False)) as chain:
+    # The chain refuses a non-local path before anything resolves it.
+    with held(path.parent) as chain:
         try:
             # Write access only so a caller's os.fsync works: Windows can't flush a
             # read-only handle. Nothing here writes.
@@ -538,4 +541,3 @@ def package_backup(self):
     _sync_directory(root)
     _sync_directory(self.paths.data_dir)
     return backup
-

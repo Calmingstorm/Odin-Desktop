@@ -1,20 +1,24 @@
-"""Windows variants of Odin-origin storage functions in the Desktop engine.
+"""Windows variants of Odin-origin functions in the Desktop engine.
 
-Each replaces one function routed by ``@windows_variant`` and keeps its
-consumer contract: the same strict, degraded or best-effort outcome after the
-commit point, and the old value kept with a raise before it (phase 2 plan, A5).
+Each replaces one function routed by ``@windows_variant``. The storage variants
+keep their consumer contract: the same strict, degraded or best-effort outcome
+after the commit point, and the old value kept with a raise before it (phase 2
+plan, A5). The config validators read Linux-only computer-use paths as POSIX
+paths, as Linux does, so a profile's settings mean the same on both systems.
 Functions marked "lifted" are the Linux body with only its POSIX steps
 replaced; ``tests/test_desktop_platform_variants.py`` pins each Linux original,
 so a change there forces a review here.
 """
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import hashlib
 import json
 import os
 import secrets
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from . import win32
 from .windows_files import (
@@ -27,8 +31,11 @@ from .windows_files import (
     namespace_of,
     open_file,
     open_plain,
+    open_stream,
     publish,
+    read_file,
     remove,
+    rename_member,
     retire,
     to_fd,
     tombstones,
@@ -70,11 +77,13 @@ def host_access_default_host(self):
         with held(path.parent) as chain:
             handle = open_file(chain, path.name, links=False)
             try:
-                if file_size(handle) > 65536:
-                    return ""
+                oversized = file_size(handle) > 65536
             except BaseException:
                 win32.close(handle)
                 raise
+            if oversized:
+                win32.close(handle)
+                return ""
             with os.fdopen(to_fd(handle, os.O_RDONLY), "r", encoding="utf-8") as stream:
                 data = json.load(stream, object_pairs_hook=_unique_keys)
         _validate(data)
@@ -217,13 +226,14 @@ def read_established_key(key_path):
             handle = open_file(chain, key_path.name, links=False)
             try:
                 size = file_size(handle)
-                if size != _KEY_BYTES:
-                    log.warning("Refusing account key %s: %d bytes is not the generated "
-                                "%d-byte shape.", key_path, size, _KEY_BYTES)
-                    return _KeyReadResult(material=None)
             except BaseException:
                 win32.close(handle)
                 raise
+            if size != _KEY_BYTES:
+                win32.close(handle)
+                log.warning("Refusing account key %s: %d bytes is not the generated "
+                            "%d-byte shape.", key_path, size, _KEY_BYTES)
+                return _KeyReadResult(material=None)
             with os.fdopen(to_fd(handle, os.O_RDONLY), "rb") as stream:
                 material = stream.read(_KEY_BYTES)
     except FileNotFoundError:
@@ -391,6 +401,184 @@ def audit_logger_init(self, path=None, *, hmac_key="", classify_failures=True,
         self.durability_degraded = True
 
 
+def _audit_lines(path, flush: bool) -> list[str]:
+    """Read the log through its verified handle; with ``flush``, flush that handle too."""
+    path = Path(path)
+    with held(path.parent) as chain, open_stream(
+            chain, path.name, "r+" if flush else "r", encoding="utf-8") as stream:
+        lines = stream.readlines()
+        if flush:
+            os.fsync(stream.fileno())
+        return lines
+
+
+def _verify_audit(path, key: str) -> dict:
+    """``verify_log``, reading through the verified handle."""
+    from src.audit.signer import verify_segment
+
+    path = Path(path)
+    if not os.path.lexists(path):
+        return {"valid": True, "total": 0, "verified": 0, "unsigned_prefix": 0,
+                "first_bad": None, "error": None}
+    try:
+        with held(path.parent) as chain, open_stream(chain, path.name, "rb") as handle:
+            result = verify_segment(handle, os.fstat(handle.fileno()).st_size, key)
+    except Exception as exc:
+        return {"valid": False, "total": 0, "verified": 0, "unsigned_prefix": 0,
+                "first_bad": None, "error": str(exc)}
+    result.pop("reason", None)
+    return result
+
+
+async def audit_append_durable(self, line: str) -> None:
+    """Linux's durable append, with its I/O under the held folder.
+
+    The log is opened (created if missing) and verified through its handle before
+    any byte is written; the intent marker is published and retired by A5. The
+    outcomes are Linux's.
+    """
+    from src.audit.logger import write_private_atomic
+
+    intent = False
+    try:
+        with held(self.path.parent) as chain, open_stream(
+                chain, self.path.name, "a", encoding="utf-8", newline="", create=True) as f:
+            if not write_private_atomic(
+                self._repair_marker,
+                "Audit append pending or uncertain; operator repair required.\n",
+            ):
+                self.repair_required = True
+                raise OSError("Audit intent durability unproven")
+            intent = True
+            written = await asyncio.to_thread(f.write, line)
+            if written != len(line):
+                raise OSError("Short audit append")
+            await asyncio.to_thread(f.flush)
+            await asyncio.to_thread(os.fsync, f.fileno())
+        # Durable retirement (rename by handle, flush), not unlink + folder fsync.
+        _retire_marker(self._repair_marker)
+    except BaseException:
+        if intent:
+            self._quarantine_uncertain_append()
+        elif self._repair_marker.exists():
+            self.repair_required = True
+        raise
+
+
+def audit_maybe_rotate(self) -> None:
+    """Linux's rotation, every removal and rename by handle under the held folder."""
+    from src.audit.logger import GENESIS_HASH, log
+
+    name = self.path.name
+    try:
+        chain = HeldChain(self.path.parent)
+    except OSError:
+        return
+    with chain:
+        try:
+            handle = open_file(chain, name, links=False)
+        except OSError:
+            return  # absent or unusable, where Linux's stat finds nothing or fails
+        try:
+            small = file_size(handle) < self._max_bytes
+        finally:
+            win32.close(handle)
+        if small:
+            return
+        try:
+            remove(chain, f"{name}.{self._max_files}", missing_ok=True)
+            for i in range(self._max_files - 1, 0, -1):
+                rename_member(chain, f"{name}.{i}", f"{name}.{i + 1}", missing_ok=True)
+            rename_member(chain, name, f"{name}.1")
+            if self._signer is not None:
+                # New file = new chain from genesis, as on Linux.
+                self._signer.prev_hmac = GENESIS_HASH
+            log.info("Rotated audit log at %d bytes", self._max_bytes)
+        except OSError as e:
+            log.error("Audit log rotation failed: %s", e)
+
+
+async def audit_open_read_snapshot(self):
+    """Linux's descriptor snapshot, each generation opened and verified in the held folder."""
+    from src.audit.logger import log
+
+    opened = []
+    seen = set()
+    async with self._persist_lock:
+        try:
+            chain = HeldChain(self.path.parent)
+        except OSError as exc:
+            log.error("Failed to open audit log %s: %s", self.path, exc)
+            return opened
+        with chain:
+            for path in self._rotated_paths_newest_first():
+                try:
+                    handle = open_stream(chain, path.name, "rb")
+                except FileNotFoundError:
+                    continue
+                except OSError as exc:
+                    log.error("Failed to open audit log %s: %s", path, exc)
+                    continue
+                try:
+                    stat = os.fstat(handle.fileno())
+                except OSError as exc:
+                    handle.close()
+                    log.error("Failed to open audit log %s: %s", path, exc)
+                    continue
+                identity = (stat.st_dev, stat.st_ino)
+                if identity in seen:
+                    handle.close()
+                    continue
+                seen.add(identity)
+                opened.append((handle, stat))
+    return opened
+
+
+# --- scheduler/history ----------------------------------------------------------------------
+
+
+def _read_text_lines(path) -> list[str]:
+    path = Path(path)
+    with held(path.parent) as chain, open_stream(chain, path.name, "r",
+                                                 encoding="utf-8") as stream:
+        return stream.readlines()
+
+
+def _append_text(path, text: str) -> None:
+    path = Path(path)
+    with held(path.parent) as chain, open_stream(
+            chain, path.name, "a", encoding="utf-8", newline="", create=True) as stream:
+        stream.write(text)
+
+
+def record_interrupted_sync(self, pending: dict) -> None:
+    """Linux's strict recovery append, under the held folder.
+
+    ``a+`` there: created if missing, never truncated. The one flush of the
+    file's handle after the write is both its data barrier and the barrier for its
+    creation (A5). Any read, parse, write or flush failure propagates instead of
+    claiming success, so the scheduler's outbox stays.
+    """
+    from src.scheduler.history import UTC, datetime
+
+    evidence = ("schedule_id", "status", "run_binding", "error")
+    if pending.get("status") != "unknown":
+        raise ValueError("Interrupted recovery history must have unknown status")
+    with held(self.path.parent) as chain, open_stream(
+            chain, self.path.name, "a+", encoding="utf-8", newline="", create=True) as file:
+        file.seek(0)
+        entries = [json.loads(line) for line in file if line.strip()]
+        recorded = any(
+            all(entry.get(key) == pending.get(key) for key in evidence)
+            for entry in entries
+        )
+        if not recorded:
+            entry = {"timestamp": datetime.now(UTC).isoformat(), **pending}
+            file.write(json.dumps(entry, default=str) + "\n")
+        file.flush()
+        os.fsync(file.fileno())
+
+
 # --- sessions/manager -----------------------------------------------------------------------
 
 
@@ -408,9 +596,9 @@ def publish_result(directory, snapshot):
     from src.agents.results import result_path
 
     path = result_path(Path(directory), snapshot["id"])
-    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     data = json.dumps(snapshot, ensure_ascii=False).encode("utf-8")
-    if not _publish_path(path, data):
+    # Linux: mkdir(0o700); here the missing folders are created private under the chain.
+    if not _publish_path(path, data, create=True):
         raise OSError("agent result committed but its durability is unproven")
 
 
@@ -418,10 +606,13 @@ def publish_result(directory, snapshot):
 
 
 def turn_state_init(self, db_path, *, blob_dir=None, lease_ttl=None):
-    """Establish privacy before SQLite opens anything, then Linux's constructor.
+    """Hold both folders and establish privacy before SQLite opens anything.
 
-    If the preflight fails the optional ledger stays off for this process, as
-    Linux leaves it when its own setup fails, and nothing is written.
+    The folders are created private under their chains and kept held for the
+    store's lifetime; SQLite and the blobs then use the held, canonical paths, so
+    an alias in the given path can't redirect them after the check. If this fails,
+    the optional ledger stays off for this process, as Linux leaves it when its
+    own setup fails, and nothing is written.
     """
     import threading
 
@@ -430,22 +621,21 @@ def turn_state_init(self, db_path, *, blob_dir=None, lease_ttl=None):
     lease_ttl = DEFAULT_LEASE_TTL if lease_ttl is None else lease_ttl
     database = Path(db_path)
     blobs = Path(blob_dir) if blob_dir else database.parent / "blobs"
-    self._windows_chain = None
+    self._windows_chain = self._windows_blob_chain = None
+    chains = []
     try:
-        database.parent.mkdir(parents=True, exist_ok=True)
-        blobs.mkdir(parents=True, exist_ok=True)
-        with held(blobs, namespace=namespace_of(blobs)) as blob_chain:
-            for entry in os.scandir(blob_chain.path):
-                is_folder = entry.is_dir(follow_symlinks=False)
-                ensure_private(blob_chain, entry.name, directory=is_folder)
-        chain = HeldChain(database.parent, namespace=namespace_of(database.parent))
-        try:
-            for suffix in ("", "-wal", "-shm", "-journal"):
-                ensure_private(chain, database.name + suffix)
-        except BaseException:
-            chain.close()
-            raise
+        chains.append(HeldChain(database.parent, create=True,
+                                namespace=namespace_of(database.parent)))
+        chains.append(HeldChain(blobs, create=True, namespace=namespace_of(blobs)))
+        database_chain, blob_chain = chains
+        for entry in os.scandir(blob_chain.path):
+            is_folder = entry.is_dir(follow_symlinks=False)
+            ensure_private(blob_chain, entry.name, directory=is_folder)
+        for suffix in ("", "-wal", "-shm", "-journal"):
+            ensure_private(database_chain, database.name + suffix)
     except Exception:
+        for chain in chains:
+            chain.close()
         log.exception(
             "TurnStateStore init failed — checkpoint durability DISABLED "
             "for this process (turns run legacy, work is not preserved)"
@@ -457,11 +647,70 @@ def turn_state_init(self, db_path, *, blob_dir=None, lease_ttl=None):
         self._conn = None
         self.legacy_effect_free_reconciled = 0
         return
-    TurnStateStore.__init__.linux_original(self, db_path, blob_dir=blob_dir, lease_ttl=lease_ttl)
+    try:
+        TurnStateStore.__init__.linux_original(
+            self, str(database_chain.child(database.name)), blob_dir=str(blob_chain.path),
+            lease_ttl=lease_ttl)
+    except BaseException:
+        for chain in chains:
+            chain.close()
+        raise
     if self._conn is None:
-        chain.close()
+        for chain in chains:
+            chain.close()
     else:
-        self._windows_chain = chain
+        self._windows_chain, self._windows_blob_chain = database_chain, blob_chain
+
+
+def turn_state_close(self):
+    """Linux's close, then the folders held since construction are released."""
+    from src.turn_state.store import TurnStateStore
+
+    TurnStateStore.close.linux_original(self)
+    for attribute in ("_windows_chain", "_windows_blob_chain"):
+        chain = getattr(self, attribute, None)
+        setattr(self, attribute, None)
+        if chain is not None:
+            chain.close()
+
+
+def store_blob_sync(self, data: bytes) -> str:
+    """Linux's content-addressed write in the held blob folder.
+
+    A verified temporary file, flushed and renamed by its handle, as Linux's
+    tmp + fsync + replace; neither system adds a folder barrier.
+    """
+    from src.turn_state.store import TurnStateUnavailableError
+
+    digest = hashlib.sha256(data).hexdigest()
+    chain = getattr(self, "_windows_blob_chain", None)
+    try:
+        if chain is None:
+            raise OSError("the blob folder is not held")
+        try:
+            win32.close(open_file(chain, digest, links=False))
+        except FileNotFoundError:
+            publish(chain, digest, data)
+    except OSError as exc:
+        raise TurnStateUnavailableError(f"blob write failed: {exc}") from exc
+    return f"blob:{digest}"
+
+
+def load_blob_sync(self, ref: str) -> bytes:
+    """Linux's read and digest check, through a verified handle in the held folder."""
+    from src.turn_state.store import TurnStateUnavailableError
+
+    digest = ref.split(":", 1)[1] if ref.startswith("blob:") else ref
+    chain = getattr(self, "_windows_blob_chain", None)
+    try:
+        if chain is None:
+            raise OSError("the blob folder is not held")
+        data = read_file(chain, digest, links=False)
+    except (OSError, ValueError) as exc:
+        raise TurnStateUnavailableError(f"blob read failed: {ref}") from exc
+    if hashlib.sha256(data).hexdigest() != digest:
+        raise TurnStateUnavailableError(f"blob digest mismatch: {ref}")
+    return data
 
 
 def restrict_db_modes(self):
@@ -483,35 +732,6 @@ def _windows_resolve_workspace(*args, **kwargs):
 
 
 # Lifted from the Linux original.
-async def audit_append_durable(self, line: str) -> None:
-    """Persist intent before the first byte; remove it only after settlement."""
-    from src.audit.logger import aiofiles, os, write_private_atomic  # noqa: I001
-    intent = False
-    try:
-        async with aiofiles.open(self.path, "a", encoding="utf-8") as f:
-            if not write_private_atomic(
-                self._repair_marker,
-                "Audit append pending or uncertain; operator repair required.\n",
-            ):
-                self.repair_required = True
-                raise OSError("Audit intent durability unproven")
-            intent = True
-            written = await f.write(line)
-            if written != len(line):
-                raise OSError("Short audit append")
-            await f.flush()
-            os.fsync(f.fileno())
-        # Windows: durable retirement (rename by handle, flush), not unlink + folder fsync.
-        _retire_marker(self._repair_marker)
-    except BaseException:
-        if intent:
-            self._quarantine_uncertain_append()
-        elif self._repair_marker.exists():
-            self.repair_required = True
-        raise
-
-
-# Lifted from the Linux original.
 async def audit_initialize_chain(self) -> None:
     """Report historical breaks, but resume from the actual settled tail.
 
@@ -519,20 +739,16 @@ async def audit_initialize_chain(self) -> None:
     must not stop recording new actions. Only an uncertain tail fences
     writes. A restart can settle a stale intent without rewriting history.
     """
-    from src.audit.logger import GENESIS_HASH, aiofiles, json, log, verify_log  # noqa: I001
+    from src.audit.logger import GENESIS_HASH, json, log, os  # noqa: I001
     async with self._persist_lock:
         if self._chain_initialized:
             return
-        if not self.path.exists():
+        if not os.path.lexists(self.path):
             self._chain_initialized = True
             return
         try:
-            async with aiofiles.open(self.path, encoding="utf-8") as f:
-                lines = await f.readlines()
-                if self.repair_required:
-                    # Windows: a read-only handle can't be flushed; flush the log
-                    # through a handle with write access instead.
-                    flush_path(self.path)
+            # Windows: read, and flush when a repair is due, through the verified handle.
+            lines = await asyncio.to_thread(_audit_lines, self.path, self.repair_required)
         except Exception as exc:
             # An unreadable file proves neither a broken chain nor a torn
             # append. Retry initialization before the next persist.
@@ -541,7 +757,8 @@ async def audit_initialize_chain(self) -> None:
             return
 
         if self._signer:
-            result = await verify_log(self.path, self._signer._key.decode())
+            result = await asyncio.to_thread(
+                _verify_audit, self.path, self._signer._key.decode())
             self._historical_break = not result["valid"]
             if self._historical_break:
                 log.error(
@@ -586,30 +803,64 @@ async def audit_initialize_chain(self) -> None:
 
 
 # Lifted from the Linux original.
-def record_interrupted_sync(self, pending: dict) -> None:
-    from src.scheduler.history import UTC, datetime, json, os  # noqa: I001
-    evidence = ("schedule_id", "status", "run_binding", "error")
-    if pending.get("status") != "unknown":
-        raise ValueError("Interrupted recovery history must have unknown status")
-    # a+ creates a missing file without truncating an existing one. Any
-    # read/parse/write/sync failure propagates instead of claiming success.
-    with self.path.open("a+", encoding="utf-8") as file:
-        file.seek(0)
-        entries = [json.loads(line) for line in file if line.strip()]
-        recorded = any(
-            all(entry.get(key) == pending.get(key) for key in evidence)
-            for entry in entries
-        )
-        if not recorded:
-            entry = {"timestamp": datetime.now(UTC).isoformat(), **pending}
-            file.write(json.dumps(entry, default=str) + "\n")
-        # Sync existing matches too: readback after a failed fsync is not
-        # evidence of durability, even though the bytes are visible.
-        file.flush()
-        os.fsync(file.fileno())
-    # Persist file creation before retiring its durable scheduler outbox. Windows:
-    # flush the file whose name was created (its failure propagates, as on Linux).
-    flush_path(self.path)
+async def history_append(self, line: str) -> None:
+    from src.scheduler.history import log  # noqa: I001
+    try:
+        await asyncio.to_thread(_append_text, self.path, line)
+    except Exception as e:
+        log.error("Failed to write schedule history: %s", e)
+
+    self._records_since_prune += 1
+    if self._records_since_prune >= self._auto_prune_interval:
+        self._records_since_prune = 0
+        await self._prune_locked()
+
+
+# Lifted from the Linux original.
+async def history_query(
+    self,
+    schedule_id: str | None = None,
+    *,
+    status: str | None = None,
+    limit: int = 50,
+) -> list[dict]:
+    """Query history entries (most recent first).
+
+    Args:
+        schedule_id: Filter to a specific schedule. None = all.
+        status: Filter by status (success/failure).
+        limit: Max entries to return.
+    """
+    from src.scheduler.history import json, log  # noqa: I001
+    if not os.path.lexists(self.path):
+        return []
+
+    results: list[dict] = []
+    try:
+        lines = await asyncio.to_thread(_read_text_lines, self.path)
+    except Exception as e:
+        log.error("Failed to read schedule history: %s", e)
+        return []
+
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+        if schedule_id and entry.get("schedule_id") != schedule_id:
+            continue
+        if status and entry.get("status") != status:
+            continue
+
+        results.append(entry)
+        if len(results) >= limit:
+            break
+
+    return results
 
 
 # Lifted from the Linux original.
@@ -618,13 +869,12 @@ async def prune_locked(self) -> int:
 
     Returns the number of entries removed.
     """
-    from src.scheduler.history import MAX_TOTAL_ENTRIES, aiofiles, asyncio, json, log, os  # noqa: I001
-    if not self.path.exists():
+    from src.scheduler.history import MAX_TOTAL_ENTRIES, asyncio, json, log, os  # noqa: I001
+    if not os.path.lexists(self.path):
         return 0
 
     try:
-        async with aiofiles.open(self.path) as f:
-            lines = await f.readlines()
+        lines = await asyncio.to_thread(_read_text_lines, self.path)
     except Exception as e:
         log.error("Failed to read history for pruning: %s", e)
         return 0
@@ -662,13 +912,12 @@ async def prune_locked(self) -> int:
     if removed > 0:
         try:
             content = "".join(json.dumps(e, default=str) + "\n" for e in kept)
-            tmp = self.path.with_suffix(".tmp")
-            async with aiofiles.open(tmp, "w") as f:
-                await f.write(content)
-                await f.flush()
-                await asyncio.to_thread(os.fsync, f.fileno())
-            tmp.replace(self.path)
-            await asyncio.to_thread(flush_path, self.path)
+            # Windows: A5 replace in the held folder (a verified temporary file,
+            # flushed, renamed by handle, flushed again).
+            durable = await asyncio.to_thread(
+                _publish_path, self.path, content.encode("utf-8"))
+            if not durable:
+                raise OSError("pruned history committed but its final flush failed")
             log.info("Pruned %d history entries", removed)
         except Exception as e:
             log.error("Failed to write pruned history: %s", e)
@@ -772,3 +1021,27 @@ def check_local_workspace(config):
         detail=f"Local command workspace ready: {workspace}",
         metadata={"path": str(workspace)},
     )
+
+
+# Lifted from the Linux original.
+def validate_hyprland_path(cls, value: str) -> str:
+    if value and (
+        len(value) > 4096
+        or not PurePosixPath(value).is_absolute()
+        or ".." in PurePosixPath(value).parts
+        or any(ord(c) < 32 or ord(c) == 127 for c in value)
+    ):
+        raise ValueError("Hyprland paths must be explicit absolute local paths")
+    return value
+
+
+# Lifted from the Linux original.
+def validate_wayland_guardian_binary(cls, value: str) -> str:
+    if (
+        not value
+        or len(value) > 4096
+        or not PurePosixPath(value).is_absolute()
+        or any(ord(c) < 32 or ord(c) == 127 for c in value)
+    ):
+        raise ValueError("computer.wayland_guardian_binary must be an absolute executable path")
+    return value

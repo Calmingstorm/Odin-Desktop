@@ -100,6 +100,7 @@ class ScheduleHistory:
             raise asyncio.CancelledError
         return result
 
+    @windows_variant("src.desktop.platform.windows_engine:history_append")
     async def _append(self, line: str) -> None:
         try:
             async with aiofiles.open(self.path, "a") as f:
@@ -149,6 +150,7 @@ class ScheduleHistory:
         finally:
             os.close(directory)
 
+    @windows_variant("src.desktop.platform.windows_engine:history_query")
     async def query(
         self,
         schedule_id: str | None = None,

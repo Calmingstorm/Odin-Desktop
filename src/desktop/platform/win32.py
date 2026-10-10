@@ -36,7 +36,10 @@ GENERIC_READ = 0x80000000
 GENERIC_WRITE = 0x40000000
 FILE_READ_ATTRIBUTES = 0x0080
 FILE_LIST_DIRECTORY = 0x0001
+FILE_ADD_FILE = 0x0002
+FILE_ADD_SUBDIRECTORY = 0x0004
 FILE_TRAVERSE = 0x0020
+FILE_DELETE_CHILD = 0x0040
 
 # Sharing and creation.
 FILE_SHARE_READ = 0x1
@@ -86,6 +89,8 @@ SE_DACL_PRESENT = 0x0004
 SE_DACL_PROTECTED = 0x1000
 ACCESS_ALLOWED_ACE_TYPE = 0
 ACCESS_DENIED_ACE_TYPE = 1
+OBJECT_INHERIT_ACE = 0x01
+CONTAINER_INHERIT_ACE = 0x02
 INHERIT_ONLY_ACE = 0x08
 
 # Volumes and locks.
@@ -270,6 +275,7 @@ def create_file(path, access, share, disposition, flags, attributes=None) -> int
 SYSTEM_SID = "S-1-5-18"
 ADMINISTRATORS_SID = "S-1-5-32-544"
 OWNER_RIGHTS_SID = "S-1-3-4"
+CREATOR_OWNER_SID = "S-1-3-0"
 TRUSTED_INSTALLER_SID = "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464"
 # Python's own os.mkdir(path, 0o700) descriptor on Windows: SYSTEM, Administrators and
 # the owner, inherited by files and folders, with inheritance from above blocked.

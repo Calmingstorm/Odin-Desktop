@@ -18,6 +18,7 @@ from pydantic import (
     model_validator,
 )
 
+from ..desktop.platform.variants import windows_variant
 from ..reasoning import compatible_reasoning_dialect
 from ..runtime_paths import runtime_profile_paths
 from .model_defaults import (
@@ -1656,6 +1657,7 @@ class ComputerUseConfig(BaseModel):
         "hyprland_plugin_manifest",
     )
     @classmethod
+    @windows_variant("src.desktop.platform.windows_engine:validate_hyprland_path")
     def validate_hyprland_path(cls, value: str) -> str:
         if value and (
             len(value) > 4096
@@ -1707,6 +1709,7 @@ class ComputerUseConfig(BaseModel):
 
     @field_validator("wayland_guardian_binary")
     @classmethod
+    @windows_variant("src.desktop.platform.windows_engine:validate_wayland_guardian_binary")
     def validate_wayland_guardian_binary(cls, value: str) -> str:
         if (
             not value

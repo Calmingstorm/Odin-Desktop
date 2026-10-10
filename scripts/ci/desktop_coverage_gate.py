@@ -251,7 +251,8 @@ def main(argv=None):
                     if ratio(value) < ratio(old) or value["missing"] > old["missing"]:
                         baseline[runtime]["total"] = old
             print("Explicit baseline update; prior totals:",
-                  {key: previous[key]["total"] for key in current} if previous else "none")
+                  {key: previous[key]["total"] for key in current if key in previous}
+                  if previous else "none")
             args.baseline.write_text(json.dumps(baseline, indent=2, sort_keys=True) + "\n")
         else:
             baseline = json.loads(args.baseline.read_text())

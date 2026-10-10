@@ -14,7 +14,15 @@ import os
 import uuid
 
 from . import win32
-from .windows_files import file_size, held, matches_path, open_file, to_fd, user_sid
+from .windows_files import (
+    file_size,
+    held,
+    matches_path,
+    open_file,
+    to_fd,
+    user_sid,
+    verify_file,
+)
 
 _RECORD_KEYS = {"version", "installation_id", "profile_id", "owner_id", "owner_sid"}
 
@@ -211,10 +219,18 @@ def acquire_runtime(self) -> None:
 
 
 def _runtime_current(self) -> bool:
+    """Linux: the held lock is still the named file, regular, ours and 0600.
+
+    Here: the held handle is still a regular, owner-owned, private file (checked
+    through that handle on every call, so a later DACL change is seen) and the
+    lock path still names it.
+    """
     if self._runtime_lock_fd is None:
         return False
+    path = self.paths.config_dir / ".core.lock"
     try:
         handle = msvcrt.get_osfhandle(self._runtime_lock_fd)
-        return matches_path(handle, self.paths.config_dir / ".core.lock")
+        verify_file(handle, path)
+        return matches_path(handle, path)
     except OSError:
         return False

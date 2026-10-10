@@ -270,3 +270,35 @@ def test_cli_without_windows_evidence_fails_closed(tmp_path):
     app.write_text("{}")
     assert gate.main(["--python-json", str(python), "--app-json", str(app),
                       "--output", str(tmp_path / "out"), "--revision", "abc"]) == 2
+
+
+def test_an_explicit_update_initializes_the_windows_section(tmp_path, monkeypatch):
+    """A baseline from before the Windows job gains its section instead of failing."""
+    baseline, current = fixture()
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text(gate.json.dumps(baseline))
+    python = tmp_path / "python.json"
+    python.write_text(gate.json.dumps({"files": {"src/desktop/a.py": {
+        "summary": {"num_statements": 10, "covered_lines": 9}}}}))
+    app = tmp_path / "app.json"
+    app.write_text(gate.json.dumps({"app/src/a.ts": {
+        "statementMap": {str(index): {"start": {"line": index + 1}} for index in range(10)},
+        "s": {str(index): int(index < 9) for index in range(10)}}}))
+    report, provenance = _windows_evidence(tmp_path)
+    (tmp_path / "windows.json").write_text(gate.json.dumps(report))
+    (tmp_path / "provenance.json").write_text(gate.json.dumps(provenance))
+    rows = gate.windows_rows
+    monkeypatch.setattr(gate, "windows_rows", lambda *args, **kwargs: rows(
+        *args, **{**kwargs, "root": tmp_path}))
+    monkeypatch.setattr(gate, "windows_inventory", lambda: {WIN})
+    monkeypatch.setattr(gate, "executable_inventory", lambda: {
+        "python": {"src/desktop/a.py"}, "app": {"app/src/a.ts"}, "windows": {WIN}})
+    monkeypatch.setattr(gate.subprocess, "check_output", lambda *args, **kwargs: "")
+    assert gate.main(["--python-json", str(python), "--app-json", str(app),
+                      "--baseline", str(baseline_path), "--output", str(tmp_path / "out"),
+                      "--windows-json", str(tmp_path / "windows.json"),
+                      "--windows-provenance", str(tmp_path / "provenance.json"),
+                      "--revision", "abc", "--update-baseline"]) == 0
+    updated = gate.json.loads(baseline_path.read_text())
+    assert updated["windows"]["files"] == {WIN: gate.row(10, 9)}
+    assert updated["python"]["files"]["src/desktop/a.py"] == gate.row(10, 9)  # an improvement

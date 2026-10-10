@@ -262,17 +262,20 @@ async def test_interrupted_history_recovery_is_strict_and_pruning_works(paths, m
     await history.record_interrupted(pending)
     lines = (paths.data_dir / "schedule_history.jsonl").read_text().splitlines()
     assert len(lines) == 1
-    real = windows_files.flush_path
-
-    def failing(path):
-        raise OSError("flush failed")
-
     import src.desktop.platform.windows_engine as engine
 
-    monkeypatch.setattr(engine, "flush_path", failing)
+    class FlushFails:
+        def __getattr__(self, name):
+            return getattr(os, name)
+
+        @staticmethod
+        def fsync(fd):
+            raise OSError("flush failed")
+
+    monkeypatch.setattr(engine, "os", FlushFails())
     with pytest.raises(OSError):
         await history.record_interrupted({**pending, "run_binding": "r2"})
-    monkeypatch.setattr(engine, "flush_path", real)
+    monkeypatch.undo()
 
 
 async def test_audit_append_retires_its_marker_without_leftovers(paths):

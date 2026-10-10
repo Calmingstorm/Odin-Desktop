@@ -259,6 +259,7 @@ class AuditLogger:
         ] = {}
         self._tool_count_lock = asyncio.Lock()
 
+    @windows_variant("src.desktop.platform.windows_engine:audit_maybe_rotate")
     def _maybe_rotate(self) -> None:
         """Rotate audit.jsonl → .1 → .2 … once it exceeds max_bytes.
 
@@ -300,6 +301,7 @@ class AuditLogger:
                 paths.append(p)
         return paths
 
+    @windows_variant("src.desktop.platform.windows_engine:audit_open_read_snapshot")
     async def _open_read_snapshot(self) -> list[tuple[BinaryIO, os.stat_result]]:
         """Open one stable descriptor for every retained generation.
 
