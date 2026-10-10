@@ -16,7 +16,11 @@ if TYPE_CHECKING:
 
 
 class IpcEndpoint(Protocol):
-    """The engine's listener, owner-only on this system."""
+    """The engine's listener, owner-only on this system.
+
+    ``listen`` rolls back whatever it acquired before failing; ``close`` releases what a
+    successful ``listen`` created and may be called again.
+    """
 
     async def listen(self, accept) -> asyncio.AbstractServer: ...
 
@@ -58,6 +62,10 @@ class CoreLifetime(Protocol):
 
     stopping: asyncio.Event
     reason: str | None
+
+    @property
+    def admitting(self) -> bool:
+        """True until the first stop request; new work is admitted only while it is."""
 
     def watch_signals(self) -> None: ...
 

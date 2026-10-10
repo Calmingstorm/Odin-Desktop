@@ -412,12 +412,42 @@ def test_cli_connection_failure_scrubbed(tmp_path, capsys):
 
 @pytest.mark.asyncio
 async def test_local_client_refuses_foreign_uid_before_token_send(monkeypatch):
-    # The peer check lives in the platform's transport, shared by server and client;
-    # "foreign IPC listener" is the client's own refusal, raised before any token is sent.
-    monkeypatch.setattr(ipc_auth, "peer_uid", lambda _sock: os.geteuid() + 1)
+    """Client side only: a listener owned by another user never receives a byte, let alone
+    the token. The server keeps its own peer check (test_peer_rejection_checks_os_primitive)."""
+    from src.desktop import local_client
+    from src.desktop.platform import current_platform
+
+    real = current_platform().ipc
+    written = []
+
+    class ForeignListener:
+        owner = real.owner
+        load_token = staticmethod(real.load_token)
+
+        @staticmethod
+        def peer(_writer):
+            return real.owner + 1
+
+        @staticmethod
+        async def connect(path):
+            reader, writer = await real.connect(path)
+            send = writer.write
+
+            def record(data):
+                written.append(bytes(data))
+                return send(data)
+
+            writer.write = record
+            return reader, writer
+
+    class ForeignPlatform:
+        ipc = ForeignListener()
+
+    monkeypatch.setattr(local_client, "current_platform", ForeignPlatform)
     async with fixture_server() as (server, token_file, _, calls):
         with pytest.raises(PermissionError, match="foreign IPC listener"):
             await LocalClient.connect(server.socket_path, token_file)
+        assert written == []
         assert not calls and not server.connections
 
 

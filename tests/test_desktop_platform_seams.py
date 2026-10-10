@@ -117,8 +117,37 @@ def test_the_keyring_backend_comes_from_the_platform(monkeypatch, tmp_path):
         broken._adapter()
 
 
-def test_the_core_lifetime_is_the_existing_class():
+def test_the_core_lifetime_admits_until_the_first_stop():
     from src.desktop.lifecycle import CoreLifetime
 
     lifetime = LinuxPlatform().core_lifetime()
-    assert type(lifetime) is CoreLifetime and lifetime.admitting
+    assert type(lifetime) is CoreLifetime
+    assert lifetime.admitting and lifetime.reason is None and not lifetime.stopping.is_set()
+    lifetime.request_stop("first")
+    lifetime.request_stop("second")
+    assert not lifetime.admitting and lifetime.reason == "first" and lifetime.stopping.is_set()
+
+
+def test_linux_objects_provide_every_contract_member(tmp_path):
+    """What each contract declares, the Linux implementation provides, so a Windows
+    implementation can be held to the same list."""
+    from src.desktop import secrets
+    from src.desktop.platform import contracts
+    from src.desktop.platform.linux_ipc import LinuxIpc, UnixSocketEndpoint
+
+    def members(protocol):
+        declared = {name for name in vars(protocol)
+                    if not name.startswith("_") and name not in {"__annotations__"}}
+        return declared | set(getattr(protocol, "__annotations__", {}))
+
+    platform = LinuxPlatform()
+    implementations = {
+        contracts.Platform: platform,
+        contracts.IpcTransport: LinuxIpc(),
+        contracts.IpcEndpoint: UnixSocketEndpoint(tmp_path / "core.sock"),
+        contracts.SecretBackend: secrets._SecretServiceBackend(),
+        contracts.CoreLifetime: platform.core_lifetime(),
+    }
+    for protocol, implementation in implementations.items():
+        missing = sorted(name for name in members(protocol) if not hasattr(implementation, name))
+        assert not missing, f"{protocol.__name__} lacks {missing}"
