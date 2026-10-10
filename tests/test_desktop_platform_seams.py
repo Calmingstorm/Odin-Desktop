@@ -29,7 +29,22 @@ def test_linux_is_chosen_once(fresh_platform):
     assert current_platform() is first
 
 
-@pytest.mark.parametrize("system", ["win32", "darwin"])
+def test_windows_is_selected_with_its_phase_2b_members_refused(fresh_platform, monkeypatch):
+    from src.desktop.platform.windows import WindowsPlatform
+
+    monkeypatch.setattr(desktop_platform.sys, "platform", "win32")
+    platform = current_platform()
+    assert isinstance(platform, WindowsPlatform) and platform.name == "windows"
+    assert platform.computer_supported is False
+    with pytest.raises(NotImplementedError, match="phase 2b"):
+        platform.ipc  # noqa: B018 - the property itself refuses
+    with pytest.raises(NotImplementedError, match="phase 2b"):
+        platform.core_lifetime()
+    with pytest.raises(ValueError, match="bound to a profile"):
+        platform.secret_backend()
+
+
+@pytest.mark.parametrize("system", ["darwin", "freebsd14"])
 def test_other_systems_are_refused_as_before(fresh_platform, monkeypatch, tmp_path, system):
     monkeypatch.setattr(desktop_platform.sys, "platform", system)
     with pytest.raises(NotImplementedError, match="desktop provisioning is Linux-only"):
