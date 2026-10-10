@@ -169,17 +169,17 @@ def acl(path, *, directory=False):
 
 @pytest.fixture
 def transaction(monkeypatch):
-    """apply_patch in this process with the Windows primitives the child installs."""
-    from src.desktop.platform import windows_dirfd
+    """apply_patch in this process with the Windows primitives the child installs (its own
+    ``install``), put back afterwards."""
+    from src.desktop.platform import windows_dirfd, windows_patch
     from src.tools import apply_patch
 
-    shim = windows_dirfd.WindowsOs()
-    monkeypatch.setattr(apply_patch, "os", shim)
-    monkeypatch.setattr(apply_patch._DirectoryRegistry, "__init__",
-                        windows_dirfd.directory_registry_init)
-    monkeypatch.setattr(apply_patch._DirectoryRegistry, "display",
-                        windows_dirfd.directory_registry_display)
-    monkeypatch.setattr(apply_patch, "_artifact_paths", windows_dirfd.artifact_paths)
+    for name in ("os", "_artifact_paths", "_same_inode_as_fd"):
+        monkeypatch.setattr(apply_patch, name, getattr(apply_patch, name))
+    for name in ("__init__", "display"):
+        monkeypatch.setattr(apply_patch._DirectoryRegistry, name,
+                            getattr(apply_patch._DirectoryRegistry, name))
+    shim = windows_patch.install(apply_patch)
 
     def run(root, text, rename=windows_dirfd.rename_noreplace):
         return apply_patch.apply_plan(str(root), apply_patch.parse_patch(text),
@@ -298,15 +298,16 @@ async def test_an_unverified_artifact_never_hides_an_incomplete_rollback(
     root.mkdir()
     (root / "a.txt").write_bytes(b"original\n")
     state = failing_rollback(windows_dirfd, monkeypatch, deny=deny)
-    if deny == "inspection":
-        real_stat = transaction.shim.stat
+    if deny == "inspection":  # Windows refuses to look at the retained original
+        real_create = windows_dirfd.win32.create_file
 
-        def stat(path, *, dir_fd=None, follow_symlinks=True):
-            if state["rollback"] and str(path).startswith(".odin-patch-recovery-"):
-                raise PermissionError(5, "Access is denied")
-            return real_stat(path, dir_fd=dir_fd, follow_symlinks=follow_symlinks)
+        def create_file(path, access, *args, **kwargs):
+            if (state["rollback"] and access == windows_dirfd.win32.FILE_READ_ATTRIBUTES
+                    and os.path.basename(str(path)).startswith(".odin-patch-recovery-")):
+                raise PermissionError(5, "Access is denied", str(path))
+            return real_create(path, access, *args, **kwargs)
 
-        transaction.shim.stat = stat
+        monkeypatch.setattr(windows_dirfd.win32, "create_file", create_file)
     plan = patch("*** Update File: a.txt", "@@", "-original", "+changed")
     result = windows_patch.envelope(transaction.apply_patch, transaction.shim, str(root),
                                     json.dumps(transaction.apply_patch.parse_patch(plan)))
@@ -367,6 +368,51 @@ async def test_a_refused_first_look_after_the_move_keeps_the_original(
     assert recovery.read_bytes() == b"original\n"
     text, code = await rendered(result, monkeypatch)
     assert code == 1 and recovery.name in text  # the only original is in the instructions
+
+
+@pytest.mark.parametrize("look", ["refused", "allowed"])
+async def test_a_replaced_destination_is_never_a_success(tmp_path, transaction, monkeypatch,
+                                                         look):
+    """Just after publication the published file is renamed aside and a replacement takes its
+    name; with "refused", Windows refuses every later look at that name too. Neither is ever
+    a successful patch: the replacement stays, and so does the original, in recovery, named
+    in the response. What the name held earlier is never evidence of what it holds now."""
+    from src.desktop.platform import windows_dirfd, windows_patch
+
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "a.txt").write_bytes(b"original\n")
+    real_create, real_rename = windows_dirfd.win32.create_file, windows_dirfd.rename_noreplace
+    swapped = []
+
+    def rename(source, destination, *, src_dir_fd, dst_dir_fd):
+        real_rename(source, destination, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
+        if source.startswith(".odin-patch-stage-") and not swapped:  # just published
+            os.rename(root / "a.txt", root / "aside.txt")
+            (root / "a.txt").write_bytes(b"replacement\n")
+            swapped.append(destination)
+
+    def create_file(path, access, *args, **kwargs):
+        if (look == "refused" and swapped and os.path.basename(str(path)) == "a.txt"
+                and access == windows_dirfd.win32.FILE_READ_ATTRIBUTES):
+            raise PermissionError(5, "Access is denied", str(path))
+        return real_create(path, access, *args, **kwargs)
+
+    monkeypatch.setattr(windows_dirfd.win32, "create_file", create_file)
+    monkeypatch.setattr(windows_dirfd, "rename_noreplace", rename)
+    plan = patch("*** Update File: a.txt", "@@", "-original", "+changed")
+    result = windows_patch.envelope(transaction.apply_patch, transaction.shim, str(root),
+                                    json.dumps(transaction.apply_patch.parse_patch(plan)))
+    assert swapped == ["a.txt"]  # the swap happened where it was meant to
+    assert (result["ok"], result["rollback_failed"]) == (False, True), result
+    assert (root / "a.txt").read_bytes() == b"replacement\n"
+    assert (root / "aside.txt").read_bytes() == b"changed\n"
+    (recovery,) = [path for path in root.iterdir() if path.name.startswith(".odin-patch-recov")]
+    assert recovery.read_bytes() == b"original\n"
+    if look == "refused":  # the refusal itself is what the rollback reports
+        assert "Access is denied" in " ".join(result["rollback_failures"])
+    text, code = await rendered(result, monkeypatch)
+    assert code == 1 and recovery.name in text and "Applied patch" not in text
 
 
 # The test's own way to set a descriptor exactly, independent of the code under test.

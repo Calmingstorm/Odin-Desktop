@@ -280,7 +280,8 @@ def test_a_script_still_held_open_is_removed_once_it_is_let_go(tmp_path, monkeyp
     assert not path.exists()
 
 
-def test_a_script_never_let_go_is_left_in_place_after_its_retries(tmp_path, monkeypatch):
+def test_a_script_never_let_go_is_left_in_place_after_its_retries(tmp_path, monkeypatch,
+                                                                  caplog):
     from src.desktop.platform import win32
 
     monkeypatch.setattr(wx, "_REMOVE_RETRY_SECONDS", (0.05, 0.05))
@@ -293,6 +294,7 @@ def test_a_script_never_let_go_is_left_in_place_after_its_retries(tmp_path, monk
         wx._remove(str(path), None)
         (cleanup,) = set(threading.enumerate()) - before
         cleanup.join(5)
-        assert not cleanup.is_alive() and path.exists()  # retried, then left (and logged)
+        assert not cleanup.is_alive() and path.exists()  # retried, then left
     finally:
         win32.close(holder)
+    assert f"still held open and was left in place: {path}" in caplog.text

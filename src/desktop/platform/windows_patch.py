@@ -26,6 +26,7 @@ def install(apply_patch):
     apply_patch._DirectoryRegistry.__init__ = windows_dirfd.directory_registry_init
     apply_patch._DirectoryRegistry.display = windows_dirfd.directory_registry_display
     apply_patch._artifact_paths = windows_dirfd.artifact_paths
+    apply_patch._same_inode_as_fd = windows_dirfd.same_inode_as_fd
     return shim
 
 
