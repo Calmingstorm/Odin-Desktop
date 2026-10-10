@@ -18,11 +18,12 @@ process of its own, where :class:`WindowsOs` stands in for the ``os`` module of
 * Renames never replace, and deletes take the name away at once (POSIX
   semantics, NTFS). Directory flushes are the journal's.
 * Owner-only modes are privacy: entries created with one get a private DACL as they are
-  created, and ``fchmod`` to one makes the entry private by its handle (an original
-  remembers what it had, so a later ``fchmod`` gives that back on rollback). Other mode
-  bits have no Windows meaning: anything else takes the folder's inherited ACL, as a new
-  file would. A retained artifact that can't be made private is recorded, and reported
-  with the rollback, never raised over it.
+  created, and ``fchmod`` to one makes the entry private by its handle. An original keeps
+  its descriptor exactly (bytes, not text: conditional entries and protected inherited ones
+  survive), and a later ``fchmod`` sets that back as it was. Other mode bits have no Windows
+  meaning: an entry this run made takes the folder's inherited ACL, as a new file would.
+* A retained artifact that can't be inspected or made private is reported as such with the
+  rollback, never raised over it, and never called private.
 """
 from __future__ import annotations
 
@@ -48,8 +49,6 @@ _NO_FOLLOW = win32.FILE_FLAG_OPEN_REPARSE_POINT | win32.FILE_FLAG_BACKUP_SEMANTI
 _BAD_NAME = re.compile(r'[\\/:*?"<>|\x00-\x1f]|[. ]$')
 _DEVICES = re.compile(r"(?i)(CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|(COM|LPT)[0-9¹²³])(\..*)?")
 _WINDOWS_ABSOLUTE = re.compile(r"^[A-Za-z]:[\\/]")
-_ACE = re.compile(r"\([^()]*\)")
-
 
 def _private(mode: int) -> bool:
     return not mode & 0o077
@@ -60,43 +59,33 @@ def _identity(handle) -> tuple[int, int, int]:
     return info.dwVolumeSerialNumber, info.nFileIndexHigh, info.nFileIndexLow
 
 
-def _dacl_sddl(handle) -> str:
-    """The object's DACL, its protection included, as SDDL."""
+def _saved_dacl(handle) -> bytes:
+    """The object's DACL as a self-relative descriptor, its control bits included."""
     descriptor = win32.PVOID()
     status = win32.GetSecurityInfo(handle, win32.SE_FILE_OBJECT, win32.DACL_SECURITY_INFORMATION,
                                    None, None, None, None, ctypes.byref(descriptor))
     if status:
         raise win32.error(status)
     try:
-        text = win32.PVOID()
-        win32.check(win32.ConvertSecurityDescriptorToStringSecurityDescriptorW(
-            descriptor, win32.SDDL_REVISION_1, win32.DACL_SECURITY_INFORMATION,
-            ctypes.byref(text), None))
-        try:
-            return ctypes.wstring_at(text.value)
-        finally:
-            win32.LocalFree(text)
+        return ctypes.string_at(descriptor, win32.GetSecurityDescriptorLength(descriptor))
     finally:
         win32.LocalFree(descriptor)
 
 
-def _restore_dacl(handle, sddl: str | None) -> None:
-    """``sddl``'s own entries and protection again (inherited ones come from the folder);
-    without one, the folder's inherited ACL alone."""
-    protected, entries = False, ""
-    if sddl is not None:
-        head = sddl.partition("(")[0]
-        protected = "P" in head.removeprefix("D:")
-        for ace in _ACE.findall(sddl):
-            flags = ace[1:-1].split(";")[1]
-            if "ID" not in {flags[i:i + 2] for i in range(0, len(flags), 2)}:
-                entries += ace
-    info = win32.DACL_SECURITY_INFORMATION | (
-        win32.PROTECTED_DACL_SECURITY_INFORMATION if protected
-        else win32.UNPROTECTED_DACL_SECURITY_INFORMATION)
-    with win32.SecurityDescriptor("D:" + ("P" if protected else "") + entries) as descriptor:
-        status = win32.SetSecurityInfo(handle, win32.SE_FILE_OBJECT, info, None, None,
-                                       descriptor.dacl(), None)
+def _restore_saved(handle, saved: bytes) -> None:
+    """Exactly the DACL ``saved`` holds, protection included: set as given, with no
+    inheritance worked out again (the folder above is the one it was saved under)."""
+    buffer = ctypes.create_string_buffer(saved, len(saved))
+    win32.check(win32.SetKernelObjectSecurity(handle, win32.DACL_SECURITY_INFORMATION, buffer))
+
+
+def _inherit(handle) -> None:
+    """The folder's inherited ACL alone, as a new entry there would have."""
+    with win32.SecurityDescriptor("D:") as descriptor:
+        status = win32.SetSecurityInfo(
+            handle, win32.SE_FILE_OBJECT,
+            win32.DACL_SECURITY_INFORMATION | win32.UNPROTECTED_DACL_SECURITY_INFORMATION,
+            None, None, descriptor.dacl(), None)
     if status:
         raise win32.error(status)
 
@@ -167,9 +156,10 @@ class WindowsOs:
         self._folders: dict[int, Path] = {}  # directory descriptor -> the folder it holds
         self._chains: dict[int, list[int]] = {}  # root descriptor -> the folders above it
         self._created: set[str] = set()  # folders this run made, by normalized path
-        self._original_security: dict[tuple[int, int, int], str] = {}  # entry -> DACL before
+        self._original_security: dict[tuple[int, int, int], bytes] = {}  # entry -> DACL before
         self._made: set[tuple[int, int, int]] = set()  # files this run created
-        self.privacy_failures: list[str] = []  # retained artifacts that couldn't be made private
+        # Retained artifacts whose privacy isn't verified, with why: (label, reason).
+        self.unverified: list[tuple[str, str]] = []
 
     # --- Paths -------------------------------------------------------------------------------
 
@@ -371,15 +361,10 @@ class WindowsOs:
         finally:
             win32.close(handle)
 
-    def chmod(self, path, mode, *, dir_fd=None, follow_symlinks=True) -> None:
-        """An owner-only mode makes a retained artifact private (``apply_patch`` uses it for
-        nothing else). A repair that fails is recorded, never raised over the rollback."""
-        if follow_symlinks:
-            raise OSError(errno.EINVAL, "apply_patch changes entries without following links")
-        if not _private(mode):
-            return
-        target = self._path(path, dir_fd)
+    def make_private(self, path, dir_fd) -> str | None:
+        """Make a retained artifact private; why it couldn't be, or None."""
         try:
+            target = self._path(path, dir_fd)
             handle = win32.create_file(target, win32.READ_CONTROL | win32.WRITE_DAC
                                        | win32.FILE_READ_ATTRIBUTES, _ALL_SHARE,
                                        win32.OPEN_EXISTING, _NO_FOLLOW)
@@ -390,8 +375,16 @@ class WindowsOs:
             finally:
                 win32.close(handle)
         except OSError as exc:
-            self.privacy_failures.append(
-                f"{target}: could not be made private: {type(exc).__name__}: {exc}")
+            return f"could not be made private: {type(exc).__name__}: {exc}"
+        return None
+
+    def chmod(self, path, mode, *, dir_fd=None, follow_symlinks=True) -> None:
+        """An owner-only mode makes a retained artifact private (``apply_patch`` uses it for
+        nothing else; in the child :func:`artifact_paths` stands in for its one caller)."""
+        if follow_symlinks:
+            raise OSError(errno.EINVAL, "apply_patch changes entries without following links")
+        if _private(mode) and (problem := self.make_private(path, dir_fd)):
+            self.unverified.append((str(path), problem))
 
     @contextlib.contextmanager
     def _security_handle(self, fd):
@@ -425,12 +418,12 @@ class WindowsOs:
             made = self._made_here(fd, key)
             if _private(mode):
                 if not made:
-                    self._original_security.setdefault(key, _dacl_sddl(handle))
+                    self._original_security.setdefault(key, _saved_dacl(handle))
                 win32.set_private_dacl(handle)
             elif key in self._original_security:
-                _restore_dacl(handle, self._original_security.pop(key))
+                _restore_saved(handle, self._original_security.pop(key))
             elif made:
-                _restore_dacl(handle, None)
+                _inherit(handle)
 
     @staticmethod
     def fchown(fd, uid, gid) -> None:
@@ -490,6 +483,38 @@ def directory_registry_init(self, root_value, *, rename_noreplace) -> None:
     self._flags = flags
     self._rename_noreplace = rename_noreplace
     self._created = []
+
+
+def artifact_paths(prepared, stages) -> list[str]:
+    """In place of ``_artifact_paths``: the retained artifacts now private. One that can't be
+    inspected or made private is recorded with why, and left out of the private list, never
+    raised over the rollback's own failures (Odin's order and file-only rule kept)."""
+    from ...tools import apply_patch
+
+    shim = _shim()
+    paths: list[str] = []
+    for artifact in [item["recovery"] for item in prepared if item.get("recovery") is not None]:
+        _keep_private(shim, apply_patch, artifact, paths)
+    for artifact in stages:
+        _keep_private(shim, apply_patch, artifact, paths)
+    return paths
+
+
+def _keep_private(shim: WindowsOs, apply_patch, artifact, paths: list[str]) -> None:
+    try:
+        if not apply_patch._artifact_exists(artifact):
+            return
+        info = apply_patch._entry_info(artifact["parent_fd"], artifact["name"])
+    except OSError as exc:
+        shim.unverified.append(
+            (artifact["label"], f"could not be inspected: {type(exc).__name__}: {exc}"))
+        return
+    if info is None or not stat.S_ISREG(info.st_mode):
+        return
+    if problem := shim.make_private(artifact["name"], artifact["parent_fd"]):
+        shim.unverified.append((artifact["label"], problem))
+    else:
+        paths.append(artifact["label"])
 
 
 def directory_registry_display(self, parent_label: str, name: str) -> str:

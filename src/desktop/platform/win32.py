@@ -270,6 +270,8 @@ ConvertSecurityDescriptorToStringSecurityDescriptorW = _declare(
     advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW,
     [PVOID, DWORD, DWORD, ctypes.POINTER(PVOID), ctypes.POINTER(wintypes.ULONG)],
 )
+GetSecurityDescriptorLength = _declare(advapi32.GetSecurityDescriptorLength, [PVOID], DWORD)
+SetKernelObjectSecurity = _declare(advapi32.SetKernelObjectSecurity, [HANDLE, DWORD, PVOID])
 GetSecurityInfo = _declare(
     advapi32.GetSecurityInfo,
     [HANDLE, ctypes.c_int, DWORD, ctypes.POINTER(PVOID), ctypes.POINTER(PVOID),

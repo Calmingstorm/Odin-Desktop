@@ -25,9 +25,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from . import win32
 from .windows_process import job_process_ids
@@ -85,6 +86,9 @@ class JobProcess:
     process: asyncio.subprocess.Process
     job: int
     pid: int
+    # Every member any settlement has seen: its pinned handle, 0 once it has affirmatively
+    # ended, None while it couldn't be pinned. Kept across attempts until release().
+    members: dict[int, int | None] = field(default_factory=dict)
 
 
 def _create_job():
@@ -182,10 +186,12 @@ async def terminate(running: JobProcess, timeout: float = _TERMINATE_SECONDS) ->
 
     A process leaves the job's list a moment before it has finished ending, so every
     member is held by a handle, from before the job is ended, and waited for. A member
-    that couldn't be pinned keeps the answer False until it is (or is shown to be gone).
+    that couldn't be pinned keeps the answer False until it is (or is shown to be gone),
+    through every later attempt too: what an attempt saw outlives its timeout or
+    cancellation, and the handles stay held until :func:`release`.
     """
     deadline = time.monotonic() + timeout
-    handles: dict[int, int | None] = {}  # held to the end, so no PID is reused meanwhile
+    handles = running.members  # held to the end, so no PID is reused meanwhile
 
     def listed() -> list[int] | None:
         try:
@@ -203,17 +209,12 @@ async def terminate(running: JobProcess, timeout: float = _TERMINATE_SECONDS) ->
                    and (not handle or win32.WaitForSingleObject(handle, 0) == win32.WAIT_OBJECT_0)
                    for handle in handles.values())
 
-    try:
-        listed()
-        win32.TerminateJobObject(running.job, 1)  # an already empty job is not an error
-        while listed() != [] or not ended():
-            if time.monotonic() >= deadline:
-                return False
-            await asyncio.sleep(0.02)
-    finally:
-        for handle in handles.values():
-            if handle:
-                win32.close(handle)
+    listed()
+    win32.TerminateJobObject(running.job, 1)  # an already empty job is not an error
+    while listed() != [] or not ended():
+        if time.monotonic() >= deadline:
+            return False
+        await asyncio.sleep(0.02)
     try:
         await asyncio.wait_for(running.process.wait(), max(0.1, deadline - time.monotonic()))
     except TimeoutError:
@@ -222,8 +223,13 @@ async def terminate(running: JobProcess, timeout: float = _TERMINATE_SECONDS) ->
 
 
 def release(running: JobProcess) -> None:
-    """Drop the job handle. Survivors keep running inside the engine's job."""
+    """Drop the job handle and the members' pins. Survivors keep running inside the
+    engine's job."""
     job, running.job = running.job, 0
+    members, running.members = running.members, {}
+    for handle in members.values():
+        if handle:
+            win32.close(handle)
     if job:
         win32.close(job)
 
@@ -512,10 +518,49 @@ def ps_quote(text: str) -> str:
     return "'" + re.sub("(['\u2018\u2019\u201a\u201b])", r"\1\1", text) + "'"
 
 
-def write_script(script: str, filename: str | None, interpreter: str) -> str:
-    """The script in a new temporary file, private from the moment it exists: its own
-    owner-only DACL, whatever the temporary folder lets others do. PowerShell's gets a BOM.
-    A script that can't be written leaves no file."""
+class ScriptFile:
+    """A temporary script and who owns it. The worker that writes it hands it over; if its
+    caller has gone by then (cancelled, or the engine shutting down), the worker removes it
+    itself, so the file never outlives both. While owned, a read pin keeps everyone from
+    writing, renaming or deleting it, whatever they may do in its folder."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._gone = False
+        self.path: str | None = None
+        self._pin = None
+
+    def hand_over(self, path: str, pin) -> bool:
+        """The worker's handover; False when the caller has gone (the worker removes it)."""
+        with self._lock:
+            if self._gone:
+                return False
+            self.path, self._pin = path, pin
+            return True
+
+    def remove(self) -> None:
+        """Unpin and delete it now, or have its worker do so when it hands it over."""
+        with self._lock:
+            self._gone = True
+            path, pin, self.path, self._pin = self.path, self._pin, None, None
+        _remove(path, pin)
+
+
+def _remove(path: str | None, pin) -> None:
+    if pin:
+        win32.close(pin)
+    if path:
+        with contextlib.suppress(OSError):
+            os.unlink(path)
+
+
+def write_script(script: str, filename: str | None, interpreter: str, owner: ScriptFile) -> None:
+    """The script in a new temporary file, private from the moment it exists (its own
+    owner-only DACL, whatever the temporary folder lets others do), handed to ``owner``
+    pinned: a read handle that shares only reading, so no one can write, rename or delete it
+    until it's removed. Some handle without delete sharing is open from creation on, so the
+    name holds the governed script throughout. PowerShell's gets a BOM. A script that can't
+    be written leaves no file."""
     extension = SCRIPT_EXTENSIONS[interpreter]
     stem = os.path.basename(filename or "") or "odin_script"
     if stem.lower().endswith(extension):
@@ -524,33 +569,41 @@ def write_script(script: str, filename: str | None, interpreter: str) -> str:
     # Windows PowerShell 5.1 reads a file without a BOM in the ANSI code page.
     data = script.encode("utf-8-sig" if interpreter == "powershell" else "utf-8")
     folder = tempfile.gettempdir()
+    share = win32.FILE_SHARE_READ | win32.FILE_SHARE_WRITE  # never delete: the name stays ours
     with win32.SecurityDescriptor(win32.PRIVATE_SDDL) as descriptor:
         for _ in range(100):
             path = os.path.join(folder, f"{stem}.{secrets.token_hex(8)}{extension}")
             try:
-                handle = win32.create_file(path, win32.GENERIC_WRITE, 0, win32.CREATE_NEW,
+                handle = win32.create_file(path, win32.GENERIC_WRITE, share, win32.CREATE_NEW,
                                            win32.FILE_ATTRIBUTE_NORMAL, descriptor.attributes())
             except FileExistsError:
                 continue
             break
         else:
             raise FileExistsError("no free name for the script's temporary file")
+    handles = [handle]
     try:
         win32.write_all(handle, data)
+        # Read access sharing writes while the writer is open, then one sharing only reads.
+        handles.append(_reopen(handle, share))
+        win32.close(handles.pop(0))
+        handles.append(_reopen(handles[0], win32.FILE_SHARE_READ))
+        win32.close(handles.pop(0))
     except BaseException:
-        win32.close(handle)
+        for held in handles:
+            win32.close(held)
         with contextlib.suppress(OSError):
             os.unlink(path)
         raise
-    win32.close(handle)
-    return path
+    if not owner.hand_over(path, handles[0]):
+        _remove(path, handles[0])
 
 
-def _discard(created: asyncio.Future) -> None:
-    """A file a cancelled caller never received goes as soon as it exists."""
-    if not created.cancelled() and created.exception() is None:
-        with contextlib.suppress(OSError):
-            os.unlink(created.result())
+def _reopen(handle, share: int):
+    reopened = win32.ReOpenFile(handle, win32.GENERIC_READ, share, 0)
+    if reopened in (None, win32.INVALID_HANDLE_VALUE):
+        raise win32.error()
+    return reopened
 
 
 async def run_local_script(executor, address: str, ssh_user: str, interpreter: str, script: str,
@@ -564,19 +617,14 @@ async def run_local_script(executor, address: str, ssh_user: str, interpreter: s
         program = interpreter_command(interpreter)
     except ScriptRefusedError as exc:
         return 1, str(exc)
-    created = asyncio.ensure_future(asyncio.to_thread(write_script, script, filename, interpreter))
+    owner = ScriptFile()
     try:
-        path = await asyncio.shield(created)
-    except asyncio.CancelledError:
-        created.add_done_callback(_discard)  # the worker can't be stopped; its file can
-        raise
-    try:
-        command = "& " + " ".join(ps_quote(part) for part in [*program, path])
+        await asyncio.to_thread(write_script, script, filename, interpreter, owner)
+        command = "& " + " ".join(ps_quote(part) for part in [*program, owner.path])
         return await executor._exec_command(address, command, ssh_user, on_output=on_output,
                                             use_workspace=True, use_command_shell=True)
     finally:
-        with contextlib.suppress(OSError):
-            os.unlink(path)
+        owner.remove()  # now; or by its worker, if this caller went before it was written
 
 
 # --- Routed variants of src/tools/command_shell.py ----------------------------------------

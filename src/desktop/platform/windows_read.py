@@ -77,55 +77,56 @@ def numbered(stream, *, start: int, start_label: str, count: int, budget: int) -
     return bytes(out)
 
 
-def _final_newline(path) -> int:
-    """``tail -c 1 < path | wc -l``: 1 when the last byte is an LF."""
-    with open(path, "rb") as stream:
+def _final_newline(stream) -> int:
+    """``tail -c 1 < path | wc -l``: 1 when the last byte is an LF (the stream rewinds)."""
+    try:
         stream.seek(0, os.SEEK_END)
         if stream.tell() == 0:
             return 0
         stream.seek(-1, os.SEEK_END)
         return 1 if stream.read(1) == b"\n" else 0
+    finally:
+        stream.seek(0)
 
 
-def raw(path, *, start: int, start_label: str, count: int, budget: int) -> bytes:
+def raw(stream, *, start: int, start_label: str, count: int, budget: int) -> bytes:
     """The raw-mode shell pipeline's output: base64 body, newline, metadata line."""
-    final_newline = _final_newline(path)
+    final_newline = _final_newline(stream)
     used = selected = returned = last_returned = continuation = oversize_line = 0
     pending = False
     pending_nr = 0
     pending_line = b""
     body: list[bytes] = []
-    with open(path, "rb") as stream:
-        for nr, record in enumerate(_records(stream), start=1):
-            if nr < start:
+    for nr, record in enumerate(_records(stream), start=1):
+        if nr < start:
+            continue
+        if pending:
+            if returned == 0:
+                oversize_line = pending_nr
+            else:
+                continuation = pending_nr
+            pending = False
+            break
+        if selected >= count:
+            continuation = nr
+            break
+        selected += 1
+        needed = len(record) + 1
+        if used + needed > budget:
+            # The final unterminated line whose synthetic newline is the only
+            # byte over budget is decided at the end, as in awk.
+            if used + len(record) <= budget:
+                pending, pending_nr, pending_line = True, nr, record
                 continue
-            if pending:
-                if returned == 0:
-                    oversize_line = pending_nr
-                else:
-                    continuation = pending_nr
-                pending = False
-                break
-            if selected >= count:
+            if returned == 0:
+                oversize_line = nr
+            else:
                 continuation = nr
-                break
-            selected += 1
-            needed = len(record) + 1
-            if used + needed > budget:
-                # The final unterminated line whose synthetic newline is the only
-                # byte over budget is decided at the end, as in awk.
-                if used + len(record) <= budget:
-                    pending, pending_nr, pending_line = True, nr, record
-                    continue
-                if returned == 0:
-                    oversize_line = nr
-                else:
-                    continuation = nr
-                break
-            returned += 1
-            body.append(record)
-            used += needed
-            last_returned = nr
+            break
+        returned += 1
+        body.append(record)
+        used += needed
+        last_returned = nr
     if pending:
         if final_newline == 0:
             returned += 1
@@ -151,30 +152,34 @@ def raw(path, *, start: int, start_label: str, count: int, budget: int) -> bytes
     return base64.b64encode(bytes(content)) + b"\n" + metadata.encode("ascii")
 
 
-# The device namespaces: pipes, consoles and raw devices, not files (a drive path written
-# with \\?\ is a file).
-_DEVICE_PATH = re.compile(r"^[\\/][\\/][.?][\\/](?![A-Za-z]:[\\/])")
+# The device namespaces (pipes, consoles, raw devices) and the pipe namespace by a server's
+# name: not files (a drive path written with \\?\ is a file).
+_DEVICE_PATH = re.compile(
+    r"(?i)^[\\/][\\/](?:[.?][\\/](?![A-Za-z]:[\\/])|[^\\/]+[\\/]pipe(?:[\\/]|$))")
 
 
-def _regular_file(path: str) -> None:
-    """Refuse what isn't a regular file: reading a device or a pipe can block for good, and
-    a worker thread can't be stopped. Device paths are refused before anything is opened."""
+def _open_regular(path: str):
+    """The file to read, opened once and checked on that very handle: reading a device or a
+    pipe can block for good, and a worker thread can't be stopped. Device and pipe paths are
+    refused before anything is opened (opening a pipe connects to it)."""
     if _DEVICE_PATH.match(path):
         raise OSError(errno.EINVAL, "not a regular file", path)
-    with open(path, "rb") as stream:  # a device name (NUL, CON) opens as a device: no read
-        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
-            raise OSError(errno.EINVAL, "not a regular file", path)
+    stream = open(path, "rb")  # a device name (NUL, CON) opens as a device: nothing is read
+    if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+        stream.close()
+        raise OSError(errno.EINVAL, "not a regular file", path)
+    return stream
 
 
 def read_local(path: str, *, start: int, start_label: str, count: int, budget: int,
                raw_mode: bool) -> tuple[int, str]:
     """``(exit code, output)`` as the host transport returns them for the awk command."""
     try:
-        _regular_file(path)
-        if raw_mode:
-            data = raw(path, start=start, start_label=start_label, count=count, budget=budget)
-        else:
-            with open(path, "rb") as stream:
+        with _open_regular(path) as stream:
+            if raw_mode:
+                data = raw(stream, start=start, start_label=start_label, count=count,
+                           budget=budget)
+            else:
                 data = numbered(stream, start=start, start_label=start_label, count=count,
                                 budget=budget)
     except OSError as exc:

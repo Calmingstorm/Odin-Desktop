@@ -1,6 +1,7 @@
 """apply_patch on this Windows computer: Odin's transaction over held handles (phase 3 plan C4)."""
 from __future__ import annotations
 
+import ctypes
 import json
 import os
 import subprocess
@@ -8,6 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from src.desktop.platform import win32
 from src.desktop.platform.windows_files import dacl_is_private
 from src.desktop.platform.windows_tools import handle_apply_patch
 from tests.windows.test_windows_adversarial import security_of
@@ -177,6 +179,7 @@ def transaction(monkeypatch):
                         windows_dirfd.directory_registry_init)
     monkeypatch.setattr(apply_patch._DirectoryRegistry, "display",
                         windows_dirfd.directory_registry_display)
+    monkeypatch.setattr(apply_patch, "_artifact_paths", windows_dirfd.artifact_paths)
 
     def run(root, text, rename=windows_dirfd.rename_noreplace):
         return apply_patch.apply_plan(str(root), apply_patch.parse_patch(text),
@@ -248,41 +251,133 @@ async def test_rollback_gives_the_original_its_own_acl_back(tmp_path):
     assert acl(root / "keep.txt") == before
 
 
-def test_a_failed_privacy_repair_is_reported_with_the_rollback(tmp_path, transaction,
-                                                               monkeypatch):
+def failing_rollback(windows_dirfd, monkeypatch, *, deny):
+    """Publication and restoration both refused, so the original stays in recovery; then
+    ``deny`` ("privacy" or "inspection") fails for the retained recovery artifact."""
+    real_rename, real_private = windows_dirfd.rename_noreplace, windows_dirfd.win32.set_private_dacl
+    state = {"rollback": False}
+
+    def rename(source, destination, *, src_dir_fd, dst_dir_fd):
+        if source.startswith(".odin-patch-stage-"):
+            state["rollback"] = True
+            raise OSError(5, "publication refused")
+        if source.startswith(".odin-patch-recovery-"):
+            raise OSError(5, "restoration refused")
+        real_rename(source, destination, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
+
+    def private(handle):
+        if state["rollback"] and deny == "privacy":
+            raise PermissionError(5, "Access is denied")
+        real_private(handle)
+
+    monkeypatch.setattr(windows_dirfd, "rename_noreplace", rename)
+    monkeypatch.setattr(windows_dirfd.win32, "set_private_dacl", private)
+    return state
+
+
+async def rendered(envelope, monkeypatch):
+    """The text the tool returns for ``envelope``: the handler's own rendering."""
+    from src.desktop.platform import windows_tools
+
+    async def host(*args, **kwargs):
+        return json.dumps(envelope), 0
+
+    monkeypatch.setattr(windows_tools, "apply_on_host", host)
+    fake, _ = tool()
+    return await handle_apply_patch(fake, {"host": "localhost", "root": "C:\\x",
+                                           "patch_text": patch("*** Add File: a", "+a")})
+
+
+@pytest.mark.parametrize("deny, reason", [("privacy", "could not be made private"),
+                                          ("inspection", "could not be inspected")])
+async def test_an_unverified_artifact_never_hides_an_incomplete_rollback(
+        tmp_path, transaction, monkeypatch, deny, reason):
     from src.desktop.platform import windows_dirfd, windows_patch
 
     root = tmp_path / "root"
     root.mkdir()
     (root / "a.txt").write_bytes(b"original\n")
-    real_private = windows_dirfd.win32.set_private_dacl
-    real_rename = windows_dirfd.rename_noreplace
-    state = {"rollback": False}
+    state = failing_rollback(windows_dirfd, monkeypatch, deny=deny)
+    if deny == "inspection":
+        real_stat = transaction.shim.stat
 
-    def private(handle):
-        if state["rollback"]:  # the retained artifact's repair is refused
-            raise PermissionError(5, "Access is denied")
-        real_private(handle)
+        def stat(path, *, dir_fd=None, follow_symlinks=True):
+            if state["rollback"] and str(path).startswith(".odin-patch-recovery-"):
+                raise PermissionError(5, "Access is denied")
+            return real_stat(path, dir_fd=dir_fd, follow_symlinks=follow_symlinks)
 
-    def rename(source, destination, *, src_dir_fd, dst_dir_fd):
-        if source.startswith(".odin-patch-stage-"):  # publication fails ...
-            state["rollback"] = True
-            raise OSError(5, "publication refused")
-        if source.startswith(".odin-patch-recovery-"):  # ... and so does restoring the original
-            raise OSError(5, "restoration refused")
-        real_rename(source, destination, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
-
-    monkeypatch.setattr(windows_dirfd.win32, "set_private_dacl", private)
+        transaction.shim.stat = stat
     plan = patch("*** Update File: a.txt", "@@", "-original", "+changed")
-    monkeypatch.setattr(windows_dirfd, "rename_noreplace", rename)
     result = windows_patch.envelope(transaction.apply_patch, transaction.shim, str(root),
                                     json.dumps(transaction.apply_patch.parse_patch(plan)))
     assert result["ok"] is False and result["rollback_failed"] is True
-    failures = " ".join(result["rollback_failures"])
-    assert "restoration refused" in failures and "could not be made private" in failures
-    (recovery,) = [path for path in result["recovery_artifacts"] if ".odin-patch-recovery-" in path]
-    assert not (root / "a.txt").exists()
-    assert (root / recovery.rsplit("\\", 1)[1]).read_bytes() == b"original\n"
+    assert "restoration refused" in " ".join(result["rollback_failures"])
+    assert reason in " ".join(result["rollback_failures"]) and reason in result["error"]
+    assert not any(".odin-patch-recovery-" in path for path in result["recovery_artifacts"])
+    (recovery,) = [path for path in root.iterdir() if path.name.startswith(".odin-patch-recov")]
+    assert recovery.read_bytes() == b"original\n" and not (root / "a.txt").exists()
+    text, code = await rendered(result, monkeypatch)
+    assert code == 1 and text.startswith("Error: apply_patch rollback failed; manual recovery")
+    assert "retained without verified privacy: " in text and recovery.name in text
+    assert "without changing the final file set" not in text
+    private_part = text.partition("Retained private recovery artifacts:")[2]
+    assert recovery.name not in private_part
+
+
+# The test's own way to set a descriptor exactly, independent of the code under test.
+_SET_EXACTLY = ctypes.WinDLL("advapi32", use_last_error=True).SetKernelObjectSecurity
+_SET_EXACTLY.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p]
+_SET_EXACTLY.restype = ctypes.c_int
+
+
+def exact_dacl(path, sddl=None):
+    """``path``'s DACL as SDDL; with ``sddl``, set exactly that first (no inheritance work)."""
+    flags = win32.FILE_FLAG_BACKUP_SEMANTICS | win32.FILE_FLAG_OPEN_REPARSE_POINT
+    share = win32.FILE_SHARE_READ | win32.FILE_SHARE_WRITE | win32.FILE_SHARE_DELETE
+    handle = win32.create_file(path, win32.READ_CONTROL | win32.WRITE_DAC, share,
+                               win32.OPEN_EXISTING, flags)
+    try:
+        if sddl is not None:
+            with win32.SecurityDescriptor(sddl) as descriptor:
+                assert _SET_EXACTLY(handle, win32.DACL_SECURITY_INFORMATION, descriptor.pointer)
+        descriptor, text = win32.PVOID(), win32.PVOID()
+        status = win32.GetSecurityInfo(handle, win32.SE_FILE_OBJECT,
+                                       win32.DACL_SECURITY_INFORMATION, None, None, None, None,
+                                       ctypes.byref(descriptor))
+        assert status == 0
+        try:
+            win32.check(win32.ConvertSecurityDescriptorToStringSecurityDescriptorW(
+                descriptor, win32.SDDL_REVISION_1, win32.DACL_SECURITY_INFORMATION,
+                ctypes.byref(text), None))
+            try:
+                return ctypes.wstring_at(text.value)
+            finally:
+                win32.LocalFree(text)
+        finally:
+            win32.LocalFree(descriptor)
+    finally:
+        win32.close(handle)
+
+
+@pytest.mark.parametrize("sddl", [
+    # A conditional (callback) entry: nested parentheses, rebuilt from no text.
+    "D:P(XA;;FR;;;WD;(Member_of {SID(BA)}))(A;;FA;;;OW)(A;;FA;;;SY)(A;;FA;;;BA)",
+    # A protected descriptor that still holds an entry marked inherited.
+    "D:P(A;ID;FR;;;WD)(A;;FA;;;OW)(A;;FA;;;SY)(A;;FA;;;BA)",
+])
+async def test_rollback_gives_back_exactly_the_descriptor_the_original_had(tmp_path, sddl):
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "keep.txt").write_bytes(b"alpha\n")
+    (root / "locked.txt").write_bytes(b"in use\n")
+    before = exact_dacl(root / "keep.txt", sddl)
+    with open(root / "locked.txt", "rb"):  # the second rename fails: keep.txt is rolled back
+        (text, code), _ = await apply(root, patch(
+            "*** Update File: keep.txt", "@@", "-alpha", "+changed",
+            "*** Delete File: locked.txt"))
+    assert code == 1 and "without changing" in text
+    assert (root / "keep.txt").read_bytes() == b"alpha\n"
+    assert exact_dacl(root / "keep.txt") == before
 
 
 def test_the_admitted_root_cant_be_swapped_while_it_resolves(tmp_path, transaction,

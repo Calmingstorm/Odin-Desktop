@@ -375,11 +375,14 @@ def test_a_script_takes_a_free_name_and_cleans_up_a_failed_write(tmp_path, monke
     names = iter(["taken", "free"])
     monkeypatch.setattr(wx.secrets, "token_hex", lambda size: next(names))
     (tmp_path / "s.taken.ps1").write_bytes(b"someone else's")
-    assert wx.write_script("Write-Output hi", "s.ps1", "powershell") == str(tmp_path / "s.free.ps1")
+    owner = wx.ScriptFile()
+    wx.write_script("Write-Output hi", "s.ps1", "powershell", owner)
+    assert owner.path == str(tmp_path / "s.free.ps1")
+    owner.remove()
     assert (tmp_path / "s.taken.ps1").read_bytes() == b"someone else's"
     monkeypatch.setattr(wx.secrets, "token_hex", lambda size: "taken")
     with pytest.raises(FileExistsError, match="no free name"):
-        wx.write_script("Write-Output hi", "s.ps1", "powershell")
+        wx.write_script("Write-Output hi", "s.ps1", "powershell", wx.ScriptFile())
 
     def failing(handle, data):
         raise OSError(112, "There is not enough space on the disk")
@@ -387,5 +390,31 @@ def test_a_script_takes_a_free_name_and_cleans_up_a_failed_write(tmp_path, monke
     monkeypatch.setattr(wx.secrets, "token_hex", lambda size: "fresh")
     monkeypatch.setattr(wx.win32, "write_all", failing)
     with pytest.raises(OSError, match="not enough space"):
-        wx.write_script("Write-Output hi", "s.ps1", "powershell")
-    assert sorted(path.name for path in tmp_path.iterdir()) == ["s.free.ps1", "s.taken.ps1"]
+        wx.write_script("Write-Output hi", "s.ps1", "powershell", wx.ScriptFile())
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["s.taken.ps1"]
+
+
+
+async def test_an_unresolved_member_stays_unresolved_across_attempts(monkeypatch):
+    running = await wx.spawn([PYTHON, "-I", "-S", "-c", "import time; time.sleep(60)"])
+    try:
+        def unopenable(*args):
+            ctypes.set_last_error(5)  # access denied proves nothing, attempt after attempt
+            return 0
+
+        monkeypatch.setattr(wx.win32, "OpenProcess", unopenable)
+        assert not await wx.terminate(running, timeout=1)  # timed out, unverified
+        assert not await wx.terminate(running, timeout=1)  # the retry still knows the member
+        attempt = asyncio.ensure_future(wx.terminate(running, timeout=30))
+        await asyncio.sleep(0.3)
+        attempt.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await attempt
+        assert not await wx.terminate(running, timeout=1)  # so does one after a cancelled one
+        assert None in running.members.values()
+        monkeypatch.undo()  # it can be asked now: it has ended
+        assert await wx.terminate(running, timeout=5)
+    finally:
+        monkeypatch.undo()
+        wx.release(running)
+    assert running.members == {}

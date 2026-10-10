@@ -119,7 +119,9 @@ def test_the_final_newline_probe(tmp_path):
     for data, expected in ((b"", 0), (b"x", 0), (b"x\n", 1), (b"\n", 1), (b"x\r\n", 1)):
         path = tmp_path / f"f{len(data)}{expected}"
         path.write_bytes(data)
-        assert windows_read._final_newline(path) == expected
+        with open(path, "rb") as stream:
+            assert windows_read._final_newline(stream) == expected
+            assert stream.tell() == 0  # rewound for the reading that follows
         if data:
             command = f"tail -c 1 < {path} | wc -l"
             assert int(subprocess.run(["/bin/sh", "-c", command], capture_output=True,

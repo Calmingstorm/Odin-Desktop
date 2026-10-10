@@ -5,8 +5,10 @@ import asyncio
 import functools
 import os
 import subprocess
+import sys
 import tempfile
 import threading
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -121,24 +123,32 @@ def test_powershell_quoting_doubles_every_quote_it_honors():
     assert wx.ps_quote("C:\\O'Brien\u2019s\\x.ps1") == "'C:\\O''Brien\u2019\u2019s\\x.ps1'"
 
 
-# --- The script file's life and privacy (Odin's 3a review, B8 and B9) -------------------------
+# --- The script file's life and privacy (Odin's 3a review: B8, B9, R2-B5, R2-B6) -----------
+
+
+def held_worker(monkeypatch):
+    """The script's worker waits until released; ``removed`` is set when the worker, finding
+    its caller gone, removes the file itself."""
+    proceed, removed = threading.Event(), threading.Event()
+    real_write, real_remove = wx.write_script, wx._remove
+
+    def held_write(*args):
+        proceed.wait(10)
+        return real_write(*args)
+
+    def watched_remove(path, pin):
+        real_remove(path, pin)
+        if path:
+            removed.set()
+
+    monkeypatch.setattr(wx, "write_script", held_write)
+    monkeypatch.setattr(wx, "_remove", watched_remove)
+    return proceed, removed
 
 
 async def test_a_cancelled_script_leaves_no_file(tmp_path, monkeypatch):
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
-    proceed, discarded = threading.Event(), asyncio.Event()
-    real_write, real_discard = wx.write_script, wx._discard
-
-    def held_write(*args):
-        proceed.wait(10)  # the worker is still writing when its caller is cancelled
-        return real_write(*args)
-
-    def watched_discard(created):
-        real_discard(created)
-        discarded.set()
-
-    monkeypatch.setattr(wx, "write_script", held_write)
-    monkeypatch.setattr(wx, "_discard", watched_discard)
+    proceed, removed = held_worker(monkeypatch)
     task = asyncio.ensure_future(wx.run_local_script(tool(tmp_path), "127.0.0.1", "root",
                                                      "powershell", "Write-Output hi", "late.ps1"))
     await asyncio.sleep(0.5)
@@ -146,28 +156,103 @@ async def test_a_cancelled_script_leaves_no_file(tmp_path, monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await task
     proceed.set()
-    await asyncio.wait_for(discarded.wait(), 10)
+    assert await asyncio.to_thread(removed.wait, 10)
+    assert list(tmp_path.iterdir()) == []
+
+
+async def test_engine_shutdown_leaves_no_script_being_written(tmp_path, monkeypatch):
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    proceed, removed = held_worker(monkeypatch)
+    asyncio.ensure_future(wx.run_local_script(tool(tmp_path), "127.0.0.1", "root", "powershell",
+                                              "Write-Output hi", "shutdown.ps1"))
+    await asyncio.sleep(0.5)
+    others = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
+    for task in others:  # as the engine's finalizer does: every pending task, carriers too
+        task.cancel()
+    await asyncio.gather(*others, return_exceptions=True)
+    proceed.set()
+    assert await asyncio.to_thread(removed.wait, 10)
+    assert list(tmp_path.iterdir()) == []
+
+
+SHUTDOWN = r"""
+import asyncio, sys, tempfile, threading
+tempfile.tempdir = sys.argv[1]
+from src.desktop.platform import windows_exec as wx
+real = wx.write_script
+def held(*args):
+    threading.Event().wait(1.5)  # still writing when the loop shuts down
+    return real(*args)
+wx.write_script = held
+async def main():
+    asyncio.ensure_future(wx.run_local_script(None, "127.0.0.1", "u", "powershell",
+                                              "Write-Output hi", "exit.ps1"))
+    await asyncio.sleep(0.3)  # then main returns: the run is cancelled, its worker waited for
+asyncio.run(main())
+"""
+
+
+def test_a_real_shutdown_leaves_no_script(tmp_path):
+    root = Path(__file__).resolve().parents[2]
+    done = subprocess.run([sys.executable, "-c", SHUTDOWN, str(tmp_path)], cwd=root,
+                          capture_output=True, text=True, timeout=60,
+                          creationflags=subprocess.CREATE_NO_WINDOW)
+    assert done.returncode == 0, done.stderr
     assert list(tmp_path.iterdir()) == []
 
 
 def test_a_script_that_cant_be_written_leaves_no_file(tmp_path, monkeypatch):
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     with pytest.raises(UnicodeEncodeError):
-        wx.write_script("Write-Output '\ud800'", "broken.ps1", "powershell")
+        wx.write_script("Write-Output '\ud800'", "broken.ps1", "powershell", wx.ScriptFile())
     assert list(tmp_path.iterdir()) == []
 
 
-async def test_the_script_file_is_private_whatever_temp_allows(tmp_path, monkeypatch):
-    folder = tmp_path / "shared"
+def shared(folder):
+    """A temporary folder where everyone may do anything: add, replace and delete entries."""
     folder.mkdir()
-    subprocess.run(["icacls", str(folder), "/grant", "*S-1-1-0:(OI)(CI)R"], check=True,
+    subprocess.run(["icacls", str(folder), "/grant", "*S-1-1-0:(OI)(CI)F"], check=True,
                    capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+    return folder
+
+
+async def test_the_script_file_is_private_whatever_temp_allows(tmp_path, monkeypatch):
+    folder = shared(tmp_path / "shared")
     monkeypatch.setattr(tempfile, "tempdir", str(folder))
-    path = wx.write_script("Write-Output hi", "private.ps1", "powershell")
+    owner = wx.ScriptFile()
+    wx.write_script("Write-Output hi", "private.ps1", "powershell", owner)
     try:
-        assert dacl_is_private(security_of(path))
+        assert dacl_is_private(security_of(owner.path))
     finally:
-        os.unlink(path)
-    code, text = await run(tool(tmp_path), "Write-Output 'from a private file'")
-    assert code == 0 and "from a private file" in text
+        owner.remove()
+    assert list(folder.iterdir()) == []
+
+
+async def test_a_running_scripts_name_cant_be_taken_over(tmp_path, monkeypatch):
+    folder = shared(tmp_path / "shared")
+    monkeypatch.setattr(tempfile, "tempdir", str(folder))
+    attempts = []
+
+    def take_over(path):
+        for attempt in (lambda: os.rename(path, path.with_suffix(".old")),
+                        lambda: os.remove(path),
+                        lambda: open(path, "r+b").close()):
+            try:
+                attempt()
+                attempts.append("done")
+            except PermissionError:
+                attempts.append("refused")
+
+    async def watch():
+        for _ in range(100):
+            await asyncio.sleep(0.1)
+            if scripts := list(folder.glob("odin_script.*.ps1")):
+                await asyncio.to_thread(take_over, scripts[0])
+                return
+
+    watching = asyncio.ensure_future(watch())
+    code, text = await run(tool(tmp_path), "Start-Sleep 3; Write-Output 'the governed script ran'")
+    await watching
+    assert code == 0 and "the governed script ran" in text
+    assert attempts == ["refused", "refused", "refused"]  # even by its owner: the pin's sharing
     assert list(folder.iterdir()) == []

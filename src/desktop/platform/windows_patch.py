@@ -25,12 +25,14 @@ def install(apply_patch):
     apply_patch.os = shim
     apply_patch._DirectoryRegistry.__init__ = windows_dirfd.directory_registry_init
     apply_patch._DirectoryRegistry.display = windows_dirfd.directory_registry_display
+    apply_patch._artifact_paths = windows_dirfd.artifact_paths
     return shim
 
 
 def envelope(apply_patch, shim, root: str, plan_text: str) -> dict:
-    """The Linux runner's envelope for one plan. A retained artifact that couldn't be made
-    private is reported with the rollback's own failures, never in place of them."""
+    """The Linux runner's envelope for one plan. Retained artifacts whose privacy isn't
+    verified are named in the error, the text the tool shows, and in the failures, beside
+    the rollback's own: never listed as the private recovery artifacts."""
     from . import windows_dirfd
 
     try:
@@ -39,13 +41,17 @@ def envelope(apply_patch, shim, root: str, plan_text: str) -> dict:
                                          rename_noreplace=windows_dirfd.rename_noreplace)
         return {"ok": True, "changed": changed}
     except apply_patch.PatchRollbackError as exc:
-        return {"ok": False, "error": str(exc), "rollback_failed": True,
-                "rollback_failures": [*exc.failures, *shim.privacy_failures],
+        unverified = [f"{label} ({reason})" for label, reason in shim.unverified]
+        error = str(exc) + (
+            "; retained without verified privacy: " + "; ".join(unverified) if unverified else "")
+        return {"ok": False, "error": error, "rollback_failed": True,
+                "rollback_failures": [*exc.failures, *unverified],
                 "recovery_artifacts": exc.recovery_artifacts}
     except BaseException as exc:  # noqa: BLE001 - the Linux runner's envelope, every failure
         error = f"{type(exc).__name__}: {exc}"
-        if shim.privacy_failures:
-            error += "; " + "; ".join(shim.privacy_failures)
+        if shim.unverified:
+            error += "; retained without verified privacy: " + "; ".join(
+                f"{label} ({reason})" for label, reason in shim.unverified)
         return {"ok": False, "error": error, "rollback_failed": False}
 
 
