@@ -172,6 +172,10 @@ interface FakeOptions {
   onRequest?: (frame: Record<string, unknown>, connection: number) => Record<string, unknown> | null
   /** Sealed frames sent between the proofs and the welcome, per connection. */
   early?: (connection: number) => Record<string, unknown>[]
+  /** A welcome of the connection's own, in place of the valid one. */
+  welcome?: (connection: number) => Record<string, unknown> | null
+  /** Sealed frames that arrive in the same write as the welcome. */
+  trailing?: (connection: number) => Record<string, unknown>[]
 }
 
 async function sealedCore(options: FakeOptions = {}) {
@@ -234,10 +238,13 @@ async function sealedCore(options: FakeOptions = {}) {
           sender = new SealedDirection(keys!.s2c, SERVER_TO_CLIENT)
           receiver = new SealedDecoder(new SealedDirection(keys!.c2s, CLIENT_TO_SERVER))
           for (const early of options.early?.(mine) ?? []) sealedWrite(early)
-          sealedWrite({
+          const welcome = options.welcome?.(mine) ?? {
             t: 'welcome', protocol: { major: 0, minor: 3 }, core: { instance_id: `core-${mine}`, version: '0' },
             profile_id: 'default', capabilities: [], features: [], max_frame: 4194304, event_high: '0'
-          })
+          }
+          // One write, so the welcome and what trails it reach the broker as one chunk.
+          socket.write(Buffer.concat([welcome, ...(options.trailing?.(mine) ?? [])]
+            .map((frame) => sender!.seal(encodeFrame(frame).subarray(4)))))
         }
       }
     })
@@ -404,6 +411,86 @@ describe('the broker over a sealed link', () => {
     seal.mockRestore()
     const subscribed = requests.filter((request) => request.method === 'events.subscribe')
     expect(subscribed.map((request) => request.connection)).toEqual([1, 3])
+  })
+
+  const valid = (connection: number, changes: Record<string, unknown> = {}) => ({
+    t: 'welcome', protocol: { major: 0, minor: 3 }, core: { instance_id: `core-${connection}`, version: '0' },
+    profile_id: 'default', capabilities: [], features: [], max_frame: 4194304, event_high: '0', ...changes
+  })
+
+  it('applies nothing that arrives with a refused welcome, first or on a reconnect', async () => {
+    const id = crypto.randomUUID()
+    const { broker, requests, sockets, errors } = await sealedCore({
+      welcome: (connection) =>
+        connection === 1 ? valid(1, { profile_id: 'other' })
+          : connection === 3 ? valid(3, { protocol: { major: 9, minor: 0 } }) : null,
+      trailing: (connection) =>
+        connection === 1 ? [{ t: 'evt', seq: 3, cursor: '3', type: 'x' }]
+          : connection === 3 ? [{ t: 'evt', seq: 7, cursor: '7', type: 'x' }, { t: 'res', id, ok: true, result: { early: true } }]
+            : [],
+      onRequest: (frame, connection) => (connection === 2 ? null : { t: 'res', id: frame.id, ok: true, result: { connection } })
+    })
+    const events: unknown[] = []
+    const receipts: Array<{ id: string; settled: unknown }> = []
+    broker.on('event', (event: unknown) => events.push(event))
+    broker.on('receipt', (receipt: { id: string; settled: unknown }) => receipts.push(receipt))
+    broker.connect()
+    await waitFor(() => broker.linkState === 'ready' && sockets.length === 2, 5_000)
+    expect(await broker.request('submission.send', {}, id)).toMatchObject({ ok: false, error: { code: 'no_receipt' } })
+    sockets[1]!.destroy()
+    await waitFor(() => receipts.length === 1, 5_000)
+    expect(errors).toEqual(['core is incompatible or serves a different profile',
+      'core is incompatible or serves a different profile'])
+    expect(receipts[0]).toEqual({ id, settled: { ok: true, result: { connection: 4 } } })
+    expect(requests.filter((request) => request.id === id).map((request) => request.connection)).toEqual([2, 4])
+    expect(events).toEqual([])
+    expect(broker.cursor).toBeNull()
+  })
+
+  it('refuses a second welcome before any of its effects', async () => {
+    const id = crypto.randomUUID()
+    const { broker, requests, sockets } = await sealedCore({
+      trailing: (connection) => (connection === 2 ? [valid(2, { core: { instance_id: 'duplicate', version: '0' } })] : []),
+      onRequest: (frame, connection) =>
+        connection === 1 && frame.id === id ? null : { t: 'res', id: frame.id, ok: true, result: { connection } }
+    })
+    const refusedWith: Array<string | null> = []
+    broker.on('protocol-error', () => refusedWith.push(broker.coreInstanceId))
+    const receipts: Array<{ id: string; settled: unknown }> = []
+    broker.on('receipt', (receipt: { id: string; settled: unknown }) => receipts.push(receipt))
+    broker.startEvents()
+    broker.connect()
+    await waitFor(() => broker.linkState === 'ready')
+    expect(await broker.request('submission.send', {}, id)).toMatchObject({ ok: false, error: { code: 'no_receipt' } })
+    sockets[0]!.destroy()
+    await waitFor(() => receipts.length === 1, 5_000)
+    expect(refusedWith).toEqual(['core-2']) // the duplicate never replaced the core's identity
+    const on2 = requests.filter((request) => request.connection === 2)
+    expect(on2.filter((request) => request.id === id)).toHaveLength(1) // re-sent once, not twice
+    expect(on2.filter((request) => request.method === 'events.subscribe')).toHaveLength(1)
+    expect(receipts[0]).toEqual({ id, settled: { ok: true, result: { connection: 3 } } })
+  })
+
+  it('applies nothing after a welcome whose re-send could not be sealed', async () => {
+    const id = crypto.randomUUID()
+    const { broker, sockets } = await sealedCore({
+      trailing: (connection) => (connection === 2 ? [{ t: 'evt', seq: 9, cursor: '9', type: 'x' }] : []),
+      onRequest: (frame, connection) =>
+        connection === 1 && frame.id === id ? null : { t: 'res', id: frame.id, ok: true, result: { connection } }
+    })
+    const events: unknown[] = []
+    const receipts: Array<{ id: string }> = []
+    broker.on('event', (event: unknown) => events.push(event))
+    broker.on('receipt', (receipt: { id: string }) => receipts.push(receipt))
+    broker.connect()
+    await waitFor(() => broker.linkState === 'ready')
+    expect(await broker.request('submission.send', {}, id)).toMatchObject({ ok: false, error: { code: 'no_receipt' } })
+    const seal = exhaustAfterReady(broker, 1) // connection 2's re-send can't be sealed
+    sockets[0]!.destroy()
+    await waitFor(() => receipts.length === 1, 5_000)
+    seal.mockRestore()
+    expect(events).toEqual([]) // connection 2's event came after the failed re-send in the same chunk
+    expect(broker.cursor).toBeNull()
   })
 })
 

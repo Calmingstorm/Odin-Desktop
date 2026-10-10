@@ -11,8 +11,8 @@
 //   reconnecting; the core answers a known ID with its original result, which is emitted as a late 'receipt'.
 // - On Windows the link is a named pipe with the sealed session (windows-session.ts): the token never crosses it, and
 //   the link becomes ready, re-sends and re-subscribes only after the sealed welcome opens. The first sealed frame must
-//   be that welcome (or a refusal); anything else closes the connection unapplied. Each connection has fresh nonces
-//   and keys. A connection at its key budget closes so the next one handshakes new keys; a command it couldn't seal
+//   be that welcome (or a refusal) and pass its checks; anything else, a second welcome included, closes the
+//   connection, and nothing after a refusal is applied. Each connection has fresh nonces and keys. A connection at its key budget closes so the next one handshakes new keys; a command it couldn't seal
 //   was never sent, and says so.
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
@@ -98,8 +98,8 @@ export class Broker extends EventEmitter {
   private session: ClientSession | null = null
   private sealer: SealedDirection | null = null
   private sealedDecoder: SealedDecoder | null = null
-  /** A sealed connection between its proofs and its welcome: only the welcome or a refusal may arrive. */
-  private awaitingWelcome = false
+  /** A sealed connection's session: proven and awaiting its one welcome, then open. */
+  private sessionState: 'none' | 'awaiting' | 'open' = 'none'
   private readonly requestTimeoutMs: number
   private readonly helloTimeoutMs: number
   private readonly reconnectDelaysMs: number[]
@@ -254,7 +254,7 @@ export class Broker extends EventEmitter {
     const socket = createConnection(this.options.socketPath)
     this.socket = socket
     this.session = this.sealer = this.sealedDecoder = null
-    this.awaitingWelcome = false
+    this.sessionState = 'none'
     // Before the proofs a sealed link takes only small plain frames.
     this.decoder = new FrameDecoder(this.sealed ? PREAUTH_MAX_FRAME : this.maxFrame)
     socket.on('connect', () => this.sendHello(socket))
@@ -322,7 +322,7 @@ export class Broker extends EventEmitter {
     socket.write(encodeFrame(answer.proof))
     this.sealer = answer.send
     this.sealedDecoder = new SealedDecoder(answer.receive, answer.maxFrame)
-    this.awaitingWelcome = true
+    this.sessionState = 'awaiting'
     return []
   }
 
@@ -342,17 +342,30 @@ export class Broker extends EventEmitter {
       return
     }
     for (const frame of frames) {
-      if (this.awaitingWelcome) {
-        // Nothing is applied before the sealed welcome: no receipt, no event, no cursor.
-        if (frame.t !== 'welcome' && frame.t !== 'bye') {
-          this.emit('protocol-error', 'the sealed session must open with the welcome')
-          socket.destroy()
-          return
-        }
-        this.awaitingWelcome = frame.t !== 'welcome'
+      if (!this.sealed) {
+        this.handleFrame(socket, frame)
+        continue
+      }
+      // A sealed link applies nothing after its connection was refused, nothing before the one welcome it
+      // accepts (no receipt, event or cursor), and no second welcome.
+      if (socket.destroyed || socket !== this.socket) return
+      if (frame.t === 'welcome') {
+        if (this.sessionState !== 'awaiting') return this.refuse(socket, 'the sealed session takes one welcome')
+        this.onWelcome(socket, frame as unknown as Welcome)
+        if (socket.destroyed) return // refused, or its re-sends could not be sealed
+        this.sessionState = 'open'
+        continue
+      }
+      if (this.sessionState !== 'open' && frame.t !== 'bye') {
+        return this.refuse(socket, 'the sealed session must open with the welcome')
       }
       this.handleFrame(socket, frame)
     }
+  }
+
+  private refuse(socket: Socket, reason: string): void {
+    this.emit('protocol-error', reason)
+    socket.destroy()
   }
 
   private handleFrame(socket: Socket, frame: Record<string, unknown>): void {
