@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     import asyncio
 
+    from ...tools.command_shell import ShellChoice
+    from ...tools.local_supervisor import SupervisedShell
     from ..paths import ProfilePaths
 
 
@@ -73,6 +75,12 @@ class CoreLifetime(Protocol):
 class Platform(Protocol):
     name: str
     ipc: IpcTransport
+
+    def resolve_local_shell(self, mode: str = "auto") -> ShellChoice:
+        """The shell local commands run under, resolved anew before each dispatch."""
+
+    async def create_local_shell(self, command: str, **options) -> SupervisedShell:
+        """Start a local command under this system's process supervision."""
 
     def secret_backend(self) -> SecretBackend: ...
 

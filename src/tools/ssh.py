@@ -276,21 +276,22 @@ async def run_local_command(
     from ..observability.diagnostics import command_display, safe_error
 
     log.info("Local exec: %s", command_display(command))
-    from .command_shell import CommandOutput, ShellUnavailableError, resolve_local_shell
-    from .local_supervisor import create_supervised_shell
+    from ..desktop.platform import current_platform
+    from .command_shell import CommandOutput, ShellUnavailableError
 
+    platform = current_platform()
     proc: SupervisedShell | None = None
     choice = None
     try:
         # PWD/OLDPWD are normalized alongside cwd: cwd= alone leaves an
         # inherited OLDPWD pointing at the install, so a bare `cd -` would walk
         # right back into it (review finding, 2026-07-27).
-        choice = resolve_local_shell(command_shell)
+        choice = platform.resolve_local_shell(command_shell)
         env = workspace_env(Path(cwd)) if cwd else None
         # start_new_session puts the shell at the head of its own process
         # group, so timeout/cancellation cleanup can take out descendants
         # (`sh -c 'x & ...'`) instead of just the shell leader.
-        proc = await create_supervised_shell(
+        proc = await platform.create_local_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,

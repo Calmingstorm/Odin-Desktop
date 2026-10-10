@@ -1708,12 +1708,13 @@ class ProcessRegistry:
                 host_lease, f"Error: cannot start background process — {e}"
             )
         try:
-            from .command_shell import ShellUnavailableError, resolve_local_shell
-            from .local_supervisor import create_supervised_shell
+            from ..desktop.platform import current_platform
+            from .command_shell import ShellUnavailableError
 
+            platform = current_platform()
             mode = self._command_shell() if callable(self._command_shell) else self._command_shell
-            shell_choice = resolve_local_shell(mode)
-            proc = await create_supervised_shell(
+            shell_choice = platform.resolve_local_shell(mode)
+            proc = await platform.create_local_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,

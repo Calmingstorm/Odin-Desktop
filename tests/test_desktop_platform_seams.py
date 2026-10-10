@@ -122,3 +122,27 @@ def test_the_core_lifetime_is_the_existing_class():
 
     lifetime = LinuxPlatform().core_lifetime()
     assert type(lifetime) is CoreLifetime and lifetime.admitting
+
+
+async def test_local_shells_come_from_the_platform_at_call_time(monkeypatch):
+    """Shell choice and the supervised launch are today's functions, looked up when called,
+    so tests and callers that replace them still reach every local command."""
+    from src.tools import command_shell, local_supervisor
+
+    platform = LinuxPlatform()
+    assert platform.resolve_local_shell("sh") == command_shell.resolve_local_shell("sh")
+    monkeypatch.setattr(command_shell, "resolve_local_shell",
+                        lambda mode: command_shell.ShellChoice("fixture", f"/fixture/{mode}"))
+    fixture = command_shell.ShellChoice("fixture", "/fixture/auto")
+    assert platform.resolve_local_shell("auto") == fixture
+
+    seen = []
+
+    async def launch(command, **options):
+        seen.append((command, options))
+        return "supervised"
+
+    monkeypatch.setattr(local_supervisor, "create_supervised_shell", launch)
+    launched = await platform.create_local_shell("true", cwd="/tmp", start_new_session=True)
+    assert launched == "supervised"
+    assert seen == [("true", {"cwd": "/tmp", "start_new_session": True})]
