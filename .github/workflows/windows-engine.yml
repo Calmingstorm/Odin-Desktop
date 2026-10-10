@@ -36,7 +36,7 @@ jobs:
         shell: pwsh
         run: |
           .venv\Scripts\python.exe -m pytest tests/windows tests/test_desktop_platform_variants.py `
-            -q -p no:cacheprovider -rs --cov=src/desktop/platform --cov-report=json:coverage-windows.json `
+            -q -p no:cacheprovider -rfEs --cov=src/desktop/platform --cov-report=json:coverage-windows.json `
             --cov-report=term-missing
       - name: Upload Windows coverage evidence
         if: always()

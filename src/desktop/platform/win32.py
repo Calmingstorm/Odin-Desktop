@@ -458,11 +458,16 @@ def write_all(handle, data: bytes) -> None:
         view = view[written.value:]
 
 
-def rename_by_handle(handle, new_name: str, *, replace: bool) -> None:
-    """Rename the open file within its own folder (``new_name`` is a leaf name)."""
-    encoded = new_name.encode("utf-16-le")
+def rename_by_handle(handle, target, *, replace: bool) -> None:
+    """Rename the open file to ``target``, a full path in the same folder.
+
+    ``SetFileInformationByHandle`` resolves a bare name against the current
+    directory (its drive), so callers pass the full path. They hold the folder
+    chain, so that path names the held folder.
+    """
+    encoded = str(target).encode("utf-16-le")
     # FILE_RENAME_INFO: a DWORD of flags (padded to the handle's alignment), the root
-    # directory handle (NULL: same folder), the name's byte length, then the name.
+    # directory handle (NULL: the name is a full path), the name's byte length, then the name.
     offset = ctypes.sizeof(ctypes.c_void_p) * 2 + ctypes.sizeof(DWORD)
     # Room for the terminating null and the structure's own trailing padding.
     size = offset + len(encoded) + 8
@@ -474,7 +479,7 @@ def rename_by_handle(handle, new_name: str, *, replace: bool) -> None:
     ctypes.memmove(ctypes.addressof(buffer) + offset - ctypes.sizeof(DWORD),
                    len(encoded).to_bytes(4, "little"), 4)
     ctypes.memmove(ctypes.addressof(buffer) + offset, encoded, len(encoded))
-    check(SetFileInformationByHandle(handle, FILE_RENAME_INFO_EX_CLASS, buffer, size), new_name)
+    check(SetFileInformationByHandle(handle, FILE_RENAME_INFO_EX_CLASS, buffer, size), target)
 
 
 def delete_by_handle(handle) -> None:

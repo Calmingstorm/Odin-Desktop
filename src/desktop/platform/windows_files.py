@@ -106,7 +106,10 @@ def canonical(path) -> Path:
 
 
 def _open_directory(path, *, repair: bool = False):
-    access = win32.FILE_READ_ATTRIBUTES | win32.READ_CONTROL | win32.SYNCHRONIZE
+    # Data access (list and traverse) makes the handle count in sharing checks.
+    # Attribute-only handles don't, and then a rename of the folder would succeed.
+    access = (win32.FILE_LIST_DIRECTORY | win32.FILE_TRAVERSE | win32.FILE_READ_ATTRIBUTES
+              | win32.READ_CONTROL | win32.SYNCHRONIZE)
     if repair:
         access |= win32.WRITE_DAC
     return win32.create_file(
@@ -315,11 +318,11 @@ def read_file(chain: HeldChain, name: str, *, limit: int | None = None) -> bytes
         return stream.read() if limit is None else stream.read(limit)
 
 
-def _rename(handle, name: str, *, replace: bool) -> None:
+def _rename(handle, target: Path, *, replace: bool) -> None:
     """Rename by handle, retrying briefly while a reader holds the target without delete sharing."""
     for attempt in range(_RENAME_RETRIES):
         try:
-            win32.rename_by_handle(handle, name, replace=replace)
+            win32.rename_by_handle(handle, target, replace=replace)
             return
         except OSError as exc:
             if (exc.winerror not in (win32.ERROR_SHARING_VIOLATION, win32.ERROR_ACCESS_DENIED)
@@ -362,7 +365,7 @@ def publish(chain: HeldChain, name: str, data: bytes) -> bool:
         verify_file(handle, chain.child(temporary))
         win32.write_all(handle, data)
         win32.flush(handle)
-        _rename(handle, name, replace=True)
+        _rename(handle, chain.child(name), replace=True)
         committed = True
         try:
             win32.flush(handle)
@@ -423,7 +426,7 @@ def retire(chain: HeldChain, name: str) -> str:
         for _ in range(8):
             tombstone = f"{name}.retiring-{secrets.token_hex(16)}"
             try:
-                _rename(handle, tombstone, replace=False)
+                _rename(handle, chain.child(tombstone), replace=False)
                 break
             except FileExistsError:
                 continue
