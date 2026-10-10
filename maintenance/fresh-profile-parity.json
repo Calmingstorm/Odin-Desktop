@@ -345,7 +345,7 @@
     "src/desktop/platform/windows_authority.py": "a4fd4d1f6348ea6d38ba79ee20808860817239b3c5e1e61a8e2d887191540c72",
     "src/desktop/platform/windows_desktop.py": "2c3baff13108efbdf94a1be8a13b0ffa009db6fdb717d497593501c53fbc5478",
     "src/desktop/platform/windows_engine.py": "20fc8b315184a041141eeeb3222d952363a9e6dd5254c8ac09daf73ccfeeaa13",
-    "src/desktop/platform/windows_files.py": "a858a28822ea17d8bf9a8f875b3b3869525f45eade57acc477be1d1b4725b51d",
+    "src/desktop/platform/windows_files.py": "20b583534b37e61a88d66031e4e21782516bfd631d3ce976edcea51956baba32",
     "src/desktop/platform/windows_locks.py": "f913a118e3724d3574420104052ee8242afc214701d63bda1766a19b3d5718de",
     "src/desktop/platform/windows_secrets.py": "183812b5a3d459a21588ee5707037280a2d9b38fe778d471965fdd24bfc363e1",
     "src/desktop/platform/windows_workspace.py": "bc9994068a3ce6bcf0201a1191ab202fba3a9764dd392c19e0e6eda2855206bf",

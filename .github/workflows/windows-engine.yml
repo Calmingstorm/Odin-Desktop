@@ -1,12 +1,9 @@
 name: Windows engine
 
 # Called from "Phase 1 engine boundaries" so its coverage evidence belongs to the
-# same run and revision. The push trigger on windows/** is temporary while the
-# port is built and is removed before the PR is reviewed.
+# same run and revision.
 on:
   workflow_call:
-  push:
-    branches: ['windows/**']
 
 permissions:
   contents: read

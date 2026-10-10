@@ -90,11 +90,24 @@ def _refuse(reason: str, path) -> PermissionError:
     return PermissionError(errno.EACCES, reason, str(path))
 
 
+def _local_drive(text: str) -> bool:
+    if text.startswith("\\\\?\\") and text[5:6] == ":":
+        text = text[4:]
+    drive = ntpath.splitdrive(text)[0]
+    return len(drive) == 2 and drive[1] == ":"
+
+
 def canonical(path) -> Path:
-    """Resolve once, then require an absolute local drive path."""
+    """Require a local drive path, then resolve it once.
+
+    A network path is refused before anything resolves it, so no share is ever
+    contacted on its behalf.
+    """
     path = Path(path)
     if not path.is_absolute() or ".." in path.parts or any(ord(c) < 32 for c in str(path)):
         raise ValueError("private paths must be absolute")
+    if not _local_drive(str(path)):
+        raise _refuse("private state needs a local fixed NTFS volume", path)
     resolved = os.path.realpath(path)
     if resolved.startswith("\\\\?\\") and resolved[5:6] == ":":
         resolved = resolved[4:]

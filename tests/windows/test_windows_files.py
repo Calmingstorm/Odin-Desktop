@@ -127,7 +127,11 @@ def test_held_chain_refuses_a_junction_substituted_for_a_folder(profile_root, tm
         win32.close(handle)
 
 
-def test_private_state_needs_a_local_drive():
+def test_private_state_needs_a_local_drive(monkeypatch):
+    def contacted(path, *args, **kwargs):
+        raise AssertionError("a network path was resolved")
+
+    monkeypatch.setattr(os.path, "realpath", contacted)
     with pytest.raises(PermissionError, match="local fixed NTFS"):
         windows_files.canonical(r"\\server\share\odin-desktop\test")
 
