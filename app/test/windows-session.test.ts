@@ -495,5 +495,42 @@ describe('the broker over a sealed link', () => {
     expect(events).toEqual([]) // connection 2's event came after the failed re-send in the same chunk
     expect(broker.cursor).toBeNull()
   })
+
+  it('ends the connection at a bye, before or after the welcome, and applies nothing after it', async () => {
+    const id = crypto.randomUUID()
+    const bye = { t: 'bye', reason: 'unauthorized' }
+    const { broker, requests, sockets } = await sealedCore({
+      // The core keeps each connection open after writing: nothing here waits for its EOF.
+      welcome: (connection) => (connection === 2 ? bye : null),
+      trailing: (connection) =>
+        connection === 2 ? [valid(2), { t: 'evt', seq: 7, cursor: '7', type: 'x' }, { t: 'res', id, ok: true, result: { early: true } }]
+          : connection === 3 ? [bye, { t: 'evt', seq: 8, cursor: '8', type: 'x' }, { t: 'res', id, ok: true, result: { late: true } }]
+            : [],
+      onRequest: (frame, connection) =>
+        connection === 1 || connection === 3 ? null : { t: 'res', id: frame.id, ok: true, result: { connection } }
+    })
+    const byes: string[] = []
+    const states: string[] = []
+    const events: unknown[] = []
+    const receipts: Array<{ id: string; settled: unknown }> = []
+    broker.on('bye', (reason: string) => byes.push(reason))
+    broker.on('state', (state: string) => states.push(state))
+    broker.on('event', (event: unknown) => events.push(event))
+    broker.on('receipt', (receipt: { id: string; settled: unknown }) => receipts.push(receipt))
+    broker.connect()
+    await waitFor(() => broker.linkState === 'ready')
+    expect(await broker.request('submission.send', {}, id)).toMatchObject({ ok: false, error: { code: 'no_receipt' } })
+    states.length = 0
+    sockets[0]!.destroy()
+    await waitFor(() => receipts.length === 1, 5_000)
+    // Connection 2 said bye before its welcome: never ready, never re-sent to.
+    // Connection 3 said bye right after its welcome: its re-send went out, nothing after the bye applied.
+    expect(byes).toEqual(['unauthorized', 'unauthorized'])
+    expect(requests.filter((request) => request.id === id).map((request) => request.connection)).toEqual([1, 3, 4])
+    expect(receipts[0]).toEqual({ id, settled: { ok: true, result: { connection: 4 } } })
+    expect(events).toEqual([])
+    expect(broker.cursor).toBeNull()
+    expect(states.filter((state) => state === 'ready')).toHaveLength(2) // connections 3 and 4 only
+  })
 })
 

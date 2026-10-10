@@ -12,7 +12,7 @@
 // - On Windows the link is a named pipe with the sealed session (windows-session.ts): the token never crosses it, and
 //   the link becomes ready, re-sends and re-subscribes only after the sealed welcome opens. The first sealed frame must
 //   be that welcome (or a refusal) and pass its checks; anything else, a second welcome included, closes the
-//   connection, and nothing after a refusal is applied. Each connection has fresh nonces and keys. A connection at its key budget closes so the next one handshakes new keys; a command it couldn't seal
+//   connection. A bye closes it too. Nothing after a refusal is applied. Each connection has fresh nonces and keys. A connection at its key budget closes so the next one handshakes new keys; a command it couldn't seal
 //   was never sent, and says so.
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
@@ -347,8 +347,14 @@ export class Broker extends EventEmitter {
         continue
       }
       // A sealed link applies nothing after its connection was refused, nothing before the one welcome it
-      // accepts (no receipt, event or cursor), and no second welcome.
+      // accepts (no receipt, event or cursor), and no second welcome. A bye ends the connection: its
+      // notice is emitted, and nothing that follows it applies.
       if (socket.destroyed || socket !== this.socket) return
+      if (frame.t === 'bye') {
+        this.handleFrame(socket, frame)
+        socket.destroy()
+        return
+      }
       if (frame.t === 'welcome') {
         if (this.sessionState !== 'awaiting') return this.refuse(socket, 'the sealed session takes one welcome')
         this.onWelcome(socket, frame as unknown as Welcome)
@@ -356,9 +362,7 @@ export class Broker extends EventEmitter {
         this.sessionState = 'open'
         continue
       }
-      if (this.sessionState !== 'open' && frame.t !== 'bye') {
-        return this.refuse(socket, 'the sealed session must open with the welcome')
-      }
+      if (this.sessionState !== 'open') return this.refuse(socket, 'the sealed session must open with the welcome')
       this.handleFrame(socket, frame)
     }
   }
