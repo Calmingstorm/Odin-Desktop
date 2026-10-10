@@ -546,12 +546,38 @@ class ScriptFile:
         _remove(path, pin)
 
 
+# A script still held open (a detached child of it, say) can't be deleted yet: keep trying
+# for a while, off the caller's path, then say it was left.
+_REMOVE_RETRY_SECONDS = (1, 2, 5, 10, 30, 60)
+
+
 def _remove(path: str | None, pin) -> None:
     if pin:
         win32.close(pin)
-    if path:
-        with contextlib.suppress(OSError):
-            os.unlink(path)
+    if path and not _unlinked(path):
+        threading.Thread(target=_keep_removing, args=(path,), daemon=True,
+                         name="odin-script-cleanup").start()
+
+
+def _unlinked(path: str) -> bool:
+    try:
+        os.unlink(path)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        return False
+    return True
+
+
+def _keep_removing(path: str) -> None:
+    from ...odin_log import get_logger
+
+    for delay in _REMOVE_RETRY_SECONDS:
+        time.sleep(delay)
+        if _unlinked(path):
+            return
+    get_logger("windows_exec").warning(
+        "run_script: a temporary script is still held open and was left in place: %s", path)
 
 
 def write_script(script: str, filename: str | None, interpreter: str, owner: ScriptFile) -> None:

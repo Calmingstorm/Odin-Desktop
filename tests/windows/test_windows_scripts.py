@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -256,3 +257,42 @@ async def test_a_running_scripts_name_cant_be_taken_over(tmp_path, monkeypatch):
     assert code == 0 and "the governed script ran" in text
     assert attempts == ["refused", "refused", "refused"]  # even by its owner: the pin's sharing
     assert list(folder.iterdir()) == []
+
+
+def test_a_script_still_held_open_is_removed_once_it_is_let_go(tmp_path, monkeypatch):
+    from src.desktop.platform import win32
+
+    monkeypatch.setattr(wx, "_REMOVE_RETRY_SECONDS", (0.2,) * 50)
+    path = tmp_path / "held.ps1"
+    path.write_bytes(b"x")
+    # Like a detached child of the script: open for reading, sharing no deletion.
+    holder = win32.create_file(path, win32.GENERIC_READ, win32.FILE_SHARE_READ,
+                               win32.OPEN_EXISTING, 0)
+    try:
+        wx._remove(str(path), None)
+        time.sleep(0.5)
+        assert path.exists()  # still held: kept, and still owned
+    finally:
+        win32.close(holder)
+    deadline = time.monotonic() + 10
+    while path.exists() and time.monotonic() < deadline:
+        time.sleep(0.1)
+    assert not path.exists()
+
+
+def test_a_script_never_let_go_is_left_in_place_after_its_retries(tmp_path, monkeypatch):
+    from src.desktop.platform import win32
+
+    monkeypatch.setattr(wx, "_REMOVE_RETRY_SECONDS", (0.05, 0.05))
+    path = tmp_path / "kept.ps1"
+    path.write_bytes(b"x")
+    holder = win32.create_file(path, win32.GENERIC_READ, win32.FILE_SHARE_READ,
+                               win32.OPEN_EXISTING, 0)
+    try:
+        before = set(threading.enumerate())
+        wx._remove(str(path), None)
+        (cleanup,) = set(threading.enumerate()) - before
+        cleanup.join(5)
+        assert not cleanup.is_alive() and path.exists()  # retried, then left (and logged)
+    finally:
+        win32.close(holder)

@@ -24,6 +24,9 @@ process of its own, where :class:`WindowsOs` stands in for the ``os`` module of
   meaning: an entry this run made takes the folder's inherited ACL, as a new file would.
 * A retained artifact that can't be inspected or made private is reported as such with the
   rollback, never raised over it, and never called private.
+* An entry this run put in place (created, or renamed there) is remembered by its path: a
+  later look at that name that is refused (not "absent") answers with what was put there,
+  so the transaction's bookkeeping never loses an entry it just moved.
 """
 from __future__ import annotations
 
@@ -88,6 +91,19 @@ def _inherit(handle) -> None:
             None, None, descriptor.dacl(), None)
     if status:
         raise win32.error(status)
+
+
+def _key(path) -> str:
+    return ntpath.normcase(str(path))
+
+
+def _lstat_fd(fd: int, link: bool):
+    """``lstat`` of the entry ``fd`` holds: a reparse point reports itself as a link."""
+    info = os.fstat(fd)
+    if not link:
+        return info
+    return LinkStat(stat.S_IFLNK | (info.st_mode & 0o777), info.st_ino, info.st_dev,
+                    info.st_nlink, 0, 0, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
 @contextlib.contextmanager
@@ -158,6 +174,7 @@ class WindowsOs:
         self._created: set[str] = set()  # folders this run made, by normalized path
         self._original_security: dict[tuple[int, int, int], bytes] = {}  # entry -> DACL before
         self._made: set[tuple[int, int, int]] = set()  # files this run created
+        self._placed: dict[str, object] = {}  # path -> lstat of what this run put there
         # Retained artifacts whose privacy isn't verified, with why: (label, reason).
         self.unverified: list[tuple[str, str]] = []
 
@@ -271,12 +288,16 @@ class WindowsOs:
         try:
             if _is_link(handle):
                 raise OSError(errno.ELOOP, "a link is refused", str(target))
-            if flags & self.O_CREAT and flags & self.O_EXCL:
+            created = flags & self.O_CREAT and flags & self.O_EXCL
+            if created:
                 self._made.add(_identity(handle))
-            return msvcrt.open_osfhandle(handle, os.O_RDWR if writing else os.O_RDONLY)
+            fd = msvcrt.open_osfhandle(handle, os.O_RDWR if writing else os.O_RDONLY)
         except BaseException:
             win32.close(handle)
             raise
+        if created:
+            self._placed[_key(target)] = os.fstat(fd)
+        return fd
 
     # --- Reading entries ---------------------------------------------------------------------
 
@@ -285,18 +306,24 @@ class WindowsOs:
         if follow_symlinks:
             raise OSError(errno.EINVAL, "apply_patch reads entries without following links")
         target = self._path(path, dir_fd)
-        handle = win32.create_file(target, win32.FILE_READ_ATTRIBUTES, _ALL_SHARE,
-                                   win32.OPEN_EXISTING, _NO_FOLLOW)
+        try:
+            handle = win32.create_file(target, win32.FILE_READ_ATTRIBUTES, _ALL_SHARE,
+                                       win32.OPEN_EXISTING, _NO_FOLLOW)
+        except (FileNotFoundError, NotADirectoryError):
+            self._placed.pop(_key(target), None)
+            raise
+        except OSError:
+            # Refused, not absent: what this run put at this name is still what it put.
+            known = self._placed.get(_key(target))
+            if known is None:
+                raise
+            return known
         link = _is_link(handle)
         fd = msvcrt.open_osfhandle(handle, os.O_RDONLY)
         try:
-            info = os.fstat(fd)
+            return _lstat_fd(fd, link)
         finally:
             os.close(fd)
-        if not link:
-            return info
-        return LinkStat(stat.S_IFLNK | (info.st_mode & 0o777), info.st_ino, info.st_dev,
-                        info.st_nlink, 0, 0, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
     fstat = staticmethod(os.fstat)
 
@@ -326,12 +353,14 @@ class WindowsOs:
         return handle, True
 
     def _delete(self, path, dir_fd, *, directory: bool) -> None:
-        handle, owned = self._open_for_delete(self._path(path, dir_fd), directory=directory)
+        target = self._path(path, dir_fd)
+        handle, owned = self._open_for_delete(target, directory=directory)
         try:
             win32.delete_by_handle(handle)
         finally:
             if owned:
                 win32.close(handle)
+        self._placed.pop(_key(target), None)
 
     def rmdir(self, path, *, dir_fd=None) -> None:
         self._delete(path, dir_fd, directory=True)
@@ -344,22 +373,36 @@ class WindowsOs:
         old = self._path(source, src_dir_fd)
         new = self._path(destination, dst_dir_fd)
         held = self._held(old)
+        old_key, new_key = _key(old), _key(new)
+
+        def moved(key: str) -> str:
+            return new_key + key[len(old_key):]
+
         if held is not None:
             win32.rename_by_handle(msvcrt.get_osfhandle(held), new, replace=False)
             for fd, folder in list(self._folders.items()):  # the folder and what it holds
                 if folder == old or old in folder.parents:
                     self._folders[fd] = new / folder.relative_to(old)
-            old_key, new_key = ntpath.normcase(str(old)), ntpath.normcase(str(new))
-            self._created = {new_key + created[len(old_key):]
-                             if created == old_key or created.startswith(old_key + "\\")
-                             else created for created in self._created}
+            inside = lambda key: key == old_key or key.startswith(old_key + "\\")  # noqa: E731
+            self._created = {moved(key) if inside(key) else key for key in self._created}
+            self._placed = {moved(key) if inside(key) else key: info
+                            for key, info in self._placed.items()}
+            self._placed[new_key] = os.fstat(held)
             return
         handle = win32.create_file(old, win32.DELETE | win32.FILE_READ_ATTRIBUTES, _ALL_SHARE,
                                    win32.OPEN_EXISTING, _NO_FOLLOW)
         try:
-            win32.rename_by_handle(handle, new, replace=False)
-        finally:
+            link = _is_link(handle)
+            fd = msvcrt.open_osfhandle(handle, os.O_RDONLY)  # owns the handle from here
+        except BaseException:
             win32.close(handle)
+            raise
+        try:
+            win32.rename_by_handle(msvcrt.get_osfhandle(fd), new, replace=False)
+            self._placed.pop(old_key, None)
+            self._placed[new_key] = _lstat_fd(fd, link)
+        finally:
+            os.close(fd)
 
     def make_private(self, path, dir_fd) -> str | None:
         """Make a retained artifact private; why it couldn't be, or None."""
@@ -486,9 +529,11 @@ def directory_registry_init(self, root_value, *, rename_noreplace) -> None:
 
 
 def artifact_paths(prepared, stages) -> list[str]:
-    """In place of ``_artifact_paths``: the retained artifacts now private. One that can't be
-    inspected or made private is recorded with why, and left out of the private list, never
-    raised over the rollback's own failures (Odin's order and file-only rule kept)."""
+    """In place of ``_artifact_paths``: the retained artifacts now private. Every artifact
+    name the run allocated is looked at, whatever its bookkeeping says (a name chosen at
+    random holds nothing else). One that can't be inspected or made private is recorded with
+    why, and left out of the private list, never raised over the rollback's own failures
+    (Odin's order and file-only rule kept)."""
     from ...tools import apply_patch
 
     shim = _shim()
@@ -502,8 +547,6 @@ def artifact_paths(prepared, stages) -> list[str]:
 
 def _keep_private(shim: WindowsOs, apply_patch, artifact, paths: list[str]) -> None:
     try:
-        if not apply_patch._artifact_exists(artifact):
-            return
         info = apply_patch._entry_info(artifact["parent_fd"], artifact["name"])
     except OSError as exc:
         shim.unverified.append(

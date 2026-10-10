@@ -324,6 +324,51 @@ async def test_an_unverified_artifact_never_hides_an_incomplete_rollback(
     assert recovery.name not in private_part
 
 
+@pytest.mark.parametrize("restoration", ["works", "fails"])
+async def test_a_refused_first_look_after_the_move_keeps_the_original(
+        tmp_path, transaction, monkeypatch, restoration):
+    from src.desktop.platform import windows_dirfd, windows_patch
+
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "a.txt").write_bytes(b"original\n")
+    real_create, real_rename = windows_dirfd.win32.create_file, windows_dirfd.rename_noreplace
+    refused = []
+
+    def create_file(path, access, *args, **kwargs):
+        name = os.path.basename(str(path))
+        if (name.startswith(".odin-patch-recovery-") and not refused
+                and access == windows_dirfd.win32.FILE_READ_ATTRIBUTES
+                and os.path.exists(str(path))):  # the first look at the moved original
+            refused.append(name)
+            raise PermissionError(5, "Access is denied", str(path))
+        return real_create(path, access, *args, **kwargs)
+
+    def rename(source, destination, *, src_dir_fd, dst_dir_fd):
+        if source.startswith(".odin-patch-stage-"):
+            raise OSError(5, "publication refused")
+        if source.startswith(".odin-patch-recovery-") and restoration == "fails":
+            raise OSError(5, "restoration refused")
+        real_rename(source, destination, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
+
+    monkeypatch.setattr(windows_dirfd.win32, "create_file", create_file)
+    monkeypatch.setattr(windows_dirfd, "rename_noreplace", rename)
+    plan = patch("*** Update File: a.txt", "@@", "-original", "+changed")
+    result = windows_patch.envelope(transaction.apply_patch, transaction.shim, str(root),
+                                    json.dumps(transaction.apply_patch.parse_patch(plan)))
+    assert refused  # the fault happened where it was meant to
+    left = [path for path in root.iterdir() if path.name.startswith(".odin-patch-recov")]
+    if restoration == "works":  # the original goes back: the rollback is complete
+        assert (result["ok"], result["rollback_failed"]) == (False, False)
+        assert (root / "a.txt").read_bytes() == b"original\n" and left == []
+        return
+    assert result["rollback_failed"] is True and not (root / "a.txt").exists()
+    (recovery,) = left
+    assert recovery.read_bytes() == b"original\n"
+    text, code = await rendered(result, monkeypatch)
+    assert code == 1 and recovery.name in text  # the only original is in the instructions
+
+
 # The test's own way to set a descriptor exactly, independent of the code under test.
 _SET_EXACTLY = ctypes.WinDLL("advapi32", use_last_error=True).SetKernelObjectSecurity
 _SET_EXACTLY.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p]
