@@ -84,7 +84,7 @@ async def connect(core: Core, token_file: Path | None = None):
         try:
             return await LocalClient.connect(core.pipe, token_file or core.token_file,
                                              core.profile)
-        except FileNotFoundError:
+        except (FileNotFoundError, TimeoutError):  # no pipe yet, or every instance busy
             if time.monotonic() > deadline:
                 pytest.fail(f"no pipe after {STARTUP_SECONDS}s:\n{core.stderr()[-3000:]}")
             await asyncio.sleep(0.25)

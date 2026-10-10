@@ -105,14 +105,24 @@ SERVER_TO_CLIENT = 0x02
 # Re-handshake well before GCM's limits; a nonce and key pair is never reused.
 SESSION_FRAME_LIMIT = 1 << 32
 SESSION_BYTE_LIMIT = 1 << 36
+_U64_LIMIT = 1 << 64
 
 
 def _encode_string(value: str) -> bytes:
-    data = value.encode("utf-8")
+    from .protocol import ProtocolError
+
+    try:
+        data = value.encode("utf-8")
+    except UnicodeEncodeError:
+        raise ProtocolError("a handshake string is not valid UTF-8") from None
     return struct.pack("!I", len(data)) + data
 
 
 def _encode_integer(value: int) -> bytes:
+    from .protocol import ProtocolError
+
+    if type(value) is not int or not 0 <= value < _U64_LIMIT:
+        raise ProtocolError("a handshake integer is out of range")
     return struct.pack("!Q", value)
 
 
@@ -292,11 +302,13 @@ class SealedWriter:
 
 
 def _check_shape(message, keys: dict) -> dict:
-    """A pre-auth frame with exactly these fields, each of the given type."""
+    """A pre-auth frame with exactly these fields, each of the given type (a bool is no int)."""
     from .protocol import ProtocolError
 
     if (not isinstance(message, dict) or set(message) != set(keys)
-            or any(not isinstance(message[key], kind) for key, kind in keys.items())):
+            or any(not isinstance(message[key], kind)
+                   or (kind is int and isinstance(message[key], bool))
+                   for key, kind in keys.items())):
         raise ProtocolError("unexpected handshake frame")
     return message
 
@@ -305,7 +317,8 @@ def _check_versions(value) -> dict:
     from .protocol import ProtocolError
 
     if (not isinstance(value, dict) or set(value) != {"major", "minor"}
-            or any(type(value[key]) is not int or value[key] < 0 for key in value)):
+            or any(type(value[key]) is not int or not 0 <= value[key] < _U64_LIMIT
+                   for key in value)):
         raise ProtocolError("invalid protocol version")
     return value
 

@@ -6,8 +6,11 @@
   ends them all. The handle is never inheritable, so no child keeps the job alive.
 * **Drain.** Windows has no zombies. The final drain is verified when, after a
   bounded wait, the job holds only the engine and its armed finalize watchdog.
-  Anything else takes the emergency path, which ends survivors by handle and
-  waits (bounded) before the hard exit, so the profile lock outlives them.
+  Anything else takes the emergency path. It ends survivors by handle and waits
+  for them, reading the job's membership again after each pass, until only the
+  engine is left or its bound runs out. Out of time, it says so on stderr and
+  leaves the rest to kill-on-close as the engine exits: that ending is the
+  kernel's and isn't verified before the profile lock is released.
 * **Watchdog.** A helper process holds an inherited handle to this exact process
   (never a PID) and an event. Unless the event is set by the deadline, it calls
   ``TerminateProcess``. It holds no job handle.
@@ -168,45 +171,71 @@ def drain_at_teardown(self) -> tuple[int, bool]:
     return 0, True
 
 
-def terminate_survivors(timeout: float = _SURVIVOR_WAIT_SECONDS) -> None:
-    """End every other process in the job by its handle, then wait for them (bounded)."""
+def terminate_survivors(timeout: float = _SURVIVOR_WAIT_SECONDS) -> bool:
+    """End every other process in the job by its handle and wait for it, within one bound.
+
+    Membership is read again after every pass, so a process started while others
+    were ending is found too. True: the job held only the engine within the bound.
+    False: what's left ends by kill-on-close when the engine exits, unverified.
+    """
     if _JOB is None:
-        return
-    handles = []
+        return True
+    own = os.getpid()
+    deadline = time.monotonic() + timeout
+    handles: dict[int, int] = {}  # held to the end, so no PID is reused meanwhile
     try:
-        for pid in job_process_ids():
-            if pid == os.getpid():
-                continue
-            handle = win32.OpenProcess(win32.PROCESS_TERMINATE | win32.SYNCHRONIZE
-                                       | win32.PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-            if not handle:
-                continue  # already gone
-            member = win32.BOOL()
-            # The PID was read before the open: act only if this process is still in our job.
-            if win32.IsProcessInJob(handle, _JOB, ctypes.byref(member)) and member.value:
-                win32.TerminateProcess(handle, 1)
-                handles.append(handle)
-            else:
-                win32.close(handle)
-        deadline = time.monotonic() + timeout
-        for handle in handles:
-            remaining = max(0, int((deadline - time.monotonic()) * 1000))
-            win32.WaitForSingleObject(handle, remaining)
+        while True:
+            others = [pid for pid in job_process_ids() if pid != own]
+            if not others:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            for pid in others:
+                if pid not in handles:
+                    handle = _open_member(pid)
+                    if handle:
+                        win32.TerminateProcess(handle, 1)
+                        handles[pid] = handle
+            for pid in others:
+                if pid in handles:
+                    remaining = max(0, int((deadline - time.monotonic()) * 1000))
+                    win32.WaitForSingleObject(handles[pid], remaining)
+            time.sleep(0.01)  # an ended process can stay listed for a moment
     except OSError:
-        pass
+        return False
     finally:
-        for handle in handles:
+        for handle in handles.values():
             win32.close(handle)
+
+
+def _open_member(pid: int) -> int:
+    """A handle that can end ``pid``, or 0 when it's gone or no longer in our job."""
+    handle = win32.OpenProcess(win32.PROCESS_TERMINATE | win32.SYNCHRONIZE
+                               | win32.PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        return 0
+    member = win32.BOOL()
+    # The PID was read before the open: act only if this process is still in our job.
+    if win32.IsProcessInJob(handle, _JOB, ctypes.byref(member)) and member.value:
+        return handle
+    win32.close(handle)
+    return 0
+
+
+_UNVERIFIED_CLEANUP = (b"odin-desktop: processes remained in the engine's job at exit; "
+                       b"kill-on-close ends them, unverified\n")
 
 
 def _captured_hard_exit() -> Callable[[int], NoReturn]:
     """The emergency exit, its primitives captured before teardown can replace them."""
     terminate = terminate_survivors
+    write = os.write
     exit_now = os._exit
 
     def hard_exit(code: int) -> NoReturn:
         try:
-            terminate()
+            if not terminate():
+                write(2, _UNVERIFIED_CLEANUP)
         finally:
             exit_now(code)
 

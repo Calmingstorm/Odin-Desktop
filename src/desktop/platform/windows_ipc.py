@@ -154,11 +154,18 @@ class WindowsIpc:
     endpoint = NamedPipeEndpoint
 
     async def connect(self, path):
-        """Open the pipe and check its server is this user's process before any byte is sent."""
+        """Open the pipe and check its server is this user's process before any byte is sent.
+
+        Bounded: asyncio retries a busy pipe without end, and the session's own
+        deadline only starts once the pipe is open.
+        """
+        from ..protocol import HANDSHAKE_TIMEOUT
+
         loop = asyncio.get_running_loop()
         reader = asyncio.StreamReader(limit=_STREAM_LIMIT, loop=loop)
         protocol = asyncio.StreamReaderProtocol(reader, loop=loop)
-        transport, _ = await loop.create_pipe_connection(lambda: protocol, endpoint_text(path))
+        transport, _ = await asyncio.wait_for(
+            loop.create_pipe_connection(lambda: protocol, endpoint_text(path)), HANDSHAKE_TIMEOUT)
         writer = asyncio.StreamWriter(transport, protocol, reader, loop)
         try:
             if self.peer(writer, client=False) != self.owner:
@@ -202,6 +209,7 @@ async def ipc_server_start(self) -> None:
         writer.close()
 
     async def session(reader, writer) -> None:
+        sealed = None
         try:
             if self._ipc.peer(writer) != self._ipc.owner:
                 await refuse(writer, "unauthorized")
@@ -212,16 +220,19 @@ async def ipc_server_start(self) -> None:
                 selected={"major": PROTOCOL_MAJOR, "minor": PROTOCOL_MINOR})
         except PermissionError:
             await refuse(writer, "unauthorized")
-            return
         except (ProtocolError, TimeoutError):
             await refuse(writer, "protocol_error")
-            return
         except (asyncio.IncompleteReadError, ConnectionError, OSError):
-            writer.close()
-            return
+            pass
+        except Exception:
+            # As the serving path: never log exception text from an unauthenticated peer.
+            await refuse(writer, "internal_error")
         finally:
             self._writers.discard(writer)
-        self._accept(*sealed)
+            if sealed is None:
+                writer.close()  # every exit that didn't hand the connection on, cancellation too
+        if sealed is not None:
+            self._accept(*sealed)
 
     def accept(reader, writer) -> None:
         if self._closing:

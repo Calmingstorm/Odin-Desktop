@@ -75,8 +75,11 @@ both implementations byte for byte.
   name for its profile (`--socket`).
 - The core creates it as the first instance of its name, so a squatter makes the core's start fail rather than sit in
   front of it. It rejects remote clients, works in byte mode, and has a protected DACL that admits only the user.
-- Each end checks the user SID of the process at the other end, from the OS (`GetNamedPipeClientProcessId` /
-  `GetNamedPipeServerProcessId`), before anything else. That is an owner check, not proof of the exact core process.
+- The core and the engine's own clients check the user SID of the process at the other end, from the OS
+  (`GetNamedPipeClientProcessId` / `GetNamedPipeServerProcessId`), before anything else. That is an owner check, not
+  proof of the exact core process. The app's broker doesn't check the server's SID yet; that check comes with the
+  packaged Windows app (phase 4). Until then a foreign listener can receive the app's hello, but never the token: the
+  core proves itself first.
 
 **Session (always on Windows; there is no fallback and no plaintext mode).**
 1. `hello` carries no `token`. It carries `auth: {v: 1, client_nonce}`: 32 fresh random bytes, as 64 lowercase hex.

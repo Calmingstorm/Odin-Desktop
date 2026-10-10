@@ -1,6 +1,9 @@
 """The Windows transport (phase 2 plan B1, B2): a real engine IPC server on an owner-only pipe."""
 from __future__ import annotations
 
+import asyncio
+import json
+import struct
 import uuid
 
 import pytest
@@ -125,6 +128,107 @@ async def test_a_token_bearing_hello_gets_a_plain_refusal(engine):
         assert engine.calls == []
     finally:
         await server.shutdown()
+
+
+HELLO = {"t": "hello", "protocol": {"major": 0, "minor": 2},
+         "client": {"name": "x", "version": "0"}, "profile_id": "test", "features": [],
+         "auth": {"v": 1, "client_nonce": "33" * 32}}
+
+
+def _escaped(message: dict) -> bytes:
+    """A frame as JSON with ASCII escapes, so a lone surrogate reaches the engine as sent."""
+    body = json.dumps(message, separators=(",", ":")).encode("ascii")
+    return struct.pack("!I", len(body)) + body
+
+
+async def _refused_and_closed(server, reader, reason: str) -> None:
+    from src.desktop.protocol import read_frame
+
+    assert await asyncio.wait_for(read_frame(reader), 5) == {"t": "bye", "reason": reason}
+    assert await asyncio.wait_for(reader.read(), 5) == b""  # the engine closed its end
+    for _ in range(250):
+        if not server._writers and not server._tasks:
+            break
+        await asyncio.sleep(0.02)
+    assert not server._writers and not server._tasks
+
+
+@pytest.mark.parametrize("change", [
+    {"protocol": {"major": 0, "minor": 1 << 64}},
+    {"client": {"name": "\ud800", "version": "0"}},
+    {"auth": {"v": True, "client_nonce": "33" * 32}},
+])
+async def test_a_malformed_hello_is_refused_and_its_pipe_closed(engine, change):
+    from src.desktop.platform.windows_ipc import WindowsIpc
+
+    server = engine.make()
+    await server.start()
+    try:
+        reader, writer = await WindowsIpc().connect(engine.name)
+        writer.write(_escaped({**HELLO, **change}))
+        await writer.drain()
+        await _refused_and_closed(server, reader, "protocol_error")
+        writer.close()
+        assert engine.calls == []
+    finally:
+        await server.shutdown()
+
+
+async def test_an_unexpected_handshake_failure_still_closes_the_pipe(engine, monkeypatch):
+    from src.desktop import ipc_auth
+    from src.desktop.platform.windows_ipc import WindowsIpc
+
+    async def broken(*args, **kwargs):
+        raise RuntimeError("never shown to the peer")
+
+    monkeypatch.setattr(ipc_auth, "server_session", broken)
+    server = engine.make()
+    await server.start()
+    try:
+        reader, writer = await WindowsIpc().connect(engine.name)
+        writer.write(_escaped(HELLO))
+        await writer.drain()
+        await _refused_and_closed(server, reader, "internal_error")
+        writer.close()
+    finally:
+        await server.shutdown()
+
+
+async def test_shutdown_during_a_handshake_closes_the_pipe(engine):
+    from src.desktop.platform.windows_ipc import WindowsIpc
+
+    server = engine.make()
+    await server.start()
+    reader, writer = await WindowsIpc().connect(engine.name)
+    for _ in range(250):  # the engine is waiting for this client's hello
+        if server._tasks:
+            break
+        await asyncio.sleep(0.02)
+    await server.shutdown()
+    assert await asyncio.wait_for(reader.read(), 5) == b""
+    assert not server._writers and not server._tasks
+    writer.close()
+
+
+async def test_connecting_to_a_busy_pipe_is_bounded(engine, monkeypatch):
+    from src.desktop import protocol
+    from src.desktop.platform.windows_ipc import WindowsIpc
+
+    mode = win32.PIPE_TYPE_BYTE | win32.PIPE_READMODE_BYTE | win32.PIPE_WAIT
+    handle = win32.CreateNamedPipeW(engine.name, win32.PIPE_ACCESS_DUPLEX, mode, 1, 4096, 4096,
+                                    0, None)
+    assert handle not in (None, win32.INVALID_HANDLE_VALUE)
+    first = open(engine.name, "r+b", buffering=0)  # takes the pipe's only instance
+    monkeypatch.setattr(protocol, "HANDSHAKE_TIMEOUT", 1.0)
+    try:
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+        with pytest.raises(TimeoutError):
+            await WindowsIpc().connect(engine.name)
+        assert loop.time() - started < 10
+    finally:
+        first.close()
+        win32.close(handle)
 
 
 def test_a_process_that_cannot_be_opened_has_no_user():

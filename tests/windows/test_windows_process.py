@@ -220,7 +220,7 @@ def test_the_drain_counts_survivors_and_the_emergency_path_ends_them(isolated, p
     assert wp.drain_at_teardown(None) == (0, True)
     child, handle = add()
     assert wp.drain_at_teardown(None) == (0, False)
-    wp.terminate_survivors(timeout=5)
+    assert wp.terminate_survivors(timeout=5) is True
     assert ends_within(handle, 0)
     assert wp.drain_at_teardown(None) == (0, True)
     monkeypatch.setattr(wp, "_UNSETTLED_READERS", [object()])
@@ -241,16 +241,52 @@ def test_survivor_termination_skips_processes_that_left_the_job(isolated, plain_
     monkeypatch.setattr(wp, "_JOB", job)
     child, handle = add()
     monkeypatch.setattr(wp.win32, "IsProcessInJob", lambda *args: 0)
-    wp.terminate_survivors(timeout=1)
+    started = time.monotonic()
+    assert wp.terminate_survivors(timeout=1) is False  # still listed when the bound ran out
+    assert 0.9 <= time.monotonic() - started < 5
     assert not ends_within(handle, 0.2)
     monkeypatch.setattr(wp, "job_process_ids", lambda job=None: [os.getpid(), 0])
-    wp.terminate_survivors(timeout=1)  # itself skipped, PID 0 not openable
+    assert wp.terminate_survivors(timeout=1) is False  # itself skipped, PID 0 not openable
+    monkeypatch.setattr(wp, "job_process_ids", lambda job=None: [os.getpid()])
+    assert wp.terminate_survivors(timeout=1) is True
 
     def broken(job=None):
         raise OSError("query failed")
 
     monkeypatch.setattr(wp, "job_process_ids", broken)
-    wp.terminate_survivors(timeout=1)  # best effort: the hard exit still follows
+    assert wp.terminate_survivors(timeout=1) is False  # unproven: the hard exit still follows
+
+
+def test_survivor_termination_finds_a_process_started_after_its_first_look(isolated, plain_job,
+                                                                         monkeypatch):
+    job, add = plain_job
+    monkeypatch.setattr(wp, "_JOB", job)
+    _, first = add()
+    real = wp.job_process_ids
+    late = []
+
+    def membership(job=None):
+        ids = real(job)
+        if not late:
+            late.append(add())  # joins after this list was read, as a survivor's child would
+        return ids
+
+    monkeypatch.setattr(wp, "job_process_ids", membership)
+    assert wp.terminate_survivors(timeout=10) is True
+    assert ends_within(first, 0) and ends_within(late[0][1], 0)
+    assert real(job) == []
+
+
+def test_the_hard_exit_says_when_cleanup_is_unverified(isolated, monkeypatch, capfd):
+    monkeypatch.setattr(wp, "terminate_survivors", lambda: False)
+    with pytest.raises(Exited):
+        wp._captured_hard_exit()(3)
+    assert "kill-on-close ends them, unverified" in capfd.readouterr().err
+    monkeypatch.setattr(wp, "terminate_survivors", lambda: True)
+    with pytest.raises(Exited):
+        wp._captured_hard_exit()(4)
+    assert capfd.readouterr().err == ""
+    assert isolated == [3, 4]
 
 
 # --- The finalize watchdog ---------------------------------------------------------------------

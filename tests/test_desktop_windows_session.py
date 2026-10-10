@@ -165,6 +165,12 @@ def _hello(**changes):
     return hello
 
 
+def _escaped(message: dict) -> bytes:
+    """A frame as JSON with ASCII escapes, so a lone surrogate reaches the peer as sent."""
+    body = json.dumps(message, separators=(",", ":")).encode("ascii")
+    return struct.pack("!I", len(body)) + body
+
+
 @pytest.mark.parametrize(("frame", "error"), [
     (_hello(token=TOKEN), PermissionError),
     (_hello(auth={"v": 2, "client_nonce": "33" * 32}), ProtocolError),
@@ -172,6 +178,10 @@ def _hello(**changes):
     (_hello(auth={"v": 1}), ProtocolError),
     (_hello(protocol={"major": 0}), ProtocolError),
     (_hello(features=[1]), ProtocolError),
+    (_hello(protocol={"major": 0, "minor": 1 << 64}), ProtocolError),
+    (_hello(auth={"v": True, "client_nonce": "33" * 32}), ProtocolError),
+    (_escaped(_hello(client={"name": "\ud800", "version": "0"})), ProtocolError),
+    (_escaped(_hello(profile_id="\udfff")), ProtocolError),
     ({"t": "req", "id": "early", "method": "status.get", "params": {}}, ProtocolError),
     (struct.pack("!I", ipc_auth.PREAUTH_MAX_FRAME + 1) + b"x", ProtocolError),
 ])
@@ -331,6 +341,8 @@ def test_a_key_is_never_used_past_its_budget(monkeypatch):
 
 @pytest.mark.parametrize("change", [
     {"t": "welcome"}, {"max_frame": 0}, {"protocol": {"major": 0}}, {"core": {}},
+    {"protocol": {"major": 0, "minor": 1 << 64}}, {"max_frame": True},
+    {"core": {"instance_id": "\ud800"}},
 ])
 async def test_the_client_refuses_a_malformed_challenge(change):
     (client_reader, client_writer), (server_reader, server_writer) = await _pair()
@@ -341,7 +353,7 @@ async def test_the_client_refuses_a_malformed_challenge(change):
     challenge = {"t": "challenge", "server_nonce": "11" * 32, "protocol": SELECTED,
                  "max_frame": 65536, "core": {"instance_id": "x"}, "server_proof": "22" * 32}
     challenge.update(change)
-    server_writer.write(encode_frame(challenge))
+    server_writer.write(_escaped(challenge))
     await server_writer.drain()
     with pytest.raises(ProtocolError):
         await client
@@ -356,3 +368,15 @@ async def test_one_deadline_covers_all_of_pre_auth(monkeypatch):
     with pytest.raises(TimeoutError):
         await server
     await _close(client_writer, server_writer)
+
+
+@pytest.mark.parametrize("value", [-1, 1 << 64, True, 1.0])
+def test_transcript_integers_are_unsigned_64_bit(value):
+    with pytest.raises(ProtocolError, match="out of range"):
+        ipc_auth._encode_integer(value)
+    assert ipc_auth._encode_integer((1 << 64) - 1) == b"\xff" * 8
+
+
+def test_transcript_strings_are_utf8():
+    with pytest.raises(ProtocolError, match="not valid UTF-8"):
+        ipc_auth._encode_string("\ud800")
