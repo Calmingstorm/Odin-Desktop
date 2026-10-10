@@ -111,6 +111,10 @@ PIPE_REJECT_REMOTE_CLIENTS = 0x00000008
 PIPE_UNLIMITED_INSTANCES = 255
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 PROCESS_TERMINATE = 0x0001
+PROCESS_SET_QUOTA = 0x0100
+THREAD_SUSPEND_RESUME = 0x0002
+TH32CS_SNAPTHREAD = 0x00000004
+CREATE_SUSPENDED = 0x00000004
 WAIT_OBJECT_0 = 0x00000000
 FILE_TYPE_PIPE = 0x0003
 
@@ -317,6 +321,26 @@ GetFileType = _declare(kernel32.GetFileType, [HANDLE], DWORD)
 ReadFile = _declare(
     kernel32.ReadFile,
     [HANDLE, ctypes.c_void_p, DWORD, ctypes.POINTER(DWORD), ctypes.POINTER(OVERLAPPED)])
+OpenThread = _declare(kernel32.OpenThread, [DWORD, BOOL, DWORD], HANDLE)
+ResumeThread = _declare(kernel32.ResumeThread, [HANDLE], DWORD)
+TerminateJobObject = _declare(kernel32.TerminateJobObject, [HANDLE, wintypes.UINT])
+CreateToolhelp32Snapshot = _declare(kernel32.CreateToolhelp32Snapshot, [DWORD, DWORD], HANDLE)
+
+
+class THREADENTRY32(ctypes.Structure):  # noqa: N801 - the Windows API's own name
+    _fields_ = [
+        ("dwSize", DWORD),
+        ("cntUsage", DWORD),
+        ("th32ThreadID", DWORD),
+        ("th32OwnerProcessID", DWORD),
+        ("tpBasePri", ctypes.c_long),
+        ("tpDeltaPri", ctypes.c_long),
+        ("dwFlags", DWORD),
+    ]
+
+
+Thread32First = _declare(kernel32.Thread32First, [HANDLE, ctypes.POINTER(THREADENTRY32)])
+Thread32Next = _declare(kernel32.Thread32Next, [HANDLE, ctypes.POINTER(THREADENTRY32)])
 PeekNamedPipe = _declare(
     kernel32.PeekNamedPipe,
     [HANDLE, PVOID, DWORD, ctypes.POINTER(DWORD), ctypes.POINTER(DWORD), ctypes.POINTER(DWORD)])

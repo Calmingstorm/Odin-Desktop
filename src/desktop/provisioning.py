@@ -46,6 +46,7 @@ def system_timezone() -> str:
     return "UTC"
 
 
+@windows_variant("src.desktop.platform.windows_desktop:fresh_config_document")
 def fresh_config_document(paths: ProfilePaths) -> dict:
     """Bind every path default to the explicit profile, not the process HOME.
 

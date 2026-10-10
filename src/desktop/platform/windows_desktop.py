@@ -577,3 +577,27 @@ async def computer_binding_start(self):
         if self._started:
             return
         self._startup_error = "computer_unsupported_on_windows"
+
+
+# --- provisioning --------------------------------------------------------------------------
+
+
+def fresh_config_document(paths) -> dict:
+    """Linux's provisioned defaults, with the local host and its workspace as Windows has them.
+
+    The local host is a Windows host. The workspace is a sibling of the profile
+    folders inside the app's namespace
+    (``%LOCALAPPDATA%\\odin-desktop\\.odin-desktop-workspaces\\<profile>``), as on Linux.
+    Linux's formula steps up from the data folder once, and the Windows data folder
+    sits one level deeper (``<profile>\\data``): unchanged, it would put the workspace
+    inside the profile. Created under the private namespace folder, the workspace
+    inherits its owner-only access.
+    """
+    from ..provisioning import fresh_config_document as routed
+
+    document = routed.linux_original(paths)
+    tools = document["tools"]
+    tools["hosts"]["localhost"]["os"] = "windows"
+    tools["local_working_dir"] = str(
+        paths.data_dir.parents[1] / ".odin-desktop-workspaces" / paths.profile_id)
+    return document

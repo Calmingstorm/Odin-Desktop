@@ -6,6 +6,8 @@ import shutil
 import signal
 from dataclasses import dataclass
 
+from ..desktop.platform.variants import windows_variant
+
 
 @dataclass(frozen=True)
 class ShellChoice:
@@ -17,6 +19,7 @@ class ShellUnavailableError(FileNotFoundError):
     """An explicit shell setting refused dispatch, not a subprocess failure."""
 
 
+@windows_variant("src.desktop.platform.windows_exec:resolve_local_shell")
 def resolve_local_shell(mode: str = "auto") -> ShellChoice:
     """Resolve anew on the actual local execution target, before dispatch."""
     if mode not in {"auto", "bash", "sh"}:
@@ -109,6 +112,7 @@ def format_command_result(
     return text
 
 
+@windows_variant("src.desktop.platform.windows_exec:apply_shell_contracts")
 def apply_shell_contracts(definitions: list[dict], mode: str = "auto") -> list[dict]:
     try:
         choice = resolve_local_shell(mode)

@@ -579,7 +579,8 @@ export interface HostPrepare {
   address: string
   ssh_user: string
   port?: number
-  os?: 'linux' | 'macos'
+  /** 'windows' names this computer when the engine runs on Windows. */
+  os?: 'linux' | 'macos' | 'windows'
   description?: string
   enabled?: boolean
   trust_mode: 'pinned' | 'ca' | 'tofu'

@@ -2960,12 +2960,18 @@
     "src/desktop/platform/windows.py",
     "src/desktop/platform/windows_authority.py",
     "src/desktop/platform/windows_desktop.py",
+    "src/desktop/platform/windows_dirfd.py",
     "src/desktop/platform/windows_engine.py",
+    "src/desktop/platform/windows_exec.py",
     "src/desktop/platform/windows_files.py",
     "src/desktop/platform/windows_ipc.py",
+    "src/desktop/platform/windows_jobs.py",
     "src/desktop/platform/windows_locks.py",
+    "src/desktop/platform/windows_patch.py",
     "src/desktop/platform/windows_process.py",
+    "src/desktop/platform/windows_read.py",
     "src/desktop/platform/windows_secrets.py",
+    "src/desktop/platform/windows_tools.py",
     "src/desktop/platform/windows_workspace.py",
     "src/desktop/profile.py",
     "src/desktop/protocol.py",
@@ -3020,10 +3026,20 @@
         "missing": 59,
         "total": 379
       },
+      "src/desktop/platform/windows_dirfd.py": {
+        "covered": 212,
+        "missing": 42,
+        "total": 254
+      },
       "src/desktop/platform/windows_engine.py": {
         "covered": 389,
         "missing": 56,
         "total": 445
+      },
+      "src/desktop/platform/windows_exec.py": {
+        "covered": 261,
+        "missing": 44,
+        "total": 305
       },
       "src/desktop/platform/windows_files.py": {
         "covered": 286,
@@ -3035,20 +3051,40 @@
         "missing": 29,
         "total": 193
       },
+      "src/desktop/platform/windows_jobs.py": {
+        "covered": 42,
+        "missing": 0,
+        "total": 42
+      },
       "src/desktop/platform/windows_locks.py": {
         "covered": 9,
         "missing": 0,
         "total": 9
+      },
+      "src/desktop/platform/windows_patch.py": {
+        "covered": 49,
+        "missing": 10,
+        "total": 59
       },
       "src/desktop/platform/windows_process.py": {
         "covered": 271,
         "missing": 13,
         "total": 284
       },
+      "src/desktop/platform/windows_read.py": {
+        "covered": 133,
+        "missing": 0,
+        "total": 133
+      },
       "src/desktop/platform/windows_secrets.py": {
         "covered": 30,
         "missing": 2,
         "total": 32
+      },
+      "src/desktop/platform/windows_tools.py": {
+        "covered": 372,
+        "missing": 2,
+        "total": 374
       },
       "src/desktop/platform/windows_workspace.py": {
         "covered": 32,
@@ -3057,9 +3093,9 @@
       }
     },
     "total": {
-      "covered": 1971,
-      "missing": 234,
-      "total": 2205
+      "covered": 3040,
+      "missing": 332,
+      "total": 3372
     }
   }
 }

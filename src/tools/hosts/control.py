@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from ...config.schema import ToolHost
+from ...desktop.platform.variants import windows_variant
 from ...error_presentation import sanitize_error_text
 from ...llm.secret_scrubber import scrub_output_secrets
 from ..ssh import is_local_address
@@ -50,6 +51,7 @@ def _clean_line(value: Any, field: str, limit: int, *, required: bool = False) -
     return text
 
 
+@windows_variant("src.desktop.platform.windows_tools:validate_host_details")
 def validate_host_details(alias: Any, body: Mapping[str, Any]) -> dict[str, Any]:
     name = _clean_line(alias, "alias", 64, required=True)
     if not _ALIAS_RE.fullmatch(name) or name.startswith("-"):
@@ -310,6 +312,7 @@ class HostEnrollmentManager:
         self._candidates[token] = candidate
         return candidate
 
+    @windows_variant("src.desktop.platform.windows_tools:host_test")
     async def test(self, token: str) -> HostCandidate:
         candidate = self.get(token)
         if is_local_address(candidate.address):

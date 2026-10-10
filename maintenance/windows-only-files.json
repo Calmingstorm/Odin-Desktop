@@ -3,11 +3,17 @@
   "src/desktop/platform/windows.py",
   "src/desktop/platform/windows_authority.py",
   "src/desktop/platform/windows_desktop.py",
+  "src/desktop/platform/windows_dirfd.py",
   "src/desktop/platform/windows_engine.py",
+  "src/desktop/platform/windows_exec.py",
   "src/desktop/platform/windows_files.py",
   "src/desktop/platform/windows_ipc.py",
+  "src/desktop/platform/windows_jobs.py",
   "src/desktop/platform/windows_locks.py",
+  "src/desktop/platform/windows_patch.py",
   "src/desktop/platform/windows_process.py",
+  "src/desktop/platform/windows_read.py",
   "src/desktop/platform/windows_secrets.py",
+  "src/desktop/platform/windows_tools.py",
   "src/desktop/platform/windows_workspace.py"
 ]

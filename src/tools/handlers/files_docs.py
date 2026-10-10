@@ -16,6 +16,7 @@ import shlex
 import zlib
 from pathlib import Path
 
+from ...desktop.platform.variants import windows_variant
 from ...llm.secret_scrubber import scrub_output_secrets
 from .deps import HandlerBase
 
@@ -40,6 +41,7 @@ _APPLY_PATCH_COMMAND_MAX_BYTES = 128 * 1024 - 8 * 1024
 
 
 class FilesDocsTools(HandlerBase):
+    @windows_variant("src.desktop.platform.windows_tools:handle_read_file")
     async def _handle_read_file(self, inp: dict) -> str | tuple[str, int]:
         path = inp.get("path")
         host = inp.get("host")
@@ -341,6 +343,7 @@ END {
             return text, code
         return text
 
+    @windows_variant("src.desktop.platform.windows_tools:handle_apply_patch")
     async def _handle_apply_patch(self, inp: dict) -> str | tuple[str, int]:
         host = inp.get("host")
         root = inp.get("root")

@@ -611,6 +611,7 @@ class ToolExecutor:
         self._local_workspace_resolved = True
         return workspace
 
+    @windows_variant("src.desktop.platform.windows_tools:ensure_process_registry")
     def _ensure_process_registry(self):
         """Lazy-init the ProcessRegistry ON THE EXECUTOR (RFC-004 P4).
 
@@ -1301,6 +1302,7 @@ class ToolExecutor:
         provider = getattr(self, "_command_shell_config", None)
         return provider() if provider is not None else self.config.command_shell
 
+    @windows_variant("src.desktop.platform.windows_tools:exec_command")
     async def _exec_command(
         self,
         address: str,

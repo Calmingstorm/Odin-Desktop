@@ -134,3 +134,44 @@ def test_each_windows_variant_was_reviewed_against_its_linux_original():
     assert set(current) == set(recorded), "routed functions and pins differ"
     changed = sorted(key for key in current if current[key] != recorded[key])
     assert not changed, f"review these Windows variants against their changed originals: {changed}"
+
+
+# Windows stand-ins for Odin code: the subclasses in windows_jobs.py, by what each leans
+# on, and the primitives windows_patch.py gives apply_patch.py (the whole file, whose os
+# calls windows_dirfd.WindowsOs must cover).
+OVERRIDE_SOURCES = {
+    "src/tools/apply_patch.py":
+        "0c98e655530fa8d5814b83058baf1bf44461d2deb0048d70566967ef53ca8636",
+    "src/tools/process_manager.py:ProcessRegistry._start_local_reserved":
+        "3d6acead94fd543dbc33dcafb0b8d96a06897857325103011e32b5d3e303ea55",
+    "src/tools/local_supervisor.py:SupervisedShell":
+        "8fc07a2abfe4f015b1cee1118338d2b544ff6476ed059ae0351ebad3ffecb2e9",
+}
+
+
+def _member_source(path: str, qualname: str = "") -> str:
+    text = (ROOT / path).read_text(encoding="utf-8")
+    if not qualname:
+        return text
+    node = ast.parse(text)
+    for part in qualname.split("."):
+        node = next(child for child in ast.iter_child_nodes(node)
+                    if isinstance(child, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+                    and child.name == part)
+    lines = text.splitlines()
+    return "\n".join(lines[node.lineno - 1:node.end_lineno]) + "\n"
+
+
+def test_windows_subclasses_were_reviewed_against_what_they_override():
+    """Each stand-in must be reviewed when what it stands in for changes.
+
+    ``WindowsProcessRegistry`` lifts the local start and ``JobShell`` stands in for the
+    supervised shell; ``WindowsOs`` and the registry stand-ins serve ``apply_patch.py``.
+    Update a digest here only after that review.
+    """
+    import hashlib
+
+    changed = [key for key, digest in OVERRIDE_SOURCES.items()
+               if hashlib.sha256(_member_source(*key.split(":")).encode()).hexdigest() != digest]
+    assert not changed, f"review the Windows overrides of: {changed}"
+

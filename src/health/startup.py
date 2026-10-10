@@ -249,6 +249,7 @@ def check_ssh_hosts(tools_config: Any) -> DiagnosticResult:
     )
 
 
+@windows_variant("src.desktop.platform.windows_tools:check_host_inventory_compat")
 def check_host_inventory_compat(tools_config: Any) -> DiagnosticResult:
     """Warn about legacy host shapes without turning an upgrade into an outage."""
     hosts = getattr(tools_config, "hosts", {})
