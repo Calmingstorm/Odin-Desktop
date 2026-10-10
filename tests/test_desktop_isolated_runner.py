@@ -396,6 +396,9 @@ def test_runner_refuses_an_empty_unclassified_selection(tmp_path, monkeypatch):
 def test_ci_uses_only_an_exact_stable_cached_python(tmp_path, versions, expected):
     workflow = yaml.safe_load((ROOT / ".github/workflows/phase1-engine.yml").read_text())
     for job_name, job in workflow["jobs"].items():
+        if "uses" in job:
+            # A called workflow brings its own steps; the Windows one is checked below.
+            continue
         guard = next(step for step in job["steps"] if step.get("id") == "cached-python")
         setup = next(step for step in job["steps"]
                      if step.get("uses", "").startswith("actions/setup-python@"))
@@ -424,6 +427,24 @@ def test_ci_uses_only_an_exact_stable_cached_python(tmp_path, versions, expected
             assert result.returncode != 0
             assert "::error::" in result.stdout
             assert not output.exists()
+
+
+def test_windows_job_uses_exact_pinned_python_and_uv():
+    """GitHub-hosted Windows has no cached runner Python; it pins the bundle's build exactly."""
+    workflow = yaml.safe_load((ROOT / ".github/workflows/phase1-engine.yml").read_text())
+    assert workflow["jobs"]["windows-engine"]["uses"] == "./.github/workflows/windows-engine.yml"
+    windows = yaml.safe_load((ROOT / ".github/workflows/windows-engine.yml").read_text())
+    [job] = windows["jobs"].values()
+    assert job["runs-on"] == "windows-2025"
+    setup = next(step for step in job["steps"]
+                 if step.get("uses", "").startswith("actions/setup-python@"))
+    assert re.fullmatch(r"actions/setup-python@[0-9a-f]{40}", setup["uses"])
+    environment = next(step for step in job["steps"] if "uv sync" in step.get("run", ""))["run"]
+    assert "uv==0.12.23" in environment and "uv python install 3.12.15" in environment
+    assert "uv venv --python 3.12.15" in environment and "--locked" in environment
+    for step in job["steps"]:
+        if "uses" in step:
+            assert re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
 
 
 def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():
