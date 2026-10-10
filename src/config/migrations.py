@@ -32,6 +32,7 @@ from typing import Any
 import yaml
 from yaml.nodes import MappingNode, Node, ScalarNode
 
+from ..desktop.platform.variants import windows_variant
 from .schema import LEGACY_MAX_CONTEXT_CHARS
 
 log = logging.getLogger("odin.config")
@@ -288,6 +289,7 @@ def _read_marker(marker: Path) -> _MarkerKind:
     return _classify_record(record)
 
 
+@windows_variant("src.desktop.platform.windows_engine:atomic_write_marker")
 def _atomic_write_marker(marker: Path, record: dict[str, object]) -> None:
     """Commit one marker revision via temp-file, file fsync, and replace."""
     marker.parent.mkdir(parents=True, exist_ok=True)
@@ -353,6 +355,7 @@ def _read_claim_owner(claim: Path) -> str | None:
     return owner
 
 
+@windows_variant("src.desktop.platform.windows_engine:claim_legacy_marker")
 def _claim_legacy_marker(legacy_marker: Path, config_id: str) -> bool:
     """Atomically claim ambiguous legacy provenance for one config identity.
 

@@ -11,6 +11,7 @@ import struct
 from pathlib import Path
 
 from .paths import _namespace_directories, _repair_namespace_directory, private_directory
+from .platform.variants import windows_variant
 
 
 def private_parent(path: Path | str, *, create: bool = False) -> tuple[Path, int]:
@@ -44,6 +45,7 @@ def private_parent(path: Path | str, *, create: bool = False) -> tuple[Path, int
         raise
 
 
+@windows_variant("src.desktop.platform.windows_desktop:load_token")
 def load_token(token_file: Path | str) -> str:
     path, parent = private_parent(token_file)
     try:

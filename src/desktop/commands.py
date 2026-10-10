@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .paths import private_directory
+from .platform.variants import windows_variant
 from .schema import validate_domains
 
 
@@ -79,6 +80,7 @@ class JournalStore:
     rollback-only, even if the exception is caught.
     """
 
+    @windows_variant("src.desktop.platform.windows_desktop:journal_store_init")
     def __init__(self, path: Path, profile_id: str, *, identity: str | None = None) -> None:
         self.profile_id = profile_id
         self.identity = identity
@@ -211,6 +213,7 @@ class JournalStore:
         finally:
             self._depth -= 1
 
+    @windows_variant("src.desktop.platform.windows_desktop:journal_store_close")
     def close(self) -> None:
         self._closed = True
         if self._connection is not None:

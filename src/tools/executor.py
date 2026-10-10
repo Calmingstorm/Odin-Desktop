@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from ..config.schema import ToolsConfig
+from ..desktop.platform.variants import windows_variant
 from ..odin_log import get_logger
 from ..permissions.host_access import HostAccessManager
 from ..permissions.manager import PermissionManager
@@ -586,6 +587,7 @@ class ToolExecutor:
             with lock:
                 self._workspace_usage_refreshing = False
 
+    @windows_variant("src.desktop.platform.windows_engine:ensure_local_workspace")
     def _ensure_local_workspace(self) -> str:
         """Resolve and re-validate the cwd for local user commands.
 

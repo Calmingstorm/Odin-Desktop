@@ -10,6 +10,7 @@ from typing import BinaryIO, Literal, cast
 
 import aiofiles
 
+from ..desktop.platform.variants import windows_variant
 from ..observability.correlation import get_turn
 from ..observability.diagnostics import scrub_diagnostic
 from ..observability.failure_classes import classify_failure
@@ -207,6 +208,7 @@ def _cap_tool_input(tool_input: dict, cap: int) -> dict | str:
 class AuditLogger:
     """Append-only JSON Lines audit log for tool executions."""
 
+    @windows_variant("src.desktop.platform.windows_engine:audit_logger_init")
     def __init__(
         self, path: str | None = None, *,
         hmac_key: str = "", classify_failures: bool = True,
@@ -435,6 +437,7 @@ class AuditLogger:
             except Exception:
                 pass
 
+    @windows_variant("src.desktop.platform.windows_engine:audit_append_durable")
     async def _append_durable(self, line: str) -> None:
         """Persist intent before the first byte; remove it only after settlement."""
         intent = False
@@ -887,6 +890,7 @@ class AuditLogger:
 
         return await self._collect_matches(_match, limit)
 
+    @windows_variant("src.desktop.platform.windows_engine:audit_initialize_chain")
     async def initialize_chain(self) -> None:
         """Report historical breaks, but resume from the actual settled tail.
 

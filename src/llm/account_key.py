@@ -42,6 +42,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 
+from ..desktop.platform.variants import windows_variant
 from ..runtime_paths import runtime_profile_paths
 
 log = logging.getLogger("odin.llm")
@@ -68,6 +69,7 @@ class _KeyReadResult:
     missing: bool = False
 
 
+@windows_variant("src.desktop.platform.windows_engine:read_established_key")
 def _read_established_key(key_path: Path) -> _KeyReadResult:
     """Read existing material under the strict generated-shape contract.
 
@@ -137,6 +139,7 @@ def _read_established_key(key_path: Path) -> _KeyReadResult:
             os.close(fd)
 
 
+@windows_variant("src.desktop.platform.windows_engine:fsync_parent")
 def _fsync_parent(key_path: Path) -> None:
     """Best-effort directory fsync so the publication survives a crash."""
     with contextlib.suppress(OSError):
@@ -147,6 +150,7 @@ def _fsync_parent(key_path: Path) -> None:
             os.close(directory_fd)
 
 
+@windows_variant("src.desktop.platform.windows_engine:create_key")
 def _create_key(key_path: Path) -> bytes | None:
     """Establish the installation key with an exclusive-winner protocol.
 

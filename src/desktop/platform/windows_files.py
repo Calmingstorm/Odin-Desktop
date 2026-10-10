@@ -282,8 +282,13 @@ def verify_file(handle, path, *, links: bool = True,
 
 
 def open_file(chain: HeldChain, name: str, *, write: bool = False, create: bool = False,
-              exclusive: bool = False, delete: bool = False, links: bool = True) -> int:
-    """Open ``name`` inside the held folder and verify it through its handle."""
+              exclusive: bool = False, delete: bool = False, links: bool = True,
+              lock: bool = False) -> int:
+    """Open ``name`` inside the held folder and verify it through its handle.
+
+    Ordinary files share delete, so a reader never blocks a replace. A lock file
+    (``lock=True``) doesn't, so it can't be replaced while its lock is held.
+    """
     path = chain.child(name)
     access = win32.GENERIC_READ | win32.READ_CONTROL | win32.FILE_READ_ATTRIBUTES
     if write:
@@ -292,15 +297,46 @@ def open_file(chain: HeldChain, name: str, *, write: bool = False, create: bool 
         access |= win32.DELETE
     disposition = (win32.CREATE_NEW if exclusive else win32.OPEN_ALWAYS if create
                    else win32.OPEN_EXISTING)
+    share = win32.FILE_SHARE_READ | win32.FILE_SHARE_WRITE
+    if not lock:
+        share |= win32.FILE_SHARE_DELETE
     handle = win32.create_file(
-        path, access, win32.FILE_SHARE_READ | win32.FILE_SHARE_WRITE | win32.FILE_SHARE_DELETE,
-        disposition, win32.FILE_FLAG_OPEN_REPARSE_POINT | win32.FILE_ATTRIBUTE_NORMAL)
+        path, access, share, disposition,
+        win32.FILE_FLAG_OPEN_REPARSE_POINT | win32.FILE_ATTRIBUTE_NORMAL)
     try:
         verify_file(handle, path, links=links)
     except BaseException:
         win32.close(handle)
         raise
     return handle
+
+
+def open_plain(path) -> int:
+    """Open an existing regular file for reading without following a link.
+
+    No owner or DACL rule: for stores whose Linux reader checks only that the
+    file is a regular one.
+    """
+    handle = win32.create_file(
+        path, win32.GENERIC_READ | win32.FILE_READ_ATTRIBUTES,
+        win32.FILE_SHARE_READ | win32.FILE_SHARE_WRITE | win32.FILE_SHARE_DELETE,
+        win32.OPEN_EXISTING, win32.FILE_FLAG_OPEN_REPARSE_POINT)
+    try:
+        tag = win32.attribute_tag(handle)
+        excluded = win32.FILE_ATTRIBUTE_REPARSE_POINT | win32.FILE_ATTRIBUTE_DIRECTORY
+        if tag.FileAttributes & excluded:
+            raise OSError(errno.ELOOP, "not a regular file", str(path))
+    except BaseException:
+        win32.close(handle)
+        raise
+    return handle
+
+
+def flush_path(path) -> None:
+    """The creation barrier for a file named by path: hold its folder, flush the file."""
+    path = Path(path)
+    with held(path.parent) as chain:
+        flush_object(chain, path.name, links=False)
 
 
 def to_fd(handle: int, flags: int) -> int:
@@ -312,10 +348,35 @@ def to_fd(handle: int, flags: int) -> int:
         raise
 
 
-def read_file(chain: HeldChain, name: str, *, limit: int | None = None) -> bytes:
-    fd = to_fd(open_file(chain, name), os.O_RDONLY)
+def read_file(chain: HeldChain, name: str, *, limit: int | None = None,
+              links: bool = True) -> bytes:
+    fd = to_fd(open_file(chain, name, links=links), os.O_RDONLY)
     with os.fdopen(fd, "rb") as stream:
         return stream.read() if limit is None else stream.read(limit)
+
+
+def file_size(handle) -> int:
+    info = win32.file_information(handle)
+    return (info.nFileSizeHigh << 32) | info.nFileSizeLow
+
+
+def matches_path(handle, path) -> bool:
+    """True when ``path`` still names the object ``handle`` holds."""
+    try:
+        current = win32.create_file(
+            path, win32.FILE_READ_ATTRIBUTES,
+            win32.FILE_SHARE_READ | win32.FILE_SHARE_WRITE | win32.FILE_SHARE_DELETE,
+            win32.OPEN_EXISTING, win32.FILE_FLAG_OPEN_REPARSE_POINT)
+    except OSError:
+        return False
+    try:
+        tag = win32.attribute_tag(current)
+        excluded = win32.FILE_ATTRIBUTE_REPARSE_POINT | win32.FILE_ATTRIBUTE_DIRECTORY
+        if tag.FileAttributes & excluded:
+            return False
+        return same_object(handle, current)
+    finally:
+        win32.close(current)
 
 
 def _rename(handle, target: Path, *, replace: bool) -> None:

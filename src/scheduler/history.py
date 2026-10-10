@@ -15,6 +15,7 @@ from typing import Any
 
 import aiofiles
 
+from ..desktop.platform.variants import windows_variant
 from ..odin_log import get_logger
 
 log = get_logger("scheduler.history")
@@ -120,6 +121,7 @@ class ScheduleHistory:
         async with self._lock:
             await self._settle_io(asyncio.to_thread(self._record_interrupted_sync, pending))
 
+    @windows_variant("src.desktop.platform.windows_engine:record_interrupted_sync")
     def _record_interrupted_sync(self, pending: dict) -> None:
         evidence = ("schedule_id", "status", "run_binding", "error")
         if pending.get("status") != "unknown":
@@ -225,6 +227,7 @@ class ScheduleHistory:
         async with self._lock:
             return await self._settle_io(self._prune_locked())
 
+    @windows_variant("src.desktop.platform.windows_engine:prune_locked")
     async def _prune_locked(self) -> int:
         """Compact history file, keeping only the most recent entries per schedule.
 

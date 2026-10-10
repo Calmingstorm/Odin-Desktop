@@ -49,6 +49,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..desktop.platform.variants import windows_variant
 from ..odin_log import get_logger
 from ..tools.effect_classifier import (
     ToolEffectClass,
@@ -213,6 +214,7 @@ class TurnStateStore:
     the whole feature (not the process) when init fails.
     """
 
+    @windows_variant("src.desktop.platform.windows_engine:turn_state_init")
     def __init__(
         self,
         db_path: str | Path,
@@ -338,6 +340,7 @@ class TurnStateStore:
         )
         return reconciled
 
+    @windows_variant("src.desktop.platform.windows_engine:restrict_db_modes")
     def _restrict_db_modes(self) -> None:
         """0600 on the database and its WAL/SHM sidecars (best-effort — the
         sidecars appear lazily; called again from the TTL sweep)."""

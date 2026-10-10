@@ -17,6 +17,8 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
+from .platform.variants import windows_variant
+
 COLLECTION_SECONDS = 3.0
 SNAPSHOT_SECONDS = 3.5
 WALK_SECONDS = 0.3
@@ -57,6 +59,7 @@ class WorkspaceDiagnostics:
             return {"status": "timeout", "reason": "collection_pending",
                     "local_only": True}
 
+    @windows_variant("src.desktop.platform.windows_desktop:workspace_collect")
     def _collect(self) -> dict:
         started = time.monotonic()
         deadline = started + COLLECTION_SECONDS
@@ -86,6 +89,7 @@ class WorkspaceDiagnostics:
                     "local_only": True}
 
 
+@windows_variant("src.desktop.platform.windows_desktop:workspace_usage")
 def _usage(root: Path, deadline: float) -> dict:
     result = {"bytes": 0, "files": 0, "entries": 0, "symlinks_skipped": 0,
               "complete": True, "reason": None}

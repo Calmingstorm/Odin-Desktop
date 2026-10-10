@@ -27,6 +27,8 @@ dependencies = [
     "playwright>=1.40.0",
     "python-xlib>=0.33,<1",
     "dbus-next>=0.2.3,<1",
+    # Windows has no system time-zone database; zoneinfo reads this package instead.
+    "tzdata>=2025.2; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]

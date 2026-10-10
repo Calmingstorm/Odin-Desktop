@@ -7,6 +7,7 @@ import stat
 from pathlib import Path
 
 from .paths import ProfilePaths
+from .platform.variants import windows_variant
 
 # Supported Desktop platform is Linux (108 bytes including NUL). OpenSSH
 # reserves '.' plus sixteen random characters while publishing ControlPath.
@@ -97,6 +98,7 @@ def _runtime_root() -> Path | None:
     return path
 
 
+@windows_variant("src.desktop.platform.windows_desktop:socket_directory")
 def socket_directory(paths: ProfilePaths) -> str:
     """Select without creating anything, independently of HOME length."""
     profile = paths.profile_id
@@ -119,6 +121,7 @@ def effective_socket_directory(value: str, paths: ProfilePaths) -> str:
     return value
 
 
+@windows_variant("src.desktop.platform.windows_desktop:prepare_socket_directory")
 def prepare_socket_directory(value: str) -> None:
     """Reject planted managed namespaces; custom paths keep pool policy."""
     path = Path(value)

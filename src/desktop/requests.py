@@ -21,6 +21,7 @@ from .commands import canonical_json, response_error
 from .conversations import ConversationError, domain_transaction, now, require_string
 from .errors import NoLLMProviderError
 from .package_status import product_version
+from .platform.variants import windows_variant
 
 REQUEST_SCHEMA = {
     "desktop_requests": {"request_id", "conversation_id", "message_id", "owner", "generation",
@@ -34,6 +35,7 @@ _DISPLAY_NAME_CHARS = 40
 _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 
 
+@windows_variant("src.desktop.platform.windows_desktop:owner_display_name")
 def owner_display_name(config_dir) -> str:
     """What Odin calls you: the name set in Settings, General, Your profile.
 

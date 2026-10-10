@@ -51,6 +51,7 @@ from pathlib import Path
 from typing import TypeGuard
 
 from ..config.schema import canonical_codex_model
+from ..desktop.platform.variants import windows_variant
 from ..odin_log import get_logger
 from ..runtime_paths import runtime_profile_paths
 
@@ -219,6 +220,7 @@ def _validate_store(data: object) -> bool:
     return True
 
 
+@windows_variant("src.desktop.platform.windows_engine:read_store_bytes")
 def _read_store_bytes(path: Path) -> bytes | None:
     """Hostile-input-safe read: never block, never follow, never assume.
 
@@ -328,6 +330,7 @@ class WindowObserver:
         """
         self._eligible_account_keys = provider
 
+    @windows_variant("src.desktop.platform.windows_engine:window_persist_locked")
     def _persist_locked(self, state: dict | None = None) -> None:
         """Atomic replacement: unique temp, fsync, rename, parent fsync."""
         payload = json.dumps(self._state if state is None else state, indent=2, sort_keys=True)

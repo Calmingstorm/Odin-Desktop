@@ -11,6 +11,7 @@ import os
 import stat
 from pathlib import Path
 
+from ..desktop.platform.variants import windows_variant
 from ..json_store import StoreCorruptError, load_json_store
 from ..runtime_paths import runtime_profile_paths
 from .persistence import write_private_atomic
@@ -66,6 +67,7 @@ class HostAccessManager:
         self._available_hosts = list(hosts)
 
     @property
+    @windows_variant("src.desktop.platform.windows_engine:host_access_default_host")
     def default_host(self):
         """Read the preference, never an owner grant or a host trust decision."""
         try:
