@@ -38,10 +38,18 @@ jobs:
           .venv\Scripts\python.exe -m pytest tests/windows tests/test_desktop_platform_variants.py `
             -q -p no:cacheprovider -rfEs --cov=src/desktop/platform --cov-report=json:coverage-windows.json `
             --cov-report=term-missing
+      - name: Record the revision and the measured sources
+        shell: pwsh
+        env:
+          REVISION: ${{ github.sha }}
+        run: |
+          .venv\Scripts\python.exe -c "import hashlib, json, os, pathlib; inventory = json.loads(pathlib.Path('maintenance/windows-only-files.json').read_text()); sources = {path: hashlib.sha256(pathlib.Path(path).read_bytes().replace(b'\r\n', b'\n')).hexdigest() for path in inventory}; pathlib.Path('coverage-windows-provenance.json').write_text(json.dumps({'sha': os.environ['REVISION'], 'sources': sources}, indent=2))"
       - name: Upload Windows coverage evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-windows
-          path: coverage-windows.json
+          path: |
+            coverage-windows.json
+            coverage-windows-provenance.json
           if-no-files-found: error

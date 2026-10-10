@@ -128,6 +128,7 @@ def test_explicit_update_cannot_lower_existing_ceiling(tmp_path, monkeypatch):
         "s": {str(index): int(index < 8) for index in range(10)}}}))
     monkeypatch.setattr(gate, "executable_inventory", lambda: {
         runtime: set(rows) for runtime, rows in current.items()})
+    monkeypatch.setattr(gate, "windows_inventory", lambda: set())
     monkeypatch.setattr(gate.subprocess, "check_output", lambda *args, **kwargs:
                         "src/desktop/a.py\napp/src/a.ts\n")
     assert gate.main(["--python-json", str(python), "--app-json", str(app),
@@ -154,4 +155,118 @@ def test_ci_measurements_use_all_classified_shards_and_upload_even_on_failure():
         assert upload["with"]["if-no-files-found"] == "error"
         assert any("rm -f .test-state/.coverage" in step.get("run", "")
                    for step in job["steps"])
-    assert jobs["coverage"]["needs"] == ["full-suites", "qualification"]
+    assert jobs["coverage"]["needs"] == ["full-suites", "qualification", "windows-engine"]
+    windows = jobs["windows-engine"]
+    assert windows["uses"] == "./.github/workflows/windows-engine.yml"
+    assert windows["if"] == jobs["coverage"]["if"]
+    gate_step = next(step for step in jobs["coverage"]["steps"]
+                     if "desktop_coverage_gate.py" in step.get("run", ""))
+    assert "--windows-json" in gate_step["run"] and "--windows-provenance" in gate_step["run"]
+
+
+# --- Windows-only files: native rows, exact provenance, Linux evaluated on its own ---------
+
+
+WIN = "src/desktop/platform/win32.py"
+
+
+def windows_fixture():
+    baseline, current = fixture()
+    current["windows"] = {WIN: gate.row(10, 9)}
+    baseline["windows"] = {"total": gate.total(current["windows"]),
+                           "files": deepcopy(current["windows"])}
+    baseline["target_files"].append(WIN)
+    return baseline, current
+
+
+def test_windows_rows_never_hide_a_linux_regression():
+    baseline, current = windows_fixture()
+    assert gate.evaluate(baseline, current) == []
+    current["python"]["src/desktop/a.py"] = gate.row(10, 7)
+    current["windows"][WIN] = gate.row(10, 10)
+    findings = gate.evaluate(baseline, current)
+    assert "src/desktop/a.py: coverage regressed" in findings
+    assert "python: total missed lines grew" in findings
+
+
+def test_windows_files_keep_their_own_ratchet_and_floor():
+    baseline, current = windows_fixture()
+    current["windows"][WIN] = gate.row(10, 8)
+    assert f"{WIN}: coverage regressed" in gate.evaluate(baseline, current)
+    current["windows"][WIN] = gate.row(10, 9)
+    current["windows"]["src/desktop/platform/windows_new.py"] = gate.row(10, 7)
+    assert ("src/desktop/platform/windows_new.py: new executable file below 80%"
+            in gate.evaluate(baseline, current))
+
+
+@pytest.mark.parametrize("key", [
+    "src\\desktop\\platform\\win32.py",
+    "D:\\a\\Odin-Desktop\\Odin-Desktop\\src\\desktop\\platform\\win32.py",
+    "D:/a/Odin-Desktop/src/desktop/platform/win32.py",
+    "src/desktop/platform/win32.py",
+])
+def test_windows_report_paths_normalize(key):
+    assert gate.windows_path(key) == WIN
+
+
+@pytest.mark.parametrize("key", ["C:\\other\\file.py", "src/../etc/x.py", "app/src/a.ts"])
+def test_unexpected_windows_paths_fail_closed(key):
+    with pytest.raises(ValueError, match="Unexpected Windows coverage path"):
+        gate.windows_path(key)
+
+
+def _windows_evidence(tmp_path, *, crlf=True):
+    source = tmp_path / WIN
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"line\r\nline\r\n" if crlf else b"line\nline\n")
+    report = {"files": {WIN.replace("/", "\\"): {
+        "summary": {"num_statements": 10, "covered_lines": 9}}}}
+    provenance = {"sha": "abc", "sources": {
+        WIN: gate.hashlib.sha256(b"line\nline\n").hexdigest()}}
+    return report, provenance
+
+
+def test_windows_rows_need_this_revision_and_these_sources(tmp_path):
+    report, provenance = _windows_evidence(tmp_path)
+    rows = gate.windows_rows(report, provenance, {WIN}, sha="abc", root=tmp_path)
+    assert rows == {WIN: gate.row(10, 9)}
+    with pytest.raises(ValueError, match="another revision"):
+        gate.windows_rows(report, provenance, {WIN}, sha="def", root=tmp_path)
+    with pytest.raises(ValueError, match="name the inventory exactly"):
+        gate.windows_rows(report, {**provenance, "sources": {}}, {WIN}, sha="abc", root=tmp_path)
+    (tmp_path / WIN).write_bytes(b"changed\n")
+    with pytest.raises(ValueError, match="other source bytes"):
+        gate.windows_rows(report, provenance, {WIN}, sha="abc", root=tmp_path)
+
+
+def test_a_missing_windows_row_fails_closed(tmp_path):
+    report, provenance = _windows_evidence(tmp_path, crlf=False)
+    with pytest.raises(ValueError, match="lacks rows"):
+        gate.windows_rows({"files": {}}, provenance, {WIN}, sha="abc", root=tmp_path)
+
+
+def test_the_windows_inventory_matches_its_naming_invariant(tmp_path):
+    platform = tmp_path / "src/desktop/platform"
+    platform.mkdir(parents=True)
+    for name in ("win32.py", "windows_files.py", "linux.py"):
+        (platform / name).write_text("")
+    (tmp_path / "maintenance").mkdir()
+    inventory = tmp_path / gate.WINDOWS_INVENTORY
+    inventory.write_text('["src/desktop/platform/win32.py"]')
+    with pytest.raises(ValueError, match="differs from its files"):
+        gate.windows_inventory(tmp_path)
+    inventory.write_text(gate.json.dumps(
+        ["src/desktop/platform/win32.py", "src/desktop/platform/windows_files.py"]))
+    assert gate.windows_inventory(tmp_path) == {
+        "src/desktop/platform/win32.py", "src/desktop/platform/windows_files.py"}
+    assert gate.windows_inventory() == set(gate.json.loads(
+        (gate.ROOT / gate.WINDOWS_INVENTORY).read_text()))
+
+
+def test_cli_without_windows_evidence_fails_closed(tmp_path):
+    python = tmp_path / "python.json"
+    python.write_text(gate.json.dumps({"files": {}}))
+    app = tmp_path / "app.json"
+    app.write_text("{}")
+    assert gate.main(["--python-json", str(python), "--app-json", str(app),
+                      "--output", str(tmp_path / "out"), "--revision", "abc"]) == 2

@@ -121,6 +121,21 @@
         "missing": 0,
         "total": 23
       },
+      "app/src/main/platform/contracts.ts": {
+        "covered": 0,
+        "missing": 0,
+        "total": 0
+      },
+      "app/src/main/platform/index.ts": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "app/src/main/platform/linux.ts": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
       "app/src/main/real-core-smoke.ts": {
         "covered": 851,
         "missing": 16,
@@ -665,21 +680,6 @@
         "covered": 45,
         "missing": 0,
         "total": 45
-      },
-      "app/src/main/platform/contracts.ts": {
-        "covered": 0,
-        "missing": 0,
-        "total": 0
-      },
-      "app/src/main/platform/index.ts": {
-        "covered": 2,
-        "missing": 0,
-        "total": 2
-      },
-      "app/src/main/platform/linux.ts": {
-        "covered": 1,
-        "missing": 0,
-        "total": 1
       }
     },
     "total": {
@@ -1395,6 +1395,31 @@
         "covered": 96,
         "missing": 3,
         "total": 99
+      },
+      "src/desktop/platform/__init__.py": {
+        "covered": 11,
+        "missing": 0,
+        "total": 11
+      },
+      "src/desktop/platform/contracts.py": {
+        "covered": 17,
+        "missing": 0,
+        "total": 17
+      },
+      "src/desktop/platform/linux.py": {
+        "covered": 19,
+        "missing": 0,
+        "total": 19
+      },
+      "src/desktop/platform/linux_ipc.py": {
+        "covered": 85,
+        "missing": 7,
+        "total": 92
+      },
+      "src/desktop/platform/locks.py": {
+        "covered": 13,
+        "missing": 0,
+        "total": 13
       },
       "src/desktop/profile.py": {
         "covered": 9,
@@ -2740,31 +2765,6 @@
         "covered": 2,
         "missing": 1,
         "total": 3
-      },
-      "src/desktop/platform/__init__.py": {
-        "covered": 11,
-        "missing": 0,
-        "total": 11
-      },
-      "src/desktop/platform/contracts.py": {
-        "covered": 17,
-        "missing": 0,
-        "total": 17
-      },
-      "src/desktop/platform/linux.py": {
-        "covered": 19,
-        "missing": 0,
-        "total": 19
-      },
-      "src/desktop/platform/linux_ipc.py": {
-        "covered": 85,
-        "missing": 7,
-        "total": 92
-      },
-      "src/desktop/platform/locks.py": {
-        "covered": 13,
-        "missing": 0,
-        "total": 13
       }
     },
     "total": {
@@ -2949,6 +2949,16 @@
     "src/desktop/platform/linux.py",
     "src/desktop/platform/linux_ipc.py",
     "src/desktop/platform/locks.py",
+    "src/desktop/platform/variants.py",
+    "src/desktop/platform/win32.py",
+    "src/desktop/platform/windows.py",
+    "src/desktop/platform/windows_authority.py",
+    "src/desktop/platform/windows_desktop.py",
+    "src/desktop/platform/windows_engine.py",
+    "src/desktop/platform/windows_files.py",
+    "src/desktop/platform/windows_locks.py",
+    "src/desktop/platform/windows_secrets.py",
+    "src/desktop/platform/windows_workspace.py",
     "src/desktop/profile.py",
     "src/desktop/protocol.py",
     "src/desktop/providers.py",
@@ -2979,5 +2989,59 @@
     "src/desktop/work.py",
     "src/desktop/workspace_diagnostics.py",
     "src/desktop/x11_probe.py"
-  ]
+  ],
+  "windows": {
+    "files": {
+      "src/desktop/platform/win32.py": {
+        "covered": 300,
+        "missing": 11,
+        "total": 311
+      },
+      "src/desktop/platform/windows.py": {
+        "covered": 37,
+        "missing": 2,
+        "total": 39
+      },
+      "src/desktop/platform/windows_authority.py": {
+        "covered": 133,
+        "missing": 12,
+        "total": 145
+      },
+      "src/desktop/platform/windows_desktop.py": {
+        "covered": 320,
+        "missing": 59,
+        "total": 379
+      },
+      "src/desktop/platform/windows_engine.py": {
+        "covered": 389,
+        "missing": 56,
+        "total": 445
+      },
+      "src/desktop/platform/windows_files.py": {
+        "covered": 286,
+        "missing": 43,
+        "total": 329
+      },
+      "src/desktop/platform/windows_locks.py": {
+        "covered": 9,
+        "missing": 0,
+        "total": 9
+      },
+      "src/desktop/platform/windows_secrets.py": {
+        "covered": 30,
+        "missing": 2,
+        "total": 32
+      },
+      "src/desktop/platform/windows_workspace.py": {
+        "covered": 32,
+        "missing": 7,
+        "total": 39
+      }
+    },
+    "total": {
+      "covered": 1536,
+      "missing": 192,
+      "total": 1728
+    }
+  }
 }

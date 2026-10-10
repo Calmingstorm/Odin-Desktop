@@ -1,0 +1,11 @@
+[
+  "src/desktop/platform/win32.py",
+  "src/desktop/platform/windows.py",
+  "src/desktop/platform/windows_authority.py",
+  "src/desktop/platform/windows_desktop.py",
+  "src/desktop/platform/windows_engine.py",
+  "src/desktop/platform/windows_files.py",
+  "src/desktop/platform/windows_locks.py",
+  "src/desktop/platform/windows_secrets.py",
+  "src/desktop/platform/windows_workspace.py"
+]
