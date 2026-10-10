@@ -10,8 +10,10 @@
 // - A request with no receipt is never re-sent with a new ID. Its frame is kept and re-sent with the SAME ID after
 //   reconnecting; the core answers a known ID with its original result, which is emitted as a late 'receipt'.
 // - On Windows the link is a named pipe with the sealed session (windows-session.ts): the token never crosses it, and
-//   the link becomes ready, re-sends and re-subscribes only after the sealed welcome opens. Each connection has fresh
-//   nonces and keys.
+//   the link becomes ready, re-sends and re-subscribes only after the sealed welcome opens. The first sealed frame must
+//   be that welcome (or a refusal); anything else closes the connection unapplied. Each connection has fresh nonces
+//   and keys. A connection at its key budget closes so the next one handshakes new keys; a command it couldn't seal
+//   was never sent, and says so.
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import { createConnection, type Socket } from 'node:net'
@@ -60,6 +62,12 @@ const NOT_CONNECTED: CoreError = {
   disposition: 'not_dispatched'
 }
 
+const NOT_SENT_REKEYING: CoreError = {
+  code: 'not_connected',
+  message: 'Odin is reconnecting. Nothing was sent.',
+  disposition: 'not_dispatched'
+}
+
 const NO_RECEIPT: CoreError = {
   code: 'no_receipt',
   message: 'No receipt yet. It will be reconciled when the core answers; the command is never re-sent under a new ID.',
@@ -90,6 +98,8 @@ export class Broker extends EventEmitter {
   private session: ClientSession | null = null
   private sealer: SealedDirection | null = null
   private sealedDecoder: SealedDecoder | null = null
+  /** A sealed connection between its proofs and its welcome: only the welcome or a refusal may arrive. */
+  private awaitingWelcome = false
   private readonly requestTimeoutMs: number
   private readonly helloTimeoutMs: number
   private readonly reconnectDelaysMs: number[]
@@ -204,7 +214,12 @@ export class Broker extends EventEmitter {
         resolve({ ok: false, error: NO_RECEIPT })
       }, this.requestTimeoutMs)
       this.pending.set(id, { frame, resolve, timer, control })
-      this.write(socket, bytes)
+      if (!this.write(socket, bytes)) {
+        // Never written, so never in doubt: not kept for a re-send.
+        clearTimeout(timer)
+        this.pending.delete(id)
+        resolve({ ok: false, error: NOT_SENT_REKEYING })
+      }
     })
   }
 
@@ -239,6 +254,7 @@ export class Broker extends EventEmitter {
     const socket = createConnection(this.options.socketPath)
     this.socket = socket
     this.session = this.sealer = this.sealedDecoder = null
+    this.awaitingWelcome = false
     // Before the proofs a sealed link takes only small plain frames.
     this.decoder = new FrameDecoder(this.sealed ? PREAUTH_MAX_FRAME : this.maxFrame)
     socket.on('connect', () => this.sendHello(socket))
@@ -270,9 +286,28 @@ export class Broker extends EventEmitter {
     this.helloTimer = setTimeout(() => socket.destroy(), this.helloTimeoutMs)
   }
 
-  /** The one send path. Sealing assigns each frame's counter as it is written, so order holds. */
-  private write(socket: Socket, bytes: Buffer): void {
-    socket.write(this.sealer ? this.sealer.seal(bytes.subarray(4)) : bytes)
+  /** The one send path. Sealing assigns each frame's counter as it is written, so order holds.
+   *
+   * A sealed link never falls back to plain frames. When its session can seal no more (its key budget is spent), the
+   * connection closes and the next one handshakes fresh keys. Returns whether the frame was written.
+   */
+  private write(socket: Socket, bytes: Buffer): boolean {
+    if (!this.sealed) {
+      socket.write(bytes)
+      return true
+    }
+    let frame: Buffer | undefined
+    try {
+      frame = this.sealer?.seal(bytes.subarray(4))
+    } catch {
+      frame = undefined
+    }
+    if (!frame) {
+      socket.destroy()
+      return false
+    }
+    socket.write(frame)
+    return true
   }
 
   /** Before the proofs a sealed link accepts only the engine's challenge, or its plain refusal. */
@@ -287,6 +322,7 @@ export class Broker extends EventEmitter {
     socket.write(encodeFrame(answer.proof))
     this.sealer = answer.send
     this.sealedDecoder = new SealedDecoder(answer.receive, answer.maxFrame)
+    this.awaitingWelcome = true
     return []
   }
 
@@ -305,7 +341,18 @@ export class Broker extends EventEmitter {
       socket.destroy()
       return
     }
-    for (const frame of frames) this.handleFrame(socket, frame)
+    for (const frame of frames) {
+      if (this.awaitingWelcome) {
+        // Nothing is applied before the sealed welcome: no receipt, no event, no cursor.
+        if (frame.t !== 'welcome' && frame.t !== 'bye') {
+          this.emit('protocol-error', 'the sealed session must open with the welcome')
+          socket.destroy()
+          return
+        }
+        this.awaitingWelcome = frame.t !== 'welcome'
+      }
+      this.handleFrame(socket, frame)
+    }
   }
 
   private handleFrame(socket: Socket, frame: Record<string, unknown>): void {
@@ -350,8 +397,11 @@ export class Broker extends EventEmitter {
     // Re-send commands that never got a receipt, with their original IDs, then renew the one subscription. Both
     // happen before 'welcome' is emitted, so a listener can't add a second subscription on this connection.
     if (!this.quiescing) {
-      for (const frame of this.unreceipted.values()) this.write(socket, encodeFrame(frame, this.maxFrame))
+      for (const frame of this.unreceipted.values()) {
+        if (!this.write(socket, encodeFrame(frame, this.maxFrame))) return // kept for the next connection
+      }
       if (this.wantEvents) void this.subscribe()
+      if (socket.destroyed) return
     }
     this.emit('welcome', welcome)
     if (previous && previous !== welcome.core.instance_id) this.emit('core-changed', welcome.core.instance_id)

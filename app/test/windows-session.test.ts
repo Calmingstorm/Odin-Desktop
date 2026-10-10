@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Broker } from '../src/main/broker'
 import { FrameDecoder, ProtocolError, encodeFrame } from '../src/main/framing'
 import {
@@ -170,6 +170,8 @@ interface FakeOptions {
   token?: string
   plainWelcome?: boolean
   onRequest?: (frame: Record<string, unknown>, connection: number) => Record<string, unknown> | null
+  /** Sealed frames sent between the proofs and the welcome, per connection. */
+  early?: (connection: number) => Record<string, unknown>[]
 }
 
 async function sealedCore(options: FakeOptions = {}) {
@@ -177,7 +179,7 @@ async function sealedCore(options: FakeOptions = {}) {
   const socketPath = join(dir, 'core.sock')
   const hellos: Record<string, unknown>[] = []
   const raw: Buffer[] = []
-  const requests: Array<{ id: string; connection: number }> = []
+  const requests: Array<{ id: string; connection: number; method?: string }> = []
   const sockets: Socket[] = []
   let connection = 0
   const server: Server = createServer((socket) => {
@@ -195,7 +197,7 @@ async function sealedCore(options: FakeOptions = {}) {
       if (receiver) {
         for (const frame of receiver.push(chunk)) {
           if (frame.t !== 'req') continue
-          requests.push({ id: String(frame.id), connection: mine })
+          requests.push({ id: String(frame.id), connection: mine, ...(frame.method === 'events.subscribe' ? { method: 'events.subscribe' } : {}) })
           const answer = options.onRequest ? options.onRequest(frame, mine) : { t: 'res', id: frame.id, ok: true, result: {} }
           if (answer) sealedWrite(answer)
         }
@@ -231,6 +233,7 @@ async function sealedCore(options: FakeOptions = {}) {
           }
           sender = new SealedDirection(keys!.s2c, SERVER_TO_CLIENT)
           receiver = new SealedDecoder(new SealedDirection(keys!.c2s, CLIENT_TO_SERVER))
+          for (const early of options.early?.(mine) ?? []) sealedWrite(early)
           sealedWrite({
             t: 'welcome', protocol: { major: 0, minor: 3 }, core: { instance_id: `core-${mine}`, version: '0' },
             profile_id: 'default', capabilities: [], features: [], max_frame: 4194304, event_high: '0'
@@ -303,4 +306,104 @@ describe('the broker over a sealed link', () => {
     expect(new Set(nonces).size).toBe(2)
     expect(answered).toEqual(new Set([2]))
   })
+
+  it('applies nothing before the sealed welcome, on the first connection or a reconnect', async () => {
+    const id = crypto.randomUUID()
+    const { broker, requests, sockets, errors } = await sealedCore({
+      early: (connection) =>
+        connection === 1 ? [{ t: 'evt', seq: 3, cursor: '3', type: 'x' }]
+          : connection === 3 ? [{ t: 'res', id, ok: true, result: { early: true } }, { t: 'evt', seq: 7, cursor: '7', type: 'x' }]
+            : [],
+      onRequest: (frame, connection) => (connection === 2 ? null : { t: 'res', id: frame.id, ok: true, result: { connection } })
+    })
+    const events: unknown[] = []
+    const receipts: Array<{ id: string; settled: unknown }> = []
+    broker.on('event', (event: unknown) => events.push(event))
+    broker.on('receipt', (receipt: { id: string; settled: unknown }) => receipts.push(receipt))
+    broker.connect()
+    await waitFor(() => broker.linkState === 'ready' && sockets.length === 2, 5_000)
+    expect(errors).toEqual(['the sealed session must open with the welcome'])
+    expect(await broker.request('submission.send', {}, id)).toMatchObject({ ok: false, error: { code: 'no_receipt' } })
+    expect(broker.unreceiptedCount).toBe(1)
+    sockets[1]!.destroy()
+    await waitFor(() => receipts.length === 1, 5_000)
+    expect(errors).toHaveLength(2) // connection 3 opened with a receipt and an event: both refused, unapplied
+    expect(receipts[0]).toEqual({ id, settled: { ok: true, result: { connection: 4 } } })
+    expect(requests.filter((request) => request.id === id).map((request) => request.connection)).toEqual([2, 4])
+    expect(events).toEqual([])
+    expect(broker.cursor).toBeNull()
+  })
+
+  it('refuses a repeated handshake frame after the proofs', async () => {
+    const { broker, errors, sockets } = await sealedCore({
+      early: (connection) => (connection === 1 ? [{ t: 'challenge', server_nonce: '00'.repeat(32) }] : [])
+    })
+    broker.connect()
+    await waitFor(() => broker.linkState === 'ready' && sockets.length === 2, 5_000)
+    expect(errors).toEqual(['the sealed session must open with the welcome'])
+  })
+
+  it('closes a link at its key budget and says the command was never sent', async () => {
+    const { broker, hellos, requests } = await sealedCore()
+    broker.connect()
+    await waitFor(() => broker.linkState === 'ready')
+    ;(broker as unknown as { sealer: { counter: bigint } }).sealer.counter = 2n ** 32n
+    const id = crypto.randomUUID()
+    expect(await broker.request('submission.send', {}, id)).toEqual({
+      ok: false, error: { code: 'not_connected', message: 'Odin is reconnecting. Nothing was sent.', disposition: 'not_dispatched' }
+    })
+    expect(broker.unreceiptedCount).toBe(0)
+    await waitFor(() => broker.linkState === 'ready' && hellos.length === 2, 5_000)
+    const nonces = hellos.map((hello) => (hello.auth as { client_nonce: string }).client_nonce)
+    expect(new Set(nonces).size).toBe(2)
+    expect(requests.some((request) => request.id === id)).toBe(false)
+    expect(await broker.request('status.get')).toEqual({ ok: true, result: {} })
+  })
+
+  /** The next seal after the link's Nth 'ready' throws as a spent key budget does. */
+  function exhaustAfterReady(broker: Broker, nth: number) {
+    const seal = vi.spyOn(SealedDirection.prototype, 'seal')
+    let readied = 0
+    broker.on('state', (state: string) => {
+      if (state === 'ready' && ++readied === nth) {
+        seal.mockImplementationOnce(() => {
+          throw new ProtocolError('session key exhausted; reconnect')
+        })
+      }
+    })
+    return seal
+  }
+
+  it('keeps a re-send for the next connection when the budget runs out first', async () => {
+    const id = crypto.randomUUID()
+    const { broker, requests, sockets } = await sealedCore({
+      onRequest: (frame, connection) =>
+        connection === 1 && frame.id === id ? null : { t: 'res', id: frame.id, ok: true, result: { connection } }
+    })
+    const receipts: Array<{ id: string; settled: unknown }> = []
+    broker.on('receipt', (receipt: { id: string; settled: unknown }) => receipts.push(receipt))
+    broker.connect()
+    await waitFor(() => broker.linkState === 'ready')
+    expect(await broker.request('submission.send', {}, id)).toMatchObject({ ok: false, error: { code: 'no_receipt' } })
+    const seal = exhaustAfterReady(broker, 1) // connection 2's first seal is the re-send
+    sockets[0]!.destroy()
+    await waitFor(() => receipts.length === 1, 5_000)
+    seal.mockRestore()
+    expect(receipts[0]).toEqual({ id, settled: { ok: true, result: { connection: 3 } } })
+    expect(requests.filter((request) => request.id === id).map((request) => request.connection)).toEqual([1, 3])
+  })
+
+  it('renews the subscription on the next connection when the budget runs out first', async () => {
+    const { broker, requests, sockets } = await sealedCore()
+    broker.startEvents()
+    broker.connect()
+    await waitFor(() => requests.some((request) => request.method === 'events.subscribe'))
+    const seal = exhaustAfterReady(broker, 1) // connection 2's first seal is the subscription
+    sockets[0]!.destroy()
+    await waitFor(() => requests.filter((request) => request.method === 'events.subscribe').length === 2, 5_000)
+    seal.mockRestore()
+    const subscribed = requests.filter((request) => request.method === 'events.subscribe')
+    expect(subscribed.map((request) => request.connection)).toEqual([1, 3])
+  })
 })
+
