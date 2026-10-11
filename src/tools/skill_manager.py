@@ -16,7 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from importlib.metadata import PackageNotFoundError, distribution
+from importlib.metadata import PackageNotFoundError, distribution, distributions
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -333,6 +333,32 @@ def _use_packages(target: Path) -> None:
         sys.path.append(str(target))
 
 
+def _runtime_conflict(spec: str, target: Path) -> str | None:
+    """The runtime's version of ``spec``'s package when the profile's folder holds a copy
+    that satisfies ``spec`` but the runtime's own copy, which comes first, doesn't."""
+    try:
+        requirement = Requirement(spec)
+        name = canonicalize_name(requirement.name)
+        held = next((dist for dist in distributions(path=[str(target)])
+                     if canonicalize_name(dist.metadata["Name"] or "") == name), None)
+        if held is None or (requirement.specifier
+                            and not requirement.specifier.contains(held.version)):
+            return None
+        effective = distribution(requirement.name).version
+    except (PackageNotFoundError, InvalidRequirement, InvalidVersion):
+        return None
+    return effective if effective != held.version else None
+
+
+def _conflict_diagnostic(spec: str, runtime: str) -> SkillDiagnostic:
+    return SkillDiagnostic(
+        "error",
+        f"Dependency {spec!r} conflicts with Odin's own copy of that package ({runtime}). A "
+        "skill's packages never replace one Odin uses, so use a version range that includes "
+        f"{runtime}.",
+    )
+
+
 def _extract_dependencies_from_source(source: str) -> list[str]:
     """Extract ``dependencies`` from ``SKILL_DEFINITION`` dict in source without executing.
 
@@ -427,6 +453,8 @@ def resolve_dependencies(
             continue
         if _is_package_installed(spec):
             already_installed.append(spec)
+        elif target is not None and (runtime := _runtime_conflict(spec, target)):
+            diagnostics.append(_conflict_diagnostic(spec, runtime))  # installed before: no repeat
         else:
             to_install.append(spec)
 
@@ -437,12 +465,24 @@ def resolve_dependencies(
                            else _install_packages(to_install, target=target))
         if success:
             newly_installed = to_install
-            diagnostics.append(
-                SkillDiagnostic(
-                    "warn",
-                    f"Auto-installed dependencies: {', '.join(to_install)}",
+            if target is not None:
+                # pip succeeding isn't the skill's package being the one that imports.
+                newly_installed = []
+                for spec in to_install:
+                    if _is_package_installed(spec):
+                        newly_installed.append(spec)
+                    elif runtime := _runtime_conflict(spec, target):
+                        diagnostics.append(_conflict_diagnostic(spec, runtime))
+                    else:
+                        diagnostics.append(SkillDiagnostic(
+                            "error", f"Dependency {spec!r} installed but can't be imported."))
+            if newly_installed:
+                diagnostics.append(
+                    SkillDiagnostic(
+                        "warn",
+                        f"Auto-installed dependencies: {', '.join(newly_installed)}",
+                    )
                 )
-            )
         else:
             diagnostics.append(
                 SkillDiagnostic(

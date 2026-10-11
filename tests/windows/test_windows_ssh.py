@@ -343,6 +343,34 @@ async def test_the_scan_reads_what_ssh_recorded(monkeypatch):
     assert await wssh.scan_host_keys("192.0.2.9", 2222, 5) == (1, refused)
 
 
+async def test_a_family_that_times_out_keeps_the_keys_already_recorded(monkeypatch):
+    async def ed25519_then_timeouts(argv, timeout, **kwargs):
+        if "HostKeyAlgorithms=ssh-ed25519" not in argv:
+            raise TimeoutError
+        known = next(arg for arg in argv if arg.startswith("UserKnownHostsFile="))
+        Path(known.split('"')[1]).write_bytes(RECORDED)
+        return 255, b"odin-scan@192.0.2.9: Permission denied (publickey).\r\n"
+
+    monkeypatch.setattr(remote, "run_argv", ed25519_then_timeouts)
+    assert await wssh.scan_host_keys("192.0.2.9", 2222, 5) == (0, RECORDED)
+
+    async def always_late(argv, timeout, **kwargs):
+        raise TimeoutError
+
+    monkeypatch.setattr(remote, "run_argv", always_late)
+    code, output = await wssh.scan_host_keys("192.0.2.9", 2222, 5)
+    assert code == 1 and output.startswith(b"ssh timed out after 5s")
+
+
+async def test_cancelling_a_scan_still_ends_it(monkeypatch):
+    async def cancelled(argv, timeout, **kwargs):
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(remote, "run_argv", cancelled)
+    with pytest.raises(asyncio.CancelledError):
+        await wssh.scan_host_keys("192.0.2.9", 2222, 5)
+
+
 async def test_a_certificate_scan_says_when_windows_keyscan_is_at_fault(monkeypatch, tmp_path):
     from src.tools.hosts import HostEnrollmentManager, HostRegistry
     from src.tools.hosts.trust import HostTrustError

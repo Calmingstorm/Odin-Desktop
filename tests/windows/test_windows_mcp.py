@@ -108,6 +108,26 @@ def test_a_command_is_found_as_linux_exec_finds_it(tmp_path, monkeypatch):
     assert found("tool", {}, "C:\\") is None  # no PATH, nothing found
 
 
+def test_a_relative_path_folder_is_the_childs_and_an_explicit_extension_is_kept(tmp_path,
+                                                                                 monkeypatch):
+    for side in ("server", "engine"):
+        (tmp_path / side / "bin").mkdir(parents=True)
+        (tmp_path / side / "bin" / "rel.exe").write_bytes(b"MZ")
+    monkeypatch.chdir(tmp_path / "engine")  # this process's folder holds a decoy
+
+    def found(command, env, cwd):
+        where = windows_mcp.find_program(command, env, cwd)
+        return where and os.path.normcase(where)
+
+    server = str(tmp_path / "server")
+    expected = os.path.normcase(tmp_path / "server" / "bin" / "rel.exe")
+    assert found("rel", {"Path": "bin", "PATHEXT": ".EXE"}, server) == expected
+    # PATHEXT adds a missing extension; it never refuses one the command names.
+    assert found("rel.exe", {"Path": "bin", "PATHEXT": ".CMD"}, server) == expected
+    assert found(str(tmp_path / "server" / "bin" / "rel.exe"), {"PATHEXT": ".CMD"},
+                 "C:\\") == expected
+
+
 async def test_start_refuses_plainly(tmp_path):
     for command, cwd, message in (("odin-no-such-program", tmp_path, "command not found"),
                                   ("", tmp_path, "stdio requires 'command'"),
@@ -200,7 +220,9 @@ async def test_a_batch_launcher_receives_its_arguments_unchanged(tmp_path):
     (tmp_path / "args.py").write_text(ARGUMENTS)
     (tmp_path / "bin" / "server.cmd").write_text(f'@"{PYTHON}" "%~dp0..\\args.py" %*\n')
     # cmd.exe would act on these outside quotes: a second command, a pipe, redirections.
-    args = ["plain", "two words", "a&type nul>marker.txt", "x|y", "<z>", "c^d", "(e)", ""]
+    args = ["plain", "two words", "a&type nul>marker.txt", "x|y", "<z>", "c^d", "(e)", "",
+            # Trailing backslashes reach the native program as given, and so does what follows.
+            "C:\\", "C:\\data\\", "C:\\data\\\\", "C:\\my dir\\", "next"]
     server, _, _ = transport(tmp_path, str(tmp_path / "bin" / "server.cmd"), *args)
     await server.start()
     deadline = time.monotonic() + 30

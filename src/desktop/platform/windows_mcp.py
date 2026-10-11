@@ -69,17 +69,19 @@ def build_child_env(configured: dict[str, str] | None) -> dict[str, str]:
 
 
 def find_program(command: str, env: dict[str, str], cwd: str) -> str | None:
-    """Where ``command`` is: a path from ``cwd``, or a bare name in ``env``'s PATH; a name
-    without one of PATHEXT's extensions gets each of them in turn."""
+    """Where ``command`` is: a path from ``cwd``, or a bare name in ``env``'s PATH, whose
+    relative folders are the child's (from ``cwd``), as Linux's exec in the child finds them.
+    A name with an extension is tried as given first; PATHEXT's extensions are then tried in
+    turn, so they add a missing extension but never refuse one the command names."""
     extensions = [ext for ext in (_lookup(env, "PATHEXT") or _DEFAULT_PATHEXT).split(";") if ext]
     if os.path.dirname(command):
         bases = [os.path.join(cwd, command)]
     else:
         folders = [folder.strip('"') for folder in (_lookup(env, "PATH") or "").split(os.pathsep)]
-        bases = [os.path.join(folder, command) for folder in folders if folder]
-    known = os.path.splitext(command)[1].upper() in {ext.upper() for ext in extensions}
+        bases = [os.path.join(cwd, folder, command) for folder in folders if folder]
+    named = bool(os.path.splitext(command)[1])
     for base in bases:
-        for candidate in ([base] if known else []) + [base + ext for ext in extensions]:
+        for candidate in ([base] if named else []) + [base + ext for ext in extensions]:
             if os.path.isfile(candidate):
                 return os.path.abspath(candidate)
     return None
@@ -88,13 +90,15 @@ def find_program(command: str, env: dict[str, str], cwd: str) -> str | None:
 def batch_line(server: str, program: str, args: list[str]) -> str:
     """The command line for a batch launcher such as ``npx.cmd``. cmd.exe reads its command
     line again, so every part is quoted (``& | < > ^ ( )`` stay literal inside the quotes),
-    and a part cmd.exe would still change is refused instead of passed changed."""
+    and a part cmd.exe would still change is refused instead of passed changed. Launchers
+    forward ``%*`` to a native program, whose C runtime reads backslashes before a quote as
+    escapes, so a part's trailing backslashes are doubled and arrive as they were given."""
     from ...tools.mcp.errors import MCPConnectError
 
     if any(_BATCH_UNSAFE.search(part) for part in (program, *args)):
         raise MCPConnectError(f"{server}: a batch launcher can't receive an argument with a "
                               "quote, %, ! or a line break unchanged")
-    return " ".join(f'"{part}"' for part in (program, *args))
+    return " ".join('"' + re.sub(r"(\\+)$", r"\1\1", part) + '"' for part in (program, *args))
 
 
 async def start(self) -> None:
