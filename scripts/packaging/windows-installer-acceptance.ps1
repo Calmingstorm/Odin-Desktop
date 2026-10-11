@@ -193,7 +193,10 @@ if ($Mode -eq 'user') {
   Check 'the Start menu shortcut and its app ID' ($target -eq (Join-Path $inst 'Odin.exe') -and $aumid -eq $AppId) "$target $aumid"
   $desktop = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Odin.lnk'
   Check 'no desktop shortcut' (-not (Test-Path $desktop)) ''
-  Check 'nothing launched' (@(Get-Process Odin -ErrorAction SilentlyContinue).Count -eq 0) ''
+  # This install's Odin only: another account's Odin on the same machine has a name but no readable path.
+  $launched = @(Get-Process Odin -ErrorAction SilentlyContinue | Where-Object {
+    $_.Path -and $_.Path.StartsWith($inst, [StringComparison]::OrdinalIgnoreCase) })
+  Check 'nothing launched' ($launched.Count -eq 0) (($launched | ForEach-Object { "$($_.Id) $($_.Path)" }) -join ', ')
   $python = Join-Path $inst 'resources\runtime\python\python.exe'
   $verify = & $python -I -B (Join-Path $Packaging 'verify-bundle.py') (Join-Path $inst 'resources') 2>&1
   Check 'the sealed bundle verifies in place' ($LASTEXITCODE -eq 0) (($verify | Select-Object -First 4) -join ' ')
