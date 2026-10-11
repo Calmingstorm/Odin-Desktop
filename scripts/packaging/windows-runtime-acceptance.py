@@ -293,9 +293,11 @@ def lineage_processes(bundle: Path, query=None, root: int | None = None) -> dict
     """Every process descended from this one (the browser's lineage: the Playwright driver,
     Chromium and their children), as observed, from one complete listing's parent links.
 
-    A child created before its parent is a stale link through a reused PID and is left out. A
-    descendant whose image or creation time can't be read is unreadable, unless a second listing
-    shows it gone, and then it exited. Processes outside the lineage are never read."""
+    A child created before its nearest readable ancestor is a stale link through a reused PID and
+    is left out. A descendant whose image or creation time can't be read is unreadable, unless a
+    second listing shows it gone, and then it exited. Either way its children in the first
+    listing are still walked: a Windows child outlives its parent, and a surviving one is judged
+    like any other descendant. Processes outside the lineage are never read."""
     query = query or native()
     root = os.getpid() if root is None else root
     listing = query.processes()
@@ -320,6 +322,9 @@ def lineage_processes(bundle: Path, query=None, root: int | None = None) -> dict
                 alive = again["status"] != "complete" or (pid, parent) in again["items"]
                 evidence["unreadable" if alive else "exited"].append({"pid": pid,
                                                                       "parent": parent})
+                # Its children are walked too, bounded by the nearest readable ancestor's start.
+                born[pid] = born.get(parent)
+                frontier.append(pid)
                 continue
             if born.get(parent) is not None and created < born[parent]:
                 evidence["stale_links"].append({"pid": pid, "parent": parent, "image": image})

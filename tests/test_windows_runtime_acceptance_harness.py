@@ -264,3 +264,22 @@ def refused_evidence(evidence):
         return True
     return False
 
+
+
+def test_an_exited_parent_does_not_hide_a_live_child(monkeypatch):
+    # Odin's round 6 case: parent 400 (under Node) can't be read and has exited, but its child
+    # 401, an unsandboxed renderer with --no-sandbox, is still running: it must be judged.
+    monkeypatch.setenv("SystemRoot", r"C:\Windows")
+    bad = "chrome --type=renderer --no-sandbox"
+    rows = browser_rows({400: (200, CHROME, 6, "chrome --type=utility", PLAIN),
+                         401: (400, CHROME, 7, bad, PLAIN)})
+    evidence = lineage(Table(rows, hidden={400}, gone={400}))
+    assert evidence["exited"] == [{"pid": 400, "parent": 200}]
+    assert 401 in [row["pid"] for row in evidence["processes"]]
+    assert refused_evidence(evidence)
+    # Bounded by the nearest readable ancestor: a "child" started before Node is a reused pid.
+    rows = browser_rows({400: (200, CHROME, 6, "chrome --type=utility", PLAIN),
+                         401: (400, CHROME, 1, bad, PLAIN)})
+    stale = lineage(Table(rows, hidden={400}, gone={400}))
+    assert [row["pid"] for row in stale["stale_links"]] == [401]
+    HARNESS.judge_browser(stale, BUNDLE)

@@ -60,26 +60,43 @@ function Cleanup([string] $cleanupStep, [scriptblock] $cleanupBlock) {
     $checks.Add([ordered]@{ check = "cleanup: $cleanupStep"; ok = $false; detail = $detail })
   }
 }
-# The installed core's report, judged at this boundary. Its checks are always kept, for diagnosis, but it counts as
-# complete only with exit 0, a well-formed report that says it completed, and every required check. The required list
-# comes from the core script itself (--list-checks), never from the report: an interrupted, partial, empty or malformed
-# report fails here.
+# The installed core's report, judged at this boundary by type, never by coercion. Each row needs a nonempty string
+# name and a boolean ok; a malformed row is imported as a failed check. The report counts as complete only with exit 0,
+# a boolean completed that is true, an array of well-formed rows holding every required check, and a nonnegative
+# integer failed equal to the false rows. The required list comes from the core script (--list-checks), never from the
+# report: an interrupted, partial, empty, malformed or inconsistent report fails here.
 function Import-CoreReport([string] $report, [int] $exitCode, [string[]] $required, [string] $errorLog) {
   $core = $null
   try { $core = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json } catch { }
+  $rows = $null -ne $core -and $core.checks -is [array]
   $items = @()
-  if ($null -ne $core -and $null -ne $core.checks) { $items = @($core.checks) }
+  if ($rows) { $items = @($core.checks) }
+  $names = @()
+  $failures = 0
+  $malformed = 0
   foreach ($item in $items) {
-    if ($null -ne $item.check) { Check "core: $($item.check)" ([bool]$item.ok) $item.detail }
+    $name = $item.check
+    $ok = $item.ok
+    if ($name -is [string] -and $name.Length -gt 0 -and $ok -is [bool]) {
+      $names += $name
+      if (-not $ok) { $failures++ }
+      Check "core: $name" $ok $item.detail
+    } else {
+      $malformed++
+      $kind = if ($null -eq $ok) { 'null' } else { $ok.GetType().Name }
+      Check "core: $name" $false "malformed row: ok is $kind, not a boolean (or the name isn't a string)"
+    }
   }
-  $names = @($items | ForEach-Object { [string]$_.check })
   $missing = @($required | Where-Object { $names -notcontains $_ })
-  $wellFormed = $null -ne $core -and $core.completed -eq $true -and
-    ($core.failed -is [int] -or $core.failed -is [long]) -and $items.Count -gt 0
+  $count = $core.failed
+  $wellFormed = $rows -and $items.Count -gt 0 -and $malformed -eq 0 -and
+    $core.completed -is [bool] -and $core.completed -and
+    ($count -is [int] -or $count -is [long]) -and $count -ge 0 -and $count -eq $failures
   $tail = (Get-Content -LiteralPath $errorLog -Tail 4 -ErrorAction SilentlyContinue) -join ' / '
   Check 'the installed core''s run completed with every required check' (
     $exitCode -eq 0 -and $wellFormed -and @($required).Count -gt 0 -and $missing.Count -eq 0) (
-    "exit $exitCode; completed $($core.completed); missing: $($missing -join '; '); $tail")
+    "exit $exitCode; completed $($core.completed); failed $count against $failures false rows; " +
+    "$malformed malformed rows; missing: $($missing -join '; '); $tail")
 }
 function Finish([string] $outcome = '') {
   if ($outcome) { $checks.Add([ordered]@{ check = 'the run reached its end'; ok = $false; detail = $outcome }) }

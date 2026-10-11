@@ -62,10 +62,11 @@ def consume(tmp_path, report: str | None, exit_code: int = 0, required=None) -> 
     return {item["check"]: item["ok"] for item in json.loads(result.stdout)["checks"]}
 
 
-def complete_report(**changes) -> str:
-    report = {"completed": True, "failed": 0,
-              "checks": [{"check": name, "ok": True, "detail": ""} for name in CORE.REQUIRED]}
-    return json.dumps({**report, **changes})
+def complete_report(first=None, **changes) -> str:
+    """A complete report; first replaces fields of the first row, changes the top-level ones."""
+    checks = [{"check": name, "ok": True, "detail": ""} for name in CORE.REQUIRED]
+    checks[0] = {**checks[0], **(first or {})}
+    return json.dumps({"completed": True, "failed": 0, "checks": checks, **changes})
 
 
 @pytest.mark.parametrize("case, report, exit_code, required, counts", [
@@ -81,6 +82,14 @@ def complete_report(**changes) -> str:
     ("malformed", '{"failed": ', 1, None, False),
     ("missing", None, 1, None, False),
     ("no required list", complete_report(), 0, [], False),
+    # Syntactically valid, wrongly typed or inconsistent: never coerced green (round 6, R6-2).
+    ("ok as a string", complete_report(first={"ok": "false"}), 0, None, False),
+    ("ok as an object", complete_report(first={"ok": {}}), 0, None, False),
+    ("a name that isn't a string", complete_report(first={"check": 5}), 0, None, False),
+    ("completed as a string", complete_report(completed="true"), 0, None, False),
+    ("a failure count with no false row", complete_report(failed=1), 0, None, False),
+    ("a negative failure count", complete_report(failed=-1), 0, None, False),
+    ("a genuine, counted failure", complete_report(first={"ok": False}, failed=1), 0, None, True),
 ])
 def test_the_consumer_counts_only_a_complete_report(tmp_path, case, report, exit_code, required,
                                                     counts):
@@ -88,3 +97,6 @@ def test_the_consumer_counts_only_a_complete_report(tmp_path, case, report, exit
     assert seen[COMPLETION] is counts, (case, seen)
     if case == "interrupted, partial":  # its checks are still kept, for diagnosis
         assert seen[f"core: {CORE.REQUIRED[0]}"] is True and seen[f"core: {CORE.ENDED}"] is False
+    if case in ("ok as a string", "ok as an object", "a genuine, counted failure"):
+        # The row itself is a failed check: the run fails even when execution was complete.
+        assert seen[f"core: {CORE.REQUIRED[0]}"] is False
