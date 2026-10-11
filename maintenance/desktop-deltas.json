@@ -19531,6 +19531,57 @@
       ]
     },
     {
+      "after_sha256": "eed90785285f25a980ee2e4693be16ef2bb3fcb74d909a3deba2536676ddaa39",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e9409e37787e6a10deb3348f429f6801dbc8817cf5eea0871de3dd590ab909ac",
+      "contract": "Pruning orders by mtime with the archive's own time as the tie-break, and protects per channel the archive with the latest archive time: the one restore uses.",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Caps, per-channel protection and oldest-first eviction are otherwise unchanged.",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Odin to Desktop",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 59889,
+          "new_base64": "ICAgICAgICAgICAgZGVmIGFyY2hpdmVkX2F0KHBhdGg6IFBhdGgpIC0+IGZsb2F0OgogICAgICAgICAgICAgICAgIyBUaGUgdGltZSByZXN0b3JlIG9yZGVycyBhcmNoaXZlcyBieTogdGhlIG9uZSBpbiB0aGUgbmFtZSwKICAgICAgICAgICAgICAgICMgZWxzZSB0aGUgZmlsZSdzIG10aW1lLgogICAgICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgICAgIHJldHVybiBmbG9hdChwYXRoLnN0ZW0ucnNwbGl0KCJfIiwgMSlbMV0pCiAgICAgICAgICAgICAgICBleGNlcHQgKFZhbHVlRXJyb3IsIEluZGV4RXJyb3IpOgogICAgICAgICAgICAgICAgICAgIHJldHVybiBwYXRoLnN0YXQoKS5zdF9tdGltZQoKICAgICAgICAgICAgIyBPbGRlc3QgZmlyc3QgYnkgbXRpbWU7IGVxdWFsIG10aW1lcyAoYSBjb2Fyc2UgZmlsZXN5c3RlbSBjbG9jawogICAgICAgICAgICAjIGNhbiBnaXZlIHR3byBhcmNoaXZlcyB0aGUgc2FtZSBvbmUpIGZhbGwgYmFjayB0byBhcmNoaXZlZF9hdC4KICAgICAgICAgICAgZmlsZXMgPSBzb3J0ZWQoYXJjaGl2ZV9kaXIuZ2xvYigiKi5qc29uIiksCiAgICAgICAgICAgICAgICAgICAgICAgICAgIGtleT1sYW1iZGEgcDogKHAuc3RhdCgpLnN0X210aW1lLCBhcmNoaXZlZF9hdChwKSkpCg==",
+          "old_base64": "ICAgICAgICAgICAgZmlsZXMgPSBzb3J0ZWQoYXJjaGl2ZV9kaXIuZ2xvYigiKi5qc29uIiksIGtleT1sYW1iZGEgcDogcC5zdGF0KCkuc3RfbXRpbWUpCg==",
+          "start": 59801
+        },
+        {
+          "end": 60280,
+          "new_base64": "ICAgICAgICAgICAgIyBob25vciBhIGhhcmQgY2FwLiAiTW9zdCByZWNlbnQiIGlzIHRoZSBhcmNoaXZlIHJlc3RvcmUgd291bGQKICAgICAgICAgICAgIyBwaWNrLCBzbyBwcnVuaW5nIG5ldmVyIGRlbGV0ZXMgdGhlIG9uZSByZXN0b3JlIG5lZWRzLgo=",
+          "old_base64": "ICAgICAgICAgICAgIyBob25vciBhIGhhcmQgY2FwLgo=",
+          "start": 60248
+        },
+        {
+          "end": 60477,
+          "new_base64": "ICAgICAgICAgICAgZm9yIGYgaW4gZmlsZXM6CiAgICAgICAgICAgICAgICBjaGFubmVsID0gZi5zdGVtLnJzcGxpdCgiXyIsIDEpWzBdCiAgICAgICAgICAgICAgICBjdXJyZW50ID0gbmV3ZXN0X3Blcl9jaGFubmVsLmdldChjaGFubmVsKQogICAgICAgICAgICAgICAgaWYgY3VycmVudCBpcyBOb25lIG9yIGFyY2hpdmVkX2F0KGYpID49IGFyY2hpdmVkX2F0KGN1cnJlbnQpOgogICAgICAgICAgICAgICAgICAgIG5ld2VzdF9wZXJfY2hhbm5lbFtjaGFubmVsXSA9IGYK",
+          "old_base64": "ICAgICAgICAgICAgZm9yIGYgaW4gZmlsZXM6ICAjIGFzY2VuZGluZyBtdGltZSDihpIgbGFzdCB3cml0ZSBwZXIgY2hhbm5lbCB3aW5zCiAgICAgICAgICAgICAgICBuZXdlc3RfcGVyX2NoYW5uZWxbZi5zdGVtLnJzcGxpdCgiXyIsIDEpWzBdXSA9IGYK",
+          "start": 60333
+        }
+      ],
+      "path": "src/sessions/manager.py",
+      "reason": "Archive pruning protected each channel's newest archive by mtime while restore picks by the archive's own time, so equal or disagreeing mtimes (a coarse filesystem clock, as on tmpfs with older kernels) could evict exactly the archive restore needed. Carried over to Odin.",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/test_desktop_session_archive_order.py": "f924de6e457ab520e2da5c73d2a75299ca8609d141adadff0d81b14bf61e4ed1",
+        "tests/test_session_campaign.py": "8dbf2e88fdc72208b7b81a3f1ea9c4c82b491d953895d37c5080ab1ca883ac4f"
+      },
+      "tests": [
+        "tests/test_desktop_session_archive_order.py",
+        "tests/test_session_campaign.py"
+      ]
+    },
+    {
       "after_sha256": "8bac07ef7ac2745b84e7b0e7841592deaab6d4010f0b1d14f2b056bbdd28dca0",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
@@ -40470,6 +40521,43 @@
       ]
     },
     {
+      "after_sha256": "f924de6e457ab520e2da5c73d2a75299ca8609d141adadff0d81b14bf61e4ed1",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Deterministic: mtimes set with os.utime; a disagreeing-mtime case fails on the old ordering whatever the directory order.",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Test only.",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiQXJjaGl2ZSBwcnVuaW5nIGtlZXBzIHRoZSBhcmNoaXZlIHJlc3RvcmUgd291bGQgdXNlLgoKUmVzdG9yZSBwaWNrcyBhIGNoYW5uZWwncyBuZXdlc3QgYXJjaGl2ZSBieSB0aGUgdGltZSBpbiBpdHMgbmFtZS4gUHJ1bmluZyBwcm90ZWN0ZWQgdGhlCm5ld2VzdCBieSBtdGltZSwgc28gd2hlbiB0d28gYXJjaGl2ZXMgc2hhcmVkIGFuIG10aW1lIChhIGNvYXJzZSBmaWxlc3lzdGVtIGNsb2NrLCBhcyBvbiB0bXBmcwp3aXRoIG9sZGVyIGtlcm5lbHMpIG9yIHRoZWlyIG10aW1lcyBkaXNhZ3JlZWQgd2l0aCB0aGVpciBhcmNoaXZlIHRpbWVzLCBwcnVuaW5nIGNvdWxkIGRlbGV0ZQpleGFjdGx5IHRoZSBhcmNoaXZlIHJlc3RvcmUgbmVlZGVkLgoiIiIKZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IGpzb24KaW1wb3J0IG9zCmZyb20gZGF0YWNsYXNzZXMgaW1wb3J0IGFzZGljdAoKZnJvbSBzcmMuc2Vzc2lvbnMubWFuYWdlciBpbXBvcnQgU2Vzc2lvbk1hbmFnZXIKCgpkZWYgYXJjaGl2ZShzbTogU2Vzc2lvbk1hbmFnZXIsIGRpcmVjdG9yeSwgY2hhbm5lbDogc3RyLCB0ZXh0OiBzdHIsIHN0YW1wOiBpbnQsIG10aW1lOiBmbG9hdCk6CiAgICBzbS5hZGRfbWVzc2FnZShjaGFubmVsLCAidXNlciIsIHRleHQsIHVzZXJfaWQ9IjciKQogICAgcGF0aCA9IGRpcmVjdG9yeSAvIGYie2NoYW5uZWx9X3tzdGFtcH0uanNvbiIKICAgIHBhdGgud3JpdGVfdGV4dChqc29uLmR1bXBzKGFzZGljdChzbS5nZXQoY2hhbm5lbCkpKSwgZW5jb2Rpbmc9InV0Zi04IikKICAgIG9zLnV0aW1lKHBhdGgsIChtdGltZSwgbXRpbWUpKQogICAgcmV0dXJuIHBhdGgKCgpkZWYgcmVzdG9yZWRfdGV4dHModG1wX3BhdGgsIGNoYW5uZWw6IHN0cikgLT4gbGlzdFtzdHJdOgogICAgZnJlc2ggPSBTZXNzaW9uTWFuYWdlcigxMDAsIDEsIHN0cih0bXBfcGF0aCkpCiAgICBzZXNzaW9uID0gZnJlc2guX3Jlc3RvcmVfZnJvbV9hcmNoaXZlKGNoYW5uZWwpCiAgICByZXR1cm4gW21lc3NhZ2UuY29udGVudCBmb3IgbWVzc2FnZSBpbiBzZXNzaW9uLm1lc3NhZ2VzXSBpZiBzZXNzaW9uIGVsc2UgW10KCgpkZWYgdGVzdF9wcnVuaW5nX2tlZXBzX3RoZV9hcmNoaXZlX3Jlc3RvcmVfdXNlc193aGVuX210aW1lc19kaXNhZ3JlZSh0bXBfcGF0aCk6CiAgICBzbSA9IFNlc3Npb25NYW5hZ2VyKDEwMCwgMSwgc3RyKHRtcF9wYXRoKSwgYXJjaGl2ZV9tYXhfZmlsZXM9MikKICAgIGRpcmVjdG9yeSA9IHRtcF9wYXRoIC8gImFyY2hpdmUiCiAgICBkaXJlY3RvcnkubWtkaXIoKQogICAgYXJjaGl2ZShzbSwgZGlyZWN0b3J5LCAiYnVzeSIsICJmaXJzdCIsIDEwMCwgbXRpbWU9Ml8wMDApCiAgICBhcmNoaXZlKHNtLCBkaXJlY3RvcnksICJidXN5IiwgInNlY29uZCIsIDEwMSwgbXRpbWU9MV8wMDApICAjIHdyaXR0ZW4gYmFjayBsYXRlciwgb2xkZXIgbXRpbWUKICAgIGFyY2hpdmUoc20sIGRpcmVjdG9yeSwgInF1aWV0IiwgIm9ubHkiLCAxMDAsIG10aW1lPTFfNTAwKQogICAgc20uX3BydW5lX29sZF9hcmNoaXZlcyhkaXJlY3RvcnkpCiAgICBhc3NlcnQgc29ydGVkKHAubmFtZSBmb3IgcCBpbiBkaXJlY3RvcnkuZ2xvYigiKi5qc29uIikpID09IFsiYnVzeV8xMDEuanNvbiIsICJxdWlldF8xMDAuanNvbiJdCiAgICBhc3NlcnQgcmVzdG9yZWRfdGV4dHModG1wX3BhdGgsICJidXN5IilbLTFdID09ICJzZWNvbmQiCgoKZGVmIHRlc3RfcHJ1bmluZ19rZWVwc190aGVfYXJjaGl2ZV9yZXN0b3JlX3VzZXNfd2hlbl9tdGltZXNfdGllKHRtcF9wYXRoKToKICAgIHNtID0gU2Vzc2lvbk1hbmFnZXIoMTAwLCAxLCBzdHIodG1wX3BhdGgpLCBhcmNoaXZlX21heF9maWxlcz0yKQogICAgZGlyZWN0b3J5ID0gdG1wX3BhdGggLyAiYXJjaGl2ZSIKICAgIGRpcmVjdG9yeS5ta2RpcigpCiAgICBhcmNoaXZlcyA9ICgoImJ1c3kiLCAiZmlyc3QiLCAxMDApLCAoImJ1c3kiLCAic2Vjb25kIiwgMTAxKSwgKCJxdWlldCIsICJvbmx5IiwgMTAwKSkKICAgIGZvciBjaGFubmVsLCB0ZXh0LCBzdGFtcCBpbiBhcmNoaXZlczoKICAgICAgICBhcmNoaXZlKHNtLCBkaXJlY3RvcnksIGNoYW5uZWwsIHRleHQsIHN0YW1wLCBtdGltZT0xXzAwMCkKICAgIHNtLl9wcnVuZV9vbGRfYXJjaGl2ZXMoZGlyZWN0b3J5KQogICAgYXNzZXJ0IHNvcnRlZChwLm5hbWUgZm9yIHAgaW4gZGlyZWN0b3J5Lmdsb2IoIiouanNvbiIpKSA9PSBbImJ1c3lfMTAxLmpzb24iLCAicXVpZXRfMTAwLmpzb24iXQogICAgYXNzZXJ0IHJlc3RvcmVkX3RleHRzKHRtcF9wYXRoLCAiYnVzeSIpWy0xXSA9PSAic2Vjb25kIgoKCmRlZiB0ZXN0X3BydW5pbmdfc3RpbGxfZXZpY3RzX29sZGVzdF9maXJzdF9ieV9tdGltZSh0bXBfcGF0aCk6CiAgICBzbSA9IFNlc3Npb25NYW5hZ2VyKDEwMCwgMSwgc3RyKHRtcF9wYXRoKSwgYXJjaGl2ZV9tYXhfZmlsZXM9MykKICAgIGRpcmVjdG9yeSA9IHRtcF9wYXRoIC8gImFyY2hpdmUiCiAgICBkaXJlY3RvcnkubWtkaXIoKQogICAgYXJjaGl2ZShzbSwgZGlyZWN0b3J5LCAiYnVzeSIsICJhIiwgMTAwLCBtdGltZT0xXzAwMCkKICAgIGFyY2hpdmUoc20sIGRpcmVjdG9yeSwgImJ1c3kiLCAiYiIsIDEwMSwgbXRpbWU9Ml8wMDApCiAgICBhcmNoaXZlKHNtLCBkaXJlY3RvcnksICJidXN5IiwgImMiLCAxMDIsIG10aW1lPTNfMDAwKQogICAgYXJjaGl2ZShzbSwgZGlyZWN0b3J5LCAicXVpZXQiLCAib25seSIsIDEwMCwgbXRpbWU9NTAwKQogICAgc20uX3BydW5lX29sZF9hcmNoaXZlcyhkaXJlY3RvcnkpCiAgICAjIFRoZSBxdWlldCBjaGFubmVsJ3Mgb25seSBhcmNoaXZlIGlzIHByb3RlY3RlZDsgdGhlIG9sZGVzdCB1bnByb3RlY3RlZCBvbmUgZ29lcy4KICAgIGFzc2VydCBzb3J0ZWQocC5uYW1lIGZvciBwIGluIGRpcmVjdG9yeS5nbG9iKCIqLmpzb24iKSkgPT0gWwogICAgICAgICJidXN5XzEwMS5qc29uIiwgImJ1c3lfMTAyLmpzb24iLCAicXVpZXRfMTAwLmpzb24iXQoKCmRlZiB0ZXN0X2FuX2FyY2hpdmVfbmFtZV93aXRob3V0X2FfdGltZV9pc19vcmRlcmVkX2J5X2l0c19tdGltZSh0bXBfcGF0aCk6CiAgICBzbSA9IFNlc3Npb25NYW5hZ2VyKDEwMCwgMSwgc3RyKHRtcF9wYXRoKSwgYXJjaGl2ZV9tYXhfZmlsZXM9MikKICAgIGRpcmVjdG9yeSA9IHRtcF9wYXRoIC8gImFyY2hpdmUiCiAgICBkaXJlY3RvcnkubWtkaXIoKQogICAgYXJjaGl2ZShzbSwgZGlyZWN0b3J5LCAiYnVzeSIsICJuYW1lZCIsIDEwMCwgbXRpbWU9MV8wMDApCiAgICB1bm5hbWVkID0gYXJjaGl2ZShzbSwgZGlyZWN0b3J5LCAiYnVzeSIsICJ1bm5hbWVkIiwgMTAxLCBtdGltZT01XzAwMCkKICAgICMgTm8gdGltZSBpbiB0aGUgbmFtZTogcmVzdG9yZSBvcmRlcnMgdGhpcyBvbmUgYnkgaXRzIG10aW1lLgogICAgdW5uYW1lZC5yZW5hbWUoZGlyZWN0b3J5IC8gImJ1c3lfY29weS5qc29uIikKICAgIGFyY2hpdmUoc20sIGRpcmVjdG9yeSwgInF1aWV0IiwgIm9ubHkiLCAxMDAsIG10aW1lPTUwMCkKICAgIHNtLl9wcnVuZV9vbGRfYXJjaGl2ZXMoZGlyZWN0b3J5KQogICAgYXNzZXJ0IHNvcnRlZChwLm5hbWUgZm9yIHAgaW4gZGlyZWN0b3J5Lmdsb2IoIiouanNvbiIpKSA9PSBbImJ1c3lfY29weS5qc29uIiwgInF1aWV0XzEwMC5qc29uIl0KICAgIGFzc2VydCByZXN0b3JlZF90ZXh0cyh0bXBfcGF0aCwgImJ1c3kiKVstMV0gPT0gInVubmFtZWQiCg==",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/test_desktop_session_archive_order.py",
+      "reason": "Pins that archive pruning keeps the archive restore would use.",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/test_desktop_session_archive_order.py": "f924de6e457ab520e2da5c73d2a75299ca8609d141adadff0d81b14bf61e4ed1"
+      },
+      "tests": [
+        "tests/test_desktop_session_archive_order.py"
+      ]
+    },
+    {
       "after_sha256": "d5534f4aca03c379b12a896eee0705790caff3066df42bc99a4cdea93d3a3039",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
@@ -45368,6 +45456,43 @@
       },
       "tests": [
         "tests/test_desktop_work_native.py"
+      ]
+    },
+    {
+      "after_sha256": "10a5f9babddcba3e4c1cfb8b6d53ac7864eaa594eea6f4a877fb37b42f5ed0cf",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "QuietParser.error raises ValueError('invalid worker arguments') whatever its message; main() returns 2 for bad arguments and prints nothing, on 3.12.3 and 3.12.15.",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Test only.",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiVGhlIHN1cGVydmlzb3Igd29ya2VyJ3MgYXJndW1lbnQgcGFyc2VyIG5ldmVyIGVjaG9lcyBhcmd1bWVudHMsIG9uIGFueSBQeXRob24gMy4xMi4KCmBtYWluKClgIHBhcnNlcyB3aXRoIGBleGl0X29uX2Vycm9yPUZhbHNlYC4gT24gUHl0aG9uIDMuMTIuMyBhIG1pc3NpbmcgcmVxdWlyZWQgYXJndW1lbnQgc3RpbGwKcmVhY2hlcyBgUXVpZXRQYXJzZXIuZXJyb3JgLiBPbiAzLjEyLjE1LCB0aGUgYnVuZGxlZCBydW50aW1lJ3MgdmVyc2lvbiwgYXJncGFyc2UgcmFpc2VzCmBBcmd1bWVudEVycm9yYCBmaXJzdCBhbmQgYG1haW4oKWAgcmV0dXJucyAyIHdpdGhvdXQgY2FsbGluZyBpdC4gRWl0aGVyIHdheSBub3RoaW5nIHRoZSB3b3JrZXIKd2FzIGdpdmVuIHJlYWNoZXMgaXRzIG91dHB1dC4KIiIiCmZyb20gX19mdXR1cmVfXyBpbXBvcnQgYW5ub3RhdGlvbnMKCmltcG9ydCBweXRlc3QKCmZyb20gc3JjLnRvb2xzIGltcG9ydCBsb2NhbF9zdXBlcnZpc29yX3dvcmtlciBhcyB3CgoKZGVmIHRlc3RfdGhlX3BhcnNlcl9lcnJvcl9uZXZlcl9lY2hvZXNfaXRzX21lc3NhZ2UoKToKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhWYWx1ZUVycm9yKSBhcyByYWlzZWQ6CiAgICAgICAgdy5RdWlldFBhcnNlcihhZGRfaGVscD1GYWxzZSkuZXJyb3IoInVucmVjb2duaXplZCBhcmd1bWVudHM6IC0tY29tbWFuZCBwcml2YXRlLXZhbHVlIikKICAgIGFzc2VydCBzdHIocmFpc2VkLnZhbHVlKSA9PSAiaW52YWxpZCB3b3JrZXIgYXJndW1lbnRzIgoKCkBweXRlc3QubWFyay5wYXJhbWV0cml6ZSgiYXJndiIsIFtbXSwgWyItLWNvbnRyb2wtZmQiLCAibm8iLCAiLS1jb21tYW5kIiwgInByaXZhdGUtdmFsdWUiXV0pCmRlZiB0ZXN0X2JhZF9hcmd1bWVudHNfcmV0dXJuXzJfYW5kX3ByaW50X25vdGhpbmcobW9ua2V5cGF0Y2gsIGNhcHN5cywgYXJndik6CiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKCJzeXMuYXJndiIsIFsid29ya2VyIiwgKmFyZ3ZdKQogICAgYXNzZXJ0IHcubWFpbigpID09IDIKICAgIHByaW50ZWQgPSBjYXBzeXMucmVhZG91dGVycigpCiAgICBhc3NlcnQgcHJpbnRlZC5vdXQgPT0gIiIgYW5kIHByaW50ZWQuZXJyID09ICIiCg==",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/test_desktop_worker_quiet_parser.py",
+      "reason": "Covers the supervisor worker's QuietParser.error on any Python 3.12: on 3.12.15 (the bundled runtime's version, and server-2's CI) argparse with exit_on_error=False raises ArgumentError before calling error(), so main() never reached that line and the coverage ratchet failed on an unchanged file.",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/test_desktop_worker_quiet_parser.py": "10a5f9babddcba3e4c1cfb8b6d53ac7864eaa594eea6f4a877fb37b42f5ed0cf"
+      },
+      "tests": [
+        "tests/test_desktop_worker_quiet_parser.py"
       ]
     },
     {
