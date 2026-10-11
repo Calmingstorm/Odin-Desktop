@@ -37,16 +37,23 @@ Windows 11 inbox DLL is not evidence that a third-party runtime is installed.
 Native isolated subprocesses load cryptography, ONNX Runtime, SQLite and
 sqlite-vec and check that Python paths stay install-relative.
 
-## Observed supplier blocker, 2026-10-11
+## Reviewed exact-artifact exception, 2026-10-11
 
 All 72 selected Windows wheels were downloaded and their locked sizes and
 SHA-256 hashes verified. 71 passed the strict METADATA/WHEEL/RECORD/license and
 selected dependency checks. The pinned
 `playwright-1.63.0-py3-none-win_amd64.whl` has `Tag: py3-none-any` in its WHEEL
-metadata, inconsistent with its filename. The stager refuses this as
-`wheel_tag_mismatch`, naming the package and artifact. This is not a passing
-native stage and must not be hidden with a generic tag exception. A reviewed
-supplier correction or explicit changed acceptance contract is needed.
+metadata, inconsistent with its filename. The reviewed phase-4a decision admits
+only that SHA-256 and size, recorded with both tags and the supplier explanation
+in `chromium.lock.win_amd64.json`. No general tag relaxation exists. The validator
+also requires the exact pinned Windows Node driver, parses it as AMD64 PE,
+requires the driver CLI and pinned browser registry, and rejects foreign native
+driver payloads. Inert supplier shell installation helpers are not drivers.
+Another hash, another package or failing driver content remains
+`wheel_tag_mismatch`. The accepted exception and content evidence enter the
+dependency provenance. All METADATA, RECORD, license and closure checks remain.
+Linux staging is unchanged. This reviewed admission is not native acceptance;
+the hosted staged-consumer job must still pass.
 
 Independent archive/layout probing spread all 72 payloads safely (not an
 admitted stage); greenlet's sole `.data` payload is its header `greenlet.h`.

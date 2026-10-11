@@ -6,6 +6,14 @@
     "url": "https://files.pythonhosted.org/packages/76/eb/d6b8d92658038e260dbc7dd69fb3fdbe245aac283953de8b50b02bfe5f61/playwright-1.63.0-py3-none-win_amd64.whl",
     "sha256": "2f9a707a6c6c91157ed77bff2b8caeb04b3c8d46e70d585fc134298cbe4b5cc6",
     "size": 38606082,
+    "wheel_tag_exception": {
+      "sha256": "2f9a707a6c6c91157ed77bff2b8caeb04b3c8d46e70d585fc134298cbe4b5cc6",
+      "size": 38606082,
+      "filename": "playwright-1.63.0-py3-none-win_amd64.whl",
+      "filename_tag": "py3-none-win_amd64",
+      "wheel_tag": "py3-none-any",
+      "reason": "Reviewed phase-4a decision: the supplier builds one wheel per platform but keeps a generic WHEEL metadata tag. Admit only these exact bytes with a Windows x64 driver content check."
+    },
     "license": "Apache-2.0",
     "provenance": "https://pypi.org/pypi/playwright/1.63.0/json; downloaded bytes agree with PyPI and uv.lock",
     "driver": {"path": "playwright/driver/node.exe", "size": 93580104, "sha256": "ba4e6d110e8c1592a1ecd390f6b05f3da124b13871a5be62b341a07a853c6c32"},

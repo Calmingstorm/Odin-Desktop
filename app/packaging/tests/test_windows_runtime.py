@@ -233,7 +233,8 @@ def test_malformed_wheel_filename_refuses_structurally(tmp_path):
         runtime.inspect_wheel(artifact, pin, [pin])
 
 
-def test_actual_locked_playwright_supplier_tag_discrepancy_refused(tmp_path):
+@pytest.fixture(scope="module")
+def pinned_playwright(tmp_path_factory):
     """Inspect real pinned supplier bytes, not a synthetic mismatched fixture."""
     import tomllib
     repo = Path(__file__).resolve().parents[3]
@@ -243,13 +244,103 @@ def test_actual_locked_playwright_supplier_tag_discrepancy_refused(tmp_path):
     pin = next(p for p in closure if p["name"] == "playwright")
     local = repo / ".packaging-cache/windows-python/artifacts" / pin["sha256"]
     artifact = (runtime.verified_download(pin, local.parent, "playwright") if local.exists()
-                else runtime.verified_download(pin, tmp_path / "artifacts", "playwright"))
+                else runtime.verified_download(
+                    pin, tmp_path_factory.mktemp("playwright") / "artifacts", "playwright"))
+    return artifact, pin, closure
+
+
+def test_actual_locked_playwright_supplier_tag_exception(pinned_playwright):
+    artifact, pin, closure = pinned_playwright
     assert pin["filename"] == "playwright-1.63.0-py3-none-win_amd64.whl"
     with zipfile.ZipFile(artifact) as archive:
         metadata_path = next(n for n in archive.namelist() if n.endswith(".dist-info/WHEEL"))
         assert b"Tag: py3-none-any" in archive.read(metadata_path)
+    evidence = runtime.inspect_wheel(artifact, pin, closure)
+    exception = evidence["wheel_tag_exception"]
+    assert exception["sha256"] == pin["sha256"]
+    assert exception["size"] == pin["size"]
+    assert exception["filename_tag"] == "py3-none-win_amd64"
+    assert exception["wheel_tag"] == "py3-none-any"
+    assert exception["driver_machine"] == "AMD64"
+    assert exception["foreign_driver_absent"] is True
+    assert evidence["license_files"]
+
+
+def test_playwright_exception_cannot_follow_another_hash(tmp_path, pinned_playwright):
+    artifact, pin, closure = pinned_playwright
+    altered = tmp_path / pin["filename"]
+    # A ZIP comment leaves the wheel payload intact but changes the artifact.
+    altered.write_bytes(artifact.read_bytes())
+    with zipfile.ZipFile(altered, "a") as archive:
+        archive.comment = b"another supplier artifact"
+    changed = {**pin, "sha256": runtime.digest(altered), "size": altered.stat().st_size}
     with pytest.raises(StageError) as caught:
-        runtime.inspect_wheel(artifact, pin, closure)
+        runtime.inspect_wheel(altered, changed, closure)
+    assert caught.value.code == "wheel_tag_mismatch"
+
+
+def test_playwright_exception_cannot_admit_another_package(tmp_path):
+    artifact, pin = wheel(tmp_path)
+    pin["filename"] = "a-1.0-py3-none-win_amd64.whl"
+    with pytest.raises(StageError) as caught:
+        runtime.inspect_wheel(artifact, pin, [pin])
+    assert caught.value.code == "wheel_tag_mismatch"
+
+
+@pytest.mark.parametrize("change", ["missing_node", "wrong_machine", "malformed_pe",
+                                    "foreign_node", "foreign_elf", "foreign_macho",
+                                    "missing_cli", "wrong_browsers"])
+def test_playwright_exception_content_refusals(tmp_path, pinned_playwright, monkeypatch, change):
+    artifact, pin, closure = pinned_playwright
+    with zipfile.ZipFile(artifact) as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    node = "playwright/driver/node.exe"
+    if change == "missing_node":
+        del files[node]
+    elif change in {"wrong_machine", "malformed_pe"}:
+        import struct
+        data = bytearray(files[node])
+        if change == "wrong_machine":
+            offset = struct.unpack_from("<I", data, 0x3c)[0] + 4
+            struct.pack_into("<H", data, offset, 0xAA64)
+        else:
+            data[:2] = b"XX"
+        files[node] = bytes(data)
+    elif change == "foreign_node":
+        files["playwright/driver/node"] = b"foreign driver"
+    elif change == "foreign_elf":
+        files["playwright/driver/disguised.bin"] = b"\x7fELFforeign driver"
+    elif change == "foreign_macho":
+        files["playwright/driver/disguised.bin"] = b"\xcf\xfa\xed\xfeforeign driver"
+    elif change == "missing_cli":
+        del files["playwright/driver/package/cli.js"]
+    else:
+        files["playwright/driver/package/browsers.json"] = b"{}"
+    altered = tmp_path / "altered.whl"
+    with zipfile.ZipFile(altered, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, value in files.items():
+            archive.writestr(name, value)
+    # Bypass only the already separately tested artifact boundary to exercise
+    # the independent content boundary through inspect_wheel's named refusal.
+    original_digest = runtime.digest
+    monkeypatch.setattr(runtime, "digest", lambda path: pin["sha256"] if path == altered
+                        else original_digest(path))
+    original_stat = Path.stat
+    class PinnedSize:
+        st_size = pin["size"]
+    monkeypatch.setattr(Path, "stat", lambda path, **kwargs: PinnedSize() if path == altered
+                        else original_stat(path, **kwargs))
+    if change in {"wrong_machine", "malformed_pe"}:
+        # Reach PE validation rather than stopping at its independent byte pin.
+        original_loads = runtime.json.loads
+        def lock_with_mutated_driver(text, *args, **kwargs):
+            value = original_loads(text, *args, **kwargs)
+            if isinstance(value, dict) and "playwright" in value:
+                value["playwright"]["driver"]["sha256"] = hashlib.sha256(files[node]).hexdigest()
+            return value
+        monkeypatch.setattr(runtime.json, "loads", lock_with_mutated_driver)
+    with pytest.raises(StageError) as caught:
+        runtime.inspect_wheel(altered, pin, closure)
     assert caught.value.code == "wheel_tag_mismatch"
     assert caught.value.package == "playwright"
     assert caught.value.path == pin["filename"]

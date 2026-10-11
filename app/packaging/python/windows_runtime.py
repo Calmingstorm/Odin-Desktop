@@ -37,7 +37,7 @@ from windows_closure import (
     select_wheel,
     validate_pin,
 )
-from windows_dll import audit_dll_dependencies
+from windows_dll import DLLAuditError, audit_dll_dependencies, read_pe_imports
 from windows_vc_runtime import stage_vc_runtime
 
 REPO = Path(__file__).resolve().parents[3]
@@ -90,6 +90,58 @@ def verified_download(pin: dict, cache: Path, package: str = "") -> Path:
     return target
 
 
+def playwright_tag_exception(archive: zipfile.ZipFile, pin: dict,
+                             filename_tags: set, tags: set) -> dict | None:
+    """One reviewed supplier artifact only; content is checked before admission."""
+    if pin["name"] != "playwright":
+        return None
+    lock = json.loads(Path(__file__).with_name("chromium.lock.win_amd64.json").read_text())
+    supplier = lock["playwright"]
+    exception = supplier["wheel_tag_exception"]
+    if (pin["version"] != supplier["version"]
+            or any(pin[key] != exception[key] for key in ("filename", "sha256", "size"))
+            or any(pin[key] != supplier[key] for key in ("sha256", "size"))
+            or filename_tags != parse_tag(exception["filename_tag"])
+            or tags != parse_tag(exception["wheel_tag"])):
+        return None
+    driver = supplier["driver"]
+    try:
+        names = archive.namelist()
+        required = {driver["path"], "playwright/driver/package/cli.js",
+                    "playwright/driver/package/browsers.json"}
+        if not required <= set(names):
+            return None
+        # Supplier .sh install helpers are inert data, not a foreign driver.
+        # Refuse other native payloads, even if disguised with another suffix.
+        for path in names:
+            if not path.startswith("playwright/driver/") or path.endswith("/"):
+                continue
+            with archive.open(path) as stream:
+                magic = stream.read(4)
+            if path != driver["path"] and (
+                    Path(path).name.casefold() in {"node", "node.exe"}
+                    or Path(path).suffix.casefold() in {".exe", ".dll", ".pyd", ".so", ".dylib"}
+                    or magic[:2] == b"MZ" or magic == b"\x7fELF"
+                    or magic in {b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe",
+                                 b"\xfe\xed\xfa\xcf", b"\xcf\xfa\xed\xfe",
+                                 b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca"}):
+                return None
+        node = archive.read(driver["path"])
+        browsers = archive.read("playwright/driver/package/browsers.json")
+        if (len(node) != driver["size"]
+                or hashlib.sha256(node).hexdigest() != driver["sha256"]
+                or hashlib.sha256(browsers).hexdigest() != supplier["browsers_json_sha256"]):
+            return None
+        with tempfile.TemporaryDirectory(prefix="playwright-driver-check-") as temporary:
+            executable = Path(temporary) / "node.exe"
+            executable.write_bytes(node)
+            pe = read_pe_imports(executable, expected_machine="AMD64", package="playwright")
+        return {**exception, "driver": driver, "driver_machine": pe["machine"],
+                "foreign_driver_absent": True}
+    except (KeyError, OSError, zipfile.BadZipFile, DLLAuditError):
+        return None
+
+
 def inspect_wheel(artifact: Path, pin: dict, closure: list[dict], *, engine=False) -> dict:
     """Check filename, tags, METADATA, WHEEL, RECORD, licensing and selected edges."""
     package = pin["name"]
@@ -137,7 +189,11 @@ def inspect_wheel(artifact: Path, pin: dict, closure: list[dict], *, engine=Fals
                 tags.update(parse_tag(value))
         except Exception as exc:
             raise StageError("wheel_tag_mismatch", package, filename) from exc
-        if tags != filename_tags or wheel.get("Wheel-Version") != "1.0":
+        tag_exception = None
+        if tags != filename_tags:
+            tag_exception = playwright_tag_exception(archive, pin, filename_tags, tags)
+        if (tags != filename_tags and tag_exception is None
+                or wheel.get("Wheel-Version") != "1.0"):
             raise StageError("wheel_tag_mismatch", package, filename)
         record = {}
         try:
@@ -193,7 +249,8 @@ def inspect_wheel(artifact: Path, pin: dict, closure: list[dict], *, engine=Fals
         if "selected_dependencies" in pin and required_names != set(pin["selected_dependencies"]):
             raise StageError("metadata_dependency_mismatch", package,
                              detail="lock and METADATA dependency sets differ")
-        return {**pin, "license": license_text or ("MIT" if engine else None),
+        return {**pin, **({"wheel_tag_exception": tag_exception} if tag_exception else {}),
+                "license": license_text or ("MIT" if engine else None),
                 "license_classifiers": classifiers, "license_files": notices}
 
 

@@ -29,15 +29,19 @@ P1-P6 runtime staging, consumers and sealing:
   clean Git-object release source provenance, with development worktree mode
   separate. The shared builder's `win` and `nsis` sections are untouched.
 
-## Actual supplier blocker, not a waived refusal
+## Supplier discrepancy and reviewed decision
 
 All 72 selected Windows wheel artifacts were downloaded and their size/hash
 verified. The pinned `playwright-1.63.0-py3-none-win_amd64.whl` declares
 `Tag: py3-none-any` inside WHEEL. Filename and metadata tags disagree. P1 expressly
-requires refusing tag mismatches. The stage therefore fails closed with
-`wheel_tag_mismatch` for Playwright; it is **not a completed native runtime**.
-Resolving this requires a corrected supplier artifact or an explicitly reviewed
-change to the acceptance contract. No generic exemption was added.
+originally required refusing tag mismatches. The first hosted stage failed closed
+with `wheel_tag_mismatch` for Playwright; downstream consumers were skipped.
+The 2026-10-11 reviewed decision now allows only this exact artifact. Its lock
+records SHA-256, size, both tags and reason. Admission also checks the pinned
+Windows Node driver as AMD64 PE, driver CLI and browser registry, with no foreign
+native driver payload. Other hashes/packages or failed content still receive
+`wheel_tag_mismatch`; every other wheel validation remains intact. Accepted
+exception evidence is retained in dependency provenance. No Linux change.
 
 The source can safely inspect/spread the bytes for structural audit without
 admitting them as a valid stage. This is how the missing ONNX Runtime MSVC DLLs
@@ -66,9 +70,9 @@ refusal and a verified hostname-mismatch refusal. The latter uses a public HTTPS
 fixture, and cannot pass on an unrelated network failure. No trust store is
 modified. SSH version/keygen/private-key restriction/readback are also included.
 
-Until the Playwright blocker is resolved, downstream hosted consumer evidence
-cannot be obtained from an admitted stage. Registered tests are not passes.
-The job retains manifest/provenance and a structured failure report.
+The exact-artifact decision unblocks staging, but downstream hosted consumer
+evidence must still be obtained from an admitted stage. Registered tests are not
+passes. The job retains manifest/provenance and a structured failure report.
 
 Legion review still needs Windows 11 clean standard-user loading, strict-host-key
 SSH success and incorrect-host-key refusal against the disposable Linux target,
