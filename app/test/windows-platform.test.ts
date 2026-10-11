@@ -467,7 +467,7 @@ describe('the installed app\'s runtime and start at login', () => {
     const launch = packagedCoreCommand('C:\\Programs\\Odin\\resources', ['--profile', 'default'],
       { PythonPath: 'C:\\elsewhere', PYTHONHOME: 'C:\\home', Path: 'C:\\Windows' }, { system: 'win32', exists })
     expect(launch.command).toBe('C:\\Programs\\Odin\\resources\\runtime\\python\\python.exe')
-    expect(launch.args).toEqual(['-I', '-B', '-m', 'src', '--profile', 'default'])
+    expect(launch.args).toEqual(['-I', '-B', '-X', 'utf8', '-m', 'src', '--profile', 'default'])
     expect(launch.env).not.toHaveProperty('PythonPath')
     expect(launch.env).not.toHaveProperty('PYTHONHOME')
     expect(launch.env).toMatchObject({ Path: 'C:\\Windows',
@@ -476,6 +476,18 @@ describe('the installed app\'s runtime and start at login', () => {
     expect(exists).toHaveBeenCalledWith('C:\\Programs\\Odin\\resources\\bundle-manifest.json')
     expect(() => packagedCoreCommand('C:\\Programs\\Odin\\resources', [], {}, { system: 'win32', exists: () => false }))
       .toThrow('bundled runtime is missing')
+  })
+
+  it('starts the engine in UTF-8 mode with the flags the native end-to-end tests start it with', () => {
+    // tests/fixtures/windows-core-launch.json: tests/windows/test_core_end_to_end.py starts the real engine with these.
+    const fixture = JSON.parse(readFileSync(join(__dirname, '../../tests/fixtures/windows-core-launch.json'), 'utf8'))
+    const flags: string[] = fixture.interpreter_flags
+    const windows = packagedCoreCommand('C:\\Programs\\Odin\\resources', [], {}, { system: 'win32', exists: () => true })
+    expect(windows.args).toEqual([...flags, '-m', 'src'])
+    expect(flags).toEqual(expect.arrayContaining(['-X', 'utf8']))
+    // Linux's locale is UTF-8 already: its engine start is unchanged.
+    const linux = packagedCoreCommand('/opt/odin-desktop/resources', [], {}, { system: 'linux', exists: () => true })
+    expect(linux.args).toEqual(['-I', '-B', '-m', 'src'])
   })
 
   // Pinned Electron's actual answers, over a fake Run key (test/electron-login-items.ts); a spaced profile on purpose.

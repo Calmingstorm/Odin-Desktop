@@ -224,6 +224,13 @@ if ($Mode -eq 'user') {
       $detail += ' | ' + ((Get-Content $log -Tail 8 -ErrorAction SilentlyContinue) -join ' / ')
     }
     Check "the installed app's $start start opens its core's pipe" $up $detail
+    if ($start -eq 'first') {
+      # UTF-8 mode: the engine's text files are UTF-8, as on Linux, not the ANSI code page.
+      $cores = @((& $installed) | Where-Object { $_.Name -eq 'python.exe' -and $_.CommandLine -match '\s-m\s+src(\s|$)' })
+      Check 'the installed app starts its core in UTF-8 mode' (
+        $cores.Count -eq 1 -and $cores[0].CommandLine -match '\s-X\s+utf8\s') (
+        ($cores | ForEach-Object { $_.CommandLine }) -join ' | ')
+    }
     Run $exe @('--exit') 2 | Out-Null
     $deadline = (Get-Date).AddSeconds(120)
     while ((Get-Date) -lt $deadline -and ((& $installed).Count -or (& $serving))) { Start-Sleep -Seconds 2 }

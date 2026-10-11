@@ -25,6 +25,9 @@ from src.desktop.platform.windows_ipc import WindowsIpc, pipe_name
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = json.loads((ROOT / "tests" / "fixtures" / "windows-core-methods.json")
                      .read_text(encoding="utf-8"))
+# The installed app's interpreter flags (its own test pins them to the same file).
+LAUNCH = json.loads((ROOT / "tests" / "fixtures" / "windows-core-launch.json")
+                    .read_text(encoding="utf-8"))["interpreter_flags"]
 STARTUP_SECONDS = 120
 
 
@@ -36,12 +39,13 @@ class Core:
     token: str
     profile: str
     log: Path
+    paths: object
 
     def stderr(self) -> str:
         return self.log.read_text(encoding="utf-8", errors="replace")
 
 
-def launch(tmp_path, prepare=None) -> Core:
+def launch(tmp_path, prepare=None, flags=LAUNCH) -> Core:
     """The engine started as the app starts it, in a fresh profile. ``prepare`` gets the
     profile's paths before the first start."""
     profile = f"e2e{uuid.uuid4().hex[:8]}"
@@ -54,19 +58,24 @@ def launch(tmp_path, prepare=None) -> Core:
     token_file.write_text(token, encoding="ascii")
     if prepare is not None:
         prepare(paths)
-    environ = {**os.environ, "LOCALAPPDATA": str(local), "APPDATA": str(tmp_path / "roaming"),
-               "USERPROFILE": str(tmp_path / "home")}
     (tmp_path / "home").mkdir()
-    log = tmp_path / "core.log"
+    return start(tmp_path, profile, paths, token_file, token, flags)
+
+
+def start(tmp_path, profile, paths, token_file, token, flags=LAUNCH, log_name="core.log") -> Core:
+    """The engine started as the app starts it, on a profile ``launch`` made."""
+    environ = {**os.environ, "LOCALAPPDATA": str(tmp_path / "local"),
+               "APPDATA": str(tmp_path / "roaming"), "USERPROFILE": str(tmp_path / "home")}
+    log = tmp_path / log_name
     pipe = pipe_name(profile)
     with open(log, "wb") as stderr:
         process = subprocess.Popen(
-            [sys.executable, "-I", "-B", "-m", "src", "--socket", pipe,
+            [sys.executable, *flags, "-m", "src", "--socket", pipe,
              "--token-file", str(token_file), "--profile", profile,
              "--data-dir", str(paths.data_dir)],
             stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=stderr, cwd=ROOT,
             env=environ)
-    return Core(process, pipe, token_file, token, profile, log)
+    return Core(process, pipe, token_file, token, profile, log, paths)
 
 
 def end(core: Core) -> None:
@@ -178,6 +187,62 @@ async def test_the_real_core_serves_the_trace_and_exits_clean(core):
     core.process.stdin.close()  # the parent's end of the link
     assert core.process.wait(60) == 0, core.stderr()[-3000:]
     assert "Teardown unproven" not in core.stderr()
+
+
+# None of these is in Windows-1252, an English Windows's ANSI code page.
+NON_LATIN = "Odin → ✓ 日本"
+
+
+async def test_text_outside_the_ansi_code_page_survives_another_save_and_a_restart(tmp_path):
+    """Started as the app starts it (-X utf8), the engine keeps a setting the ANSI code page can't
+    hold through a later save of another setting and a restart, like Linux. Without UTF-8 mode
+    that later save reads config.yml back as the ANSI code page and writes the name back
+    garbled; the installed app lost a turn's trajectory to the same default, over a "→"."""
+    import ctypes
+
+    names, configs = {}, {}
+    # Short folder names: a restart writes a profile backup deep enough to meet MAX_PATH here.
+    for arm, folder, flags in (
+            ("shipped", "utf8", LAUNCH),
+            ("without UTF-8 mode", "ansi", [f for f in LAUNCH if f not in ("-X", "utf8")])):
+        home = tmp_path / folder
+        home.mkdir()
+        first = launch(home, flags=flags)
+        try:
+            client = await connect(first)
+            try:
+                saved = await call(client, "personality.set",
+                                   {"preset": "odin", "custom_name": NON_LATIN})
+                assert outcome(saved) == "ok", saved
+                schema = (await call(client, "settings.schema"))["result"]
+                other = await call(client, "settings.set", {
+                    "expected_revision": schema["revision"],
+                    "changes": [{"path": "timezone", "value": "Pacific/Auckland"}]})
+                assert outcome(other) == "ok", other
+            finally:
+                await client.close()
+            first.process.stdin.close()
+            assert first.process.wait(60) == 0, first.stderr()[-3000:]
+        finally:
+            end(first)
+        again = start(home, first.profile, first.paths, first.token_file, first.token, flags,
+                      "core-2.log")
+        try:
+            client = await connect(again)
+            try:
+                names[arm] = (await call(client, "personality.get"))["result"]["custom_name"]
+            finally:
+                await client.close()
+        finally:
+            end(again)
+        configs[arm] = first.paths.config_file.read_bytes()
+
+    assert names["shipped"] == NON_LATIN
+    assert NON_LATIN in configs["shipped"].decode("utf-8")
+    if ctypes.windll.kernel32.GetACP() == 65001:
+        pytest.skip("this Windows's ANSI code page is UTF-8: the failing arm can't fail here")
+    assert names["without UTF-8 mode"] != NON_LATIN, names
+    assert NON_LATIN.encode("utf-8") not in configs["without UTF-8 mode"]
 
 
 async def refusals(core: Core) -> None:

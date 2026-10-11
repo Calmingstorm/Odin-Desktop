@@ -1,0 +1,4 @@
+{
+  "source": "The interpreter flags the installed Windows app starts its engine with (app/src/main/core-command.ts, packagedCoreCommand). The app test pins them; the native end-to-end tests start the real engine with them.",
+  "interpreter_flags": ["-I", "-B", "-X", "utf8"]
+}

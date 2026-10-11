@@ -8,7 +8,9 @@ DLL audit and native loads complete in private temporary trees before rename.
 `stage_runtime(dest, cache_dir)` is the local-repository wrapper.
 
 The executable is `python/python.exe`, and the site directory is
-`python/Lib/site-packages`. Runtime invocations use `-I -B`. Build-time
+`python/Lib/site-packages`. Runtime invocations use `-I -B`; the engine also
+runs in UTF-8 mode (`-X utf8`), so its text files are UTF-8 as on Linux, not
+the ANSI code page (`-I` ignores `PYTHONUTF8`). Build-time
 setuptools is a locked, verified wheel isolated outside that tree. uv's exact
 Windows archive is verified as provenance but is not used to resolve anything.
 Production extras intentionally equal `[]`: development and first-use PDF

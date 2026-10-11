@@ -100,7 +100,9 @@ export function packagedCoreCommand(resourcesPath: string, coreArgs: string[], a
   delete env.ODIN_DESKTOP_CORE_CMD
   return {
     command: python,
-    args: ['-I', '-B', '-m', 'src', ...coreArgs],
+    // Windows runs the engine in UTF-8 mode: its text files then default to UTF-8, as under Linux's locale, not
+    // the ANSI code page (where a turn's "→" failed to save). -I ignores PYTHONUTF8, so it's the -X option.
+    args: ['-I', '-B', ...(windows ? ['-X', 'utf8'] : []), '-m', 'src', ...coreArgs],
     env: {
       ...env,
       ODIN_DESKTOP_BUNDLE_ROOT: root,

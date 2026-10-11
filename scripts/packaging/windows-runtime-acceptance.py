@@ -690,8 +690,10 @@ def main() -> int:
                     (case / name).mkdir()
                 output = case / "result.json"
                 print(f"staged runtime: {mode}", flush=True)
-                process = subprocess.run([str(executable), "-I", "-B", str(copied), "--child", mode,
-                                          "--work", str(case), "--report", str(output)],
+                # The installed app's interpreter flags, UTF-8 mode included (core-command.ts).
+                process = subprocess.run([str(executable), "-I", "-B", "-X", "utf8", str(copied),
+                                          "--child", mode, "--work", str(case),
+                                          "--report", str(output)],
                                          env=env, cwd=case, timeout=300, check=False)
                 if process.returncode:
                     raise RuntimeError(f"{mode} child exited {process.returncode}")

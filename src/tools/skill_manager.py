@@ -309,9 +309,11 @@ def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT,
     # pip runs under this interpreter's own isolation and no-bytecode flags: a sealed,
     # user-writable runtime (Desktop's, started -I -B) must not get bytecode written into it.
     # pip's own children (a source package's build hooks) get no flags, so the environment
-    # carries the no-bytecode rule to them.
+    # carries the no-bytecode rule to them. UTF-8 mode too (Desktop's Windows engine runs -X
+    # utf8): pip then writes the UTF-8 its text-mode output below is read as.
     flags = [*(["-I"] if sys.flags.isolated else []),
-             *(["-B"] if sys.dont_write_bytecode else [])]
+             *(["-B"] if sys.dont_write_bytecode else []),
+             *(["-X", "utf8"] if sys.flags.utf8_mode else [])]
     # Only then: a plain interpreter's call (Odin's) stays exactly as it was.
     environment = ({"env": {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}}
                    if sys.dont_write_bytecode else {})

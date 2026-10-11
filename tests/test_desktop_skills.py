@@ -422,9 +422,25 @@ def test_pip_runs_under_the_parents_isolation_and_no_bytecode_flags(monkeypatch)
     run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
     monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
     monkeypatch.setattr(skill_manager, "sys", SimpleNamespace(
-        executable="python.exe", flags=SimpleNamespace(isolated=1), dont_write_bytecode=True))
+        executable="python.exe", flags=SimpleNamespace(isolated=1, utf8_mode=0),
+        dont_write_bytecode=True))
     assert _install_packages(["example-package>=1"]) == (True, "")
     assert run.call_args[0][0][:5] == ["python.exe", "-I", "-B", "-m", "pip"]
+
+
+def test_pip_runs_in_the_parents_utf8_mode(monkeypatch):
+    # Desktop's Windows engine runs -X utf8 and reads pip's text output as UTF-8:
+    # pip writes UTF-8 then.
+    import src.tools.skill_manager as skill_manager
+
+    run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
+    monkeypatch.setattr(skill_manager, "sys", SimpleNamespace(
+        executable="python.exe", flags=SimpleNamespace(isolated=1, utf8_mode=1),
+        dont_write_bytecode=True))
+    assert _install_packages(["example-package>=1"]) == (True, "")
+    assert run.call_args[0][0][:7] == ["python.exe", "-I", "-B", "-X", "utf8", "-m", "pip"]
+    assert run.call_args[1]["text"] is True
 
 
 def test_pip_installs_into_the_profiles_package_folder(monkeypatch, tmp_path):
