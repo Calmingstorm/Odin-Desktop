@@ -7,10 +7,12 @@
 # folder are refused; then it runs a default install and checks it (owner, HKCU only, shortcut identity, nothing
 # launched, the sealed bundle verifying in place, the installed guardian's token check); starts the installed app twice
 # (hidden, as at login: its core opens its pipe, then Exit ends the app, the core, the guardian and the bundled
-# processes they started); then a reinstall, an uninstall that keeps the profile, and three fresh cycles. Every
-# install is silent (/S). The report is JSON and is written however the run ends: an exception is recorded as a
-# failed check, and so is each cleanup step that fails (every step is still tried). Any failed check makes the exit
-# code 1. Test hooks: -FailAt names a check to fail right after; -FailCleanup a cleanup step to fail after its work.
+# processes they started); runs the installed real core through windows-installed-core-acceptance.py with the installed
+# runtime (a scripted tool turn, a relaunch, an incompatible client); then a reinstall, an uninstall that keeps the
+# profile, and three fresh cycles. Every install is silent (/S). The report is JSON and is written however the run
+# ends: an exception is recorded as a failed check, and so is each cleanup step that fails (every step is still
+# tried). Any failed check makes the exit code 1. Test hooks: -FailAt names a check to fail right after; -FailCleanup
+# a cleanup step to fail after its work.
 param(
   [Parameter(Mandatory = $true)] [string] $Installer,
   [Parameter(Mandatory = $true)] [string] $Report,
@@ -18,10 +20,13 @@ param(
   [string] $Python = '',
   [string] $Mode = 'orchestrate',
   [string] $FailAt = '',
-  [string] $FailCleanup = ''
+  [string] $FailCleanup = '',
+  [string] $CoreScript = ''
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+# Beside this script by default; Windows PowerShell 5.1 leaves $PSScriptRoot empty in parameter defaults.
+if (-not $CoreScript) { $CoreScript = Join-Path $PSScriptRoot 'windows-installed-core-acceptance.py' }
 $AppId = 'net.calmingstorm.odin.desktop'
 $Guid = '824e65ca-c164-5739-ae3c-52ce54902f24'  # electron-builder's uuid of the appId: the registry key names
 $checks = New-Object System.Collections.Generic.List[object]
@@ -83,6 +88,9 @@ if ($Mode -eq 'user') {
     }
   }
   Check 'nothing installed before' (& $nothing) $inst
+  # The guardian refuses every start while an installer transaction is unfinished: a leftover would fail the starts.
+  $pending = Join-Path $env:LOCALAPPDATA 'odin-desktop\install-ownership\nsis\transaction.json'
+  Check 'no unfinished installer transaction from an earlier run' (-not (Test-Path -LiteralPath $pending)) $pending
 
   $code = Install @('/S', '/allusers')
   Check '/allusers is refused' ($code -eq 2 -and (& $nothing)) "exit $code"
@@ -170,6 +178,23 @@ if ($Mode -eq 'user') {
   }
   Check 'the starts made a profile' (Test-Path (Join-Path $profileRoot 'config\ipc.token')) $profileRoot
 
+  # The installed real core: the installed runtime runs the engine's own client against it (a scripted tool turn, a
+  # relaunch, an incompatible client). Its output goes to files: a native child's stderr must not stop this script.
+  $coreReport = Join-Path $env:TEMP 'odin-installed-core.json'
+  $coreLog = Join-Path $env:TEMP 'odin-installed-core.log'
+  Remove-Item -LiteralPath $coreReport, $coreLog, "$coreLog.err" -ErrorAction SilentlyContinue
+  $coreRun = Start-Process -FilePath (Join-Path $inst 'resources\runtime\python\python.exe') -NoNewWindow -Wait `
+    -PassThru -ArgumentList '-I', '-B', "`"$CoreScript`"", '--report', "`"$coreReport`"" `
+    -RedirectStandardOutput $coreLog -RedirectStandardError "$coreLog.err"
+  $core = $null
+  try { $core = Get-Content -LiteralPath $coreReport -Raw | ConvertFrom-Json } catch { }
+  if ($null -eq $core) {
+    Check 'the installed core''s checks ran' $false ("exit $($coreRun.ExitCode), no report: " +
+      ((Get-Content -LiteralPath "$coreLog.err" -Tail 6 -ErrorAction SilentlyContinue) -join ' / '))
+  } else {
+    foreach ($item in $core.checks) { Check "core: $($item.check)" ([bool]$item.ok) $item.detail }
+  }
+
   $code = Install @('/S')
   Check 'a reinstall succeeds' ($code -eq 0 -and (Test-Path (Join-Path $inst 'Odin.exe'))) "exit $code"
   Uninstall
@@ -219,6 +244,7 @@ $work = Join-Path $env:RUNNER_TEMP 'odin-installer-acceptance'
 New-Item -ItemType Directory -Force $work | Out-Null
 Copy-Item $Installer (Join-Path $work 'setup.exe')
 Copy-Item $PSCommandPath (Join-Path $work 'acceptance.ps1')
+Copy-Item $CoreScript (Join-Path $work 'windows-installed-core-acceptance.py')
 Copy-Item -Recurse $Packaging (Join-Path $work 'packaging')
 & icacls.exe $work /grant "${name}:(OI)(CI)M" /T /Q | Out-Null
 $userReport = Join-Path $work 'user-report.json'
