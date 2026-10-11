@@ -38,9 +38,11 @@ SHELL_LABEL = "Windows PowerShell 5.1"
 _TERMINATE_SECONDS = 5.0
 
 # UTF-8 both ways. Python writes a pipe in the ANSI code page unless told otherwise, so
-# its output is UTF-8 here as on Linux (a command can still set its own).
+# its output is UTF-8 here as on Linux (a command can still set its own). A .NET constructor,
+# not New-Object: that cmdlet's module loads on first use, and a start that loaded it measured
+# 22 s on GitHub's Server 2025 image (0.17 s without).
 _PRELUDE = """$ProgressPreference = 'SilentlyContinue'
-$__odin_utf8 = New-Object System.Text.UTF8Encoding $false
+$__odin_utf8 = [System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = $__odin_utf8
 $OutputEncoding = $__odin_utf8
 if (-not $env:PYTHONIOENCODING) { $env:PYTHONIOENCODING = 'utf-8' }

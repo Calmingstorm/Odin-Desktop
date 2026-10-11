@@ -67,6 +67,21 @@ async def test_exit_codes_and_output_follow_bash_c(command, code, text):
     assert output.effective_shell == "powershell"
 
 
+async def test_the_prelude_loads_no_module():
+    # Outside the core snap-in a cmdlet's module loads on first use, in every process; the
+    # prelude runs before every command, so it calls .NET directly (see _PRELUDE).
+    code, output = await run("@(Get-Module).Count")
+    assert (code, output.strip()) == (0, "0"), output
+
+
+async def test_text_piped_to_a_native_command_is_utf8_without_a_bom():
+    # $OutputEncoding: the bytes PowerShell writes to a native command's input.
+    code, output = await run(f"'h\u00e9llo \u2713' | & '{PYTHON}' -I -c "
+                             "\"import sys; print(sys.stdin.buffer.read().hex())\"")
+    sent = output.strip().removesuffix("0d0a").removesuffix("0a")
+    assert (code, sent) == (0, "68c3a96c6c6f20e29c93"), output
+
+
 async def test_a_timeout_ends_the_whole_tree(tmp_path):
     marker = tmp_path / "child.pid"
     command = (f"$p = Start-Process -PassThru -NoNewWindow '{PYTHON}' "
