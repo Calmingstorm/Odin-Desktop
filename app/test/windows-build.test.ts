@@ -50,6 +50,66 @@ describe('the Windows build configuration', () => {
     await validateConfiguration(windows, new DebugLogger(false))  // electron-builder's own schema check
   })
 
+  it('carries electron-builder 26.0.12\'s installer script and per-user folder with only Odin\'s named changes', () => {
+    const builder = JSON.parse(readFileSync(join(APP, 'node_modules/app-builder-lib/package.json'), 'utf8'))
+    expect(builder.version).toBe('26.0.12')
+    const template = (name: string): string =>
+      readFileSync(join(APP, 'node_modules/app-builder-lib/templates/nsis', name), 'utf8')
+    const ours = (name: string): string => readFileSync(join(APP, 'packaging/nsis', name), 'utf8')
+    const change = (text: string, from: string, to: string): string => {
+      expect(text.split(from)).toHaveLength(2)  // each change applies to exactly one place
+      return text.replace(from, to)
+    }
+    const preInit = '  !ifmacrodef preInit\n    !insertmacro preInit\n  !endif\n'
+    const setOutPath = '  SetOutPath $INSTDIR\n  ${LogSet} on\n'
+    const installer = change(template('installer.nsi'), `${setOutPath}\n${preInit}`, `${preInit}\n${setOutPath}`)
+    expect(ours('installer.nsi')).toBe(
+      '; Odin for Windows: electron-builder 26.0.12\'s templates/nsis/installer.nsi with one change, written over the\n'
+      + '; template for the Windows build (packaging/nsis-templates.mjs) and pinned by app/test/windows-build.test.ts:\n'
+      + '; preInit runs before .onInit\'s SetOutPath, so its refusals come before any folder exists (SetOutPath would\n'
+      + '; create a /D destination).\n' + installer)
+    const users = template('multiUser.nsh')
+    const start = users.indexOf('    # \u0441hecks registry for previous installation path')
+    const end = users.indexOf('    # allow /D switch to override installation path')
+    expect(start).toBeGreaterThan(0)
+    expect(end).toBeGreaterThan(start)
+    const ourUsers = ours('multiUser.nsh')
+    const header = '; Odin for Windows: electron-builder 26.0.12\'s templates/nsis/multiUser.nsh with one change, written over the\n'
+      + '; template for the Windows build (packaging/nsis-templates.mjs) and pinned by app/test/windows-build.test.ts:\n'
+      + '; the per-user folder is fixed (see setInstallModePerUser).\n'
+    expect(ourUsers.startsWith(header + users.slice(0, start))).toBe(true)
+    expect(ourUsers.endsWith(users.slice(end))).toBe(true)
+    // The one changed block: a fixed folder, a record elsewhere refused by the installer, followed by the uninstaller.
+    const block = ourUsers.slice(header.length + start, ourUsers.length - (users.length - end))
+    expect(block).toContain('StrCpy $INSTDIR "$LocalAppData\\Programs\\${APP_FILENAME}"')
+    expect(block).toContain('!insertmacro odinRefuse')
+    expect(block).not.toMatch(/System::Call[^\n]*SHGetKnownFolderPath/)
+  })
+
+  it('writes the copies over the pinned templates for one build only, refusing any other template', async () => {
+    const { withPinnedTemplates } = await import('../packaging/nsis-templates.mjs')
+    const templates = mkdtempSync(join(tmpdir(), 'odin-nsis-templates-'))
+    try {
+      for (const name of ['installer.nsi', 'multiUser.nsh']) {
+        writeFileSync(join(templates, name), readFileSync(join(APP, 'node_modules/app-builder-lib/templates/nsis', name)))
+      }
+      const original = readFileSync(join(templates, 'installer.nsi'), 'utf8')
+      const seen = withPinnedTemplates(templates, join(APP, 'packaging/nsis'),
+        () => readFileSync(join(templates, 'installer.nsi'), 'utf8'))
+      expect(seen).toBe(readFileSync(join(APP, 'packaging/nsis/installer.nsi'), 'utf8'))
+      expect(readFileSync(join(templates, 'installer.nsi'), 'utf8')).toBe(original)
+      expect(() => withPinnedTemplates(templates, join(APP, 'packaging/nsis'), () => { throw new Error('build failed') }))
+        .toThrow('build failed')
+      expect(readFileSync(join(templates, 'installer.nsi'), 'utf8')).toBe(original)  // restored after a failure too
+      writeFileSync(join(templates, 'multiUser.nsh'), 'not the pinned template')
+      expect(() => withPinnedTemplates(templates, join(APP, 'packaging/nsis'), () => 'built'))
+        .toThrow('isn\'t the pinned 26.0.12 template')
+      expect(readFileSync(join(templates, 'installer.nsi'), 'utf8')).toBe(original)  // nothing was replaced
+    } finally {
+      rmSync(templates, { recursive: true, force: true })
+    }
+  })
+
   it('leaves the Linux build as it was', async () => {
     const shared = await getConfig(APP, null, null)
     expect(shared.afterPack).toBe('packaging/after-pack.cjs')

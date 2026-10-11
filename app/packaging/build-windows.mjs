@@ -6,6 +6,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { withPinnedTemplates } from './nsis-templates.mjs'
 
 if (process.platform !== 'win32') {
   process.stderr.write('Windows candidates are built on Windows.\n')
@@ -24,10 +25,16 @@ const release = process.env.ODIN_PACKAGING_RELEASE === '1'
 // Node runs the JavaScript entry points itself: Windows refuses to spawn .cmd shims without a shell.
 const run = (command, args) => {
   const result = spawnSync(command, args, { cwd: app, stdio: 'inherit', env: process.env })
-  if (result.status !== 0) process.exit(result.status || 1)
+  if (result.status !== 0) throw Object.assign(new Error(`${command} exited ${result.status}`), { code: result.status })
 }
-run(python, ['-I', '-B', resolve(import.meta.dirname, 'build-runtime.py'), '--platform', 'win32',
-  '--provenance', release ? 'release' : 'worktree'])
-run(process.execPath, [resolve(app, 'node_modules/electron-vite/bin/electron-vite.js'), 'build'])
-run(process.execPath, [resolve(app, 'node_modules/electron-builder/cli.js'), '--config', 'electron-builder.windows.yml',
-  '--win', 'nsis', '--x64', '--publish', 'never'])
+try {
+  run(python, ['-I', '-B', resolve(import.meta.dirname, 'build-runtime.py'), '--platform', 'win32',
+    '--provenance', release ? 'release' : 'worktree'])
+  run(process.execPath, [resolve(app, 'node_modules/electron-vite/bin/electron-vite.js'), 'build'])
+  withPinnedTemplates(resolve(app, 'node_modules/app-builder-lib/templates/nsis'), resolve(import.meta.dirname, 'nsis'),
+    () => run(process.execPath, [resolve(app, 'node_modules/electron-builder/cli.js'), '--config',
+      'electron-builder.windows.yml', '--win', 'nsis', '--x64', '--publish', 'never']))
+} catch (error) {
+  process.stderr.write(`${error.message}\n`)
+  process.exit(error.code || 1)
+}

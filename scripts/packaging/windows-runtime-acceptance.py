@@ -50,6 +50,19 @@ def cold_environment(work: Path, resources: Path, ambient: dict[str, str]) -> di
     return env
 
 
+def profile_environment(work: Path, resources: Path, ambient: dict[str, str]) -> dict[str, str]:
+    """The cold environment with one difference: the account's real profile folders, as the app's
+    core runs with them. Comparing the two isolates what a fabricated empty profile costs."""
+    env = cold_environment(work, resources, ambient)
+    profile = ("USERPROFILE", "HOMEDRIVE", "HOMEPATH", "LOCALAPPDATA", "APPDATA")
+    env.update({key: ambient[key] for key in profile if key in ambient})
+    return env
+
+
+# The product's default validation timeout: a first call must finish inside it.
+FIRST_CALL_DEADLINE = 20
+
+
 def digest_tree(root: Path) -> dict[str, str]:
     return {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in sorted(root.rglob("*")) if p.is_file()}
@@ -248,18 +261,19 @@ async def curl(work: Path) -> dict:
     assert code == 0, version
     assert "curl 8.22.0" in version and "LibreSSL/4.3.3" in version, version
     owner = local_executor()
-    # Where the validation route's time goes (a hosted runner once spent 30 s there): a command
-    # check (the PowerShell runner alone), then the http check with room to finish. Evidence only.
-    timings = {}
-    for label, check in (("runner", {"type": "command", "target": "'ok'", "timeout_seconds": 100}),
-                         ("http", {"type": "http", "target": "https://example.com/",
-                                   "timeout_seconds": 100, "expected": 200})):
-        start = time.monotonic()
-        row = json.loads(await handle_validate_action(
-            owner, {"format": "json", "checks": [check]}))["checks"][0]
-        timings[label] = {"seconds": round(time.monotonic() - start, 2), "status": row["status"],
-                          "observed": str(row.get("observed", ""))[-300:]}
-    print(json.dumps({"validation_route_timings": timings}), flush=True)
+    # This process's first validation, cold, inside the product's default timeout. The parent says
+    # whether it's asserted: always, except a hosted runner's fabricated profile, which it records.
+    start = time.monotonic()
+    first = json.loads(await handle_validate_action(owner, {"format": "json", "checks": [{
+        "type": "http", "target": "https://example.com/", "timeout_seconds": FIRST_CALL_DEADLINE,
+        "expected": 200}]}))["checks"][0]
+    first_call = {"seconds": round(time.monotonic() - start, 2), "status": first["status"],
+                  "observed": str(first.get("observed", ""))[-300:],
+                  "deadline_seconds": FIRST_CALL_DEADLINE,
+                  "policy": os.environ.get("ODIN_ACCEPTANCE_FIRST_CALL", "asserted")}
+    print(json.dumps({"first_call": first_call}), flush=True)
+    if first_call["policy"] == "asserted":
+        assert first["status"] == "pass", first_call
     server = self_signed_server(work)
     rows = []
     try:
@@ -286,7 +300,7 @@ async def curl(work: Path) -> dict:
         server.shutdown()
         server.server_close()
     return {"version": version.strip(), "executable": str(executable), "cases": rows,
-            "validation_route_timings": timings,
+            "first_call": first_call,
             "fixture_dependency": "trusted/hostname-mismatch require public HTTPS fixtures"}
 
 
@@ -319,7 +333,8 @@ def child(mode: str, work: Path) -> dict:
         result = loads()
     else:
         result = asyncio.run({"browser": browser, "search": search, "pdf": pdf,
-                              "curl": lambda: curl(work), "ssh": lambda: ssh(work)}[mode]())
+                              "curl": lambda: curl(work), "curl-profile": lambda: curl(work),
+                              "ssh": lambda: ssh(work)}[mode]())
     return {"case": mode, "status": "pass", "python": sys.executable, **result}
 
 
@@ -327,7 +342,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--resources", type=Path)
     parser.add_argument("--report", type=Path, required=True)
-    parser.add_argument("--child", choices=("loads", "browser", "search", "pdf", "curl", "ssh"))
+    parser.add_argument("--child", choices=("loads", "browser", "search", "pdf", "curl-profile",
+                                             "curl", "ssh"))
     parser.add_argument("--work", type=Path)
     args = parser.parse_args()
     if args.child:
@@ -351,10 +367,18 @@ def main() -> int:
             work = Path(temporary)
             copied = work / "acceptance.py"
             shutil.copyfile(__file__, copied)
-            for mode in ("loads", "browser", "search", "pdf", "curl", "ssh"):
+            hosted = os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
+            for mode in ("loads", "browser", "search", "pdf", "curl-profile", "curl", "ssh"):
                 case = work / mode
                 case.mkdir()
-                env = cold_environment(case, resources, os.environ)
+                if mode == "curl-profile":
+                    env = profile_environment(case, resources, os.environ)
+                else:
+                    env = cold_environment(case, resources, os.environ)
+                if mode == "curl" and hosted:
+                    # A deliberate, labelled exclusion: the hosted image's first PowerShell use in a
+                    # fabricated empty profile (recorded); curl-profile asserts the real profile's.
+                    env["ODIN_ACCEPTANCE_FIRST_CALL"] = "recorded: hosted fabricated profile"
                 for name in ("home", "local", "roaming", "temp", "hf", "no-browser-cache"):
                     (case / name).mkdir()
                 output = case / "result.json"

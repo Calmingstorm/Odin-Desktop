@@ -3,17 +3,20 @@
 # runner. Never run it on a machine where someone has a real account.
 #
 # As the (elevated) runner it checks that an elevated token is refused. As the standard user (Mode user) it checks:
-# /allusers, /D and an unwritable folder are refused; then it runs a default install and checks it (owner, HKCU only,
-# shortcut identity, nothing launched, the sealed bundle verifying in place, the installed guardian's token check);
-# starts the installed app twice (hidden, as at login: its core serves its pipe, then Exit ends the app, the core and
-# the guardian); then a reinstall, an uninstall that keeps the profile, and three fresh cycles. Every install is
-# silent (/S). The report is JSON; any failed check makes the exit code 1.
+# /allusers, /D (nothing created, not even its folders), a location recorded elsewhere, --force-run and an unwritable
+# folder are refused; then it runs a default install and checks it (owner, HKCU only, shortcut identity, nothing
+# launched, the sealed bundle verifying in place, the installed guardian's token check); starts the installed app twice
+# (hidden, as at login: its core opens its pipe, then Exit ends the app, the core, the guardian and the bundled
+# processes they started); then a reinstall, an uninstall that keeps the profile, and three fresh cycles. Every
+# install is silent (/S). The report is JSON and is written however the run ends: an exception is recorded as a
+# failed check. Any failed check makes the exit code 1. -FailAt names a check to fail right after (a test hook).
 param(
   [Parameter(Mandatory = $true)] [string] $Installer,
   [Parameter(Mandatory = $true)] [string] $Report,
   [Parameter(Mandatory = $true)] [string] $Packaging,
   [string] $Python = '',
-  [string] $Mode = 'orchestrate'
+  [string] $Mode = 'orchestrate',
+  [string] $FailAt = ''
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -23,6 +26,7 @@ $checks = New-Object System.Collections.Generic.List[object]
 
 function Check([string] $name, [bool] $ok, $detail) {
   $checks.Add([ordered]@{ check = $name; ok = $ok; detail = "$detail" })
+  if ($FailAt -and $name -eq $FailAt) { throw "intentional failure after '$name' (-FailAt)" }
 }
 function Install([string[]] $arguments) {
   (Start-Process -FilePath $Installer -ArgumentList $arguments -Wait -PassThru).ExitCode
@@ -31,14 +35,21 @@ function OdinUninstallKeys([string] $root) {
   @(Get-ChildItem $root -ErrorAction SilentlyContinue |
     Where-Object { (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).DisplayName -like 'Odin*' })
 }
-function Finish() {
+# An exception as a failed check: its type, message and script line, nothing more.
+function Outcome($record) {
+  "$($record.Exception.GetType().Name): $($record.Exception.Message) (line $($record.InvocationInfo.ScriptLineNumber))"
+}
+function Finish([string] $outcome = '') {
+  if ($outcome) { $checks.Add([ordered]@{ check = 'the run reached its end'; ok = $false; detail = $outcome }) }
   $failed = @($checks | Where-Object { -not $_.ok })
   [ordered]@{ mode = $Mode; user = [Security.Principal.WindowsIdentity]::GetCurrent().Name; failed = $failed.Count
     checks = $checks } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $Report -Encoding utf8
-  exit ([int]($failed.Count -gt 0))
+  [int]($failed.Count -gt 0)
 }
 
 if ($Mode -eq 'user') {
+ $outcome = ''
+ try {
   $inst = Join-Path $env:LOCALAPPDATA 'Programs\Odin'
   $userKeys = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
   $installKey = "HKCU:\Software\$Guid"
@@ -59,12 +70,22 @@ if ($Mode -eq 'user') {
 
   $code = Install @('/S', '/allusers')
   Check '/allusers is refused' ($code -eq 2 -and (& $nothing)) "exit $code"
+  # Refused before .onInit's SetOutPath, which would create the folder and its parents.
   $elsewhere = Join-Path $env:LOCALAPPDATA 'odin-acceptance-d'
-  $code = Install @('/S', "/D=$elsewhere")
-  # The template's .onInit creates the /D folder before any hook runs; nothing may be installed in it.
-  $items = @(Get-ChildItem $elsewhere -Force -ErrorAction SilentlyContinue).Count
-  Check '/D is refused' ($code -eq 2 -and (& $nothing) -and $items -eq 0) "exit $code, items at /D $items"
+  $code = Install @('/S', "/D=$elsewhere\nested\deeper")
+  Check '/D is refused before anything is created' ($code -eq 2 -and (& $nothing) -and -not (Test-Path $elsewhere)) (
+    "exit $code")
   Remove-Item $elsewhere -Recurse -Force -ErrorAction SilentlyContinue
+  # A location recorded elsewhere (no installed app) is refused, never followed.
+  $recorded = Join-Path $env:LOCALAPPDATA 'odin-acceptance-elsewhere'
+  New-Item -Path $installKey -Force | Out-Null
+  Set-ItemProperty -Path $installKey -Name InstallLocation -Value $recorded
+  $code = Install @('/S')
+  Check 'a location recorded elsewhere is refused' ($code -eq 2 -and (& $nothing) -and -not (Test-Path $recorded)) (
+    "exit $code")
+  Remove-Item -Path $installKey -Recurse -Force
+  $code = Install @('/S', '--force-run')
+  Check '--force-run is refused' ($code -eq 2 -and (& $nothing)) "exit $code"
   New-Item -ItemType Directory -Force (Split-Path $inst) | Out-Null
   Set-Content -LiteralPath $inst -Value 'a file where the install folder would be'
   $code = Install @('/S')
@@ -121,12 +142,13 @@ if ($Mode -eq 'user') {
       $log = Join-Path $profileRoot 'data\logs\core.log'
       $detail += ' | ' + ((Get-Content $log -Tail 8 -ErrorAction SilentlyContinue) -join ' / ')
     }
-    Check "the installed app's $start start serves its core" $up $detail
+    Check "the installed app's $start start opens its core's pipe" $up $detail
     Start-Process -FilePath $exe -ArgumentList '--exit' -Wait | Out-Null
     $deadline = (Get-Date).AddSeconds(120)
     while ((Get-Date) -lt $deadline -and ((& $installed).Count -or (& $serving))) { Start-Sleep -Seconds 2 }
     $left = (& $installed)
-    Check "Exit ends the app, its core and its guardian ($start start)" ($left.Count -eq 0 -and -not (& $serving)) (
+    Check "Exit ends the app, its core, its guardian and their bundled processes ($start start)" (
+      $left.Count -eq 0 -and -not (& $serving)) (
       ($left | ForEach-Object { "$($_.Name) $($_.ProcessId)" }) -join ', ')
     $left | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
   }
@@ -144,10 +166,17 @@ if ($Mode -eq 'user') {
     Uninstall
     Check "fresh install cycle $cycle" ($code -eq 0 -and $installed -and (& $nothing)) "exit $code"
   }
-  Finish
+ } catch {
+  $outcome = Outcome $_
+ }
+ exit (Finish $outcome)
 }
 
 # The runner: an elevated token must be refused before anything is written.
+$outcome = ''
+$name = 'odin-acceptance'
+$plain = ''
+try {
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not (New-Object Security.Principal.WindowsPrincipal $identity).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -162,34 +191,36 @@ Check 'an elevated token is refused' ($code -eq 2 -and -not $before -and -not (T
   (OdinUninstallKeys 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall').Count -eq 0) "exit $code; $facts"
 
 # A disposable standard user, its work folder, then the user's cases.
-$name = 'odin-acceptance'
 $bytes = New-Object byte[] 24
 [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
 $plain = 'Oa-' + [Convert]::ToBase64String($bytes) + '!7'
 $secret = ConvertTo-SecureString $plain -AsPlainText -Force
 New-LocalUser -Name $name -Password $secret -PasswordNeverExpires -AccountNeverExpires | Out-Null
-try {
-  $work = Join-Path $env:RUNNER_TEMP 'odin-installer-acceptance'
-  New-Item -ItemType Directory -Force $work | Out-Null
-  Copy-Item $Installer (Join-Path $work 'setup.exe')
-  Copy-Item $PSCommandPath (Join-Path $work 'acceptance.ps1')
-  Copy-Item -Recurse $Packaging (Join-Path $work 'packaging')
-  & icacls.exe $work /grant "${name}:(OI)(CI)M" /T /Q | Out-Null
-  $userReport = Join-Path $work 'user-report.json'
-  $credential = New-Object Management.Automation.PSCredential ($name, $secret)
-  $arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$work\acceptance.ps1`" -Mode user " +
-    "-Installer `"$work\setup.exe`" -Report `"$userReport`" -Packaging `"$work\packaging`""
-  $process = Start-Process powershell.exe -Credential $credential -LoadUserProfile -ArgumentList $arguments `
-    -WorkingDirectory $work -Wait -PassThru
-  $result = Get-Content -LiteralPath $userReport -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json
-  if ($null -eq $result) {
-    Check 'the standard user''s cases ran' $false "exit $($process.ExitCode), no report"
-  } else {
-    foreach ($item in $result.checks) { Check "user: $($item.check)" ([bool]$item.ok) $item.detail }
-  }
+$work = Join-Path $env:RUNNER_TEMP 'odin-installer-acceptance'
+New-Item -ItemType Directory -Force $work | Out-Null
+Copy-Item $Installer (Join-Path $work 'setup.exe')
+Copy-Item $PSCommandPath (Join-Path $work 'acceptance.ps1')
+Copy-Item -Recurse $Packaging (Join-Path $work 'packaging')
+& icacls.exe $work /grant "${name}:(OI)(CI)M" /T /Q | Out-Null
+$userReport = Join-Path $work 'user-report.json'
+$credential = New-Object Management.Automation.PSCredential ($name, $secret)
+$arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$work\acceptance.ps1`" -Mode user " +
+  "-Installer `"$work\setup.exe`" -Report `"$userReport`" -Packaging `"$work\packaging`""
+if ($FailAt) { $arguments += " -FailAt `"$FailAt`"" }
+$process = Start-Process powershell.exe -Credential $credential -LoadUserProfile -ArgumentList $arguments `
+  -WorkingDirectory $work -Wait -PassThru
+$result = Get-Content -LiteralPath $userReport -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json
+if ($null -eq $result) {
+  Check 'the standard user''s cases ran' $false "exit $($process.ExitCode), no report"
+} else {
+  foreach ($item in $result.checks) { Check "user: $($item.check)" ([bool]$item.ok) $item.detail }
+}
+} catch {
+  $outcome = Outcome $_
+  if ($plain) { $outcome = $outcome.Replace($plain, '<password>') }
 } finally {
   Remove-LocalUser -Name $name -ErrorAction SilentlyContinue
   Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like "*\$name" } |
     Remove-CimInstance -ErrorAction SilentlyContinue
 }
-Finish
+exit (Finish $outcome)

@@ -101,6 +101,19 @@ jobs:
         run: |
           node packaging/build-windows.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: A failing acceptance run still leaves its report
+        shell: powershell
+        run: |
+          $setup = (Get-ChildItem .packaging-candidates\*-setup.exe | Select-Object -First 1).FullName
+          $report = "$env:RUNNER_TEMP\windows-installer-acceptance-failing.json"
+          & .\scripts\packaging\windows-installer-acceptance.ps1 -Installer $setup -Packaging app\packaging `
+            -Report $report -FailAt 'an elevated token is refused'
+          if ($LASTEXITCODE -ne 1) { throw "an intentional failure must exit 1, not $LASTEXITCODE" }
+          $checks = (Get-Content -LiteralPath $report -Raw | ConvertFrom-Json).checks
+          if (-not ($checks | Where-Object { $_.check -eq 'an elevated token is refused' })) {
+            throw 'the failing run lost the checks before its failure' }
+          if (-not ($checks | Where-Object { $_.check -eq 'the run reached its end' -and
+              $_.detail -like '*intentional failure*' })) { throw 'the failing run did not record its failure' }
       - name: The installer, elevated and as a disposable standard user
         shell: powershell
         run: |
@@ -108,12 +121,14 @@ jobs:
           & .\scripts\packaging\windows-installer-acceptance.ps1 -Installer $setup -Packaging app\packaging `
             -Python .venv\Scripts\python.exe -Report "$env:RUNNER_TEMP\windows-installer-acceptance.json"
           exit $LASTEXITCODE
-      - name: Upload the installer report (not an installer or published candidate)
+      - name: Upload the installer reports (not an installer or published candidate)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: windows-installer-acceptance
-          path: ${{ runner.temp }}/windows-installer-acceptance.json
+          path: |
+            ${{ runner.temp }}/windows-installer-acceptance.json
+            ${{ runner.temp }}/windows-installer-acceptance-failing.json
           if-no-files-found: warn
   windows-engine:
     if: github.repository == 'Calmingstorm/Odin-Desktop'

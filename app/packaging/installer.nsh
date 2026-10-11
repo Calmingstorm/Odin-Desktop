@@ -1,10 +1,8 @@
 ; Odin for Windows installs for the current user only (phase 4, P7). electron-builder's per-user
-; one-click installer compiles no per-machine branch; these refusals cover the rest, before anything
-; is written. A refusal exits with code 2, and a silent install's message box answers itself.
-
-!ifndef BUILD_UNINSTALLER
-  Var odinRecordedLocation
-!endif
+; one-click installer compiles no per-machine branch; these refusals cover the rest. preInit runs before
+; anything is written: Odin's installer.nsi runs it ahead of .onInit's SetOutPath, which would create a /D
+; destination. The folder is fixed, in Odin's multiUser.nsh, which refuses a location recorded elsewhere.
+; A refusal exits with code 2, and a silent install's message box answers itself.
 
 !macro odinRefuse MESSAGE
   MessageBox MB_OK|MB_ICONSTOP "${MESSAGE}" /SD IDOK
@@ -24,6 +22,9 @@
     ${StdUtils.GetParameter} $R1 "D" ""
     ${If} $R1 != ""
       !insertmacro odinRefuse "Odin installs into its own folder in your account, so /D isn't supported."
+    ${EndIf}
+    ${If} ${isForceRun}
+      !insertmacro odinRefuse "Odin's installer never starts Odin, so --force-run isn't supported. Start Odin from the Start menu."
     ${EndIf}
     ; The app's own start check (P9b): this token's TokenElevation, then its default owner (who owns
     ; what it creates) against its user. Anything unreadable refuses too.
@@ -67,22 +68,6 @@
     ${ElseIf} $R2 != "normal"
       !insertmacro odinRefuse "The installer couldn't check whether it was started as administrator, so it stopped. Run it again normally."
     ${EndIf}
-    ; electron-builder 26.0.12 finds a first install's folder with SHGetKnownFolderPath, then reads
-    ; the result as a fixed ${NSIS_MAX_STRLEN}-character buffer: it reads past the end and now and
-    ; then crashes the installer (System.dll, 0xC0000005). It skips that path when this user's
-    ; install location is recorded, so a first install records the same folder here, read safely;
-    ; a refused install removes it again.
-    ReadRegStr $R4 HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
-    ${If} $R4 == ""
-      StrCpy $R4 "$LOCALAPPDATA\Programs"
-      System::Call 'SHELL32::SHGetKnownFolderPath(g "{5CD7AEE2-2219-4A67-B85D-6C9CE15660CB}", i 0x8000, p 0, *p .r2) i .r1'
-      ${If} $1 = 0
-        System::Call 'kernel32::lstrcpyW(w .R4, p r2)'
-      ${EndIf}
-      System::Call 'OLE32::CoTaskMemFree(p r2)'
-      WriteRegStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation "$R4\${APP_FILENAME}"
-      StrCpy $odinRecordedLocation "1"
-    ${EndIf}
   !endif
 !macroend
 
@@ -92,10 +77,6 @@
   CreateDirectory "$INSTDIR"
   FileOpen $0 "$INSTDIR\.odin-install-check" w
   ${If} ${Errors}
-    ${If} $odinRecordedLocation == "1"
-      DeleteRegValue HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
-      DeleteRegKey /ifempty HKCU "${INSTALL_REGISTRY_KEY}"
-    ${EndIf}
     !insertmacro odinRefuse "Odin can't write to $INSTDIR, so the installer stopped. Check that the folder is yours and isn't read-only, then run the installer again."
   ${EndIf}
   FileClose $0

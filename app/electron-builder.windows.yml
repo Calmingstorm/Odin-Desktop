@@ -12,7 +12,8 @@
 # and compiles no per-machine branch, install-mode page or elevation path at all (the assisted
 # installer keeps them whatever its flags say). packaging/installer.nsh refuses what's left before
 # anything is written: an elevated or Administrators-owning token (the app refuses one too), and
-# the /allusers and /D switches. Nothing launches when it finishes. Uninstall keeps the profile
+# the /allusers, /D and --force-run switches; build-windows.mjs writes electron-builder's templates
+# with that order and a fixed folder (packaging/nsis) for the build. Nothing launches when it finishes. Uninstall keeps the profile
 # (chats, settings, keys), as Linux does.
 extends: electron-builder.yml
 productName: Odin

@@ -23,6 +23,7 @@ import { AUTOSTART_UNAVAILABLE, describeLinkRefusal, windowsPlatform, windowsSes
 import { setWindowsAutostart, windowsAutostartEnabled } from '../src/main/platform/windows-autostart'
 import { ELEVATED_REFUSAL, elevatedStartRefusal, ownerRefusal, tokenFacts, UNCHECKED_REFUSAL }
   from '../src/main/platform/windows-elevation'
+import { electronLoginItems, formatCommandLine, type LoginItemsState } from './electron-login-items'
 import { ensureWindowsProfileDirs, ensureWindowsToken, localAppData, parseWhoamiUser, pipeName,
   windowsProfilePaths } from '../src/main/platform/windows-paths'
 import { CleanupJournal, type JournalFs } from '../src/main/shutdown'
@@ -477,40 +478,46 @@ describe('the installed app\'s runtime and start at login', () => {
       .toThrow('bundled runtime is missing')
   })
 
-  const EXE = 'C:\\Programs\\Odin\\Odin.exe'
-  type Item = { name: string; path: string; args: string[]; scope: string; enabled: boolean }
-  const owned = (extra: Partial<Item> = {}): Item => ({ name: APP_ID, path: EXE, args: ['--hidden'], scope: 'user',
-    enabled: true, ...extra })
-  const items = (launchItems: Item[], isPackaged = true) => ({
-    isPackaged, execPath: EXE,
-    getLoginItemSettings: vi.fn(() => ({ launchItems, openAtLogin: true, executableWillLaunchAtLogin: true })),
-    setLoginItemSettings: vi.fn()
-  }) as unknown as Parameters<typeof windowsAutostartEnabled>[2]
+  // Pinned Electron's actual answers, over a fake Run key (test/electron-login-items.ts); a spaced profile on purpose.
+  const EXE = 'C:\\Users\\Ada Lovelace\\AppData\\Local\\Programs\\Odin\\Odin.exe'
+  const login = (state: LoginItemsState, isPackaged = true) =>
+    electronLoginItems(state, { execPath: EXE, isPackaged, aumid: APP_ID }) as unknown as
+      Parameters<typeof windowsAutostartEnabled>[2]
+  const enabled = (state: LoginItemsState, isPackaged = true) =>
+    windowsAutostartEnabled(undefined, undefined, login(state, isPackaged))
 
-  it('reads on only for the entry this app owns: its name, the user scope, this executable, --hidden, enabled', () => {
-    const on = items([owned()])
-    expect(windowsAutostartEnabled(undefined, undefined, on)).toBe(true)
-    expect((on as any).getLoginItemSettings).toHaveBeenCalledWith({ path: EXE, args: ['--hidden'] })
-    expect(windowsAutostartEnabled(undefined, undefined, items([owned({ path: EXE.toUpperCase() })]))).toBe(true)
-    // Odin's own entry disabled from Task Manager, while a stale entry for the same executable stays enabled.
-    expect(windowsAutostartEnabled(undefined, undefined, items([
-      owned({ enabled: false }), owned({ name: 'Odin (old)', args: [] })]))).toBe(false)
-    expect(windowsAutostartEnabled(undefined, undefined, items([owned({ args: [] })]))).toBe(false)
-    expect(windowsAutostartEnabled(undefined, undefined, items([owned({ scope: 'machine' })]))).toBe(false)
-    expect(windowsAutostartEnabled(undefined, undefined, items([owned({ path: 'C:\\elsewhere\\Odin.exe' })]))).toBe(false)
-    expect(windowsAutostartEnabled(undefined, undefined, items([]))).toBe(false)
-    expect(windowsAutostartEnabled(undefined, undefined, items([owned()], false))).toBe(false)
+  it('reads on only when the owned entry is exactly this executable with --hidden, and enabled', () => {
+    const exact = formatCommandLine(EXE, ['--hidden'])
+    expect(exact).toBe('"C:\\Users\\Ada Lovelace\\AppData\\Local\\Programs\\Odin\\Odin.exe" --hidden')
+    expect(enabled({ run: { [APP_ID]: exact } })).toBe(true)
+    // Electron's launch item never shows the switch, so the args can't tell these apart; openAtLogin can.
+    expect(enabled({ run: { [APP_ID]: formatCommandLine(EXE, []) } })).toBe(false)
+    expect(enabled({ run: { [APP_ID]: formatCommandLine(EXE, ['--hidden', '--inspect']) } })).toBe(false)
+    expect(enabled({ run: { [APP_ID]: formatCommandLine('C:\\elsewhere\\Odin.exe', ['--hidden']) } })).toBe(false)
+    // Turned off from Task Manager, while a stale entry for the same executable stays enabled.
+    expect(enabled({ run: { [APP_ID]: exact, 'Odin (old)': formatCommandLine(EXE, []) },
+      approved: { [APP_ID]: 3 } })).toBe(false)
+    // Another machine-wide entry for the same executable isn't ours.
+    expect(enabled({ run: {}, machine: { [APP_ID]: exact } })).toBe(false)
+    expect(enabled({ run: {} })).toBe(false)
+    expect(enabled({ run: { [APP_ID]: exact } }, false)).toBe(false)  // a source run
   })
 
-  it('registers and approves, or removes, the owned entry with --hidden, and refuses from source', () => {
-    const fake = items([owned()])
-    expect(setWindowsAutostart(true, ['ignored'], undefined, fake)).toBe(true)
-    expect((fake as any).setLoginItemSettings).toHaveBeenCalledWith({ openAtLogin: true, enabled: true, name: APP_ID,
-      path: EXE, args: ['--hidden'] })
-    setWindowsAutostart(false, [], undefined, fake)
-    expect((fake as any).setLoginItemSettings).toHaveBeenLastCalledWith({ openAtLogin: false, enabled: false, name: APP_ID,
-      path: EXE, args: ['--hidden'] })
-    expect(() => setWindowsAutostart(true, [], undefined, items([], false))).toThrow(AUTOSTART_UNAVAILABLE)
+  it('queries with the executable quoted: unquoted, a spaced path loses its owned launch item', () => {
+    const state = { run: { [APP_ID]: formatCommandLine(EXE, ['--hidden']) } }
+    const electron = login(state) as unknown as ReturnType<typeof electronLoginItems>
+    expect(electron.getLoginItemSettings({ path: EXE, args: ['--hidden'] }).launchItems).toEqual([])
+    expect(electron.getLoginItemSettings({ path: `"${EXE}"`, args: ['--hidden'] }).launchItems)
+      .toEqual([{ name: APP_ID, path: EXE, args: [], scope: 'user', enabled: true }])
+  })
+
+  it('registers and approves, or removes, the owned entry, and reads back what it wrote', () => {
+    const state: LoginItemsState = { run: {}, approved: { [APP_ID]: 3 } }
+    expect(setWindowsAutostart(true, ['ignored'], undefined, login(state))).toBe(true)
+    expect(state).toEqual({ run: { [APP_ID]: formatCommandLine(EXE, ['--hidden']) }, approved: {} })
+    expect(setWindowsAutostart(false, [], undefined, login(state))).toBe(false)
+    expect(state).toEqual({ run: {}, approved: {} })
+    expect(() => setWindowsAutostart(true, [], undefined, login(state, false))).toThrow(AUTOSTART_UNAVAILABLE)
   })
 })
 

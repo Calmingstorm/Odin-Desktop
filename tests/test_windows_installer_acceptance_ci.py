@@ -17,8 +17,11 @@ def test_the_installer_job_builds_with_the_windows_entry_then_runs_the_acceptanc
     steps = workflow["jobs"]["windows-installer"]["steps"]
     runs = [step.get("run", "") for step in steps]
     build = next(i for i, run in enumerate(runs) if "node packaging/build-windows.mjs" in run)
-    accept = next(i for i, run in enumerate(runs) if "windows-installer-acceptance.ps1" in run)
-    assert build < accept
+    accept = next(i for i, run in enumerate(runs)
+                  if "windows-installer-acceptance.ps1" in run and "-FailAt" not in run)
+    failing = next(i for i, run in enumerate(runs) if "-FailAt" in run)
+    assert build < failing < accept  # the report path is proved before the real run
+    assert "the run reached its end" in runs[failing]
     acceptance = steps[accept]
     # Windows PowerShell: the local-accounts cmdlets, and the user's cases run under it too.
     assert acceptance["shell"] == "powershell"
@@ -27,4 +30,6 @@ def test_the_installer_job_builds_with_the_windows_entry_then_runs_the_acceptanc
     upload = next(step for step in steps
                   if step.get("uses", "").startswith("actions/upload-artifact@"))
     assert upload["if"] == "always()"
-    assert upload["with"]["path"].endswith("windows-installer-acceptance.json")
+    paths = upload["with"]["path"].split()
+    assert any(path.endswith("windows-installer-acceptance.json") for path in paths)
+    assert any(path.endswith("windows-installer-acceptance-failing.json") for path in paths)

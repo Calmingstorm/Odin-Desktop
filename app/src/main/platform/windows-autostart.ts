@@ -1,9 +1,15 @@
 // Start at login for the installed Windows app (phase 4, P10): Electron's login items, which write an HKCU Run value
 // named for this app (its AppUserModelID). The entry runs the installed executable itself with --hidden, never a source
-// command or interpreter; a source run keeps start at login unavailable (Settings shows why). It reads as on only when
-// that owned entry is registered in the user's scope with exactly this executable and arguments and Windows will run
-// it: an entry with other arguments (stale), one disabled from Task Manager's Startup page, or someone else's entry for
-// the same executable reads as off, and enabling rewrites and re-approves the owned one.
+// command or interpreter; a source run keeps start at login unavailable (Settings shows why).
+//
+// It reads as on only when both hold, as pinned Electron 44.5.1 reports them (shell/browser/browser_win.cc):
+// - openAtLogin: the Run value named for this app's AppUserModelID is exactly this executable with --hidden (the
+//   quoted executable, then each argument quoted as needed), so a missing or extra switch reads as off;
+// - the owned launch item (that name, in the user's Run key) is enabled in StartupApproved, so an entry turned off
+//   from Task Manager reads as off whatever other entries for the same executable say.
+// Both reads get the executable quoted: openAtLogin strips one pair of surrounding quotes before quoting it again, and
+// the launch items parse the path as a command line, where an unquoted path stops at its first space. A launch item's
+// args never show --hidden: Chromium's CommandLine counts it as a switch, and args are the positional arguments.
 import { app } from 'electron'
 import { APP_ID } from '../identity'
 
@@ -12,7 +18,7 @@ const ARGS = ['--hidden']
 
 type LaunchItem = { name: string; path: string; args: string[]; scope: string; enabled: boolean }
 type LoginItems = Pick<typeof app, 'isPackaged' | 'setLoginItemSettings'> & {
-  getLoginItemSettings(options: { path: string; args: string[] }): { launchItems?: LaunchItem[] }
+  getLoginItemSettings(options: { path: string; args: string[] }): { openAtLogin: boolean; launchItems?: LaunchItem[] }
   readonly execPath?: string
 }
 
@@ -20,15 +26,13 @@ function executable(electron: LoginItems): string {
   return electron.execPath ?? process.execPath
 }
 
-/** Whether Windows will start the installed app at login through the entry this app owns. */
+/** Whether Windows will start the installed app at login through the entry this app owns, exactly as registered. */
 export function windowsAutostartEnabled(_path?: string, _command?: readonly string[],
   electron: LoginItems = app): boolean {
   if (!electron.isPackaged) return false
-  const exe = executable(electron)
-  const owned = electron.getLoginItemSettings({ path: exe, args: ARGS }).launchItems
-    ?.find((item) => item.name === APP_ID && item.scope === 'user')
-  return !!owned && owned.enabled === true && owned.path.toLowerCase() === exe.toLowerCase()
-    && owned.args.length === ARGS.length && owned.args.every((arg, index) => arg === ARGS[index])
+  const settings = electron.getLoginItemSettings({ path: `"${executable(electron)}"`, args: ARGS })
+  const owned = settings.launchItems?.find((item) => item.name === APP_ID && item.scope === 'user')
+  return settings.openAtLogin === true && owned?.enabled === true
 }
 
 /** Register (and approve) or remove the owned login entry; return the state Windows now reports. */
