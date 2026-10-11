@@ -506,6 +506,9 @@ def stage_runtime(bundle_root: Path, cache_dir: Path) -> dict:
 def prune_foreign_payloads(site: Path) -> list[dict]:
     """Remove named supplier development payloads unusable on Windows amd64."""
     selected = []
+    completion = site / "tqdm/completion.sh"
+    if completion.is_file():
+        selected.append(completion)
     for name in ("w32.exe", "t32.exe", "w64-arm.exe", "t64-arm.exe"):
         path = site / "pip/_vendor/distlib" / name
         if path.is_file():

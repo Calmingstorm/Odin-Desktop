@@ -60,3 +60,9 @@ skips, 31.25 seconds. The actual locked backend now passes its complete wheel
 inspection; default runtime inspection still refuses its .pth. Another backend
 artifact and extra top-level metadata refuse. Earlier 252-case receipt and failed
 253-case follow-up are retained in small logs, not relabelled as clean passes.
+
+Run `38110248538` on `d2301eeb06d4354bc98e7393386a593cf2dd4990`
+completed Python staging and reached Windows platform sealing, which correctly
+refused the inert `tqdm/completion.sh` supplier shell-completion resource. This
+one named foreign-platform payload is now removed with its hash in the existing
+pruning provenance; no generic shell-file exemption or weakened seal.

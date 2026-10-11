@@ -375,6 +375,9 @@ def test_playwright_exception_content_refusals(tmp_path, pinned_playwright, monk
 
 
 def test_foreign_supplier_payloads_named_pruning(tmp_path):
+    completion = tmp_path / "tqdm/completion.sh"
+    completion.parent.mkdir()
+    completion.write_text("shell completion fixture")
     launchers = tmp_path / "pip/_vendor/distlib"
     launchers.mkdir(parents=True)
     for name in ("w32.exe", "t32.exe", "w64-arm.exe", "t64-arm.exe", "w64.exe", "t64.exe"):
@@ -384,7 +387,8 @@ def test_foreign_supplier_payloads_named_pruning(tmp_path):
     (scripts / "install_linux.sh").write_text("fixture")
     (scripts / "install_win.ps1").write_text("fixture")
     records = runtime.prune_foreign_payloads(tmp_path)
-    assert len(records) == 5
+    assert len(records) == 6
+    assert not completion.exists()
     assert (launchers / "w64.exe").exists() and (launchers / "t64.exe").exists()
     assert (scripts / "install_win.ps1").exists()
     assert all(len(record["sha256"]) == 64 for record in records)
