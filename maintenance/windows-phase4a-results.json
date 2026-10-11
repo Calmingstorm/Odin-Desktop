@@ -10,8 +10,8 @@
     "packaging_unittest": {"run": 182, "skipped": 32, "failed": 0},
     "app_check": {"passed": 1898, "skipped": 1, "typechecks": "pass", "build": "pass"},
     "real_linux_pip_delta": {"passed": 7, "skipped": 0, "original_objects": 8904, "changed_objects": 552, "outside_allowlist": 0},
-    "full_qualification": {"status": "running at initial commit", "groups": 38},
-    "app_real_core": {"status": "running at initial commit"}
+    "full_qualification": {"status": "pass", "groups": 38, "failed_groups": [], "passed_executions": 19899, "skipped": 3},
+    "app_real_core": {"status": "pass", "isolated_shards": 4, "passed": 66, "onboarding_passed": 6}
   },
   "record_gates": {"inventory_errors": [], "new_lint_findings": [], "d19_errors": [], "closure_ready": true, "parity_valid": true},
   "actual_artifact_checks": {

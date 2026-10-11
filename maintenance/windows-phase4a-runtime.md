@@ -90,6 +90,13 @@ must remain clean before each push: inventory errors empty, no new lint findings
 D19 errors empty, and closure ready with valid fresh-profile parity. Exact source
 ledger entries retain prior lineage and stay pending independent review.
 
+The complete local qualification passed all 38 groups: 19,899 passing executions
+and three conditional skips, with zero failed groups. Isolated real-core app
+contracts passed all four shards (66 tests), plus six onboarding cases.
+The additional-boundary gate passed 922 cases, and source app check passed
+1,898 tests with one conditional skip plus typechecks/build. None of these Linux
+results supplies the blocked Windows native stage evidence.
+
 No installed app, live services or active desktop session were changed. Only this
 lane's temporary caches/checkouts are cleanup candidates; committed evidence and
 small logs are retained. Disk checks remained above the 60 GB floor.
