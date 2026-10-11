@@ -1522,7 +1522,10 @@
         "tests/test_desktop_platform_seams.py",
         "tests/test_desktop_platform_variants.py",
         "tests/test_desktop_windows_read.py",
-        "tests/test_desktop_windows_session.py"
+        "tests/test_desktop_windows_session.py",
+        "tests/test_windows_payload_consumers.py",
+        "tests/test_windows_runtime_acceptance_harness.py",
+        "tests/test_windows_installer_acceptance_ci.py"
       ],
       "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups. Preserve merged onboarding/lifecycle pure temporary-profile and synthetic-driver regressions, not native/backend or active desktop qualification."
     },

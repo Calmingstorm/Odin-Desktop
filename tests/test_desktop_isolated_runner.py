@@ -434,7 +434,7 @@ def test_windows_job_uses_exact_pinned_python_and_uv():
     workflow = yaml.safe_load((ROOT / ".github/workflows/phase1-engine.yml").read_text())
     assert workflow["jobs"]["windows-engine"]["uses"] == "./.github/workflows/windows-engine.yml"
     windows = yaml.safe_load((ROOT / ".github/workflows/windows-engine.yml").read_text())
-    assert set(windows["jobs"]) == {"windows-engine", "windows-runtime"}
+    assert set(windows["jobs"]) == {"windows-engine", "windows-runtime", "windows-installer"}
     for job in windows["jobs"].values():
         assert job["runs-on"] == "windows-2025"
         setup = next(step for step in job["steps"]

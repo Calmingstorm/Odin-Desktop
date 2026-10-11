@@ -29,7 +29,12 @@ from types import SimpleNamespace
 
 def cold_environment(work: Path, resources: Path, ambient: dict[str, str]) -> dict[str, str]:
     system = ambient.get("SystemRoot", r"C:\Windows")
-    env = {key: ambient[key] for key in ("SystemRoot", "WINDIR", "COMSPEC") if key in ambient}
+    # Windows' own machine-wide settings stay; every real session defines them and the app's core
+    # inherits them. Without PATHEXT PowerShell takes curl.exe for a document and won't run it in
+    # a pipeline; without ProgramData the bundled OpenSSH exits 255 before doing anything.
+    env = {key: ambient[key] for key in ("SystemRoot", "WINDIR", "COMSPEC", "PATHEXT",
+                                         "ProgramData", "ALLUSERSPROFILE", "SystemDrive")
+           if key in ambient}
     env.update({
         "PATH": str(Path(system) / "System32"),
         "USERPROFILE": str(work / "home"), "HOME": str(work / "home"),
