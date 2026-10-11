@@ -46,10 +46,6 @@ class PendingReplacement(OwnershipError):  # noqa: N818
 PENDING_EXIT = 75
 
 
-class UnresolvedLifetime(OwnershipError):  # noqa: N818
-    """A lifetime from this boot hasn't been shown to end clean: it fences until this boot ends."""
-
-
 # Windows' publish primitive writes ".<name>.<32 hex>.tmp" beside its target and renames it into
 # place; one that is still there is an interrupted write's leftover, never a published file.
 _PUBLISH_LEFTOVER = re.compile(r'\..+\.[0-9a-f]{32}\.tmp')
@@ -232,7 +228,7 @@ def _clean(app_cleanup, core_cleanup, role):
             or any(row.get('state') not in {'released', 'not_started'}
                    for row in resources.values() if isinstance(row, dict))
             or any(not isinstance(row, dict) for row in resources.values())):
-        raise UnresolvedLifetime('Core resource cleanup is unresolved')
+        raise OwnershipError('Core resource cleanup is unresolved')
     if role == 'app':
         app = _read(app_cleanup)
         current = app.get('current', app)
@@ -240,7 +236,7 @@ def _clean(app_cleanup, core_cleanup, role):
                 or current.get('shutdownAccepted') is not True
                 or current.get('processOutcome') not in {'exited', 'not-running'}
                 or current.get('unsaved') or current.get('unreceipted', 0)):
-            raise UnresolvedLifetime('Current app Exit is not clean')
+            raise OwnershipError('Current app Exit is not clean')
 
 
 def _write(path, value):
@@ -332,26 +328,64 @@ def acquire_lifetime(paths, role, app_cleanup, core_cleanup, *, provisional=Fals
     return Lease(paths, role, app_cleanup, core_cleanup, provisional=provisional)
 
 
-def verify_receipts(paths):
-    """Replacement's receipt verdict: a lifetime from an earlier boot no longer fences; one from
-    this boot must have ended clean, its record complete and its cleanup evidence intact."""
-    if not paths.receipts.is_dir():
-        return  # no lifetime has ever been admitted here
-    boot = _boot_id()
+def _receipt_files(paths):
     for path in paths.receipts.iterdir():
         if WINDOWS and _PUBLISH_LEFTOVER.fullmatch(path.name):
             # Never renamed into place, so never a receipt: an interrupted begin admitted nothing
             # (the app and core wait for it before any work), and an interrupted finish left the
             # receipt it was replacing, which fences on its own. Read, it would fence forever.
             continue
-        receipt = _read(path)
-        if _earlier_boot(receipt.get('boot_id'), boot):
+        yield path
+
+
+def _judge(receipt, boot):
+    """One receipt: a lifetime from an earlier boot no longer fences; one from this boot must have
+    ended clean, its record complete and its cleanup evidence intact. Raises when it fences."""
+    if _earlier_boot(receipt.get('boot_id'), boot):
+        return
+    if receipt.get('state') != 'clean':
+        raise OwnershipError('Unresolved lifetime evidence blocks replacement')
+    if not all(key in receipt for key in ('app_cleanup', 'core_cleanup', 'role')):
+        raise OwnershipError('Incomplete lifetime receipt blocks replacement')
+    _clean(receipt['app_cleanup'], receipt['core_cleanup'], receipt['role'])
+
+
+def verify_receipts(paths):
+    """Replacement's receipt verdict: raises at the first receipt that fences."""
+    if not paths.receipts.is_dir():
+        return  # no lifetime has ever been admitted here
+    boot = _boot_id()
+    for path in _receipt_files(paths):
+        _judge(_read(path), boot)
+
+
+def receipts_verdict(paths):
+    """The Windows installer's question, over every receipt, with the same judgement.
+
+    0: replacement may proceed. 1: only receipts bound to this boot refuse it, and a restart ends
+    them: each records this boot's well-formed identity, which is readable, so once another boot
+    runs, none fences. 2: something a restart won't change refuses it, such as a receipt that can't
+    be read, or one that records no well-formed boot (a lifetime admitted while the boot identity
+    was unreadable) and so never becomes an earlier boot's. A lasting refusal outranks restart
+    advice whatever order the folder lists them in. Returns the code and every refusal."""
+    if not paths.receipts.is_dir():
+        return 0, []
+    boot = _boot_id()
+    restart, lasting = [], []
+    for path in _receipt_files(paths):
+        try:
+            receipt = _read(path)
+        except (OwnershipError, OSError, ValueError) as error:
+            lasting.append(f'{path.name}: {error}')
             continue
-        if receipt.get('state') != 'clean':
-            raise UnresolvedLifetime('Unresolved lifetime evidence blocks replacement')
-        if not all(key in receipt for key in ('app_cleanup', 'core_cleanup', 'role')):
-            raise UnresolvedLifetime('Incomplete lifetime receipt blocks replacement')
-        _clean(receipt['app_cleanup'], receipt['core_cleanup'], receipt['role'])
+        try:
+            _judge(receipt, boot)
+        except (OwnershipError, OSError, ValueError) as error:
+            recorded = receipt.get('boot_id')
+            bound = boot is not None and isinstance(recorded, str) and bool(
+                _BOOT_ID_SHAPE.fullmatch(recorded))
+            (restart if bound else lasting).append(f'{path.name}: {error}')
+    return (2 if lasting else 1 if restart else 0), lasting + restart
 
 
 @contextmanager
@@ -464,19 +498,16 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
     if args.kind is None:
         parser.error('the following arguments are required: --kind')
     if args.action == 'receipts':
-        # Read-only: the Windows installer holds the lease exclusively and asks for the verdict.
-        # 1: a lifetime from this boot is unresolved, and a restart ends that (this boot's identity
-        # is readable, so the next one's differs); 2: anything a restart won't change, such as
-        # evidence that can't be read. The installer words the two differently.
+        # Read-only: the Windows installer holds the lease exclusively and asks for the verdict
+        # (receipts_verdict: 1 a restart ends the refusal, 2 it doesn't). The installer words the
+        # two differently.
         try:
-            verify_receipts(ownership_paths(args.kind))
-        except UnresolvedLifetime as error:
-            print(f'Odin install ownership refusal: {error}', file=sys.stderr)
-            return 1 if _boot_id() else 2
+            code, refusals = receipts_verdict(ownership_paths(args.kind))
         except (OwnershipError, OSError, ValueError) as error:
-            print(f'Odin install ownership refusal: {error}', file=sys.stderr)
-            return 2
-        return 0
+            code, refusals = 2, [str(error)]
+        for refusal in refusals:
+            print(f'Odin install ownership refusal: {refusal}', file=sys.stderr)
+        return code
     app_cleanup, core_cleanup = _profile(os.environ)
     try:
         if args.action == 'exec':

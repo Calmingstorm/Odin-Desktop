@@ -272,6 +272,14 @@ if ($Mode -eq 'user') {
   $code = Install @('/S')
   Check 'an install while a process from this installation runs without the lease is refused, ending nothing' (
     $code -eq 2 -and -not $stray.HasExited -and -not (Test-Path $marker)) "exit $code"
+  # A damaged installation without Odin.exe, its runtime still running: found all the same.
+  $moved = "$exe.acceptance-moved"
+  Move-Item -LiteralPath $exe -Destination $moved
+  $code = Install @('/S')
+  $absent = -not (Test-Path $exe)
+  Move-Item -LiteralPath $moved -Destination $exe -Force
+  Check 'with Odin.exe missing, a process still running from the installation refuses the install' (
+    $code -eq 2 -and $absent -and -not $stray.HasExited -and -not (Test-Path $marker)) "exit $code"
   $code = (Start-Process -FilePath $uninstaller -ArgumentList '/S', "_?=$inst" -Wait -PassThru).ExitCode
   Check 'an uninstall while that process runs is refused, ending nothing' ($code -eq 2 -and -not $stray.HasExited -and
     (Test-Path $exe) -and -not (Test-Path $marker)) "exit $code"
@@ -340,6 +348,20 @@ if ($Mode -eq 'user') {
     Uninstall
     Check "fresh install cycle $cycle" ($code -eq 0 -and $installed -and (& $nothing)) "exit $code"
   }
+  # A fence the installer can't remove (here a handle that refuses deletion, after the uninstall above left its
+  # marker) fails the run instead of reporting success, since Odin wouldn't start. Released, the next run clears it.
+  $hold = [System.IO.File]::Open($marker, 'OpenOrCreate', 'Read', 'ReadWrite')
+  try {
+    $code = Install @('/S')
+    $kept = Test-Path $marker
+  } finally {
+    $hold.Dispose()
+  }
+  Check 'a fence the installer can''t remove fails the install instead of reporting success' (
+    $code -eq 2 -and $kept -and (Test-Path $exe)) "exit $code"
+  $code = Install @('/S')
+  Check 'released, the next install completes and clears it' ($code -eq 0 -and -not (Test-Path $marker)) "exit $code"
+  Uninstall
   # In place (_?=), as an upgrade runs the old uninstaller: its own image isn't Odin running.
   $code = Install @('/S')
   $removed = (Start-Process -FilePath $uninstaller -ArgumentList '/S', "_?=$inst" -Wait -PassThru).ExitCode

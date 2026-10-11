@@ -205,6 +205,38 @@ class OwnershipTests(unittest.TestCase):
             self.assertEqual(code, 2)
             self.assertIn('Odin install ownership refusal', message)
 
+    def test_a_receipt_bound_to_no_boot_never_gets_restart_advice(self):
+        # Admitted while the boot identity was unreadable: it records none, so no boot ever makes
+        # it an earlier boot's, before a restart or after one.
+        with mock.patch.object(own, 'BOOT_ID', self.root / 'missing'):
+            self.lease('core').close()
+        receipt = json.loads(next(self.paths.receipts.iterdir()).read_text())
+        self.assertIsNone(receipt['boot_id'])
+        for boot in (BOOT_A, BOOT_B):
+            with self.boot(boot):
+                code, message = self.receipts_verdict()
+                self.assertEqual(code, 2, boot)
+                self.assertIn('Unresolved lifetime evidence', message)
+
+    def test_a_lasting_refusal_outranks_restart_advice_in_any_order(self):
+        with self.boot(BOOT_A):
+            self.lease('core').close()  # bound to boot A: a restart ends it
+        bound = next(self.paths.receipts.iterdir())
+        damaged = self.paths.receipts / 'damaged.json'
+        damaged.write_text('{"version": 1, "ro')
+        for order in ([bound, damaged], [damaged, bound]):
+            # The folder's listing order, as the file system happens to give it.
+            listing = mock.patch.object(own.Path, 'iterdir', lambda path, order=order: iter(order))
+            with self.boot(BOOT_A), listing:
+                code, message = self.receipts_verdict()
+            self.assertEqual(code, 2, order)
+            self.assertEqual(message.count('Odin install ownership refusal'), 2)  # both reported
+        damaged.unlink()
+        with self.boot(BOOT_A):
+            self.assertEqual(self.receipts_verdict()[0], 1)
+        with self.boot(BOOT_B):
+            self.assertEqual(self.receipts_verdict(), (0, ''))  # restarted: it no longer fences
+
     def test_an_interrupted_windows_receipt_write_is_not_a_receipt(self):
         with self.boot(BOOT_A):
             self.lease('core').close()  # an earlier boot's lifetime, below

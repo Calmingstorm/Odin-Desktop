@@ -17,15 +17,17 @@ with the limits below accepted for the first Windows release.
     - if its folders, created private when missing, can't be prepared.
   - **The handle** is held until the installer exits.
 - **They refuse while anything runs from the installation.** A process whose image is under the install folder is
-  enough, even without the lease (an app started before it existed). The check runs the native 64-bit PowerShell,
-  with paths passed through the environment, and excludes only the uninstaller's own image. A check that can't run
-  refuses.
+  enough, even without the lease (an app started before it existed), and even when `Odin.exe` itself is gone from a
+  damaged installation. The check runs the native 64-bit PowerShell, with paths passed through the environment, and
+  excludes only the uninstaller's own image. A check that can't run refuses.
 - **They respect this boot's lifetimes.** With an installed tree, that tree's guardian judges the receipts read-only
   (`ownership.py receipts --kind nsis`).
   - A lifetime from this boot without confirmed cleanup refuses ("Restart the computer"). An earlier boot's no
     longer fences, by its well-formed boot identity.
-  - Anything a restart won't change refuses with "couldn't confirm" instead: a record that can't be read, or no
-    readable boot identity. The guardian's exit says which (1 or 2).
+  - Anything a restart won't change refuses with "couldn't confirm" instead: a record that can't be read, a
+    record bound to no well-formed boot (a lifetime admitted while the boot identity couldn't be read), or no
+    readable boot identity now. The guardian's exit says which (1 or 2). It judges every record, so a lasting
+    refusal always wins over restart advice, whatever order the folder lists them in.
   - An interrupted write's leftover temporary in the receipts folder isn't a record and is skipped. It never got
     renamed into place: an interrupted start admitted nothing, and an interrupted end left the record it was
     replacing, which still counts. No writer can be mid-write then, since the installer holds the lease.
@@ -40,6 +42,9 @@ with the limits below accepted for the first Windows release.
   The marker records the lease's file identity, the operation and the target version, for diagnosis. Nothing
   reads them: the marker's presence is the fence.
 
+  A run that ends with the marker still there, because it couldn't be removed or the app's files aren't all in
+  place, fails (exit 2, "Run the installer again") instead of reporting success, since Odin wouldn't start.
+
   An uninstall leaves its marker: with no tree nothing can start, and the next install takes it over.
 - **Upgrades:** electron-builder runs the old uninstaller with `--updated`. When it finds the installer's marker, it
   leaves the fence to the installer, which holds the lease, and removes the old files.
@@ -47,8 +52,8 @@ with the limits below accepted for the first Windows release.
 
 ## Accepted limits
 
-These were raised in review (`70-review-phase5-plan.md` and `75-review-phase5-plan-v2.md`) and left out by decision.
-They are candidates for a later release.
+These were raised in the reviews of the phase 5 design and left out by decision. They are candidates for a later
+release.
 
 - **A missing or damaged installation skips the receipts check.** Its guardian is the only reader the installer has.
   So a crash that left a this-boot lifetime unconfirmed, followed by a deleted or broken tree, installs without
@@ -81,6 +86,8 @@ They are candidates for a later release.
 - this boot's unconfirmed receipt refuses, and an earlier boot's passes;
 - an interrupted write's leftover passes, and a damaged receipt refuses;
 - a linked lease is refused;
+- with `Odin.exe` gone, a process still running from the installation refuses the install;
+- a marker the installer can't remove fails the install, and the next run clears it;
 - an in-place uninstall doesn't count itself.
 
 The upgrade from one version to the next runs on the Legion with two builds of the same tree.

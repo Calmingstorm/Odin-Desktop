@@ -178,26 +178,25 @@ Var odinLeaseId
     System::Call 'kernel32::CloseHandle(p $odinLease)'
     !insertmacro odinRefuse "Odin's install lease isn't an ordinary file of its own (a link or a redirect), so nothing was changed."
   ${EndIf}
-  ${If} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
-    ; Anything still running from this installation, even without a lease: refused, not ended.
-    ; The installer is 32-bit, and a 32-bit PowerShell reads no 64-bit process's path, so this
-    ; asks the native one (Sysnative). .NET, not Get-Process, whose module loads on first use.
-    ; The uninstaller's own image isn't Odin: run in place (_?=), or as the stub that relaunches
-    ; from TEMP, it would otherwise count itself. The paths travel in the environment, never
-    ; inside the script's quotes. Exit 0: none; 3: one is running; anything else, including a
-    ; PowerShell that didn't start: unknown.
-    System::Call 'kernel32::SetEnvironmentVariableW(w "ODIN_INSTALL_FOLDER", w "$INSTDIR\")'
-    System::Call 'kernel32::SetEnvironmentVariableW(w "ODIN_UNINSTALLER", w "$INSTDIR\${UNINSTALL_FILENAME}")'
-    nsExec::ExecToStack `"$WINDIR\Sysnative\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -Command "try { $$f = $$env:ODIN_INSTALL_FOLDER; $$u = $$env:ODIN_UNINSTALLER; if (@([System.Diagnostics.Process]::GetProcesses() | Where-Object { $$_.Path -and $$_.Path.StartsWith($$f, [StringComparison]::OrdinalIgnoreCase) -and -not [string]::Equals($$_.Path, $$u, [StringComparison]::OrdinalIgnoreCase) }).Count) { exit 3 }; exit 0 } catch { exit 4 }"`
-    Pop $0
-    Pop $2
-    System::Call 'kernel32::SetEnvironmentVariableW(w "ODIN_INSTALL_FOLDER", p 0)'
-    System::Call 'kernel32::SetEnvironmentVariableW(w "ODIN_UNINSTALLER", p 0)'
-    ${If} $0 == "3"
-      !insertmacro odinRefuse "An Odin process from this installation is still running. Choose Exit Odin from its tray icon, wait for it to close, then run this again. Nothing was changed."
-    ${ElseIf} $0 != "0"
-      !insertmacro odinRefuse "Odin couldn't check for its running processes, so nothing was changed."
-    ${EndIf}
+  ; Anything still running from this installation, even without a lease, and whatever is left of
+  ; the installation (Odin.exe may be gone while its runtime still runs): refused, not ended.
+  ; The installer is 32-bit, and a 32-bit PowerShell reads no 64-bit process's path, so this
+  ; asks the native one (Sysnative). .NET, not Get-Process, whose module loads on first use.
+  ; The uninstaller's own image isn't Odin: run in place (_?=), or as the stub that relaunches
+  ; from TEMP, it would otherwise count itself. The paths travel in the environment, never
+  ; inside the script's quotes. Exit 0: none; 3: one is running; anything else, including a
+  ; PowerShell that didn't start: unknown.
+  System::Call 'kernel32::SetEnvironmentVariableW(w "ODIN_INSTALL_FOLDER", w "$INSTDIR\")'
+  System::Call 'kernel32::SetEnvironmentVariableW(w "ODIN_UNINSTALLER", w "$INSTDIR\${UNINSTALL_FILENAME}")'
+  nsExec::ExecToStack `"$WINDIR\Sysnative\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -Command "try { $$f = $$env:ODIN_INSTALL_FOLDER; $$u = $$env:ODIN_UNINSTALLER; if (@([System.Diagnostics.Process]::GetProcesses() | Where-Object { $$_.Path -and $$_.Path.StartsWith($$f, [StringComparison]::OrdinalIgnoreCase) -and -not [string]::Equals($$_.Path, $$u, [StringComparison]::OrdinalIgnoreCase) }).Count) { exit 3 }; exit 0 } catch { exit 4 }"`
+  Pop $0
+  Pop $2
+  System::Call 'kernel32::SetEnvironmentVariableW(w "ODIN_INSTALL_FOLDER", p 0)'
+  System::Call 'kernel32::SetEnvironmentVariableW(w "ODIN_UNINSTALLER", p 0)'
+  ${If} $0 == "3"
+    !insertmacro odinRefuse "An Odin process from this installation is still running. Choose Exit Odin from its tray icon, wait for it to close, then run this again. Nothing was changed."
+  ${ElseIf} $0 != "0"
+    !insertmacro odinRefuse "Odin couldn't check for its running processes, so nothing was changed."
   ${EndIf}
   ${If} ${FileExists} "$INSTDIR\resources\ownership.py"
     ; This installation's own guardian judges this boot's lifetimes (read-only: the lease is held).
@@ -241,12 +240,16 @@ Var odinLeaseId
     ; The fence comes down only if this run holds the lease (taken by customCheckAppRunning, held
     ; until this process ends, never shared for deletion) and the app, its uninstaller and its
     ; sealed bundle's manifest are in place. Otherwise it stays, and Odin keeps refusing to start
-    ; until an installer run completes.
+    ; until an installer run completes. A fence still there is a failed run, never a success
+    ; (electron-builder's next step would exit 0): Odin wouldn't start.
     ${If} $odinLeaseId != ""
     ${AndIf} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
     ${AndIf} ${FileExists} "$INSTDIR\${UNINSTALL_FILENAME}"
     ${AndIf} ${FileExists} "$INSTDIR\resources\bundle-manifest.json"
       Delete "${ODIN_OWNERSHIP}\transaction.json"
+    ${EndIf}
+    ${If} ${FileExists} "${ODIN_OWNERSHIP}\transaction.json"
+      !insertmacro odinRefuse "Odin's files were installed, but the installation couldn't be finished, so Odin won't start yet. Run the installer again."
     ${EndIf}
   !macroend
 !endif
