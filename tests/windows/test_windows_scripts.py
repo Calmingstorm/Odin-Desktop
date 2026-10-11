@@ -112,7 +112,9 @@ def test_python_falls_back_from_the_store_stub_to_odins_own(tmp_path, monkeypatc
     stub.write_bytes(b"")
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     monkeypatch.setattr(wx.shutil, "which", lambda name: str(stub) if name == "python" else None)
-    assert wx.interpreter_command("python3") == [wx.sys._base_executable or wx.sys.executable]
+    # Odin's own Python writes no bytecode into its sealed, user-writable runtime.
+    assert wx.interpreter_command("python3") == [wx.sys._base_executable or wx.sys.executable,
+                                                 "-B"]
     (apps / "PythonSoftwareFoundation.Python.3.12_qbz5n2kfra8p0").mkdir()
     assert wx.interpreter_command("python") == [str(stub)]  # a Store install is real
     launcher = "C:\\Windows\\py.exe"

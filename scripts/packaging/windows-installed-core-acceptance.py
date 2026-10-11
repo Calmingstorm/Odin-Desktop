@@ -5,14 +5,19 @@ For a disposable Windows account only. Run as the test user after a default inst
 installed runtime's own interpreter (python.exe -I -B). It starts a loopback scripted model,
 starts Odin.exe hidden, authenticates to the core with the engine's own client and points the
 compat provider at the scripted model through the ordinary settings methods. Then it runs a
-tool turn whose tool writes a marker, exits the app, starts it again and reads the turn back,
-and checks that a client offering another protocol major is refused. Nothing from the install
-is left running. The report is JSON and is written however the run ends.
+tool turn whose tool writes a marker. A skill with a dependency then installs it through the
+bundled pip from a loopback package index (the test user's own pip.ini points there, and is
+restored), into the profile, leaving the install tree unchanged. Then it exits the app, starts
+it again and reads the turn back and runs the skill again, and checks that a client offering
+another protocol major is refused. Nothing from the install is left running. The report is
+JSON and is written however the run ends.
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
+import hashlib
 import http.server
 import json
 import os
@@ -21,12 +26,16 @@ import sys
 import threading
 import time
 import uuid
+import zipfile
 from pathlib import Path
 
 MODEL = "canned-contract"
 PROMPT = "[tool] Run the scripted local tool."
 REPLY = "Scripted reply: the installed tool ran."
 MARK = "installed core tool ran"
+SKILL = "skill_package_probe"
+PACKAGE, MODULE, VERSION = "odin-skill-probe", "odin_skill_probe", "1.0"
+PACKAGE_MARK = "odin skill probe 1.0"
 
 
 def scripted_model(marker: Path) -> http.server.ThreadingHTTPServer:
@@ -92,6 +101,68 @@ def scripted_model(marker: Path) -> http.server.ThreadingHTTPServer:
     return server
 
 
+def probe_wheel(folder: Path) -> Path:
+    """A minimal pure-Python wheel of the probe package, written without build tools."""
+    wheel = folder / f"{MODULE}-{VERSION}-py3-none-any.whl"
+    info = f"{MODULE}-{VERSION}.dist-info"
+    files = {f"{MODULE}/__init__.py": f'MARK = "{PACKAGE_MARK}"\n',
+             f"{info}/METADATA": f"Metadata-Version: 2.1\nName: {PACKAGE}\nVersion: {VERSION}\n",
+             f"{info}/WHEEL": ("Wheel-Version: 1.0\nGenerator: odin-acceptance\n"
+                               "Root-Is-Purelib: true\nTag: py3-none-any\n")}
+    record = []
+    with zipfile.ZipFile(wheel, "w") as archive:
+        for name, text in files.items():
+            data = text.encode()
+            archive.writestr(name, data)
+            digest = base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=")
+            record.append(f"{name},sha256={digest.decode()},{len(data)}")
+        archive.writestr(f"{info}/RECORD", "\n".join([*record, f"{info}/RECORD,,"]) + "\n")
+    return wheel
+
+
+def package_index(wheel: Path) -> http.server.ThreadingHTTPServer:
+    """A PEP 503 simple index on 127.0.0.1 holding only the probe wheel (pip treats loopback as
+    a secure origin)."""
+    data = wheel.read_bytes()
+    link = f"/files/{wheel.name}#sha256={hashlib.sha256(data).hexdigest()}"
+
+    class Index(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):  # noqa: N802 - http.server's name
+            if self.path.rstrip("/") == f"/simple/{PACKAGE}":
+                body, kind = f'<a href="{link}">{wheel.name}</a>'.encode(), "text/html"
+            elif self.path == f"/files/{wheel.name}":
+                body, kind = data, "application/octet-stream"
+            else:
+                self.send_error(404)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Index)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+def skill_code() -> str:
+    definition = {"name": SKILL, "description": "Installed-core acceptance probe",
+                  "input_schema": {"type": "object", "properties": {}},
+                  "dependencies": [f"{PACKAGE}=={VERSION}"]}
+    return (f"SKILL_DEFINITION = {definition!r}\nasync def execute(inp, context):\n"
+            f"    import {MODULE}\n    return {MODULE}.MARK\n")
+
+
+def tree_state(root: Path) -> dict[str, tuple[int, int]]:
+    """Every file under root by relative path: size and modification time."""
+    return {str(path.relative_to(root)): (path.stat().st_size, path.stat().st_mtime_ns)
+            for path in root.rglob("*") if path.is_file()}
+
+
 class Run:
     def __init__(self, report: Path):
         self.report = report
@@ -100,6 +171,7 @@ class Run:
         self.install = local / "Programs" / "Odin"
         self.exe = self.install / "Odin.exe"
         self.token = local / "odin-desktop" / "default" / "config" / "ipc.token"
+        self.profile = local / "odin-desktop" / "default"
 
     def check(self, name: str, ok: bool, detail="") -> bool:
         self.checks.append({"check": name, "ok": bool(ok), "detail": str(detail)[:2000]})
@@ -232,6 +304,10 @@ async def turn(client) -> dict:
     raise TimeoutError("the tool turn did not end within 180 s")
 
 
+async def skill_test(client) -> dict:
+    return await call(client, "skills.test", {"name": SKILL})
+
+
 async def refused_major(run: Run) -> dict:
     """A client offering protocol major 1: proofs pass, then the core's own version check."""
     from src.desktop import platform
@@ -259,9 +335,17 @@ async def acceptance(run: Run, work: Path) -> None:
     run.check("the installed interpreter, isolated", executable.is_relative_to(run.install)
               and sys.flags.isolated and sys.flags.dont_write_bytecode, executable)
     model = scripted_model(marker)
+    index = package_index(probe_wheel(work))
+    config = Path(os.environ["APPDATA"]) / "pip" / "pip.ini"
+    kept = config.read_bytes() if config.exists() else None
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(f"[global]\nindex-url = http://127.0.0.1:{index.server_address[1]}"
+                      "/simple/\n", encoding="utf-8")
     try:
         base_url = f"http://127.0.0.1:{model.server_address[1]}/v1"
         client = await run.start()
+        # The installed tree before the core does any work: it must end exactly the same.
+        before = tree_state(run.install)
         try:
             welcome = client.welcome
             run.check("the installed core authenticates and welcomes over its sealed pipe",
@@ -286,6 +370,15 @@ async def acceptance(run: Run, work: Path) -> None:
             run.check("a tool turn completes, its tool's effect on disk", result["outcome"] ==
                       "completed" and result["replies"][-1:] == [REPLY] and written == MARK,
                       json.dumps({**result, "marker": written}))
+            saved = await call(client, "skills.save",
+                               {"name": SKILL, "code": skill_code(), "create": True})
+            tested = await skill_test(client)
+            placed = [str(path) for path in run.profile.rglob(f"{MODULE}/__init__.py")]
+            run.check("a skill's dependency installs through the bundled pip into the profile",
+                      tested.get("is_error") is False and PACKAGE_MARK in str(tested.get("result"))
+                      and placed and not any(Path(path).is_relative_to(run.install)
+                                             for path in placed),
+                      json.dumps({"saved": saved, "tested": tested, "placed": placed})[:1500])
         finally:
             await client.close()
         left = run.exit_app()
@@ -301,6 +394,12 @@ async def acceptance(run: Run, work: Path) -> None:
                 "assistant", REPLY) in texts, texts)
             served = (await call(client, "status.get"))["model"]
             run.check("and so are the settings", served.get("main") == MODEL, served)
+            tested = await skill_test(client)
+            run.check("and the skill still imports its package", tested.get("is_error") is False
+                      and PACKAGE_MARK in str(tested.get("result")), json.dumps(tested)[:500])
+            changed = sorted(set(before.items()) ^ set(tree_state(run.install).items()))
+            run.check("the install tree is unchanged by all of it (a tool turn, a skill install, "
+                      "a restart)", not changed, changed[:20])
         finally:
             await client.close()
         answer = await refused_major(run)
@@ -311,6 +410,11 @@ async def acceptance(run: Run, work: Path) -> None:
                   [row.get("Name") for row in left])
     finally:
         model.shutdown()
+        index.shutdown()
+        if kept is None:
+            config.unlink(missing_ok=True)
+        else:
+            config.write_bytes(kept)
 
 
 def main() -> int:

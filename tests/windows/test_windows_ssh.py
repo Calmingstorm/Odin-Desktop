@@ -119,6 +119,52 @@ async def test_a_pinned_host_enrolls_end_to_end(target, tmp_path):
     assert len(trust) == 1 and trust[0].read_text().startswith(f"odin-{candidate.host_id} ")
 
 
+# Refusals before anything runs: strict host keys, an unknown client key, an exposed private key.
+OTHER_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"
+
+
+def variant(target, **changes):
+    return SimpleNamespace(**{**vars(target), **changes})
+
+
+@live
+async def test_a_changed_host_key_is_refused(target, tmp_path):
+    # The pinned entry for this host now names another key: nothing may run.
+    host = Path(target.known_hosts_path).read_text().split()[0]
+    changed = tmp_path / "known_hosts"
+    changed.write_text(f"{host} {OTHER_KEY}\n")
+    code, output = await exec_command(executor(), target.address, "echo ran", target.ssh_user,
+                                      target=variant(target, known_hosts_path=str(changed)))
+    assert code != 0 and "ran" not in output.split(), output
+    assert "host key" in output.lower(), output
+
+
+@live
+async def test_a_key_the_host_does_not_know_is_refused(target, tmp_path):
+    key = tmp_path / "stranger_ed25519"
+    subprocess.run([wssh.openssh("ssh-keygen"), "-q", "-t", "ed25519", "-N", "", "-f", str(key)],
+                   check=True, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+    wssh.restrict_key(key)
+    code, output = await exec_command(executor(), target.address, "echo ran", target.ssh_user,
+                                      target=variant(target, key_path=str(key)))
+    assert code != 0 and "ran" not in output.split(), output
+    assert "permission denied" in output.lower(), output
+
+
+@live
+async def test_a_private_key_other_users_can_read_is_refused(target, tmp_path):
+    # Windows OpenSSH won't use a private key readable by other users, even the authorized one.
+    exposed = tmp_path / "exposed_ed25519"
+    shutil.copyfile(target.key_path, exposed)
+    subprocess.run(["icacls", str(exposed), "/grant", "*S-1-5-32-545:R"], check=True,
+                   capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+    code, output = await exec_command(executor(), target.address, "echo ran", target.ssh_user,
+                                      target=variant(target, key_path=str(exposed)))
+    assert code != 0 and "ran" not in output.split(), output
+    words = output.lower()
+    assert "unprotected private key" in words or "bad permissions" in words, output
+
+
 # --- Without a host ----------------------------------------------------------------------------
 
 

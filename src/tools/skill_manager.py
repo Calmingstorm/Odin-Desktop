@@ -306,9 +306,13 @@ def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT,
     if target is not None:
         private_directory(target)
         destination = ["--target", str(target), "--upgrade"]
+    # pip runs under this interpreter's own isolation and no-bytecode flags: a sealed,
+    # user-writable runtime (Desktop's, started -I -B) must not get bytecode written into it.
+    flags = [*(["-I"] if sys.flags.isolated else []),
+             *(["-B"] if sys.dont_write_bytecode else [])]
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--quiet",
+            [sys.executable, *flags, "-m", "pip", "install", "--quiet",
              "--disable-pip-version-check", *destination, *specs],
             capture_output=True, text=True, timeout=timeout,
         )

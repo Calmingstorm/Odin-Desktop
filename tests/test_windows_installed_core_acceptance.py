@@ -1,6 +1,9 @@
 """The installed-core acceptance's scripted model (portable; native results come from Windows)."""
 import importlib.util
 import json
+import os
+import subprocess
+import sys
 import urllib.request
 from pathlib import Path
 
@@ -57,3 +60,31 @@ def test_the_scripted_model_answers_the_judge_the_tool_turn_and_a_plain_turn(tmp
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_the_probe_package_installs_with_pip_from_the_loopback_index(tmp_path):
+    server = CORE.package_index(CORE.probe_wheel(tmp_path))
+    try:
+        target = tmp_path / "target"
+        index = f"http://127.0.0.1:{server.server_address[1]}/simple/"
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check",
+             "--no-cache-dir", "--target", str(target), "--index-url", index,
+             f"{CORE.PACKAGE}=={CORE.VERSION}"],
+            capture_output=True, text=True, timeout=120,
+            env={**os.environ, "PIP_CONFIG_FILE": os.devnull})
+        assert result.returncode == 0, result.stderr
+        module = (target / CORE.MODULE / "__init__.py").read_text()
+        assert module == f'MARK = "{CORE.PACKAGE_MARK}"\n'
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_the_probe_skill_declares_the_package():
+    namespace = {}
+    exec(compile(CORE.skill_code(), "skill", "exec"), namespace)  # noqa: S102 - our own source
+    definition = namespace["SKILL_DEFINITION"]
+    assert definition["name"] == CORE.SKILL
+    assert definition["dependencies"] == [f"{CORE.PACKAGE}=={CORE.VERSION}"]
+

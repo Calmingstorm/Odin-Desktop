@@ -394,6 +394,7 @@ async def test_blank_optional_input_reaches_skill_unchanged(graph, value):
 
 
 def test_pip_retained_arguments_success_failure_timeout(monkeypatch):
+    monkeypatch.setattr(sys, "dont_write_bytecode", False)  # a plain interpreter, as Odin's
     run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
     monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
     assert _install_packages(["example-package>=1"]) == (True, "")
@@ -412,7 +413,20 @@ def test_pip_retained_arguments_success_failure_timeout(monkeypatch):
     run.assert_not_called()
 
 
+def test_pip_runs_under_the_parents_isolation_and_no_bytecode_flags(monkeypatch):
+    # Desktop's core runs -I -B over a sealed, user-writable runtime: pip writes no bytecode there.
+    import src.tools.skill_manager as skill_manager
+
+    run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
+    monkeypatch.setattr(skill_manager, "sys", SimpleNamespace(
+        executable="python.exe", flags=SimpleNamespace(isolated=1), dont_write_bytecode=True))
+    assert _install_packages(["example-package>=1"]) == (True, "")
+    assert run.call_args[0][0][:5] == ["python.exe", "-I", "-B", "-m", "pip"]
+
+
 def test_pip_installs_into_the_profiles_package_folder(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "dont_write_bytecode", False)
     monkeypatch.setattr(sys, "path", [*sys.path])
     run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
     monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)

@@ -718,6 +718,8 @@ async def test_composed_skill_dependency_resolution_and_actual_admitted_executio
     packages = composed.core.engine.deps.skill_manager._packages_dir
     # Loading appends that folder to sys.path; one case's installed package isn't the next's.
     monkeypatch.setattr(sys, "path", list(sys.path))
+    # pip inherits the parent's -B (the phase 1 runner sets PYTHONDONTWRITEBYTECODE): pin none.
+    monkeypatch.setattr(sys, "dont_write_bytecode", False)
 
     def pip_boundary(argv, **kwargs):
         calls.append((argv, kwargs))

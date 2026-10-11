@@ -522,7 +522,8 @@ def interpreter_command(interpreter: str) -> list[str]:
         found = shutil.which("python")
         if found and not _store_stub(found):
             return [found]
-        return [getattr(sys, "_base_executable", "") or sys.executable]  # Odin's own Python
+        # Odin's own Python, writing no bytecode into its sealed, user-writable runtime.
+        return [getattr(sys, "_base_executable", "") or sys.executable, "-B"]
     found = shutil.which(interpreter)
     if not found:
         raise ScriptRefusedError(

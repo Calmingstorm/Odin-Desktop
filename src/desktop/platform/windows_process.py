@@ -310,7 +310,8 @@ def arm_finalize_watchdog(exit_code: int) -> WindowsWatchdog:
         # a second process to the job, which the drain would count as a survivor.
         python = getattr(sys, "_base_executable", "") or sys.executable
         process = subprocess.Popen(
-            [python, "-I", "-S", "-c", _WATCHDOG_PROGRAM, str(disarm), str(engine),
+            # -B: the installed runtime is sealed and this user's to write; no bytecode in it.
+            [python, "-I", "-B", "-S", "-c", _WATCHDOG_PROGRAM, str(disarm), str(engine),
              str(ready), str(timeout), str(code)],
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             # No console at all: a hidden one (CREATE_NO_WINDOW) still starts a console
