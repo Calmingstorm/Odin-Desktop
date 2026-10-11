@@ -392,3 +392,16 @@ def test_foreign_supplier_payloads_named_pruning(tmp_path):
     assert (launchers / "w64.exe").exists() and (launchers / "t64.exe").exists()
     assert (scripts / "install_win.ps1").exists()
     assert all(len(record["sha256"]) == 64 for record in records)
+
+
+def test_tcl_development_shell_configs_named_pruning(tmp_path):
+    runtime_root = tmp_path / "python"
+    tcl = runtime_root / "tcl"
+    tcl.mkdir(parents=True)
+    for name in ("tclConfig.sh", "tclooConfig.sh", "init.tcl"):
+        (tcl / name).write_text("supplier fixture")
+    records = runtime.prune_foreign_payloads(tmp_path / "site", runtime=runtime_root)
+    assert {r["path"] for r in records} == {"tcl/tclConfig.sh", "tcl/tclooConfig.sh"}
+    assert all(r["root"] == "python" and len(r["sha256"]) == 64 for r in records)
+    assert (tcl / "init.tcl").exists()
+    assert not list(tcl.glob("*.sh"))

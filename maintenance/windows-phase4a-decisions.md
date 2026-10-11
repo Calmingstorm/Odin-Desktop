@@ -66,3 +66,10 @@ completed Python staging and reached Windows platform sealing, which correctly
 refused the inert `tqdm/completion.sh` supplier shell-completion resource. This
 one named foreign-platform payload is now removed with its hash in the existing
 pruning provenance; no generic shell-file exemption or weakened seal.
+
+Run `38110430411` on `3ad0dbecb76931c087270457f8516f9252ce4c6f`
+then found CPython's `tcl/tclConfig.sh` at the same unchanged sealing boundary.
+Inspection of the exact pinned CPython archive found two shell files, that path
+and `tcl/tclooConfig.sh`. Both named development configurations are now pruned
+with hashes and an explicit Python-root provenance marker; Tcl runtime data
+remains. The platform seal stays strict.

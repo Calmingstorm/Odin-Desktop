@@ -444,7 +444,7 @@ def stage_windows_runtime(repo: Path, dest: Path, cache_dir: Path) -> dict:
         artifact, engine_pin, engine = build_engine(
             repo, python, work, lock, project, cache, closure)
         install_wheel(artifact, engine_pin, site, wheel_scratch)
-        pruned = prune_foreign_payloads(site)
+        pruned = prune_foreign_payloads(site, runtime=runtime)
         vc_runtime = stage_vc_runtime(
             runtime, cache, lock_path=repo / "app/packaging/vc-runtime-lock.win_amd64.json")
         # NumPy explicitly registers numpy.libs via its wheel loader, not PATH.
@@ -503,7 +503,7 @@ def stage_runtime(bundle_root: Path, cache_dir: Path) -> dict:
     return stage_windows_runtime(REPO, bundle_root, cache_dir)
 
 
-def prune_foreign_payloads(site: Path) -> list[dict]:
+def prune_foreign_payloads(site: Path, *, runtime: Path | None = None) -> list[dict]:
     """Remove named supplier development payloads unusable on Windows amd64."""
     selected = []
     completion = site / "tqdm/completion.sh"
@@ -521,4 +521,11 @@ def prune_foreign_payloads(site: Path) -> list[dict]:
         records.append({"path": path.relative_to(site).as_posix(), "sha256": digest(path),
                         "reason": "foreign platform supplier development payload"})
         path.unlink()
+    if runtime is not None:
+        for name in ("tcl/tclConfig.sh", "tcl/tclooConfig.sh"):
+            path = runtime / name
+            if path.is_file():
+                records.append({"path": name, "root": "python", "sha256": digest(path),
+                                "reason": "foreign platform Tcl development configuration"})
+                path.unlink()
     return records
