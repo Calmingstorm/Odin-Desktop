@@ -1,7 +1,7 @@
 // Main-process launch selection. The fixture is deliberately development-only.
 // P4.1 plugs its verified immutable resource layout into resolvePackaged; there
 // is no production fallback to PATH Python, an override, or a developer tree.
-import { basename, join } from 'node:path'
+import { basename, join, posix, win32 } from 'node:path'
 import { existsSync } from 'node:fs'
 import type { ProfilePaths } from './paths'
 
@@ -78,15 +78,25 @@ export function coreCommand(paths: ProfilePaths, context: CoreCommandContext): C
   }
 }
 
-/** Immutable production runtime; never recover with a system Python or fixture. */
-export function packagedCoreCommand(resourcesPath: string, coreArgs: string[], ambient: NodeJS.ProcessEnv): CoreLaunch {
-  const root = join(resourcesPath, 'runtime')
-  const python = join(root, 'python', 'bin', 'python3')
-  if (!existsSync(python) || !existsSync(join(resourcesPath, 'bundle-manifest.json'))) {
+export interface PackagedLayout {
+  /** The system the app runs on (default: this one). */
+  system?: NodeJS.Platform
+  exists?: (path: string) => boolean
+}
+
+/** Immutable production runtime; never recover with a system Python or fixture. Windows' standalone CPython keeps
+ * its interpreter at the runtime's root (`python\\python.exe`), and its environment names ignore case. */
+export function packagedCoreCommand(resourcesPath: string, coreArgs: string[], ambient: NodeJS.ProcessEnv,
+  { system = process.platform, exists = existsSync }: PackagedLayout = {}): CoreLaunch {
+  const windows = system === 'win32'
+  const path = windows ? win32 : posix
+  const root = path.join(resourcesPath, 'runtime')
+  const python = windows ? path.join(root, 'python', 'python.exe') : path.join(root, 'python', 'bin', 'python3')
+  if (!exists(python) || !exists(path.join(resourcesPath, 'bundle-manifest.json'))) {
     throw new Error('Odin bundled runtime is missing. Reinstall the candidate package.')
   }
   const env = { ...ambient }
-  for (const key of Object.keys(env)) if (key.startsWith('PYTHON')) delete env[key]
+  for (const key of Object.keys(env)) if ((windows ? key.toUpperCase() : key).startsWith('PYTHON')) delete env[key]
   delete env.ODIN_DESKTOP_CORE_CMD
   return {
     command: python,
@@ -94,7 +104,7 @@ export function packagedCoreCommand(resourcesPath: string, coreArgs: string[], a
     env: {
       ...env,
       ODIN_DESKTOP_BUNDLE_ROOT: root,
-      PLAYWRIGHT_BROWSERS_PATH: join(root, 'browser'),
+      PLAYWRIGHT_BROWSERS_PATH: path.join(root, 'browser'),
       HF_HUB_OFFLINE: '1',
       TRANSFORMERS_OFFLINE: '1'
     }

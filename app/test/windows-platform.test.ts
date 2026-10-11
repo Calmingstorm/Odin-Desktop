@@ -12,12 +12,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('electron', () => ({ app: new EventEmitter(), BrowserWindow: { getAllWindows: () => [] } }))
 
 import { safeFileName } from '../src/main/artifacts'
-import { coreCommand, WINDOWS_SOURCE_CORE_REQUIRED } from '../src/main/core-command'
+import { acquirePackagedApp, admitPackagedApp } from '../src/main/package-ownership'
+import { inspectPackagedState } from '../src/main/package-state'
+import { coreCommand, packagedCoreCommand, WINDOWS_SOURCE_CORE_REQUIRED } from '../src/main/core-command'
 import { DisplayProfileStore } from '../src/main/display-profile'
 import { configureIdentity } from '../src/main/identity'
 import type { ProfilePaths } from '../src/main/paths'
 import { currentPlatform } from '../src/main/platform'
 import { AUTOSTART_UNAVAILABLE, windowsPlatform, windowsSessionMonitor } from '../src/main/platform/windows'
+import { setWindowsAutostart, windowsAutostartEnabled } from '../src/main/platform/windows-autostart'
 import { ELEVATED_REFUSAL, elevatedStartRefusal, integrityLevel, UNCHECKED_REFUSAL }
   from '../src/main/platform/windows-elevation'
 import { ensureWindowsProfileDirs, ensureWindowsToken, localAppData, parseWhoamiUser, pipeName,
@@ -204,16 +207,17 @@ describe('session end', () => {
 })
 
 describe('the Windows platform from source', () => {
-  it('is chosen on win32 and offers no installed-app members yet', async () => {
+  it('is chosen on win32; from source it has no start at login, and the package members are the shared ones', () => {
     expect(currentPlatform('win32')).toBe(windowsPlatform)
     expect(windowsPlatform.name).toBe('windows')
+    // This test's Electron app isn't packaged: a source run.
     expect(windowsPlatform.isAutostartEnabled()).toBe(false)
     expect(() => windowsPlatform.setAutostart(true, ['odin'])).toThrow(AUTOSTART_UNAVAILABLE)
     expect(windowsPlatform.autostartUnavailable).toBe(AUTOSTART_UNAVAILABLE)
-    const paths = profileAt(root())
-    expect(() => windowsPlatform.inspectPackagedState(paths, 'resources', {})).toThrow('comes with phase 4')
-    await expect(windowsPlatform.acquirePackagedApp(paths, 'resources', {})).rejects.toThrow('comes with phase 4')
-    await expect(windowsPlatform.admitPackagedApp({} as never)).rejects.toThrow('comes with phase 4')
+    // The Linux modules pick Windows' interpreter and the nsis lease by the system they run on.
+    expect(windowsPlatform.inspectPackagedState).toBe(inspectPackagedState)
+    expect(windowsPlatform.acquirePackagedApp).toBe(acquirePackagedApp)
+    expect(windowsPlatform.admitPackagedApp).toBe(admitPackagedApp)
     expect(windowsPlatform.installLogoutHook(['odin'])).toBeNull()
     expect(windowsPlatform.startSessionMonitor({ command: 'core', args: [], env: {} }, vi.fn())).not.toBeNull()
   })
@@ -413,6 +417,56 @@ describe('an elevated start of the installed app', () => {
   })
 
   it('is the Windows platform\'s start refusal', () => {
-    expect(windowsPlatform.startRefusal).toBeTypeOf('function')
+    vi.stubEnv('SystemRoot', '')  // no whoami to ask, on any system: refused rather than guessed
+    try {
+      expect(windowsPlatform.startRefusal?.()).toBe(UNCHECKED_REFUSAL)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+})
+
+describe('the installed app\'s runtime and start at login', () => {
+  it('starts the bundled interpreter at the runtime\'s root and drops PYTHON variables whatever their case', () => {
+    const exists = vi.fn(() => true)
+    const launch = packagedCoreCommand('C:\\Programs\\Odin\\resources', ['--profile', 'default'],
+      { PythonPath: 'C:\\elsewhere', PYTHONHOME: 'C:\\home', Path: 'C:\\Windows' }, { system: 'win32', exists })
+    expect(launch.command).toBe('C:\\Programs\\Odin\\resources\\runtime\\python\\python.exe')
+    expect(launch.args).toEqual(['-I', '-B', '-m', 'src', '--profile', 'default'])
+    expect(launch.env).not.toHaveProperty('PythonPath')
+    expect(launch.env).not.toHaveProperty('PYTHONHOME')
+    expect(launch.env).toMatchObject({ Path: 'C:\\Windows',
+      ODIN_DESKTOP_BUNDLE_ROOT: 'C:\\Programs\\Odin\\resources\\runtime',
+      PLAYWRIGHT_BROWSERS_PATH: 'C:\\Programs\\Odin\\resources\\runtime\\browser' })
+    expect(exists).toHaveBeenCalledWith('C:\\Programs\\Odin\\resources\\bundle-manifest.json')
+    expect(() => packagedCoreCommand('C:\\Programs\\Odin\\resources', [], {}, { system: 'win32', exists: () => false }))
+      .toThrow('bundled runtime is missing')
+  })
+
+  const items = (settings: { openAtLogin: boolean; executableWillLaunchAtLogin: boolean }, isPackaged = true) => ({
+    isPackaged, execPath: 'C:\\Programs\\Odin\\Odin.exe',
+    getLoginItemSettings: vi.fn(() => settings), setLoginItemSettings: vi.fn()
+  }) as unknown as Parameters<typeof windowsAutostartEnabled>[2]
+
+  it('reads on only for this exact entry, registered and not disabled', () => {
+    const on = items({ openAtLogin: true, executableWillLaunchAtLogin: true })
+    expect(windowsAutostartEnabled(undefined, undefined, on)).toBe(true)
+    expect((on as any).getLoginItemSettings).toHaveBeenCalledWith({ path: 'C:\\Programs\\Odin\\Odin.exe', args: ['--hidden'] })
+    // Disabled from Task Manager's Startup page, or registered with other arguments.
+    expect(windowsAutostartEnabled(undefined, undefined, items({ openAtLogin: true, executableWillLaunchAtLogin: false }))).toBe(false)
+    expect(windowsAutostartEnabled(undefined, undefined, items({ openAtLogin: false, executableWillLaunchAtLogin: true }))).toBe(false)
+    expect(windowsAutostartEnabled(undefined, undefined, items({ openAtLogin: true, executableWillLaunchAtLogin: true }, false))).toBe(false)
+  })
+
+  it('registers and approves, or removes, the installed executable with --hidden, and refuses from source', () => {
+    const fake = items({ openAtLogin: true, executableWillLaunchAtLogin: true })
+    expect(setWindowsAutostart(true, ['ignored'], undefined, fake)).toBe(true)
+    expect((fake as any).setLoginItemSettings).toHaveBeenCalledWith({ openAtLogin: true, enabled: true,
+      path: 'C:\\Programs\\Odin\\Odin.exe', args: ['--hidden'] })
+    setWindowsAutostart(false, [], undefined, fake)
+    expect((fake as any).setLoginItemSettings).toHaveBeenLastCalledWith({ openAtLogin: false, enabled: false,
+      path: 'C:\\Programs\\Odin\\Odin.exe', args: ['--hidden'] })
+    expect(() => setWindowsAutostart(true, [], undefined, items({ openAtLogin: false, executableWillLaunchAtLogin: false }, false)))
+      .toThrow(AUTOSTART_UNAVAILABLE)
   })
 })

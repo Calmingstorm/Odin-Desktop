@@ -19,6 +19,25 @@ function child() {
 describe('independent packaged app lifetime', () => {
   beforeEach(() => { mocked.spawn.mockReset(); mocked.read.mockReturnValue('deb\n') })
 
+  it('holds the per-user nsis lease through the Windows runtime, without a console window', async () => {
+    const process = child()
+    mocked.spawn.mockReturnValue(process)
+    const windowsPaths = { profileId: 'default', configDir: 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\config',
+      dataDir: 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\data' } as Parameters<typeof acquirePackagedApp>[0]
+    const pending = acquirePackagedApp(windowsPaths, 'C:\\Programs\\Odin\\resources', {}, 'win32')
+    process.stdout.write('READY\n')
+    expect(await pending).toBe(process)
+    const [command, args, options] = mocked.spawn.mock.calls[0]!
+    expect(command).toBe('C:\\Programs\\Odin\\resources\\runtime\\python\\python.exe')
+    expect(args).toEqual([
+      '-I', '-B', 'C:\\Programs\\Odin\\resources\\ownership.py', '--kind', 'nsis', '--role', 'app',
+      '--app-cleanup', 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\default-cleanup-state.json',
+      '--core-cleanup', 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\data\\resource-cleanup.json', 'hold'
+    ])
+    expect(options).toMatchObject({ windowsHide: true })
+    process.stdin.end()
+  })
+
   it('does not admit app startup until guardian confirms durable lifetime', async () => {
     const process = child()
     mocked.spawn.mockReturnValue(process)

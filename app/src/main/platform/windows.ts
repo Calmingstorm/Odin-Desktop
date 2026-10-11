@@ -1,13 +1,16 @@
-// Windows, from a source checkout (phase 3d): the profile under local AppData (windows-paths.ts), session end, and no
-// installed-app members yet: start at login and package ownership come with the installed app (phase 4).
+// Windows: the profile under local AppData (windows-paths.ts), session end, and the installed app's members (phase 4):
+// the shared package lease through the bundled guardian, start at login through Electron's login items, and the
+// refusal of an elevated start. A source run has no installed-app members: start at login stays unavailable.
 import { app, BrowserWindow } from 'electron'
 import type { CoreLaunch } from '../core-command'
+import { acquirePackagedApp, admitPackagedApp } from '../package-ownership'
+import { inspectPackagedState } from '../package-state'
 import type { AppPlatform } from './contracts'
+import { AUTOSTART_UNAVAILABLE, setWindowsAutostart, windowsAutostartEnabled } from './windows-autostart'
 import { elevatedStartRefusal } from './windows-elevation'
 import { ensureWindowsProfileDirs, ensureWindowsToken, windowsProfilePaths } from './windows-paths'
 
-export const AUTOSTART_UNAVAILABLE = 'Start at login comes with the installed Windows app.'
-const PACKAGED_UNAVAILABLE = 'The installed Windows app comes with phase 4.'
+export { AUTOSTART_UNAVAILABLE }
 
 /** Session end: `session-end` reaches every window; each is subscribed once and forgotten when it closes. */
 export function windowsSessionMonitor(_launch: CoreLaunch, onEnd: () => void,
@@ -40,24 +43,21 @@ export function windowsSessionMonitor(_launch: CoreLaunch, onEnd: () => void,
   }
 }
 
-function packagedUnavailable(): never {
-  throw new Error(PACKAGED_UNAVAILABLE)
-}
-
 export const windowsPlatform: AppPlatform = {
   name: 'windows',
   profilePaths: windowsProfilePaths,
   ensureProfileDirs: ensureWindowsProfileDirs,
   ensureToken: ensureWindowsToken,
-  // Start at login needs the installed app's launcher: a source run's command needs its core selection.
-  isAutostartEnabled: () => false,
-  setAutostart: () => {
-    throw new Error(AUTOSTART_UNAVAILABLE)
+  isAutostartEnabled: (path, command) => windowsAutostartEnabled(path, command),
+  setAutostart: (enabled, command, path) => setWindowsAutostart(enabled, command, path),
+  // Only a source run lacks start at login: its command would need its core selection.
+  get autostartUnavailable() {
+    return app.isPackaged ? undefined : AUTOSTART_UNAVAILABLE
   },
-  autostartUnavailable: AUTOSTART_UNAVAILABLE,
-  inspectPackagedState: () => packagedUnavailable(),
-  acquirePackagedApp: async () => packagedUnavailable(),
-  admitPackagedApp: async () => packagedUnavailable(),
+  // The Linux modules choose Windows' interpreter and the nsis lease by the system they run on.
+  inspectPackagedState,
+  acquirePackagedApp,
+  admitPackagedApp,
   startRefusal: () => elevatedStartRefusal(),
   startSessionMonitor: (launch, onEnd) => windowsSessionMonitor(launch, onEnd),
   installLogoutHook: () => null

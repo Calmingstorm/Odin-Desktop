@@ -21,7 +21,8 @@ def acquire_core_lease(paths, *, source_file=None):
         return None
     module_path = resources / "ownership.py"
     try:
-        kind = "deb" if resources.parent == Path("/opt/odin-desktop") else "appimage"
+        kind = ("nsis" if sys.platform == "win32"  # the per-user Windows installation
+                else "deb" if resources.parent == Path("/opt/odin-desktop") else "appimage")
         if module_path.is_symlink():
             raise ValueError("Invalid shipped package ownership")
         spec = importlib.util.spec_from_file_location("odin_package_ownership", module_path)

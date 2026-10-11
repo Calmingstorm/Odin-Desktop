@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
-"""Install lifetime leases. Filesystem barrier only, never process control."""
+"""Install lifetime leases. Filesystem barrier only, never process control.
+
+On Windows (the per-user ``nsis`` installation) the lease is a ``LockFileEx`` lock on one fixed
+byte of ``lease``, a private file outside the install tree, in
+``%LOCALAPPDATA%/odin-desktop/install-ownership/nsis``: shared for the app and the core, exclusive
+for a replacement. The byte is at offset ``0x7FFFFFFF00000000``, length 1, so it never blocks the
+file's own reads or writes. The bundled engine's Windows file helpers open and verify the file by
+handle, without following a link, and the open handle refuses deletion, so the lease can't be
+replaced while it's held.
+"""
 from __future__ import annotations
 
 import argparse
-import fcntl
 import hashlib
 import json
 import os
@@ -17,9 +25,17 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
+WINDOWS = sys.platform == 'win32'
+if not WINDOWS:
+    import fcntl
+
 DEB_ROOT = Path('/var/lib/odin-desktop/package-ownership')
 BOOT_ID = Path('/proc/sys/kernel/random/boot_id')
 _BOOT_ID_SHAPE = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
+# Windows counts boots: the kernel's BootId, which the registry publishes.
+_WINDOWS_BOOT_KEY = (r'SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management'
+                     r'\PrefetchParameters')
+_WINDOWS_BOOT_ID_SHAPE = re.compile(r'windows-[0-9]{1,10}')
 
 
 class OwnershipError(RuntimeError):
@@ -47,6 +63,11 @@ def ownership_paths(kind='appimage', env=None):
     env = os.environ if env is None else env
     if kind == 'deb':
         return OwnershipPaths(DEB_ROOT)
+    if kind == 'nsis':
+        local = env.get('LOCALAPPDATA') or ''
+        if not re.fullmatch(r'[A-Za-z]:[\\/].*', local) or '..' in re.split(r'[\\/]', local):
+            raise OwnershipError('LOCALAPPDATA must be an absolute local folder')
+        return OwnershipPaths(Path(local) / 'odin-desktop' / 'install-ownership' / 'nsis')
     if kind != 'appimage':
         raise OwnershipError('Unsupported installation kind')
     home = Path(env.get('HOME') or Path.home())
@@ -55,6 +76,8 @@ def ownership_paths(kind='appimage', env=None):
 
 
 def _open(paths):
+    if WINDOWS:
+        return _open_windows(paths)
     if paths.directory != DEB_ROOT:
         paths.directory.mkdir(parents=True, mode=0o700, exist_ok=True)
         paths.receipts.mkdir(mode=0o700, exist_ok=True)
@@ -73,12 +96,60 @@ def _open(paths):
     return fd
 
 
+def _open_windows(paths):
+    """The lease's handle: its folders created private, the file verified by handle (this
+    user's, private, one link, no reparse point), and its delete sharing refused."""
+    from src.desktop.platform import windows_files
+
+    windows_files.private_directory(paths.receipts)
+    with windows_files.held(paths.directory) as chain:
+        return windows_files.open_file(chain, 'lease', create=True, lock=True)
+
+
+def _lock(fd, *, exclusive):
+    """A non-blocking whole-lease lock; one already held elsewhere raises BlockingIOError."""
+    if WINDOWS:
+        from src.desktop.platform import win32
+
+        win32.lock(fd, blocking=False, shared=not exclusive)
+    else:
+        fcntl.flock(fd, (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB)
+
+
+def _close(fd):
+    if WINDOWS:
+        from src.desktop.platform import win32
+
+        win32.close(fd)
+    else:
+        os.close(fd)
+
+
+def _owner():
+    """Who holds a lifetime: the uid, or on Windows the user's SID."""
+    if WINDOWS:
+        from src.desktop.platform.windows_files import user_sid
+
+        return user_sid()
+    return os.getuid()
+
+
 def _pending(paths):
     if paths.pending.exists() or (paths.directory / 'appimage-replacement.json').exists():
         raise OwnershipError('Package replacement is pending; finish the external transaction')
 
 
 def _read(path):
+    if WINDOWS:
+        from src.desktop.platform import windows_files
+
+        # A regular file reached without following a link, as O_NOFOLLOW reads one.
+        fd = windows_files.to_fd(windows_files.open_plain(path), os.O_RDONLY)
+        with os.fdopen(fd, 'r', encoding='utf-8') as stream:
+            value = json.load(stream)
+        if not isinstance(value, dict):
+            raise OwnershipError('Cleanup evidence is not an object')
+        return value
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     try:
         if not stat.S_ISREG(os.fstat(fd).st_mode):
@@ -103,6 +174,16 @@ def _fingerprint(path):
 
 def _boot_id():
     """This boot's kernel identity, or None when it cannot be read or is malformed."""
+    if WINDOWS:
+        import winreg
+
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, _WINDOWS_BOOT_KEY) as key:
+                value, kind = winreg.QueryValueEx(key, 'BootId')
+        except OSError:
+            return None
+        return (f'windows-{value}' if kind == winreg.REG_DWORD and isinstance(value, int)
+                and 0 <= value <= 0xFFFFFFFF else None)
     try:
         value = BOOT_ID.read_text().strip()
     except OSError:
@@ -116,7 +197,8 @@ def _earlier_boot(recorded, current):
     Only a well-formed kernel boot identity that differs from a readable current one
     counts. A missing or malformed one, as from an older candidate, stays fenced.
     """
-    return bool(isinstance(recorded, str) and _BOOT_ID_SHAPE.fullmatch(recorded)
+    shape = _WINDOWS_BOOT_ID_SHAPE if WINDOWS else _BOOT_ID_SHAPE
+    return bool(isinstance(recorded, str) and shape.fullmatch(recorded)
                 and current and recorded != current)
 
 
@@ -154,6 +236,13 @@ def _clean(app_cleanup, core_cleanup, role):
 
 
 def _write(path, value):
+    if WINDOWS:
+        from src.desktop.platform.windows_engine import write_private_atomic
+
+        # Flushed, renamed by handle and the rename flushed, as the fsyncs below do.
+        if not write_private_atomic(path, json.dumps(value, sort_keys=True)):
+            raise OwnershipError('Lifetime receipt is not durable')
+        return
     temp = path.with_name(path.name + '.' + uuid.uuid4().hex + '.pending')
     fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
     try:
@@ -178,13 +267,13 @@ class Lease:
         self.app_cleanup, self.core_cleanup = Path(app_cleanup), Path(core_cleanup)
         self.fd = _open(paths)
         try:
-            fcntl.flock(self.fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            _lock(self.fd, exclusive=False)
             _pending(paths)
             self.initial_core = _fingerprint(self.core_cleanup)
             self.initial_app = _fingerprint(self.app_cleanup)
             self.receipt = None
             self.record = {'version': 1, 'role': role, 'state': 'running',
-                           'uid': os.getuid(), 'boot_id': _boot_id(),
+                           'uid': _owner(), 'boot_id': _boot_id(),
                            'app_cleanup': str(self.app_cleanup),
                            'core_cleanup': str(self.core_cleanup)}
             if not provisional:
@@ -200,8 +289,11 @@ class Lease:
         profile, process or native resource whose cleanup requires attestation.
         """
         if self.receipt is None:
+            # Windows' receipts folder is already this user's, and a full SID in the name could
+            # push the publish's temporary name past MAX_PATH; the record still names the SID.
+            owner = '' if WINDOWS else f'{os.getuid()}-'
             self.receipt = self.paths.receipts / (
-                f'{os.getuid()}-{uuid.uuid4().hex}-{self.role}.json')
+                f'{owner}{uuid.uuid4().hex}-{self.role}.json')
             _write(self.receipt, self.record)
 
     def finish(self):
@@ -216,7 +308,7 @@ class Lease:
 
     def close(self):
         if self.fd is not None:
-            os.close(self.fd)
+            _close(self.fd)
             self.fd = None
 
     def __enter__(self):
@@ -237,7 +329,7 @@ def replacement_guard(paths, check_receipts=True):
     fd = _open(paths)
     try:
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            _lock(fd, exclusive=True)
         except BlockingIOError as error:
             raise OwnershipError('Exit both app and core before replacement') from error
         if check_receipts:
@@ -253,10 +345,13 @@ def replacement_guard(paths, check_receipts=True):
                 _clean(receipt['app_cleanup'], receipt['core_cleanup'], receipt['role'])
         yield
     finally:
-        os.close(fd)
+        _close(fd)
 
 
 def _profile(env):
+    if WINDOWS:
+        root = Path(env.get('LOCALAPPDATA') or '') / 'odin-desktop' / 'default'
+        return root / 'default-cleanup-state.json', root / 'data' / 'resource-cleanup.json'
     home = Path(env.get('HOME') or Path.home())
     config = Path(env.get('XDG_CONFIG_HOME') or home / '.config') / 'odin-desktop/default'
     data = Path(env.get('XDG_DATA_HOME') or home / '.local/share') / 'odin-desktop/default'
@@ -311,7 +406,7 @@ def _show_appimage_refusal(reason, *, dialog=Path('/usr/bin/zenity')):
 def main(argv=None, *, sysctl_root=Path('/proc/sys')):
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['exec', 'hold'])
-    parser.add_argument('--kind', choices=['deb', 'appimage'], required=True)
+    parser.add_argument('--kind', choices=['deb', 'appimage', 'nsis'], required=True)
     parser.add_argument('--role', choices=['app', 'core'], default='app')
     parser.add_argument('--app-cleanup', type=Path)
     parser.add_argument('--core-cleanup', type=Path)
@@ -326,6 +421,8 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
         if args.action == 'exec':
             if not command:
                 raise OwnershipError('No executable was specified')
+            if args.kind == 'nsis':
+                raise OwnershipError('The Windows app holds its own lease; there is no launcher')
             if args.kind == 'appimage':
                 reason = _appimage_sandbox_refusal(sysctl_root)
                 if reason is not None:
@@ -334,7 +431,7 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
             paths = ownership_paths(args.kind)
             fd = _open(paths)
             try:
-                fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+                _lock(fd, exclusive=False)
                 _pending(paths)
                 # Outer launcher owns the install lease, not the app journal.
                 # Primary app and core register independent role receipts.
@@ -344,8 +441,9 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
         # Logout, system stop and Ctrl+C signal this guardian together with the app.
         # Dying first would leave a cleanly exiting app's receipt running; its
         # lifetime ends at the app's stdin EOF instead. SIGKILL still ends it, unclean.
-        for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
-            signal.signal(number, signal.SIG_IGN)
+        for name in ('SIGTERM', 'SIGINT', 'SIGHUP'):
+            if hasattr(signal, name):  # Windows has no SIGHUP
+                signal.signal(getattr(signal, name), signal.SIG_IGN)
         with acquire_lifetime(ownership_paths(args.kind), args.role,
                               args.app_cleanup or app_cleanup,
                               args.core_cleanup or core_cleanup, provisional=True) as lease:

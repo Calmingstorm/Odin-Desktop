@@ -1,17 +1,21 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, posix, resolve, win32 } from 'node:path'
 import { packagedCoreCommand } from './core-command'
 import type { ProfilePaths } from './paths'
 
-/** Independent guardian even when a user invokes the raw Electron executable. */
-export function acquirePackagedApp(paths: ProfilePaths, resources: string, env: NodeJS.ProcessEnv): Promise<ChildProcessWithoutNullStreams> {
-  const launch = packagedCoreCommand(resources, [], env)
-  const kind = dirname(resolve(resources)) === '/opt/odin-desktop' ? 'deb' : 'appimage'
-  const child = spawn(launch.command, ['-I', '-B', join(resources, 'ownership.py'),
+/** Independent guardian even when a user invokes the raw Electron executable. Windows' per-user installation is
+ * `nsis`, whose lease lives in local AppData; its guardian runs without a console window. */
+export function acquirePackagedApp(paths: ProfilePaths, resources: string, env: NodeJS.ProcessEnv,
+  system: NodeJS.Platform = process.platform): Promise<ChildProcessWithoutNullStreams> {
+  const windows = system === 'win32'
+  const path = windows ? win32 : posix
+  const launch = packagedCoreCommand(resources, [], env, { system })
+  const kind = windows ? 'nsis' : dirname(resolve(resources)) === '/opt/odin-desktop' ? 'deb' : 'appimage'
+  const child = spawn(launch.command, ['-I', '-B', path.join(resources, 'ownership.py'),
     '--kind', kind, '--role', 'app',
-    '--app-cleanup', join(paths.configDir, '..', `${paths.profileId}-cleanup-state.json`),
-    '--core-cleanup', join(paths.dataDir, 'resource-cleanup.json'), 'hold'], {
-    env: launch.env, stdio: ['pipe', 'pipe', 'pipe']
+    '--app-cleanup', path.join(paths.configDir, '..', `${paths.profileId}-cleanup-state.json`),
+    '--core-cleanup', path.join(paths.dataDir, 'resource-cleanup.json'), 'hold'], {
+    env: launch.env, stdio: ['pipe', 'pipe', 'pipe'], ...(windows ? { windowsHide: true } : {})
   })
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => fail(), 15_000)
