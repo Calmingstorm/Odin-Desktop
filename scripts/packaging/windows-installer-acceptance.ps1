@@ -4,9 +4,10 @@
 #
 # As the (elevated) runner it checks that an elevated token is refused. As the standard user (Mode user) it checks:
 # /allusers, /D and an unwritable folder are refused; then it runs a default install and checks it (owner, HKCU only,
-# shortcut identity, nothing launched, the sealed bundle verifying in place, the installed guardian's token check),
-# then a reinstall, an uninstall and three fresh cycles. Every case is silent (/S). The report is JSON; any failed
-# check makes the exit code 1.
+# shortcut identity, nothing launched, the sealed bundle verifying in place, the installed guardian's token check);
+# starts the installed app twice (hidden, as at login: its core serves its pipe, then Exit ends the app, the core and
+# the guardian); then a reinstall, an uninstall that keeps the profile, and three fresh cycles. Every install is
+# silent (/S). The report is JSON; any failed check makes the exit code 1.
 param(
   [Parameter(Mandatory = $true)] [string] $Installer,
   [Parameter(Mandatory = $true)] [string] $Report,
@@ -100,11 +101,43 @@ if ($Mode -eq 'user') {
   Check 'the installed guardian reads a normal token' ($null -ne $facts -and -not $facts.elevated -and
     $facts.owner -eq $me -and $facts.user -eq $me) "$token"
 
+  # The installed app: started hidden, as at login, until its core serves its pipe; then Exit. The second start runs
+  # on the profile the first one made.
+  $sha = [Security.Cryptography.SHA256]::Create()
+  $hash = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($me)) | ForEach-Object { $_.ToString('x2') })
+  $pipe = "\\.\pipe\odin-desktop-$($hash.Substring(0, 16))-default"
+  $exe = Join-Path $inst 'Odin.exe'
+  $profileRoot = Join-Path $env:LOCALAPPDATA 'odin-desktop\default'
+  $installed = { @(Get-CimInstance Win32_Process | Where-Object {
+    $_.ExecutablePath -and $_.ExecutablePath.StartsWith($inst, [StringComparison]::OrdinalIgnoreCase) }) }
+  $serving = { [IO.Directory]::GetFiles('\\.\pipe\') -contains $pipe }
+  foreach ($start in 'first', 'second') {
+    Start-Process -FilePath $exe -ArgumentList '--hidden' | Out-Null
+    $deadline = (Get-Date).AddSeconds(180)
+    while ((Get-Date) -lt $deadline -and -not (& $serving)) { Start-Sleep -Seconds 2 }
+    $up = & $serving
+    $detail = ((& $installed) | ForEach-Object { $_.Name } | Sort-Object -Unique) -join ', '
+    if (-not $up) {
+      $log = Join-Path $profileRoot 'data\logs\core.log'
+      $detail += ' | ' + ((Get-Content $log -Tail 8 -ErrorAction SilentlyContinue) -join ' / ')
+    }
+    Check "the installed app's $start start serves its core" $up $detail
+    Start-Process -FilePath $exe -ArgumentList '--exit' -Wait | Out-Null
+    $deadline = (Get-Date).AddSeconds(120)
+    while ((Get-Date) -lt $deadline -and ((& $installed).Count -or (& $serving))) { Start-Sleep -Seconds 2 }
+    $left = (& $installed)
+    Check "Exit ends the app, its core and its guardian ($start start)" ($left.Count -eq 0 -and -not (& $serving)) (
+      ($left | ForEach-Object { "$($_.Name) $($_.ProcessId)" }) -join ', ')
+    $left | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+  }
+  Check 'the starts made a profile' (Test-Path (Join-Path $profileRoot 'config\ipc.token')) $profileRoot
+
   $code = Install @('/S')
   Check 'a reinstall succeeds' ($code -eq 0 -and (Test-Path (Join-Path $inst 'Odin.exe'))) "exit $code"
   Uninstall
   Check 'uninstall removes the folder, entries and shortcut' ((& $nothing) -and -not (Test-Path $lnk) -and
     -not (Test-Path $installKey)) ''
+  Check 'uninstall keeps the profile' (Test-Path (Join-Path $profileRoot 'config\ipc.token')) $profileRoot
   foreach ($cycle in 1..3) {
     $code = Install @('/S')
     $installed = Test-Path (Join-Path $inst 'Odin.exe')
