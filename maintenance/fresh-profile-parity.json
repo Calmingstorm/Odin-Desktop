@@ -323,7 +323,7 @@
     "src/config/environment.py": "93f7601bcfcc28d7d1ba76c19b274dd163dbdeb87a1214160f8bc91a4b2b3944",
     "src/config/image_defaults.py": "a78c396288a4dcbf5d578bad545645e9e3187b91409896cd7e4e59216ffa1678",
     "src/config/initialization.py": "2ee1a9de821bb42b21126229bf25da987521ec1604b813e28a74286124695ebe",
-    "src/config/migrations.py": "43ce88197311b0400493375aa826c0ae179715b02a5c97c258746b6f579ae4fc",
+    "src/config/migrations.py": "3d075eacfb8b71094be144cf2976cb227ff0714bfc7a798e5dccad1a1fb285f3",
     "src/config/model_defaults.py": "30788ad8eb91f1f12469b498ff879d46c1206f9ea0336705c0b030cc14b2f14f",
     "src/config/model_retirement.py": "55b0190aa077a60ba229bb2600296581c8041bad58dc150196b144ede9ae0023",
     "src/config/persistence.py": "c57da2de6fd98b3f27a08fcdbbbdfade12ac43f91c06c61cfe99927ba07f9f25",
