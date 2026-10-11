@@ -83,7 +83,9 @@ async def scan_host_keys(address: str, port: int, timeout: float) -> tuple[int, 
     """What ``ssh-keyscan`` prints for ``address``, fetched by ssh, one key family at a time.
 
     ssh accepts and records the host key, then offers no authentication, so it logs in
-    to nothing. Returns ``(0, lines)`` when any key arrived, else ssh's last output.
+    to nothing. Returns ``(0, lines)`` when any key arrived, else ssh's last output. A family
+    that times out doesn't lose the keys the others recorded, as ssh-keyscan keeps what it
+    got; cancellation still ends the scan.
     """
     from .windows_remote import run_argv
 
@@ -95,13 +97,16 @@ async def scan_host_keys(address: str, port: int, timeout: float) -> tuple[int, 
         with open(empty, "wb"):
             pass
         for family in _SCAN_FAMILIES:
-            code, last = await run_argv([
-                "ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new",
-                "-o", known_hosts_option(known),
-                "-o", "Global" + known_hosts_option(empty)[len("User"):],
-                "-o", f"HostKeyAlgorithms={family}", "-o", "PreferredAuthentications=none",
-                "-o", "ConnectTimeout=8", "-p", str(port), "-l", "odin-scan", "--", address,
-                "exit"], timeout)
+            try:
+                code, last = await run_argv([
+                    "ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new",
+                    "-o", known_hosts_option(known),
+                    "-o", "Global" + known_hosts_option(empty)[len("User"):],
+                    "-o", f"HostKeyAlgorithms={family}", "-o", "PreferredAuthentications=none",
+                    "-o", "ConnectTimeout=8", "-p", str(port), "-l", "odin-scan", "--", address,
+                    "exit"], timeout)
+            except TimeoutError:
+                last = f"ssh timed out after {timeout:g}s scanning {family}".encode()
             if os.path.exists(known):
                 with open(known, "rb") as handle:
                     lines.extend(line for line in handle.read().splitlines() if line.strip())
