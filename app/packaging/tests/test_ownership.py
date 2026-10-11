@@ -188,6 +188,52 @@ class OwnershipTests(unittest.TestCase):
             with own.replacement_guard(self.paths):
                 self.assertEqual(self.receipts_verdict(), (0, ''))
 
+    def test_receipts_verdict_exit_says_whether_a_restart_ends_the_refusal(self):
+        with self.boot(BOOT_A):
+            self.lease('core').close()  # this boot's lifetime, unresolved: the next boot ends it
+            self.assertEqual(self.receipts_verdict()[0], 1)
+        with mock.patch.object(own, 'BOOT_ID', self.root / 'missing'):
+            # No readable boot identity: a restart may change nothing.
+            code, message = self.receipts_verdict()
+            self.assertEqual(code, 2)
+            self.assertIn('Unresolved lifetime evidence', message)
+        with self.boot(BOOT_B):
+            self.assertEqual(self.receipts_verdict(), (0, ''))
+            (self.paths.receipts / 'damaged.json').write_text('{"version": 1, "ro')
+            # Evidence that can't be read: a restart changes nothing.
+            code, message = self.receipts_verdict()
+            self.assertEqual(code, 2)
+            self.assertIn('Odin install ownership refusal', message)
+
+    def test_an_interrupted_windows_receipt_write_is_not_a_receipt(self):
+        with self.boot(BOOT_A):
+            self.lease('core').close()  # an earlier boot's lifetime, below
+        # Windows' publish primitive's temporary, cut off mid-write and never renamed into place.
+        name = f'.{os.urandom(16).hex()}-app.json.{os.urandom(16).hex()}.tmp'
+        leftover = self.paths.receipts / name
+        leftover.write_text('{"version": 1, "ro')
+
+        def plain(path):  # the Windows reader's result, without the Windows file API
+            return json.loads(Path(path).read_text())
+
+        with mock.patch.object(own, '_read', plain), \
+                mock.patch.object(own, '_boot_id', lambda: BOOT_B):
+            with mock.patch.object(own, 'WINDOWS', True):
+                own.verify_receipts(self.paths)
+                # Only that exact shape is skipped: anything else is still read, and refused.
+                leftover.unlink()
+                for name in ('.short.tmp', f'.x.{os.urandom(15).hex()}.tmp',
+                             f'x.{os.urandom(16).hex()}.tmp', f'.x.{os.urandom(16).hex()}.tmp.old',
+                             f'.X.{os.urandom(16).hex().upper()}.tmp', 'stray.json'):
+                    near = self.paths.receipts / name
+                    near.write_text('{"version": 1, "ro')
+                    with self.assertRaises(ValueError, msg=name):
+                        own.verify_receipts(self.paths)
+                    near.unlink()
+                leftover.write_text('{"version": 1, "ro')
+            with mock.patch.object(own, 'WINDOWS', False), self.assertRaises(ValueError):
+                own.verify_receipts(self.paths)  # Linux reads every file, as before
+
     def test_earlier_unknown_fences_its_boot_not_the_next(self):
         with self.boot(BOOT_A):
             crashed = self.lease('core')

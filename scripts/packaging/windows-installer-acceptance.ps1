@@ -301,6 +301,17 @@ if ($Mode -eq 'user') {
     Check "receipts: $($case[2])" ($code -eq $case[1] -and -not (Test-Path $marker)) "exit $code, boot $($case[0])"
   }
   Remove-Item -LiteralPath $crashed -ErrorAction SilentlyContinue
+  # An interrupted receipt write's leftover (the publish primitive's ".<name>.<32 hex>.tmp", cut off mid-write) was
+  # never a receipt, so it doesn't fence. A damaged receipt does: a restart wouldn't change it.
+  $leftover = Join-Path $ownership "receipts\.acceptance-app.json.$([guid]::NewGuid().ToString('N')).tmp"
+  $damaged = Join-Path $ownership 'receipts\acceptance-damaged.json'
+  foreach ($case in @(@($leftover, 0, 'an interrupted write''s leftover doesn''t fence the install'),
+                      @($damaged, 2, 'a damaged receipt refuses the install'))) {
+    Set-Content -LiteralPath $case[0] -Encoding ascii -Value '{"boot_id": "'
+    $code = Install @('/S')
+    Check "receipts: $($case[2])" ($code -eq $case[1] -and -not (Test-Path $marker)) "exit $code"
+    Remove-Item -LiteralPath $case[0] -ErrorAction SilentlyContinue
+  }
 
   # The lease must be an ordinary file of its own: a hard link (as any link or redirect) is refused, changing nothing.
   # The next run creates a real one again.

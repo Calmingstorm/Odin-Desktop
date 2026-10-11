@@ -46,6 +46,15 @@ class PendingReplacement(OwnershipError):  # noqa: N818
 PENDING_EXIT = 75
 
 
+class UnresolvedLifetime(OwnershipError):  # noqa: N818
+    """A lifetime from this boot hasn't been shown to end clean: it fences until this boot ends."""
+
+
+# Windows' publish primitive writes ".<name>.<32 hex>.tmp" beside its target and renames it into
+# place; one that is still there is an interrupted write's leftover, never a published file.
+_PUBLISH_LEFTOVER = re.compile(r'\..+\.[0-9a-f]{32}\.tmp')
+
+
 @dataclass(frozen=True)
 class OwnershipPaths:
     directory: Path
@@ -223,7 +232,7 @@ def _clean(app_cleanup, core_cleanup, role):
             or any(row.get('state') not in {'released', 'not_started'}
                    for row in resources.values() if isinstance(row, dict))
             or any(not isinstance(row, dict) for row in resources.values())):
-        raise OwnershipError('Core resource cleanup is unresolved')
+        raise UnresolvedLifetime('Core resource cleanup is unresolved')
     if role == 'app':
         app = _read(app_cleanup)
         current = app.get('current', app)
@@ -231,7 +240,7 @@ def _clean(app_cleanup, core_cleanup, role):
                 or current.get('shutdownAccepted') is not True
                 or current.get('processOutcome') not in {'exited', 'not-running'}
                 or current.get('unsaved') or current.get('unreceipted', 0)):
-            raise OwnershipError('Current app Exit is not clean')
+            raise UnresolvedLifetime('Current app Exit is not clean')
 
 
 def _write(path, value):
@@ -330,13 +339,18 @@ def verify_receipts(paths):
         return  # no lifetime has ever been admitted here
     boot = _boot_id()
     for path in paths.receipts.iterdir():
+        if WINDOWS and _PUBLISH_LEFTOVER.fullmatch(path.name):
+            # Never renamed into place, so never a receipt: an interrupted begin admitted nothing
+            # (the app and core wait for it before any work), and an interrupted finish left the
+            # receipt it was replacing, which fences on its own. Read, it would fence forever.
+            continue
         receipt = _read(path)
         if _earlier_boot(receipt.get('boot_id'), boot):
             continue
         if receipt.get('state') != 'clean':
-            raise OwnershipError('Unresolved lifetime evidence blocks replacement')
+            raise UnresolvedLifetime('Unresolved lifetime evidence blocks replacement')
         if not all(key in receipt for key in ('app_cleanup', 'core_cleanup', 'role')):
-            raise OwnershipError('Incomplete lifetime receipt blocks replacement')
+            raise UnresolvedLifetime('Incomplete lifetime receipt blocks replacement')
         _clean(receipt['app_cleanup'], receipt['core_cleanup'], receipt['role'])
 
 
@@ -451,11 +465,17 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
         parser.error('the following arguments are required: --kind')
     if args.action == 'receipts':
         # Read-only: the Windows installer holds the lease exclusively and asks for the verdict.
+        # 1: a lifetime from this boot is unresolved, and a restart ends that (this boot's identity
+        # is readable, so the next one's differs); 2: anything a restart won't change, such as
+        # evidence that can't be read. The installer words the two differently.
         try:
             verify_receipts(ownership_paths(args.kind))
+        except UnresolvedLifetime as error:
+            print(f'Odin install ownership refusal: {error}', file=sys.stderr)
+            return 1 if _boot_id() else 2
         except (OwnershipError, OSError, ValueError) as error:
             print(f'Odin install ownership refusal: {error}', file=sys.stderr)
-            return 1
+            return 2
         return 0
     app_cleanup, core_cleanup = _profile(os.environ)
     try:

@@ -24,6 +24,11 @@ with the limits below accepted for the first Windows release.
   (`ownership.py receipts --kind nsis`).
   - A lifetime from this boot without confirmed cleanup refuses ("Restart the computer"). An earlier boot's no
     longer fences, by its well-formed boot identity.
+  - Anything a restart won't change refuses with "couldn't confirm" instead: a record that can't be read, or no
+    readable boot identity. The guardian's exit says which (1 or 2).
+  - An interrupted write's leftover temporary in the receipts folder isn't a record and is skipped. It never got
+    renamed into place: an interrupted start admitted nothing, and an interrupted end left the record it was
+    replacing, which still counts. No writer can be mid-write then, since the installer holds the lease.
   - Results are compared as text, so a guardian that doesn't start refuses too.
 - **An unfinished run fences Odin.** `transaction.json` is written before anything changes. While it exists, the
   app's guardian refuses every start ("An Odin installation didn't finish. Run the Odin installer again.", exit 75 on
@@ -61,6 +66,8 @@ They are candidates for a later release.
 - **Same-user redirection.** The lease file is checked by handle, but its folders, the install folder's ancestors and
   `Programs` aren't validated as non-redirected. Same-user code is outside the boundary, as everywhere else in Odin
   Desktop.
+- **A damaged lifetime record** refuses every install ("couldn't confirm") until it's removed by hand. Records
+  are written atomically, so only disk damage or editing produces one.
 - **A process the check can't read** (its image path unavailable) is treated as not from the installation.
 - **The writability probe** (`customInit`) runs before the lease is taken, so a refusal after it may leave an empty
   install folder.
@@ -72,6 +79,7 @@ They are candidates for a later release.
 - the same for a bundled process running without the lease;
 - an unfinished run fences the start, and a rerun completes;
 - this boot's unconfirmed receipt refuses, and an earlier boot's passes;
+- an interrupted write's leftover passes, and a damaged receipt refuses;
 - a linked lease is refused;
 - an in-place uninstall doesn't count itself.
 
