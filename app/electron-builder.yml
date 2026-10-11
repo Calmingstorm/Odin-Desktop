@@ -23,9 +23,16 @@ extraResources:
     to: bundle-manifest.json
   - from: ../.packaging-stage/legal
     to: legal
-  - from: packaging/apparmor-profile
-    to: apparmor-profile
+  # Windows stage alone contains this allowlisted tree. Linux assembly refuses
+  # tools/ before this shared matcher can copy a foreign platform payload.
+  - from: ../.packaging-stage
+    to: .
+    filter:
+      - tools/**
 linux:
+  extraResources:
+    - from: packaging/apparmor-profile
+      to: apparmor-profile
   target:
     - target: deb
       arch: [x64]

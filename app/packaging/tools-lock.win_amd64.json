@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "platform": "win_amd64",
+  "openssh": {
+    "version": "10.0.0.0p2-Preview",
+    "url": "https://github.com/PowerShell/Win32-OpenSSH/releases/download/10.0.0.0p2-Preview/OpenSSH-Win64.zip",
+    "sha256": "23f50f3458c4c5d0b12217c6a5ddfde0137210a30fa870e98b29827f7b43aba5",
+    "size": 5704583,
+    "archive_root": "OpenSSH-Win64",
+    "license": "BSD-style OpenSSH license AND bundled third-party notices",
+    "provenance": "https://api.github.com/repos/PowerShell/Win32-OpenSSH/releases/tags/10.0.0.0p2-Preview; archive SHA-256 and size agree with release API and downloaded bytes",
+    "upstream_support_status": "This is a preview-release (non-production ready)",
+    "support_decision": "Private disposable phase-4 candidate only. Public phase-5 release blocked pending explicit reviewed acceptance or supplier replacement. GitHub prerelease=false is not production support.",
+    "signature_status": "Native Authenticode publisher verification remains required; archive digest is integrity, not authenticity.",
+    "closure_policy": "Only ssh and ssh-keygen clients, imported libcrypto.dll and LICENSE/NOTICE. No server, agent, scripts, services, ACL installers, PKCS11 or hardware-key helpers. Audit system DLL imports against Win11 baseline.",
+    "executables": ["ssh.exe", "ssh-keygen.exe"],
+    "files": ["ssh.exe", "ssh-keygen.exe", "libcrypto.dll", "LICENSE.txt", "NOTICE.txt"],
+    "closure_sha256": "e0f92bec5b51f2012af6ff6b0bf62ecaca0cc17b9e89129244eced4ae8cd2b5e"
+  },
+  "curl": {
+    "version": "8.22.0_3",
+    "url": "https://curl.se/windows/dl-8.22.0_3/curl-8.22.0_3-win64-mingw.zip",
+    "sha256": "f38b0ac2e3a280fd414b607c874a21e6dd4d1ed0e2ae622afbf0020917446561",
+    "size": 8688824,
+    "archive_root": "curl-8.22.0_3-win64-mingw",
+    "license": "curl AND bundled third-party notices; Mozilla CA data MPL-2.0",
+    "provenance": "https://curl.se/windows/ official versioned x64 distribution; archive SHA-256 agrees with upstream page and downloaded bytes. BUILD-MANIFEST and BUILD-HASHES retained. Upstream signature verification remains qualification evidence.",
+    "tls_backend": "LibreSSL 4.3.3, statically linked (supplier BUILD-MANIFEST; native curl --version must confirm)",
+    "trust_policy": "Pinned install-relative curl-ca-bundle.crt only. Both routes pass --disable first then --cacert absolute-path and clear CURL_CA_BUNDLE/SSL_CERT_FILE/SSL_CERT_DIR. No native store, curlrc, CWD, PATH CA discovery, insecure retry or download fallback. verify_ssl=false is explicit caller behavior only.",
+    "signature_status": "Official detached OpenSSH archive signature VERIFIED locally using ssh-keygen -Y verify against upstream allowed-signers pinned to curl-for-win 9d77e31e. Good file signature for id-curl-for-win-sign ED25519 SHA256:4XoVc6BoX9VqDd7VhM3dNj0DS5hfutXGdbn/FSxPkoo. Trust anchor reviewed from supplier HTTPS repo, not an independent out-of-band identity. Windows code signatures are reproducibly self-signed, not Windows-trusted publisher evidence.",
+    "signature_verification": {
+      "signature_url": "https://curl.se/windows/dl-8.22.0_3/curl-8.22.0_3-win64-mingw.zip.sig",
+      "signature_sha256": "e33102ea376d2588ac3b64b99c883ce075b4839c6e2b54c9b95217ee6218a19e",
+      "allowed_signers_url": "https://raw.githubusercontent.com/curl/curl-for-win/9d77e31e/id-curl-for-win-sign.id",
+      "allowed_signers_sha256": "0f348516b6d25137c7a9b87340cb68025603b3711255a69ff4ff443772cf74a0",
+      "identity": "id-curl-for-win-sign",
+      "namespace": "file",
+      "verified_archive_sha256": "f38b0ac2e3a280fd414b607c874a21e6dd4d1ed0e2ae622afbf0020917446561"
+    },
+    "closure_policy": "curl.exe statically links third-party libraries; imported API sets/system DLLs require Win11 baseline audit. No unused libcurl DLL, trurl, wcurl, headers or libraries. Ship pinned CA and all supplier dependency notices.",
+    "executables": ["curl.exe"],
+    "files": ["bin/curl.exe", "bin/curl-ca-bundle.crt", "COPYING.txt", "BUILD-MANIFEST.txt", "BUILD-HASHES.txt", "README.txt", "dep/brotli/LICENSE.txt", "dep/certdata/LICENSE.url", "dep/libpsl/COPYING.txt", "dep/libressl/COPYING.txt", "dep/libssh2/COPYING.txt", "dep/nghttp2/COPYING.txt", "dep/nghttp3/COPYING.txt", "dep/ngtcp2/COPYING.txt", "dep/psl/LICENSE.txt", "dep/trurl/COPYING.txt", "dep/zlibng/LICENSE.md", "dep/zstd/LICENSE.txt"],
+    "closure_sha256": "f4c4fcc999102606e77c29774d3f44fe70ea0327f03415128920139a4a257fa5",
+    "ca_bundle": {"path": "curl-ca-bundle.crt", "size": 188900, "sha256": "1fdcf2a55c9806c4c1e8391cb283871ee3b209d68a2879ce4c0898d949de2545"}
+  },
+  "closure_inventory_format": "sorted source-relative file records path,size,sha256; json sort_keys=True separators=(',',':')"
+}

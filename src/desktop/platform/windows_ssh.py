@@ -1,6 +1,7 @@
 """Windows: SSH from this computer to Linux hosts (phase 3 plan C6).
 
-* Windows' own OpenSSH client and tools, by absolute path: a bare ``ssh`` would let
+* Bundled OpenSSH clients when packaged, Windows' own clients from source, by
+  absolute path: a bare ``ssh`` would let
   ``CreateProcess`` search the engine's folder and current directory before System32.
 * No ControlMaster: Windows' OpenSSH has no connection sharing, so every command is
   a connection of its own.
@@ -26,6 +27,7 @@ import tempfile
 
 from . import win32
 from .windows_files import user_sid
+from .windows_payloads import packaged_file
 
 CREATE_NO_WINDOW = subprocess.CREATE_NO_WINDOW
 # One connection per family: ssh records the key it was offered.
@@ -37,9 +39,12 @@ _MISSING = ("Windows' OpenSSH client isn't installed "
 
 
 def openssh(name: str) -> str:
-    """The absolute path of one of Windows' OpenSSH programs."""
+    """Bundled clients when packaged, the OS clients when running from source."""
     if name not in _TOOLS:
         raise ValueError(f"not an OpenSSH client program: {name}")
+    bundled = packaged_file(f"tools/openssh/{name}.exe")
+    if bundled is not None:
+        return str(bundled)
     root = os.environ.get("SystemRoot") or os.environ.get("windir") or r"C:\Windows"
     path = os.path.join(root, "System32", "OpenSSH", f"{name}.exe")
     if not os.path.isfile(path):

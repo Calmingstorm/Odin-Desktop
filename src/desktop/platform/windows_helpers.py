@@ -18,6 +18,7 @@ import shlex
 
 from ...tools.branch_freshness import FRESHNESS_CHECK_TIMEOUT
 from .windows_exec import ps_quote, release, spawn, terminate
+from .windows_payloads import curl_environment, curl_policy_args, packaged_file
 
 # --- Branch freshness -----------------------------------------------------------------------
 
@@ -74,6 +75,9 @@ def resolve_handler(self, tool_name: str):
 
 
 def curl_exe() -> str:
+    bundled = packaged_file("tools/curl/curl.exe")
+    if bundled is not None:
+        return str(bundled)
     path = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "curl.exe")
     if not os.path.isfile(path):
         raise FileNotFoundError(
@@ -89,7 +93,8 @@ async def run_argv(argv: list[str], timeout: int) -> tuple[int, str]:
     from ...tools.ssh import _truncate_output
 
     try:
-        running = await spawn(argv)
+        environment = curl_environment()
+        running = await spawn(argv, **({"env": environment} if environment is not None else {}))
     except OSError as exc:
         return 1, f"Local exec error: {safe_error(exc)}"
     try:
@@ -121,7 +126,7 @@ async def probe(executor, address: str, command: str, ssh_user: str, *, target=N
     if argv[:1] != ["curl"]:
         raise ValueError("http_probe runs curl")
     try:
-        argv[0] = curl_exe()
+        argv = [curl_exe(), *curl_policy_args(), *argv[1:]]
     except FileNotFoundError as exc:
         return 1, str(exc)
     timeout = _current_tool_timeout_ctx.get() or executor.config.command_timeout_seconds
