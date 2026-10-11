@@ -22,6 +22,8 @@ def test_the_installer_job_builds_with_the_windows_entry_then_runs_the_acceptanc
     failing = next(i for i, run in enumerate(runs) if "-FailAt" in run)
     assert build < failing < accept  # the report path is proved before the real run
     assert "the run reached its end" in runs[failing]
+    # GitHub's PowerShell wrapper exits with the last exit code, the intentional failure's 1.
+    assert runs[failing].rstrip().splitlines()[-1].strip().startswith("exit 0")
     acceptance = steps[accept]
     # Windows PowerShell: the local-accounts cmdlets, and the user's cases run under it too.
     assert acceptance["shell"] == "powershell"

@@ -114,6 +114,7 @@ jobs:
             throw 'the failing run lost the checks before its failure' }
           if (-not ($checks | Where-Object { $_.check -eq 'the run reached its end' -and
               $_.detail -like '*intentional failure*' })) { throw 'the failing run did not record its failure' }
+          exit 0  # the runner would otherwise exit with the intentional failure's code
       - name: The installer, elevated and as a disposable standard user
         shell: powershell
         run: |

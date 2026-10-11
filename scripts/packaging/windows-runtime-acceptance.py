@@ -63,6 +63,29 @@ def profile_environment(work: Path, resources: Path, ambient: dict[str, str]) ->
 FIRST_CALL_DEADLINE = 20
 
 
+def powershell_starts() -> dict:
+    """Windows PowerShell 5.1 starting in this environment, flagged as the engine's runner
+    starts it: with no cmdlet, with New-Object (its module loads on first use) twice, and with a
+    .NET constructor. Evidence only."""
+    import base64
+
+    from src.desktop.platform.windows_exec import powershell
+
+    timings = {}
+    utility = "$e = New-Object System.Text.UTF8Encoding $false; 'x'"
+    scripts = (("no cmdlet", "'x'"), ("New-Object", utility), ("New-Object again", utility),
+               (".NET constructor", "$e = [System.Text.UTF8Encoding]::new($false); 'x'"))
+    for label, script in scripts:
+        encoded = base64.b64encode(script.encode("utf-16-le")).decode()
+        start = time.monotonic()
+        subprocess.run([powershell(), "-NoLogo", "-NoProfile", "-NonInteractive",
+                        "-ExecutionPolicy", "Bypass", "-OutputFormat", "Text",
+                        "-EncodedCommand", encoded],
+                       capture_output=True, timeout=120, check=False)
+        timings[label] = round(time.monotonic() - start, 2)
+    return timings
+
+
 def digest_tree(root: Path) -> dict[str, str]:
     return {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in sorted(root.rglob("*")) if p.is_file()}
@@ -300,7 +323,7 @@ async def curl(work: Path) -> dict:
         server.shutdown()
         server.server_close()
     return {"version": version.strip(), "executable": str(executable), "cases": rows,
-            "first_call": first_call,
+            "first_call": first_call, "powershell_starts": powershell_starts(),
             "fixture_dependency": "trusted/hostname-mismatch require public HTTPS fixtures"}
 
 
@@ -375,10 +398,11 @@ def main() -> int:
                     env = profile_environment(case, resources, os.environ)
                 else:
                     env = cold_environment(case, resources, os.environ)
-                if mode == "curl" and hosted:
-                    # A deliberate, labelled exclusion: the hosted image's first PowerShell use in a
-                    # fabricated empty profile (recorded); curl-profile asserts the real profile's.
-                    env["ODIN_ACCEPTANCE_FIRST_CALL"] = "recorded: hosted fabricated profile"
+                if mode in ("curl", "curl-profile") and hosted:
+                    # A deliberate, labelled exclusion: on the hosted image every Windows PowerShell
+                    # validation takes about 11 s in either profile (measured; powershell_starts
+                    # breaks it down). The Windows 11 Legion asserts both first calls.
+                    env["ODIN_ACCEPTANCE_FIRST_CALL"] = "recorded: hosted image"
                 for name in ("home", "local", "roaming", "temp", "hf", "no-browser-cache"):
                     (case / name).mkdir()
                 output = case / "result.json"
