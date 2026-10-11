@@ -66,29 +66,6 @@ FIRST_CALL_DEADLINE = 20
 CONNECTION_FAILURES = frozenset({6, 7, 28, 35, 52, 56})
 
 
-def powershell_starts() -> dict:
-    """Windows PowerShell 5.1 starting in this environment, flagged as the engine's runner
-    starts it: with no cmdlet, with New-Object (its module loads on first use) twice, and with a
-    .NET constructor. Evidence only."""
-    import base64
-
-    from src.desktop.platform.windows_exec import powershell
-
-    timings = {}
-    utility = "$e = New-Object System.Text.UTF8Encoding $false; 'x'"
-    scripts = (("no cmdlet", "'x'"), ("New-Object", utility), ("New-Object again", utility),
-               (".NET constructor", "$e = [System.Text.UTF8Encoding]::new($false); 'x'"))
-    for label, script in scripts:
-        encoded = base64.b64encode(script.encode("utf-16-le")).decode()
-        start = time.monotonic()
-        subprocess.run([powershell(), "-NoLogo", "-NoProfile", "-NonInteractive",
-                        "-ExecutionPolicy", "Bypass", "-OutputFormat", "Text",
-                        "-EncodedCommand", encoded],
-                       capture_output=True, timeout=120, check=False)
-        timings[label] = round(time.monotonic() - start, 2)
-    return timings
-
-
 def digest_tree(root: Path) -> dict[str, str]:
     return {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in sorted(root.rglob("*")) if p.is_file()}
@@ -287,19 +264,16 @@ async def curl(work: Path) -> dict:
     assert code == 0, version
     assert "curl 8.22.0" in version and "LibreSSL/4.3.3" in version, version
     owner = local_executor()
-    # This process's first validation, cold, inside the product's default timeout. The parent says
-    # whether it's asserted: always, except a hosted runner's fabricated profile, which it records.
+    # This process's first validation, cold, inside the product's default timeout, on every runner.
     start = time.monotonic()
     first = json.loads(await handle_validate_action(owner, {"format": "json", "checks": [{
         "type": "http", "target": "https://example.com/", "timeout_seconds": FIRST_CALL_DEADLINE,
         "expected": 200}]}))["checks"][0]
     first_call = {"seconds": round(time.monotonic() - start, 2), "status": first["status"],
                   "observed": str(first.get("observed", ""))[-300:],
-                  "deadline_seconds": FIRST_CALL_DEADLINE,
-                  "policy": os.environ.get("ODIN_ACCEPTANCE_FIRST_CALL", "asserted")}
+                  "deadline_seconds": FIRST_CALL_DEADLINE}
     print(json.dumps({"first_call": first_call}), flush=True)
-    if first_call["policy"] == "asserted":
-        assert first["status"] == "pass", first_call
+    assert first["status"] == "pass", first_call
     server = self_signed_server(work)
     rows = []
     try:
@@ -336,7 +310,7 @@ async def curl(work: Path) -> dict:
         server.shutdown()
         server.server_close()
     return {"version": version.strip(), "executable": str(executable), "cases": rows,
-            "first_call": first_call, "powershell_starts": powershell_starts(),
+            "first_call": first_call,
             "fixture_dependency": "trusted/hostname-mismatch require public HTTPS fixtures"}
 
 
@@ -403,7 +377,6 @@ def main() -> int:
             work = Path(temporary)
             copied = work / "acceptance.py"
             shutil.copyfile(__file__, copied)
-            hosted = os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted"
             for mode in ("loads", "browser", "search", "pdf", "curl-profile", "curl", "ssh"):
                 case = work / mode
                 case.mkdir()
@@ -411,11 +384,6 @@ def main() -> int:
                     env = profile_environment(case, resources, os.environ)
                 else:
                     env = cold_environment(case, resources, os.environ)
-                if mode in ("curl", "curl-profile") and hosted:
-                    # A deliberate, labelled exclusion: on the hosted image every Windows PowerShell
-                    # validation takes about 11 s in either profile (measured; powershell_starts
-                    # breaks it down). The Windows 11 Legion asserts both first calls.
-                    env["ODIN_ACCEPTANCE_FIRST_CALL"] = "recorded: hosted image"
                 for name in ("home", "local", "roaming", "temp", "hf", "no-browser-cache"):
                     (case / name).mkdir()
                 output = case / "result.json"
