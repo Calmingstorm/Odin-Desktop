@@ -221,6 +221,24 @@ describe('inert main-process lifecycle wiring', () => {
     expect(m.app.setPath.mock.invocationCallOrder[0]).toBeLessThan(m.app.requestSingleInstanceLock.mock.invocationCallOrder[0]);
     expect(m.app.setPath.mock.invocationCallOrder[0]).toBeLessThan(m.app.whenReady.mock.invocationCallOrder[0]);
   })
+  it('lets the installed app refuse to start before identity, the instance lock or any profile', async () => {
+    m.app.isPackaged = true
+    vi.doMock('../src/main/platform', async (original) => {
+      const real = await original<typeof import('../src/main/platform')>()
+      return { currentPlatform: () => ({ ...real.currentPlatform(), startRefusal: () => 'started elevated' }) }
+    })
+    try {
+      await boot()
+      expect(m.errorBox).toHaveBeenCalledExactlyOnceWith('Odin didn\'t start', 'started elevated')
+      expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(1)
+      expect(m.app.setPath).not.toHaveBeenCalled()
+      expect(m.app.requestSingleInstanceLock).not.toHaveBeenCalled()
+      expect(m.acquire).not.toHaveBeenCalled()
+      expect(m.windows).toHaveLength(0)
+    } finally {
+      vi.doUnmock('../src/main/platform')
+    }
+  })
   it('quits duplicate/exit-only launches before constructing the profile or core', async () => {
     m.lock = false; await boot(); expect(m.app.quit).toHaveBeenCalledOnce(); expect(m.brokers).toHaveLength(0);
     vi.resetModules(); m.lock = true; await boot(['--exit']); expect(m.app.quit).toHaveBeenCalledTimes(2); expect(m.supervisors).toHaveLength(0);

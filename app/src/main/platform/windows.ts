@@ -3,6 +3,7 @@
 import { app, BrowserWindow } from 'electron'
 import type { CoreLaunch } from '../core-command'
 import type { AppPlatform } from './contracts'
+import { elevatedStartRefusal } from './windows-elevation'
 import { ensureWindowsProfileDirs, ensureWindowsToken, windowsProfilePaths } from './windows-paths'
 
 export const AUTOSTART_UNAVAILABLE = 'Start at login comes with the installed Windows app.'
@@ -57,6 +58,7 @@ export const windowsPlatform: AppPlatform = {
   inspectPackagedState: () => packagedUnavailable(),
   acquirePackagedApp: async () => packagedUnavailable(),
   admitPackagedApp: async () => packagedUnavailable(),
+  startRefusal: () => elevatedStartRefusal(),
   startSessionMonitor: (launch, onEnd) => windowsSessionMonitor(launch, onEnd),
   installLogoutHook: () => null
 }

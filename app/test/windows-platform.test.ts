@@ -18,6 +18,8 @@ import { configureIdentity } from '../src/main/identity'
 import type { ProfilePaths } from '../src/main/paths'
 import { currentPlatform } from '../src/main/platform'
 import { AUTOSTART_UNAVAILABLE, windowsPlatform, windowsSessionMonitor } from '../src/main/platform/windows'
+import { ELEVATED_REFUSAL, elevatedStartRefusal, integrityLevel, UNCHECKED_REFUSAL }
+  from '../src/main/platform/windows-elevation'
 import { ensureWindowsProfileDirs, ensureWindowsToken, localAppData, parseWhoamiUser, pipeName,
   windowsProfilePaths } from '../src/main/platform/windows-paths'
 import { CleanupJournal, type JournalFs } from '../src/main/shutdown'
@@ -375,5 +377,42 @@ describe('the cleanup journal on Windows', () => {
     const reread = new CleanupJournal(path, { system: 'win32' })
     expect(reread.notice).toBeNull()
     expect(reread.archived.map((row) => row.id)).toContain(notice.id)
+  })
+})
+
+describe('an elevated start of the installed app', () => {
+  // whoami /groups /fo csv /nh: each group's name, type, SID and attributes; the mandatory label is one row.
+  const groups = (label: string): string => [
+    '"Everyone","Well-known group","S-1-1-0","Mandatory group, Enabled by default, Enabled group"',
+    '"BUILTIN\\Administrators","Alias","S-1-5-32-544","Group used for deny only"',
+    `"Mandatory Label\\${label} Mandatory Level","Label","S-1-16-${{ Medium: 8192, High: 12288, System: 16384 }[label]}",""`
+  ].join('\r\n')
+  const answering = (stdout: string, status = 0) => vi.fn(() => ({ status, stdout }))
+  const env = { SystemRoot: 'C:\\Windows' }
+
+  it('reads the integrity level from whoami\'s mandatory label', () => {
+    expect(integrityLevel(groups('Medium'))).toBe(8192)
+    expect(integrityLevel(groups('High'))).toBe(12288)
+    expect(integrityLevel('"Everyone","Well-known group","S-1-1-0",""')).toBeNull()
+  })
+
+  it('lets a normal token start, a filtered administrator\'s included, and refuses High or System', () => {
+    const run = answering(groups('Medium'))
+    expect(elevatedStartRefusal(env, run)).toBeNull()
+    expect(run).toHaveBeenCalledWith('C:\\Windows\\System32\\whoami.exe', ['/groups', '/fo', 'csv', '/nh'],
+      expect.objectContaining({ windowsHide: true, timeout: 5_000 }))
+    expect(elevatedStartRefusal(env, answering(groups('High')))).toBe(ELEVATED_REFUSAL)
+    expect(elevatedStartRefusal(env, answering(groups('System')))).toBe(ELEVATED_REFUSAL)
+  })
+
+  it('refuses when it can\'t tell, rather than starting on a guess', () => {
+    expect(elevatedStartRefusal({}, answering(groups('Medium')))).toBe(UNCHECKED_REFUSAL)
+    expect(elevatedStartRefusal(env, answering(groups('Medium'), 1))).toBe(UNCHECKED_REFUSAL)
+    expect(elevatedStartRefusal(env, vi.fn(() => ({ status: null, error: new Error('timed out') })))).toBe(UNCHECKED_REFUSAL)
+    expect(elevatedStartRefusal(env, answering('"Everyone","Well-known group","S-1-1-0",""'))).toBe(UNCHECKED_REFUSAL)
+  })
+
+  it('is the Windows platform\'s start refusal', () => {
+    expect(windowsPlatform.startRefusal).toBeTypeOf('function')
   })
 })
