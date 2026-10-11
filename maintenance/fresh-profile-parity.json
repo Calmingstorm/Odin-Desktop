@@ -354,7 +354,7 @@
     "src/desktop/platform/windows_patch.py": "ca51288baa820674c5e24c4b47cd5566de47940ada1df652c310cdb38ce04127",
     "src/desktop/platform/windows_process.py": "04947634147a31b1e5bea7cdaa14f5569eaf872ff21c35e368e780c696c1a5e2",
     "src/desktop/platform/windows_read.py": "d35bd01071b87d76bbb7cbd0d0f705ebaea1d1723855034b6a42da6a6f6e3129",
-    "src/desktop/platform/windows_safety.py": "1983e4401ce6a10493fe0c5be13bc1bd1207d1631297b01e44f2763800d48f80",
+    "src/desktop/platform/windows_safety.py": "4386d9f31f8c971811175e05fa14a60cf3dc171436feca6b52ea4b4b01bc7f50",
     "src/desktop/platform/windows_secrets.py": "5192bd47ac1ff125ad2b927601092c1ea9eb662b2017ff47a49c41fe6bc318bb",
     "src/desktop/platform/windows_tools.py": "c7c108939fb3177c6b281ec7db72e92af69953e6c2b7459d1dbbe77ebc98c7a3",
     "src/desktop/platform/windows_workspace.py": "25493a9f6480133c058613532b78dbee39d77dce336544184b5c8192baf2a737",

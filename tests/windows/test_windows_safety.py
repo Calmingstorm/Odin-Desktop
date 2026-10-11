@@ -27,6 +27,16 @@ from tests.test_desktop_windows_safety import (
     test_medium,
     test_remote_unknown_and_disabled_routes,
     test_lease_address_wins_registry,
+    test_review_b1_counterparts,
+    test_review_b1_sql_text_floor,
+    test_review_b1_nonmutating_forms,
+    test_review_p3_download_spellings,
+    test_review_p3_download_data_not_execution,
+    test_review_p3_root_spellings,
+    test_review_p3_nonroot_spellings,
+    test_review_p3_profile_secret_store,
+    test_review_p3_secret_store_nonaccess,
+    test_review_p3_icm_alias,
 )
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="native Windows routing")

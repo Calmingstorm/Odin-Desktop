@@ -8,7 +8,9 @@ The original signed audit path remains; its pinned POSIX label may differ from
 Windows facts, but governor override notes remain in signed outcome summaries.
 Fetch plus expression execution in one source is conservatively co-occurrence,
 not proven dataflow. Literal download filenames are tracked only within this
-source, case-insensitively, without resolving filesystem identities or variables.
+source with lexical Windows path normalization, without resolving filesystem
+identities or variables. SQL statement text retains the pinned POSIX risk floor
+even in comments/quoted data, regardless of command head; SQL files are not read.
 Windows native argument reconstruction is bounded, not a full cmd/PS argv model.
 Some unchanged callers discard governor notes; no universal audit annotation is
 claimed. CRITICAL recognition bounds retain Odin's configured admin override.
@@ -18,11 +20,15 @@ from __future__ import annotations
 
 import base64
 import binascii
+import ntpath
 import re
 import shlex
 from dataclasses import dataclass, field
 
 from ...tools.risk_classifier import (
+    _CRITICAL_PATTERNS,
+    _HIGH_PATTERNS,
+    _MEDIUM_PATTERNS,
     _SUGGESTION_MAP,
     CommandFacts,
     CommandGovernor,
@@ -50,14 +56,16 @@ _ALIASES = {
     "gc": "get-content", "type": "get-content", "sc": "set-content",
     "ac": "add-content", "kill": "stop-process", "spps": "stop-process",
     "start": "start-process", "saps": "start-process",
+    "icm": "invoke-command",
 }
 _SENSITIVE = re.compile(
     r"[\\/]\.(?:ssh|aws|azure|kube)(?:[\\/]|\b)|id_rsa|id_ed25519|"
     r"[\\/]\.config[\\/]gcloud[\\/]|[\\/]system32[\\/]config[\\/](sam|security|system)\b|"
     r"(?:hklm:|registry::hkey_local_machine)[\\/](?:sam|security)(?:[\\/]|$)|"
     r"[\\/]microsoft[\\/](credentials|vault|protect)[\\/]|"
+    r"[\\/]odin-desktop[\\/][^\\/\s]+[\\/]data[\\/]secrets(?=[\\/]|\s|$)|"
     r"[\\/](login data|logins\.json|key4\.db|shadow|sudoers)\b", re.I)
-_ROOT = re.compile(r"^(?:[a-z]:[\\/](?:\*(?:\.\*)?)?|[\\/](?:\*(?:\.\*)?)?|\$(?:env:)?(?:systemdrive|windir|systemroot)(?:[\\/]\*(?:\.\*)?)?)$", re.I)
+_ROOT = re.compile(r"^(?:(?:\\\\\?\\)?[a-z]:[\\/](?:\*(?:\.\*)?)?|[\\/](?:\*(?:\.\*)?)?|(?:\$(?:env:)?(?:systemdrive|windir|systemroot)|%(?:systemdrive|windir|systemroot)%)(?:[\\/](?:\*(?:\.\*)?)?)?)$", re.I)
 _METADATA = re.compile(r"169\.254\.169\.254|169\.254\.170\.2|metadata\.google\.internal|100\.100\.100\.200|fd00:ec2::254", re.I)
 
 
@@ -194,7 +202,7 @@ def _segments(source: str, shell="powershell", depth=0) -> list[_Segment]:
     return result
 
 
-def _head(segment: _Segment, shell: str):
+def _launch_segment(segment: _Segment, shell: str):
     if segment.words and shell == "powershell":
         words = segment.words
         if len(words) >= 3 and words[0].value.startswith("$") and words[1].value == "=":
@@ -202,6 +210,11 @@ def _head(segment: _Segment, shell: str):
         elif len(words) >= 2 and re.fullmatch(r"\$[\w:]+=[^=].*", words[0].value):
             segment = _Segment(words=[_Word(words[0].value.split("=", 1)[1]), *words[1:]],
                                upstream=segment.upstream, called=segment.called)
+    return segment
+
+
+def _head(segment: _Segment, shell: str):
+    segment = _launch_segment(segment, shell)
     if not segment.words or segment.words[0].quoted and not segment.called and shell != "cmd":
         return "", []
     name = segment.words[0].value.lower().replace("/", "\\").rsplit("\\", 1)[-1]
@@ -238,11 +251,21 @@ def _scan(command, shell="powershell", depth=0):
     findings = [_facts()]
     force = None
     segments = _segments(command, shell, depth)
+    # Use the original regexes, not the full POSIX classifier: unrelated POSIX
+    # spellings must not become Windows rules. This deliberately preserves its
+    # conservative SQL text floor, including quoted strings and comments.
+    for level, patterns in ((RiskLevel.CRITICAL, _CRITICAL_PATTERNS),
+                            (RiskLevel.HIGH, _HIGH_PATTERNS),
+                            (RiskLevel.MEDIUM, _MEDIUM_PATTERNS)):
+        for pattern, reason in patterns:
+            if reason.startswith("database ") and pattern.search(command):
+                findings.append(_facts(level, reason))
     fetched = any(_head(s, shell)[0] in {"invoke-webrequest", "invoke-restmethod", "curl", "wget"} for s in segments)
     downloads = set()
     for segment in segments:
         name, args = _head(segment, shell)
         lower = [a.lower() for a in args]
+        service_args = lower[1:] if lower and lower[0].startswith("\\\\") else lower
         text = " ".join(args)
         sensitive = bool(_SENSITIVE.search(text))
         upstream, upstream_args = _head(segment.upstream, shell) if segment.upstream else ("", [])
@@ -257,10 +280,10 @@ def _scan(command, shell="powershell", depth=0):
                     if a in {"-o", "-O", "--output"}:
                         destination = args[i + 1]
             if destination and re.search(r"https?://", text, re.I):
-                downloads.add(destination.casefold())
-        if downloads and (segment.called and segment.words[0].value.casefold() in downloads
-                          or name in {"powershell", "pwsh"} and any(a.casefold() in downloads for a in args)
-                          or name in {"invoke-expression", "start-process", "python", "python3", "node", "wscript", "cscript"} and any(a.casefold() in downloads for a in args)):
+                downloads.add(ntpath.normpath(destination).casefold())
+        if downloads and (name and ntpath.normpath(_launch_segment(segment, shell).words[0].value).casefold() in downloads
+                          or name in {"powershell", "pwsh"} and any(ntpath.normpath(a).casefold() in downloads for a in args)
+                          or name in {"invoke-expression", "start-process", "python", "python3", "node", "wscript", "cscript"} and any(ntpath.normpath(a).casefold() in downloads for a in args)):
             add(RiskLevel.CRITICAL, "downloaded script execution", "remote_execution", True)
 
         if name in {"powershell", "pwsh", "cmd", "invoke-expression", "start-process"}:
@@ -312,7 +335,7 @@ def _scan(command, shell="powershell", depth=0):
         if name in {"remove-item", "del", "erase", "rd", "rmdir"}:
             targets = [re.sub(r"^-(?:path|literalpath):|^filesystem::", "", a.strip(), flags=re.I).rstrip(".")
                        for arg in args for a in arg.split(",")]
-            if any(_ROOT.fullmatch(a) or re.fullmatch(r"%(systemdrive|systemroot|windir)%(?:[\\/]\*(?:\.\*)?)?", a, re.I) for a in targets):
+            if any(_ROOT.fullmatch(a) for a in targets):
                 add(RiskLevel.CRITICAL, "recursive delete on root", "destructive")
             elif _param(args, "recurse", 1) or "/s" in lower:
                 add(RiskLevel.HIGH, "recursive delete", "destructive")
@@ -326,6 +349,28 @@ def _scan(command, shell="powershell", depth=0):
             add(RiskLevel.CRITICAL, "system reboot" if name == "restart-computer" or "/r" in lower else "system shutdown", "destructive")
         elif name in {"stop-service", "restart-service", "set-service", "stop-process", "taskkill", "remove-localuser", "remove-localgroup", "icacls", "takeown"}:
             add(RiskLevel.HIGH, "service lifecycle change" if "service" in name else "process/account/permission change")
+        elif name == "sc" and service_args[:1] in [["stop"], ["delete"], ["config"]]:
+            # sc.exe is native Service Control; bare PowerShell sc stays the
+            # Set-Content alias. A remote server may precede the verb.
+            add(RiskLevel.HIGH, "service lifecycle change")
+        elif name in {"net", "net1"} and lower:
+            if lower[0] == "stop":
+                add(RiskLevel.HIGH, "service lifecycle change")
+            elif lower[0] in {"user", "localgroup"}:
+                if "/delete" in lower:
+                    add(RiskLevel.HIGH, "user/group deletion")
+                elif "/add" in lower:
+                    add(RiskLevel.MEDIUM, "user/group management")
+                elif lower[0] == "user" and len(args) >= 3 and not args[2].startswith("/"):
+                    add(RiskLevel.HIGH, "password change")
+        elif name == "set-localuser" and _param(args, "password"):
+            add(RiskLevel.HIGH, "password change")
+        elif name in {"new-localuser", "new-localgroup", "add-localgroupmember"}:
+            add(RiskLevel.MEDIUM, "user/group management")
+        elif (name in {"winget", "choco"} and lower[:1] == ["uninstall"]
+              or name == "msiexec" and any(a == "/uninstall" or a.startswith("/x") for a in lower)
+              or name == "uninstall-package"):
+            add(RiskLevel.HIGH, "package removal")
         elif name in {"set-netfirewallprofile", "netsh"}:
             if name == "set-netfirewallprofile" and "false" in text.lower() or name == "netsh" and "firewall" in text.lower() and ("off" in lower or "reset" in lower):
                 add(RiskLevel.CRITICAL, "firewall disable", "destructive")
