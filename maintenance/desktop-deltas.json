@@ -1692,7 +1692,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/test_windows_installer_acceptance_ci.py": "aefc1056fdf2fee959db3b170d631fb6ad2b4032c66b22eb9ed60a819e278ec1"
+        "tests/test_windows_installer_acceptance_ci.py": "760cc191679e34010222264d902fd887249f876c0d5b2bf888e17d5e7c816c5f"
       },
       "tests": [
         "tests/test_windows_installer_acceptance_ci.py"
