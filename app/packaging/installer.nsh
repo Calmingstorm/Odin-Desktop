@@ -203,10 +203,11 @@ Var odinLeaseId
     nsExec::ExecToStack `"$INSTDIR\resources\runtime\python\python.exe" -I -B "$INSTDIR\resources\ownership.py" receipts --kind nsis`
     Pop $0
     Pop $2
-    ; Its exit 1: this boot's lifetime is unresolved, and a restart ends that; 2: anything a restart
-    ; won't change. Compared as text: nsExec reports a process that didn't start as "error", which
-    ; is 0 as a number.
-    ${If} $0 == "1"
+    ; Its exit 3: this boot's lifetime is unresolved, and a restart ends that; 2: anything a restart
+    ; won't change. Anything else, Python's own 1 for an unexpected failure included, couldn't
+    ; confirm. Compared as text: nsExec reports a process that didn't start as "error", which is 0
+    ; as a number.
+    ${If} $0 == "3"
       !insertmacro odinRefuse "An Odin session ended without confirmed cleanup since this computer started. Restart the computer, then run this again. Nothing was changed."
     ${ElseIf} $0 != "0"
       !insertmacro odinRefuse "Odin couldn't confirm that its last session ended cleanly, so nothing was changed."

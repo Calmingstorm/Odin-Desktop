@@ -359,15 +359,29 @@ def verify_receipts(paths):
         _judge(_read(path), boot)
 
 
+# The receipts verdict's answers. Restart is 3, never 1: Python exits 1 on any unexpected failure,
+# and that must never read as restart advice.
+RECEIPTS_LASTING = 2
+RECEIPTS_RESTART = 3
+
+
+def _refusal(path, error):
+    reason = str(error) if isinstance(error, OwnershipError) else f'{type(error).__name__}: {error}'
+    return f'{path.name}: {reason}'
+
+
 def receipts_verdict(paths):
     """The Windows installer's question, over every receipt, with the same judgement.
 
-    0: replacement may proceed. 1: only receipts bound to this boot refuse it, and a restart ends
-    them: each records this boot's well-formed identity, which is readable, so once another boot
-    runs, none fences. 2: something a restart won't change refuses it, such as a receipt that can't
-    be read, or one that records no well-formed boot (a lifetime admitted while the boot identity
-    was unreadable) and so never becomes an earlier boot's. A lasting refusal outranks restart
-    advice whatever order the folder lists them in. Returns the code and every refusal."""
+    0: replacement may proceed. RECEIPTS_RESTART: only receipts bound to this boot refuse it, and
+    a restart ends them: each records this boot's well-formed identity, which is readable, so once
+    another boot runs, _judge returns before reading anything else and none fences. That holds
+    whatever made one refuse, so every failure while judging a bound receipt is a restart one.
+    RECEIPTS_LASTING: something a restart won't change refuses it, such as a receipt that can't be
+    read, or one that records no well-formed boot (a lifetime admitted while the boot identity was
+    unreadable) and so never becomes an earlier boot's. A lasting refusal outranks restart advice
+    whatever order the folder lists them in, and one receipt's failure, of any kind, never stops
+    the others being judged. Returns the code and every refusal."""
     if not paths.receipts.is_dir():
         return 0, []
     boot = _boot_id()
@@ -375,17 +389,18 @@ def receipts_verdict(paths):
     for path in _receipt_files(paths):
         try:
             receipt = _read(path)
-        except (OwnershipError, OSError, ValueError) as error:
-            lasting.append(f'{path.name}: {error}')
+        except Exception as error:  # noqa: BLE001 - however it fails, it can't be read
+            lasting.append(_refusal(path, error))
             continue
         try:
             _judge(receipt, boot)
-        except (OwnershipError, OSError, ValueError) as error:
+        except Exception as error:  # noqa: BLE001 - a receipt not shown clean, for any reason
             recorded = receipt.get('boot_id')
             bound = boot is not None and isinstance(recorded, str) and bool(
                 _BOOT_ID_SHAPE.fullmatch(recorded))
-            (restart if bound else lasting).append(f'{path.name}: {error}')
-    return (2 if lasting else 1 if restart else 0), lasting + restart
+            (restart if bound else lasting).append(_refusal(path, error))
+    code = RECEIPTS_LASTING if lasting else RECEIPTS_RESTART if restart else 0
+    return code, lasting + restart
 
 
 @contextmanager
@@ -499,12 +514,12 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
         parser.error('the following arguments are required: --kind')
     if args.action == 'receipts':
         # Read-only: the Windows installer holds the lease exclusively and asks for the verdict
-        # (receipts_verdict: 1 a restart ends the refusal, 2 it doesn't). The installer words the
-        # two differently.
+        # (receipts_verdict: RECEIPTS_RESTART a restart ends the refusal, RECEIPTS_LASTING it
+        # doesn't). The installer words the two differently.
         try:
             code, refusals = receipts_verdict(ownership_paths(args.kind))
-        except (OwnershipError, OSError, ValueError) as error:
-            code, refusals = 2, [str(error)]
+        except Exception as error:  # noqa: BLE001 - never Python's own exit 1, never a crash
+            code, refusals = RECEIPTS_LASTING, [f'{type(error).__name__}: {error}']
         for refusal in refusals:
             print(f'Odin install ownership refusal: {refusal}', file=sys.stderr)
         return code

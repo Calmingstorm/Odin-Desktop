@@ -180,7 +180,7 @@ class OwnershipTests(unittest.TestCase):
             crashed = self.lease('core')
             crashed.close()  # ended without finish: its receipt stays running
             code, message = self.receipts_verdict()
-            self.assertEqual(code, 1)
+            self.assertEqual(code, own.RECEIPTS_RESTART)
             self.assertIn('Unresolved lifetime evidence', message)
         with self.boot(BOOT_B):
             self.assertEqual(self.receipts_verdict(), (0, ''))  # an earlier boot no longer fences
@@ -191,7 +191,7 @@ class OwnershipTests(unittest.TestCase):
     def test_receipts_verdict_exit_says_whether_a_restart_ends_the_refusal(self):
         with self.boot(BOOT_A):
             self.lease('core').close()  # this boot's lifetime, unresolved: the next boot ends it
-            self.assertEqual(self.receipts_verdict()[0], 1)
+            self.assertEqual(self.receipts_verdict()[0], own.RECEIPTS_RESTART)
         with mock.patch.object(own, 'BOOT_ID', self.root / 'missing'):
             # No readable boot identity: a restart may change nothing.
             code, message = self.receipts_verdict()
@@ -233,9 +233,55 @@ class OwnershipTests(unittest.TestCase):
             self.assertEqual(message.count('Odin install ownership refusal'), 2)  # both reported
         damaged.unlink()
         with self.boot(BOOT_A):
-            self.assertEqual(self.receipts_verdict()[0], 1)
+            self.assertEqual(self.receipts_verdict()[0], own.RECEIPTS_RESTART)
         with self.boot(BOOT_B):
             self.assertEqual(self.receipts_verdict(), (0, ''))  # restarted: it no longer fences
+
+    def verdict_process(self, boot):
+        """The receipts action as the installer runs it: its own process, its exit status."""
+        boot_file = self.root / f'boot-{boot[-1]}'
+        boot_file.write_text(boot + '\n')
+        driver = ('import importlib.util, sys\n'
+                  'from pathlib import Path\n'
+                  'spec = importlib.util.spec_from_file_location("ownership_cli", sys.argv[1])\n'
+                  'own = sys.modules[spec.name] = importlib.util.module_from_spec(spec)\n'
+                  'spec.loader.exec_module(own)\n'
+                  'own.BOOT_ID = Path(sys.argv[2])\n'
+                  'root = own.OwnershipPaths(Path(sys.argv[3]))\n'
+                  'own.ownership_paths = lambda kind, env=None: root\n'
+                  'sys.exit(own.main(["receipts", "--kind", "appimage"]))\n')
+        return subprocess.run([sys.executable, '-I', '-c', driver, str(MODULE), str(boot_file),
+                               str(self.paths.directory)], capture_output=True, text=True,
+                              timeout=60)
+
+    def test_a_wrong_typed_cleanup_record_is_a_classified_refusal(self):
+        # Odin's round 8 case: a clean receipt bound to no boot, whose core journal holds a
+        # list where a state belongs. Judging it raises TypeError; as an uncaught exception that
+        # was Python's exit 1, the old restart answer, which no restart could make true. The codes
+        # are the numbers the installer matches: 2 lasting, 3 restart, 0 clear.
+        self.paths.directory.mkdir(mode=0o700)
+        self.paths.receipts.mkdir(mode=0o700)
+        self.core.write_text(json.dumps({
+            'version': 1, 'state': 'complete', 'previous_unknown': None,
+            'resources': {'computer': {'state': []}, 'processes': {'state': 'released'}}}))
+        (self.paths.receipts / 'unbound.json').write_text(json.dumps(
+            {'version': 1, 'role': 'core', 'state': 'clean', 'boot_id': None,
+             'app_cleanup': str(self.app), 'core_cleanup': str(self.core)}))
+        for boot in (BOOT_A, BOOT_B):
+            run = self.verdict_process(boot)
+            self.assertEqual(run.returncode, 2, (boot, run.stderr))
+            self.assertIn('unbound.json: TypeError', run.stderr)
+            self.assertNotIn('Traceback', run.stderr)
+        # One receipt's failure never stops the others being judged.
+        with self.boot(BOOT_A):
+            self.lease('core').close()  # bound to boot A, unresolved
+        run = self.verdict_process(BOOT_A)
+        self.assertEqual(run.returncode, 2, run.stderr)
+        self.assertEqual(run.stderr.count('Odin install ownership refusal'), 2, run.stderr)
+        # Without it, the bound one alone: restart advice now, nothing after a restart.
+        (self.paths.receipts / 'unbound.json').unlink()
+        self.assertEqual(self.verdict_process(BOOT_A).returncode, 3)
+        self.assertEqual(self.verdict_process(BOOT_B).returncode, 0)
 
     def test_an_interrupted_windows_receipt_write_is_not_a_receipt(self):
         with self.boot(BOOT_A):

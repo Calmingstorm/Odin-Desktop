@@ -26,8 +26,9 @@ with the limits below accepted for the first Windows release.
     longer fences, by its well-formed boot identity.
   - Anything a restart won't change refuses with "couldn't confirm" instead: a record that can't be read, a
     record bound to no well-formed boot (a lifetime admitted while the boot identity couldn't be read), or no
-    readable boot identity now. The guardian's exit says which (1 or 2). It judges every record, so a lasting
-    refusal always wins over restart advice, whatever order the folder lists them in.
+    readable boot identity now. The guardian's exit says which (3 or 2); its own failure exits 1 and reads as
+    "couldn't confirm", never as restart advice. It judges every record, whatever goes wrong with one, so a
+    lasting refusal always wins over restart advice, whatever order the folder lists them in.
   - An interrupted write's leftover temporary in the receipts folder isn't a record and is skipped. It never got
     renamed into place: an interrupted start admitted nothing, and an interrupted end left the record it was
     replacing, which still counts. No writer can be mid-write then, since the installer holds the lease.
