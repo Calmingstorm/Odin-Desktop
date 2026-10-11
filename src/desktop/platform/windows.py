@@ -6,6 +6,7 @@ arrives, that member refuses, so a Windows core never starts half-built.
 """
 from __future__ import annotations
 
+import hashlib
 import ntpath
 import os
 import re
@@ -14,6 +15,16 @@ from functools import cached_property
 from pathlib import Path
 
 _PROFILE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+PIPE_PREFIX = "\\\\.\\pipe\\odin-desktop-"
+
+
+def pipe_name_for(profile_id: str, sid: str) -> str:
+    """``\\\\.\\pipe\\odin-desktop-<16 hex of SHA-256(user SID)>-<profile>`` (protocol doc).
+
+    Pure, unlike the transport's module, so the app and the engine share one test of it.
+    """
+    owner = hashlib.sha256(sid.encode("utf-8")).hexdigest()[:16]
+    return f"{PIPE_PREFIX}{owner}-{profile_id}"
 
 
 def windows_profile_paths(profile_id: str = "default", *, environ: Mapping[str, str] | None = None,

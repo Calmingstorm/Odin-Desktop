@@ -10,21 +10,20 @@ the pipe, and every frame after the proofs is sealed.
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import sys
 from asyncio import windows_events, windows_utils
 
 from . import win32
+from .windows import PIPE_PREFIX, pipe_name_for
 from .windows_files import user_sid
 
-PIPE_PREFIX = "\\\\.\\pipe\\odin-desktop-"
+__all__ = ["PIPE_PREFIX", "pipe_name"]
 _STREAM_LIMIT = 1 << 16
 
 
 def pipe_name(profile_id: str, sid: str | None = None) -> str:
     """``\\\\.\\pipe\\odin-desktop-<16 hex of SHA-256(user SID)>-<profile>`` (protocol doc)."""
-    owner = hashlib.sha256((sid or user_sid()).encode("utf-8")).hexdigest()[:16]
-    return f"{PIPE_PREFIX}{owner}-{profile_id}"
+    return pipe_name_for(profile_id, sid or user_sid())
 
 
 def endpoint_text(path) -> str:

@@ -190,7 +190,8 @@ async function quiet(key: 'start' | 'end'): Promise<void> {
   </SettingsSection>
   <SettingsSection title="Startup and notifications">
     <SettingsRow label="Start Odin when you log in" description="Closing the window keeps Odin running in the tray. Exit stops it." control-id="start-at-login">
-      <SettingsSwitch id="start-at-login" label="Start Odin when you log in" data-testid="start-at-login" :checked="state.autostart" @change="autostart" />
+      <SettingsSwitch id="start-at-login" label="Start Odin when you log in" data-testid="start-at-login" :checked="state.autostart" :disabled="Boolean(state.autostartUnavailable)" @change="autostart" />
+      <template v-if="state.autostartUnavailable" #note><p class="panel-hint" data-testid="start-at-login-unavailable">{{ state.autostartUnavailable }}</p></template>
     </SettingsRow>
     <template v-if="notifications">
       <SettingsRow label="Desktop notifications" control-id="notifications-enabled"><SettingsSwitch id="notifications-enabled" label="Desktop notifications" :checked="notifications.enabled" @change="(enabled) => change({ enabled })" /></SettingsRow>

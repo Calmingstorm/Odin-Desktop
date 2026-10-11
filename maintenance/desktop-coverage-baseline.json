@@ -136,6 +136,16 @@
         "missing": 0,
         "total": 1
       },
+      "app/src/main/platform/windows-paths.ts": {
+        "covered": 48,
+        "missing": 3,
+        "total": 51
+      },
+      "app/src/main/platform/windows.ts": {
+        "covered": 31,
+        "missing": 0,
+        "total": 31
+      },
       "app/src/main/real-core-smoke.ts": {
         "covered": 851,
         "missing": 16,
@@ -185,6 +195,11 @@
         "covered": 111,
         "missing": 3,
         "total": 114
+      },
+      "app/src/main/windows-smoke.ts": {
+        "covered": 81,
+        "missing": 2,
+        "total": 83
       },
       "app/src/preload/index.ts": {
         "covered": 102,
@@ -2812,6 +2827,8 @@
     "app/src/main/platform/contracts.ts",
     "app/src/main/platform/index.ts",
     "app/src/main/platform/linux.ts",
+    "app/src/main/platform/windows-paths.ts",
+    "app/src/main/platform/windows.ts",
     "app/src/main/real-core-smoke.ts",
     "app/src/main/release-notice.ts",
     "app/src/main/schemas.ts",
@@ -2822,6 +2839,7 @@
     "app/src/main/tray.ts",
     "app/src/main/window-state.ts",
     "app/src/main/windows-session.ts",
+    "app/src/main/windows-smoke.ts",
     "app/src/preload/index.ts",
     "app/src/renderer/src/App.vue",
     "app/src/renderer/src/artifacts.ts",

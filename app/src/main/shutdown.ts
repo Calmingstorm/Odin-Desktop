@@ -1,5 +1,6 @@
 // Process exit is not a tool/native-input release receipt. Unknown evidence is never silently cleared.
-import { closeSync, fsyncSync, openSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import * as nodeFs from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { createHash, randomUUID } from 'node:crypto'
 import type { CleanupWarning } from '../shared/api'
@@ -58,11 +59,18 @@ function validWarning(value: unknown): value is JournalWarning {
     && row.records.every((record) => validRecord(record) && record.state === 'unknown')
 }
 
+/** The file operations the journal writes with (injectable, so each step's failure can be tested). */
+export type JournalFs = Pick<typeof nodeFs, 'openSync' | 'writeFileSync' | 'fsyncSync' | 'closeSync' | 'renameSync'>
+
 export class CleanupJournal {
   private unknown: JournalWarning | null = null
   private current: CleanupRecord = this.record('running', 'App running; shutdown not yet observed')
   private archive: CleanupAcknowledgment[] = []
-  constructor(private readonly path: string) {
+  private readonly system: NodeJS.Platform
+  private readonly fs: JournalFs
+  constructor(private readonly path: string, options: { system?: NodeJS.Platform; fs?: JournalFs } = {}) {
+    this.system = options.system ?? process.platform
+    this.fs = options.fs ?? nodeFs
     try {
       const saved: unknown = JSON.parse(readFileSync(path, 'utf8'))
       if (!validRecord(saved)) throw new Error('Invalid cleanup evidence')
@@ -138,11 +146,14 @@ export class CleanupJournal {
     const evidence: JournalEvidence = { ...(warning?.records[0] ?? current),
       journalVersion: 2, current, warning, archived }
     const pending = `${this.path}.pending`
-    const fd = openSync(pending, 'w', 0o600)
-    try { writeFileSync(fd, JSON.stringify(evidence)); fsyncSync(fd) } finally { closeSync(fd) }
-    renameSync(pending, this.path)
-    const directory = openSync(dirname(this.path), 'r')
-    try { fsyncSync(directory) } finally { closeSync(directory) }
+    const fd = this.fs.openSync(pending, 'w', 0o600)
+    try { this.fs.writeFileSync(fd, JSON.stringify(evidence)); this.fs.fsyncSync(fd) } finally { this.fs.closeSync(fd) }
+    this.fs.renameSync(pending, this.path)
+    // Windows: Node can't open a folder, so there is no directory flush. The contents are flushed before the
+    // rename replaces the journal (atomically, on NTFS); that the replacement survives a power loss isn't proven.
+    if (this.system === 'win32') return
+    const directory = this.fs.openSync(dirname(this.path), 'r')
+    try { this.fs.fsyncSync(directory) } finally { this.fs.closeSync(directory) }
   }
 }
 

@@ -65,7 +65,8 @@ export class CoreSupervisor extends EventEmitter {
       child = spawn(this.options.command, this.options.args, {
         env: this.options.env ?? process.env,
         stdio: ['pipe', 'pipe', 'pipe'],
-        detached: false
+        detached: false,
+        windowsHide: true // Windows: no console window for the engine
       })
     } catch (error) {
       // Invalid arguments throw synchronously; treat it like any other failed start.

@@ -15,6 +15,8 @@ export interface AppPlatform {
   /** Start at login. */
   isAutostartEnabled: typeof isAutostartEnabled
   setAutostart: typeof setAutostart
+  /** Why start at login isn't offered, where it isn't (Settings shows it and disables the switch). */
+  autostartUnavailable?: string
   /** The installed package's ownership and state, checked before the first window. */
   inspectPackagedState: typeof inspectPackagedState
   acquirePackagedApp: typeof acquirePackagedApp

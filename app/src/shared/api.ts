@@ -1320,6 +1320,8 @@ export type DisplayPictureTarget = { target: 'user' } | { target: 'personality';
 
 export interface Settings {
   autostart: boolean
+  /** Why start at login isn't offered, where it isn't: the switch is disabled. */
+  autostartUnavailable?: string
   notifications: NotificationSettings
   appearance: Appearance
 }

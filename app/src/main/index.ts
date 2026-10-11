@@ -23,6 +23,7 @@ import { currentPlatform } from './platform'
 import { realCoreSmoke } from './real-core-smoke'
 import { ReleaseNoticeService } from './release-notice'
 import { onboardingSmoke } from './onboarding-smoke'
+import { windowsRealCoreSmoke, windowsSmokeRoot } from './windows-smoke'
 import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppScheme } from './security'
 import { APP_ORIGIN } from './security-policy'
 import { OdinTray, detectTray } from './tray'
@@ -301,8 +302,9 @@ function run(): void {
     win.focus()
   }
 
-  const settings = (): Settings => ({ autostart: platform.isAutostartEnabled(undefined, launchCommand()), notifications: notificationSettings,
-    appearance: currentAppearance() })
+  const settings = (): Settings => ({ autostart: platform.isAutostartEnabled(undefined, launchCommand()),
+    ...(platform.autostartUnavailable ? { autostartUnavailable: platform.autostartUnavailable } : {}),
+    notifications: notificationSettings, appearance: currentAppearance() })
 
   const shutdown = boundedShutdown({
     stopAdmission: () => { lifecycle.quitting = true; broker.quiesce(); tray?.setStatus('Stopping Odin…') },
@@ -575,11 +577,20 @@ function run(): void {
     broker.connect()
     broker.startEvents()
 
+    const windowsSmoke = windowsSmokeRoot(process.env, process.argv, app.isPackaged, process.platform)
     if (!app.isPackaged && flags.smokeTest && process.env.ODIN_SMOKE_ONBOARDING) {
       void onboardingSmoke(win, broker, process.env.ODIN_SMOKE_OUT ?? '').then(
         () => exitOdin(),
         (error: unknown) => {
           process.stderr.write(`onboarding-smoke: failed: ${String(error)}\n`)
+          return exitOdin(1)
+        }
+      )
+    } else if (windowsSmoke) {
+      void windowsRealCoreSmoke(win, broker, windowsSmoke, () => supervisor.pid).then(
+        () => exitOdin(),
+        (error: unknown) => {
+          process.stderr.write(`windows-smoke: failed: ${String(error)}\n`)
           return exitOdin(1)
         }
       )

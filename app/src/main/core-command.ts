@@ -18,7 +18,14 @@ export interface CoreCommandContext {
   env: NodeJS.ProcessEnv
   /** Packaging owns layout, bundle verification and isolated interpreter flags. */
   resolvePackaged?: (resourcesPath: string, coreArgs: string[], env: NodeJS.ProcessEnv) => CoreLaunch
+  /** The system the app runs on (default: this one). */
+  system?: NodeJS.Platform
 }
+
+/** Windows has no development fixture: a source run names the checkout's own engine. */
+export const WINDOWS_SOURCE_CORE_REQUIRED = 'Set ODIN_DESKTOP_CORE_CMD to this checkout\'s engine before starting Odin '
+  + 'from source on Windows, as a JSON argv such as ["C:\\\\path\\\\to\\\\checkout\\\\.venv\\\\Scripts\\\\python.exe","-I","-B","-m","src"] '
+  + '(see docs/windows-from-source.md).'
 
 const SHELLS = new Set(['sh', 'bash', 'dash', 'zsh', 'fish', 'ksh', 'cmd', 'cmd.exe', 'powershell', 'pwsh'])
 const RESERVED = /^--(?:socket|token-file|profile|data-dir)(?:=|$)/
@@ -63,6 +70,7 @@ export function coreCommand(paths: ProfilePaths, context: CoreCommandContext): C
     return { command, args: [...args, ...coreArgs], env: context.env }
   }
   // Explicit development selection, not a recovery path after a real core fails.
+  if ((context.system ?? process.platform) === 'win32') throw new Error(WINDOWS_SOURCE_CORE_REQUIRED)
   return {
     command: 'python3',
     args: [join(context.appPath, 'fixture-core', 'fixture_core.py'), ...coreArgs],

@@ -13,7 +13,7 @@ jobs:
     if: github.repository == 'Calmingstorm/Odin-Desktop'
     name: windows engine (Server 2025)
     runs-on: windows-2025
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -41,6 +41,35 @@ jobs:
           REVISION: ${{ github.sha }}
         run: |
           .venv\Scripts\python.exe -c "import hashlib, json, os, pathlib; inventory = json.loads(pathlib.Path('maintenance/windows-only-files.json').read_text()); sources = {path: hashlib.sha256(pathlib.Path(path).read_bytes().replace(b'\r\n', b'\n')).hexdigest() for path in inventory}; pathlib.Path('coverage-windows-provenance.json').write_text(json.dumps({'sha': os.environ['REVISION'], 'sources': sources}, indent=2))"
+      - name: The app's Windows platform (typecheck, Windows tests, the real engine's pipe name)
+        shell: pwsh
+        working-directory: app
+        env:
+          ODIN_ENGINE_PYTHON: ${{ github.workspace }}\.venv\Scripts\python.exe
+        run: |
+          node --version
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npx vitest run test/windows-platform.test.ts test/coverage-windows-smoke.test.ts
+      - name: The real app from source with a scripted model (Windows smoke)
+        shell: pwsh
+        working-directory: app
+        env:
+          # A hosted runner has no GPU; Electron's sandbox stays on.
+          ODIN_WINDOWS_SMOKE_NO_GPU: '1'
+          ODIN_WINDOWS_SMOKE_REVISION: ${{ github.sha }}
+          ODIN_WINDOWS_SMOKE_REPORT: ${{ github.workspace }}\windows-smoke-report.json
+        run: |
+          node node_modules/electron/install.js
+          npm run build
+          node scripts/windows-real-core-smoke.mjs
+      - name: Upload the Windows smoke report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-smoke-report
+          path: windows-smoke-report.json
+          if-no-files-found: warn
       - name: Upload Windows coverage evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
