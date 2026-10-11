@@ -47880,6 +47880,43 @@
       ]
     },
     {
+      "after_sha256": "10a5f9babddcba3e4c1cfb8b6d53ac7864eaa594eea6f4a877fb37b42f5ed0cf",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "QuietParser.error raises ValueError('invalid worker arguments') whatever its message; main() returns 2 for bad arguments and prints nothing, on 3.12.3 and 3.12.15.",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Test only.",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiVGhlIHN1cGVydmlzb3Igd29ya2VyJ3MgYXJndW1lbnQgcGFyc2VyIG5ldmVyIGVjaG9lcyBhcmd1bWVudHMsIG9uIGFueSBQeXRob24gMy4xMi4KCmBtYWluKClgIHBhcnNlcyB3aXRoIGBleGl0X29uX2Vycm9yPUZhbHNlYC4gT24gUHl0aG9uIDMuMTIuMyBhIG1pc3NpbmcgcmVxdWlyZWQgYXJndW1lbnQgc3RpbGwKcmVhY2hlcyBgUXVpZXRQYXJzZXIuZXJyb3JgLiBPbiAzLjEyLjE1LCB0aGUgYnVuZGxlZCBydW50aW1lJ3MgdmVyc2lvbiwgYXJncGFyc2UgcmFpc2VzCmBBcmd1bWVudEVycm9yYCBmaXJzdCBhbmQgYG1haW4oKWAgcmV0dXJucyAyIHdpdGhvdXQgY2FsbGluZyBpdC4gRWl0aGVyIHdheSBub3RoaW5nIHRoZSB3b3JrZXIKd2FzIGdpdmVuIHJlYWNoZXMgaXRzIG91dHB1dC4KIiIiCmZyb20gX19mdXR1cmVfXyBpbXBvcnQgYW5ub3RhdGlvbnMKCmltcG9ydCBweXRlc3QKCmZyb20gc3JjLnRvb2xzIGltcG9ydCBsb2NhbF9zdXBlcnZpc29yX3dvcmtlciBhcyB3CgoKZGVmIHRlc3RfdGhlX3BhcnNlcl9lcnJvcl9uZXZlcl9lY2hvZXNfaXRzX21lc3NhZ2UoKToKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhWYWx1ZUVycm9yKSBhcyByYWlzZWQ6CiAgICAgICAgdy5RdWlldFBhcnNlcihhZGRfaGVscD1GYWxzZSkuZXJyb3IoInVucmVjb2duaXplZCBhcmd1bWVudHM6IC0tY29tbWFuZCBwcml2YXRlLXZhbHVlIikKICAgIGFzc2VydCBzdHIocmFpc2VkLnZhbHVlKSA9PSAiaW52YWxpZCB3b3JrZXIgYXJndW1lbnRzIgoKCkBweXRlc3QubWFyay5wYXJhbWV0cml6ZSgiYXJndiIsIFtbXSwgWyItLWNvbnRyb2wtZmQiLCAibm8iLCAiLS1jb21tYW5kIiwgInByaXZhdGUtdmFsdWUiXV0pCmRlZiB0ZXN0X2JhZF9hcmd1bWVudHNfcmV0dXJuXzJfYW5kX3ByaW50X25vdGhpbmcobW9ua2V5cGF0Y2gsIGNhcHN5cywgYXJndik6CiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKCJzeXMuYXJndiIsIFsid29ya2VyIiwgKmFyZ3ZdKQogICAgYXNzZXJ0IHcubWFpbigpID09IDIKICAgIHByaW50ZWQgPSBjYXBzeXMucmVhZG91dGVycigpCiAgICBhc3NlcnQgcHJpbnRlZC5vdXQgPT0gIiIgYW5kIHByaW50ZWQuZXJyID09ICIiCg==",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/test_desktop_worker_quiet_parser.py",
+      "reason": "Covers the supervisor worker's QuietParser.error on any Python 3.12 (carried from master PR #137): on 3.12.15, argparse with exit_on_error=False raises ArgumentError before calling error(), so the coverage ratchet failed on an unchanged file.",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/test_desktop_worker_quiet_parser.py": "10a5f9babddcba3e4c1cfb8b6d53ac7864eaa594eea6f4a877fb37b42f5ed0cf"
+      },
+      "tests": [
+        "tests/test_desktop_worker_quiet_parser.py"
+      ]
+    },
+    {
       "after_sha256": "8cd7484fda815b442f8806ff89839bd6045295f14f13944acc867338416ebb23",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
