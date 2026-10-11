@@ -30,13 +30,29 @@ if (-not $CoreScript) { $CoreScript = Join-Path $PSScriptRoot 'windows-installed
 $AppId = 'net.calmingstorm.odin.desktop'
 $Guid = '824e65ca-c164-5739-ae3c-52ce54902f24'  # electron-builder's uuid of the appId: the registry key names
 $checks = New-Object System.Collections.Generic.List[object]
+# Every check also lands here as it's made: a run cut short still says how far it got.
+$Progress = "$Report.progress"
+Remove-Item -LiteralPath $Progress -ErrorAction SilentlyContinue
 
 function Check([string] $name, [bool] $ok, $detail) {
   $checks.Add([ordered]@{ check = $name; ok = $ok; detail = "$detail" })
+  if ($Progress) { Add-Content -LiteralPath $Progress -Value "$ok $name" -Encoding utf8 }
   if ($FailAt -and $name -eq $FailAt) { throw "intentional failure after '$name' (-FailAt)" }
 }
+# Every process this test waits for is bounded, and only the process itself is waited for (Start-Process -Wait also
+# waits for every descendant, so one that lingers stalls the run with no report). One that doesn't exit in time ends
+# the run as a failure naming it. The process object keeps its exit code only if its handle was taken while it ran.
+function Run([string] $file, [string[]] $arguments, [int] $minutes, [hashtable] $more = @{}) {
+  $run = Start-Process -FilePath $file -ArgumentList $arguments -PassThru @more
+  $null = $run.Handle
+  if (-not $run.WaitForExit($minutes * 60000)) {
+    & taskkill.exe /PID $run.Id /T /F | Out-Null
+    throw "$(Split-Path -Leaf $file) $($arguments -join ' ') didn't exit within $minutes minutes"
+  }
+  $run.ExitCode
+}
 function Install([string[]] $arguments) {
-  (Start-Process -FilePath $Installer -ArgumentList $arguments -Wait -PassThru).ExitCode
+  Run $Installer $arguments 10
 }
 function OdinUninstallKeys([string] $root) {
   @(Get-ChildItem $root -ErrorAction SilentlyContinue |
@@ -208,7 +224,7 @@ if ($Mode -eq 'user') {
       $detail += ' | ' + ((Get-Content $log -Tail 8 -ErrorAction SilentlyContinue) -join ' / ')
     }
     Check "the installed app's $start start opens its core's pipe" $up $detail
-    Start-Process -FilePath $exe -ArgumentList '--exit' -Wait | Out-Null
+    Run $exe @('--exit') 2 | Out-Null
     $deadline = (Get-Date).AddSeconds(120)
     while ((Get-Date) -lt $deadline -and ((& $installed).Count -or (& $serving))) { Start-Sleep -Seconds 2 }
     $left = (& $installed)
@@ -226,18 +242,16 @@ if ($Mode -eq 'user') {
   $coreList = Join-Path $env:TEMP 'odin-installed-core-checks.json'
   Remove-Item -LiteralPath $coreReport, $coreLog, "$coreLog.err", $coreList, "$coreList.err" -ErrorAction SilentlyContinue
   $corePython = Join-Path $inst 'resources\runtime\python\python.exe'
-  $listRun = Start-Process -FilePath $corePython -NoNewWindow -Wait -PassThru `
-    -ArgumentList '-I', '-B', "`"$CoreScript`"", '--list-checks' `
-    -RedirectStandardOutput $coreList -RedirectStandardError "$coreList.err"
+  $listCode = Run $corePython @('-I', '-B', "`"$CoreScript`"", '--list-checks') 5 @{
+    NoNewWindow = $true; RedirectStandardOutput = $coreList; RedirectStandardError = "$coreList.err" }
   $required = @()
-  if ($listRun.ExitCode -eq 0) {
+  if ($listCode -eq 0) {
     # Windows PowerShell 5.1 emits a top-level JSON array as one object: assign, then wrap.
     try { $parsed = Get-Content -LiteralPath $coreList -Raw | ConvertFrom-Json; $required = @($parsed) } catch { }
   }
-  $coreRun = Start-Process -FilePath $corePython -NoNewWindow -Wait `
-    -PassThru -ArgumentList '-I', '-B', "`"$CoreScript`"", '--report', "`"$coreReport`"" `
-    -RedirectStandardOutput $coreLog -RedirectStandardError "$coreLog.err"
-  Import-CoreReport $coreReport $coreRun.ExitCode $required "$coreLog.err"
+  $coreCode = Run $corePython @('-I', '-B', "`"$CoreScript`"", '--report', "`"$coreReport`"") 30 @{
+    NoNewWindow = $true; RedirectStandardOutput = $coreLog; RedirectStandardError = "$coreLog.err" }
+  Import-CoreReport $coreReport $coreCode $required "$coreLog.err"
 
   # Install safety (phase 5): the installer and uninstaller hold the app's lease, never end Odin.
   $ownership = Join-Path $env:LOCALAPPDATA 'odin-desktop\install-ownership\nsis'
@@ -250,7 +264,7 @@ if ($Mode -eq 'user') {
     & $serving
   }
   function ExitOdin() {
-    Start-Process -FilePath $exe -ArgumentList '--exit' -Wait | Out-Null
+    Run $exe @('--exit') 2 | Out-Null
     $deadline = (Get-Date).AddSeconds(120)
     while ((Get-Date) -lt $deadline -and ((& $installed).Count -or (& $serving))) { Start-Sleep -Seconds 2 }
   }
@@ -260,7 +274,7 @@ if ($Mode -eq 'user') {
   Check 'an install over the running app is refused, and Odin keeps running' ($up -and $code -eq 2 -and
     (& $serving) -and (& $installed).Count -ge $running -and -not (Test-Path $marker)) "exit $code"
   # In place (_?=) so the exit code is the uninstaller's own, not its relaunching copy's.
-  $code = (Start-Process -FilePath $uninstaller -ArgumentList '/S', "_?=$inst" -Wait -PassThru).ExitCode
+  $code = Run $uninstaller @('/S', "_?=$inst") 10
   Check 'an uninstall while Odin runs is refused, and Odin keeps running' ($code -eq 2 -and (& $serving) -and
     (Test-Path $exe)) "exit $code"
   ExitOdin
@@ -280,7 +294,7 @@ if ($Mode -eq 'user') {
   Move-Item -LiteralPath $moved -Destination $exe -Force
   Check 'with Odin.exe missing, a process still running from the installation refuses the install' (
     $code -eq 2 -and $absent -and -not $stray.HasExited -and -not (Test-Path $marker)) "exit $code"
-  $code = (Start-Process -FilePath $uninstaller -ArgumentList '/S', "_?=$inst" -Wait -PassThru).ExitCode
+  $code = Run $uninstaller @('/S', "_?=$inst") 10
   Check 'an uninstall while that process runs is refused, ending nothing' ($code -eq 2 -and -not $stray.HasExited -and
     (Test-Path $exe) -and -not (Test-Path $marker)) "exit $code"
   Stop-Process -Id $stray.Id -Force -ErrorAction SilentlyContinue
@@ -364,7 +378,7 @@ if ($Mode -eq 'user') {
   Uninstall
   # In place (_?=), as an upgrade runs the old uninstaller: its own image isn't Odin running.
   $code = Install @('/S')
-  $removed = (Start-Process -FilePath $uninstaller -ArgumentList '/S', "_?=$inst" -Wait -PassThru).ExitCode
+  $removed = Run $uninstaller @('/S', "_?=$inst") 10
   Check 'an uninstall in place does not count itself as Odin running' ($code -eq 0 -and $removed -eq 0 -and
     -not (Test-Path $exe) -and -not (Test-Path $installKey)) "install $code, uninstall $removed"
   # In place it can't delete its own file.
@@ -415,10 +429,31 @@ $arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$work\a
   "-Installer `"$work\setup.exe`" -Report `"$userReport`" -Packaging `"$work\packaging`""
 if ($FailAt) { $arguments += " -FailAt `"$FailAt`"" }
 $process = Start-Process powershell.exe -Credential $credential -LoadUserProfile -ArgumentList $arguments `
-  -WorkingDirectory $work -Wait -PassThru
+  -WorkingDirectory $work -PassThru
+$null = $process.Handle
+# Bounded, well inside the job's own limit, so a run that hangs still ends in a report: its progress file names
+# the last checks it made. Then nothing of the disposable user may still run: a process left behind is named, then
+# ended, before the account goes.
+$finished = $process.WaitForExit(40 * 60000)
+# A process that is just ending (its console host) gets a few seconds; one still there after that has stayed.
+$deadline = (Get-Date).AddSeconds(15)
+do {
+  $left = @(Get-CimInstance Win32_Process | Where-Object {
+    $owner = Invoke-CimMethod -InputObject $_ -MethodName GetOwner -ErrorAction SilentlyContinue
+    $owner -and $owner.User -eq $name })
+  if (-not $left.Count -or -not $finished) { break }
+  Start-Sleep -Seconds 1
+} while ((Get-Date) -lt $deadline)
+if (-not $finished) {
+  $last = (Get-Content -LiteralPath "$userReport.progress" -Tail 3 -ErrorAction SilentlyContinue) -join ' / '
+  Check 'the standard user''s run finished within 40 minutes' $false "its last checks: $last"
+}
+Check 'no process of the disposable user outlives its run' ($left.Count -eq 0) (
+  ($left | ForEach-Object { "$($_.Name) $($_.ProcessId): $($_.CommandLine)" }) -join ' | ')
+$left | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 $result = Get-Content -LiteralPath $userReport -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json
 if ($null -eq $result) {
-  Check 'the standard user''s cases ran' $false "exit $($process.ExitCode), no report"
+  Check 'the standard user''s cases ran' $false "exit $(if ($finished) { $process.ExitCode } else { 'none' }), no report"
 } else {
   foreach ($item in $result.checks) { Check "user: $($item.check)" ([bool]$item.ok) $item.detail }
 }
