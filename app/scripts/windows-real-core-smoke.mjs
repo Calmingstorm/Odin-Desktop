@@ -103,7 +103,22 @@ function leftovers() {
   return found ? found.split(/\r?\n/) : []
 }
 
+/** Python processes started since `since`, with their command lines: a helper the engine started whose command line
+ * doesn't name the root would show here. Reported, never ended. */
+function pythonsSince(since) {
+  const found = powershell('Get-CimInstance Win32_Process -Filter "Name LIKE \'python%\'" | ' +
+    'Where-Object { $_.CreationDate -ge [datetime]::Parse($env:ODWS_SINCE) } | ' +
+    'ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId) $($_.CommandLine)" }', { ODWS_SINCE: since })
+  return found ? found.split(/\r?\n/).map((line) => line.slice(0, 300)) : []
+}
+
+function coreLog() {
+  const path = join(local, 'odin-desktop', 'default', 'data', 'logs', 'core.log')
+  return existsSync(path) ? readFileSync(path, 'utf8').slice(-4_000) : ''
+}
+
 async function launch(phase) {
+  const since = new Date().toISOString()
   const env = { ...process.env, LOCALAPPDATA: local, ODIN_WINDOWS_SMOKE: '1', ODIN_WINDOWS_SMOKE_ROOT: root,
     ODIN_WINDOWS_SMOKE_NONCE: nonce, ODIN_WINDOWS_SMOKE_PHASE: phase, ODIN_SMOKE_PROVIDER_BASE_URL: baseUrl,
     ODIN_DESKTOP_CORE_CMD: JSON.stringify([PYTHON, '-I', '-B', '-m', 'src']) }
@@ -128,7 +143,7 @@ async function launch(phase) {
   const deadline = Date.now() + 30_000
   while (corePid && alive(corePid) && Date.now() < deadline) await new Promise((accept) => setTimeout(accept, 250))
   return { phase, exitCode, evidence, coreGone: corePid ? !alive(corePid) : 'unknown', leftovers: leftovers(),
-    log: output.slice(-4_000) }
+    pythonsSinceLaunch: pythonsSince(since), log: output.slice(-4_000), coreLog: coreLog() }
 }
 
 function revision() {
