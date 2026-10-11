@@ -2970,6 +2970,7 @@
     "src/desktop/platform/windows_patch.py",
     "src/desktop/platform/windows_process.py",
     "src/desktop/platform/windows_read.py",
+    "src/desktop/platform/windows_safety.py",
     "src/desktop/platform/windows_secrets.py",
     "src/desktop/platform/windows_tools.py",
     "src/desktop/platform/windows_workspace.py",
@@ -3076,6 +3077,11 @@
         "missing": 0,
         "total": 133
       },
+      "src/desktop/platform/windows_safety.py": {
+        "covered": 359,
+        "missing": 10,
+        "total": 369
+      },
       "src/desktop/platform/windows_secrets.py": {
         "covered": 30,
         "missing": 2,
@@ -3093,9 +3099,9 @@
       }
     },
     "total": {
-      "covered": 3040,
-      "missing": 332,
-      "total": 3372
+      "covered": 3399,
+      "missing": 342,
+      "total": 3741
     }
   }
 }

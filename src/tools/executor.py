@@ -1439,6 +1439,7 @@ class ToolExecutor:
             return output, code
         return raw_command_result(code, output), code
 
+    @windows_variant("src.desktop.platform.windows_safety:govern_command")
     def _govern_command(self, command: str, host: str | None = None) -> tuple[bool, str, str]:
         """Shared governor check. Returns (allowed, denial_message, governor_note)."""
         if not getattr(self, "command_governor", None):

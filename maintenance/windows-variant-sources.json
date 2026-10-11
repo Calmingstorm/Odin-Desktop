@@ -69,6 +69,7 @@
   "src/tools/executor.py:_ensure_local_workspace -> src.desktop.platform.windows_engine:ensure_local_workspace": "b35a5ae1dcd58829bf1ee9318d07f8c7468447db3859082f02f7a63219b0c63a",
   "src/tools/executor.py:_ensure_process_registry -> src.desktop.platform.windows_tools:ensure_process_registry": "6ef30bb5c1d3351abe23f9cdb1b73d15ddcfa549d8ec46d98564d4f5a80e132d",
   "src/tools/executor.py:_exec_command -> src.desktop.platform.windows_tools:exec_command": "a7e1260e5e4f30bef8719d0fc04437eaadaf5063a381296b52cbcf5bfdca7fc4",
+  "src/tools/executor.py:_govern_command -> src.desktop.platform.windows_safety:govern_command": "11d43248aa6e5172019f872db9b9acdd90de50a155708188d887d96cf8f1155c",
   "src/tools/handlers/files_docs.py:_handle_apply_patch -> src.desktop.platform.windows_tools:handle_apply_patch": "c03b44b877da6189ef0243bb6f79b4230b886e522f97b86e22cb391d817d59ba",
   "src/tools/handlers/files_docs.py:_handle_read_file -> src.desktop.platform.windows_tools:handle_read_file": "99e6581a9c925c35c44ae88c410c9423f397dc5d840177673ba3b2d41fffdbce",
   "src/tools/handlers/system.py:_handle_run_script -> src.desktop.platform.windows_tools:handle_run_script": "1411ec7e51170535218c8635629f5157e76223706eb7f058d0bf73a4d6e9641e",

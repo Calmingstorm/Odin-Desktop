@@ -146,6 +146,8 @@ OVERRIDE_SOURCES = {
         "3d6acead94fd543dbc33dcafb0b8d96a06897857325103011e32b5d3e303ea55",
     "src/tools/local_supervisor.py:SupervisedShell":
         "8fc07a2abfe4f015b1cee1118338d2b544ff6476ed059ae0351ebad3ffecb2e9",
+    "src/tools/risk_classifier.py:CommandGovernor.check":
+        "24740ff045379a0076cf71b7f2d7b39e130ca1b62958f2616d254f8aac5dc4d7",
 }
 
 
