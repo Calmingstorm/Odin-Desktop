@@ -23,6 +23,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -247,6 +248,18 @@ async def curl(work: Path) -> dict:
     assert code == 0, version
     assert "curl 8.22.0" in version and "LibreSSL/4.3.3" in version, version
     owner = local_executor()
+    # Where the validation route's time goes (a hosted runner once spent 30 s there): a command
+    # check (the PowerShell runner alone), then the http check with room to finish. Evidence only.
+    timings = {}
+    for label, check in (("runner", {"type": "command", "target": "'ok'", "timeout_seconds": 100}),
+                         ("http", {"type": "http", "target": "https://example.com/",
+                                   "timeout_seconds": 100, "expected": 200})):
+        start = time.monotonic()
+        row = json.loads(await handle_validate_action(
+            owner, {"format": "json", "checks": [check]}))["checks"][0]
+        timings[label] = {"seconds": round(time.monotonic() - start, 2), "status": row["status"],
+                          "observed": str(row.get("observed", ""))[-300:]}
+    print(json.dumps({"validation_route_timings": timings}), flush=True)
     server = self_signed_server(work)
     rows = []
     try:
@@ -273,6 +286,7 @@ async def curl(work: Path) -> dict:
         server.shutdown()
         server.server_close()
     return {"version": version.strip(), "executable": str(executable), "cases": rows,
+            "validation_route_timings": timings,
             "fixture_dependency": "trusted/hostname-mismatch require public HTTPS fixtures"}
 
 
