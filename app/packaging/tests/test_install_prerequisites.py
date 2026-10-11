@@ -17,6 +17,20 @@ import qualify
 from test_qualification import require_namespace, require_real_root, require_tools
 
 
+def require_distro_python(case):
+    """stage_install_python copies the host's Debian python3 with its packaged stdlib. A host
+    whose /usr/bin/python3 is another build (a CI runner may bind one there) can't exercise it."""
+    try:
+        stdlib, version = json.loads(subprocess.run(
+            ['/usr/bin/python3', '-I', '-B', '-S', '-c', 'import json, sys, sysconfig; '
+             'print(json.dumps([sysconfig.get_path("stdlib"), "%s.%s" % sys.version_info[:2]]))'],
+            capture_output=True, text=True, timeout=10, check=True).stdout)
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        case.skipTest('no runnable /usr/bin/python3: ' + str(error))
+    if stdlib != '/usr/lib/python' + version:
+        case.skipTest('/usr/bin/python3 is not the distro interpreter (stdlib ' + stdlib + ')')
+
+
 class InstallPrerequisiteBehaviour(unittest.TestCase):
     def test_missing_interpreter_fails_before_candidate_execution(self):
         with tempfile.TemporaryDirectory() as temporary, \
@@ -69,6 +83,7 @@ class InstallPrerequisiteBehaviour(unittest.TestCase):
 
     def test_real_distro_staging_excludes_host_configuration_and_site_packages(self):
         require_tools(self, 'dpkg-query', 'ldd')
+        require_distro_python(self)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             staged = qualify.stage_install_python(root)

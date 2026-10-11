@@ -52,6 +52,7 @@ def test_verified_wheel_spread(tmp_path):
     scratch.mkdir()
     runtime.install_wheel(artifact, pin, site, scratch)
     assert (site / "a/__init__.py").read_bytes() == b"VALUE=1\n"
+    assert [path.name for path in scratch.iterdir()] == [pin["sha256"][:16]]  # path budget
     with pytest.raises(StageError, match="install_collision"):
         runtime.install_wheel(artifact, pin, site, tmp_path / "scratch2")
 

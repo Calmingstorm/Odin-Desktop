@@ -272,7 +272,9 @@ def inspect_wheel(artifact: Path, pin: dict, closure: list[dict], *,
 
 def install_wheel(artifact: Path, pin: dict, site: Path, scratch: Path) -> list[str]:
     """Wheel spread with explicit schemes, no script generation or file overwrite."""
-    unpacked = scratch / pin["sha256"]
+    # A short folder name: the scratch sits several folders deep in the stage, and Windows paths
+    # stop at 260 characters (the full digest put onnxruntime's deepest file at 260).
+    unpacked = scratch / pin["sha256"][:16]
     extract_archive(artifact, unpacked, package=pin["name"])
     mappings = []
     omitted = []

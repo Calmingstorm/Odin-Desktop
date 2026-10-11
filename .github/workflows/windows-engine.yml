@@ -37,10 +37,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node node_modules/electron/install.js
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Packaging unit tests, natively (the Windows-only cases run here)
+      - name: Windows packaging unit tests, natively (their Windows-only cases run here)
         shell: pwsh
         run: |
-          .venv\Scripts\python.exe -m unittest discover -s app/packaging/tests
+          .venv\Scripts\python.exe -m unittest discover -s app/packaging/tests -p "test_windows_*.py"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Stage immutable Windows runtime from the clean revision
         shell: pwsh

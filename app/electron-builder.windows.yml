@@ -1,0 +1,34 @@
+# The installed Windows app (phase 4, P7), built only by packaging/build-windows.mjs: the shared
+# configuration, with Windows' own identity and construction. Linux metadata stays as
+# electron-builder.yml has it.
+#
+# The product is named Odin on Windows: Odin.exe, in %LOCALAPPDATA%\Programs\Odin, shown as Odin
+# in Apps and the Start menu. The app's own identity (its name, profile folders and
+# AppUserModelID, which is appId) is set in identity.ts and doesn't follow productName.
+#
+# The installer is electron-builder's per-user one-click NSIS installer: it requests no elevation
+# and compiles no per-machine branch, install-mode page or elevation path at all (the assisted
+# installer keeps them whatever its flags say). packaging/installer.nsh refuses what's left before
+# anything is written: an elevated or Administrators-owning token (the app refuses one too), and
+# the /allusers and /D switches. Nothing launches when it finishes. Uninstall keeps the profile
+# (chats, settings, keys), as Linux does.
+extends: electron-builder.yml
+productName: Odin
+afterPack: packaging/after-pack-windows.cjs
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/icon.png
+  artifactName: odin-desktop-${version}-candidate-x64-setup.${ext}
+nsis:
+  oneClick: true
+  perMachine: false
+  runAfterFinish: false
+  createDesktopShortcut: false
+  createStartMenuShortcut: true
+  shortcutName: Odin
+  uninstallDisplayName: Odin
+  menuCategory: false
+  deleteAppDataOnUninstall: false
+  include: packaging/installer.nsh

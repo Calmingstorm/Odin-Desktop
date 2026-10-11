@@ -81,6 +81,10 @@ ERROR_NOT_FOUND = 1168
 TOKEN_QUERY = 0x0008
 TOKEN_USER_CLASS = 1
 TOKEN_OWNER_CLASS = 4
+TOKEN_SESSION_ID_CLASS = 12
+TOKEN_ELEVATION_TYPE_CLASS = 18
+TOKEN_ELEVATION_CLASS = 20
+TOKEN_INTEGRITY_LEVEL_CLASS = 25
 SE_FILE_OBJECT = 1
 OWNER_SECURITY_INFORMATION = 0x1
 DACL_SECURITY_INFORMATION = 0x4
@@ -417,11 +421,35 @@ def _token_sid(information_class: int, *, process=None) -> str:
         GetTokenInformation(token, information_class, None, 0, ctypes.byref(needed))
         buffer = ctypes.create_string_buffer(needed.value)
         check(GetTokenInformation(token, information_class, buffer, needed, ctypes.byref(needed)))
-        # TOKEN_USER and TOKEN_OWNER both start with the SID pointer.
+        # TOKEN_USER, TOKEN_OWNER and TOKEN_MANDATORY_LABEL all start with the SID pointer.
         sid = ctypes.cast(buffer, ctypes.POINTER(PVOID)).contents.value
         return sid_string(sid)
     finally:
         close(token.value)
+
+
+def _token_dword(information_class: int) -> int:
+    """A DWORD-sized fact of this process's token (elevation, its type, the session)."""
+    token = HANDLE()
+    check(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, ctypes.byref(token)))
+    try:
+        value, needed = DWORD(), DWORD()
+        check(GetTokenInformation(token, information_class, ctypes.byref(value),
+                                  ctypes.sizeof(value), ctypes.byref(needed)))
+        return value.value
+    finally:
+        close(token.value)
+
+
+def token_facts() -> dict:
+    """This process's token as the app's elevated-start check and native qualification read it:
+    the user, the default owner of what it creates, TokenElevation and its type (1 default,
+    2 full, 3 limited), the mandatory label and the logon session."""
+    return {"user": current_user_sid(), "owner": default_owner_sid(),
+            "elevated": bool(_token_dword(TOKEN_ELEVATION_CLASS)),
+            "elevation_type": _token_dword(TOKEN_ELEVATION_TYPE_CLASS),
+            "integrity": _token_sid(TOKEN_INTEGRITY_LEVEL_CLASS),
+            "session": _token_dword(TOKEN_SESSION_ID_CLASS)}
 
 
 def current_user_sid() -> str:

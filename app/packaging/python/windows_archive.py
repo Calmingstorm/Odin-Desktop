@@ -208,14 +208,21 @@ def extract_archive(archive, destination, *, package=None, expected_root=None):
         files = []
         for member, relative, is_dir in entries:
             target = destination.joinpath(*relative.split("/"))
-            if is_dir:
-                target.mkdir(parents=True, exist_ok=True)
-                continue
-            target.parent.mkdir(parents=True, exist_ok=True)
-            source = opened.open(member) if kind == "zip" else opened.extractfile(member)
-            if source is None:
-                _fail("member_type", "Archive file has no content stream", package, relative)
-            with source, target.open("xb") as output:
-                shutil.copyfileobj(source, output)
+            # A failed write is the destination's problem (Windows' 260-character path limit,
+            # permissions), not an unreadable archive, so it's reported with its path.
+            try:
+                if is_dir:
+                    target.mkdir(parents=True, exist_ok=True)
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                source = opened.open(member) if kind == "zip" else opened.extractfile(member)
+                if source is None:
+                    _fail("member_type", "Archive file has no content stream", package, relative)
+                with source, target.open("xb") as output:
+                    shutil.copyfileobj(source, output)
+            except OSError as exc:
+                raise ArchiveSafetyError(
+                    "extract_io", f"Couldn't write {target} ({len(str(target))} characters): "
+                    f"{exc.strerror or exc}", package=package, path=relative) from exc
             files.append(relative)
         return tuple(files)

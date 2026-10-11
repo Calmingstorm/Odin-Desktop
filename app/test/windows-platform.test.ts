@@ -21,7 +21,7 @@ import type { ProfilePaths } from '../src/main/paths'
 import { currentPlatform } from '../src/main/platform'
 import { AUTOSTART_UNAVAILABLE, describeLinkRefusal, windowsPlatform, windowsSessionMonitor } from '../src/main/platform/windows'
 import { setWindowsAutostart, windowsAutostartEnabled } from '../src/main/platform/windows-autostart'
-import { ELEVATED_REFUSAL, elevatedStartRefusal, integrityLevel, UNCHECKED_REFUSAL }
+import { ELEVATED_REFUSAL, elevatedStartRefusal, ownerRefusal, tokenFacts, UNCHECKED_REFUSAL }
   from '../src/main/platform/windows-elevation'
 import { ensureWindowsProfileDirs, ensureWindowsToken, localAppData, parseWhoamiUser, pipeName,
   windowsProfilePaths } from '../src/main/platform/windows-paths'
@@ -393,44 +393,70 @@ describe('the cleanup journal on Windows', () => {
 })
 
 describe('an elevated start of the installed app', () => {
-  // whoami /groups /fo csv /nh: each group's name, type, SID and attributes; the mandatory label is one row.
-  const groups = (label: string): string => [
-    '"Everyone","Well-known group","S-1-1-0","Mandatory group, Enabled by default, Enabled group"',
-    '"BUILTIN\\Administrators","Alias","S-1-5-32-544","Group used for deny only"',
-    `"Mandatory Label\\${label} Mandatory Level","Label","S-1-16-${{ Medium: 8192, High: 12288, System: 16384 }[label]}",""`
-  ].join('\r\n')
+  const USER = 'S-1-5-21-1004336348-1177238915-682003330-1001'
+  const ADMINISTRATORS = 'S-1-5-32-544'
+  const RESOURCES = 'C:\\Users\\u\\AppData\\Local\\Programs\\Odin\\resources'
+  // The guardian's report: TokenUser, TokenOwner, TokenElevation and its type, the label and session.
+  const report = (facts: Record<string, unknown> = {}): string => JSON.stringify({ user: USER, owner: USER,
+    elevated: false, elevation_type: 1, integrity: 'S-1-16-8192', session: 1, ...facts }) + '\n'
   const answering = (stdout: string, status = 0) => vi.fn(() => ({ status, stdout }))
-  const env = { SystemRoot: 'C:\\Windows' }
+  const layout = { exists: () => true }
+  const refusal = (run: unknown, env: NodeJS.ProcessEnv = {}) =>
+    elevatedStartRefusal(RESOURCES, env, run as Parameters<typeof elevatedStartRefusal>[2], layout)
 
-  it('reads the integrity level from whoami\'s mandatory label', () => {
-    expect(integrityLevel(groups('Medium'))).toBe(8192)
-    expect(integrityLevel(groups('High'))).toBe(12288)
-    expect(integrityLevel('"Everyone","Well-known group","S-1-1-0",""')).toBeNull()
+  it('asks the bundled guardian for this token, with no Python variables and no console window', () => {
+    const run = answering(report())
+    expect(refusal(run, { PYTHONPATH: 'C:\\elsewhere', pythonhome: 'C:\\elsewhere', KEEP: '1' })).toBeNull()
+    expect(run).toHaveBeenCalledExactlyOnceWith(`${RESOURCES}\\runtime\\python\\python.exe`,
+      ['-I', '-B', `${RESOURCES}\\ownership.py`, 'token'],
+      expect.objectContaining({ windowsHide: true, timeout: 15_000, encoding: 'utf8' }))
+    const env = (run.mock.calls[0] as unknown as [string, string[], { env: NodeJS.ProcessEnv }])[2].env
+    expect(env.KEEP).toBe('1')
+    expect(Object.keys(env).filter((key) => key.toUpperCase().startsWith('PYTHON'))).toEqual([])
   })
 
-  it('lets a normal token start, a filtered administrator\'s included, and refuses High or System', () => {
-    const run = answering(groups('Medium'))
-    expect(elevatedStartRefusal(env, run)).toBeNull()
-    expect(run).toHaveBeenCalledWith('C:\\Windows\\System32\\whoami.exe', ['/groups', '/fo', 'csv', '/nh'],
-      expect.objectContaining({ windowsHide: true, timeout: 5_000 }))
-    expect(elevatedStartRefusal(env, answering(groups('High')))).toBe(ELEVATED_REFUSAL)
-    expect(elevatedStartRefusal(env, answering(groups('System')))).toBe(ELEVATED_REFUSAL)
+  it('lets a standard user and a filtered administrator start', () => {
+    expect(refusal(answering(report()))).toBeNull()
+    expect(refusal(answering(report({ elevation_type: 3 })))).toBeNull()  // limited: UAC's filtered token
+  })
+
+  it('refuses TokenElevation whoever the default owner is', () => {
+    expect(refusal(answering(report({ elevated: true, elevation_type: 2, owner: ADMINISTRATORS,
+      integrity: 'S-1-16-12288' })))).toBe(ELEVATED_REFUSAL)
+    // The "object creator" owner policy keeps the user as owner; the start is still elevated.
+    expect(refusal(answering(report({ elevated: true, elevation_type: 2 })))).toBe(ELEVATED_REFUSAL)
+    // An administrator with UAC off: a full token of the default type.
+    expect(refusal(answering(report({ elevated: true, owner: ADMINISTRATORS })))).toBe(ELEVATED_REFUSAL)
+  })
+
+  it('refuses a default owner other than the user, naming it', () => {
+    expect(refusal(answering(report({ owner: ADMINISTRATORS })))).toBe(ownerRefusal(ADMINISTRATORS))
+    expect(ownerRefusal(ADMINISTRATORS)).toContain(ADMINISTRATORS)
   })
 
   it('refuses when it can\'t tell, rather than starting on a guess', () => {
-    expect(elevatedStartRefusal({}, answering(groups('Medium')))).toBe(UNCHECKED_REFUSAL)
-    expect(elevatedStartRefusal(env, answering(groups('Medium'), 1))).toBe(UNCHECKED_REFUSAL)
-    expect(elevatedStartRefusal(env, vi.fn(() => ({ status: null, error: new Error('timed out') })))).toBe(UNCHECKED_REFUSAL)
-    expect(elevatedStartRefusal(env, answering('"Everyone","Well-known group","S-1-1-0",""'))).toBe(UNCHECKED_REFUSAL)
+    expect(refusal(answering(report(), 1))).toBe(UNCHECKED_REFUSAL)
+    expect(refusal(vi.fn(() => ({ status: null, error: new Error('timed out') })))).toBe(UNCHECKED_REFUSAL)
+    expect(refusal(vi.fn(() => ({ status: 0, stdout: null })))).toBe(UNCHECKED_REFUSAL)
+    for (const bad of ['', 'not json', '[]', 'null', report() + report(),
+      report({ user: undefined }), report({ owner: 'Administrators' }), report({ elevated: 'false' }),
+      report({ elevated: 0 }), report({ elevation_type: 4 }), report({ elevation_type: undefined })]) {
+      expect(refusal(answering(bad))).toBe(UNCHECKED_REFUSAL)
+    }
+    const run = answering(report())
+    expect(elevatedStartRefusal(RESOURCES, {}, run, { exists: () => false })).toBe(UNCHECKED_REFUSAL)
+    expect(run).not.toHaveBeenCalled()  // no bundled runtime: nothing to ask
+  })
+
+  it('reads the report\'s facts exactly', () => {
+    expect(tokenFacts(report({ elevation_type: 3 }))).toEqual({ user: USER, owner: USER, elevated: false,
+      elevationType: 3 })
+    expect(tokenFacts('{"user":"S-1-5-18"}')).toBeNull()
   })
 
   it('is the Windows platform\'s start refusal', () => {
-    vi.stubEnv('SystemRoot', '')  // no whoami to ask, on any system: refused rather than guessed
-    try {
-      expect(windowsPlatform.startRefusal?.()).toBe(UNCHECKED_REFUSAL)
-    } finally {
-      vi.unstubAllEnvs()
-    }
+    // No bundled runtime outside the installed app, on any system: refused rather than guessed.
+    expect(windowsPlatform.startRefusal?.()).toBe(UNCHECKED_REFUSAL)
   })
 })
 
@@ -451,31 +477,40 @@ describe('the installed app\'s runtime and start at login', () => {
       .toThrow('bundled runtime is missing')
   })
 
-  const items = (settings: { openAtLogin: boolean; executableWillLaunchAtLogin: boolean }, isPackaged = true) => ({
-    isPackaged, execPath: 'C:\\Programs\\Odin\\Odin.exe',
-    getLoginItemSettings: vi.fn(() => settings), setLoginItemSettings: vi.fn()
+  const EXE = 'C:\\Programs\\Odin\\Odin.exe'
+  type Item = { name: string; path: string; args: string[]; scope: string; enabled: boolean }
+  const owned = (extra: Partial<Item> = {}): Item => ({ name: APP_ID, path: EXE, args: ['--hidden'], scope: 'user',
+    enabled: true, ...extra })
+  const items = (launchItems: Item[], isPackaged = true) => ({
+    isPackaged, execPath: EXE,
+    getLoginItemSettings: vi.fn(() => ({ launchItems, openAtLogin: true, executableWillLaunchAtLogin: true })),
+    setLoginItemSettings: vi.fn()
   }) as unknown as Parameters<typeof windowsAutostartEnabled>[2]
 
-  it('reads on only for this exact entry, registered and not disabled', () => {
-    const on = items({ openAtLogin: true, executableWillLaunchAtLogin: true })
+  it('reads on only for the entry this app owns: its name, the user scope, this executable, --hidden, enabled', () => {
+    const on = items([owned()])
     expect(windowsAutostartEnabled(undefined, undefined, on)).toBe(true)
-    expect((on as any).getLoginItemSettings).toHaveBeenCalledWith({ path: 'C:\\Programs\\Odin\\Odin.exe', args: ['--hidden'] })
-    // Disabled from Task Manager's Startup page, or registered with other arguments.
-    expect(windowsAutostartEnabled(undefined, undefined, items({ openAtLogin: true, executableWillLaunchAtLogin: false }))).toBe(false)
-    expect(windowsAutostartEnabled(undefined, undefined, items({ openAtLogin: false, executableWillLaunchAtLogin: true }))).toBe(false)
-    expect(windowsAutostartEnabled(undefined, undefined, items({ openAtLogin: true, executableWillLaunchAtLogin: true }, false))).toBe(false)
+    expect((on as any).getLoginItemSettings).toHaveBeenCalledWith({ path: EXE, args: ['--hidden'] })
+    expect(windowsAutostartEnabled(undefined, undefined, items([owned({ path: EXE.toUpperCase() })]))).toBe(true)
+    // Odin's own entry disabled from Task Manager, while a stale entry for the same executable stays enabled.
+    expect(windowsAutostartEnabled(undefined, undefined, items([
+      owned({ enabled: false }), owned({ name: 'Odin (old)', args: [] })]))).toBe(false)
+    expect(windowsAutostartEnabled(undefined, undefined, items([owned({ args: [] })]))).toBe(false)
+    expect(windowsAutostartEnabled(undefined, undefined, items([owned({ scope: 'machine' })]))).toBe(false)
+    expect(windowsAutostartEnabled(undefined, undefined, items([owned({ path: 'C:\\elsewhere\\Odin.exe' })]))).toBe(false)
+    expect(windowsAutostartEnabled(undefined, undefined, items([]))).toBe(false)
+    expect(windowsAutostartEnabled(undefined, undefined, items([owned()], false))).toBe(false)
   })
 
-  it('registers and approves, or removes, the installed executable with --hidden, and refuses from source', () => {
-    const fake = items({ openAtLogin: true, executableWillLaunchAtLogin: true })
+  it('registers and approves, or removes, the owned entry with --hidden, and refuses from source', () => {
+    const fake = items([owned()])
     expect(setWindowsAutostart(true, ['ignored'], undefined, fake)).toBe(true)
-    expect((fake as any).setLoginItemSettings).toHaveBeenCalledWith({ openAtLogin: true, enabled: true,
-      path: 'C:\\Programs\\Odin\\Odin.exe', args: ['--hidden'] })
+    expect((fake as any).setLoginItemSettings).toHaveBeenCalledWith({ openAtLogin: true, enabled: true, name: APP_ID,
+      path: EXE, args: ['--hidden'] })
     setWindowsAutostart(false, [], undefined, fake)
-    expect((fake as any).setLoginItemSettings).toHaveBeenLastCalledWith({ openAtLogin: false, enabled: false,
-      path: 'C:\\Programs\\Odin\\Odin.exe', args: ['--hidden'] })
-    expect(() => setWindowsAutostart(true, [], undefined, items({ openAtLogin: false, executableWillLaunchAtLogin: false }, false)))
-      .toThrow(AUTOSTART_UNAVAILABLE)
+    expect((fake as any).setLoginItemSettings).toHaveBeenLastCalledWith({ openAtLogin: false, enabled: false, name: APP_ID,
+      path: EXE, args: ['--hidden'] })
+    expect(() => setWindowsAutostart(true, [], undefined, items([], false))).toThrow(AUTOSTART_UNAVAILABLE)
   })
 })
 

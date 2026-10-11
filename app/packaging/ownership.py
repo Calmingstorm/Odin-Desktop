@@ -32,10 +32,6 @@ if not WINDOWS:
 DEB_ROOT = Path('/var/lib/odin-desktop/package-ownership')
 BOOT_ID = Path('/proc/sys/kernel/random/boot_id')
 _BOOT_ID_SHAPE = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
-# Windows counts boots: the kernel's BootId, which the registry publishes.
-_WINDOWS_BOOT_KEY = (r'SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management'
-                     r'\PrefetchParameters')
-_WINDOWS_BOOT_ID_SHAPE = re.compile(r'windows-[0-9]{1,10}')
 
 
 class OwnershipError(RuntimeError):
@@ -175,15 +171,11 @@ def _fingerprint(path):
 def _boot_id():
     """This boot's kernel identity, or None when it cannot be read or is malformed."""
     if WINDOWS:
-        import winreg
+        # The kernel's boot identifier GUID, the same source and shape the core records.
+        from src.desktop.platform import win32
 
-        try:
-            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, _WINDOWS_BOOT_KEY) as key:
-                value, kind = winreg.QueryValueEx(key, 'BootId')
-        except OSError:
-            return None
-        return (f'windows-{value}' if kind == winreg.REG_DWORD and isinstance(value, int)
-                and 0 <= value <= 0xFFFFFFFF else None)
+        value = win32.boot_identifier()
+        return value if value and _BOOT_ID_SHAPE.fullmatch(value) else None
     try:
         value = BOOT_ID.read_text().strip()
     except OSError:
@@ -197,8 +189,7 @@ def _earlier_boot(recorded, current):
     Only a well-formed kernel boot identity that differs from a readable current one
     counts. A missing or malformed one, as from an older candidate, stays fenced.
     """
-    shape = _WINDOWS_BOOT_ID_SHAPE if WINDOWS else _BOOT_ID_SHAPE
-    return bool(isinstance(recorded, str) and shape.fullmatch(recorded)
+    return bool(isinstance(recorded, str) and _BOOT_ID_SHAPE.fullmatch(recorded)
                 and current and recorded != current)
 
 
@@ -403,10 +394,28 @@ def _show_appimage_refusal(reason, *, dialog=Path('/usr/bin/zenity')):
             pass
 
 
+def _print_token():
+    """This process's token facts as one JSON line, for the Windows app's elevated-start check.
+    The app runs it before anything else, so it reads the token and writes nothing."""
+    if not WINDOWS:
+        raise OwnershipError('Token facts are read on Windows only')
+    from src.desktop.platform import win32
+
+    sys.stdout.buffer.write(json.dumps(win32.token_facts(), sort_keys=True).encode('ascii') + b'\n')
+    sys.stdout.buffer.flush()
+    return 0
+
+
+def _acknowledge(word):
+    """One protocol line as exact bytes: Windows' text stdout would turn its newline into CRLF."""
+    sys.stdout.buffer.write(word.encode('ascii') + b'\n')
+    sys.stdout.buffer.flush()
+
+
 def main(argv=None, *, sysctl_root=Path('/proc/sys')):
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['exec', 'hold'])
-    parser.add_argument('--kind', choices=['deb', 'appimage', 'nsis'], required=True)
+    parser.add_argument('action', choices=['exec', 'hold', 'token'])
+    parser.add_argument('--kind', choices=['deb', 'appimage', 'nsis'])
     parser.add_argument('--role', choices=['app', 'core'], default='app')
     parser.add_argument('--app-cleanup', type=Path)
     parser.add_argument('--core-cleanup', type=Path)
@@ -416,6 +425,14 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
         separator = argv.index('--')
         command, argv = argv[separator + 1:], argv[:separator]
     args = parser.parse_args(argv)
+    if args.action == 'token':
+        try:
+            return _print_token()
+        except (OwnershipError, OSError) as error:
+            print(f'Odin install ownership refusal: {error}', file=sys.stderr)
+            return 1
+    if args.kind is None:
+        parser.error('the following arguments are required: --kind')
     app_cleanup, core_cleanup = _profile(os.environ)
     try:
         if args.action == 'exec':
@@ -448,13 +465,13 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
                               args.app_cleanup or app_cleanup,
                               args.core_cleanup or core_cleanup, provisional=True) as lease:
             if args.action == 'hold':
-                print('READY', flush=True)
+                _acknowledge('READY')
                 # The app commits admission after its read-only state check.
                 # EOF before ADMIT is a refused start, not unknown cleanup.
                 if sys.stdin.readline() != 'ADMIT\n':
                     return 0
                 lease.begin()
-                print('ADMITTED', flush=True)
+                _acknowledge('ADMITTED')
                 sys.stdin.read()
                 result = 0
             try:

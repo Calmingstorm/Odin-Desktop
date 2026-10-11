@@ -217,6 +217,27 @@ def test_zip_local_header_drift_refused_before_good_file_write(tmp_path):
     assert not (tmp_path / "stage").exists()
 
 
+def test_a_failed_write_is_reported_with_its_path_not_as_a_bad_archive(tmp_path, monkeypatch):
+    import errno
+
+    source = make_archive(tmp_path, "zip", ["root/file"])
+    original = Path.open
+
+    def refuse(path, mode="r", *args, **kwargs):
+        if "x" in mode:
+            raise OSError(errno.ENAMETOOLONG, "The filename or extension is too long")
+        return original(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", refuse)
+    with pytest.raises(archive.ArchiveSafetyError) as caught:
+        archive.extract_archive(source, tmp_path / "stage")
+    target = tmp_path / "stage" / "root" / "file"
+    assert caught.value.code == "extract_io"
+    assert caught.value.path == "root/file"
+    assert f"{target} ({len(str(target))} characters)" in str(caught.value)
+    assert "too long" in str(caught.value)
+
+
 def test_content_addressed_tar_cache_without_archive_suffix(tmp_path):
     source = make_archive(tmp_path, "tar", ["python/file"])
     hashed = source.with_name("a" * 64)

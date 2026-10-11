@@ -3,6 +3,11 @@ import { dirname, posix, resolve, win32 } from 'node:path'
 import { packagedCoreCommand } from './core-command'
 import type { ProfilePaths } from './paths'
 
+/** Whether the guardian's output holds `word` as a whole line, LF- or CRLF-terminated (chunks may split it). */
+export function hasLine(output: string, word: string): boolean {
+  return new RegExp(`(?:^|\\n)${word}\\r?\\n`).test(output)
+}
+
 /** Independent guardian even when a user invokes the raw Electron executable. Windows' per-user installation is
  * `nsis`, whose lease lives in local AppData; its guardian runs without a console window. */
 export function acquirePackagedApp(paths: ProfilePaths, resources: string, env: NodeJS.ProcessEnv,
@@ -29,7 +34,7 @@ export function acquirePackagedApp(paths: ProfilePaths, resources: string, env: 
     let output = ''
     child.stdout.on('data', (data) => {
       output += String(data)
-      if (output.includes('READY\n')) {
+      if (hasLine(output, 'READY')) {
         clearTimeout(timer)
         child.removeListener('error', fail)
         child.removeListener('exit', fail)
@@ -57,7 +62,7 @@ export function admitPackagedApp(child: ChildProcessWithoutNullStreams): Promise
     }
     const ready = (data: Buffer): void => {
       output += String(data)
-      if (output.includes('ADMITTED\n')) { cleanup(); resolve() }
+      if (hasLine(output, 'ADMITTED')) { cleanup(); resolve() }
       else if (output.length > 1024) fail()
     }
     const timer = setTimeout(fail, 15_000)

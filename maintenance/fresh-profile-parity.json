@@ -340,7 +340,7 @@
     "src/desktop/platform/linux_ipc.py": "087a1859553b4c26e75c4e4e6a9d3484e160ef9d590ff99212e48b925221308a",
     "src/desktop/platform/locks.py": "2b0a208dd290d07abf5b9232ffbc0d973dea9eb856263659d65573ea74546d53",
     "src/desktop/platform/variants.py": "c73ded6d79fad3cef01c9f42a1e0a8a88307576913a596917a2de96c832abed2",
-    "src/desktop/platform/win32.py": "22ad96f428a879eb7feb12cff7fafff4283dc6b7240688d71aae247015515017",
+    "src/desktop/platform/win32.py": "91d6cedbd5a7dac73a568921685aa10c14426fcd97f45202f578b59c658e8b43",
     "src/desktop/platform/windows.py": "f67817adfb34e20e1a6dda8a077d451ce564640ea1aa0a72071c691cf572c407",
     "src/desktop/platform/windows_authority.py": "be9d6ec71d128b18a0b416efcbf2407ea3682a8025d2f22c6d3325ecf31fb3cd",
     "src/desktop/platform/windows_desktop.py": "bde83430059c28805f3ec704d0d877c31084cabc7baa471f5db28c2125a5ce35",
