@@ -16,14 +16,18 @@ import pytest
 from src.tools import skill_manager as sm
 
 
-def pip_writing(target: Path, name: str, release: str, calls: list):
-    """pip's effect on the profile folder, without an index: one installed distribution."""
+def pip_writing(target: Path, name: str, release: str, calls: list, *, metadata: str = "",
+                also: tuple[tuple[str, str], ...] = ()):
+    """pip's effect on the profile folder, without an index: the installed distributions."""
     def run(argv, **kwargs):
         calls.append(argv)
-        info = target / f"{name.replace('-', '_')}-{release}.dist-info"
-        info.mkdir(parents=True, exist_ok=True)
-        (info / "METADATA").write_text(
-            f"Metadata-Version: 2.1\nName: {name}\nVersion: {release}\n", encoding="utf-8")
+        for each, each_release, extra in ((name, release, metadata),
+                                          *((n, v, "") for n, v in also)):
+            info = target / f"{each.replace('-', '_')}-{each_release}.dist-info"
+            info.mkdir(parents=True, exist_ok=True)
+            (info / "METADATA").write_text(
+                f"Metadata-Version: 2.1\nName: {each}\nVersion: {each_release}\n{extra}",
+                encoding="utf-8")
         return subprocess.CompletedProcess(argv, 0, "", "")
     return run
 
@@ -68,3 +72,20 @@ def test_pip_succeeding_without_an_importable_package_is_an_error(tmp_path, monk
     assert (already, new) == ([], [])
     assert [d.level for d in diagnostics] == ["error"]
     assert "can't be imported" in diagnostics[0].message
+
+
+def test_a_conflict_inside_a_requested_extra_is_named_and_not_reinstalled(tmp_path, monkeypatch):
+    runtime = version("packaging")
+    target = tmp_path / "skill-packages"
+    calls: list = []
+    monkeypatch.setattr(sm.subprocess, "run", pip_writing(
+        target, "odin-fixture-extra", "1.0", calls, also=(("packaging", "999.0"),),
+        metadata='Provides-Extra: fast\nRequires-Dist: packaging==999.0; extra == "fast"\n'))
+    for _ in range(2):  # the second load knows without running pip again
+        already, new, diagnostics = sm.resolve_dependencies(["odin-fixture-extra[fast]==1.0"],
+                                                            target)
+        assert (already, new) == ([], [])
+        assert [d.level for d in diagnostics] == ["error"]
+        assert "'packaging==999.0' through its extras" in diagnostics[0].message
+        assert runtime in diagnostics[0].message
+    assert len(calls) == 1

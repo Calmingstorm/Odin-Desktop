@@ -333,29 +333,46 @@ def _use_packages(target: Path) -> None:
         sys.path.append(str(target))
 
 
-def _runtime_conflict(spec: str, target: Path) -> str | None:
-    """The runtime's version of ``spec``'s package when the profile's folder holds a copy
-    that satisfies ``spec`` but the runtime's own copy, which comes first, doesn't."""
+def _runtime_conflict(spec: str, target: Path,
+                      _seen: set[str] | None = None) -> tuple[str, str] | None:
+    """The first requirement in ``spec``'s active graph that the profile's folder satisfies
+    but the runtime's own copy, which comes first, doesn't: that requirement and the runtime's
+    version. The graph is ``spec`` and, as ``_is_package_installed`` follows it, what its
+    requested extras require."""
     try:
         requirement = Requirement(spec)
-        name = canonicalize_name(requirement.name)
-        held = next((dist for dist in distributions(path=[str(target)])
-                     if canonicalize_name(dist.metadata["Name"] or "") == name), None)
-        if held is None or (requirement.specifier
-                            and not requirement.specifier.contains(held.version)):
+        effective = distribution(requirement.name)
+        if requirement.specifier and not requirement.specifier.contains(effective.version):
+            name = canonicalize_name(requirement.name)
+            held = next((dist for dist in distributions(path=[str(target)])
+                         if canonicalize_name(dist.metadata["Name"] or "") == name), None)
+            if held is not None and requirement.specifier.contains(held.version):
+                return str(requirement), effective.version
             return None
-        effective = distribution(requirement.name).version
+        seen = set() if _seen is None else _seen
+        if not requirement.extras or str(requirement) in seen:
+            return None
+        seen.add(str(requirement))
+        for dependency in effective.requires or []:
+            child = Requirement(dependency)
+            if child.marker is None or any(child.marker.evaluate({"extra": extra})
+                                           for extra in ["", *requirement.extras]):
+                child.marker = None
+                if found := _runtime_conflict(str(child), target, seen):
+                    return found
     except (PackageNotFoundError, InvalidRequirement, InvalidVersion):
         return None
-    return effective if effective != held.version else None
+    return None
 
 
-def _conflict_diagnostic(spec: str, runtime: str) -> SkillDiagnostic:
+def _conflict_diagnostic(spec: str, conflict: tuple[str, str]) -> SkillDiagnostic:
+    needed, runtime = conflict
+    through = "" if needed == spec else f" needs {needed!r} through its extras, which"
     return SkillDiagnostic(
         "error",
-        f"Dependency {spec!r} conflicts with Odin's own copy of that package ({runtime}). A "
-        "skill's packages never replace one Odin uses, so use a version range that includes "
-        f"{runtime}.",
+        f"Dependency {spec!r}{through} conflicts with Odin's own copy of that package "
+        f"({runtime}). A skill's packages never replace one Odin uses, so use a version range "
+        f"that includes {runtime}.",
     )
 
 
@@ -453,8 +470,8 @@ def resolve_dependencies(
             continue
         if _is_package_installed(spec):
             already_installed.append(spec)
-        elif target is not None and (runtime := _runtime_conflict(spec, target)):
-            diagnostics.append(_conflict_diagnostic(spec, runtime))  # installed before: no repeat
+        elif target is not None and (conflict := _runtime_conflict(spec, target)):
+            diagnostics.append(_conflict_diagnostic(spec, conflict))  # installed before: no repeat
         else:
             to_install.append(spec)
 
@@ -471,8 +488,8 @@ def resolve_dependencies(
                 for spec in to_install:
                     if _is_package_installed(spec):
                         newly_installed.append(spec)
-                    elif runtime := _runtime_conflict(spec, target):
-                        diagnostics.append(_conflict_diagnostic(spec, runtime))
+                    elif conflict := _runtime_conflict(spec, target):
+                        diagnostics.append(_conflict_diagnostic(spec, conflict))
                     else:
                         diagnostics.append(SkillDiagnostic(
                             "error", f"Dependency {spec!r} installed but can't be imported."))
