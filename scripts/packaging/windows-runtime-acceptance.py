@@ -15,6 +15,7 @@ import http.server
 import importlib.util
 import json
 import math
+import ntpath
 import os
 import re
 import shutil
@@ -77,6 +78,199 @@ def installed(module):
         raise AssertionError(f"module escaped staged interpreter: {module.__name__}: {path}")
 
 
+# Native evidence a static DLL audit can't give: the modules each process actually loaded, and
+# Chromium's process tokens. A developer machine's own redistributable (the VC++ runtime,
+# OpenSSL) would mask a missing bundled copy, so one loaded from outside the bundle fails.
+REDISTRIBUTABLE = re.compile(r"^((msvcp|vcruntime|concrt|vccorlib|vcomp|vcamp|mfc|atl|msvcr)"
+                             r"\d+[a-z0-9_]*|libcrypto.*|libssl.*)\.dll$", re.IGNORECASE)
+SANDBOXED_LEVELS = {"S-1-16-0": "untrusted", "S-1-16-4096": "low"}
+
+
+def native():
+    """Process, module, token and command-line queries (ctypes; Windows only)."""
+    import ctypes
+    from ctypes import wintypes
+
+    from src.desktop.platform import win32
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+    ntdll = ctypes.WinDLL("ntdll")
+
+    class ProcessEntry(ctypes.Structure):  # PROCESSENTRY32W
+        _fields_ = [("size", wintypes.DWORD), ("usage", wintypes.DWORD), ("pid", wintypes.DWORD),
+                    ("heap", ctypes.c_size_t), ("module", wintypes.DWORD),
+                    ("threads", wintypes.DWORD), ("parent", wintypes.DWORD),
+                    ("priority", ctypes.c_long), ("flags", wintypes.DWORD),
+                    ("exe", ctypes.c_wchar * 260)]
+
+    class ModuleEntry(ctypes.Structure):  # MODULEENTRY32W
+        _fields_ = [("size", wintypes.DWORD), ("module", wintypes.DWORD), ("pid", wintypes.DWORD),
+                    ("global_usage", wintypes.DWORD), ("process_usage", wintypes.DWORD),
+                    ("base", ctypes.c_void_p), ("base_size", wintypes.DWORD),
+                    ("handle", ctypes.c_void_p), ("name", ctypes.c_wchar * 256),
+                    ("path", ctypes.c_wchar * 260)]
+
+    class UnicodeString(ctypes.Structure):
+        _fields_ = [("length", ctypes.c_ushort), ("maximum", ctypes.c_ushort),
+                    ("buffer", ctypes.c_void_p)]
+
+    snapshot = kernel32.CreateToolhelp32Snapshot
+    snapshot.argtypes, snapshot.restype = [wintypes.DWORD, wintypes.DWORD], ctypes.c_void_p
+    for name, entry in (("Process32FirstW", ProcessEntry), ("Process32NextW", ProcessEntry),
+                        ("Module32FirstW", ModuleEntry), ("Module32NextW", ModuleEntry)):
+        function = getattr(kernel32, name)
+        function.argtypes = [ctypes.c_void_p, ctypes.POINTER(entry)]
+        function.restype = wintypes.BOOL
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = ctypes.c_void_p
+    kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+    kernel32.QueryFullProcessImageNameW.argtypes = [
+        ctypes.c_void_p, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
+    advapi32.OpenProcessToken.argtypes = [
+        ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(ctypes.c_void_p)]
+    advapi32.GetTokenInformation.argtypes = [
+        ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD)]
+    advapi32.IsTokenRestricted.argtypes = [ctypes.c_void_p]
+    ntdll.NtQueryInformationProcess.argtypes = [
+        ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, wintypes.ULONG,
+        ctypes.POINTER(wintypes.ULONG)]
+    invalid = {None, 0, ctypes.c_void_p(-1).value}
+    limited = win32.PROCESS_QUERY_LIMITED_INFORMATION
+
+    def walk(flags, pid, first, step, entry_type, field):
+        for _ in range(5):  # ERROR_BAD_LENGTH: the process was loading a module; ask again
+            handle = snapshot(flags, pid)
+            if handle not in invalid or ctypes.get_last_error() != 24:
+                break
+        if handle in invalid:
+            return None
+        try:
+            entry = entry_type()
+            entry.size = ctypes.sizeof(entry)
+            found, ok = [], first(handle, ctypes.byref(entry))
+            while ok:
+                found.append(getattr(entry, field))
+                ok = step(handle, ctypes.byref(entry))
+            return found
+        finally:
+            kernel32.CloseHandle(handle)
+
+    def opened(pid, action):
+        handle = kernel32.OpenProcess(limited, False, pid)
+        if handle in invalid:
+            return None
+        try:
+            return action(handle)
+        finally:
+            kernel32.CloseHandle(handle)
+
+    def image(handle):
+        size = wintypes.DWORD(32768)
+        buffer = ctypes.create_unicode_buffer(size.value)
+        ok = kernel32.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size))
+        return buffer.value if ok else None
+
+    def command_line(handle):
+        needed = wintypes.ULONG()
+        ntdll.NtQueryInformationProcess(handle, 60, None, 0, ctypes.byref(needed))
+        if not needed.value:
+            return None
+        buffer = ctypes.create_string_buffer(needed.value)
+        if ntdll.NtQueryInformationProcess(handle, 60, buffer, needed, ctypes.byref(needed)):
+            return None
+        text = UnicodeString.from_buffer(buffer)
+        return ctypes.wstring_at(text.buffer, text.length // 2) if text.buffer else ""
+
+    def token(handle):
+        facts = {}
+        try:
+            facts["integrity"] = win32._token_sid(win32.TOKEN_INTEGRITY_LEVEL_CLASS, process=handle)
+        except OSError as exc:
+            facts["integrity"] = f"unreadable ({exc})"
+        held = ctypes.c_void_p()
+        if advapi32.OpenProcessToken(handle, win32.TOKEN_QUERY, ctypes.byref(held)):
+            try:
+                facts["restricted"] = bool(advapi32.IsTokenRestricted(held))
+                value, needed = wintypes.DWORD(), wintypes.DWORD()
+                if advapi32.GetTokenInformation(held, 29, ctypes.byref(value),  # IsAppContainer
+                                                ctypes.sizeof(value), ctypes.byref(needed)):
+                    facts["appcontainer"] = bool(value.value)
+            finally:
+                kernel32.CloseHandle(held)
+        return facts
+
+    return SimpleNamespace(
+        processes=lambda: walk(0x2, 0, kernel32.Process32FirstW, kernel32.Process32NextW,
+                               ProcessEntry, "pid") or [],
+        modules=lambda pid: walk(0x18, pid, kernel32.Module32FirstW, kernel32.Module32NextW,
+                                 ModuleEntry, "path"),
+        image=lambda pid: opened(pid, image),
+        command_line=lambda pid: opened(pid, command_line),
+        token=lambda pid: opened(pid, token))
+
+
+def under(path: str, root: Path | str) -> bool:
+    """Whether a Windows path lies under root, by Windows' rules on any OS (testable on Linux)."""
+    return ntpath.normcase(ntpath.abspath(path)).startswith(
+        ntpath.normcase(ntpath.abspath(str(root))).rstrip("\\") + "\\")
+
+
+def classify_modules(paths: list[str], bundle: Path) -> dict:
+    """Loaded modules by origin. A redistributable from outside the bundle is a failure. The PDF
+    engine's first use extracts it from the bundle into the profile's data; a module from
+    neither (a security product's scanner, an overlay) is listed."""
+    windows = os.environ.get("SystemRoot") or r"C:\Windows"
+    profile = ntpath.join(os.environ.get("LOCALAPPDATA") or str(bundle), "odin-desktop")
+    counts = {"bundle": 0, "windows": 0, "extracted_into_the_profile": 0}
+    redistributable, other = [], []
+    for path in paths:
+        if under(path, bundle):
+            counts["bundle"] += 1
+        elif REDISTRIBUTABLE.match(ntpath.basename(path)):
+            redistributable.append(path)
+        elif under(path, windows):
+            counts["windows"] += 1
+        elif under(path, profile) and re.search(r"[\\/]resources[\\/]pdf[\\/][0-9a-f]{64}[\\/]",
+                                                path):
+            counts["extracted_into_the_profile"] += 1
+        else:
+            other.append(path)
+    return {**counts, "redistributable_from_outside_the_bundle": redistributable, "other": other}
+
+
+def own_modules() -> dict:
+    """This process's modules, classified; it fails on a redistributable from outside."""
+    bundle = Path(sys.prefix).resolve().parent.parent
+    modules = classify_modules(native().modules(os.getpid()) or [], bundle)
+    assert modules["bundle"], "no module of this process read from the bundle"
+    assert not modules["redistributable_from_outside_the_bundle"], modules
+    return modules
+
+
+def bundle_processes(bundle: Path) -> list[dict]:
+    """Every other process running from the bundle: its modules (when this user may read them),
+    token and command line."""
+    query = native()
+    rows = []
+    for pid in query.processes():
+        if pid == os.getpid():
+            continue
+        image = query.image(pid)
+        if not image or not under(image, bundle):
+            continue
+        command = query.command_line(pid) or ""
+        kind = re.search(r"--type=([\w-]+)", command)
+        modules = query.modules(pid)
+        rows.append({"image": os.path.relpath(image, bundle), "pid": pid,
+                     "type": kind.group(1) if kind else "main", "token": query.token(pid) or {},
+                     "no_sandbox_flag": "--no-sandbox" in command,
+                     "modules": (classify_modules(modules, bundle) if modules is not None
+                                 else "unreadable by this user")})
+    return rows
+
+
 def loads() -> dict:
     import sqlite3
 
@@ -121,9 +315,25 @@ async def browser() -> dict:
             executable = Path(manager._bundled_executable).resolve()
             assert executable.is_relative_to(Path(sys.prefix).resolve().parent)
             assert executable.suffix.lower() == ".exe"
+            processes = bundle_processes(Path(sys.prefix).resolve().parent.parent)
+            chromium = [row for row in processes if row["image"].lower().endswith(
+                "chrome-headless-shell.exe")]
+            renderers = [row for row in chromium if row["type"] == "renderer"]
+            assert renderers, processes
+            for row in renderers:  # Chromium's sandbox: a lowered label and a restricted token
+                facts = row["token"]
+                assert facts.get("integrity") in SANDBOXED_LEVELS, row
+                assert facts.get("restricted") or facts.get("appcontainer"), row
+            assert not any(row["no_sandbox_flag"] for row in chromium), chromium
+            for row in processes:
+                if row["image"].lower().endswith(("chrome-headless-shell.exe", "node.exe")) and (
+                        row["type"] == "main"):
+                    assert isinstance(row["modules"], dict), row  # read, not assumed
+                if isinstance(row["modules"], dict):
+                    assert not row["modules"]["redistributable_from_outside_the_bundle"], row
             return {"browser": manager._browser.version, "executable": str(executable),
                     "screenshot_bytes": len(image), "title": await page.title(),
-                    "limitation": "browser launch/render; no Windows sandbox-token audit"}
+                    "processes": processes}
         finally:
             await context.close()
     finally:
@@ -345,7 +555,8 @@ def child(mode: str, work: Path) -> dict:
         result = asyncio.run({"browser": browser, "search": search, "pdf": pdf,
                               "curl": lambda: curl(work), "curl-profile": lambda: curl(work),
                               "ssh": lambda: ssh(work)}[mode]())
-    return {"case": mode, "status": "pass", "python": sys.executable, **result}
+    return {"case": mode, "status": "pass", "python": sys.executable, **result,
+            "modules": own_modules()}
 
 
 def main() -> int:

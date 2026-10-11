@@ -56,3 +56,33 @@ def test_workflow_has_actual_stage_and_native_acceptance_not_just_source_tests()
     assert "build-runtime.py" in text
     assert "windows-runtime-acceptance.py" in text
     assert "windows-runtime-acceptance.json" in text
+
+
+def test_loaded_modules_are_judged_by_origin(monkeypatch):
+    # A redistributable is fine from the bundle and a failure from anywhere else: Windows' own
+    # copy on a developer machine would mask a missing bundled one.
+    monkeypatch.setenv("SystemRoot", r"C:\Windows")
+    monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\u\AppData\Local")
+    bundle = r"C:\Users\u\AppData\Local\Programs\Odin\resources"
+    digest = "0" * 64
+    result = HARNESS.classify_modules([
+        bundle + r"\runtime\python\python.exe",
+        bundle + r"\runtime\python\VCRUNTIME140.dll",
+        r"C:\WINDOWS\System32\kernel32.dll",
+        r"C:\Windows\System32\msvcrt.dll",  # inbox, not the VC++ redistributable
+        r"C:\Windows\System32\ucrtbase.dll",
+        r"C:\Windows\System32\MSVCP140.dll",
+        r"C:\Program Files\Other\vcruntime140_1.dll",
+        r"C:\Windows\System32\libcrypto-3-x64.dll",
+        r"C:\Users\u\AppData\Local\odin-desktop\default\data\resources\pdf" + "\\" + digest
+        + r"\pymupdf\_mupdf.pyd",
+        r"C:\ProgramData\Microsoft\Windows Defender\Platform\4.18\MpOav.dll",
+        r"C:\Users\u\AppData\Local\Programs\Odin\resources-old\x.dll",  # a sibling, not inside
+    ], bundle)
+    assert (result["bundle"], result["windows"], result["extracted_into_the_profile"]) == (2, 3, 1)
+    assert result["redistributable_from_outside_the_bundle"] == [
+        r"C:\Windows\System32\MSVCP140.dll", r"C:\Program Files\Other\vcruntime140_1.dll",
+        r"C:\Windows\System32\libcrypto-3-x64.dll"]
+    assert result["other"] == [
+        r"C:\ProgramData\Microsoft\Windows Defender\Platform\4.18\MpOav.dll",
+        r"C:\Users\u\AppData\Local\Programs\Odin\resources-old\x.dll"]
