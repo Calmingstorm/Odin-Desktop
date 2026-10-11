@@ -9,14 +9,16 @@
 # (hidden, as at login: its core opens its pipe, then Exit ends the app, the core, the guardian and the bundled
 # processes they started); then a reinstall, an uninstall that keeps the profile, and three fresh cycles. Every
 # install is silent (/S). The report is JSON and is written however the run ends: an exception is recorded as a
-# failed check. Any failed check makes the exit code 1. -FailAt names a check to fail right after (a test hook).
+# failed check, and so is each cleanup step that fails (every step is still tried). Any failed check makes the exit
+# code 1. Test hooks: -FailAt names a check to fail right after; -FailCleanup a cleanup step to fail after its work.
 param(
   [Parameter(Mandatory = $true)] [string] $Installer,
   [Parameter(Mandatory = $true)] [string] $Report,
   [Parameter(Mandatory = $true)] [string] $Packaging,
   [string] $Python = '',
   [string] $Mode = 'orchestrate',
-  [string] $FailAt = ''
+  [string] $FailAt = '',
+  [string] $FailCleanup = ''
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -38,6 +40,18 @@ function OdinUninstallKeys([string] $root) {
 # An exception as a failed check: its type, message and script line, nothing more.
 function Outcome($record) {
   "$($record.Exception.GetType().Name): $($record.Exception.Message) (line $($record.InvocationInfo.ScriptLineNumber))"
+}
+# One cleanup step: tried whatever happened before it, its failure recorded (sanitized) without ending the cleanup.
+function Cleanup([string] $name, [scriptblock] $step) {
+  try {
+    & $step
+    if ($FailCleanup -and $name -eq $FailCleanup) { throw "intentional cleanup failure in '$name' (-FailCleanup)" }
+    $checks.Add([ordered]@{ check = "cleanup: $name"; ok = $true; detail = '' })
+  } catch {
+    $detail = Outcome $_
+    if ($plain) { $detail = $detail.Replace($plain, '<password>') }
+    $checks.Add([ordered]@{ check = "cleanup: $name"; ok = $false; detail = $detail })
+  }
 }
 function Finish([string] $outcome = '') {
   if ($outcome) { $checks.Add([ordered]@{ check = 'the run reached its end'; ok = $false; detail = $outcome }) }
@@ -176,6 +190,8 @@ if ($Mode -eq 'user') {
 $outcome = ''
 $name = 'odin-acceptance'
 $plain = ''
+$exitCode = 1
+try {
 try {
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not (New-Object Security.Principal.WindowsPrincipal $identity).IsInRole(
@@ -196,6 +212,7 @@ $bytes = New-Object byte[] 24
 $plain = 'Oa-' + [Convert]::ToBase64String($bytes) + '!7'
 $secret = ConvertTo-SecureString $plain -AsPlainText -Force
 New-LocalUser -Name $name -Password $secret -PasswordNeverExpires -AccountNeverExpires | Out-Null
+Check 'a disposable user was created' ($null -ne (Get-LocalUser -Name $name -ErrorAction SilentlyContinue)) $name
 $work = Join-Path $env:RUNNER_TEMP 'odin-installer-acceptance'
 New-Item -ItemType Directory -Force $work | Out-Null
 Copy-Item $Installer (Join-Path $work 'setup.exe')
@@ -219,8 +236,23 @@ if ($null -eq $result) {
   $outcome = Outcome $_
   if ($plain) { $outcome = $outcome.Replace($plain, '<password>') }
 } finally {
-  Remove-LocalUser -Name $name -ErrorAction SilentlyContinue
-  Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like "*\$name" } |
-    Remove-CimInstance -ErrorAction SilentlyContinue
+  Cleanup 'remove the account' {
+    if (Get-LocalUser -Name $name -ErrorAction SilentlyContinue) { Remove-LocalUser -Name $name }
+  }
+  Cleanup 'remove its profile' {
+    # Windows may still be unloading the profile just after its last process: a few tries, then a recorded failure.
+    foreach ($try in 1..5) {
+      $left = @(Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like "*\$name" })
+      if (-not $left.Count) { return }
+      try { $left | Remove-CimInstance } catch { if ($try -eq 5) { throw } }
+      Start-Sleep -Seconds 3
+    }
+    if (@(Get-CimInstance Win32_UserProfile | Where-Object { $_.LocalPath -like "*\$name" }).Count) {
+      throw "the profile of $name is still there"
+    }
+  }
 }
-exit (Finish $outcome)
+} finally {
+  $exitCode = Finish $outcome
+}
+exit $exitCode

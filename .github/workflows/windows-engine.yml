@@ -106,14 +106,22 @@ jobs:
         run: |
           $setup = (Get-ChildItem .packaging-candidates\*-setup.exe | Select-Object -First 1).FullName
           $report = "$env:RUNNER_TEMP\windows-installer-acceptance-failing.json"
+          # The run fails once its disposable user exists, then the first cleanup step fails after its work: the
+          # report keeps the earlier checks, the original failure and the cleanup failure, and the next step runs.
           & .\scripts\packaging\windows-installer-acceptance.ps1 -Installer $setup -Packaging app\packaging `
-            -Report $report -FailAt 'an elevated token is refused'
+            -Report $report -FailAt 'a disposable user was created' -FailCleanup 'remove the account'
           if ($LASTEXITCODE -ne 1) { throw "an intentional failure must exit 1, not $LASTEXITCODE" }
           $checks = (Get-Content -LiteralPath $report -Raw | ConvertFrom-Json).checks
-          if (-not ($checks | Where-Object { $_.check -eq 'an elevated token is refused' })) {
-            throw 'the failing run lost the checks before its failure' }
-          if (-not ($checks | Where-Object { $_.check -eq 'the run reached its end' -and
-              $_.detail -like '*intentional failure*' })) { throw 'the failing run did not record its failure' }
+          function Recorded($name, $ok, $like = '*') {
+            @($checks | Where-Object { $_.check -eq $name -and [bool]$_.ok -eq $ok -and $_.detail -like $like }).Count -eq 1
+          }
+          if (-not (Recorded 'an elevated token is refused' $true)) { throw 'the run lost the checks before its failure' }
+          if (-not (Recorded 'a disposable user was created' $true)) { throw 'the run lost the check it failed after' }
+          if (-not (Recorded 'the run reached its end' $false '*intentional failure*')) { throw 'the original failure is missing' }
+          if (-not (Recorded 'cleanup: remove the account' $false '*intentional cleanup failure*')) {
+            throw 'the cleanup failure is missing' }
+          if (-not (Recorded 'cleanup: remove its profile' $true)) { throw 'a failed cleanup step stopped the next one' }
+          if (Get-LocalUser -Name odin-acceptance -ErrorAction SilentlyContinue) { throw 'the failed step skipped its work' }
           exit 0  # the runner would otherwise exit with the intentional failure's code
       - name: The installer, elevated and as a disposable standard user
         shell: powershell

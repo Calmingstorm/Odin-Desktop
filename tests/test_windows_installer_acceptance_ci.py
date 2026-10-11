@@ -21,7 +21,12 @@ def test_the_installer_job_builds_with_the_windows_entry_then_runs_the_acceptanc
                   if "windows-installer-acceptance.ps1" in run and "-FailAt" not in run)
     failing = next(i for i, run in enumerate(runs) if "-FailAt" in run)
     assert build < failing < accept  # the report path is proved before the real run
-    assert "the run reached its end" in runs[failing]
+    # A failure in the body and one in cleanup: both recorded, with the checks before them, and
+    # the cleanup step after the failed one still runs.
+    assert "-FailCleanup 'remove the account'" in runs[failing]
+    for record in ("the run reached its end", "cleanup: remove the account",
+                   "cleanup: remove its profile", "a disposable user was created"):
+        assert record in runs[failing]
     # GitHub's PowerShell wrapper exits with the last exit code, the intentional failure's 1.
     assert runs[failing].rstrip().splitlines()[-1].strip().startswith("exit 0")
     acceptance = steps[accept]
