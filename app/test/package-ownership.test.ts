@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { acquirePackagedApp, admitPackagedApp, hasLine } from '../src/main/package-ownership'
+import { acquirePackagedApp, admitPackagedApp, hasLine, INSTALL_UNFINISHED, PENDING_EXIT } from '../src/main/package-ownership'
 
 const mocked = vi.hoisted(() => ({ spawn: vi.fn(), read: vi.fn(), exists: vi.fn(() => true) }))
 vi.mock('node:child_process', () => ({ spawn: mocked.spawn }))
@@ -98,6 +98,20 @@ describe('independent packaged app lifetime', () => {
     const args = mocked.spawn.mock.calls[0]![1] as string[]
     expect(args[args.indexOf('--kind') + 1]).toBe('appimage')
     process.stdin.end()
+  })
+
+  it('names the remedy on Windows when an unfinished installer run fences the start', async () => {
+    const windowsPaths = { profileId: 'default', configDir: 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\config',
+      dataDir: 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\data' } as Parameters<typeof acquirePackagedApp>[0]
+    for (const [system, code, message] of [['win32', PENDING_EXIT, INSTALL_UNFINISHED],
+      ['win32', 1, 'ownership is unavailable'], ['linux', PENDING_EXIT, 'ownership is unavailable']] as const) {
+      const process = child()
+      mocked.spawn.mockReturnValue(process)
+      const pending = acquirePackagedApp(system === 'win32' ? windowsPaths : paths,
+        system === 'win32' ? 'C:\\Programs\\Odin\\resources' : '/candidate/resources', {}, system)
+      process.emit('exit', code)
+      await expect(pending).rejects.toThrow(message)
+    }
   })
 
   it('guardian loss before readiness is not admission', async () => {

@@ -3,6 +3,16 @@
 ; anything is written: Odin's installer.nsi runs it ahead of .onInit's SetOutPath, which would create a /D
 ; destination. The folder is fixed, in Odin's multiUser.nsh, which refuses a location recorded elsewhere.
 ; A refusal exits with code 2, and a silent install's message box answers itself.
+;
+; Install safety (phase 5) is Linux's package fence: the installer and uninstaller never start,
+; stop or signal Odin. They take the per-user lease the app and its core hold while they run, so
+; they refuse while Odin runs; they require this boot's lifetimes to have ended clean; and they
+; write transaction.json, which the guardian refuses every start behind, until the work is done.
+
+Var odinLease
+Var odinLeaseId
+
+!define ODIN_OWNERSHIP "$LOCALAPPDATA\odin-desktop\install-ownership\nsis"
 
 !macro odinRefuse MESSAGE
   MessageBox MB_OK|MB_ICONSTOP "${MESSAGE}" /SD IDOK
@@ -88,3 +98,156 @@
   ; Windows won't remove a folder a process is working in: RMDir /r emptied it and left it.
   SetOutPath $TEMP
 !macroend
+
+; A folder the guardian would make: protected, full control for SYSTEM, Administrators and the
+; owner (the guardian's PRIVATE_SDDL). An existing one is left as it is, for the guardian to judge.
+!macro odinPrivateFolder PATH
+  ${IfNot} ${FileExists} "${PATH}\*.*"
+    System::Call 'advapi32::ConvertStringSecurityDescriptorToSecurityDescriptorW(w "D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;OW)", i 1, *p .r8, p 0) i .r0'
+    ${If} $0 = 0
+      !insertmacro odinRefuse "Odin's install lease couldn't be prepared, so nothing was changed."
+    ${EndIf}
+    System::Call '*(i 12, p r8, i 0) p .r9'
+    System::Call 'kernel32::CreateDirectoryW(w "${PATH}", p r9) i .r0'
+    System::Free $9
+    System::Call 'kernel32::LocalFree(p r8)'
+    ${If} $0 = 0
+      !insertmacro odinRefuse "Odin's install lease couldn't be prepared, so nothing was changed."
+    ${EndIf}
+  ${EndIf}
+!macroend
+
+; The lease file's identity (volume serial and file index), as the marker records it.
+; The lease handle's facts: its identity (volume serial and file index) and whether it is an
+; ordinary file of its own (no reparse point, one link). BY_HANDLE_FILE_INFORMATION is read as
+; 13 DWORDs, so no alignment question arises. Uses $3-$9.
+!macro odinLeaseFacts IDENTITY TRUSTED
+  System::Alloc 52
+  Pop $5
+  System::Call 'kernel32::GetFileInformationByHandle(p $odinLease, p r5) i .r9'
+  System::Call '*$5(i .r4, i, i, i, i, i, i, i .r6, i, i, i .r3, i .r7, i .r8)'
+  System::Free $5
+  StrCpy ${IDENTITY} ""
+  StrCpy ${TRUSTED} "no"
+  ${If} $9 <> 0
+    StrCpy ${IDENTITY} "$6:$7:$8"
+    IntOp $4 $4 & 0x400 ; FILE_ATTRIBUTE_REPARSE_POINT
+    ${If} $4 = 0
+    ${AndIf} $3 = 1
+      StrCpy ${TRUSTED} "yes"
+    ${EndIf}
+  ${EndIf}
+!macroend
+
+; Replaces electron-builder's check, which ends a running Odin.exe with taskkill (finally /f).
+!macro customCheckAppRunning
+  !ifdef BUILD_UNINSTALLER
+    ; An upgrade runs the old uninstaller with --updated while its installer holds the lease and
+    ; has written the marker: the files go, and the fence is the installer's.
+    ${If} ${isUpdated}
+    ${AndIf} ${FileExists} "${ODIN_OWNERSHIP}\transaction.json"
+      Goto odin_fence_held
+    ${EndIf}
+  !endif
+  !insertmacro odinPrivateFolder "$LOCALAPPDATA\odin-desktop"
+  !insertmacro odinPrivateFolder "$LOCALAPPDATA\odin-desktop\install-ownership"
+  !insertmacro odinPrivateFolder "${ODIN_OWNERSHIP}"
+  !insertmacro odinPrivateFolder "${ODIN_OWNERSHIP}\receipts"
+  ; Read access for the lock, read and write sharing but never delete (the guardian's share mode).
+  ; The lease itself, never what a link or redirect points to (FILE_FLAG_OPEN_REPARSE_POINT).
+  System::Call 'kernel32::CreateFileW(w "${ODIN_OWNERSHIP}\lease", i 0x80000000, i 3, p 0, i 4, i 0x00200080, p 0) p .r1 ?e'
+  Pop $2
+  ${If} $1 = -1
+    !insertmacro odinRefuse "Odin's install lease couldn't be opened (error $2), so nothing was changed."
+  ${EndIf}
+  ; The guardian's range: one byte at 0x7FFFFFFF00000000, exclusive, never waiting.
+  System::Call '*(p 0, p 0, i 0, i 0x7FFFFFFF, p 0) p .r5'
+  System::Call 'kernel32::LockFileEx(p r1, i 3, i 0, i 1, i 0, p r5) i .r0 ?e'
+  Pop $2
+  System::Free $5
+  ${If} $0 = 0
+    System::Call 'kernel32::CloseHandle(p r1)'
+    ${If} $2 = 33
+      !insertmacro odinRefuse "Odin is running. Choose Exit Odin from its tray icon, then run this again. Nothing was changed."
+    ${EndIf}
+    !insertmacro odinRefuse "Odin's install lease couldn't be checked (error $2), so nothing was changed."
+  ${EndIf}
+  ; Held until this process ends.
+  StrCpy $odinLease $1
+  !insertmacro odinLeaseFacts $odinLeaseId $0
+  ${If} $0 != "yes"
+    System::Call 'kernel32::CloseHandle(p $odinLease)'
+    !insertmacro odinRefuse "Odin's install lease isn't an ordinary file of its own (a link or a redirect), so nothing was changed."
+  ${EndIf}
+  ${If} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+    ; Anything still running from this installation, even without a lease: refused, not ended.
+    ; The installer is 32-bit, and a 32-bit PowerShell reads no 64-bit process's path, so this
+    ; asks the native one (Sysnative). .NET, not Get-Process, whose module loads on first use.
+    ; The uninstaller's own image isn't Odin: run in place (_?=), or as the stub that relaunches
+    ; from TEMP, it would otherwise count itself. The paths travel in the environment, never
+    ; inside the script's quotes. Exit 0: none; 3: one is running; anything else, including a
+    ; PowerShell that didn't start: unknown.
+    System::Call 'kernel32::SetEnvironmentVariableW(w "ODIN_INSTALL_FOLDER", w "$INSTDIR\")'
+    System::Call 'kernel32::SetEnvironmentVariableW(w "ODIN_UNINSTALLER", w "$INSTDIR\${UNINSTALL_FILENAME}")'
+    nsExec::ExecToStack `"$WINDIR\Sysnative\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -Command "try { $$f = $$env:ODIN_INSTALL_FOLDER; $$u = $$env:ODIN_UNINSTALLER; if (@([System.Diagnostics.Process]::GetProcesses() | Where-Object { $$_.Path -and $$_.Path.StartsWith($$f, [StringComparison]::OrdinalIgnoreCase) -and -not [string]::Equals($$_.Path, $$u, [StringComparison]::OrdinalIgnoreCase) }).Count) { exit 3 }; exit 0 } catch { exit 4 }"`
+    Pop $0
+    Pop $2
+    System::Call 'kernel32::SetEnvironmentVariableW(w "ODIN_INSTALL_FOLDER", p 0)'
+    System::Call 'kernel32::SetEnvironmentVariableW(w "ODIN_UNINSTALLER", p 0)'
+    ${If} $0 == "3"
+      !insertmacro odinRefuse "An Odin process from this installation is still running. Choose Exit Odin from its tray icon, wait for it to close, then run this again. Nothing was changed."
+    ${ElseIf} $0 != "0"
+      !insertmacro odinRefuse "Odin couldn't check for its running processes, so nothing was changed."
+    ${EndIf}
+  ${EndIf}
+  ${If} ${FileExists} "$INSTDIR\resources\ownership.py"
+    ; This installation's own guardian judges this boot's lifetimes (read-only: the lease is held).
+    nsExec::ExecToStack `"$INSTDIR\resources\runtime\python\python.exe" -I -B "$INSTDIR\resources\ownership.py" receipts --kind nsis`
+    Pop $0
+    Pop $2
+    ; Compared as text: nsExec reports a process that didn't start as "error", which is 0 as a number.
+    ${If} $0 == "1"
+      !insertmacro odinRefuse "An Odin session ended without confirmed cleanup since this computer started. Restart the computer, then run this again. Nothing was changed."
+    ${ElseIf} $0 != "0"
+      !insertmacro odinRefuse "Odin couldn't confirm that its last session ended cleanly, so nothing was changed."
+    ${EndIf}
+  ${EndIf}
+  ; The fence: the guardian refuses every start while it exists. An interrupted one is taken over,
+  ; since every run is a whole transaction of its own.
+  !ifdef BUILD_UNINSTALLER
+    StrCpy $3 "uninstall"
+  !else
+    StrCpy $3 "install"
+    ${If} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+      StrCpy $3 "upgrade"
+    ${EndIf}
+  !endif
+  ClearErrors
+  FileOpen $4 "${ODIN_OWNERSHIP}\transaction.json" w
+  ${If} ${Errors}
+    !insertmacro odinRefuse "Odin's install fence couldn't be written, so nothing was changed."
+  ${EndIf}
+  FileWrite $4 '{"lease_file_id": "$odinLeaseId", "operation": "$3", "target_version": "${VERSION}", "version": 1}'
+  System::Call 'kernel32::FlushFileBuffers(p r4)'
+  FileClose $4
+  !ifdef BUILD_UNINSTALLER
+    odin_fence_held:
+  !endif
+!macroend
+
+!ifndef BUILD_UNINSTALLER
+  !macro customInstall
+    ; The fence comes down only if the lease is still the one this run took and the app, its
+    ; uninstaller and its sealed bundle's manifest are in place. Otherwise it stays, and Odin keeps
+    ; refusing to start until an installer run completes.
+    !insertmacro odinLeaseFacts $0 $1
+    ${If} $0 != ""
+    ${AndIf} $0 == $odinLeaseId
+    ${AndIf} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
+    ${AndIf} ${FileExists} "$INSTDIR\${UNINSTALL_FILENAME}"
+    ${AndIf} ${FileExists} "$INSTDIR\resources\bundle-manifest.json"
+      Delete "${ODIN_OWNERSHIP}\transaction.json"
+    ${EndIf}
+  !macroend
+!endif
+

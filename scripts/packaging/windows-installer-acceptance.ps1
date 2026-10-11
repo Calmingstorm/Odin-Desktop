@@ -219,6 +219,84 @@ if ($Mode -eq 'user') {
     -RedirectStandardOutput $coreLog -RedirectStandardError "$coreLog.err"
   Import-CoreReport $coreReport $coreRun.ExitCode $required "$coreLog.err"
 
+  # Install safety (phase 5): the installer and uninstaller hold the app's lease, never end Odin.
+  $ownership = Join-Path $env:LOCALAPPDATA 'odin-desktop\install-ownership\nsis'
+  $marker = Join-Path $ownership 'transaction.json'
+  $uninstaller = Join-Path $inst 'Uninstall Odin.exe'
+  function Serve() {
+    Start-Process -FilePath $exe -ArgumentList '--hidden' | Out-Null
+    $deadline = (Get-Date).AddSeconds(180)
+    while ((Get-Date) -lt $deadline -and -not (& $serving)) { Start-Sleep -Seconds 2 }
+    & $serving
+  }
+  function ExitOdin() {
+    Start-Process -FilePath $exe -ArgumentList '--exit' -Wait | Out-Null
+    $deadline = (Get-Date).AddSeconds(120)
+    while ((Get-Date) -lt $deadline -and ((& $installed).Count -or (& $serving))) { Start-Sleep -Seconds 2 }
+  }
+  $up = Serve
+  $running = (& $installed).Count
+  $code = Install @('/S')
+  Check 'an install over the running app is refused, and Odin keeps running' ($up -and $code -eq 2 -and
+    (& $serving) -and (& $installed).Count -ge $running -and -not (Test-Path $marker)) "exit $code"
+  # In place (_?=) so the exit code is the uninstaller's own, not its relaunching copy's.
+  $code = (Start-Process -FilePath $uninstaller -ArgumentList '/S', "_?=$inst" -Wait -PassThru).ExitCode
+  Check 'an uninstall while Odin runs is refused, and Odin keeps running' ($code -eq 2 -and (& $serving) -and
+    (Test-Path $exe)) "exit $code"
+  ExitOdin
+
+  # A process from this installation that holds no lease (an app started outside it): refused too, never ended.
+  $stray = Start-Process -FilePath (Join-Path $inst 'resources\runtime\python\python.exe') -PassThru `
+    -ArgumentList '-I', '-S', '-c', "__import__('time').sleep(300)" -WindowStyle Hidden
+  Start-Sleep -Seconds 2
+  $code = Install @('/S')
+  Check 'an install while a process from this installation runs without the lease is refused, ending nothing' (
+    $code -eq 2 -and -not $stray.HasExited -and -not (Test-Path $marker)) "exit $code"
+  $code = (Start-Process -FilePath $uninstaller -ArgumentList '/S', "_?=$inst" -Wait -PassThru).ExitCode
+  Check 'an uninstall while that process runs is refused, ending nothing' ($code -eq 2 -and -not $stray.HasExited -and
+    (Test-Path $exe) -and -not (Test-Path $marker)) "exit $code"
+  Stop-Process -Id $stray.Id -Force -ErrorAction SilentlyContinue
+  $stray.WaitForExit(10000) | Out-Null
+
+  # An installer run that never finished leaves its fence: Odin refuses to start until a run completes.
+  Set-Content -LiteralPath $marker -Value '{"operation": "install", "version": 1}' -Encoding ascii
+  Start-Process -FilePath $exe -ArgumentList '--hidden' | Out-Null
+  $deadline = (Get-Date).AddSeconds(45)
+  while ((Get-Date) -lt $deadline -and -not (& $serving)) { Start-Sleep -Seconds 2 }
+  $guardians = @(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*ownership.py*hold*' })
+  Check 'an unfinished installer run fences the start' (-not (& $serving) -and $guardians.Count -eq 0) (
+    "guardians left: $($guardians.Count)")
+  # The refused app waits on its error box; it's this test's own process.
+  (& $installed) | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+  $code = Install @('/S')
+  Check 'running the installer again completes the transaction' ($code -eq 0 -and -not (Test-Path $marker)) "exit $code"
+  Check 'and Odin starts again' (Serve) ''
+  ExitOdin
+
+  # This boot's lifetimes must have ended clean; an earlier boot's no longer fence.
+  $boot = & $python -I -B -c 'from src.desktop.platform import win32; print(win32.boot_identifier())'
+  $crashed = Join-Path $ownership 'receipts\acceptance-crashed-core.json'
+  foreach ($case in @(@($boot, 2, 'this boot''s unconfirmed lifetime refuses the install'),
+                      @('00000000-0000-4000-8000-000000000001', 0, 'an earlier boot''s no longer fences it'))) {
+    Set-Content -LiteralPath $crashed -Encoding ascii -Value ('{"boot_id": "' + $case[0] +
+      '", "role": "core", "state": "running", "uid": "' + $me + '", "version": 1}')
+    $code = Install @('/S')
+    Check "receipts: $($case[2])" ($code -eq $case[1] -and -not (Test-Path $marker)) "exit $code, boot $($case[0])"
+  }
+  Remove-Item -LiteralPath $crashed -ErrorAction SilentlyContinue
+
+  # The lease must be an ordinary file of its own: a hard link (as any link or redirect) is refused, changing nothing.
+  # The next run creates a real one again.
+  $lease = Join-Path $ownership 'lease'
+  $linked = Join-Path $ownership 'acceptance-link-target'
+  Remove-Item -LiteralPath $lease -Force
+  Set-Content -LiteralPath $linked -Value 'not the lease' -Encoding ascii
+  New-Item -ItemType HardLink -Path $lease -Target $linked | Out-Null
+  $code = Install @('/S')
+  Check 'a lease that is a link is refused, changing nothing' ($code -eq 2 -and -not (Test-Path $marker) -and
+    (Test-Path $exe)) "exit $code"
+  Remove-Item -LiteralPath $lease, $linked -Force
+
   $code = Install @('/S')
   Check 'a reinstall succeeds' ($code -eq 0 -and (Test-Path (Join-Path $inst 'Odin.exe'))) "exit $code"
   Uninstall
@@ -231,6 +309,13 @@ if ($Mode -eq 'user') {
     Uninstall
     Check "fresh install cycle $cycle" ($code -eq 0 -and $installed -and (& $nothing)) "exit $code"
   }
+  # In place (_?=), as an upgrade runs the old uninstaller: its own image isn't Odin running.
+  $code = Install @('/S')
+  $removed = (Start-Process -FilePath $uninstaller -ArgumentList '/S', "_?=$inst" -Wait -PassThru).ExitCode
+  Check 'an uninstall in place does not count itself as Odin running' ($code -eq 0 -and $removed -eq 0 -and
+    -not (Test-Path $exe) -and -not (Test-Path $installKey)) "install $code, uninstall $removed"
+  # In place it can't delete its own file.
+  Remove-Item -LiteralPath $inst -Recurse -Force -ErrorAction SilentlyContinue
  } catch {
   $outcome = Outcome $_
  }

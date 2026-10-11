@@ -38,6 +38,14 @@ class OwnershipError(RuntimeError):
     pass
 
 
+class PendingReplacement(OwnershipError):  # noqa: N818
+    """A package transaction is unfinished; the Windows guardian exits PENDING_EXIT for it."""
+
+
+# The Windows app names the remedy for this refusal (run the installer again); others exit 1.
+PENDING_EXIT = 75
+
+
 @dataclass(frozen=True)
 class OwnershipPaths:
     directory: Path
@@ -132,7 +140,7 @@ def _owner():
 
 def _pending(paths):
     if paths.pending.exists() or (paths.directory / 'appimage-replacement.json').exists():
-        raise OwnershipError('Package replacement is pending; finish the external transaction')
+        raise PendingReplacement('Package replacement is pending; finish the external transaction')
 
 
 def _read(path):
@@ -315,6 +323,23 @@ def acquire_lifetime(paths, role, app_cleanup, core_cleanup, *, provisional=Fals
     return Lease(paths, role, app_cleanup, core_cleanup, provisional=provisional)
 
 
+def verify_receipts(paths):
+    """Replacement's receipt verdict: a lifetime from an earlier boot no longer fences; one from
+    this boot must have ended clean, its record complete and its cleanup evidence intact."""
+    if not paths.receipts.is_dir():
+        return  # no lifetime has ever been admitted here
+    boot = _boot_id()
+    for path in paths.receipts.iterdir():
+        receipt = _read(path)
+        if _earlier_boot(receipt.get('boot_id'), boot):
+            continue
+        if receipt.get('state') != 'clean':
+            raise OwnershipError('Unresolved lifetime evidence blocks replacement')
+        if not all(key in receipt for key in ('app_cleanup', 'core_cleanup', 'role')):
+            raise OwnershipError('Incomplete lifetime receipt blocks replacement')
+        _clean(receipt['app_cleanup'], receipt['core_cleanup'], receipt['role'])
+
+
 @contextmanager
 def replacement_guard(paths, check_receipts=True):
     fd = _open(paths)
@@ -324,16 +349,7 @@ def replacement_guard(paths, check_receipts=True):
         except BlockingIOError as error:
             raise OwnershipError('Exit both app and core before replacement') from error
         if check_receipts:
-            boot = _boot_id()
-            for path in paths.receipts.iterdir():
-                receipt = _read(path)
-                if _earlier_boot(receipt.get('boot_id'), boot):
-                    continue
-                if receipt.get('state') != 'clean':
-                    raise OwnershipError('Unresolved lifetime evidence blocks replacement')
-                if not all(key in receipt for key in ('app_cleanup', 'core_cleanup', 'role')):
-                    raise OwnershipError('Incomplete lifetime receipt blocks replacement')
-                _clean(receipt['app_cleanup'], receipt['core_cleanup'], receipt['role'])
+            verify_receipts(paths)
         yield
     finally:
         _close(fd)
@@ -414,7 +430,7 @@ def _acknowledge(word):
 
 def main(argv=None, *, sysctl_root=Path('/proc/sys')):
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['exec', 'hold', 'token'])
+    parser.add_argument('action', choices=['exec', 'hold', 'token', 'receipts'])
     parser.add_argument('--kind', choices=['deb', 'appimage', 'nsis'])
     parser.add_argument('--role', choices=['app', 'core'], default='app')
     parser.add_argument('--app-cleanup', type=Path)
@@ -433,6 +449,14 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
             return 1
     if args.kind is None:
         parser.error('the following arguments are required: --kind')
+    if args.action == 'receipts':
+        # Read-only: the Windows installer holds the lease exclusively and asks for the verdict.
+        try:
+            verify_receipts(ownership_paths(args.kind))
+        except (OwnershipError, OSError, ValueError) as error:
+            print(f'Odin install ownership refusal: {error}', file=sys.stderr)
+            return 1
+        return 0
     app_cleanup, core_cleanup = _profile(os.environ)
     try:
         if args.action == 'exec':
@@ -479,6 +503,9 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
             except (OwnershipError, OSError, ValueError):
                 pass
             return result
+    except PendingReplacement as error:
+        print(f'Odin install ownership refusal: {error}', file=sys.stderr)
+        return PENDING_EXIT if args.kind == 'nsis' else 1
     except (OwnershipError, OSError, ValueError) as error:
         print(f'Odin install ownership refusal: {error}', file=sys.stderr)
         return 1

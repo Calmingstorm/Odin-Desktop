@@ -95,6 +95,16 @@ class OwnershipTests(unittest.TestCase):
             app.close()
             core.close()
 
+    def test_a_pending_transaction_is_its_own_refusal_for_the_windows_app(self):
+        self.paths.directory.mkdir(parents=True, mode=0o700)  # private, as the guardian makes it
+        self.paths.pending.write_text('{}')
+        with mock.patch.object(own, 'ownership_paths', lambda kind, env=None: self.paths), \
+                mock.patch.object(sys, 'stderr', io.StringIO()):
+            self.assertEqual(own.main(['hold', '--kind', 'nsis', '--app-cleanup', str(self.app),
+                                       '--core-cleanup', str(self.core)]), own.PENDING_EXIT)
+            self.assertEqual(own.main(['hold', '--kind', 'appimage', '--app-cleanup', str(self.app),
+                                       '--core-cleanup', str(self.core)]), 1)  # Linux unchanged
+
     def test_pending_transaction_denies_launch_before_receipts(self):
         with own.replacement_guard(self.paths):
             self.paths.pending.write_text('{}')
@@ -157,6 +167,26 @@ class OwnershipTests(unittest.TestCase):
         core = json.loads(self.core.read_text())
         core['previous_unknown'] = {'state': 'unknown', 'boot_id': boot}
         self.core.write_text(json.dumps(core))
+
+    def receipts_verdict(self):
+        stderr = io.StringIO()
+        with mock.patch.object(own, 'ownership_paths', lambda kind, env=None: self.paths), \
+                mock.patch.object(sys, 'stderr', stderr):
+            return own.main(['receipts', '--kind', 'appimage']), stderr.getvalue()
+
+    def test_receipts_action_is_the_replacement_verdict_without_the_lock(self):
+        self.assertEqual(self.receipts_verdict(), (0, ''))  # nothing admitted: no receipts yet
+        with self.boot(BOOT_A):
+            crashed = self.lease('core')
+            crashed.close()  # ended without finish: its receipt stays running
+            code, message = self.receipts_verdict()
+            self.assertEqual(code, 1)
+            self.assertIn('Unresolved lifetime evidence', message)
+        with self.boot(BOOT_B):
+            self.assertEqual(self.receipts_verdict(), (0, ''))  # an earlier boot no longer fences
+            # The installer holds the lease exclusively while it asks: the verdict only reads.
+            with own.replacement_guard(self.paths):
+                self.assertEqual(self.receipts_verdict(), (0, ''))
 
     def test_earlier_unknown_fences_its_boot_not_the_next(self):
         with self.boot(BOOT_A):

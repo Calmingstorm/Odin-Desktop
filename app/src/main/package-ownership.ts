@@ -8,6 +8,10 @@ export function hasLine(output: string, word: string): boolean {
   return new RegExp(`(?:^|\\n)${word}\\r?\\n`).test(output)
 }
 
+/** The Windows guardian's exit for an unfinished installer run: the fence it leaves refuses every start. */
+export const PENDING_EXIT = 75
+export const INSTALL_UNFINISHED = 'An Odin installation didn\'t finish. Run the Odin installer again.'
+
 /** Independent guardian even when a user invokes the raw Electron executable. Windows' per-user installation is
  * `nsis`, whose lease lives in local AppData; its guardian runs without a console window. */
 export function acquirePackagedApp(paths: ProfilePaths, resources: string, env: NodeJS.ProcessEnv,
@@ -24,20 +28,23 @@ export function acquirePackagedApp(paths: ProfilePaths, resources: string, env: 
   })
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => fail(), 15_000)
-    const fail = (): void => {
+    const fail = (code?: number | null): void => {
       clearTimeout(timer)
       child.stdin.end()
-      reject(new Error('Package ownership is unavailable. Exit the owned app and finish external replacement.'))
+      reject(new Error(windows && code === PENDING_EXIT ? INSTALL_UNFINISHED
+        : 'Package ownership is unavailable. Exit the owned app and finish external replacement.'))
     }
-    child.once('error', fail)
-    child.once('exit', fail)
+    const failed = (): void => fail()
+    const exited = (code: number | null): void => fail(code)
+    child.once('error', failed)
+    child.once('exit', exited)
     let output = ''
     child.stdout.on('data', (data) => {
       output += String(data)
       if (hasLine(output, 'READY')) {
         clearTimeout(timer)
-        child.removeListener('error', fail)
-        child.removeListener('exit', fail)
+        child.removeListener('error', failed)
+        child.removeListener('exit', exited)
         resolve(child)
       } else if (output.length > 1024) fail()
     })
