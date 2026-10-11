@@ -490,7 +490,7 @@ def stage_windows_runtime(repo: Path, dest: Path, cache_dir: Path) -> dict:
         result = {"schema": 1, "platform": "win_amd64", "python": spec["python"],
                   "build_tool": spec["uv"], "pip": spec["pip"],
                   "executable": "python/python.exe", "site_packages": SITE.as_posix(),
-                  "runtime_args": ["-I", "-B", "-m", "src"],
+                  "runtime_args": ["-I", "-B", "-X", "utf8", "-m", "src"],
                   "uv_lock_sha256": digest(repo / "uv.lock"), "extras": [],
                   "dependencies": dependencies, "engine": engine, "dll_audit": dlls,
                   "pruned_foreign_payloads": pruned,

@@ -455,9 +455,11 @@ async def acceptance(run: Run, work: Path) -> None:
                 row.get("CommandLine") or "") and row.get("Name", "").lower() == "python.exe"]
             bundled = str(run.install / "resources" / "runtime" / "python" / "python.exe").lower()
             argvs = [argv_of(row.get("CommandLine") or "") for row in cores]
+            # The installed app's interpreter flags, UTF-8 mode included (core-command.ts).
             run.check("the core is the bundled interpreter, isolated, running the bundled engine",
                       argvs and all(argv and argv[0].lower() == bundled
-                                    and argv[1:5] == ["-I", "-B", "-m", "src"] for argv in argvs),
+                                    and argv[1:7] == ["-I", "-B", "-X", "utf8", "-m", "src"]
+                                    for argv in argvs),
                       [row.get("CommandLine") for row in cores])
             health = await call(client, "health.get")
             run.check("health.get answers", isinstance(health, dict), json.dumps(health)[:300])
