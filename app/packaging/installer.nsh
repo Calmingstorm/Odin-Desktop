@@ -2,6 +2,10 @@
 ; one-click installer compiles no per-machine branch; these refusals cover the rest, before anything
 ; is written. A refusal exits with code 2, and a silent install's message box answers itself.
 
+!ifndef BUILD_UNINSTALLER
+  Var odinRecordedLocation
+!endif
+
 !macro odinRefuse MESSAGE
   MessageBox MB_OK|MB_ICONSTOP "${MESSAGE}" /SD IDOK
   SetErrorLevel 2
@@ -63,6 +67,22 @@
     ${ElseIf} $R2 != "normal"
       !insertmacro odinRefuse "The installer couldn't check whether it was started as administrator, so it stopped. Run it again normally."
     ${EndIf}
+    ; electron-builder 26.0.12 finds a first install's folder with SHGetKnownFolderPath, then reads
+    ; the result as a fixed ${NSIS_MAX_STRLEN}-character buffer: it reads past the end and now and
+    ; then crashes the installer (System.dll, 0xC0000005). It skips that path when this user's
+    ; install location is recorded, so a first install records the same folder here, read safely;
+    ; a refused install removes it again.
+    ReadRegStr $R4 HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
+    ${If} $R4 == ""
+      StrCpy $R4 "$LOCALAPPDATA\Programs"
+      System::Call 'SHELL32::SHGetKnownFolderPath(g "{5CD7AEE2-2219-4A67-B85D-6C9CE15660CB}", i 0x8000, p 0, *p .r2) i .r1'
+      ${If} $1 = 0
+        System::Call 'kernel32::lstrcpyW(w .R4, p r2)'
+      ${EndIf}
+      System::Call 'OLE32::CoTaskMemFree(p r2)'
+      WriteRegStr HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation "$R4\${APP_FILENAME}"
+      StrCpy $odinRecordedLocation "1"
+    ${EndIf}
   !endif
 !macroend
 
@@ -72,6 +92,10 @@
   CreateDirectory "$INSTDIR"
   FileOpen $0 "$INSTDIR\.odin-install-check" w
   ${If} ${Errors}
+    ${If} $odinRecordedLocation == "1"
+      DeleteRegValue HKCU "${INSTALL_REGISTRY_KEY}" InstallLocation
+      DeleteRegKey /ifempty HKCU "${INSTALL_REGISTRY_KEY}"
+    ${EndIf}
     !insertmacro odinRefuse "Odin can't write to $INSTDIR, so the installer stopped. Check that the folder is yours and isn't read-only, then run the installer again."
   ${EndIf}
   FileClose $0

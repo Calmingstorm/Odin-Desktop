@@ -15,6 +15,18 @@ const { getConfig, validateConfiguration } = require('app-builder-lib/out/util/c
   validateConfiguration(config: Config, debugLogger: unknown): Promise<void>
 }
 const { DebugLogger } = require('builder-util') as { DebugLogger: new (enabled: boolean) => unknown }
+type Names = { productName: string; productFilename: string }
+const { AppInfo } = require('app-builder-lib/out/appInfo') as {
+  AppInfo: new (info: { config: Config; metadata: Config }, buildVersion: null, platform: Config | null) => Names
+}
+const { getWindowsInstallationDirName } = require('app-builder-lib/out/targets/targetUtil') as {
+  getWindowsInstallationDirName(appInfo: Names, tryProductName: boolean): string
+}
+// The names electron-builder derives, with extraMetadata merged into the package as its packager does.
+function names(config: Config, platform: Config | null): Names {
+  const metadata = { ...JSON.parse(readFileSync(join(APP, 'package.json'), 'utf8')), ...config.extraMetadata }
+  return new AppInfo({ config, metadata }, null, platform)
+}
 const sha256 = (path: string): string => createHash('sha256').update(readFileSync(path)).digest('hex')
 
 describe('the Windows build configuration', () => {
@@ -22,7 +34,11 @@ describe('the Windows build configuration', () => {
     const windows = await getConfig(APP, 'electron-builder.windows.yml', null)
     const shared = await getConfig(APP, null, null)
     expect(windows.afterPack).toBe('packaging/after-pack-windows.cjs')
-    expect(windows.productName).toBe('Odin')
+    const installed = names(windows, windows.win)
+    expect(installed.productName).toBe('Odin')  // Apps, the shortcut and the executable's description
+    expect(installed.productFilename).toBe('Odin')  // Odin.exe
+    // A per-user one-click installer's folder: %LOCALAPPDATA%\Programs\Odin.
+    expect(getWindowsInstallationDirName(installed, windows.nsis.oneClick === false)).toBe('Odin')
     expect(windows.appId).toBe(shared.appId)  // the AppUserModelID the app sets for itself
     expect(windows.extraResources).toEqual(shared.extraResources)
     expect(windows.win).toMatchObject({ target: [{ target: 'nsis', arch: ['x64'] }],
@@ -36,8 +52,8 @@ describe('the Windows build configuration', () => {
   it('leaves the Linux build as it was', async () => {
     const shared = await getConfig(APP, null, null)
     expect(shared.afterPack).toBe('packaging/after-pack.cjs')
-    expect(shared.productName).toBe('odin-desktop')
-    expect(shared.executableName).toBe('odin-desktop')
+    expect(names(shared, shared.linux)).toMatchObject({ productName: 'odin-desktop', productFilename: 'odin-desktop' })
+    expect(shared.extraMetadata).toBeUndefined()
     expect(shared.win).toBeUndefined()
     expect(shared.nsis).toBeUndefined()
     expect(shared.linux.target).toEqual([{ target: 'deb', arch: ['x64'] }, { target: 'AppImage', arch: ['x64'] }])

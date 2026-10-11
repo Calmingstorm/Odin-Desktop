@@ -2,9 +2,11 @@
 # configuration, with Windows' own identity and construction. Linux metadata stays as
 # electron-builder.yml has it.
 #
-# The product is named Odin on Windows: Odin.exe, in %LOCALAPPDATA%\Programs\Odin, shown as Odin
-# in Apps and the Start menu. The app's own identity (its name, profile folders and
-# AppUserModelID, which is appId) is set in identity.ts and doesn't follow productName.
+# The product is named Odin on Windows: Odin.exe (its file description too), in
+# %LOCALAPPDATA%\Programs\Odin, shown as Odin in Apps and the Start menu. A per-user one-click
+# installer names its folder after the package, hence extraMetadata's name; the packaged
+# package.json carries it, and nothing reads it there. The app's own identity (its name, profile
+# folders and AppUserModelID, which is appId) is set in identity.ts and follows none of these.
 #
 # The installer is electron-builder's per-user one-click NSIS installer: it requests no elevation
 # and compiles no per-machine branch, install-mode page or elevation path at all (the assisted
@@ -14,6 +16,9 @@
 # (chats, settings, keys), as Linux does.
 extends: electron-builder.yml
 productName: Odin
+executableName: Odin
+extraMetadata:
+  name: Odin
 afterPack: packaging/after-pack-windows.cjs
 win:
   target:
