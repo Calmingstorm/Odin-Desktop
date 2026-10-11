@@ -16,6 +16,7 @@ import importlib.util
 import json
 import math
 import os
+import re
 import shutil
 import socket
 import ssl
@@ -61,6 +62,8 @@ def profile_environment(work: Path, resources: Path, ambient: dict[str, str]) ->
 
 # The product's default validation timeout: a first call must finish inside it.
 FIRST_CALL_DEADLINE = 20
+# curl exits for a failed connection itself (resolve, connect, TLS handshake, timeout, reset).
+CONNECTION_FAILURES = frozenset({6, 7, 28, 35, 52, 56})
 
 
 def powershell_starts() -> dict:
@@ -305,20 +308,30 @@ async def curl(work: Path) -> dict:
                  ("hostname-mismatch", "https://wrong.host.badssl.com/", 60)]
         for label, url, expected in cases:
             text, code = await handle_http_probe(owner, {"url": url, "timeout": 30})
+            retried = None
+            if label != "untrusted" and code in CONNECTION_FAILURES:
+                # A public fixture that dropped the connection (a hosted run once got exit 35 from
+                # wrong.host.badssl.com): one retry, recorded; the verdict itself isn't relaxed.
+                retried = {"exit": code, "output": text[:300]}
+                text, code = await handle_http_probe(owner, {"url": url, "timeout": 30})
             assert code == expected, (label, code, text)
             if label == "trusted":
                 assert "status_code: 200" in text, text
             if label == "hostname-mismatch":
                 words = ("subject name", "hostname", "no alternative certificate")
                 assert any(word in text.lower() for word in words), text
-            report = json.loads(await handle_validate_action(owner, {
-                "format": "json", "checks": [{"type": "http", "target": url,
-                                               "timeout_seconds": 30, "expected": 200}]}))
-            row = report["checks"][0]
+            check = {"format": "json", "checks": [{"type": "http", "target": url,
+                                                   "timeout_seconds": 30, "expected": 200}]}
+            row = json.loads(await handle_validate_action(owner, check))["checks"][0]
+            dropped = re.search(r"curl failed \(exit (\d+)\)", str(row.get("error", "")))
+            if label != "untrusted" and dropped and int(dropped.group(1)) in CONNECTION_FAILURES:
+                retried = {**(retried or {}), "validation": row}  # the same single, recorded retry
+                row = json.loads(await handle_validate_action(owner, check))["checks"][0]
             assert row["status"] == ("pass" if expected == 0 else "fail"), row
             if expected:
                 assert "curl failed (exit 60)" in row["error"], row
-            rows.append({"case": label, "probe_exit": code, "validation": row})
+            rows.append({"case": label, "probe_exit": code, "validation": row,
+                         **({"retried_after": retried} if retried else {})})
     finally:
         server.shutdown()
         server.server_close()
