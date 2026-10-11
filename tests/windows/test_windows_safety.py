@@ -24,6 +24,9 @@ from tests.test_desktop_windows_safety import (
     test_opaque_or_bounds,
     test_git_force_still_non_overridable,
     test_exact_lifted_check,
+    test_medium,
+    test_remote_unknown_and_disabled_routes,
+    test_lease_address_wins_registry,
 )
 
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="native Windows routing")

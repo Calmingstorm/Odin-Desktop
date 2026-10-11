@@ -113,7 +113,9 @@ def test_encoded_wrapper(payload, level, parameter):
     "Write-Output 'unterminated", "<# unterminated", "Write-Output $(unterminated",
     "Write-Output " + "x" * (win.MAX_SOURCE + 1), "Write-Output ready;" * (win.MAX_SEGMENTS + 1),
     "iex '" * (win.MAX_DEPTH + 2) + "ready" + "'" * (win.MAX_DEPTH + 2),
-])
+], ids=["invalid-encoded", "missing-encoded", "opaque-expression", "unclosed-quote",
+        "unclosed-comment", "unclosed-subexpression", "source-bound", "segment-bound",
+        "depth-bound"])
 def test_opaque_or_bounds(command):
     assert win.classify_command(command).level == RiskLevel.CRITICAL
     assert win.detect_unconditional_git_force_push(command) is None
