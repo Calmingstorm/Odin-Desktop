@@ -100,3 +100,66 @@ def test_the_consumer_counts_only_a_complete_report(tmp_path, case, report, exit
     if case in ("ok as a string", "ok as an object", "a genuine, counted failure"):
         # The row itself is a failed check: the run fails even when execution was complete.
         assert seen[f"core: {CORE.REQUIRED[0]}"] is False
+
+
+# The bounded waits, natively (round 9): Run keeps a direct child's exit code (Windows PowerShell
+# 5.1 loses it unless the handle was taken), and a command that overruns its bound ends the run as
+# a named failure. It is killed, the checks made so far stay in the progress file in order, and the
+# final report still says what happened.
+RUN_HARNESS = r"""
+$ErrorActionPreference = 'Stop'
+$tokens = $null; $errors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile(
+  $env:ODIN_SCRIPT, [ref]$tokens, [ref]$errors)
+foreach ($name in 'Check', 'Run', 'Outcome', 'Finish') {
+  $definition = $ast.Find({ param($node)
+    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+      $node.Name -eq $name }, $true)
+  . ([scriptblock]::Create($definition.Extent.Text))
+}
+$checks = New-Object System.Collections.Generic.List[object]
+$FailAt = ''
+$Mode = 'user'
+$Report = $env:ODIN_REPORT
+$Progress = "$Report.progress"
+$shell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$outcome = ''
+try {
+  Check 'an exit code survives' ((Run $shell @('-NoProfile', '-Command', 'exit 7') 2) -eq 7) ''
+  Check 'a failed check is kept' $false 'kept'
+  Run $shell @('-NoProfile', '-Command', $env:ODIN_SLEEPER) 0 | Out-Null
+  Check 'never reached' $true ''
+} catch {
+  $outcome = Outcome $_
+}
+exit (Finish $outcome)
+"""
+
+
+def test_a_wait_that_overruns_ends_the_run_named_and_reported(tmp_path):
+    report = tmp_path / "report.json"
+    marker = f"odin-timeout-probe-{os.getpid()}"
+    root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+    shell = root / r"System32\WindowsPowerShell\v1.0\powershell.exe"
+    result = subprocess.run(
+        [str(shell), "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", RUN_HARNESS],
+        capture_output=True, text=True, timeout=120,
+        env={**os.environ, "ODIN_SCRIPT": str(SCRIPT), "ODIN_REPORT": str(report),
+             "ODIN_SLEEPER": f"Start-Sleep -Seconds 90 # {marker}"})
+    assert result.returncode == 1, result.stderr  # a failed check, not a crash
+    checks = json.loads(report.read_text(encoding="utf-8-sig"))["checks"]
+    assert [(c["check"], c["ok"]) for c in checks] == [
+        ("an exit code survives", True), ("a failed check is kept", False),
+        ("the run reached its end", False)]
+    assert "didn't exit within 0 minutes" in checks[-1]["detail"], checks[-1]
+    assert marker in checks[-1]["detail"]  # the command is named
+    progress = (tmp_path / "report.json.progress").read_text(encoding="utf-8-sig").splitlines()
+    assert progress == ["True an exit code survives", "False a failed check is kept"]
+    # The overrunning command was ended, not left behind.
+    query = ("@(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'powershell.exe' "
+             f"-and $_.CommandLine -like '*{marker}*' "
+             "-and $_.CommandLine -notlike '*Get-CimInstance*' }).Count")
+    listing = subprocess.run(
+        [str(shell), "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", query],
+        capture_output=True, text=True, timeout=120)
+    assert listing.stdout.strip() == "0", listing.stdout + listing.stderr
