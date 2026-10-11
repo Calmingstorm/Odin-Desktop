@@ -28,14 +28,20 @@ import time
 import uuid
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 
 MODEL = "canned-contract"
 PROMPT = "[tool] Run the scripted local tool."
 REPLY = "Scripted reply: the installed tool ran."
 MARK = "installed core tool ran"
-SKILL = "skill_package_probe"
-PACKAGE, MODULE, VERSION = "odin-skill-probe", "odin_skill_probe", "1.0"
-PACKAGE_MARK = "odin skill probe 1.0"
+
+
+def probe(token: str) -> SimpleNamespace:
+    """The skill and package names for one run: unique, so a kept test profile (the Legion's)
+    never holds this run's skill or package already."""
+    return SimpleNamespace(skill=f"skill_package_probe_{token}",
+                           package=f"odin-skill-probe-{token}", module=f"odin_skill_probe_{token}",
+                           version="1.0", mark=f"odin skill probe {token}")
 
 
 def scripted_model(marker: Path) -> http.server.ThreadingHTTPServer:
@@ -101,12 +107,13 @@ def scripted_model(marker: Path) -> http.server.ThreadingHTTPServer:
     return server
 
 
-def probe_wheel(folder: Path) -> Path:
+def probe_wheel(folder: Path, names: SimpleNamespace) -> Path:
     """A minimal pure-Python wheel of the probe package, written without build tools."""
-    wheel = folder / f"{MODULE}-{VERSION}-py3-none-any.whl"
-    info = f"{MODULE}-{VERSION}.dist-info"
-    files = {f"{MODULE}/__init__.py": f'MARK = "{PACKAGE_MARK}"\n',
-             f"{info}/METADATA": f"Metadata-Version: 2.1\nName: {PACKAGE}\nVersion: {VERSION}\n",
+    wheel = folder / f"{names.module}-{names.version}-py3-none-any.whl"
+    info = f"{names.module}-{names.version}.dist-info"
+    files = {f"{names.module}/__init__.py": f'MARK = "{names.mark}"\n',
+             f"{info}/METADATA": (f"Metadata-Version: 2.1\nName: {names.package}\n"
+                                  f"Version: {names.version}\n"),
              f"{info}/WHEEL": ("Wheel-Version: 1.0\nGenerator: odin-acceptance\n"
                                "Root-Is-Purelib: true\nTag: py3-none-any\n")}
     record = []
@@ -120,7 +127,7 @@ def probe_wheel(folder: Path) -> Path:
     return wheel
 
 
-def package_index(wheel: Path) -> http.server.ThreadingHTTPServer:
+def package_index(wheel: Path, names: SimpleNamespace) -> http.server.ThreadingHTTPServer:
     """A PEP 503 simple index on 127.0.0.1 holding only the probe wheel (pip treats loopback as
     a secure origin)."""
     data = wheel.read_bytes()
@@ -131,7 +138,7 @@ def package_index(wheel: Path) -> http.server.ThreadingHTTPServer:
             pass
 
         def do_GET(self):  # noqa: N802 - http.server's name
-            if self.path.rstrip("/") == f"/simple/{PACKAGE}":
+            if self.path.rstrip("/") == f"/simple/{names.package}":
                 body, kind = f'<a href="{link}">{wheel.name}</a>'.encode(), "text/html"
             elif self.path == f"/files/{wheel.name}":
                 body, kind = data, "application/octet-stream"
@@ -149,12 +156,12 @@ def package_index(wheel: Path) -> http.server.ThreadingHTTPServer:
     return server
 
 
-def skill_code() -> str:
-    definition = {"name": SKILL, "description": "Installed-core acceptance probe",
+def skill_code(names: SimpleNamespace) -> str:
+    definition = {"name": names.skill, "description": "Installed-core acceptance probe",
                   "input_schema": {"type": "object", "properties": {}},
-                  "dependencies": [f"{PACKAGE}=={VERSION}"]}
+                  "dependencies": [f"{names.package}=={names.version}"]}
     return (f"SKILL_DEFINITION = {definition!r}\nasync def execute(inp, context):\n"
-            f"    import {MODULE}\n    return {MODULE}.MARK\n")
+            f"    import {names.module}\n    return {names.module}.MARK\n")
 
 
 def tree_state(root: Path) -> dict[str, tuple[int, int]]:
@@ -304,8 +311,8 @@ async def turn(client) -> dict:
     raise TimeoutError("the tool turn did not end within 180 s")
 
 
-async def skill_test(client) -> dict:
-    return await call(client, "skills.test", {"name": SKILL})
+async def skill_test(client, names: SimpleNamespace) -> dict:
+    return await call(client, "skills.test", {"name": names.skill})
 
 
 async def refused_major(run: Run) -> dict:
@@ -335,7 +342,8 @@ async def acceptance(run: Run, work: Path) -> None:
     run.check("the installed interpreter, isolated", executable.is_relative_to(run.install)
               and sys.flags.isolated and sys.flags.dont_write_bytecode, executable)
     model = scripted_model(marker)
-    index = package_index(probe_wheel(work))
+    names = probe(uuid.uuid4().hex[:8])
+    index = package_index(probe_wheel(work, names), names)
     config = Path(os.environ["APPDATA"]) / "pip" / "pip.ini"
     kept = config.read_bytes() if config.exists() else None
     config.parent.mkdir(parents=True, exist_ok=True)
@@ -371,11 +379,11 @@ async def acceptance(run: Run, work: Path) -> None:
                       "completed" and result["replies"][-1:] == [REPLY] and written == MARK,
                       json.dumps({**result, "marker": written}))
             saved = await call(client, "skills.save",
-                               {"name": SKILL, "code": skill_code(), "create": True})
-            tested = await skill_test(client)
-            placed = [str(path) for path in run.profile.rglob(f"{MODULE}/__init__.py")]
+                               {"name": names.skill, "code": skill_code(names), "create": True})
+            tested = await skill_test(client, names)
+            placed = [str(path) for path in run.profile.rglob(f"{names.module}/__init__.py")]
             run.check("a skill's dependency installs through the bundled pip into the profile",
-                      tested.get("is_error") is False and PACKAGE_MARK in str(tested.get("result"))
+                      tested.get("is_error") is False and names.mark in str(tested.get("result"))
                       and placed and not any(Path(path).is_relative_to(run.install)
                                              for path in placed),
                       json.dumps({"saved": saved, "tested": tested, "placed": placed})[:1500])
@@ -394,12 +402,15 @@ async def acceptance(run: Run, work: Path) -> None:
                 "assistant", REPLY) in texts, texts)
             served = (await call(client, "status.get"))["model"]
             run.check("and so are the settings", served.get("main") == MODEL, served)
-            tested = await skill_test(client)
+            tested = await skill_test(client, names)
             run.check("and the skill still imports its package", tested.get("is_error") is False
-                      and PACKAGE_MARK in str(tested.get("result")), json.dumps(tested)[:500])
+                      and names.mark in str(tested.get("result")), json.dumps(tested)[:500])
             changed = sorted(set(before.items()) ^ set(tree_state(run.install).items()))
             run.check("the install tree is unchanged by all of it (a tool turn, a skill install, "
                       "a restart)", not changed, changed[:20])
+            removed = await call(client, "skills.delete", {"name": names.skill})
+            run.check("the probe skill is removed again", names.skill not in json.dumps(
+                await call(client, "skills.list")), json.dumps(removed)[:300])
         finally:
             await client.close()
         answer = await refused_major(run)

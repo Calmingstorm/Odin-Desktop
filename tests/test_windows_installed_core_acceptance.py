@@ -14,6 +14,7 @@ CORE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(CORE)
 
 TOOLS = [{"type": "function", "function": {"name": "run_command", "parameters": {}}}]
+NAMES = CORE.probe("0a1b2c3d")
 
 
 def ask(server, body: dict) -> dict:
@@ -63,28 +64,29 @@ def test_the_scripted_model_answers_the_judge_the_tool_turn_and_a_plain_turn(tmp
 
 
 def test_the_probe_package_installs_with_pip_from_the_loopback_index(tmp_path):
-    server = CORE.package_index(CORE.probe_wheel(tmp_path))
+    server = CORE.package_index(CORE.probe_wheel(tmp_path, NAMES), NAMES)
     try:
         target = tmp_path / "target"
         index = f"http://127.0.0.1:{server.server_address[1]}/simple/"
         result = subprocess.run(
             [sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check",
              "--no-cache-dir", "--target", str(target), "--index-url", index,
-             f"{CORE.PACKAGE}=={CORE.VERSION}"],
+             f"{NAMES.package}=={NAMES.version}"],
             capture_output=True, text=True, timeout=120,
             env={**os.environ, "PIP_CONFIG_FILE": os.devnull})
         assert result.returncode == 0, result.stderr
-        module = (target / CORE.MODULE / "__init__.py").read_text()
-        assert module == f'MARK = "{CORE.PACKAGE_MARK}"\n'
+        module = (target / NAMES.module / "__init__.py").read_text()
+        assert module == f'MARK = "{NAMES.mark}"\n'
     finally:
         server.shutdown()
         server.server_close()
 
 
-def test_the_probe_skill_declares_the_package():
+def test_the_probe_skill_declares_its_runs_package():
     namespace = {}
-    exec(compile(CORE.skill_code(), "skill", "exec"), namespace)  # noqa: S102 - our own source
+    exec(compile(CORE.skill_code(NAMES), "skill", "exec"), namespace)  # noqa: S102 - our own source
     definition = namespace["SKILL_DEFINITION"]
-    assert definition["name"] == CORE.SKILL
-    assert definition["dependencies"] == [f"{CORE.PACKAGE}=={CORE.VERSION}"]
+    assert definition["name"] == NAMES.skill
+    assert definition["dependencies"] == [f"{NAMES.package}=={NAMES.version}"]
+    assert CORE.probe("ffff0000").skill != NAMES.skill  # each run names its own
 
