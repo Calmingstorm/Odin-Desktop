@@ -44,7 +44,10 @@ def _require_desktop_config(config_path: str | Path) -> None:
     paths = runtime_profile_paths()
     # An alias may name the selected canonical config, but selecting a profile
     # never authorizes a symlink from its config slot into another installation.
-    if paths.config_file.is_symlink() or Path(config_path).resolve() != paths.config_file:
+    # The slot's folders may be reached through an alias themselves (a symlinked
+    # home, an 8.3 short name): compare with the slot's real location.
+    slot = paths.config_file
+    if slot.is_symlink() or Path(config_path).resolve() != slot.parent.resolve() / slot.name:
         raise MigrationCompletionError("configuration is outside the selected desktop profile")
     try:
         authority = OwnerAuthority(paths)

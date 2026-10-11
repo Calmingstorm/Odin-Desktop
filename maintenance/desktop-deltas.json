@@ -5564,23 +5564,23 @@
       ]
     },
     {
-      "after_sha256": "d11359a7e5509a39b47b774caf89460173f222f9cfeaee574f0d2dc6320af6be",
+      "after_sha256": "8ca4a4b3e7da5ab6c8826dba2c7202172bc224ad812905ae40a542cf49a57a9d",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "7ce263217854e7834b2fd0cda2d8400d965d5af62d47e41faa1da023fdbe0dd5",
-      "contract": "_require_desktop_config checks lexical absolute config identity against runtime_profile_paths().config_file and validates OwnerAuthority durability. apply_compatible_timeout_migration, apply_legacy_ceiling_migration and apply_image_defaults_migration invoke the fence before work; marker-path functions rendezvous beneath profile data/config_migrations.",
+      "contract": "_require_desktop_config checks lexical absolute config identity against runtime_profile_paths().config_file and validates OwnerAuthority durability. apply_compatible_timeout_migration, apply_legacy_ceiling_migration and apply_image_defaults_migration invoke the fence before work; marker-path functions rendezvous beneath profile data/config_migrations. | 1.1: _require_desktop_config compares the resolved config path with the slot real location: the slot parent resolved, plus the slot name. A symlinked slot is refused as before.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Outside-profile migration writes fail before touching their target. Retained prepared/committed records, preimage provenance, atomic publication and no-blind-replay behavior must not weaken. OwnerAuthority rejects existing state without identity; loading configuration no longer triggers these migrations. The new test proves the outside-profile ceiling fence only, not all migration branches.",
+      "invariant": "Outside-profile migration writes fail before touching their target. Retained prepared/committed records, preimage provenance, atomic publication and no-blind-replay behavior must not weaken. OwnerAuthority rejects existing state without identity; loading configuration no longer triggers these migrations. The new test proves the outside-profile ceiling fence only, not all migration branches. | 1.1: A symlinked config slot and a config outside the selected profile are still refused; an alias naming the selected config is accepted, as designed.",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Odin to Desktop",
       "owner": "Odin",
       "patch": [
         {
           "end": 1257,
-          "new_base64": "CgpkZWYgX3JlcXVpcmVfZGVza3RvcF9jb25maWcoY29uZmlnX3BhdGg6IHN0ciB8IFBhdGgpIC0+IE5vbmU6CiAgICAiIiJNaWdyYXRpb24gd3JpdGVzIGJlbG9uZyBvbmx5IHRvIGFuIGVzdGFibGlzaGVkIGRlc2t0b3AgcHJvZmlsZS4iIiIKICAgIGZyb20gLi5kZXNrdG9wLmF1dGhvcml0eSBpbXBvcnQgT3duZXJBdXRob3JpdHkKICAgIGZyb20gLi5ydW50aW1lX3BhdGhzIGltcG9ydCBydW50aW1lX3Byb2ZpbGVfcGF0aHMKICAgIHBhdGhzID0gcnVudGltZV9wcm9maWxlX3BhdGhzKCkKICAgICMgQW4gYWxpYXMgbWF5IG5hbWUgdGhlIHNlbGVjdGVkIGNhbm9uaWNhbCBjb25maWcsIGJ1dCBzZWxlY3RpbmcgYSBwcm9maWxlCiAgICAjIG5ldmVyIGF1dGhvcml6ZXMgYSBzeW1saW5rIGZyb20gaXRzIGNvbmZpZyBzbG90IGludG8gYW5vdGhlciBpbnN0YWxsYXRpb24uCiAgICBpZiBwYXRocy5jb25maWdfZmlsZS5pc19zeW1saW5rKCkgb3IgUGF0aChjb25maWdfcGF0aCkucmVzb2x2ZSgpICE9IHBhdGhzLmNvbmZpZ19maWxlOgogICAgICAgIHJhaXNlIE1pZ3JhdGlvbkNvbXBsZXRpb25FcnJvcigiY29uZmlndXJhdGlvbiBpcyBvdXRzaWRlIHRoZSBzZWxlY3RlZCBkZXNrdG9wIHByb2ZpbGUiKQogICAgdHJ5OgogICAgICAgIGF1dGhvcml0eSA9IE93bmVyQXV0aG9yaXR5KHBhdGhzKQogICAgZXhjZXB0IChPU0Vycm9yLCBWYWx1ZUVycm9yKSBhcyBleGM6CiAgICAgICAgcmFpc2UgTWlncmF0aW9uQ29tcGxldGlvbkVycm9yKCJzZWxlY3RlZCBwcm9maWxlIG93bmVyIGlkZW50aXR5IGlzIHVucHJvdmVuIikgZnJvbSBleGMKICAgIGlmIGF1dGhvcml0eS5kdXJhYmlsaXR5X2RlZ3JhZGVkOgogICAgICAgIHJhaXNlIE1pZ3JhdGlvbkNvbXBsZXRpb25FcnJvcigicHJvZmlsZSBpZGVudGl0eSBkdXJhYmlsaXR5IHVucHJvdmVuIikK",
+          "new_base64": "CgpkZWYgX3JlcXVpcmVfZGVza3RvcF9jb25maWcoY29uZmlnX3BhdGg6IHN0ciB8IFBhdGgpIC0+IE5vbmU6CiAgICAiIiJNaWdyYXRpb24gd3JpdGVzIGJlbG9uZyBvbmx5IHRvIGFuIGVzdGFibGlzaGVkIGRlc2t0b3AgcHJvZmlsZS4iIiIKICAgIGZyb20gLi5kZXNrdG9wLmF1dGhvcml0eSBpbXBvcnQgT3duZXJBdXRob3JpdHkKICAgIGZyb20gLi5ydW50aW1lX3BhdGhzIGltcG9ydCBydW50aW1lX3Byb2ZpbGVfcGF0aHMKICAgIHBhdGhzID0gcnVudGltZV9wcm9maWxlX3BhdGhzKCkKICAgICMgQW4gYWxpYXMgbWF5IG5hbWUgdGhlIHNlbGVjdGVkIGNhbm9uaWNhbCBjb25maWcsIGJ1dCBzZWxlY3RpbmcgYSBwcm9maWxlCiAgICAjIG5ldmVyIGF1dGhvcml6ZXMgYSBzeW1saW5rIGZyb20gaXRzIGNvbmZpZyBzbG90IGludG8gYW5vdGhlciBpbnN0YWxsYXRpb24uCiAgICAjIFRoZSBzbG90J3MgZm9sZGVycyBtYXkgYmUgcmVhY2hlZCB0aHJvdWdoIGFuIGFsaWFzIHRoZW1zZWx2ZXMgKGEgc3ltbGlua2VkCiAgICAjIGhvbWUsIGFuIDguMyBzaG9ydCBuYW1lKTogY29tcGFyZSB3aXRoIHRoZSBzbG90J3MgcmVhbCBsb2NhdGlvbi4KICAgIHNsb3QgPSBwYXRocy5jb25maWdfZmlsZQogICAgaWYgc2xvdC5pc19zeW1saW5rKCkgb3IgUGF0aChjb25maWdfcGF0aCkucmVzb2x2ZSgpICE9IHNsb3QucGFyZW50LnJlc29sdmUoKSAvIHNsb3QubmFtZToKICAgICAgICByYWlzZSBNaWdyYXRpb25Db21wbGV0aW9uRXJyb3IoImNvbmZpZ3VyYXRpb24gaXMgb3V0c2lkZSB0aGUgc2VsZWN0ZWQgZGVza3RvcCBwcm9maWxlIikKICAgIHRyeToKICAgICAgICBhdXRob3JpdHkgPSBPd25lckF1dGhvcml0eShwYXRocykKICAgIGV4Y2VwdCAoT1NFcnJvciwgVmFsdWVFcnJvcikgYXMgZXhjOgogICAgICAgIHJhaXNlIE1pZ3JhdGlvbkNvbXBsZXRpb25FcnJvcigic2VsZWN0ZWQgcHJvZmlsZSBvd25lciBpZGVudGl0eSBpcyB1bnByb3ZlbiIpIGZyb20gZXhjCiAgICBpZiBhdXRob3JpdHkuZHVyYWJpbGl0eV9kZWdyYWRlZDoKICAgICAgICByYWlzZSBNaWdyYXRpb25Db21wbGV0aW9uRXJyb3IoInByb2ZpbGUgaWRlbnRpdHkgZHVyYWJpbGl0eSB1bnByb3ZlbiIpCg==",
           "old_base64": "",
           "start": 1257
         },
@@ -5628,7 +5628,7 @@
         }
       ],
       "path": "src/config/migrations.py",
-      "reason": "Fence explicit migration writes to the selected Desktop configuration instead of using historical server launch/data directories.",
+      "reason": "Fence explicit migration writes to the selected Desktop configuration instead of using historical server launch/data directories. | 1.1: The selected-profile check compared the config path resolved with the profile slot unresolved, so a profile reached through an aliased folder (a symlinked home such as Fedora Atomic /home -> /var/home, a symlinked ~/.config, a Windows 8.3 short name or junction) refused every start after the first.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -5637,11 +5637,13 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_config_ceiling_migration.py": "d8985d24f6287b2252da079d8f7163a2b97f27326703617129c6aa9dcaa6fc7b",
-        "tests/test_desktop_foundation_config.py": "29b7cd3930d68b74ad55eba7bbd6ad9b54e48ec2debf1e2d527f80f29c321660"
+        "tests/test_desktop_foundation_config.py": "29b7cd3930d68b74ad55eba7bbd6ad9b54e48ec2debf1e2d527f80f29c321660",
+        "tests/test_desktop_profile_alias.py": "dba989f5541e99f1e667462e41cb84cefabb852192428a27c3434e3cbb96b6c1"
       },
       "tests": [
         "tests/test_config_ceiling_migration.py",
-        "tests/test_desktop_foundation_config.py"
+        "tests/test_desktop_foundation_config.py",
+        "tests/test_desktop_profile_alias.py"
       ]
     },
     {
@@ -38231,6 +38233,43 @@
       },
       "tests": [
         "tests/test_desktop_pr35_round2_dispositions.py"
+      ]
+    },
+    {
+      "after_sha256": "dba989f5541e99f1e667462e41cb84cefabb852192428a27c3434e3cbb96b6c1",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Real ensure_profile twice under a symlinked home with the app's selection environment; direct checks for the slot symlink, an alias naming the config, and an outside config.",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Test only.",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiQSBwcm9maWxlIHJlYWNoZWQgdGhyb3VnaCBhbiBhbGlhc2VkIGZvbGRlciBzdGFydHMgYWdhaW4gYWZ0ZXIgaXRzIGZpcnN0IHJ1bi4KClRoZSBhcHAgbmFtZXMgdGhlIHByb2ZpbGUgYnkgdGhlIHBhdGhzIGl0IHdhcyBnaXZlbiAoWERHIG9yIEhPTUUgb24gTGludXgsIExPQ0FMQVBQREFUQSBvbgpXaW5kb3dzKSwgYW5kIGEgZm9sZGVyIGFib3ZlIHRoZSBwcm9maWxlIGNhbiBiZSBhbiBhbGlhczogYSBzeW1saW5rZWQgaG9tZSAoRmVkb3JhIEF0b21pYydzCi9ob21lIC0+IC92YXIvaG9tZSksIGEgc3ltbGlua2VkIH4vLmNvbmZpZywgb3Igb24gV2luZG93cyBhbiA4LjMgc2hvcnQgbmFtZSBvciBhIGp1bmN0aW9uLiBUaGUKc2VsZWN0ZWQtcHJvZmlsZSBjaGVjayBjb21wYXJlZCB0aGUgY29uZmlnIHBhdGgsIHJlc29sdmVkLCB3aXRoIHRoZSBwcm9maWxlJ3Mgc2xvdCwgdW5yZXNvbHZlZCwKc28gZXZlcnkgbGF1bmNoIGFmdGVyIHRoZSBmaXJzdCBleGl0ZWQ6ICJjb25maWd1cmF0aW9uIGlzIG91dHNpZGUgdGhlIHNlbGVjdGVkIGRlc2t0b3AgcHJvZmlsZSIuCiIiIgpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgcHl0ZXN0Cgpmcm9tIHNyYy5jb25maWcubWlncmF0aW9ucyBpbXBvcnQgTWlncmF0aW9uQ29tcGxldGlvbkVycm9yLCBfcmVxdWlyZV9kZXNrdG9wX2NvbmZpZwpmcm9tIHNyYy5kZXNrdG9wLmF1dGhvcml0eSBpbXBvcnQgT3duZXJBdXRob3JpdHkKZnJvbSBzcmMuZGVza3RvcC5wYXRocyBpbXBvcnQgUHJvZmlsZVBhdGhzCmZyb20gc3JjLmRlc2t0b3AucHJvdmlzaW9uaW5nIGltcG9ydCBlbnN1cmVfcHJvZmlsZQoKCkBweXRlc3QuZml4dHVyZQpkZWYgYWxpYXNlZCh0bXBfcGF0aCwgbW9ua2V5cGF0Y2gpOgogICAgIiIiQSBzZWxlY3RlZCBwcm9maWxlIHdob3NlIGhvbWUgaXMgYSBzeW1saW5rIHRvIHRoZSByZWFsIGZvbGRlci4iIiIKICAgIHJlYWwgPSB0bXBfcGF0aCAvICJ2YXItaG9tZSIKICAgIHJlYWwubWtkaXIobW9kZT0wbzcwMCkKICAgIGhvbWUgPSB0bXBfcGF0aCAvICJob21lIgogICAgaG9tZS5zeW1saW5rX3RvKHJlYWwsIHRhcmdldF9pc19kaXJlY3Rvcnk9VHJ1ZSkKICAgIHBhdGhzID0gUHJvZmlsZVBhdGhzLmZyb21feGRnKCJhbGlhc2VkIiwgZW52aXJvbj17fSwgaG9tZT1ob21lKQogICAgbW9ua2V5cGF0Y2guc2V0ZW52KCJIT01FIiwgc3RyKGhvbWUpKQogICAgZm9yIG5hbWUgaW4gKCJYREdfQ09ORklHX0hPTUUiLCAiWERHX0RBVEFfSE9NRSIsICJYREdfQ0FDSEVfSE9NRSIpOgogICAgICAgIG1vbmtleXBhdGNoLmRlbGVudihuYW1lLCByYWlzaW5nPUZhbHNlKQogICAgbW9ua2V5cGF0Y2guc2V0ZW52KCJPRElOX0RFU0tUT1BfUFJPRklMRSIsIHBhdGhzLnByb2ZpbGVfaWQpCiAgICBtb25rZXlwYXRjaC5zZXRlbnYoIk9ESU5fREVTS1RPUF9UT0tFTl9GSUxFIiwgc3RyKHBhdGhzLmNvbmZpZ19kaXIgLyAiaXBjLnRva2VuIikpCiAgICBtb25rZXlwYXRjaC5zZXRlbnYoIk9ESU5fREVTS1RPUF9EQVRBX0RJUiIsIHN0cihwYXRocy5kYXRhX2RpcikpCiAgICBhdXRob3JpdHkgPSBPd25lckF1dGhvcml0eShwYXRocykKICAgIHRyeToKICAgICAgICB5aWVsZCBwYXRocywgYXV0aG9yaXR5CiAgICBmaW5hbGx5OgogICAgICAgIGF1dGhvcml0eS5yZWxlYXNlX3J1bnRpbWUoKQoKCmRlZiB0ZXN0X2FfcHJvZmlsZV91bmRlcl9hX3N5bWxpbmtlZF9ob21lX2xvYWRzX29uX2l0c19zZWNvbmRfc3RhcnQoYWxpYXNlZCk6CiAgICBwYXRocywgYXV0aG9yaXR5ID0gYWxpYXNlZAogICAgZmlyc3QgPSBlbnN1cmVfcHJvZmlsZShwYXRocywgYXV0aG9yaXR5PWF1dGhvcml0eSkgICMgY3JlYXRlcyB0aGUgY29uZmlnCiAgICBhZ2FpbiA9IGVuc3VyZV9wcm9maWxlKHBhdGhzLCBhdXRob3JpdHk9YXV0aG9yaXR5KSAgIyBsb2FkcyBpdDogdGhlIHNlbGVjdGVkLXByb2ZpbGUgY2hlY2sgcnVucwogICAgYXNzZXJ0IGFnYWluLnRvb2xzID09IGZpcnN0LnRvb2xzCgoKZGVmIHRlc3RfdGhlX2NvbmZpZ19zbG90X2l0c2VsZl9hc19hX3N5bWxpbmtfaXNfc3RpbGxfcmVmdXNlZChhbGlhc2VkLCB0bXBfcGF0aCk6CiAgICBwYXRocywgYXV0aG9yaXR5ID0gYWxpYXNlZAogICAgZW5zdXJlX3Byb2ZpbGUocGF0aHMsIGF1dGhvcml0eT1hdXRob3JpdHkpCiAgICBlbHNld2hlcmUgPSB0bXBfcGF0aCAvICJhbm90aGVyLWluc3RhbGxhdGlvbi55bWwiCiAgICBlbHNld2hlcmUud3JpdGVfYnl0ZXMocGF0aHMuY29uZmlnX2ZpbGUucmVhZF9ieXRlcygpKQogICAgcGF0aHMuY29uZmlnX2ZpbGUudW5saW5rKCkKICAgIHBhdGhzLmNvbmZpZ19maWxlLnN5bWxpbmtfdG8oZWxzZXdoZXJlKQogICAgd2l0aCBweXRlc3QucmFpc2VzKE1pZ3JhdGlvbkNvbXBsZXRpb25FcnJvciwgbWF0Y2g9Im91dHNpZGUgdGhlIHNlbGVjdGVkIGRlc2t0b3AgcHJvZmlsZSIpOgogICAgICAgIF9yZXF1aXJlX2Rlc2t0b3BfY29uZmlnKHBhdGhzLmNvbmZpZ19maWxlKQoKCmRlZiB0ZXN0X2FuX2FsaWFzX25hbWluZ190aGVfc2VsZWN0ZWRfY29uZmlnX2lzX2FjY2VwdGVkKGFsaWFzZWQsIHRtcF9wYXRoKToKICAgIHBhdGhzLCBhdXRob3JpdHkgPSBhbGlhc2VkCiAgICBlbnN1cmVfcHJvZmlsZShwYXRocywgYXV0aG9yaXR5PWF1dGhvcml0eSkKICAgIGFsaWFzID0gdG1wX3BhdGggLyAiYWxpYXMueW1sIgogICAgYWxpYXMuc3ltbGlua190byhwYXRocy5jb25maWdfZmlsZSkKICAgIF9yZXF1aXJlX2Rlc2t0b3BfY29uZmlnKGFsaWFzKQogICAgX3JlcXVpcmVfZGVza3RvcF9jb25maWcocGF0aHMuY29uZmlnX2ZpbGUucmVzb2x2ZSgpKQoKCmRlZiB0ZXN0X2FfY29uZmlnX291dHNpZGVfdGhlX3NlbGVjdGVkX3Byb2ZpbGVfaXNfcmVmdXNlZChhbGlhc2VkLCB0bXBfcGF0aCk6CiAgICBwYXRocywgYXV0aG9yaXR5ID0gYWxpYXNlZAogICAgZW5zdXJlX3Byb2ZpbGUocGF0aHMsIGF1dGhvcml0eT1hdXRob3JpdHkpCiAgICBvdGhlciA9IHRtcF9wYXRoIC8gImNvbmZpZy55bWwiCiAgICBvdGhlci53cml0ZV9ieXRlcyhwYXRocy5jb25maWdfZmlsZS5yZWFkX2J5dGVzKCkpCiAgICB3aXRoIHB5dGVzdC5yYWlzZXMoTWlncmF0aW9uQ29tcGxldGlvbkVycm9yLCBtYXRjaD0ib3V0c2lkZSB0aGUgc2VsZWN0ZWQgZGVza3RvcCBwcm9maWxlIik6CiAgICAgICAgX3JlcXVpcmVfZGVza3RvcF9jb25maWcob3RoZXIpCg==",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/test_desktop_profile_alias.py",
+      "reason": "Pins that a profile reached through an aliased folder starts again after its first run, and that the selected-profile check still refuses a symlinked slot and an outside config.",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/test_desktop_profile_alias.py": "dba989f5541e99f1e667462e41cb84cefabb852192428a27c3434e3cbb96b6c1"
+      },
+      "tests": [
+        "tests/test_desktop_profile_alias.py"
       ]
     },
     {
