@@ -11,7 +11,7 @@ export interface HostForm {
   address: string
   port: number
   ssh_user: string
-  os: 'linux' | 'macos'
+  os: 'linux' | 'macos' | 'windows'
   description: string
   enabled: boolean
   trust_mode: 'pinned' | 'ca' | 'tofu'
@@ -137,7 +137,7 @@ export function beginEdit(row: HostRow): void {
     address: row.address,
     port: row.port,
     ssh_user: row.ssh_user,
-    os: row.os === 'macos' ? 'macos' : 'linux',
+    os: row.os === 'macos' || row.os === 'windows' ? row.os : 'linux',
     description: row.description,
     enabled: row.enabled,
     trust_mode: mode

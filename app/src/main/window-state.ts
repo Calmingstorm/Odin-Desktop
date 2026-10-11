@@ -2,7 +2,7 @@
 export interface Bounds { x: number; y: number; width: number; height: number }
 export interface WindowState { version: 1; normalBounds: Bounds; maximized: boolean }
 export interface DisplayArea { id: number; workArea: Bounds; scaleFactor?: number }
-export type WindowBackend = 'x11' | 'wayland' | 'unknown'
+export type WindowBackend = 'x11' | 'wayland' | 'win32' | 'unknown'
 const DEFAULT_SIZE = { width: 1180, height: 780 }
 const MIN_SIZE = { width: 720, height: 480 }
 const MAX_COORDINATE = 1_000_000
@@ -13,7 +13,13 @@ const MAX_COORDINATE = 1_000_000
 export function windowBackend(platform: string, resolvedOzonePlatform: string): WindowBackend {
   if (platform === 'linux' && resolvedOzonePlatform === 'x11') return 'x11'
   if (platform === 'linux' && resolvedOzonePlatform === 'wayland') return 'wayland'
+  if (platform === 'win32') return 'win32'
   return 'unknown'
+}
+
+/** Whether the window system honors a window's position: X11 and Windows do, Wayland doesn't. */
+export function honorsPosition(backend: WindowBackend): boolean {
+  return backend === 'x11' || backend === 'win32'
 }
 
 export function objectRecord(value: unknown): Record<string, unknown> {
@@ -69,7 +75,7 @@ export function restoreWindowState(saved: unknown, displays: DisplayArea[], prim
     ?? { id: primaryId, workArea: { x: 0, y: 0, width: 1280, height: 800 } }
   const state = loadWindowState(saved)
   const prior = state?.normalBounds
-  const display = backend === 'x11' && prior
+  const display = honorsPosition(backend) && prior
     ? available.filter((d) => reachableTitlebar(prior, d.workArea))
       .sort((a, b) => intersection(prior, b.workArea) - intersection(prior, a.workArea))[0] ?? primary
     : primary
@@ -78,13 +84,13 @@ export function restoreWindowState(saved: unknown, displays: DisplayArea[], prim
   const minHeight = Math.min(MIN_SIZE.height, area.height)
   const width = Math.min(area.width, Math.max(minWidth, prior?.width ?? DEFAULT_SIZE.width))
   const height = Math.min(area.height, Math.max(minHeight, prior?.height ?? DEFAULT_SIZE.height))
-  const keepPosition = backend === 'x11' && prior && reachableTitlebar(prior, area)
+  const keepPosition = honorsPosition(backend) && prior && reachableTitlebar(prior, area)
   const x = keepPosition ? Math.max(area.x, Math.min(prior.x, area.x + area.width - width))
     : area.x + Math.floor((area.width - width) / 2)
   const y = keepPosition ? Math.max(area.y, Math.min(prior.y, area.y + area.height - height))
     : area.y + Math.floor((area.height - height) / 2)
   return { state: { version: 1, normalBounds: { x, y, width, height }, maximized: state?.maximized ?? false },
-    options: { ...(backend === 'x11' ? { x, y } : {}), width, height, minWidth, minHeight } }
+    options: { ...(honorsPosition(backend) ? { x, y } : {}), width, height, minWidth, minHeight } }
 }
 
 export interface StateWindow {
@@ -113,7 +119,7 @@ export class WindowStateController {
         && !this.win.isMaximized() && !this.win.isFullScreen()) {
         this.pendingRepair = false
         const { x, y, width, height } = this.state.normalBounds
-        this.win.setBounds(this.backend === 'x11' ? { x, y, width, height } : { width, height })
+        this.win.setBounds(honorsPosition(this.backend) ? { x, y, width, height } : { width, height })
       }
     } catch { /* Native window may be ending. Cosmetic repair cannot block Exit. */ }
     this.changed()

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from ..config.schema import ToolsConfig
+from ..desktop.platform.variants import windows_variant
 from ..odin_log import get_logger
 from ..permissions.host_access import HostAccessManager
 from ..permissions.manager import PermissionManager
@@ -586,6 +587,7 @@ class ToolExecutor:
             with lock:
                 self._workspace_usage_refreshing = False
 
+    @windows_variant("src.desktop.platform.windows_engine:ensure_local_workspace")
     def _ensure_local_workspace(self) -> str:
         """Resolve and re-validate the cwd for local user commands.
 
@@ -609,6 +611,7 @@ class ToolExecutor:
         self._local_workspace_resolved = True
         return workspace
 
+    @windows_variant("src.desktop.platform.windows_tools:ensure_process_registry")
     def _ensure_process_registry(self):
         """Lazy-init the ProcessRegistry ON THE EXECUTOR (RFC-004 P4).
 
@@ -778,6 +781,7 @@ class ToolExecutor:
             )
         return None
 
+    @windows_variant("src.desktop.platform.windows_helpers:resolve_handler")
     def _resolve_handler(self, tool_name: str):
         """Resolve a tool handler at CALL time (RFC-004 P2, fallback retired P7).
 
@@ -1299,6 +1303,7 @@ class ToolExecutor:
         provider = getattr(self, "_command_shell_config", None)
         return provider() if provider is not None else self.config.command_shell
 
+    @windows_variant("src.desktop.platform.windows_tools:exec_command")
     async def _exec_command(
         self,
         address: str,
@@ -1435,6 +1440,7 @@ class ToolExecutor:
             return output, code
         return raw_command_result(code, output), code
 
+    @windows_variant("src.desktop.platform.windows_safety:govern_command")
     def _govern_command(self, command: str, host: str | None = None) -> tuple[bool, str, str]:
         """Shared governor check. Returns (allowed, denial_message, governor_note)."""
         if not getattr(self, "command_governor", None):

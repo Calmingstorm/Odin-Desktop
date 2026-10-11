@@ -12,6 +12,7 @@ const m = vi.hoisted(() => ({
   coreCommand: vi.fn(), guardian: null as any, acquire: vi.fn(), admit: vi.fn(), inspect: vi.fn(),
   security: { registerAppScheme: vi.fn(), installGuards: vi.fn(), serveAppScheme: vi.fn(), hardenedWebPreferences: vi.fn(() => ({ sandbox: true })) },
   native: vi.fn(), onboarding: vi.fn(), realSmoke: vi.fn(), register: vi.fn(),
+  windowsRoot: vi.fn(), windowsSmoke: vi.fn(),
   theme: null as any, power: null as any, ipc: null as any, screen: null as any,
   menu: vi.fn(), menuSet: vi.fn(), clipboard: vi.fn(), open: vi.fn(), openPath: vi.fn(), reveal: vi.fn(),
   errorBox: vi.fn(), pick: vi.fn(), save: vi.fn(), autostart: vi.fn(), enabled: vi.fn(),
@@ -102,6 +103,7 @@ vi.mock('../src/main/session-logout', () => ({
 }))
 vi.mock('../src/main/onboarding-smoke', () => ({ onboardingSmoke: m.onboarding }))
 vi.mock('../src/main/real-core-smoke', () => ({ realCoreSmoke: m.realSmoke }))
+vi.mock('../src/main/windows-smoke', () => ({ windowsSmokeRoot: m.windowsRoot, windowsRealCoreSmoke: m.windowsSmoke }))
 vi.mock('../src/main/shutdown', async (original) => {
   const real = await original<any>();
   return { ...real, CleanupJournal: class {
@@ -132,6 +134,7 @@ beforeEach(() => {
   m.guardian = Object.assign(new EventEmitter(), { stdin: { end: vi.fn() } });
   m.acquire.mockResolvedValue(m.guardian); m.admit.mockResolvedValue(undefined); m.inspect.mockReturnValue(undefined);
   m.native.mockResolvedValue('shown'); m.onboarding.mockResolvedValue(undefined); m.realSmoke.mockResolvedValue(undefined);
+  m.windowsRoot.mockReturnValue(null); m.windowsSmoke.mockResolvedValue(undefined);
   m.pick.mockResolvedValue({ canceled: false, filePaths: ['/mock/a'] });
   m.save.mockResolvedValue({ canceled: false, filePath: '/mock/saved' });
   m.menu.mockImplementation(template => template); m.enabled.mockReturnValue(false);
@@ -217,6 +220,47 @@ describe('inert main-process lifecycle wiring', () => {
     expect(m.app.setPath).toHaveBeenCalledExactlyOnceWith('userData', '/mock/downloads/odin-desktop/electron');
     expect(m.app.setPath.mock.invocationCallOrder[0]).toBeLessThan(m.app.requestSingleInstanceLock.mock.invocationCallOrder[0]);
     expect(m.app.setPath.mock.invocationCallOrder[0]).toBeLessThan(m.app.whenReady.mock.invocationCallOrder[0]);
+  })
+  it('lets the installed app refuse to start before identity, the instance lock or any profile', async () => {
+    m.app.isPackaged = true
+    vi.doMock('../src/main/platform', async (original) => {
+      const real = await original<typeof import('../src/main/platform')>()
+      return { currentPlatform: () => ({ ...real.currentPlatform(), startRefusal: () => 'started elevated' }) }
+    })
+    try {
+      await boot()
+      expect(m.errorBox).toHaveBeenCalledExactlyOnceWith('Odin didn\'t start', 'started elevated')
+      expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(1)
+      expect(m.app.setPath).not.toHaveBeenCalled()
+      expect(m.app.requestSingleInstanceLock).not.toHaveBeenCalled()
+      expect(m.acquire).not.toHaveBeenCalled()
+      expect(m.windows).toHaveLength(0)
+    } finally {
+      vi.doUnmock('../src/main/platform')
+    }
+  })
+  it('says why a refused link retries where the platform describes it, until the link is ready', async () => {
+    vi.doMock('../src/main/platform', async (original) => {
+      const real = await original<typeof import('../src/main/platform')>()
+      return { currentPlatform: () => ({ ...real.currentPlatform(), describeLinkRefusal: (why: string) => `refused: ${why}` }) }
+    })
+    try {
+      m.initialLink = 'connecting'
+      const { win, broker } = await boot()
+      broker.emit('protocol-error', 'engine proof refused')
+      expect(win.webContents.send).toHaveBeenLastCalledWith(IPC.appState,
+        expect.objectContaining({ link: 'connecting', linkProblem: 'refused: engine proof refused' }))
+      broker.linkState = 'ready'; broker.emit('state')
+      expect(win.webContents.send.mock.calls.at(-1)![1]).not.toHaveProperty('linkProblem')
+    } finally {
+      vi.doUnmock('../src/main/platform')
+    }
+  })
+  it('keeps a refused link silent where the platform describes nothing', async () => {
+    const { win, broker } = await boot()
+    win.webContents.send.mockClear()
+    broker.emit('protocol-error', 'malformed frame')
+    expect(win.webContents.send).not.toHaveBeenCalledWith(IPC.appState, expect.anything())
   })
   it('quits duplicate/exit-only launches before constructing the profile or core', async () => {
     m.lock = false; await boot(); expect(m.app.quit).toHaveBeenCalledOnce(); expect(m.brokers).toHaveLength(0);
@@ -373,6 +417,15 @@ describe('inert main-process lifecycle wiring', () => {
     const { win, broker } = await boot(['--smoke-test']); expect(runner).toHaveBeenCalledWith(win, broker, ''); expect(m.app.exit).toHaveBeenCalledWith(0);
     vi.resetModules(); runner.mockRejectedValueOnce(new Error('smoke rejected')); await boot(['--smoke-test']);
     expect(m.app.exit).toHaveBeenLastCalledWith(1);
+  })
+  it('dispatches the Windows smoke to its runner only inside the runner\'s root, and exits on success or failure', async () => {
+    m.windowsRoot.mockReturnValue('C:\\smoke')
+    const { win, broker, supervisor } = await boot(['--smoke-test'])
+    expect(m.windowsSmoke).toHaveBeenCalledWith(win, broker, 'C:\\smoke', expect.any(Function))
+    expect(m.windowsSmoke.mock.calls[0]![3]()).toBe(supervisor.pid)
+    expect(m.realSmoke).not.toHaveBeenCalled(); expect(m.app.exit).toHaveBeenCalledWith(0)
+    vi.resetModules(); m.windowsSmoke.mockRejectedValueOnce(new Error('windows smoke rejected')); await boot(['--smoke-test'])
+    expect(m.app.exit).toHaveBeenLastCalledWith(1)
   })
   it('runs screenshot smoke orchestration and records every requested fixture shot without a display', async () => {
     vi.stubEnv('ODIN_SMOKE_OUT', '/mock/smoke.png'); vi.stubEnv('ODIN_SMOKE_SHOTS', 'fixture search');

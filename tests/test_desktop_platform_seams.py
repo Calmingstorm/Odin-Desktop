@@ -29,7 +29,19 @@ def test_linux_is_chosen_once(fresh_platform):
     assert current_platform() is first
 
 
-@pytest.mark.parametrize("system", ["win32", "darwin"])
+def test_windows_is_selected_on_win32(fresh_platform, monkeypatch):
+    """Its members run natively in tests/windows; here only selection and the profile binding."""
+    from src.desktop.platform.windows import WindowsPlatform
+
+    monkeypatch.setattr(desktop_platform.sys, "platform", "win32")
+    platform = current_platform()
+    assert isinstance(platform, WindowsPlatform) and platform.name == "windows"
+    assert platform.computer_supported is False
+    with pytest.raises(ValueError, match="bound to a profile"):
+        platform.secret_backend()
+
+
+@pytest.mark.parametrize("system", ["darwin", "freebsd14"])
 def test_other_systems_are_refused_as_before(fresh_platform, monkeypatch, tmp_path, system):
     monkeypatch.setattr(desktop_platform.sys, "platform", system)
     with pytest.raises(NotImplementedError, match="desktop provisioning is Linux-only"):
@@ -37,6 +49,16 @@ def test_other_systems_are_refused_as_before(fresh_platform, monkeypatch, tmp_pa
     with pytest.raises(NotImplementedError, match="desktop provisioning is Linux-only"):
         ProfilePaths.from_app("default", token_file=tmp_path / "config/ipc.token",
                               data_dir=tmp_path / "data")
+
+
+def test_linux_workspace_member_is_the_pinned_resolver(tmp_path):
+    from src.tools.workspace import resolve_workspace
+
+    expected = resolve_workspace(str(tmp_path / "pinned"))
+    member = LinuxPlatform().resolve_workspace(str(tmp_path / "member"))
+    assert member == (tmp_path / "member").resolve()
+    assert expected == (tmp_path / "pinned").resolve()
+    assert type(LinuxPlatform().secret_backend(paths=None)).__name__ == "_SecretServiceBackend"
 
 
 def test_linux_profile_paths_are_the_xdg_paths(fresh_platform, monkeypatch, tmp_path):

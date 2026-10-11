@@ -10,6 +10,7 @@ from typing import BinaryIO, Literal, cast
 
 import aiofiles
 
+from ..desktop.platform.variants import windows_variant
 from ..observability.correlation import get_turn
 from ..observability.diagnostics import scrub_diagnostic
 from ..observability.failure_classes import classify_failure
@@ -207,6 +208,7 @@ def _cap_tool_input(tool_input: dict, cap: int) -> dict | str:
 class AuditLogger:
     """Append-only JSON Lines audit log for tool executions."""
 
+    @windows_variant("src.desktop.platform.windows_engine:audit_logger_init")
     def __init__(
         self, path: str | None = None, *,
         hmac_key: str = "", classify_failures: bool = True,
@@ -257,6 +259,7 @@ class AuditLogger:
         ] = {}
         self._tool_count_lock = asyncio.Lock()
 
+    @windows_variant("src.desktop.platform.windows_engine:audit_maybe_rotate")
     def _maybe_rotate(self) -> None:
         """Rotate audit.jsonl → .1 → .2 … once it exceeds max_bytes.
 
@@ -298,6 +301,7 @@ class AuditLogger:
                 paths.append(p)
         return paths
 
+    @windows_variant("src.desktop.platform.windows_engine:audit_open_read_snapshot")
     async def _open_read_snapshot(self) -> list[tuple[BinaryIO, os.stat_result]]:
         """Open one stable descriptor for every retained generation.
 
@@ -435,6 +439,7 @@ class AuditLogger:
             except Exception:
                 pass
 
+    @windows_variant("src.desktop.platform.windows_engine:audit_append_durable")
     async def _append_durable(self, line: str) -> None:
         """Persist intent before the first byte; remove it only after settlement."""
         intent = False
@@ -887,6 +892,7 @@ class AuditLogger:
 
         return await self._collect_matches(_match, limit)
 
+    @windows_variant("src.desktop.platform.windows_engine:audit_initialize_chain")
     async def initialize_chain(self) -> None:
         """Report historical breaks, but resume from the actual settled tail.
 
@@ -960,6 +966,7 @@ class AuditLogger:
                         )
             self._chain_initialized = True
 
+    @windows_variant("src.desktop.platform.windows_engine:audit_open_verify_snapshot")
     async def _open_verify_snapshot(self) -> list[dict]:
         """Open bounded descriptors of every retained generation under the append lock.
 

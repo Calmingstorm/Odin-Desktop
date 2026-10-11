@@ -17,6 +17,7 @@ from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ..desktop.platform.variants import windows_variant
 from ..llm.cost_tracker import estimate_tokens
 from ..odin_log import get_logger
 from ..relevance import rank as relevance_rank
@@ -58,6 +59,7 @@ class _PublishedButUnsyncedError(OSError):
     """Replacement is visible, but directory durability is unconfirmed."""
 
 
+@windows_variant("src.desktop.platform.windows_engine:atomic_json")
 def _atomic_json(path: Path, data: dict) -> None:
     tmp = path.with_name(f".{path.stem}.{uuid.uuid4().hex}.tmp")
     try:

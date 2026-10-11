@@ -43,6 +43,7 @@ from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequenc
 from pathlib import Path
 from typing import Any, cast
 
+from ..desktop.platform.variants import windows_variant
 from ..odin_log import get_logger
 from .schema import active_config_path
 
@@ -331,6 +332,7 @@ def _load_document(config_path: Path) -> tuple[Any, int]:
     return existing, os.stat(config_path).st_mode & 0o777
 
 
+@windows_variant("src.desktop.platform.windows_engine:dump_atomic")
 def _dump_atomic(
     document: Any,
     config_path: Path,
@@ -410,6 +412,7 @@ def _resolve_path(path: Path | str | None) -> Path:
 
 
 @contextlib.contextmanager
+@windows_variant("src.desktop.platform.windows_engine:config_file_lock")
 def _config_file_lock(target: Path):
     """Same-user rendezvous without following attacker-created lock paths."""
     import fcntl

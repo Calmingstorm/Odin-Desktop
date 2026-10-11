@@ -10,6 +10,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from .platform.variants import windows_variant
+
 
 def _namespace_directories(path: Path) -> frozenset[Path]:
     """Only the paired odin-desktop/<valid-profile> components are ours."""
@@ -37,6 +39,7 @@ def _repair_namespace_directory(fd: int, path: Path, namespace: frozenset[Path],
         os.fchmod(fd, 0o700)
 
 
+@windows_variant("src.desktop.platform.windows_files:private_directory")
 def private_directory(path: Path, *, repair_namespace: bool = True) -> None:
     """Create missing folders 0700; accept existing modes under D17.
 

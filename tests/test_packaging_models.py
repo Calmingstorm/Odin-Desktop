@@ -144,3 +144,17 @@ async def test_explicit_offline_local_load_failure_can_retry(tmp_path, monkeypat
     assert await embedder.embed("first") is None
     assert await embedder.embed("retry") == [1.0] * 384
     assert attempts == [LocalEmbedder.MODEL, LocalEmbedder.MODEL]
+
+
+def test_the_windows_runtime_keeps_its_packages_in_lib_site_packages(tmp_path, monkeypatch):
+    prefix = tmp_path / "Programs" / "Odin" / "resources" / "runtime" / "python"
+    installed = prefix / "Lib" / "site-packages"
+    monkeypatch.setattr(bundled_models.sys, "platform", "win32")
+    monkeypatch.setattr(bundled_models.sys, "prefix", str(prefix))
+    monkeypatch.setattr(bundled_models, "__file__", str(installed / "src/search/bundled_models.py"))
+    assert bundled_models.bundled_model_roots() == (prefix.parent / "models" / "bge-small-en-v1.5",)
+    # The Linux layout inside a Windows runtime isn't the installed engine.
+    major, minor = bundled_models.sys.version_info[:2]
+    linux = prefix / "lib" / f"python{major}.{minor}" / "site-packages"
+    monkeypatch.setattr(bundled_models, "__file__", str(linux / "src/search/bundled_models.py"))
+    assert bundled_models.bundled_model_roots() == ()

@@ -81,8 +81,10 @@ class CoreLifetime(Protocol):
 class Platform(Protocol):
     name: str
     ipc: IpcTransport
+    computer_supported: bool
 
-    def secret_backend(self) -> SecretBackend: ...
+    def secret_backend(self, paths: ProfilePaths | None = None) -> SecretBackend:
+        """The keyring for the selected profile (Linux's Secret Service ignores ``paths``)."""
 
     def core_lifetime(self) -> CoreLifetime: ...
 
@@ -94,3 +96,6 @@ class Platform(Protocol):
         home: Path | str | None = None,
     ) -> ProfilePaths:
         """The profile's config, data and cache roots on this system."""
+
+    def resolve_workspace(self, *args, **kwargs) -> Path:
+        """Odin's ``resolve_workspace`` contract: Linux returns the pinned function's result."""

@@ -1,4 +1,9 @@
-"""Profile credentials in the Linux keyring, never in a fallback vault file."""
+"""Profile credentials in the OS keyring, never in a fallback vault file.
+
+Linux uses the desktop session's Secret Service. Windows encrypts each credential
+with the user's login (DPAPI) in the profile's private secrets folder: the
+design's Windows keyring, since Credential Manager caps a secret at 2,560 bytes.
+"""
 
 from __future__ import annotations
 
@@ -220,7 +225,7 @@ class ProfileSecretStore:
     def _adapter(self):
         if self._backend is None:
             try:
-                self._backend = current_platform().secret_backend()
+                self._backend = current_platform().secret_backend(self.paths)
             except Exception:
                 raise SecretStoreError("Profile keyring is unavailable") from None
         return self._backend

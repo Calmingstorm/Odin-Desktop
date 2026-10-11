@@ -121,6 +121,41 @@
         "missing": 0,
         "total": 23
       },
+      "app/src/main/platform/contracts.ts": {
+        "covered": 0,
+        "missing": 0,
+        "total": 0
+      },
+      "app/src/main/platform/index.ts": {
+        "covered": 2,
+        "missing": 0,
+        "total": 2
+      },
+      "app/src/main/platform/linux.ts": {
+        "covered": 1,
+        "missing": 0,
+        "total": 1
+      },
+      "app/src/main/platform/windows-autostart.ts": {
+        "covered": 8,
+        "missing": 0,
+        "total": 8
+      },
+      "app/src/main/platform/windows-elevation.ts": {
+        "covered": 16,
+        "missing": 0,
+        "total": 16
+      },
+      "app/src/main/platform/windows-paths.ts": {
+        "covered": 48,
+        "missing": 3,
+        "total": 51
+      },
+      "app/src/main/platform/windows.ts": {
+        "covered": 31,
+        "missing": 0,
+        "total": 31
+      },
       "app/src/main/real-core-smoke.ts": {
         "covered": 851,
         "missing": 16,
@@ -165,6 +200,16 @@
         "covered": 86,
         "missing": 2,
         "total": 88
+      },
+      "app/src/main/windows-session.ts": {
+        "covered": 111,
+        "missing": 3,
+        "total": 114
+      },
+      "app/src/main/windows-smoke.ts": {
+        "covered": 81,
+        "missing": 2,
+        "total": 83
       },
       "app/src/preload/index.ts": {
         "covered": 102,
@@ -665,27 +710,12 @@
         "covered": 45,
         "missing": 0,
         "total": 45
-      },
-      "app/src/main/platform/contracts.ts": {
-        "covered": 0,
-        "missing": 0,
-        "total": 0
-      },
-      "app/src/main/platform/index.ts": {
-        "covered": 2,
-        "missing": 0,
-        "total": 2
-      },
-      "app/src/main/platform/linux.ts": {
-        "covered": 1,
-        "missing": 0,
-        "total": 1
       }
     },
     "total": {
-      "covered": 8396,
-      "missing": 330,
-      "total": 8726
+      "covered": 8507,
+      "missing": 333,
+      "total": 8840
     }
   },
   "exceptions": {},
@@ -1395,6 +1425,31 @@
         "covered": 96,
         "missing": 3,
         "total": 99
+      },
+      "src/desktop/platform/__init__.py": {
+        "covered": 11,
+        "missing": 0,
+        "total": 11
+      },
+      "src/desktop/platform/contracts.py": {
+        "covered": 17,
+        "missing": 0,
+        "total": 17
+      },
+      "src/desktop/platform/linux.py": {
+        "covered": 19,
+        "missing": 0,
+        "total": 19
+      },
+      "src/desktop/platform/linux_ipc.py": {
+        "covered": 85,
+        "missing": 7,
+        "total": 92
+      },
+      "src/desktop/platform/locks.py": {
+        "covered": 13,
+        "missing": 0,
+        "total": 13
       },
       "src/desktop/profile.py": {
         "covered": 9,
@@ -2171,6 +2226,11 @@
         "missing": 64,
         "total": 324
       },
+      "src/tools/binary_read.py": {
+        "covered": 6,
+        "missing": 0,
+        "total": 6
+      },
       "src/tools/branch_freshness.py": {
         "covered": 99,
         "missing": 0,
@@ -2740,31 +2800,6 @@
         "covered": 2,
         "missing": 1,
         "total": 3
-      },
-      "src/desktop/platform/__init__.py": {
-        "covered": 11,
-        "missing": 0,
-        "total": 11
-      },
-      "src/desktop/platform/contracts.py": {
-        "covered": 17,
-        "missing": 0,
-        "total": 17
-      },
-      "src/desktop/platform/linux.py": {
-        "covered": 19,
-        "missing": 0,
-        "total": 19
-      },
-      "src/desktop/platform/linux_ipc.py": {
-        "covered": 85,
-        "missing": 7,
-        "total": 92
-      },
-      "src/desktop/platform/locks.py": {
-        "covered": 13,
-        "missing": 0,
-        "total": 13
       }
     },
     "total": {
@@ -2802,6 +2837,10 @@
     "app/src/main/platform/contracts.ts",
     "app/src/main/platform/index.ts",
     "app/src/main/platform/linux.ts",
+    "app/src/main/platform/windows-autostart.ts",
+    "app/src/main/platform/windows-elevation.ts",
+    "app/src/main/platform/windows-paths.ts",
+    "app/src/main/platform/windows.ts",
     "app/src/main/real-core-smoke.ts",
     "app/src/main/release-notice.ts",
     "app/src/main/schemas.ts",
@@ -2811,6 +2850,8 @@
     "app/src/main/shutdown.ts",
     "app/src/main/tray.ts",
     "app/src/main/window-state.ts",
+    "app/src/main/windows-session.ts",
+    "app/src/main/windows-smoke.ts",
     "app/src/preload/index.ts",
     "app/src/renderer/src/App.vue",
     "app/src/renderer/src/artifacts.ts",
@@ -2949,6 +2990,30 @@
     "src/desktop/platform/linux.py",
     "src/desktop/platform/linux_ipc.py",
     "src/desktop/platform/locks.py",
+    "src/desktop/platform/variants.py",
+    "src/desktop/platform/win32.py",
+    "src/desktop/platform/windows.py",
+    "src/desktop/platform/windows_authority.py",
+    "src/desktop/platform/windows_desktop.py",
+    "src/desktop/platform/windows_dirfd.py",
+    "src/desktop/platform/windows_engine.py",
+    "src/desktop/platform/windows_exec.py",
+    "src/desktop/platform/windows_files.py",
+    "src/desktop/platform/windows_helpers.py",
+    "src/desktop/platform/windows_ipc.py",
+    "src/desktop/platform/windows_jobs.py",
+    "src/desktop/platform/windows_locks.py",
+    "src/desktop/platform/windows_mcp.py",
+    "src/desktop/platform/windows_patch.py",
+    "src/desktop/platform/windows_process.py",
+    "src/desktop/platform/windows_read.py",
+    "src/desktop/platform/windows_remote.py",
+    "src/desktop/platform/windows_safety.py",
+    "src/desktop/platform/windows_secrets.py",
+    "src/desktop/platform/windows_ssh.py",
+    "src/desktop/platform/windows_tools.py",
+    "src/desktop/platform/windows_validate.py",
+    "src/desktop/platform/windows_workspace.py",
     "src/desktop/profile.py",
     "src/desktop/protocol.py",
     "src/desktop/providers.py",
@@ -2978,6 +3043,131 @@
     "src/desktop/webhooks.py",
     "src/desktop/work.py",
     "src/desktop/workspace_diagnostics.py",
-    "src/desktop/x11_probe.py"
-  ]
+    "src/desktop/x11_probe.py",
+    "src/tools/binary_read.py"
+  ],
+  "windows": {
+    "files": {
+      "src/desktop/platform/win32.py": {
+        "covered": 300,
+        "missing": 11,
+        "total": 311
+      },
+      "src/desktop/platform/windows.py": {
+        "covered": 37,
+        "missing": 2,
+        "total": 39
+      },
+      "src/desktop/platform/windows_authority.py": {
+        "covered": 133,
+        "missing": 12,
+        "total": 145
+      },
+      "src/desktop/platform/windows_desktop.py": {
+        "covered": 320,
+        "missing": 59,
+        "total": 379
+      },
+      "src/desktop/platform/windows_dirfd.py": {
+        "covered": 212,
+        "missing": 42,
+        "total": 254
+      },
+      "src/desktop/platform/windows_engine.py": {
+        "covered": 389,
+        "missing": 56,
+        "total": 445
+      },
+      "src/desktop/platform/windows_exec.py": {
+        "covered": 261,
+        "missing": 44,
+        "total": 305
+      },
+      "src/desktop/platform/windows_files.py": {
+        "covered": 286,
+        "missing": 43,
+        "total": 329
+      },
+      "src/desktop/platform/windows_helpers.py": {
+        "covered": 63,
+        "missing": 8,
+        "total": 71
+      },
+      "src/desktop/platform/windows_ipc.py": {
+        "covered": 164,
+        "missing": 29,
+        "total": 193
+      },
+      "src/desktop/platform/windows_jobs.py": {
+        "covered": 42,
+        "missing": 0,
+        "total": 42
+      },
+      "src/desktop/platform/windows_locks.py": {
+        "covered": 9,
+        "missing": 0,
+        "total": 9
+      },
+      "src/desktop/platform/windows_mcp.py": {
+        "covered": 90,
+        "missing": 4,
+        "total": 94
+      },
+      "src/desktop/platform/windows_patch.py": {
+        "covered": 49,
+        "missing": 10,
+        "total": 59
+      },
+      "src/desktop/platform/windows_process.py": {
+        "covered": 271,
+        "missing": 13,
+        "total": 284
+      },
+      "src/desktop/platform/windows_read.py": {
+        "covered": 133,
+        "missing": 0,
+        "total": 133
+      },
+      "src/desktop/platform/windows_remote.py": {
+        "covered": 213,
+        "missing": 3,
+        "total": 216
+      },
+      "src/desktop/platform/windows_safety.py": {
+        "covered": 359,
+        "missing": 10,
+        "total": 369
+      },
+      "src/desktop/platform/windows_secrets.py": {
+        "covered": 30,
+        "missing": 2,
+        "total": 32
+      },
+      "src/desktop/platform/windows_ssh.py": {
+        "covered": 60,
+        "missing": 0,
+        "total": 60
+      },
+      "src/desktop/platform/windows_tools.py": {
+        "covered": 372,
+        "missing": 2,
+        "total": 374
+      },
+      "src/desktop/platform/windows_validate.py": {
+        "covered": 36,
+        "missing": 3,
+        "total": 39
+      },
+      "src/desktop/platform/windows_workspace.py": {
+        "covered": 32,
+        "missing": 7,
+        "total": 39
+      }
+    },
+    "total": {
+      "covered": 3502,
+      "missing": 350,
+      "total": 3852
+    }
+  }
 }

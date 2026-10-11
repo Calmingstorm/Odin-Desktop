@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ..desktop.platform.variants import windows_variant
 from ..odin_log import get_logger
 from ..runtime_paths import runtime_install_root
 
@@ -248,6 +249,7 @@ def check_ssh_hosts(tools_config: Any) -> DiagnosticResult:
     )
 
 
+@windows_variant("src.desktop.platform.windows_tools:check_host_inventory_compat")
 def check_host_inventory_compat(tools_config: Any) -> DiagnosticResult:
     """Warn about legacy host shapes without turning an upgrade into an outage."""
     hosts = getattr(tools_config, "hosts", {})
@@ -478,6 +480,7 @@ def check_config_sections(config: Any) -> DiagnosticResult:
     )
 
 
+@windows_variant("src.desktop.platform.windows_engine:check_local_workspace")
 def check_local_workspace(config: Any) -> DiagnosticResult:
     """Verify the local command workspace against the full live config.
 

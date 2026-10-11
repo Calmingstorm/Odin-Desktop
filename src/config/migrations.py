@@ -32,6 +32,7 @@ from typing import Any
 import yaml
 from yaml.nodes import MappingNode, Node, ScalarNode
 
+from ..desktop.platform.variants import windows_variant
 from .schema import LEGACY_MAX_CONTEXT_CHARS
 
 log = logging.getLogger("odin.config")
@@ -44,7 +45,10 @@ def _require_desktop_config(config_path: str | Path) -> None:
     paths = runtime_profile_paths()
     # An alias may name the selected canonical config, but selecting a profile
     # never authorizes a symlink from its config slot into another installation.
-    if paths.config_file.is_symlink() or Path(config_path).resolve() != paths.config_file:
+    # The slot's folders may be reached through an alias themselves (a symlinked
+    # home, an 8.3 short name): compare with the slot's real location.
+    slot = paths.config_file
+    if slot.is_symlink() or Path(config_path).resolve() != slot.parent.resolve() / slot.name:
         raise MigrationCompletionError("configuration is outside the selected desktop profile")
     try:
         authority = OwnerAuthority(paths)
@@ -288,6 +292,7 @@ def _read_marker(marker: Path) -> _MarkerKind:
     return _classify_record(record)
 
 
+@windows_variant("src.desktop.platform.windows_engine:atomic_write_marker")
 def _atomic_write_marker(marker: Path, record: dict[str, object]) -> None:
     """Commit one marker revision via temp-file, file fsync, and replace."""
     marker.parent.mkdir(parents=True, exist_ok=True)
@@ -353,6 +358,7 @@ def _read_claim_owner(claim: Path) -> str | None:
     return owner
 
 
+@windows_variant("src.desktop.platform.windows_engine:claim_legacy_marker")
 def _claim_legacy_marker(legacy_marker: Path, config_id: str) -> bool:
     """Atomically claim ambiguous legacy provenance for one config identity.
 

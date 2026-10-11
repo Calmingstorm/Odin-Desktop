@@ -714,12 +714,22 @@ async def test_composed_skill_dependency_resolution_and_actual_admitted_executio
     import src.tools.skill_manager as skills_module
 
     calls = []
+    # A skill's packages go to the profile's own folder: the packaged runtime is read-only.
+    packages = composed.core.engine.deps.skill_manager._packages_dir
+    # Loading appends that folder to sys.path; one case's installed package isn't the next's.
+    monkeypatch.setattr(sys, "path", list(sys.path))
 
     def pip_boundary(argv, **kwargs):
         calls.append((argv, kwargs))
         assert pip_status is not None, "Preinstalled packaging must never invoke pip"
         assert argv == [sys.executable, "-m", "pip", "install", "--quiet",
-                        "--disable-pip-version-check", dependency]
+                        "--disable-pip-version-check", "--target", str(packages), "--upgrade",
+                        dependency]
+        if pip_status == 0:  # a successful install leaves the distribution in the target
+            installed = packages / f"{dependency.replace('-', '_')}-1.0.dist-info"
+            installed.mkdir(parents=True, exist_ok=True)
+            (installed / "METADATA").write_text(
+                f"Metadata-Version: 2.1\nName: {dependency}\nVersion: 1.0\n", encoding="utf-8")
         return subprocess.CompletedProcess(
             argv, pip_status, "", "fixture pip failure" if pip_status else "")
 

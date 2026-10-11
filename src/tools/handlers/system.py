@@ -18,6 +18,7 @@ import base64
 import os
 import shlex
 
+from ...desktop.platform.variants import windows_variant
 from ..branch_freshness import is_test_command, is_test_failure
 from ..execution_outcome import ToolFailure
 from ..input_defaults import default_if_empty
@@ -85,6 +86,7 @@ class SystemTools(HandlerBase):
             text = ToolFailure(text, uncertain_outcome=formatted.uncertain_outcome)
         return text, code
 
+    @windows_variant("src.desktop.platform.windows_tools:handle_run_script")
     async def _handle_run_script(self, inp: dict) -> str | tuple[str, int]:
         """Write a script to a temp file, execute it, and clean up."""
         host = inp.get("host")

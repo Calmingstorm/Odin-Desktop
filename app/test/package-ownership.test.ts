@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { acquirePackagedApp, admitPackagedApp } from '../src/main/package-ownership'
+import { acquirePackagedApp, admitPackagedApp, hasLine } from '../src/main/package-ownership'
 
 const mocked = vi.hoisted(() => ({ spawn: vi.fn(), read: vi.fn(), exists: vi.fn(() => true) }))
 vi.mock('node:child_process', () => ({ spawn: mocked.spawn }))
@@ -18,6 +18,44 @@ function child() {
 
 describe('independent packaged app lifetime', () => {
   beforeEach(() => { mocked.spawn.mockReset(); mocked.read.mockReturnValue('deb\n') })
+
+  it('holds the per-user nsis lease through the Windows runtime, without a console window', async () => {
+    const process = child()
+    mocked.spawn.mockReturnValue(process)
+    const windowsPaths = { profileId: 'default', configDir: 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\config',
+      dataDir: 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\data' } as Parameters<typeof acquirePackagedApp>[0]
+    const pending = acquirePackagedApp(windowsPaths, 'C:\\Programs\\Odin\\resources', {}, 'win32')
+    process.stdout.write('READY\n')
+    expect(await pending).toBe(process)
+    const [command, args, options] = mocked.spawn.mock.calls[0]!
+    expect(command).toBe('C:\\Programs\\Odin\\resources\\runtime\\python\\python.exe')
+    expect(args).toEqual([
+      '-I', '-B', 'C:\\Programs\\Odin\\resources\\ownership.py', '--kind', 'nsis', '--role', 'app',
+      '--app-cleanup', 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\default-cleanup-state.json',
+      '--core-cleanup', 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\data\\resource-cleanup.json', 'hold'
+    ])
+    expect(options).toMatchObject({ windowsHide: true })
+    process.stdin.end()
+  })
+
+  it('reads the guardian\'s lines whether they end in LF or CRLF, even split across chunks', async () => {
+    expect(hasLine('READY\n', 'READY')).toBe(true)
+    expect(hasLine('READY\r\n', 'READY')).toBe(true)
+    expect(hasLine('noise\r\nADMITTED\r\n', 'ADMITTED')).toBe(true)
+    expect(hasLine('NOT-READY\n', 'READY')).toBe(false)
+    expect(hasLine('READY', 'READY')).toBe(false)
+    const process = child()
+    mocked.spawn.mockReturnValue(process)
+    const pending = acquirePackagedApp(paths, '/candidate/resources', {})
+    process.stdout.write('REA')
+    process.stdout.write('DY\r')
+    process.stdout.write('\n')
+    expect(await pending).toBe(process)
+    const admitted = admitPackagedApp(process as never)
+    process.stdout.write('ADMITTED\r\n')
+    await expect(admitted).resolves.toBeUndefined()
+    process.stdin.end()
+  })
 
   it('does not admit app startup until guardian confirms durable lifetime', async () => {
     const process = child()

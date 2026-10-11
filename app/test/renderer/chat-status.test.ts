@@ -71,6 +71,15 @@ describe('status in the chat header, the status bar and the rail', () => {
     const words = bar.root.findAll((host) => String(host.props.class ?? '').split(' ').includes('link-text'))[0]!
     expect(words.textContent()).toBe('Reconnecting')
     expect(words.props.role).toBeUndefined()
+    // A refused link says why until it connects (the Windows sealed session describes its refusal).
+    state.app = { ...state.app, link: 'reconnecting', linkProblem: 'Could not authenticate Odin\'s core: engine proof refused.' }
+    await flush()
+    expect(link.textContent()).toBe('Could not authenticate Odin\'s core: engine proof refused.')
+    expect(words.textContent()).toBe('Could not authenticate Odin\'s core: engine proof refused.')
+    state.app = { ...state.app, link: 'ready' }
+    await flush()
+    expect(words.textContent()).toBe('Connected')
+    state.app = { ...state.app, linkProblem: undefined }
     rail.unmount()
     bar.unmount()
   })

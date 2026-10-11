@@ -70,7 +70,7 @@ function pictureFile(target: DisplayPictureTarget): string {
 }
 
 export class DisplayProfileStore {
-  constructor(private readonly dir: string) {}
+  constructor(private readonly dir: string, private readonly system: NodeJS.Platform = process.platform) {}
 
   /** What chat shows. A missing, unsafe or damaged file reads as not set. Personality pictures are a list, so no
    * preset key (such as `__proto__`) can meet an object's own machinery on either side of the bridge. */
@@ -120,10 +120,13 @@ export class DisplayProfileStore {
     }
   }
 
-  /** The folder, when it is a real directory this user owns with no group or other access. Never a link. */
+  /** The folder, when it is a real directory this user owns with no group or other access. Never a link. Windows
+   * has no owner or mode bits to read here: the folder must be a real directory (not a link or junction) inside the
+   * profile's config folder, whose privacy the engine judges. */
   private privateFolder(): boolean {
     try {
       const info = lstatSync(this.dir)
+      if (this.system === 'win32') return info.isDirectory()
       return info.isDirectory() && info.uid === process.getuid?.() && (info.mode & 0o077) === 0
     } catch {
       return false
@@ -151,11 +154,34 @@ export class DisplayProfileStore {
    * special file opens at once instead of waiting for a writer on the main thread, and the descriptor check refuses it.
    * A regular file reads the same either way. */
   private readFile(file: string): Buffer | null {
+    if (this.system === 'win32') return this.readFileWindows(join(this.dir, file))
     let descriptor: number | undefined
     try {
       descriptor = openSync(join(this.dir, file), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK)
       const info = fstatSync(descriptor)
       return info.isFile() && info.size <= MAX_PICTURE_BYTES ? readFileSync(descriptor) : null
+    } catch {
+      return null
+    } finally {
+      if (descriptor !== undefined) closeSync(descriptor)
+    }
+  }
+
+  /** Windows' Node honors neither O_NOFOLLOW nor O_NONBLOCK: the path must be a regular file, not a link or
+   * junction, when looked at before opening and again after reading. That narrows a swap; it is not a held-handle
+   * guarantee. */
+  private readFileWindows(path: string): Buffer | null {
+    const regular = (): boolean => {
+      const info = lstatSync(path)
+      return info.isFile() && !info.isSymbolicLink() && info.size <= MAX_PICTURE_BYTES
+    }
+    let descriptor: number | undefined
+    try {
+      if (!regular()) return null
+      descriptor = openSync(path, 'r')
+      const info = fstatSync(descriptor)
+      const bytes = info.isFile() && info.size <= MAX_PICTURE_BYTES ? readFileSync(descriptor) : null
+      return bytes && regular() ? bytes : null
     } catch {
       return null
     } finally {

@@ -18,9 +18,11 @@ from types import SimpleNamespace
 from typing import Any
 
 from .commands import JournalStorageError, canonical_json, response_error
+from .platform.variants import windows_variant
 from .secrets import secret_call
 
 
+@windows_variant("src.desktop.platform.windows_desktop:binding_key")
 def _binding_key(paths) -> bytes:
     """Stable transport identity key, not a provider credential or vault fallback."""
     from ..permissions.persistence import write_private_atomic

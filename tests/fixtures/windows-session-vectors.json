@@ -1,0 +1,54 @@
+{
+  "client_nonce": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "client_proof": "77861e3be922f5b9c438bf5b8799e6c3e9ae096c9e973d8b1586afd8c28e6f78",
+  "client_to_server": [
+    {
+      "payload": "{\"t\":\"req\",\"id\":\"1\",\"method\":\"status.get\",\"params\":{}}",
+      "sealed": "0000004e0000000000000000dd24f2a1cf7defa2003bafda3dbeebb9604b95e0b471bf41e365e257185091e66091ab60775bbb38cfec246761c1a5fe4dfd61b4001ce0484befae7ec445ec2b90ce2b4cd2d3"
+    },
+    {
+      "payload": "{\"t\":\"ping\",\"n\":2}",
+      "sealed": "0000002a0000000000000001ebb1bed35d46a065c556fbf00646e36b755c72da60e06f1e3ba46e07af0474bbc2e4"
+    }
+  ],
+  "fields": {
+    "client": {
+      "name": "odin-desktop-app",
+      "version": "1.1.0"
+    },
+    "endpoint": "\\\\.\\pipe\\odin-desktop-0123456789abcdef-default",
+    "features": [
+      "events"
+    ],
+    "instance_id": "8f14e45f-ceea-467a-9575-0a3b4c5d6e7f",
+    "max_frame": 4194304,
+    "offered": {
+      "major": 0,
+      "minor": 2
+    },
+    "profile_id": "default",
+    "selected": {
+      "major": 0,
+      "minor": 3
+    }
+  },
+  "keys": {
+    "c2s": "0747e2a98d9aa558b1c0233d560b307e2e4499e2420393bba1b12fb92f8f459c",
+    "proof": "a8762ffff4327e3358fa66dfd9217de167fb0fea175dff65e8b55ecf15ad051f",
+    "s2c": "31bcf8a47b3b12754aa3ad5aa6c5ba83d9d0b21a4106e4a70a22eed45a10d95f"
+  },
+  "server_nonce": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+  "server_proof": "2af85fcfc224097060d9d12da8d22b06443b0ef8b17058fc6066c5a6e106b7bb",
+  "server_to_client": [
+    {
+      "payload": "{\"t\":\"req\",\"id\":\"1\",\"method\":\"status.get\",\"params\":{}}",
+      "sealed": "0000004e0000000000000000e3af3100442fd9a5a4738bf1f3e6868ffd7acc5410d33f739827cdae83e9784f4c2301f7aad59bbccfbadae20328a8d27e23a63ee02db759b1b3267a24e3a99fb47d9803bc6f"
+    },
+    {
+      "payload": "{\"t\":\"ping\",\"n\":2}",
+      "sealed": "0000002a0000000000000001227f879ecd51af82bead93676338e4e0c1f9f9643d9f1a01c83d7ee31551d3ebd15f"
+    }
+  ],
+  "token": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "transcript": "1377bad77e05cb7abe001d6c3a931d82b08251f9312a2161fb5b25122f847c7c"
+}

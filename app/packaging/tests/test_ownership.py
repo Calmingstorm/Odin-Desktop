@@ -1,4 +1,5 @@
 import importlib.util
+import io
 import json
 import os
 import signal
@@ -7,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 BOOT_A = 'a1b2c3d4-0000-4000-8000-00000000000a'
@@ -42,6 +44,36 @@ class OwnershipTests(unittest.TestCase):
 
     def lease(self, role='app'):
         return own.acquire_lifetime(self.paths, role, self.app, self.core)
+
+    def test_token_action_reports_the_token_as_one_lf_json_line(self):
+        facts = {'elevated': False, 'elevation_type': 3, 'integrity': 'S-1-16-8192',
+                 'owner': 'S-1-5-21-1-2-3-1001', 'session': 1, 'user': 'S-1-5-21-1-2-3-1001'}
+        raw = io.BytesIO()
+        stdout = io.TextIOWrapper(raw, newline='\r\n')  # Windows' text newline
+        engine = SimpleNamespace(win32=SimpleNamespace(token_facts=lambda: facts))
+        with mock.patch.object(own, 'WINDOWS', True), \
+                mock.patch.dict(sys.modules, {'src.desktop.platform': engine}), \
+                mock.patch.object(sys, 'stdout', stdout):
+            self.assertEqual(own.main(['token']), 0)
+        self.assertEqual(raw.getvalue(), json.dumps(facts, sort_keys=True).encode() + b'\n')
+
+    def test_token_action_fails_closed_and_needs_no_kind(self):
+        def unreadable():
+            raise OSError('Access is denied')
+        stderr = io.StringIO()
+        engine = SimpleNamespace(win32=SimpleNamespace(token_facts=unreadable))
+        with mock.patch.object(own, 'WINDOWS', True), \
+                mock.patch.dict(sys.modules, {'src.desktop.platform': engine}), \
+                mock.patch.object(sys, 'stderr', stderr):
+            self.assertEqual(own.main(['token']), 1)
+        self.assertIn('Access is denied', stderr.getvalue())
+        with mock.patch.object(own, 'WINDOWS', False), \
+                mock.patch.object(sys, 'stderr', io.StringIO()):
+            self.assertEqual(own.main(['token']), 1)  # Windows only
+        with mock.patch.object(sys, 'stderr', io.StringIO()), \
+                self.assertRaises(SystemExit) as raised:
+            own.main(['hold'])  # the lease actions still need their kind
+        self.assertEqual(raised.exception.code, 2)
 
     def test_app_and_core_independent_lifetimes(self):
         app, core = self.lease(), self.lease('core')

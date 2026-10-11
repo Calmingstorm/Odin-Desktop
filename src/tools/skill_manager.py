@@ -16,7 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from importlib.metadata import PackageNotFoundError, distribution
+from importlib.metadata import PackageNotFoundError, distribution, distributions
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -287,11 +287,14 @@ def _pip_failure_output(stdout: str | bytes | None, stderr: str | bytes | None) 
     return scrub_output_secrets(output)
 
 
-def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT) -> tuple[bool, str]:
-    """Retained Odin pip installation into the engine's Python environment.
+def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT,
+                      target: Path | None = None) -> tuple[bool, str]:
+    """Retained Odin pip installation, into ``target`` when one is given.
 
     Authoring admission belongs to the caller, not a requirement string. Keep
     the upstream index-only spec policy and timeout; no extra Desktop consent.
+    Desktop's runtime is read-only and replaced on upgrade, so a skill's
+    packages go to the profile's own folder (``target``) instead.
     """
     if len(specs) > MAX_SKILL_DEPENDENCIES or any(
         not isinstance(spec, str) or not is_safe_dependency_spec(spec) for spec in specs
@@ -299,13 +302,20 @@ def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT) -> 
         return False, "Invalid skill dependency specification."
     if not specs:
         return True, ""
+    destination: list[str] = []
+    if target is not None:
+        private_directory(target)
+        destination = ["--target", str(target), "--upgrade"]
     try:
         result = subprocess.run(
             [sys.executable, "-m", "pip", "install", "--quiet",
-             "--disable-pip-version-check", *specs],
+             "--disable-pip-version-check", *destination, *specs],
             capture_output=True, text=True, timeout=timeout,
         )
         if result.returncode == 0:
+            if target is not None:
+                _use_packages(target)
+                importlib.invalidate_caches()  # the new packages' folders are importable now
             return True, ""
         return False, (_pip_failure_output(result.stdout, result.stderr)
                        or "pip installation failed")
@@ -314,6 +324,56 @@ def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT) -> 
         return False, f"pip install timed out after {timeout}s" + (f"\n{output}" if output else "")
     except Exception:
         return False, "pip installation could not start"
+
+
+def _use_packages(target: Path) -> None:
+    """Make a profile's skill packages importable, after the runtime's own packages:
+    a skill's package never shadows one the engine itself uses."""
+    if target.is_dir() and str(target) not in sys.path:
+        sys.path.append(str(target))
+
+
+def _runtime_conflict(spec: str, target: Path,
+                      _seen: set[str] | None = None) -> tuple[str, str] | None:
+    """The first requirement in ``spec``'s active graph that the profile's folder satisfies
+    but the runtime's own copy, which comes first, doesn't: that requirement and the runtime's
+    version. The graph is ``spec`` and, as ``_is_package_installed`` follows it, what its
+    requested extras require."""
+    try:
+        requirement = Requirement(spec)
+        effective = distribution(requirement.name)
+        if requirement.specifier and not requirement.specifier.contains(effective.version):
+            name = canonicalize_name(requirement.name)
+            held = next((dist for dist in distributions(path=[str(target)])
+                         if canonicalize_name(dist.metadata["Name"] or "") == name), None)
+            if held is not None and requirement.specifier.contains(held.version):
+                return str(requirement), effective.version
+            return None
+        seen = set() if _seen is None else _seen
+        if not requirement.extras or str(requirement) in seen:
+            return None
+        seen.add(str(requirement))
+        for dependency in effective.requires or []:
+            child = Requirement(dependency)
+            if child.marker is None or any(child.marker.evaluate({"extra": extra})
+                                           for extra in ["", *requirement.extras]):
+                child.marker = None
+                if found := _runtime_conflict(str(child), target, seen):
+                    return found
+    except (PackageNotFoundError, InvalidRequirement, InvalidVersion):
+        return None
+    return None
+
+
+def _conflict_diagnostic(spec: str, conflict: tuple[str, str]) -> SkillDiagnostic:
+    needed, runtime = conflict
+    through = "" if needed == spec else f" needs {needed!r} through its extras, which"
+    return SkillDiagnostic(
+        "error",
+        f"Dependency {spec!r}{through} conflicts with Odin's own copy of that package "
+        f"({runtime}). A skill's packages never replace one Odin uses, so use a version range "
+        f"that includes {runtime}.",
+    )
 
 
 def _extract_dependencies_from_source(source: str) -> list[str]:
@@ -365,8 +425,10 @@ def _extract_skill_name_from_source(source: str) -> str:
     return ""
 
 
-def resolve_dependencies(deps: list[str]) -> tuple[list[str], list[str], list[SkillDiagnostic]]:
-    """Resolve skill pip dependencies.
+def resolve_dependencies(
+    deps: list[str], target: Path | None = None,
+) -> tuple[list[str], list[str], list[SkillDiagnostic]]:
+    """Resolve skill pip dependencies, installing missing ones into ``target`` if given.
 
     Returns ``(already_installed, newly_installed, diagnostics)``.
     """
@@ -374,6 +436,8 @@ def resolve_dependencies(deps: list[str]) -> tuple[list[str], list[str], list[Sk
 
     if not deps:
         return [], [], diagnostics
+    if target is not None:
+        _use_packages(target)
 
     if len(deps) > MAX_SKILL_DEPENDENCIES:
         diagnostics.append(
@@ -406,20 +470,36 @@ def resolve_dependencies(deps: list[str]) -> tuple[list[str], list[str], list[Sk
             continue
         if _is_package_installed(spec):
             already_installed.append(spec)
+        elif target is not None and (conflict := _runtime_conflict(spec, target)):
+            diagnostics.append(_conflict_diagnostic(spec, conflict))  # installed before: no repeat
         else:
             to_install.append(spec)
 
     newly_installed: list[str] = []
     if to_install:
-        success, output = _install_packages(to_install)
+        # Without a target, Odin's one-argument call shape.
+        success, output = (_install_packages(to_install) if target is None
+                           else _install_packages(to_install, target=target))
         if success:
             newly_installed = to_install
-            diagnostics.append(
-                SkillDiagnostic(
-                    "warn",
-                    f"Auto-installed dependencies: {', '.join(to_install)}",
+            if target is not None:
+                # pip succeeding isn't the skill's package being the one that imports.
+                newly_installed = []
+                for spec in to_install:
+                    if _is_package_installed(spec):
+                        newly_installed.append(spec)
+                    elif conflict := _runtime_conflict(spec, target):
+                        diagnostics.append(_conflict_diagnostic(spec, conflict))
+                    else:
+                        diagnostics.append(SkillDiagnostic(
+                            "error", f"Dependency {spec!r} installed but can't be imported."))
+            if newly_installed:
+                diagnostics.append(
+                    SkillDiagnostic(
+                        "warn",
+                        f"Auto-installed dependencies: {', '.join(newly_installed)}",
+                    )
                 )
-            )
         else:
             diagnostics.append(
                 SkillDiagnostic(
@@ -682,6 +762,9 @@ class SkillManager:
         private_directory(self.skills_dir)
         self._config_dir = self.skills_dir / "config"
         private_directory(self._config_dir)
+        # Packages skills install, beside the skills (created by the first install).
+        self._packages_dir = self.skills_dir.parent / "skill-packages"
+        _use_packages(self._packages_dir)
         self._disabled_path = self.skills_dir / ".disabled.json"
         self._executor = tool_executor
         self._tool_timeouts = tool_timeouts or {}
@@ -792,7 +875,7 @@ class SkillManager:
 
         pre_deps = _extract_dependencies_from_source(source)
         if pre_deps:
-            _, _, dep_diagnostics = resolve_dependencies(pre_deps)
+            _, _, dep_diagnostics = resolve_dependencies(pre_deps, self._packages_dir)
             for d in dep_diagnostics:
                 lvl = log.warning if d.level == "warn" else log.error
                 lvl("Skill %s deps: %s", path.name, d.message)
@@ -822,7 +905,7 @@ class SkillManager:
             if (isinstance(actual_deps, list)
                     and all(isinstance(dep, str) for dep in actual_deps)
                     and actual_deps != pre_deps):
-                _, _, dynamic_diagnostics = resolve_dependencies(actual_deps)
+                _, _, dynamic_diagnostics = resolve_dependencies(actual_deps, self._packages_dir)
                 dep_diagnostics.extend(dynamic_diagnostics)
                 for d in dynamic_diagnostics:
                     lvl = log.warning if d.level == "warn" else log.error

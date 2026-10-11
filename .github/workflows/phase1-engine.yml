@@ -130,6 +130,8 @@ jobs:
           npm run typecheck
           npm test -- test/isolation-launcher.test.ts test/shard-orchestration.test.ts
           npm test -- --coverage
+          # Packaging staging and sealing rules, Linux and Windows; native Windows cases run in the Windows job.
+          ../.venv/bin/python -m unittest discover -s packaging/tests
           # Four isolated namespace shards share a 10-minute aggregate bound
           # (5 minutes each), not four successive 10-minute allowances.
           npm run test:real-core
@@ -230,9 +232,15 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           path: .test-state/.coverage
+  windows-engine:
+    # GitHub-hosted Windows Server 2025; its coverage evidence joins this same run.
+    if: github.repository == 'Calmingstorm/Odin-Desktop' && ((github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == 'Calmingstorm/Odin-Desktop'))
+    permissions:
+      contents: read
+    uses: ./.github/workflows/windows-engine.yml
   coverage:
     name: coverage no-drop ratchet
-    needs: [full-suites, qualification]
+    needs: [full-suites, qualification, windows-engine]
     if: github.repository == 'Calmingstorm/Odin-Desktop' && ((github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == 'Calmingstorm/Odin-Desktop'))
     runs-on: [self-hosted, odin-desktop-short]
     timeout-minutes: 15
@@ -275,7 +283,7 @@ jobs:
         run: |
           rm -rf coverage
           mkdir -p coverage
-          .venv/bin/python scripts/ci/desktop_coverage_gate.py --combine coverage-input --output coverage --app-json coverage-input/coverage-full-suites/app/coverage/coverage-final.json
+          .venv/bin/python scripts/ci/desktop_coverage_gate.py --combine coverage-input --output coverage --app-json coverage-input/coverage-full-suites/app/coverage/coverage-final.json --windows-json coverage-input/coverage-windows/coverage-windows.json --windows-provenance coverage-input/coverage-windows/coverage-windows-provenance.json
       - name: Upload coverage reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

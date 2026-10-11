@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "platform": "win_amd64",
+  "name": "Microsoft.VC.14.44.17.14.CRT.Redist.X64.base",
+  "version": "14.44.35211",
+  "filename": "Microsoft.VC.14.44.17.14.CRT.Redist.X64.base.vsix",
+  "url": "https://download.visualstudio.microsoft.com/download/pr/45d3b8dd-bced-4b37-9974-142f748d710c/4aaf54db0bfc9435f7c3660e1a00237a4b556042bfeea64bde44c2e0194e6ee5/Microsoft.VC.14.44.17.14.CRT.Redist.X64.base.vsix",
+  "sha256": "4aaf54db0bfc9435f7c3660e1a00237a4b556042bfeea64bde44c2e0194e6ee5",
+  "size": 3224191,
+  "license": "Microsoft Visual Studio 2022 Distributable Code, subject to the distributor's valid Visual Studio license terms",
+  "provenance": "https://download.visualstudio.microsoft.com/download/pr/bc92e2cb-33de-4a0c-995d-efa817f16b16/6e470016e4324c84c255ffd0beb3767d17ec89cc8561e9409ee3e1f6d29400f5/VisualStudio.vsman",
+  "supplier": "Microsoft Corporation",
+  "supplier_manifest_size": 3236248,
+  "verification_note": "Downloaded 2026-10-11: supplier SHA-256 matches, actual ZIP byte length is 3224191, not outer VS manifest's size 3236248. Inner manifest identity is 14.44.35211; folder name is 14.44.35112. No installer was executed. VSIX is read as ZIP only.",
+  "license_documents": [
+    "https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution",
+    "https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files?view=msvc-170",
+    "https://visualstudio.microsoft.com/license-terms/"
+  ],
+  "redistribution_conditions": [
+    "Distributor must possess a valid Visual Studio license permitting redistribution and satisfy its Distributable Code terms; download access is not a license grant.",
+    "Ship only unmodified release CRT DLLs with the application; debug_nonredist payloads are not distributable.",
+    "Microsoft documents app-local DLL deployment beside the executable. The application distributor must maintain and redeploy these DLLs for servicing."
+  ],
+  "license_prerequisite_verified": false,
+  "license_blockers": ["Distributor's valid Visual Studio license and applicable redistribution terms have not been verified; publication requires that verification."],
+  "release_root": "Contents/VC/Redist/MSVC/14.44.35112/x64/Microsoft.VC143.CRT",
+  "files": [
+    {
+      "filename": "msvcp140.dll",
+      "sha256": "0f885b509a685d2bbfa652fed26b5fb31d88fbdab0a978c641d1c7b8aa460aa9",
+      "size": 557728
+    },
+    {
+      "filename": "msvcp140_1.dll",
+      "sha256": "bfad5aef4c63a669e3c140655cdfdf395b6c979b400a447bd5dcb65ed8826c3d",
+      "size": 35952
+    }
+  ]
+}
