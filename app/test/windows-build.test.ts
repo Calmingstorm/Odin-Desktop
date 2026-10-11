@@ -45,7 +45,8 @@ describe('the Windows build configuration', () => {
       artifactName: 'odin-desktop-${version}-candidate-x64-setup.${ext}' })
     expect(windows.nsis).toEqual({ oneClick: true, perMachine: false, runAfterFinish: false,
       createDesktopShortcut: false, createStartMenuShortcut: true, shortcutName: 'Odin', uninstallDisplayName: 'Odin',
-      menuCategory: false, deleteAppDataOnUninstall: false, include: 'packaging/installer.nsh' })
+      menuCategory: false, deleteAppDataOnUninstall: false, packElevateHelper: false,
+      include: 'packaging/installer.nsh' })
     await validateConfiguration(windows, new DebugLogger(false))  // electron-builder's own schema check
   })
 

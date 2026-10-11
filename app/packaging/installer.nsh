@@ -101,3 +101,9 @@
   FileClose $0
   Delete "$INSTDIR\.odin-install-check"
 !macroend
+
+!macro customUnInstall
+  ; un.onInit made the install folder this process's working directory (SetOutPath $INSTDIR), and
+  ; Windows won't remove a folder a process is working in: RMDir /r emptied it and left it.
+  SetOutPath $TEMP
+!macroend
