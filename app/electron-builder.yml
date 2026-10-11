@@ -44,6 +44,29 @@ linux:
       exit:
         Name: Exit Odin
         Exec: odin-desktop --exit
+# The per-user Windows installer (phase 4, P7): no elevation, no per-machine choice, a fixed
+# folder under %LOCALAPPDATA%\Programs, HKCU registration only, and no launch from the finish page.
+# Uninstall keeps the profile (chats, settings, keys), as Linux does. The Start Menu shortcut's
+# AppUserModelID is appId, which the installed app sets for itself (identity.ts), so toasts are
+# its own. The build names the product Odin for Windows only (packaging/build-windows.mjs).
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/icon.png
+  artifactName: odin-desktop-${version}-candidate-x64-setup.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: false
+  createStartMenuShortcut: true
+  shortcutName: Odin
+  uninstallDisplayName: Odin
+  menuCategory: false
+  runAfterFinish: false
+  deleteAppDataOnUninstall: false
 deb:
   packageName: odin-desktop
   afterInstall: ../.packaging-stage/deb-control/postinst

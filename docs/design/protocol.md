@@ -77,9 +77,16 @@ both implementations byte for byte.
   front of it. It rejects remote clients, works in byte mode, and has a protected DACL that admits only the user.
 - The core and the engine's own clients check the user SID of the process at the other end, from the OS
   (`GetNamedPipeClientProcessId` / `GetNamedPipeServerProcessId`), before anything else. That is an owner check, not
-  proof of the exact core process. The app's broker doesn't check the server's SID yet; that check comes with the
-  packaged Windows app (phase 4). Until then a foreign listener can receive the app's hello, but never the token: the
-  core proves itself first.
+  proof of the exact core process.
+- The app's broker doesn't obtain the server's SID: Node has no API for it, and the design rules out a native
+  module. Its boundary is the session below. The core proves it holds the token before the app answers, every frame
+  after the proofs is sealed, and nothing reaches readiness or is re-sent before the authenticated welcome.
+  - Token possession authenticates the session, not a process or an executable.
+  - A foreign listener can receive the hello, its nonce and the non-secret negotiation fields, but never the token.
+  - The core's first-instance creation stops one takeover (a squatter makes the core's start fail), not every
+    failure or denial of service.
+- A refused session tells the window why ("Could not authenticate Odin's core: …"). The window never says another
+  program holds the pipe unless the core's own first-instance failure shows it.
 
 **Session (always on Windows; there is no fallback and no plaintext mode).**
 1. `hello` carries no `token`. It carries `auth: {v: 1, client_nonce}`: 32 fresh random bytes, as 64 lowercase hex.

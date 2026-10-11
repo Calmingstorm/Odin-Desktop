@@ -8,7 +8,11 @@ interface ElectronIdentity {
   getPath(name: 'appData'): string
   setPath(name: 'userData', path: string): void
   setAppUserModelId?(id: string): void
+  readonly isPackaged?: boolean
 }
+
+/** electron-builder.yml's appId: the installed app's Start Menu shortcut carries it as its AppUserModelID. */
+export const APP_ID = 'net.calmingstorm.odin.desktop'
 
 /** Must run before ready, single-instance admission and any BrowserWindow. */
 export function configureIdentity(app: ElectronIdentity, system: NodeJS.Platform = process.platform,
@@ -20,8 +24,9 @@ export function configureIdentity(app: ElectronIdentity, system: NodeJS.Platform
     const userData = win32.join(localAppData(env), 'odin-desktop', 'electron')
     makeDir(userData, { recursive: true })
     app.setPath('userData', userData)
-    // A source run's notifications need an app ID; Electron's guidance for one is its own executable.
-    app.setAppUserModelId?.(process.execPath)
+    // The installed app's ID matches its shortcut's, so its toasts are its own; a source run has no
+    // shortcut, and Electron's guidance for one is its own executable.
+    app.setAppUserModelId?.(app.isPackaged ? APP_ID : process.execPath)
     return
   }
   const userData = join(app.getPath('appData'), 'odin-desktop', 'electron')

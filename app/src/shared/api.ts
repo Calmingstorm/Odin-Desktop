@@ -347,6 +347,8 @@ export interface AppState {
   /** Commands that were sent but whose receipt is still pending reconciliation. */
   unreceipted: number
   cleanupWarning?: CleanupWarning | null
+  /** Why the link couldn't authenticate the core, while it isn't connected (the refusal's own reason). */
+  linkProblem?: string
 }
 
 export type ApplyMode = 'live_read' | 'live_apply' | 'live_for_new_work' | 'restart' | 'activation_required' | 'dormant'

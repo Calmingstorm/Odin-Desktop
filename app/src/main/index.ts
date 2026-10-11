@@ -247,14 +247,25 @@ function run(): void {
     })
   })
 
-  const appState = (): AppState => ({
-    appVersion: app.getVersion(),
-    link: supervisorLink ?? broker.linkState,
-    coreInstanceId: broker.coreInstanceId,
-    noTray: !lifecycle.trayAvailable,
-    unreceipted: broker.unreceiptedCount,
-    cleanupWarning: cleanup.notice
+  // Where the platform describes a refused link (Windows' sealed session), the window says why until it connects.
+  let linkProblem: string | null = null
+  broker.on('protocol-error', (reason: string) => {
+    linkProblem = platform.describeLinkRefusal?.(reason) ?? null
+    if (linkProblem) publishAppState()
   })
+  const appState = (): AppState => {
+    const link = supervisorLink ?? broker.linkState
+    if (link === 'ready') linkProblem = null
+    return {
+      appVersion: app.getVersion(),
+      link,
+      coreInstanceId: broker.coreInstanceId,
+      noTray: !lifecycle.trayAvailable,
+      unreceipted: broker.unreceiptedCount,
+      cleanupWarning: cleanup.notice,
+      ...(linkProblem ? { linkProblem } : {})
+    }
+  }
 
   const publishAppState = (): void => {
     const state = appState()

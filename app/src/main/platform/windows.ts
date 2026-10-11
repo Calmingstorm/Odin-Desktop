@@ -12,6 +12,12 @@ import { ensureWindowsProfileDirs, ensureWindowsToken, windowsProfilePaths } fro
 
 export { AUTOSTART_UNAVAILABLE }
 
+/** A refused sealed session, in words. It names the refusal and never claims another program holds the pipe:
+ * only the core's own first-instance failure could show that. */
+export function describeLinkRefusal(reason: string): string {
+  return `Could not authenticate Odin's core: ${reason}.`
+}
+
 /** Session end: `session-end` reaches every window; each is subscribed once and forgotten when it closes. */
 export function windowsSessionMonitor(_launch: CoreLaunch, onEnd: () => void,
   electron: { app: typeof app; BrowserWindow: typeof BrowserWindow } = { app, BrowserWindow }): { close(): void } {
@@ -59,6 +65,7 @@ export const windowsPlatform: AppPlatform = {
   acquirePackagedApp,
   admitPackagedApp,
   startRefusal: () => elevatedStartRefusal(),
+  describeLinkRefusal,
   startSessionMonitor: (launch, onEnd) => windowsSessionMonitor(launch, onEnd),
   installLogoutHook: () => null
 }

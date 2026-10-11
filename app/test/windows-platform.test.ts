@@ -16,10 +16,10 @@ import { acquirePackagedApp, admitPackagedApp } from '../src/main/package-owners
 import { inspectPackagedState } from '../src/main/package-state'
 import { coreCommand, packagedCoreCommand, WINDOWS_SOURCE_CORE_REQUIRED } from '../src/main/core-command'
 import { DisplayProfileStore } from '../src/main/display-profile'
-import { configureIdentity } from '../src/main/identity'
+import { APP_ID, configureIdentity } from '../src/main/identity'
 import type { ProfilePaths } from '../src/main/paths'
 import { currentPlatform } from '../src/main/platform'
-import { AUTOSTART_UNAVAILABLE, windowsPlatform, windowsSessionMonitor } from '../src/main/platform/windows'
+import { AUTOSTART_UNAVAILABLE, describeLinkRefusal, windowsPlatform, windowsSessionMonitor } from '../src/main/platform/windows'
 import { setWindowsAutostart, windowsAutostartEnabled } from '../src/main/platform/windows-autostart'
 import { ELEVATED_REFUSAL, elevatedStartRefusal, integrityLevel, UNCHECKED_REFUSAL }
   from '../src/main/platform/windows-elevation'
@@ -242,6 +242,14 @@ describe('the Windows platform from source', () => {
     expect(app.setAppUserModelId).toHaveBeenCalledExactlyOnceWith(process.execPath)
     expect(app.getPath).not.toHaveBeenCalled()
     expect(() => configureIdentity(app, 'win32', {}, makeDir)).toThrow('LOCALAPPDATA must be set')
+  })
+
+  it('gives the installed app its shortcut\'s app ID: electron-builder\'s appId', () => {
+    const app = { setName: vi.fn(), getPath: vi.fn(), setPath: vi.fn(), setAppUserModelId: vi.fn(), isPackaged: true }
+    configureIdentity(app, 'win32', { LOCALAPPDATA: 'C:\\Users\\x\\AppData\\Local' }, vi.fn())
+    expect(app.setAppUserModelId).toHaveBeenCalledExactlyOnceWith(APP_ID)
+    const builder = readFileSync(join(__dirname, '..', 'electron-builder.yml'), 'utf8')
+    expect(builder).toMatch(new RegExp(`^appId: ${APP_ID.replaceAll('.', '\\.')}$`, 'm'))
   })
 
   it('takes the tray as available, and restores window positions', async () => {
@@ -468,5 +476,13 @@ describe('the installed app\'s runtime and start at login', () => {
       path: 'C:\\Programs\\Odin\\Odin.exe', args: ['--hidden'] })
     expect(() => setWindowsAutostart(true, [], undefined, items({ openAtLogin: false, executableWillLaunchAtLogin: false }, false)))
       .toThrow(AUTOSTART_UNAVAILABLE)
+  })
+})
+
+describe('a refused sealed session, in words', () => {
+  it('names the refusal and never claims another program holds the pipe', () => {
+    expect(describeLinkRefusal('engine proof refused')).toBe('Could not authenticate Odin\'s core: engine proof refused.')
+    expect(describeLinkRefusal('x')).not.toMatch(/another program|pipe/i)
+    expect(windowsPlatform.describeLinkRefusal).toBe(describeLinkRefusal)
   })
 })
