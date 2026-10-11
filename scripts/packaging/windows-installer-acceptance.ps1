@@ -126,9 +126,10 @@ if ($Mode -eq 'user') {
     }
   }
   Check 'nothing installed before' (& $nothing) $inst
-  # The guardian refuses every start while an installer transaction is unfinished: a leftover would fail the starts.
+  # An uninstall leaves its marker for the next install to take over (with no tree nothing can start), so a kept
+  # profile can carry one from an earlier run. The first complete install must take it over and clear it.
   $pending = Join-Path $env:LOCALAPPDATA 'odin-desktop\install-ownership\nsis\transaction.json'
-  Check 'no unfinished installer transaction from an earlier run' (-not (Test-Path -LiteralPath $pending)) $pending
+  $earlier = Test-Path -LiteralPath $pending
 
   $code = Install @('/S', '/allusers')
   Check '/allusers is refused' ($code -eq 2 -and (& $nothing)) "exit $code"
@@ -157,6 +158,8 @@ if ($Mode -eq 'user') {
 
   $code = Install @('/S')
   Check 'the default install succeeds' ($code -eq 0 -and (Test-Path (Join-Path $inst 'Odin.exe'))) "exit $code"
+  Check 'it completes its transaction, leaving no marker' (-not (Test-Path -LiteralPath $pending)) (
+    "a marker from an earlier run: $earlier")
   $owner = (Get-Acl -LiteralPath $inst).GetOwner([Security.Principal.SecurityIdentifier]).Value
   Check 'the install folder is the user''s' ($owner -eq $me) $owner
   $missing = @('Uninstall Odin.exe', 'resources\ownership.py', 'resources\bundle-manifest.json',
