@@ -266,6 +266,34 @@ def test_actual_locked_playwright_supplier_tag_exception(pinned_playwright):
     assert evidence["license_files"]
 
 
+def test_actual_locked_build_backend_with_vendored_metadata(tmp_path):
+    import tomllib
+    repo = Path(__file__).resolve().parents[3]
+    lock = tomllib.loads((repo / "uv.lock").read_text())
+    pin = runtime.select_wheel(next(p for p in lock["package"] if p["name"] == "setuptools"))
+    artifact = runtime.verified_download(pin, tmp_path / "backend", "setuptools")
+    with zipfile.ZipFile(artifact) as archive:
+        assert any(n.startswith("setuptools/_vendor/") and n.endswith(".dist-info/METADATA")
+                   for n in archive.namelist())
+    with pytest.raises(StageError, match="python_path_injection"):
+        runtime.inspect_wheel(artifact, pin, [])
+    evidence = runtime.inspect_wheel(artifact, pin, [], build_backend=True)
+    assert evidence["name"] == "setuptools"
+    assert evidence["license_files"]
+
+
+def test_extra_top_level_metadata_still_refused(tmp_path):
+    artifact, pin = wheel(tmp_path, data="other-1.0.dist-info/METADATA")
+    with pytest.raises(StageError, match="wheel_metadata"):
+        runtime.inspect_wheel(artifact, pin, [pin])
+
+
+def test_backend_mode_cannot_admit_another_artifact(tmp_path):
+    artifact, pin = wheel(tmp_path, data="distutils-precedence.pth")
+    with pytest.raises(StageError, match="backend_pin"):
+        runtime.inspect_wheel(artifact, pin, [], build_backend=True)
+
+
 def test_playwright_exception_cannot_follow_another_hash(tmp_path, pinned_playwright):
     artifact, pin, closure = pinned_playwright
     altered = tmp_path / pin["filename"]

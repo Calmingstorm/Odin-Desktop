@@ -39,3 +39,24 @@ Command selection: `app/packaging/tests/test_windows*.py`,
 The original failed hosted stage is preserved in the prior evidence. The new
 hosted run must independently qualify the admitted runtime and real consumers.
 No installed app, active desktop or running service was modified.
+
+## First new-head hosted result and backend follow-up
+
+Run `38109866877` on `04eb426e17528f06fdb31c84cfabab0616fba501`
+passed Playwright admission and advanced to the build-only setuptools backend.
+It then refused `wheel_metadata`: the supplier includes multiple nested vendored
+dist-info directories. The validator now requires exactly one top-level owning
+dist-info; nested supplier metadata remains covered by the outer RECORD.
+Multiple top-level metadata directories still refuse.
+
+The actual locked backend also includes `distutils-precedence.pth`. It remains
+forbidden for runtime dependencies. An explicit build-backend mode permits only
+that path for the exact locked setuptools artifact; `-I` plus manual sys.path
+insertion does not process its .pth, and the backend never enters the shipped
+runtime. No general path-injection relaxation was made.
+
+Final follow-up source: 255 passed, 12 subtests passed, the same three conditional
+skips, 31.25 seconds. The actual locked backend now passes its complete wheel
+inspection; default runtime inspection still refuses its .pth. Another backend
+artifact and extra top-level metadata refuse. Earlier 252-case receipt and failed
+253-case follow-up are retained in small logs, not relabelled as clean passes.

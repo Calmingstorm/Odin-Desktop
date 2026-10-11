@@ -37,6 +37,13 @@ Windows 11 inbox DLL is not evidence that a third-party runtime is installed.
 Native isolated subprocesses load cryptography, ONNX Runtime, SQLite and
 sqlite-vec and check that Python paths stay install-relative.
 
+Owning wheel METADATA is the single top-level dist-info. Nested vendored metadata
+is supplier payload covered by the outer RECORD, not another installed wheel.
+Only the exact locked build-only setuptools backend may contain its standard
+`distutils-precedence.pth`: it is inert in the isolated manual sys.path import,
+never installed into runtime, and still RECORD-validated. Default runtime wheel
+inspection continues to refuse that path and all other path injection.
+
 ## Reviewed exact-artifact exception, 2026-10-11
 
 All 72 selected Windows wheels were downloaded and their locked sizes and

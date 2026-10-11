@@ -142,9 +142,17 @@ def playwright_tag_exception(archive: zipfile.ZipFile, pin: dict,
         return None
 
 
-def inspect_wheel(artifact: Path, pin: dict, closure: list[dict], *, engine=False) -> dict:
+def inspect_wheel(artifact: Path, pin: dict, closure: list[dict], *,
+                  engine=False, build_backend=False) -> dict:
     """Check filename, tags, METADATA, WHEEL, RECORD, licensing and selected edges."""
     package = pin["name"]
+    if build_backend:
+        lock = tomllib.loads((REPO / "uv.lock").read_text())
+        backend = next(p for p in lock["package"] if p["name"] == "setuptools")
+        expected = select_wheel(backend)
+        if any(pin.get(key) != expected[key]
+               for key in ("name", "version", "filename", "sha256", "size")):
+            raise StageError("backend_pin", package, pin.get("filename"))
     preflight_archive(artifact, package=package)
     filename = pin["filename"]
     try:
@@ -159,7 +167,10 @@ def inspect_wheel(artifact: Path, pin: dict, closure: list[dict], *, engine=Fals
         raise StageError("wheel_pin_mismatch", package, filename)
     with zipfile.ZipFile(artifact) as archive:
         names = archive.namelist()
-        metadata_paths = [n for n in names if n.endswith(".dist-info/METADATA")]
+        # Only the installed distribution's top-level metadata owns this wheel.
+        # Vendored dist-info (e.g. setuptools/_vendor) is RECORD-covered data.
+        metadata_paths = [n for n in names if n.endswith(".dist-info/METADATA")
+                          and len(n.split("/")) == 2]
         if len(metadata_paths) != 1:
             raise StageError("wheel_metadata", package, filename)
         dist = metadata_paths[0].rsplit("/", 1)[0]
@@ -206,6 +217,11 @@ def inspect_wheel(artifact: Path, pin: dict, closure: list[dict], *, engine=Fals
             record[row[0]] = row[1:]
         files = {n for n in names if not n.endswith("/")}
         for path in files:
+            # The exact locked backend stays in build scratch, never the runtime.
+            # Its standard .pth is inert: -I plus sys.path insertion does not
+            # process .pth files. It remains covered by outer RECORD validation.
+            if build_backend and path == "distutils-precedence.pth":
+                continue
             if (path.endswith((".pth", "/direct_url.json"))
                     or path.split("/", 1)[0] in {"sitecustomize.py", "usercustomize.py"}):
                 raise StageError("python_path_injection", package, path)
@@ -317,7 +333,7 @@ def build_engine(repo: Path, python: Path, scratch: Path, lock: dict,
     backend = backends[0]
     backend_pin = select_wheel(backend)
     backend_artifact = verified_download(backend_pin, cache, "setuptools")
-    inspect_wheel(backend_artifact, backend_pin, [])
+    inspect_wheel(backend_artifact, backend_pin, [], build_backend=True)
     backend_dir = scratch / "backend"
     extract_archive(backend_artifact, backend_dir, package="setuptools")
     source = scratch / "source"
