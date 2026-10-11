@@ -42,15 +42,17 @@ function Outcome($record) {
   "$($record.Exception.GetType().Name): $($record.Exception.Message) (line $($record.InvocationInfo.ScriptLineNumber))"
 }
 # One cleanup step: tried whatever happened before it, its failure recorded (sanitized) without ending the cleanup.
-function Cleanup([string] $name, [scriptblock] $step) {
+# The step runs in this function's scope, so its parameters must not reuse a name a step reads ($name is the user's).
+function Cleanup([string] $cleanupStep, [scriptblock] $cleanupBlock) {
   try {
-    & $step
-    if ($FailCleanup -and $name -eq $FailCleanup) { throw "intentional cleanup failure in '$name' (-FailCleanup)" }
-    $checks.Add([ordered]@{ check = "cleanup: $name"; ok = $true; detail = '' })
+    & $cleanupBlock
+    if ($FailCleanup -and $cleanupStep -eq $FailCleanup) {
+      throw "intentional cleanup failure in '$cleanupStep' (-FailCleanup)" }
+    $checks.Add([ordered]@{ check = "cleanup: $cleanupStep"; ok = $true; detail = '' })
   } catch {
     $detail = Outcome $_
     if ($plain) { $detail = $detail.Replace($plain, '<password>') }
-    $checks.Add([ordered]@{ check = "cleanup: $name"; ok = $false; detail = $detail })
+    $checks.Add([ordered]@{ check = "cleanup: $cleanupStep"; ok = $false; detail = $detail })
   }
 }
 function Finish([string] $outcome = '') {
