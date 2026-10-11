@@ -287,11 +287,14 @@ def _pip_failure_output(stdout: str | bytes | None, stderr: str | bytes | None) 
     return scrub_output_secrets(output)
 
 
-def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT) -> tuple[bool, str]:
-    """Retained Odin pip installation into the engine's Python environment.
+def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT,
+                      target: Path | None = None) -> tuple[bool, str]:
+    """Retained Odin pip installation, into ``target`` when one is given.
 
     Authoring admission belongs to the caller, not a requirement string. Keep
     the upstream index-only spec policy and timeout; no extra Desktop consent.
+    Desktop's runtime is read-only and replaced on upgrade, so a skill's
+    packages go to the profile's own folder (``target``) instead.
     """
     if len(specs) > MAX_SKILL_DEPENDENCIES or any(
         not isinstance(spec, str) or not is_safe_dependency_spec(spec) for spec in specs
@@ -299,13 +302,20 @@ def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT) -> 
         return False, "Invalid skill dependency specification."
     if not specs:
         return True, ""
+    destination: list[str] = []
+    if target is not None:
+        private_directory(target)
+        destination = ["--target", str(target), "--upgrade"]
     try:
         result = subprocess.run(
             [sys.executable, "-m", "pip", "install", "--quiet",
-             "--disable-pip-version-check", *specs],
+             "--disable-pip-version-check", *destination, *specs],
             capture_output=True, text=True, timeout=timeout,
         )
         if result.returncode == 0:
+            if target is not None:
+                _use_packages(target)
+                importlib.invalidate_caches()  # the new packages' folders are importable now
             return True, ""
         return False, (_pip_failure_output(result.stdout, result.stderr)
                        or "pip installation failed")
@@ -314,6 +324,13 @@ def _install_packages(specs: list[str], timeout: int = _PIP_INSTALL_TIMEOUT) -> 
         return False, f"pip install timed out after {timeout}s" + (f"\n{output}" if output else "")
     except Exception:
         return False, "pip installation could not start"
+
+
+def _use_packages(target: Path) -> None:
+    """Make a profile's skill packages importable, after the runtime's own packages:
+    a skill's package never shadows one the engine itself uses."""
+    if target.is_dir() and str(target) not in sys.path:
+        sys.path.append(str(target))
 
 
 def _extract_dependencies_from_source(source: str) -> list[str]:
@@ -365,8 +382,10 @@ def _extract_skill_name_from_source(source: str) -> str:
     return ""
 
 
-def resolve_dependencies(deps: list[str]) -> tuple[list[str], list[str], list[SkillDiagnostic]]:
-    """Resolve skill pip dependencies.
+def resolve_dependencies(
+    deps: list[str], target: Path | None = None,
+) -> tuple[list[str], list[str], list[SkillDiagnostic]]:
+    """Resolve skill pip dependencies, installing missing ones into ``target`` if given.
 
     Returns ``(already_installed, newly_installed, diagnostics)``.
     """
@@ -374,6 +393,8 @@ def resolve_dependencies(deps: list[str]) -> tuple[list[str], list[str], list[Sk
 
     if not deps:
         return [], [], diagnostics
+    if target is not None:
+        _use_packages(target)
 
     if len(deps) > MAX_SKILL_DEPENDENCIES:
         diagnostics.append(
@@ -411,7 +432,9 @@ def resolve_dependencies(deps: list[str]) -> tuple[list[str], list[str], list[Sk
 
     newly_installed: list[str] = []
     if to_install:
-        success, output = _install_packages(to_install)
+        # Without a target, Odin's one-argument call shape.
+        success, output = (_install_packages(to_install) if target is None
+                           else _install_packages(to_install, target=target))
         if success:
             newly_installed = to_install
             diagnostics.append(
@@ -682,6 +705,9 @@ class SkillManager:
         private_directory(self.skills_dir)
         self._config_dir = self.skills_dir / "config"
         private_directory(self._config_dir)
+        # Packages skills install, beside the skills (created by the first install).
+        self._packages_dir = self.skills_dir.parent / "skill-packages"
+        _use_packages(self._packages_dir)
         self._disabled_path = self.skills_dir / ".disabled.json"
         self._executor = tool_executor
         self._tool_timeouts = tool_timeouts or {}
@@ -792,7 +818,7 @@ class SkillManager:
 
         pre_deps = _extract_dependencies_from_source(source)
         if pre_deps:
-            _, _, dep_diagnostics = resolve_dependencies(pre_deps)
+            _, _, dep_diagnostics = resolve_dependencies(pre_deps, self._packages_dir)
             for d in dep_diagnostics:
                 lvl = log.warning if d.level == "warn" else log.error
                 lvl("Skill %s deps: %s", path.name, d.message)
@@ -822,7 +848,7 @@ class SkillManager:
             if (isinstance(actual_deps, list)
                     and all(isinstance(dep, str) for dep in actual_deps)
                     and actual_deps != pre_deps):
-                _, _, dynamic_diagnostics = resolve_dependencies(actual_deps)
+                _, _, dynamic_diagnostics = resolve_dependencies(actual_deps, self._packages_dir)
                 dep_diagnostics.extend(dynamic_diagnostics)
                 for d in dynamic_diagnostics:
                     lvl = log.warning if d.level == "warn" else log.error

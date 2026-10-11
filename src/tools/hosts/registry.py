@@ -23,6 +23,7 @@ from typing import Any
 
 from ...config.schema import ToolHost
 from ...desktop.paths import ProfilePaths, private_directory
+from ...desktop.platform.variants import windows_variant
 from ...odin_log import get_logger
 from ..ssh import is_local_address
 from .trust import normalize_public_key
@@ -443,6 +444,7 @@ class HostRegistry:
             for target in self._snapshot.values()
         ]
 
+    @windows_variant("src.desktop.platform.windows_remote:materialize_trust")
     def materialize_trust(
         self,
         host_id: str,

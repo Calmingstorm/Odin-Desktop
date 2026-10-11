@@ -90,6 +90,7 @@ def validate_host_details(alias: Any, body: Mapping[str, Any]) -> dict[str, Any]
     }
 
 
+@windows_variant("src.desktop.platform.windows_remote:run_argv")
 async def _run_argv(
     argv: list[str], timeout: float, *, input_bytes: bytes | None = None
 ) -> tuple[int, bytes]:
@@ -227,6 +228,7 @@ class HostEnrollmentManager:
         self._prune()
         return candidate
 
+    @windows_variant("src.desktop.platform.windows_remote:scan")
     async def scan(self, address: str, port: int) -> tuple[str, ...]:
         code, output = await _run_argv(
             ["ssh-keyscan", "-T", "8", "-p", str(port), address],
@@ -248,6 +250,7 @@ class HostEnrollmentManager:
             raise HostTrustError("host-key scan returned no supported public keys")
         return tuple(keys)
 
+    @windows_variant("src.desktop.platform.windows_remote:scan_ca")
     async def scan_ca(self, address: str, port: int) -> tuple[str, ...]:
         code, output = await _run_argv(
             ["ssh-keyscan", "-c", "-T", "8", "-p", str(port), address], _SCAN_TIMEOUT,

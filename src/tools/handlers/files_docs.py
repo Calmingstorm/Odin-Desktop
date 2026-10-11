@@ -542,7 +542,7 @@ END {
                 # Binary payloads do NOT travel the text pipeline: base64 over
                 # stdout was truncated at MAX_OUTPUT_CHARS, so any PDF over roughly
                 # 12KB arrived corrupt and failed to decode (adversarial review).
-                from ..ssh import read_binary_file
+                from ..binary_read import read_binary_file
 
                 pdf_bytes, read_error = await lease.run(
                     lambda: read_binary_file(

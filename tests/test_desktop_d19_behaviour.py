@@ -714,12 +714,15 @@ async def test_composed_skill_dependency_resolution_and_actual_admitted_executio
     import src.tools.skill_manager as skills_module
 
     calls = []
+    # A skill's packages go to the profile's own folder: the packaged runtime is read-only.
+    packages = composed.core.engine.deps.skill_manager._packages_dir
 
     def pip_boundary(argv, **kwargs):
         calls.append((argv, kwargs))
         assert pip_status is not None, "Preinstalled packaging must never invoke pip"
         assert argv == [sys.executable, "-m", "pip", "install", "--quiet",
-                        "--disable-pip-version-check", dependency]
+                        "--disable-pip-version-check", "--target", str(packages), "--upgrade",
+                        dependency]
         return subprocess.CompletedProcess(
             argv, pip_status, "", "fixture pip failure" if pip_status else "")
 

@@ -781,6 +781,7 @@ class ToolExecutor:
             )
         return None
 
+    @windows_variant("src.desktop.platform.windows_helpers:resolve_handler")
     def _resolve_handler(self, tool_name: str):
         """Resolve a tool handler at CALL time (RFC-004 P2, fallback retired P7).
 

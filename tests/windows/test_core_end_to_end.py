@@ -41,8 +41,9 @@ class Core:
         return self.log.read_text(encoding="utf-8", errors="replace")
 
 
-@pytest.fixture
-def core(tmp_path):
+def launch(tmp_path, prepare=None) -> Core:
+    """The engine started as the app starts it, in a fresh profile. ``prepare`` gets the
+    profile's paths before the first start."""
     profile = f"e2e{uuid.uuid4().hex[:8]}"
     local = tmp_path / "local"
     paths = windows_profile_paths(profile, environ={"LOCALAPPDATA": str(local)})
@@ -51,6 +52,8 @@ def core(tmp_path):
     token = secrets.token_hex(32)
     token_file = paths.config_dir / "ipc.token"
     token_file.write_text(token, encoding="ascii")
+    if prepare is not None:
+        prepare(paths)
     environ = {**os.environ, "LOCALAPPDATA": str(local), "APPDATA": str(tmp_path / "roaming"),
                "USERPROFILE": str(tmp_path / "home")}
     (tmp_path / "home").mkdir()
@@ -63,15 +66,24 @@ def core(tmp_path):
              "--data-dir", str(paths.data_dir)],
             stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=stderr, cwd=ROOT,
             env=environ)
-    running = Core(process, pipe, token_file, token, profile, log)
+    return Core(process, pipe, token_file, token, profile, log)
+
+
+def end(core: Core) -> None:
+    if core.process.poll() is None:
+        core.process.kill()
+    core.process.wait(30)
+    if core.process.stdin:
+        core.process.stdin.close()
+
+
+@pytest.fixture
+def core(tmp_path):
+    running = launch(tmp_path)
     try:
         yield running
     finally:
-        if process.poll() is None:
-            process.kill()
-        process.wait(30)
-        if process.stdin:
-            process.stdin.close()
+        end(running)
 
 
 async def connect(core: Core, token_file: Path | None = None):

@@ -1,6 +1,7 @@
 """This computer as a Windows host, and its workspace (phase 3 plan C11)."""
 from __future__ import annotations
 
+import os
 from types import SimpleNamespace
 
 import pytest
@@ -32,7 +33,8 @@ def test_a_fresh_profile_names_this_computer_windows_and_a_private_sibling_works
     assert security.owner in own_sids() and dacl_is_private(security)
     roots = command_protected_roots(runtime_install_root(), config)
     executor = SimpleNamespace(config=config.tools, _protected_roots=lambda: roots)
-    assert ensure_local_workspace(executor) == str(workspace)
+    # The canonical path, as the disk spells it (Windows paths ignore case).
+    assert os.path.normcase(ensure_local_workspace(executor)) == os.path.normcase(str(workspace))
     # The profile's own state stays protected from a workspace placed inside it.
     executor.config = config.tools.model_copy(
         update={"local_working_dir": str(paths.data_dir / "sessions")})

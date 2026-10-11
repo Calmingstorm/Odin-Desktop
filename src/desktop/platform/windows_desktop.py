@@ -214,7 +214,13 @@ def binding_key(paths) -> bytes:
 
 
 def ensure_ssh_key(paths, authority, config) -> None:
-    """Generate the profile key privately, then publish it with a no-replace rename."""
+    """Generate the profile key privately, then publish it with a no-replace rename.
+
+    Windows' own ssh-keygen, by its full path and without a console. The key's ACL then
+    names this user, SYSTEM and Administrators, the only form Windows' OpenSSH accepts.
+    """
+    from .windows_ssh import openssh, restrict_key
+
     key = paths.secrets_dir / "id_ed25519"
     if config.tools.ssh_key_path != str(key) or key.exists() or key.is_symlink():
         return
@@ -222,10 +228,10 @@ def ensure_ssh_key(paths, authority, config) -> None:
         candidate = Path(temporary) / "id_ed25519"
         try:
             subprocess.run(
-                ["ssh-keygen", "-t", "ed25519", "-f", str(candidate), "-N", "", "-q",
+                [openssh("ssh-keygen"), "-t", "ed25519", "-f", str(candidate), "-N", "", "-q",
                  "-C", f"odin-desktop:{paths.profile_id}"],
                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                check=True, timeout=10,
+                check=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW,
             )
         except (OSError, subprocess.SubprocessError):
             raise RuntimeError("Could not provision the profile SSH key") from None
@@ -233,6 +239,7 @@ def ensure_ssh_key(paths, authority, config) -> None:
             from .windows_files import ensure_private
 
             ensure_private(source, candidate.name)
+            restrict_key(candidate)
             handle = open_file(source, candidate.name, write=True, delete=True)
             try:
                 win32.flush(handle)

@@ -137,13 +137,23 @@ def test_each_windows_variant_was_reviewed_against_its_linux_original():
 
 
 # Windows stand-ins for Odin code: the subclasses in windows_jobs.py, by what each leans
-# on, and the primitives windows_patch.py gives apply_patch.py (the whole file, whose os
-# calls windows_dirfd.WindowsOs must cover).
+# on; the primitives windows_patch.py gives apply_patch.py (the whole file, whose os
+# calls windows_dirfd.WindowsOs must cover); windows_remote's copies of the pinned
+# ssh.py's runner, line reader and binary reader; and windows_tools' copy of the http_probe
+# handler (browser_web.py stays upstream's byte for byte; the executor routes to the copy).
 OVERRIDE_SOURCES = {
     "src/tools/apply_patch.py":
         "0c98e655530fa8d5814b83058baf1bf44461d2deb0048d70566967ef53ca8636",
     "src/tools/process_manager.py:ProcessRegistry._start_local_reserved":
         "3d6acead94fd543dbc33dcafb0b8d96a06897857325103011e32b5d3e303ea55",
+    "src/tools/ssh.py:_read_lines_with_callback":
+        "9a33f75e18fb7d77f2c1ad10be1c88efbc0a51610fcdb4a42417a42de75472c9",
+    "src/tools/ssh.py:run_ssh_command":
+        "56cd10225837ad2ddd8a4ffebd44adcec8cd558f972bf182d7d57a9e1647f03c",
+    "src/tools/handlers/browser_web.py:BrowserWebTools._handle_http_probe":
+        "b539e2e3a11d0e5a5c8ce29f9ae972b3dc465fe8f4d27f4e8658ca01e0970657",
+    "src/tools/ssh.py:read_binary_file":
+        "66c0f2d2670cfde3732858530620a90c7ed1fc0059bb1ff1cc80cba3af1b6181",
     "src/tools/local_supervisor.py:SupervisedShell":
         "8fc07a2abfe4f015b1cee1118338d2b544ff6476ed059ae0351ebad3ffecb2e9",
 }

@@ -23,11 +23,17 @@ from .windows_exec import (
     supported_host_os,
     unsupported_interpreter,
 )
+from .windows_helpers import probe
 from .windows_jobs import WindowsProcessRegistry, create_job_shell
 from .windows_patch import apply_on_host
 from .windows_read import is_absolute, read_on_host
+from .windows_remote import run_ssh_command as remote_ssh
+from .windows_ssh import known_hosts_option
+from .windows_validate import VALIDATION_HOSTS, local_alias
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from ...health.startup import DiagnosticResult
     from ...tools.hosts import HostLease
     from ...tools.hosts.control import HostCandidate
@@ -468,7 +474,7 @@ async def host_test(self, token: str) -> HostCandidate:
             "-i",
             self.registry.effective_key_path,
             "-o",
-            f"UserKnownHostsFile={known_hosts}",
+            known_hosts_option(known_hosts),
             "-o",
             "StrictHostKeyChecking=yes",
             "-o",
@@ -948,7 +954,7 @@ async def exec_command(
     command routes explicitly opt into tools.command_shell; workspace
     selection is independent (run_script uses a workspace but not this).
     """
-    from src.tools.executor import BulkheadFullError, _current_tool_timeout_ctx, _host_lease_ctx, is_local_address, run_ssh_command  # noqa: E501, I001
+    from src.tools.executor import BulkheadFullError, _current_tool_timeout_ctx, _host_lease_ctx, is_local_address  # noqa: E501, I001
     if timeout is None:
         timeout = _current_tool_timeout_ctx.get() or self.config.command_timeout_seconds
     active_lease = _host_lease_ctx.get()
@@ -1001,14 +1007,209 @@ async def exec_command(
         max_retries=ssh_retry.max_retries,
         retry_base_delay=ssh_retry.base_delay,
         retry_max_delay=ssh_retry.max_delay,
-        pool=self.ssh_pool,
+        pool=None,  # Windows' OpenSSH has no ControlMaster
         on_output=on_output,
     )
     bh = self.bulkheads.get("ssh")
     if bh:
         try:
             async with bh.acquire():
-                return await run_ssh_command(**ssh_kwargs)
+                return await remote_ssh(**ssh_kwargs)
         except BulkheadFullError:
             return 1, "Error: SSH bulkhead full — too many concurrent SSH commands"
-    return await run_ssh_command(**ssh_kwargs)
+    return await remote_ssh(**ssh_kwargs)
+
+
+# Lifted from the Linux original.
+def pdf_lock_path() -> Path:
+    from src.runtime.pdf_resources import Path, __file__, sys  # noqa: I001
+    prefix = Path(sys.prefix).resolve()
+    if prefix.name == "python" and prefix.parent.name == "runtime":
+        return prefix.parent / "pdf.lock.json"
+    # The packaged Windows runtime ships its own lock under the plain name.
+    return Path(__file__).resolve().parents[2] / "app/packaging/python/pdf.lock.win_amd64.json"
+
+
+# Lifted from the Linux original.
+def read_pdf_lock() -> dict:
+    from src.runtime.pdf_resources import PdfUnavailable, _lock_path, json  # noqa: I001
+    try:
+        lock = json.loads(_lock_path().read_text(encoding="utf-8"))
+        digest = lock["sha256"]
+        if (lock["schema"] != 1 or lock["package"] != "PyMuPDF"
+                or lock["platform"] != "windows-amd64"
+                or not isinstance(digest, str) or len(digest) != 64
+                or any(c not in "0123456789abcdef" for c in digest)
+                or not lock["url"].startswith("https://")
+                or not lock["wheel"].endswith(".whl")):
+            raise ValueError("invalid pinned wheel")
+        import platform
+
+        if platform.machine() != "AMD64":
+            raise PdfUnavailable("PDF support download is only available for x64 Windows.")
+        return lock
+    except PdfUnavailable:
+        raise
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise PdfUnavailable(
+            "PDF support download cannot start: the pinned wheel lock is missing or invalid."
+        ) from exc
+
+
+# Lifted from the Linux original.
+async def handle_http_probe(self, inp: dict) -> str | tuple[str, int]:
+    from src.tools.handlers.browser_web import _truncate_lines  # noqa: I001
+    from src.tools.http_probe_ops import build_http_probe_command, normalize_probe_headers
+
+    try:
+        # Decode strict wire headers before host authorization and retain
+        # the canonical dict for the existing execution interface.
+        if "headers" in inp:
+            inp = {**inp, "headers": normalize_probe_headers(inp["headers"])}
+    except ValueError as e:
+        return f"http_probe error: {e}", 1
+
+    # Validate before acquiring a generation lease: refused construction
+    # has no transport and must not pin the host generation.
+    try:
+        cmd = build_http_probe_command(inp)
+    except ValueError as e:
+        return f"http_probe error: {e}", 1
+
+    host = inp.get("host", "")
+    if host:
+        lease = self._acquire_host(host)
+        if not lease:
+            return f"Unknown or disallowed host: {host}"
+        target = lease.target
+        address, ssh_user = target.address, target.ssh_user
+    else:
+        lease = None
+        target = None
+        address = "127.0.0.1"
+        ssh_user = "root"
+
+    if lease is not None:
+        with lease:
+            code, output = await lease.run(
+                lambda: probe(self, address, cmd, ssh_user, target=target)
+            )
+    else:
+        code, output = await probe(self, address, cmd, ssh_user)
+    # curl's exit code is the ground truth and was being discarded: a
+    # connection failure (exit 7, status_code 000) returned prose that
+    # matched no error prefix, so the executor classified the probe as a
+    # SUCCESS and the audit log recorded it approved with no error
+    # (adversarial review, reproduced). Structured returns make the status
+    # a fact rather than an inference.
+    if code != 0 and not output.strip():
+        return f"http_probe failed (exit {code}): curl returned no output", code
+    if not output.strip():
+        return "http_probe: no response received", 1
+    return _truncate_lines(output), code
+
+
+# Lifted from the Linux original.
+async def handle_validate_action(self, inp: dict) -> str:
+    from src.tools.handlers.validation import log  # noqa: I001
+    from src.tools.post_validation import (
+        format_report_summary,
+        report_as_json,
+        run_bundle,
+    )
+
+    raw_checks = inp.get("checks")
+    if not isinstance(raw_checks, list) or not raw_checks:
+        return (
+            "Error: 'checks' must be a non-empty list. See tool description for check schema."
+        )
+
+    bundle_name = str(inp.get("bundle_name") or "unnamed").strip()[:120]
+    default_host = inp.get("default_host")
+    default_host = str(default_host).strip() if default_host else None
+    if not default_host:
+        default_host = self._resolve_default_host(self._current_user_id) or None
+    grace_seconds = int(inp.get("grace_seconds") or 0)
+    grace_seconds = max(0, min(grace_seconds, 60))
+    max_parallel = int(inp.get("max_parallel") or 12)
+    fmt = str(inp.get("format") or "summary").strip().lower()
+
+    governor = getattr(self, "command_governor", None)
+
+    async def _exec(
+        _address: str,
+        command: str,
+        _ssh_user: str,
+        *,
+        timeout: int,
+        use_workspace: bool = False,
+        use_command_shell: bool = False,
+    ) -> tuple[int, str]:
+        # Never mutate shared state here — concurrent checks would race.
+        # _exec_command accepts a per-call timeout, which is honored
+        # directly by the SSH/local primitives without touching self.
+        if governor is not None:
+            try:
+                # Use the shared run_command admission path: it carries
+                # the task-local requester tier and exact effective alias.
+                allowed, denial, _note = self._govern_command(command, _address)
+            except Exception as ge:
+                # Fail-closed on governor exceptions: we advertise
+                # command-type checks as going through the governor;
+                # silently bypassing it if the governor blows up would
+                # be exactly the "safe unless error path" foot-gun
+                # Odin flagged. Emit the error into the result so the
+                # operator sees it, and treat the check as errored.
+                log.exception("governor check raised for validation command")
+                raise RuntimeError(
+                    f"validate_action: governor check raised {type(ge).__name__}: {ge}"
+                ) from ge
+            if not allowed:
+                raise PermissionError(f"governor-blocked: {denial}")
+        # Forwarded per check from run_bundle: True only for type=command
+        # (user-supplied text, a raw command route like run_command —
+        # round 10); fixed-shape probes must keep pre-PR cwd semantics so
+        # an unusable workspace cannot disable service/process/http/port
+        # validation (round 11).
+        # resolve_host returns the alias in its address slot deliberately,
+        # so the generation-bound target is acquired here after the
+        # per-check governor decision.
+        alias = _address
+        lease = self._acquire_host(alias)
+        if lease is None:
+            raise PermissionError(f"unknown host alias: {alias}")
+        with lease:
+            target = lease.target
+            return await lease.run(
+                lambda: self._exec_command(
+                    target.address,
+                    command,
+                    target.ssh_user,
+                    timeout=timeout,
+                    use_workspace=use_workspace,
+                    target=target,
+                    use_command_shell=(use_command_shell
+                                       or is_local_address(target.address)),
+                )
+            )
+
+    # Windows: checks aimed at this computer get Windows probes (windows_validate).
+    hosts = VALIDATION_HOSTS.set((local_alias(self), default_host))
+    try:
+        report = await run_bundle(
+            raw_checks,
+            bundle_name=bundle_name,
+            default_host=default_host,
+            resolve_host=lambda alias: (
+                (alias, "", "") if self._resolve_host(alias) is not None else None
+            ),
+            exec_command=_exec,
+            grace_seconds=grace_seconds,
+            max_parallel=max_parallel,
+        )
+    finally:
+        VALIDATION_HOSTS.reset(hosts)
+
+    if fmt == "json":
+        return report_as_json(report)
+    return format_report_summary(report)

@@ -2201,6 +2201,11 @@
         "missing": 64,
         "total": 324
       },
+      "src/tools/binary_read.py": {
+        "covered": 6,
+        "missing": 0,
+        "total": 6
+      },
       "src/tools/branch_freshness.py": {
         "covered": 99,
         "missing": 0,
@@ -2964,14 +2969,19 @@
     "src/desktop/platform/windows_engine.py",
     "src/desktop/platform/windows_exec.py",
     "src/desktop/platform/windows_files.py",
+    "src/desktop/platform/windows_helpers.py",
     "src/desktop/platform/windows_ipc.py",
     "src/desktop/platform/windows_jobs.py",
     "src/desktop/platform/windows_locks.py",
+    "src/desktop/platform/windows_mcp.py",
     "src/desktop/platform/windows_patch.py",
     "src/desktop/platform/windows_process.py",
     "src/desktop/platform/windows_read.py",
+    "src/desktop/platform/windows_remote.py",
     "src/desktop/platform/windows_secrets.py",
+    "src/desktop/platform/windows_ssh.py",
     "src/desktop/platform/windows_tools.py",
+    "src/desktop/platform/windows_validate.py",
     "src/desktop/platform/windows_workspace.py",
     "src/desktop/profile.py",
     "src/desktop/protocol.py",
@@ -3002,7 +3012,8 @@
     "src/desktop/webhooks.py",
     "src/desktop/work.py",
     "src/desktop/workspace_diagnostics.py",
-    "src/desktop/x11_probe.py"
+    "src/desktop/x11_probe.py",
+    "src/tools/binary_read.py"
   ],
   "windows": {
     "files": {
@@ -3046,6 +3057,11 @@
         "missing": 43,
         "total": 329
       },
+      "src/desktop/platform/windows_helpers.py": {
+        "covered": 63,
+        "missing": 8,
+        "total": 71
+      },
       "src/desktop/platform/windows_ipc.py": {
         "covered": 164,
         "missing": 29,
@@ -3060,6 +3076,11 @@
         "covered": 9,
         "missing": 0,
         "total": 9
+      },
+      "src/desktop/platform/windows_mcp.py": {
+        "covered": 90,
+        "missing": 4,
+        "total": 94
       },
       "src/desktop/platform/windows_patch.py": {
         "covered": 49,
@@ -3076,15 +3097,30 @@
         "missing": 0,
         "total": 133
       },
+      "src/desktop/platform/windows_remote.py": {
+        "covered": 213,
+        "missing": 3,
+        "total": 216
+      },
       "src/desktop/platform/windows_secrets.py": {
         "covered": 30,
         "missing": 2,
         "total": 32
       },
+      "src/desktop/platform/windows_ssh.py": {
+        "covered": 60,
+        "missing": 0,
+        "total": 60
+      },
       "src/desktop/platform/windows_tools.py": {
         "covered": 372,
         "missing": 2,
         "total": 374
+      },
+      "src/desktop/platform/windows_validate.py": {
+        "covered": 36,
+        "missing": 3,
+        "total": 39
       },
       "src/desktop/platform/windows_workspace.py": {
         "covered": 32,
@@ -3093,9 +3129,9 @@
       }
     },
     "total": {
-      "covered": 3040,
-      "missing": 332,
-      "total": 3372
+      "covered": 3502,
+      "missing": 350,
+      "total": 3852
     }
   }
 }

@@ -141,13 +141,28 @@ def _assign(job, pid: int) -> None:
 
 async def spawn(argv: list[str], *, cwd: str | None = None, env: dict | None = None,
                 stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT) -> JobProcess:
-    """Start ``argv`` suspended, put it in a new job, then let it run."""
-    job = _create_job()
+                stderr=subprocess.STDOUT, limit: int | None = None,
+                kill_on_close: bool = False, command_line: str | None = None) -> JobProcess:
+    """Start ``argv`` suspended, put it in a new job, then let it run.
+
+    ``kill_on_close`` ends whatever is left in the job when its handle closes.
+    ``command_line``, given instead of ``argv``, is a whole cmd.exe command line, run as
+    ``%ComSpec% /c "<command_line>"`` (a batch file's way).
+    """
+    if kill_on_close:
+        from .windows_process import create_job
+
+        job = create_job()
+    else:
+        job = _create_job()
+    reader = {"limit": limit} if limit is not None else {}
+    options = dict(stdin=stdin, stdout=stdout, stderr=stderr, cwd=cwd, env=env,
+                   creationflags=win32.CREATE_SUSPENDED | subprocess.CREATE_NO_WINDOW, **reader)
     try:
-        process = await asyncio.create_subprocess_exec(
-            *argv, stdin=stdin, stdout=stdout, stderr=stderr, cwd=cwd, env=env,
-            creationflags=win32.CREATE_SUSPENDED | subprocess.CREATE_NO_WINDOW)
+        if command_line is None:
+            process = await asyncio.create_subprocess_exec(*argv, **options)
+        else:
+            process = await asyncio.create_subprocess_shell(command_line, **options)
     except BaseException:
         win32.close(job)
         raise

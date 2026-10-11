@@ -67,6 +67,7 @@ def graph(tmp_path, monkeypatch):
     # No test can reach real pip, even if a regression tries installing a dep.
     monkeypatch.setattr("src.tools.skill_manager.subprocess.run", MagicMock(
         return_value=SimpleNamespace(returncode=1, stdout="", stderr="")))
+    monkeypatch.setattr(sys, "path", [*sys.path])  # a profile's package folder joins it
     paths = ProfilePaths.from_xdg(home=tmp_path, environ={})
     authority = OwnerAuthority(paths)
     permissions = PermissionManager(authority)
@@ -409,6 +410,78 @@ def test_pip_retained_arguments_success_failure_timeout(monkeypatch):
     run.reset_mock()
     assert not _install_packages(["example package"])[0]
     run.assert_not_called()
+
+
+def test_pip_installs_into_the_profiles_package_folder(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "path", [*sys.path])
+    run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
+    target = tmp_path / "skill-packages"
+    assert _install_packages(["example-package>=1"], target=target) == (True, "")
+    assert run.call_args[0][0] == [sys.executable, "-m", "pip", "install", "--quiet",
+                                   "--disable-pip-version-check", "--target", str(target),
+                                   "--upgrade", "example-package>=1"]
+    assert target.stat().st_mode & 0o777 == 0o700
+    assert sys.path[-1] == str(target)  # after the runtime's own packages
+
+
+def demo_wheel(folder) -> None:
+    """A one-module wheel, installed from this folder without an index."""
+    import base64
+    import hashlib
+    import zipfile
+
+    dist = "odin_demo_pkg-1.0.dist-info"
+    files = {"odin_demo_pkg/__init__.py": "VALUE = 42\n",
+             f"{dist}/METADATA": "Metadata-Version: 2.1\nName: odin-demo-pkg\nVersion: 1.0\n",
+             f"{dist}/WHEEL": ("Wheel-Version: 1.0\nGenerator: odin-test\n"
+                               "Root-Is-Purelib: true\nTag: py3-none-any\n")}
+
+    def digest(text: str) -> str:
+        raw = hashlib.sha256(text.encode()).digest()
+        return "sha256=" + base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+    record = "".join(f"{path},{digest(text)},{len(text.encode())}\n"
+                     for path, text in files.items())
+    with zipfile.ZipFile(folder / "odin_demo_pkg-1.0-py3-none-any.whl", "w") as wheel:
+        for path, text in files.items():
+            wheel.writestr(path, text)
+        wheel.writestr(f"{dist}/RECORD", record + f"{dist}/RECORD,,\n")
+
+
+def test_a_dependency_installs_into_the_profile_and_imports(tmp_path, monkeypatch):
+    pytest.importorskip("pip")  # the packaged runtime gets pip with phase 4
+    monkeypatch.setattr(sys, "path", [*sys.path])
+    (tmp_path / "wheels").mkdir()
+    demo_wheel(tmp_path / "wheels")
+    monkeypatch.setenv("PIP_NO_INDEX", "1")
+    monkeypatch.setenv("PIP_FIND_LINKS", str(tmp_path / "wheels"))
+    target = tmp_path / "skill-packages"
+    already, added, diagnostics = resolve_dependencies(["odin-demo-pkg==1.0"], target)
+    assert (already, added) == ([], ["odin-demo-pkg==1.0"]), diagnostics
+    try:
+        import odin_demo_pkg
+
+        assert odin_demo_pkg.VALUE == 42 and odin_demo_pkg.__file__.startswith(str(target))
+        assert resolve_dependencies(["odin-demo-pkg==1.0"], target)[:2] == (
+            ["odin-demo-pkg==1.0"], [])
+    finally:
+        sys.modules.pop("odin_demo_pkg", None)
+
+
+async def test_skills_install_into_the_profiles_package_folder(graph, monkeypatch):
+    targets = []
+    monkeypatch.setattr("src.tools.skill_manager._is_package_installed", lambda _spec: False)
+    monkeypatch.setattr("src.tools.skill_manager._install_packages",
+                        lambda specs, target=None: (targets.append(target) or True, ""))
+    await graph.service.start()
+    token = owner(graph)
+    try:
+        await graph.service.handle("skills.save", {
+            "name": "demo", "code": code(dependencies=["example-package>=1"])})
+    finally:
+        PermissionManager.reset_request_owner(token)
+    assert targets == [graph.settings.paths.data_dir / "skill-packages"]
 
 
 async def test_dependency_install_failure_is_diagnostic_if_imports_work(graph, monkeypatch):

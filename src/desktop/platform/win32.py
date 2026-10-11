@@ -534,7 +534,12 @@ def object_security(handle) -> ObjectSecurity:
 
 def set_private_dacl(handle) -> None:
     """Replace the object's DACL with the private descriptor's, protected from inheritance."""
-    with SecurityDescriptor(PRIVATE_SDDL) as descriptor:
+    set_dacl(handle, PRIVATE_SDDL)
+
+
+def set_dacl(handle, sddl: str) -> None:
+    """Replace the object's DACL with ``sddl``'s, protected from inheritance."""
+    with SecurityDescriptor(sddl) as descriptor:
         status = SetSecurityInfo(
             handle, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
             None, None, descriptor.dacl(), None)

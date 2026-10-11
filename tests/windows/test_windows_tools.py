@@ -402,7 +402,7 @@ async def test_remote_commands_go_over_ssh_with_the_active_lease(monkeypatch):
         calls.append(kwargs)
         return 0, "remote ok"
 
-    monkeypatch.setattr(executor_module, "run_ssh_command", ssh)
+    monkeypatch.setattr(tools, "remote_ssh", ssh)  # Windows' OpenSSH route (phase 3b)
     lease = SimpleNamespace(target=SimpleNamespace(
         address="192.0.2.10", ssh_user="deploy", key_path="lease-key",
         known_hosts_path="lease-kh", port=2222, host_key_alias="odin-x", runtime_key="rk"))

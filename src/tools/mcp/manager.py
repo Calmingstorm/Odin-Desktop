@@ -33,6 +33,7 @@ from typing import Any
 from urllib.parse import unquote, unquote_plus, urlsplit
 
 from ...config.schema import MCPConfig
+from ...desktop.platform.variants import windows_variant
 from ...llm.secret_scrubber import scrub_output_secrets
 from ...odin_log import get_logger
 from . import protocol as proto
@@ -108,6 +109,7 @@ class _DesiredStateTransition:
     reconcile_names: tuple[str, ...]
 
 
+@windows_variant("src.desktop.platform.windows_mcp:validate_server_config")
 def validate_server_config(name: str, config: dict[str, Any]) -> None:
     if len(name) > proto.MAX_AUDIT_IDENTIFIER_CHARS:
         raise MCPConfigError(
