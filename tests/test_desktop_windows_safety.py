@@ -391,14 +391,92 @@ def test_review_b1_sql_text_floor(statement, template):
 @pytest.mark.parametrize("command", [
     "sc fixture.txt ready", "sc.exe query fixture", "sc.exe query stop", r"sc.exe \\fixture query stop", r"sc.exe \\fixture",
     "net user", "net user fixture",
-    "net localgroup fixture", "net user fixture /domain", "net start fixture",
-    "Set-LocalUser fixture -Description ready", "winget list", "choco list",
+    "net localgroup fixture", "net user fixture /domain", "net start",
+    "Get-LocalUser fixture", "winget list", "choco list",
     "winget search uninstall", "choco info uninstall",
     "msiexec.exe /i fixture.msi", "Invoke-Sqlcmd -Query 'SELECT * FROM fixture'",
     "Invoke-Sqlcmd -InputFile fixture.sql", "Get-Process",
 ])
 def test_review_b1_nonmutating_forms(command):
     assert win.classify_command(command).level == (RiskLevel.MEDIUM if command.startswith("sc fixture") else RiskLevel.LOW)
+
+
+@pytest.mark.parametrize("command", [
+    "winget remove fixture", "WINGET.EXE RM fixture", "winget uninstall fixture",
+    r"& 'C:\Program Files\winget.exe' remove fixture",
+    "cmd.exe /c 'winget rm fixture'",
+])
+def test_review_r2_package_aliases(command):
+    assert win.assess_command(command).assessment == RiskAssessment(RiskLevel.HIGH, "package removal")
+
+
+@pytest.mark.parametrize("command", [
+    "Start-Service fixture", "START-SERVICE -Name fixture", "sc.exe start fixture",
+    r"sc.exe \\fixture start fixture", "cmd.exe /c 'sc start fixture'",
+    "net start fixture", "NET1.EXE START fixture", "cmd.exe /c 'net start fixture'",
+])
+def test_review_r2_service_start(command):
+    assert win.assess_command(command).assessment == RiskAssessment(RiskLevel.MEDIUM, "service lifecycle change")
+
+
+@pytest.mark.parametrize("command", [
+    "Set-LocalUser fixture -Description ready", "Set-LocalUser -Name fixture -AccountExpires $fixture",
+    "Disable-LocalUser fixture", "Enable-LocalUser -Name fixture",
+    "Rename-LocalUser fixture -NewName renamed", "Remove-LocalGroupMember fixture -Member member",
+    "Set-LocalGroup fixture -Description ready", "Rename-LocalGroup fixture -NewName renamed",
+    "net user fixture /active:no", "net user fixture /expires:never",
+    "NET1.EXE USER fixture /FULLNAME:ready /domain", "net user fixture /passwordreq:yes",
+    "net user fixture /times:all", "net user fixture /comment:ready",
+    "cmd.exe /c 'net user fixture /active:yes'",
+    "powershell.exe -Command 'Disable-LocalUser fixture'",
+])
+def test_review_r2_account_modification(command):
+    assert win.assess_command(command).assessment == RiskAssessment(RiskLevel.MEDIUM, "user/group management")
+
+
+@pytest.mark.parametrize("command", [
+    "msiexec.exe -x fixture.msi", "MSIEXEC.EXE -Xfixture.msi",
+    "msiexec.exe -X{00000000-0000-0000-0000-000000000000}",
+    "msiexec.exe -uninstall fixture.msi", "msiexec.exe -UNINSTALL fixture.msp /package fixture.msi",
+    "cmd.exe /c 'msiexec.exe -x fixture.msi'",
+    r"& 'C:\Windows\System32\msiexec.exe' -uninstall fixture.msi",
+])
+def test_review_r2_msiexec_dash(command):
+    assert win.assess_command(command).assessment == RiskAssessment(RiskLevel.HIGH, "package removal")
+
+
+@pytest.mark.parametrize("command,level", [
+    ("winget search remove", RiskLevel.LOW), ("winget show rm", RiskLevel.LOW),
+    ("winget list uninstall", RiskLevel.LOW), ("winget remover fixture", RiskLevel.LOW),
+    ("choco info remove", RiskLevel.LOW), ("Write-Output 'winget rm fixture'", RiskLevel.LOW),
+    ("sc.exe query start", RiskLevel.LOW), (r"sc.exe \\fixture query start", RiskLevel.LOW),
+    ("sc start fixture", RiskLevel.MEDIUM),  # PowerShell's Set-Content, not Service Control.
+    ("Get-Service start", RiskLevel.LOW), ("net start", RiskLevel.LOW),
+    ("net1.exe start /help", RiskLevel.LOW), ("net help start", RiskLevel.LOW),
+    ("net starter fixture", RiskLevel.LOW), ("Write-Output 'Start-Service fixture'", RiskLevel.LOW),
+    ("Get-LocalUser Disable-LocalUser", RiskLevel.LOW), ("Get-LocalGroup Set-LocalGroup", RiskLevel.LOW),
+    ("Get-LocalGroupMember fixture", RiskLevel.LOW), ("net user", RiskLevel.LOW),
+    ("net user /domain", RiskLevel.LOW), ("net user fixture", RiskLevel.LOW),
+    ("net user fixture /domain", RiskLevel.LOW), ("net user fixture /help", RiskLevel.LOW),
+    ("net1.exe user fixture /?", RiskLevel.LOW), ("net help user", RiskLevel.LOW),
+    ("Write-Output 'Set-LocalUser fixture -Description ready'", RiskLevel.LOW),
+    ("Set-LocalUser fixture -Password $fixture -Description ready", RiskLevel.HIGH),
+    ("net user fixture inert-fixture-password /active:no", RiskLevel.HIGH),
+    ("net user fixture /delete /domain", RiskLevel.HIGH),
+    ("net user fixture /add /active:no", RiskLevel.MEDIUM),
+    ("Remove-LocalUser fixture", RiskLevel.HIGH), ("Remove-LocalGroup fixture", RiskLevel.HIGH),
+    ("msiexec.exe -i fixture.msi", RiskLevel.LOW), ("msiexec.exe /i xfixture.msi", RiskLevel.LOW),
+    ("msiexec.exe /i fixture.msi /l*x fixture.log", RiskLevel.LOW),
+    ("msiexec.exe /i fixture.msi NOTE=-x", RiskLevel.LOW),
+    ("msiexec.exe /i fixture.msi NOTE=-uninstall", RiskLevel.LOW),
+    ("msiexec.exe -uninstaller fixture.msi", RiskLevel.LOW),
+    ("Write-Output 'msiexec.exe -x fixture.msi'", RiskLevel.LOW),
+    ("# msiexec.exe -uninstall fixture.msi\nGet-Process", RiskLevel.LOW),
+])
+def test_review_r2_false_positive_controls(command, level):
+    assert win.classify_command(command).level == level
+    if command == "sc start fixture":
+        assert win.classify_command(command).reason == "file/registry mutation"
 
 
 @pytest.mark.parametrize("command", [

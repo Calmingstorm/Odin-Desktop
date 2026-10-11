@@ -353,9 +353,14 @@ def _scan(command, shell="powershell", depth=0):
             # sc.exe is native Service Control; bare PowerShell sc stays the
             # Set-Content alias. A remote server may precede the verb.
             add(RiskLevel.HIGH, "service lifecycle change")
+        elif name == "start-service" or name == "sc" and service_args[:1] == ["start"]:
+            add(RiskLevel.MEDIUM, "service lifecycle change")
         elif name in {"net", "net1"} and lower:
             if lower[0] == "stop":
                 add(RiskLevel.HIGH, "service lifecycle change")
+            elif lower[0] == "start" and len(args) > 1 and not args[1].startswith("/"):
+                # Bare net start lists running services; a service operand starts one.
+                add(RiskLevel.MEDIUM, "service lifecycle change")
             elif lower[0] in {"user", "localgroup"}:
                 if "/delete" in lower:
                     add(RiskLevel.HIGH, "user/group deletion")
@@ -363,12 +368,18 @@ def _scan(command, shell="powershell", depth=0):
                     add(RiskLevel.MEDIUM, "user/group management")
                 elif lower[0] == "user" and len(args) >= 3 and not args[2].startswith("/"):
                     add(RiskLevel.HIGH, "password change")
+                elif (lower[0] == "user" and len(args) >= 3 and not args[1].startswith("/")
+                      and any(a.startswith("/") and a not in {"/domain", "/help", "/?"} for a in lower[2:])):
+                    add(RiskLevel.MEDIUM, "user/group management")
         elif name == "set-localuser" and _param(args, "password"):
             add(RiskLevel.HIGH, "password change")
-        elif name in {"new-localuser", "new-localgroup", "add-localgroupmember"}:
+        elif name in {"new-localuser", "new-localgroup", "add-localgroupmember",
+                      "set-localuser", "disable-localuser", "enable-localuser", "rename-localuser",
+                      "remove-localgroupmember", "set-localgroup", "rename-localgroup"}:
             add(RiskLevel.MEDIUM, "user/group management")
-        elif (name in {"winget", "choco"} and lower[:1] == ["uninstall"]
-              or name == "msiexec" and any(a == "/uninstall" or a.startswith("/x") for a in lower)
+        elif (name == "winget" and lower[:1] in [["uninstall"], ["remove"], ["rm"]]
+              or name == "choco" and lower[:1] == ["uninstall"]
+              or name == "msiexec" and any(a in {"/uninstall", "-uninstall"} or a.startswith(("/x", "-x")) for a in lower)
               or name == "uninstall-package"):
             add(RiskLevel.HIGH, "package removal")
         elif name in {"set-netfirewallprofile", "netsh"}:
