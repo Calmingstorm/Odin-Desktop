@@ -357,6 +357,7 @@
     "src/desktop/platform/windows_process.py": "04947634147a31b1e5bea7cdaa14f5569eaf872ff21c35e368e780c696c1a5e2",
     "src/desktop/platform/windows_read.py": "d35bd01071b87d76bbb7cbd0d0f705ebaea1d1723855034b6a42da6a6f6e3129",
     "src/desktop/platform/windows_remote.py": "2a439b98309401f27883645f64724a0012d0c7b927badbeac6327de3009477a5",
+    "src/desktop/platform/windows_safety.py": "66cc55c895c745c674eb73cbb228d92baca7d39ff7eac6bea8189ff62f905516",
     "src/desktop/platform/windows_secrets.py": "5192bd47ac1ff125ad2b927601092c1ea9eb662b2017ff47a49c41fe6bc318bb",
     "src/desktop/platform/windows_ssh.py": "34846c2aa40d6b6f49be76e65acac1dc116e7609e08956907f5be1b883c64089",
     "src/desktop/platform/windows_tools.py": "ca99ac55720afd548d31e2c99cea45d2b7e41b407a664d8301388a6f3dc93d91",

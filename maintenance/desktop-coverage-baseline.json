@@ -2996,6 +2996,7 @@
     "src/desktop/platform/windows_process.py",
     "src/desktop/platform/windows_read.py",
     "src/desktop/platform/windows_remote.py",
+    "src/desktop/platform/windows_safety.py",
     "src/desktop/platform/windows_secrets.py",
     "src/desktop/platform/windows_ssh.py",
     "src/desktop/platform/windows_tools.py",
@@ -3119,6 +3120,11 @@
         "covered": 213,
         "missing": 3,
         "total": 216
+      },
+      "src/desktop/platform/windows_safety.py": {
+        "covered": 359,
+        "missing": 10,
+        "total": 369
       },
       "src/desktop/platform/windows_secrets.py": {
         "covered": 30,
