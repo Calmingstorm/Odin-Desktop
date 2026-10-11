@@ -117,7 +117,6 @@ Var odinLeaseId
   ${EndIf}
 !macroend
 
-; The lease file's identity (volume serial and file index), as the marker records it.
 ; The lease handle's facts: its identity (volume serial and file index) and whether it is an
 ; ordinary file of its own (no reparse point, one link). BY_HANDLE_FILE_INFORMATION is read as
 ; 13 DWORDs, so no alignment question arises. Uses $3-$9.
@@ -237,12 +236,11 @@ Var odinLeaseId
 
 !ifndef BUILD_UNINSTALLER
   !macro customInstall
-    ; The fence comes down only if the lease is still the one this run took and the app, its
-    ; uninstaller and its sealed bundle's manifest are in place. Otherwise it stays, and Odin keeps
-    ; refusing to start until an installer run completes.
-    !insertmacro odinLeaseFacts $0 $1
-    ${If} $0 != ""
-    ${AndIf} $0 == $odinLeaseId
+    ; The fence comes down only if this run holds the lease (taken by customCheckAppRunning, held
+    ; until this process ends, never shared for deletion) and the app, its uninstaller and its
+    ; sealed bundle's manifest are in place. Otherwise it stays, and Odin keeps refusing to start
+    ; until an installer run completes.
+    ${If} $odinLeaseId != ""
     ${AndIf} ${FileExists} "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
     ${AndIf} ${FileExists} "$INSTDIR\${UNINSTALL_FILENAME}"
     ${AndIf} ${FileExists} "$INSTDIR\resources\bundle-manifest.json"

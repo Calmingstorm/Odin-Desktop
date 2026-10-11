@@ -28,8 +28,12 @@ with the limits below accepted for the first Windows release.
 - **An unfinished run fences Odin.** `transaction.json` is written before anything changes. While it exists, the
   app's guardian refuses every start ("An Odin installation didn't finish. Run the Odin installer again.", exit 75 on
   Windows only). The installer removes it only when all of these hold:
-  - the lease is still the one this run took;
+  - this run holds the lease: taken at its start, held until it exits, and never shared for deletion, so the lease
+    file can't be deleted or renamed meanwhile;
   - `Odin.exe`, the uninstaller and the sealed bundle's manifest are in place.
+
+  The marker records the lease's file identity, the operation and the target version, for diagnosis. Nothing
+  reads them: the marker's presence is the fence.
 
   An uninstall leaves its marker: with no tree nothing can start, and the next install takes it over.
 - **Upgrades:** electron-builder runs the old uninstaller with `--updated`. When it finds the installer's marker, it
