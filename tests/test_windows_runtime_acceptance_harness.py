@@ -141,7 +141,8 @@ def healthy():
 
 
 def judge(rows, listing="complete"):
-    return HARNESS.judge_browser({"listing": {"status": listing}, "processes": rows}, BUNDLE)
+    return HARNESS.judge_browser({"listing": {"status": listing}, "processes": rows,
+                                  "unreadable": [], "exited": [], "stale_links": []}, BUNDLE)
 
 
 def refused(rows, listing="complete"):
@@ -176,4 +177,90 @@ def test_the_browser_verdict_needs_every_relevant_process_fully_observed(monkeyp
                    + healthy()[1:])
     assert refused(healthy()[:3])  # no renderer at all
     assert refused(healthy(), listing="failed")
+
+
+PYTHON = BUNDLE + r"\runtime\python\python.exe"
+ROOT_PID = 100
+
+
+class Table:
+    """A process table for lineage_processes: pid -> (parent, image, created, command line,
+    token). Hidden pids can't be read; gone pids vanish after the first listing."""
+
+    def __init__(self, rows, hidden=(), gone=()):
+        self.rows, self.hidden, self.gone = rows, set(hidden), set(gone)
+        self.listings, self.read = 0, set()
+
+    def processes(self):
+        self.listings += 1
+        return {"status": "complete", "items": [
+            (pid, row[0]) for pid, row in self.rows.items()
+            if self.listings == 1 or pid not in self.gone]}
+
+    def image(self, pid):
+        self.read.add(pid)
+        return None if pid in self.hidden else self.rows[pid][1]
+
+    def created(self, pid):
+        return None if pid in self.hidden else self.rows[pid][2]
+
+    def command_line(self, pid):
+        return self.rows[pid][3]
+
+    def token(self, pid):
+        return self.rows[pid][4]
+
+    def modules(self, pid):
+        return complete(self.rows[pid][1])
+
+
+def browser_rows(extra=None):
+    rows = {ROOT_PID: (1, PYTHON, 1, "python -I", PLAIN),
+            200: (ROOT_PID, NODE, 2, "node.exe cli.js", PLAIN),
+            300: (200, CHROME, 3, "chrome --headless", PLAIN),
+            301: (300, CHROME, 4, "chrome --type=gpu-process", PLAIN),
+            302: (300, CHROME, 5, "chrome --type=renderer", SANDBOXED),
+            900: (1, r"C:\Program Files\Unrelated\service.exe", 0, None, {})}
+    return {**rows, **(extra or {})}
+
+
+def lineage(table):
+    return HARNESS.lineage_processes(BUNDLE, table, root=ROOT_PID)
+
+
+def test_discovery_accounts_for_every_live_descendant_of_this_run(monkeypatch):
+    monkeypatch.setenv("SystemRoot", r"C:\Windows")
+    table = Table(browser_rows(), hidden={900})
+    judged = HARNESS.judge_browser(lineage(table), BUNDLE)
+    assert sorted(row["pid"] for row in judged) == [200, 300, 301, 302]
+    assert 900 not in table.read  # outside the lineage: never read
+    # One healthy renderer doesn't qualify another whose image can't be read while it lives.
+    extra = browser_rows({303: (300, CHROME, 6, "chrome --type=renderer", SANDBOXED)})
+    hidden = lineage(Table(extra, hidden={303}))
+    assert hidden["unreadable"] == [{"pid": 303, "parent": 300}]
+    assert refused_evidence(hidden)
+    gone = lineage(Table(extra, hidden={303}, gone={303}))  # it exited while we looked
+    assert gone["exited"] == [{"pid": 303, "parent": 300}] and not gone["unreadable"]
+    HARNESS.judge_browser(gone, BUNDLE)
+
+
+def test_a_reused_pid_link_is_left_out_and_strangers_or_helpers_are_judged(monkeypatch):
+    monkeypatch.setenv("SystemRoot", r"C:\Windows")
+    # Its parent pid is Chromium's, but it was created first: a reused pid, not a child.
+    stale = lineage(Table(browser_rows({400: (300, r"C:\Other\tool.exe", 2, "x", {})})))
+    assert [row["pid"] for row in stale["stale_links"]] == [400]
+    HARNESS.judge_browser(stale, BUNDLE)
+    stranger = browser_rows({500: (300, r"C:\Temp\other.exe", 7, "other", PLAIN)})
+    assert refused_evidence(lineage(Table(stranger)))
+    helper = browser_rows({501: (200, r"C:\Windows\System32\conhost.exe", 3, "conhost", {})})
+    judged = HARNESS.judge_browser(lineage(Table(helper)), BUNDLE)
+    assert {row["pid"] for row in judged} >= {501}
+
+
+def refused_evidence(evidence):
+    try:
+        HARNESS.judge_browser(evidence, BUNDLE)
+    except AssertionError:
+        return True
+    return False
 

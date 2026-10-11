@@ -139,7 +139,7 @@ def native():
     invalid = {None, 0, ctypes.c_void_p(-1).value}
     limited = win32.PROCESS_QUERY_LIMITED_INFORMATION
 
-    def walk(flags, pid, first, step, entry_type, field):
+    def walk(flags, pid, first, step, entry_type, read):
         def open_snapshot():
             for _ in range(5):  # ERROR_BAD_LENGTH: the process was loading a module; ask again
                 handle = snapshot(flags, pid)
@@ -151,7 +151,7 @@ def native():
         entry.size = ctypes.sizeof(entry)
         return observe(open_snapshot, lambda handle: first(handle, ctypes.byref(entry)),
                        lambda handle: step(handle, ctypes.byref(entry)),
-                       lambda: getattr(entry, field), ctypes.get_last_error,
+                       lambda: read(entry), ctypes.get_last_error,
                        kernel32.CloseHandle)
 
     def opened(pid, action):
@@ -180,6 +180,12 @@ def native():
         text = UnicodeString.from_buffer(buffer)
         return ctypes.wstring_at(text.buffer, text.length // 2) if text.buffer else ""
 
+    def created(handle):
+        times = [wintypes.FILETIME() for _ in range(4)]
+        if not kernel32.GetProcessTimes(handle, *(ctypes.byref(time) for time in times)):
+            return None
+        return times[0].dwHighDateTime << 32 | times[0].dwLowDateTime
+
     def token(handle):
         facts = {}
         try:
@@ -198,12 +204,14 @@ def native():
                 kernel32.CloseHandle(held)
         return facts
 
+    kernel32.GetProcessTimes.argtypes = [ctypes.c_void_p, *[ctypes.POINTER(wintypes.FILETIME)] * 4]
     return SimpleNamespace(
         processes=lambda: walk(0x2, 0, kernel32.Process32FirstW, kernel32.Process32NextW,
-                               ProcessEntry, "pid"),
+                               ProcessEntry, lambda entry: (entry.pid, entry.parent)),
         modules=lambda pid: walk(0x18, pid, kernel32.Module32FirstW, kernel32.Module32NextW,
-                                 ModuleEntry, "path"),
+                                 ModuleEntry, lambda entry: entry.path),
         image=lambda pid: opened(pid, image),
+        created=lambda pid: opened(pid, created),
         command_line=lambda pid: opened(pid, command_line),
         token=lambda pid: opened(pid, token))
 
@@ -281,38 +289,69 @@ def own_modules() -> dict:
     return qualified_modules(native().modules(os.getpid()), sys.executable, bundle)
 
 
-def bundle_processes(bundle: Path, query=None) -> dict:
-    """Every other process running from the bundle, as observed: its image, command line (None
-    when unreadable, and then its type and flags unknown), token and module walk."""
+def lineage_processes(bundle: Path, query=None, root: int | None = None) -> dict:
+    """Every process descended from this one (the browser's lineage: the Playwright driver,
+    Chromium and their children), as observed, from one complete listing's parent links.
+
+    A child created before its parent is a stale link through a reused PID and is left out. A
+    descendant whose image or creation time can't be read is unreadable, unless a second listing
+    shows it gone, and then it exited. Processes outside the lineage are never read."""
     query = query or native()
+    root = os.getpid() if root is None else root
     listing = query.processes()
-    rows = []
-    for pid in listing["items"]:
-        if pid == os.getpid():
-            continue
-        image = query.image(pid)
-        if not image or not under(image, bundle):
-            continue
-        command = query.command_line(pid)
-        kind = re.search(r"--type=([\w-]+)", command or "")
-        rows.append({"image": image, "pid": pid, "command_line": command,
-                     "type": None if command is None else kind.group(1) if kind else "main",
-                     "no_sandbox_flag": None if command is None else "--no-sandbox" in command,
-                     "token": query.token(pid) or {}, "modules": query.modules(pid)})
-    return {"listing": {key: value for key, value in listing.items() if key != "items"},
-            "processes": rows}
+    evidence = {"listing": {key: value for key, value in listing.items() if key != "items"},
+                "processes": [], "unreadable": [], "exited": [], "stale_links": []}
+    if listing["status"] != "complete":
+        return evidence
+    children: dict[int, list[int]] = {}
+    for pid, parent in listing["items"]:
+        children.setdefault(parent, []).append(pid)
+    born = {root: query.created(root)}
+    frontier, seen = [root], {root}
+    while frontier:
+        parent = frontier.pop()
+        for pid in children.get(parent, []):
+            if pid in seen:
+                continue
+            seen.add(pid)
+            image, created = query.image(pid), query.created(pid)
+            if image is None or created is None:
+                again = query.processes()
+                alive = again["status"] != "complete" or (pid, parent) in again["items"]
+                evidence["unreadable" if alive else "exited"].append({"pid": pid,
+                                                                      "parent": parent})
+                continue
+            if born.get(parent) is not None and created < born[parent]:
+                evidence["stale_links"].append({"pid": pid, "parent": parent, "image": image})
+                continue
+            born[pid] = created
+            frontier.append(pid)
+            command = query.command_line(pid)
+            kind = re.search(r"--type=([\w-]+)", command or "")
+            evidence["processes"].append({
+                "image": image, "pid": pid, "parent": parent, "command_line": command,
+                "type": None if command is None else kind.group(1) if kind else "main",
+                "no_sandbox_flag": None if command is None else "--no-sandbox" in command,
+                "token": query.token(pid) or {}, "modules": query.modules(pid)})
+    return evidence
 
 
 def judge_browser(evidence: dict, bundle: Path) -> list[dict]:
-    """The browser case's verdict over bundle_processes. Every Chromium and Node process must be
-    fully observed: a read command line (so its type and flags are known) and a qualified module
-    walk. Every renderer runs at untrusted or low integrity with a restricted or AppContainer
-    token, and no Chromium process carries --no-sandbox. Raises on anything else."""
+    """The browser case's verdict over lineage_processes. Every live descendant is accounted
+    for: none unreadable, each from the bundle or from Windows (a helper such as a console host).
+    Every bundle process is fully observed: a read command line (so its type and flags are
+    known) and a qualified module walk. Every renderer runs at untrusted or low integrity with a
+    restricted or AppContainer token, and no Chromium process carries --no-sandbox. Raises on
+    anything else."""
     assert evidence["listing"]["status"] == "complete", f"process listing: {evidence['listing']}"
-    relevant = [row for row in evidence["processes"] if ntpath.basename(row["image"]).lower()
-                in {"chrome-headless-shell.exe", "node.exe"}]
+    assert not evidence["unreadable"], f"unclassified live descendants: {evidence['unreadable']}"
+    windows = os.environ.get("SystemRoot") or r"C:\Windows"
     judged = []
-    for row in relevant:
+    for row in evidence["processes"]:
+        if not under(row["image"], bundle):
+            assert under(row["image"], windows), f"a descendant from outside the bundle: {row}"
+            judged.append({**row, "modules": "a Windows helper; not judged"})
+            continue
         assert row["command_line"] is not None, f"unclassified process (command line unread): {row}"
         judged.append({**row, "image": ntpath.relpath(row["image"], str(bundle)),
                        "modules": qualified_modules(row["modules"], row["image"], bundle)})
@@ -372,10 +411,12 @@ async def browser() -> dict:
             assert executable.is_relative_to(Path(sys.prefix).resolve().parent)
             assert executable.suffix.lower() == ".exe"
             bundle = Path(sys.prefix).resolve().parent.parent
-            processes = judge_browser(bundle_processes(bundle), bundle)
+            lineage = lineage_processes(bundle)
+            processes = judge_browser(lineage, bundle)
             return {"browser": manager._browser.version, "executable": str(executable),
                     "screenshot_bytes": len(image), "title": await page.title(),
-                    "processes": processes}
+                    "processes": processes, "exited": lineage["exited"],
+                    "stale_links": lineage["stale_links"]}
         finally:
             await context.close()
     finally:

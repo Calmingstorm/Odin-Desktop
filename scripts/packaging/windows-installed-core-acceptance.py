@@ -34,6 +34,28 @@ MODEL = "canned-contract"
 PROMPT = "[tool] Run the scripted local tool."
 REPLY = "Scripted reply: the installed tool ran."
 MARK = "installed core tool ran"
+# Every check a complete run reports, in order. The installer acceptance reads this list
+# (--list-checks), never the report's own, to judge a report complete; a check named otherwise
+# is a harness error.
+REQUIRED = (
+    "the installed interpreter, isolated",
+    "the installed core authenticates and welcomes over its sealed pipe",
+    "the core is the bundled interpreter, isolated, running the bundled engine",
+    "health.get answers",
+    "the compat provider serves the scripted model",
+    "a tool turn completes, its tool's effect on disk",
+    "a skill's dependencies (a wheel and a source package built by pip) install through the "
+    "bundled pip into the profile",
+    "Exit ends every process from the install",
+    "after a relaunch the turn is still there",
+    "and so are the settings",
+    "and the skill still imports its packages",
+    "the install tree is unchanged by all of it (a tool turn, a skill install, a restart)",
+    "the probe skill is removed again",
+    "a client offering protocol major 1 is refused",
+    "Exit again ends every process from the install",
+)
+ENDED = "the run reached its end"
 
 
 def probe(token: str) -> SimpleNamespace:
@@ -41,7 +63,10 @@ def probe(token: str) -> SimpleNamespace:
     never holds this run's skill or package already."""
     return SimpleNamespace(skill=f"skill_package_probe_{token}",
                            package=f"odin-skill-probe-{token}", module=f"odin_skill_probe_{token}",
-                           version="1.0", mark=f"odin skill probe {token}")
+                           version="1.0", mark=f"odin skill probe {token}",
+                           source=f"odin-source-probe-{token}",
+                           source_module=f"odin_source_probe_{token}",
+                           source_mark=f"odin source probe {token}")
 
 
 def scripted_model(marker: Path) -> http.server.ThreadingHTTPServer:
@@ -127,21 +152,80 @@ def probe_wheel(folder: Path, names: SimpleNamespace) -> Path:
     return wheel
 
 
-def package_index(wheel: Path, names: SimpleNamespace) -> http.server.ThreadingHTTPServer:
-    """A PEP 503 simple index on 127.0.0.1 holding only the probe wheel (pip treats loopback as
-    a secure origin)."""
-    data = wheel.read_bytes()
-    link = f"/files/{wheel.name}#sha256={hashlib.sha256(data).hexdigest()}"
+SOURCE_BACKEND = """import base64, hashlib, os, zipfile
+
+NAME, MODULE, MARK = {name!r}, {module!r}, {mark!r}
+
+
+def get_requires_for_build_wheel(config_settings=None):
+    return []
+
+
+def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
+    info = MODULE + "-1.0.dist-info"
+    files = {{MODULE + "/__init__.py": "MARK = " + repr(MARK) + "\\n",
+              info + "/METADATA": "Metadata-Version: 2.1\\nName: " + NAME + "\\nVersion: 1.0\\n",
+              info + "/WHEEL": "Wheel-Version: 1.0\\nRoot-Is-Purelib: true\\nTag: py3-none-any\\n"}}
+    name = MODULE + "-1.0-py3-none-any.whl"
+    record = []
+    with zipfile.ZipFile(os.path.join(wheel_directory, name), "w") as archive:
+        for path, text in files.items():
+            data = text.encode()
+            archive.writestr(path, data)
+            digest = base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
+            record.append(path + ",sha256=" + digest + "," + str(len(data)))
+        archive.writestr(info + "/RECORD", "\\n".join(record + [info + "/RECORD,,"]) + "\\n")
+    return name
+
+
+def build_sdist(sdist_directory, config_settings=None):
+    raise NotImplementedError
+"""
+
+
+def probe_sdist(folder: Path, names: SimpleNamespace) -> Path:
+    """A source-only probe package: pip builds it through its in-tree backend, in hook processes
+    it starts without interpreter flags (the no-bytecode rule reaches them by environment)."""
+    import io
+    import tarfile
+
+    root = f"{names.source_module}-{names.version}"
+    sdist = folder / f"{root}.tar.gz"
+    members = {"pyproject.toml": ('[build-system]\nrequires = []\nbuild-backend = "backend"\n'
+                                  'backend-path = ["."]\n'),
+               "backend.py": SOURCE_BACKEND.format(name=names.source, module=names.source_module,
+                                                   mark=names.source_mark),
+               "PKG-INFO": (f"Metadata-Version: 2.1\nName: {names.source}\n"
+                            f"Version: {names.version}\n")}
+    with tarfile.open(sdist, "w:gz") as archive:
+        for name, text in members.items():
+            data = text.encode()
+            info = tarfile.TarInfo(f"{root}/{name}")
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+    return sdist
+
+
+def package_index(archives: dict[str, Path]) -> http.server.ThreadingHTTPServer:
+    """A PEP 503 simple index on 127.0.0.1, one archive per project name (pip treats loopback
+    as a secure origin)."""
+    served = {path.name: path.read_bytes() for path in archives.values()}
+    links = {project: f"/files/{path.name}#sha256={hashlib.sha256(served[path.name]).hexdigest()}"
+             for project, path in archives.items()}
 
     class Index(http.server.BaseHTTPRequestHandler):
         def log_message(self, *args):
             pass
 
         def do_GET(self):  # noqa: N802 - http.server's name
-            if self.path.rstrip("/") == f"/simple/{names.package}":
-                body, kind = f'<a href="{link}">{wheel.name}</a>'.encode(), "text/html"
-            elif self.path == f"/files/{wheel.name}":
-                body, kind = data, "application/octet-stream"
+            project = self.path.rstrip("/").removeprefix("/simple/")
+            name = self.path.removeprefix("/files/")
+            if project in links:
+                link = links[project]
+                text = f'<a href="{link}">{link.split("/")[-1].split("#")[0]}</a>'
+                body, kind = text.encode(), "text/html"
+            elif self.path.startswith("/files/") and name in served:
+                body, kind = served[name], "application/octet-stream"
             else:
                 self.send_error(404)
                 return
@@ -159,9 +243,11 @@ def package_index(wheel: Path, names: SimpleNamespace) -> http.server.ThreadingH
 def skill_code(names: SimpleNamespace) -> str:
     definition = {"name": names.skill, "description": "Installed-core acceptance probe",
                   "input_schema": {"type": "object", "properties": {}},
-                  "dependencies": [f"{names.package}=={names.version}"]}
+                  "dependencies": [f"{names.package}=={names.version}",
+                                   f"{names.source}=={names.version}"]}
     return (f"SKILL_DEFINITION = {definition!r}\nasync def execute(inp, context):\n"
-            f"    import {names.module}\n    return {names.module}.MARK\n")
+            f"    import {names.module}, {names.source_module}\n"
+            f"    return {names.module}.MARK + ' / ' + {names.source_module}.MARK\n")
 
 
 def tree_state(root: Path) -> dict[str, tuple[int, int]]:
@@ -181,6 +267,8 @@ class Run:
         self.profile = local / "odin-desktop" / "default"
 
     def check(self, name: str, ok: bool, detail="") -> bool:
+        if name not in REQUIRED and name != ENDED:
+            raise ValueError(f"a check outside REQUIRED: {name}")
         self.checks.append({"check": name, "ok": bool(ok), "detail": str(detail)[:2000]})
         return bool(ok)
 
@@ -336,6 +424,8 @@ async def refused_major(run: Run) -> dict:
 
 
 async def acceptance(run: Run, work: Path) -> None:
+    if sys.platform != "win32":
+        raise RuntimeError("native Windows required")
     marker = work / "installed-core-marker.txt"
     marker.unlink(missing_ok=True)
     executable = Path(sys.executable).resolve()
@@ -343,7 +433,8 @@ async def acceptance(run: Run, work: Path) -> None:
               and sys.flags.isolated and sys.flags.dont_write_bytecode, executable)
     model = scripted_model(marker)
     names = probe(uuid.uuid4().hex[:8])
-    index = package_index(probe_wheel(work, names), names)
+    index = package_index({names.package: probe_wheel(work, names),
+                           names.source: probe_sdist(work, names)})
     config = Path(os.environ["APPDATA"]) / "pip" / "pip.ini"
     kept = config.read_bytes() if config.exists() else None
     config.parent.mkdir(parents=True, exist_ok=True)
@@ -381,11 +472,13 @@ async def acceptance(run: Run, work: Path) -> None:
             saved = await call(client, "skills.save",
                                {"name": names.skill, "code": skill_code(names), "create": True})
             tested = await skill_test(client, names)
-            placed = [str(path) for path in run.profile.rglob(f"{names.module}/__init__.py")]
-            run.check("a skill's dependency installs through the bundled pip into the profile",
+            placed = [str(path) for module in (names.module, names.source_module)
+                      for path in run.profile.rglob(f"{module}/__init__.py")]
+            run.check("a skill's dependencies (a wheel and a source package built by pip) install "
+                      "through the bundled pip into the profile",
                       tested.get("is_error") is False and names.mark in str(tested.get("result"))
-                      and placed and not any(Path(path).is_relative_to(run.install)
-                                             for path in placed),
+                      and names.source_mark in str(tested.get("result")) and len(placed) == 2
+                      and not any(Path(path).is_relative_to(run.install) for path in placed),
                       json.dumps({"saved": saved, "tested": tested, "placed": placed})[:1500])
         finally:
             await client.close()
@@ -403,8 +496,9 @@ async def acceptance(run: Run, work: Path) -> None:
             served = (await call(client, "status.get"))["model"]
             run.check("and so are the settings", served.get("main") == MODEL, served)
             tested = await skill_test(client, names)
-            run.check("and the skill still imports its package", tested.get("is_error") is False
-                      and names.mark in str(tested.get("result")), json.dumps(tested)[:500])
+            run.check("and the skill still imports its packages", tested.get("is_error") is False
+                      and names.mark in str(tested.get("result"))
+                      and names.source_mark in str(tested.get("result")), json.dumps(tested)[:500])
             changed = sorted(set(before.items()) ^ set(tree_state(run.install).items()))
             run.check("the install tree is unchanged by all of it (a tool turn, a skill install, "
                       "a restart)", not changed, changed[:20])
@@ -428,18 +522,24 @@ async def acceptance(run: Run, work: Path) -> None:
             config.write_bytes(kept)
 
 
-def main() -> int:
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--report", type=Path, required=True)
-    args = parser.parse_args()
+    parser.add_argument("--report", type=Path)
+    parser.add_argument("--list-checks", action="store_true",
+                        help="print the checks a complete run reports, as JSON")
+    args = parser.parse_args(argv)
+    if args.list_checks:
+        print(json.dumps(list(REQUIRED)))
+        return 0
+    if args.report is None:
+        parser.error("--report is required")
     run = Run(args.report)
-    outcome = ""
+    outcome, completed = "", False
     try:
-        if sys.platform != "win32":
-            raise RuntimeError("native Windows required")
         work = Path(os.environ.get("TEMP") or args.report.parent)
         asyncio.run(acceptance(run, work))
-    except Exception as exc:  # any failure is a failed check, never a lost report
+        completed = True
+    except BaseException as exc:  # an interruption too: a failed check, never a lost report
         outcome = f"{type(exc).__name__}: {exc}"
         try:
             left = run.exit_app() if run.exe.exists() and run.processes() else []
@@ -449,9 +549,10 @@ def main() -> int:
             outcome += f" (cleanup: {type(cleanup).__name__}: {cleanup})"
     finally:
         if outcome:
-            run.check("the run reached its end", False, outcome)
+            run.check(ENDED, False, outcome)
         failed = [item for item in run.checks if not item["ok"]]
-        args.report.write_text(json.dumps({"failed": len(failed), "checks": run.checks},
+        args.report.write_text(json.dumps({"completed": completed and not outcome,
+                                           "failed": len(failed), "checks": run.checks},
                                           indent=2) + "\n", encoding="utf-8")
     return 1 if failed else 0
 

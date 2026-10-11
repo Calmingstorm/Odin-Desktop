@@ -88,3 +88,21 @@ async def test_usage_backfill_start_failure_keeps_the_core_available(tmp_path, m
         await core.close()
         os.close(read_fd)
         os.close(write_fd)
+
+
+def test_windows_file_ids_beyond_sqlite_integers_still_index_their_source(tmp_path):
+    # NTFS file IDs are unsigned 64-bit and ReFS ones 128-bit; SQLite's INTEGER is signed 64-bit.
+    # The hosted Windows smoke logged this OverflowError in usage backfill (Odin, round 5).
+    from contextlib import closing
+    from types import SimpleNamespace
+
+    from tests.test_usage_rollup import make_rollup
+
+    rollup = make_rollup(tmp_path)
+    for inode in (2**64 - 3, 2**100 + 7, 12345):
+        stat = SimpleNamespace(st_dev=0xC0FFEE, st_ino=inode, st_size=10)
+        with closing(rollup._connect()) as conn:
+            row = rollup._source_cursor(conn, "trajectory", "turns.jsonl", stat)
+            conn.commit()
+        assert row["source_id"] == f"trajectory:{0xC0FFEE}:{inode}"  # the exact identity
+        assert row["inode"] == (inode if inode < 2**63 else inode % 2**63)

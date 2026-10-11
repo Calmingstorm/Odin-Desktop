@@ -60,6 +60,27 @@ function Cleanup([string] $cleanupStep, [scriptblock] $cleanupBlock) {
     $checks.Add([ordered]@{ check = "cleanup: $cleanupStep"; ok = $false; detail = $detail })
   }
 }
+# The installed core's report, judged at this boundary. Its checks are always kept, for diagnosis, but it counts as
+# complete only with exit 0, a well-formed report that says it completed, and every required check. The required list
+# comes from the core script itself (--list-checks), never from the report: an interrupted, partial, empty or malformed
+# report fails here.
+function Import-CoreReport([string] $report, [int] $exitCode, [string[]] $required, [string] $errorLog) {
+  $core = $null
+  try { $core = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json } catch { }
+  $items = @()
+  if ($null -ne $core -and $null -ne $core.checks) { $items = @($core.checks) }
+  foreach ($item in $items) {
+    if ($null -ne $item.check) { Check "core: $($item.check)" ([bool]$item.ok) $item.detail }
+  }
+  $names = @($items | ForEach-Object { [string]$_.check })
+  $missing = @($required | Where-Object { $names -notcontains $_ })
+  $wellFormed = $null -ne $core -and $core.completed -eq $true -and
+    ($core.failed -is [int] -or $core.failed -is [long]) -and $items.Count -gt 0
+  $tail = (Get-Content -LiteralPath $errorLog -Tail 4 -ErrorAction SilentlyContinue) -join ' / '
+  Check 'the installed core''s run completed with every required check' (
+    $exitCode -eq 0 -and $wellFormed -and @($required).Count -gt 0 -and $missing.Count -eq 0) (
+    "exit $exitCode; completed $($core.completed); missing: $($missing -join '; '); $tail")
+}
 function Finish([string] $outcome = '') {
   if ($outcome) { $checks.Add([ordered]@{ check = 'the run reached its end'; ok = $false; detail = $outcome }) }
   $failed = @($checks | Where-Object { -not $_.ok })
@@ -182,18 +203,21 @@ if ($Mode -eq 'user') {
   # relaunch, an incompatible client). Its output goes to files: a native child's stderr must not stop this script.
   $coreReport = Join-Path $env:TEMP 'odin-installed-core.json'
   $coreLog = Join-Path $env:TEMP 'odin-installed-core.log'
-  Remove-Item -LiteralPath $coreReport, $coreLog, "$coreLog.err" -ErrorAction SilentlyContinue
-  $coreRun = Start-Process -FilePath (Join-Path $inst 'resources\runtime\python\python.exe') -NoNewWindow -Wait `
+  $coreList = Join-Path $env:TEMP 'odin-installed-core-checks.json'
+  Remove-Item -LiteralPath $coreReport, $coreLog, "$coreLog.err", $coreList, "$coreList.err" -ErrorAction SilentlyContinue
+  $corePython = Join-Path $inst 'resources\runtime\python\python.exe'
+  $listRun = Start-Process -FilePath $corePython -NoNewWindow -Wait -PassThru `
+    -ArgumentList '-I', '-B', "`"$CoreScript`"", '--list-checks' `
+    -RedirectStandardOutput $coreList -RedirectStandardError "$coreList.err"
+  $required = @()
+  if ($listRun.ExitCode -eq 0) {
+    # Windows PowerShell 5.1 emits a top-level JSON array as one object: assign, then wrap.
+    try { $parsed = Get-Content -LiteralPath $coreList -Raw | ConvertFrom-Json; $required = @($parsed) } catch { }
+  }
+  $coreRun = Start-Process -FilePath $corePython -NoNewWindow -Wait `
     -PassThru -ArgumentList '-I', '-B', "`"$CoreScript`"", '--report', "`"$coreReport`"" `
     -RedirectStandardOutput $coreLog -RedirectStandardError "$coreLog.err"
-  $core = $null
-  try { $core = Get-Content -LiteralPath $coreReport -Raw | ConvertFrom-Json } catch { }
-  if ($null -eq $core) {
-    Check 'the installed core''s checks ran' $false ("exit $($coreRun.ExitCode), no report: " +
-      ((Get-Content -LiteralPath "$coreLog.err" -Tail 6 -ErrorAction SilentlyContinue) -join ' / '))
-  } else {
-    foreach ($item in $core.checks) { Check "core: $($item.check)" ([bool]$item.ok) $item.detail }
-  }
+  Import-CoreReport $coreReport $coreRun.ExitCode $required "$coreLog.err"
 
   $code = Install @('/S')
   Check 'a reinstall succeeds' ($code -eq 0 -and (Test-Path (Join-Path $inst 'Odin.exe'))) "exit $code"

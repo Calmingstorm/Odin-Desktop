@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -437,6 +439,119 @@ def test_pip_installs_into_the_profiles_package_folder(monkeypatch, tmp_path):
                                    "--upgrade", "example-package>=1"]
     assert target.stat().st_mode & 0o777 == 0o700
     assert sys.path[-1] == str(target)  # after the runtime's own packages
+
+
+BACKEND = """import base64, hashlib, json, os, sys, zipfile
+
+
+def _record(hook):
+    with open(os.environ["ODIN_PROBE_HOOK_RECORD"], "a", encoding="utf-8") as out:
+        record = {"hook": hook, "dont_write_bytecode": sys.dont_write_bytecode}
+        out.write(json.dumps(record) + "\\n")
+
+
+def get_requires_for_build_wheel(config_settings=None):
+    _record("get_requires_for_build_wheel")
+    return []
+
+
+def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
+    _record("build_wheel")
+    info = "odin_sdist_probe-1.0.dist-info"
+    files = {"odin_sdist_probe/__init__.py": "MARK = 'built from source'\\n",
+             info + "/METADATA": "Metadata-Version: 2.1\\nName: odin-sdist-probe\\nVersion: 1.0\\n",
+             info + "/WHEEL": "Wheel-Version: 1.0\\nRoot-Is-Purelib: true\\nTag: py3-none-any\\n"}
+    name = "odin_sdist_probe-1.0-py3-none-any.whl"
+    record = []
+    with zipfile.ZipFile(os.path.join(wheel_directory, name), "w") as archive:
+        for path, text in files.items():
+            data = text.encode()
+            archive.writestr(path, data)
+            digest = base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
+            record.append(path + ",sha256=" + digest + "," + str(len(data)))
+        archive.writestr(info + "/RECORD", "\\n".join(record + [info + "/RECORD,,"]) + "\\n")
+    return name
+
+
+def build_sdist(sdist_directory, config_settings=None):
+    raise NotImplementedError
+"""
+
+
+def probe_sdist(folder) -> Path:
+    """A source package whose in-tree build backend records how its hook processes run."""
+    import io
+    import tarfile
+
+    sdist = folder / "odin_sdist_probe-1.0.tar.gz"
+    members = {"pyproject.toml": ('[build-system]\nrequires = []\nbuild-backend = "backend"\n'
+                                  'backend-path = ["."]\n'),
+               "backend.py": BACKEND,
+               "PKG-INFO": "Metadata-Version: 2.1\nName: odin-sdist-probe\nVersion: 1.0\n"}
+    with tarfile.open(sdist, "w:gz") as archive:
+        for name, text in members.items():
+            data = text.encode()
+            info = tarfile.TarInfo(f"odin_sdist_probe-1.0/{name}")
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+    return sdist
+
+
+def simple_index(package: str, archive: Path):
+    """A one-package PEP 503 index on 127.0.0.1 (a secure origin to pip)."""
+    import hashlib
+    import http.server
+    import threading
+
+    data = archive.read_bytes()
+    link = f"/files/{archive.name}#sha256={hashlib.sha256(data).hexdigest()}"
+
+    class Index(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):  # noqa: N802 - http.server's name
+            if self.path.rstrip("/") == f"/simple/{package}":
+                body, kind = f'<a href="{link}">{archive.name}</a>'.encode(), "text/html"
+            elif self.path == f"/files/{archive.name}":
+                body, kind = data, "application/octet-stream"
+            else:
+                self.send_error(404)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Index)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+def test_a_source_packages_build_hooks_inherit_no_bytecode(monkeypatch, tmp_path):
+    # pip runs a source package's build backend in children it starts without flags. With -B
+    # (Desktop's core) the environment carries the rule to them; a plain run (Odin) stays plain.
+    server = simple_index("odin-sdist-probe", probe_sdist(tmp_path))
+    try:
+        monkeypatch.setattr(sys, "path", [*sys.path])
+        monkeypatch.setenv("PIP_INDEX_URL", f"http://127.0.0.1:{server.server_address[1]}/simple/")
+        monkeypatch.setenv("PIP_CONFIG_FILE", os.devnull)
+        monkeypatch.setenv("PIP_NO_CACHE_DIR", "1")
+        monkeypatch.delenv("PYTHONDONTWRITEBYTECODE", raising=False)  # each arm decides
+        for no_bytecode in (True, False):
+            record = tmp_path / f"hooks-{no_bytecode}.jsonl"
+            monkeypatch.setenv("ODIN_PROBE_HOOK_RECORD", str(record))
+            monkeypatch.setattr(sys, "dont_write_bytecode", no_bytecode)
+            ok, detail = _install_packages(["odin-sdist-probe==1.0"],
+                                           target=tmp_path / f"target-{no_bytecode}")
+            assert ok, detail
+            hooks = [json.loads(line) for line in record.read_text().splitlines()]
+            assert {"get_requires_for_build_wheel", "build_wheel"} <= {h["hook"] for h in hooks}
+            assert {hook["dont_write_bytecode"] for hook in hooks} == {no_bytecode}
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 def demo_wheel(folder) -> None:

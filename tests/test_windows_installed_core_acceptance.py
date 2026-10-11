@@ -63,20 +63,24 @@ def test_the_scripted_model_answers_the_judge_the_tool_turn_and_a_plain_turn(tmp
         server.server_close()
 
 
-def test_the_probe_package_installs_with_pip_from_the_loopback_index(tmp_path):
-    server = CORE.package_index(CORE.probe_wheel(tmp_path, NAMES), NAMES)
+def test_both_probe_packages_install_with_pip_from_the_loopback_index(tmp_path):
+    # The wheel installs as it is; the source package is built by pip through its in-tree backend.
+    server = CORE.package_index({NAMES.package: CORE.probe_wheel(tmp_path, NAMES),
+                                 NAMES.source: CORE.probe_sdist(tmp_path, NAMES)})
     try:
         target = tmp_path / "target"
         index = f"http://127.0.0.1:{server.server_address[1]}/simple/"
         result = subprocess.run(
             [sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check",
              "--no-cache-dir", "--target", str(target), "--index-url", index,
-             f"{NAMES.package}=={NAMES.version}"],
+             f"{NAMES.package}=={NAMES.version}", f"{NAMES.source}=={NAMES.version}"],
             capture_output=True, text=True, timeout=120,
             env={**os.environ, "PIP_CONFIG_FILE": os.devnull})
         assert result.returncode == 0, result.stderr
         module = (target / NAMES.module / "__init__.py").read_text()
         assert module == f'MARK = "{NAMES.mark}"\n'
+        built = (target / NAMES.source_module / "__init__.py").read_text()
+        assert built == f"MARK = {NAMES.source_mark!r}\n"
     finally:
         server.shutdown()
         server.server_close()
@@ -87,6 +91,43 @@ def test_the_probe_skill_declares_its_runs_package():
     exec(compile(CORE.skill_code(NAMES), "skill", "exec"), namespace)  # noqa: S102 - our own source
     definition = namespace["SKILL_DEFINITION"]
     assert definition["name"] == NAMES.skill
-    assert definition["dependencies"] == [f"{NAMES.package}=={NAMES.version}"]
+    assert definition["dependencies"] == [f"{NAMES.package}=={NAMES.version}",
+                                          f"{NAMES.source}=={NAMES.version}"]
     assert CORE.probe("ffff0000").skill != NAMES.skill  # each run names its own
 
+
+
+def test_the_required_checks_are_listed_for_the_consumer(capsys):
+    assert CORE.main(["--list-checks"]) == 0
+    assert json.loads(capsys.readouterr().out) == list(CORE.REQUIRED)
+
+
+def test_an_interrupted_run_reports_itself_incomplete(monkeypatch, tmp_path):
+    # Odin's round 5 reproduction: one successful check, then an interruption.
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+
+    async def interrupted(run, work):
+        run.check(CORE.REQUIRED[0], True)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(CORE, "acceptance", interrupted)
+    report = tmp_path / "core.json"
+    assert CORE.main(["--report", str(report)]) == 1
+    written = json.loads(report.read_text())
+    assert written["completed"] is False and written["failed"] == 1
+    assert [item["check"] for item in written["checks"]] == [CORE.REQUIRED[0], CORE.ENDED]
+    assert written["checks"][-1]["detail"].startswith("KeyboardInterrupt")
+
+
+def test_a_check_outside_the_required_list_fails_the_run(monkeypatch, tmp_path):
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+
+    async def misnamed(run, work):
+        run.check("a check nobody listed", True)
+
+    monkeypatch.setattr(CORE, "acceptance", misnamed)
+    report = tmp_path / "core.json"
+    assert CORE.main(["--report", str(report)]) == 1
+    written = json.loads(report.read_text())
+    assert written["completed"] is False
+    assert "a check outside REQUIRED" in written["checks"][-1]["detail"]
