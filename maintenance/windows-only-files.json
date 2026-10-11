@@ -13,6 +13,7 @@
   "src/desktop/platform/windows_locks.py",
   "src/desktop/platform/windows_mcp.py",
   "src/desktop/platform/windows_patch.py",
+  "src/desktop/platform/windows_payloads.py",
   "src/desktop/platform/windows_process.py",
   "src/desktop/platform/windows_read.py",
   "src/desktop/platform/windows_remote.py",

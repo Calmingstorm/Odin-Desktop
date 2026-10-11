@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path, PurePosixPath
 import shutil
+import sys
 import tomllib
+from pathlib import Path, PurePosixPath
 
 LOCK_PATH = Path(__file__).with_name("pdf.lock.json")
 REPOSITORY = Path(__file__).resolve().parents[3]
@@ -45,14 +46,16 @@ def assert_no_pdf_payload(root: Path) -> dict:
 def stage_pdf(bundle_root: Path, cache_dir: Path) -> dict:
     """Copy the immutable download lock. No wheel/license staging or download."""
     root = Path(bundle_root).resolve()
-    lock = json.loads(LOCK_PATH.read_text())
+    lock_path = (Path(__file__).with_name("pdf.lock.win_amd64.json")
+                 if sys.platform == "win32" else LOCK_PATH)
+    lock = json.loads(lock_path.read_text())
     _locked_wheel(lock)
     assert_no_pdf_payload(root)
     root.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(LOCK_PATH, root / "pdf.lock.json")
+    shutil.copyfile(lock_path, root / "pdf.lock.json")
     return {"name": "pdf-first-use", "version": lock["version"],
             "distribution": "not bundled", "download": {"url": lock["url"],
             "sha256": lock["sha256"], "wheel": lock["wheel"]},
-            "provenance": {"input_lock": "app/packaging/python/pdf.lock.json",
+            "provenance": {"input_lock": "app/packaging/python/" + lock_path.name,
                            "optional_dependency_lock": "uv.lock"},
             "installed_payload": [], "licenses": []}

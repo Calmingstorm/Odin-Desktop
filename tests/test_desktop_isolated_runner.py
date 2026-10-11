@@ -434,17 +434,18 @@ def test_windows_job_uses_exact_pinned_python_and_uv():
     workflow = yaml.safe_load((ROOT / ".github/workflows/phase1-engine.yml").read_text())
     assert workflow["jobs"]["windows-engine"]["uses"] == "./.github/workflows/windows-engine.yml"
     windows = yaml.safe_load((ROOT / ".github/workflows/windows-engine.yml").read_text())
-    [job] = windows["jobs"].values()
-    assert job["runs-on"] == "windows-2025"
-    setup = next(step for step in job["steps"]
-                 if step.get("uses", "").startswith("actions/setup-python@"))
-    assert re.fullmatch(r"actions/setup-python@[0-9a-f]{40}", setup["uses"])
-    environment = next(step for step in job["steps"] if "uv sync" in step.get("run", ""))["run"]
-    assert "uv==0.12.23" in environment and "uv python install 3.12.15" in environment
-    assert "uv venv --python 3.12.15" in environment and "--locked" in environment
-    for step in job["steps"]:
-        if "uses" in step:
-            assert re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
+    assert set(windows["jobs"]) == {"windows-engine", "windows-runtime"}
+    for job in windows["jobs"].values():
+        assert job["runs-on"] == "windows-2025"
+        setup = next(step for step in job["steps"]
+                     if step.get("uses", "").startswith("actions/setup-python@"))
+        assert re.fullmatch(r"actions/setup-python@[0-9a-f]{40}", setup["uses"])
+        environment = next(step for step in job["steps"] if "uv sync" in step.get("run", ""))["run"]
+        assert "uv==0.12.23" in environment and "uv python install 3.12.15" in environment
+        assert "uv venv --python 3.12.15" in environment and "--locked" in environment
+        for step in job["steps"]:
+            if "uses" in step:
+                assert re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
 
 
 def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():

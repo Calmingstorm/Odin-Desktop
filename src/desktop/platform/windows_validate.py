@@ -27,6 +27,7 @@ from collections.abc import Callable
 from contextvars import ContextVar
 
 from .windows_exec import ps_quote
+from .windows_payloads import curl_policy_args, packaged_root
 
 # (is this alias this computer?, the run's default host)
 VALIDATION_HOSTS: ContextVar[tuple[Callable[[str], bool], str | None] | None] = ContextVar(
@@ -58,9 +59,18 @@ def build_command(check) -> str | None:
 def windows_probe(check) -> str | None:
     t, target, timeout = check.type, check.target, int(check.timeout_seconds)
     if t == "http":
+        prefix = "$curl = Join-Path $env:SystemRoot 'System32\\curl.exe'\n"
+        policy = ""
+        if packaged_root() is not None:
+            from .windows_helpers import curl_exe
+
+            prefix = f"$curl = {ps_quote(curl_exe())}\n"
+            prefix += ("Remove-Item Env:CURL_CA_BUNDLE,Env:SSL_CERT_FILE,Env:SSL_CERT_DIR "
+                       "-ErrorAction SilentlyContinue\n")
+            policy = " ".join(ps_quote(arg) for arg in curl_policy_args()) + " "
         return (
-            "$curl = Join-Path $env:SystemRoot 'System32\\curl.exe'\n"
-            f"$o = & $curl -sS -o NUL -w '%{{http_code}}' --max-time {timeout} -L "
+            prefix
+            + f"$o = & $curl {policy}-sS -o NUL -w '%{{http_code}}' --max-time {timeout} -L "
             f"{ps_quote(target)} 2>&1 | ForEach-Object {{ \"$_\" }}\n"
             "$r = $LASTEXITCODE\n"
             "$o -join \"`n\"\n"

@@ -237,8 +237,92 @@ def _stage_licenses(bundle_root: Path, cache: Path, spec: dict) -> list[dict]:
     return result
 
 
+def _locked_pip(spec: dict) -> dict:
+    """Named Linux exception: pip is an exact uv.lock wheel, not bootstrap pip."""
+    pin = spec["pip"]
+    lock = tomllib.loads((REPO / "uv.lock").read_text())
+    packages = [p for p in lock["package"] if p["name"] == "pip"]
+    if len(packages) != 1 or packages[0]["version"] != pin["version"]:
+        raise ValueError("Pinned runtime pip differs from uv.lock")
+    if (pin.get("named_change") != "linux-pinned-pip-runtime-exception"
+            or not pin.get("license") or not pin.get("provenance")):
+        raise ValueError("Runtime pip requires named-change, license and provenance")
+    matches = [w for w in packages[0].get("wheels", [])
+               if w["url"] == pin["url"]
+               and w["hash"] == "sha256:" + pin["sha256"]
+               and w["size"] == pin["size"]]
+    if len(matches) != 1 or not pin["url"].endswith(
+            f"/pip-{pin['version']}-py3-none-any.whl"):
+        raise ValueError("Pinned runtime pip artifact differs from uv.lock")
+    return pin
+
+
+def _stage_pip(bundle_root: Path, cache: Path, spec: dict) -> dict:
+    """Replace bootstrap payload with an exact wheel in an unpublished stage.
+
+    No entrypoint or generated installer metadata is added. Validate the entire
+    wheel before removing upstream pip, including a shadowing --target version.
+    """
+    pin = _locked_pip(spec)
+    artifact = _download(pin, cache / "artifacts")
+    if artifact.stat().st_size != pin["size"]:
+        raise ValueError("Pinned runtime pip artifact size mismatch")
+    dist_info = f"pip-{pin['version']}.dist-info"
+    site = bundle_root / SITE
+    with zipfile.ZipFile(artifact) as archive:
+        names = set()
+        payload = []
+        for info in archive.infolist():
+            path = _safe_path(info.filename)
+            if (info.filename in names or path.parts[0] not in {"pip", dist_info}
+                    or stat.S_ISLNK(info.external_attr >> 16)):
+                raise ValueError(f"Unexpected pinned pip wheel member: {info.filename}")
+            names.add(info.filename)
+            if not info.is_dir():
+                payload.append({"path": (SITE / info.filename).as_posix(),
+                                "sha256": hashlib.sha256(archive.read(info)).hexdigest()})
+        metadata = email.message_from_bytes(archive.read(f"{dist_info}/METADATA"))
+        wheel = email.message_from_bytes(archive.read(f"{dist_info}/WHEEL"))
+        if (metadata.get("Name") != "pip" or metadata.get("Version") != pin["version"]
+                or metadata.get("License-Expression") != pin["license"]
+                or wheel.get_all("Tag") != ["py3-none-any"]
+                or wheel.get("Root-Is-Purelib") != "true"):
+            raise ValueError("Pinned runtime pip wheel metadata mismatch")
+        with tempfile.TemporaryDirectory(dir=cache, prefix="pinned-pip-") as temporary:
+            staged = Path(temporary)
+            archive.extractall(staged)
+            site.mkdir(parents=True, exist_ok=True)
+            shutil.rmtree(site / "pip", ignore_errors=True)
+            for old in site.glob("pip-*.dist-info"):
+                shutil.rmtree(old)
+            for name in ("pip", dist_info):
+                shutil.move(str(staged / name), str(site / name))
+    return {"pin": pin, "payload": sorted(payload, key=lambda p: p["path"]),
+            "license_files": [row for row in sorted(payload, key=lambda p: p["path"])
+                              if re.search(r"(?i)(license|copying|notice)", row["path"])],
+            "install": "exact wheel extraction; upstream bootstrap pip replaced",
+            "invocation": "python/bin/python3.12 -I -B -m pip"}
+
+
+def _verify_staged_pip(bundle_root: Path, previous: dict, spec: dict) -> None:
+    """An old or modified cache cannot silently become a mixed pip stage."""
+    pin = _locked_pip(spec)
+    record = previous.get("pip", {})
+    if record.get("pin") != pin or not record.get("payload"):
+        raise ValueError("Pinned pip lock changed/missing; stage a new bundle root")
+    expected = {row["path"]: row["sha256"] for row in record["payload"]}
+    site = bundle_root / SITE
+    roots = [site / "pip", *site.glob("pip-*.dist-info")]
+    if any(root.is_symlink() for root in roots):
+        raise ValueError("Pinned pip payload symlink; stage a new bundle root")
+    actual = {p.relative_to(bundle_root).as_posix(): sha256(p)
+              for root in roots for p in root.rglob("*") if p.is_file()}
+    if actual != expected or any(p.is_symlink() for root in roots for p in root.rglob("*")):
+        raise ValueError("Pinned pip payload changed; stage a new bundle root")
+
+
 def _clean_runtime(bundle_root: Path) -> None:
-    """Remove build-only entry points/bootstrap installer and generated caches."""
+    """Remove build-only entry points/ensurepip and caches; retain pinned pip."""
     site = bundle_root / SITE
     for path in (bundle_root / "python/bin").iterdir():
         if path.name not in {"python", "python3", "python3.12"}:
@@ -247,9 +331,6 @@ def _clean_runtime(bundle_root: Path) -> None:
             else:
                 path.unlink()
     shutil.rmtree(site / "bin", ignore_errors=True)
-    shutil.rmtree(site / "pip", ignore_errors=True)
-    for path in site.glob("pip-*.dist-info"):
-        shutil.rmtree(path)
     shutil.rmtree(bundle_root / "python/lib/python3.12/ensurepip", ignore_errors=True)
     for path in (bundle_root / "python").rglob("__pycache__"):
         shutil.rmtree(path)
@@ -299,6 +380,7 @@ def stage_runtime(bundle_root: Path, cache_dir: Path) -> dict:
     if (bundle_root / "python").exists():
         metadata_path = bundle_root / "python/runtime-metadata.json"
         previous = json.loads(metadata_path.read_text())
+        _verify_staged_pip(bundle_root, previous, spec)
         if (previous["uv_lock_sha256"] != sha256(REPO / "uv.lock")
                 or previous["python"] != spec["python"]):
             raise ValueError("Dependency/runtime lock changed; stage a new bundle root")
@@ -344,11 +426,15 @@ def stage_runtime(bundle_root: Path, cache_dir: Path) -> dict:
               "--no-index", "--no-deps", "--no-compile", "--require-hashes", "--only-binary=:all:",
               "--find-links", str(wheels), "--target", str(work / SITE),
               "-r", str(requirements)], cache)
+        pip = _stage_pip(work, cache, spec)
+        _run([str(python), "-I", "-B", "-c",
+              "import pip,importlib.metadata as m;"
+              f"assert pip.__version__ == m.version('pip') == {spec['pip']['version']!r}"], cache)
         (work / "python").rename(bundle_root / "python")
     engine = refresh_engine(bundle_root, cache_dir)
     _clean_runtime(bundle_root)
     libc = measure_elf(bundle_root / "python")
-    result = {"schema": 1, "python": spec["python"], "build_tool": spec["uv"],
+    result = {"schema": 1, "python": spec["python"], "build_tool": spec["uv"], "pip": pip,
               "executable": "python/bin/python3.12", "site_packages": SITE.as_posix(),
               "runtime_args": ["-I", "-B", "-m", "src"],
               "uv_lock_sha256": sha256(REPO / "uv.lock"),

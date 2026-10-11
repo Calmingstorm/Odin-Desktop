@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -23,6 +24,24 @@ _DESKTOP_ENV = frozenset({
 })
 
 
+def validate_windows_driver(bundle_root: Path) -> None:
+    """Playwright's driver must come from the same runtime, with no Node override."""
+    if any(os.environ.get(key) for key in ("PLAYWRIGHT_NODEJS_PATH", "NODE_OPTIONS", "NODE_PATH")):
+        raise RuntimeError("Browser unavailable: external Playwright/Node overrides are refused.")
+    from importlib.util import find_spec
+
+    spec = find_spec("playwright")
+    if spec is None or spec.origin is None:
+        raise RuntimeError("Browser unavailable: bundled Windows Playwright is missing.")
+    root = Path(bundle_root).resolve()
+    runtime = root / "runtime" if (root / "runtime").is_dir() else root
+    module = Path(spec.origin)
+    driver = module.parent / "driver/node.exe"
+    if (not module.resolve().is_relative_to(runtime) or not driver.is_file()
+            or not driver.resolve().is_relative_to(runtime) or driver.is_symlink()):
+        raise RuntimeError("Browser unavailable: install-relative Playwright node.exe is missing.")
+
+
 def resolve_bundled_chromium(bundle_root: Path) -> Path:
     """Resolve packaging-owned layouts only, never PATH or Playwright's cache.
 
@@ -34,6 +53,20 @@ def resolve_bundled_chromium(bundle_root: Path) -> Path:
     if not root.is_absolute():
         raise RuntimeError("Browser unavailable: Chromium bundle root must be absolute.")
     root = root.resolve()
+    if sys.platform == "win32":
+        relative = "browser/chromium/chrome-headless-shell-win64/chrome-headless-shell.exe"
+        for candidate in (root / "runtime" / relative, root / relative):
+            resolved = candidate.resolve()
+            if resolved.is_relative_to(root) and resolved.is_file():
+                import stat
+
+                if any(part.is_symlink() or getattr(part.lstat(), "st_file_attributes", 0) & 0x400
+                       for part in [candidate, *candidate.parents] if part.is_relative_to(root)):
+                    continue
+                if stat.S_ISREG(resolved.stat().st_mode):
+                    return resolved
+        raise RuntimeError("Browser unavailable: required bundled Chromium .exe is missing. "
+                           "Repair the desktop installation.")
     candidates = [root / "browser/chromium/chrome-headless-shell-linux64/chrome-headless-shell"]
     # Retain development bundles; P4.1 resources are the packaging authority.
     legacy_root = root / "browser" if (root / "browser").is_dir() else root
@@ -206,6 +239,8 @@ class BrowserRuntime:
             candidate = None
             self._state, self._reason = "qualifying", None
             try:
+                if sys.platform == "win32":
+                    validate_windows_driver(self.bundle_root)
                 executable = (None if self._config.cdp_url
                               else resolve_bundled_chromium(self.bundle_root))
                 candidate = self._manager_factory(
