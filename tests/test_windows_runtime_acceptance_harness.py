@@ -79,10 +79,101 @@ def test_loaded_modules_are_judged_by_origin(monkeypatch):
         r"C:\ProgramData\Microsoft\Windows Defender\Platform\4.18\MpOav.dll",
         r"C:\Users\u\AppData\Local\Programs\Odin\resources-old\x.dll",  # a sibling, not inside
     ], bundle)
-    assert (result["bundle"], result["windows"], result["extracted_into_the_profile"]) == (2, 3, 1)
+    counts = [len(result[key]) for key in ("bundle", "windows", "extracted_into_the_profile")]
+    assert counts == [2, 3, 1]
     assert result["redistributable_from_outside_the_bundle"] == [
         r"C:\Windows\System32\MSVCP140.dll", r"C:\Program Files\Other\vcruntime140_1.dll",
         r"C:\Windows\System32\libcrypto-3-x64.dll"]
     assert result["other"] == [
         r"C:\ProgramData\Microsoft\Windows Defender\Platform\4.18\MpOav.dll",
         r"C:\Users\u\AppData\Local\Programs\Odin\resources-old\x.dll"]
+
+
+def walk(items, ending, *, opened=True):
+    """observe() over a fake Toolhelp: items, then the last error the API reports."""
+    queue = list(items)
+    state = {}
+
+    def first(handle):
+        return step(handle)
+
+    def step(handle):
+        if queue:
+            state["current"] = queue.pop(0)
+            return True
+        return False
+
+    return HARNESS.observe(lambda: "handle" if opened else None, first, step,
+                           lambda: state["current"], lambda: ending, lambda handle: None)
+
+
+def test_a_walk_is_complete_only_when_the_api_says_there_are_no_more():
+    assert walk(["a", "b"], 18) == {"status": "complete", "items": ["a", "b"]}
+    assert walk([], 18) == {"status": "complete", "items": []}
+    assert walk(["a"], 31) == {"status": "failed", "error": 31, "items": ["a"]}  # after one
+    assert walk([], 5) == {"status": "failed", "error": 5, "items": []}
+    assert walk(["a"], 18, opened=False) == {"status": "unreadable", "items": []}
+
+
+BUNDLE = r"C:\Users\u\AppData\Local\Programs\Odin\resources"
+CHROME = BUNDLE + r"\runtime\browser\shell\chrome-headless-shell.exe"
+NODE = BUNDLE + r"\runtime\python\Lib\site-packages\playwright\driver\node.exe"
+SANDBOXED = {"integrity": "S-1-16-0", "restricted": True, "appcontainer": False}
+PLAIN = {"integrity": "S-1-16-8192", "restricted": False, "appcontainer": False}
+
+
+def complete(image):
+    return {"status": "complete", "items": [image, r"C:\Windows\System32\ntdll.dll"]}
+
+
+def process(image, command, token=PLAIN, modules=None, pid=1):
+    kind = None if command is None else (command.split("--type=")[1].split()[0]
+                                         if "--type=" in command else "main")
+    return {"image": image, "pid": pid, "command_line": command, "type": kind,
+            "no_sandbox_flag": None if command is None else "--no-sandbox" in command,
+            "token": token, "modules": complete(image) if modules is None else modules}
+
+
+def healthy():
+    return [process(NODE, "node.exe cli.js", pid=1), process(CHROME, "chrome --headless", pid=2),
+            process(CHROME, "chrome --type=gpu-process", pid=3),
+            process(CHROME, "chrome --type=renderer", SANDBOXED, pid=4)]
+
+
+def judge(rows, listing="complete"):
+    return HARNESS.judge_browser({"listing": {"status": listing}, "processes": rows}, BUNDLE)
+
+
+def refused(rows, listing="complete"):
+    try:
+        judge(rows, listing)
+    except AssertionError:
+        return True
+    return False
+
+
+def test_the_browser_verdict_needs_every_relevant_process_fully_observed(monkeypatch):
+    monkeypatch.setenv("SystemRoot", r"C:\Windows")
+    judged = judge(healthy())
+    assert [row["type"] for row in judged] == ["main", "main", "gpu-process", "renderer"]
+    renderer = healthy()[3]
+    assert refused(healthy()[:3] + [{**renderer, "modules": {"status": "unreadable",
+                                                             "items": []}}])
+    assert refused(healthy()[:3] + [{**renderer, "modules": {"status": "complete",
+                                                             "items": []}}])
+    assert refused(healthy()[:3] + [{**renderer, "modules": {
+        "status": "failed", "error": 31, "items": [CHROME]}}])  # failed after a valid module
+    assert refused(healthy()[:3] + [{**renderer, "modules": {  # its own image missing
+        "status": "complete", "items": [r"C:\Windows\System32\ntdll.dll"]}}])
+    assert refused(healthy()[:3] + [{**renderer, "modules": {"status": "complete", "items": [
+        CHROME, r"C:\Windows\System32\MSVCP140.dll"]}}])
+    # One healthy renderer doesn't qualify another Chromium process it couldn't classify.
+    assert refused(healthy() + [process(CHROME, None, {}, pid=9)])
+    assert refused(healthy()[:3] + [process(CHROME, "chrome --type=renderer", PLAIN, pid=4)])
+    assert refused(healthy()[:1] + [process(CHROME, "chrome --headless --no-sandbox", pid=2)]
+                   + healthy()[2:])
+    assert refused([{**healthy()[0], "modules": {"status": "unreadable", "items": []}}]
+                   + healthy()[1:])
+    assert refused(healthy()[:3])  # no renderer at all
+    assert refused(healthy(), listing="failed")
+

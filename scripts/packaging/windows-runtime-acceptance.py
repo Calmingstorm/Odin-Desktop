@@ -140,22 +140,19 @@ def native():
     limited = win32.PROCESS_QUERY_LIMITED_INFORMATION
 
     def walk(flags, pid, first, step, entry_type, field):
-        for _ in range(5):  # ERROR_BAD_LENGTH: the process was loading a module; ask again
-            handle = snapshot(flags, pid)
-            if handle not in invalid or ctypes.get_last_error() != 24:
-                break
-        if handle in invalid:
-            return None
-        try:
-            entry = entry_type()
-            entry.size = ctypes.sizeof(entry)
-            found, ok = [], first(handle, ctypes.byref(entry))
-            while ok:
-                found.append(getattr(entry, field))
-                ok = step(handle, ctypes.byref(entry))
-            return found
-        finally:
-            kernel32.CloseHandle(handle)
+        def open_snapshot():
+            for _ in range(5):  # ERROR_BAD_LENGTH: the process was loading a module; ask again
+                handle = snapshot(flags, pid)
+                if handle not in invalid or ctypes.get_last_error() != 24:
+                    break
+            return None if handle in invalid else handle
+
+        entry = entry_type()
+        entry.size = ctypes.sizeof(entry)
+        return observe(open_snapshot, lambda handle: first(handle, ctypes.byref(entry)),
+                       lambda handle: step(handle, ctypes.byref(entry)),
+                       lambda: getattr(entry, field), ctypes.get_last_error,
+                       kernel32.CloseHandle)
 
     def opened(pid, action):
         handle = kernel32.OpenProcess(limited, False, pid)
@@ -203,7 +200,7 @@ def native():
 
     return SimpleNamespace(
         processes=lambda: walk(0x2, 0, kernel32.Process32FirstW, kernel32.Process32NextW,
-                               ProcessEntry, "pid") or [],
+                               ProcessEntry, "pid"),
         modules=lambda pid: walk(0x18, pid, kernel32.Module32FirstW, kernel32.Module32NextW,
                                  ModuleEntry, "path"),
         image=lambda pid: opened(pid, image),
@@ -211,10 +208,35 @@ def native():
         token=lambda pid: opened(pid, token))
 
 
+ERROR_NO_MORE_FILES = 18
+
+
+def observe(open_snapshot, first, step, read, last_error, close) -> dict:
+    """A Toolhelp walk and how it ended. Complete only when the API reports no more entries; an
+    unopenable snapshot is unreadable, and any other ending (even after some entries) failed."""
+    handle = open_snapshot()
+    if handle is None:
+        return {"status": "unreadable", "items": []}
+    items = []
+    try:
+        ok = first(handle)
+        while ok:
+            items.append(read())
+            ok = step(handle)
+        error = last_error()
+    finally:
+        close(handle)
+    if error != ERROR_NO_MORE_FILES:
+        return {"status": "failed", "error": error, "items": items}
+    return {"status": "complete", "items": items}
+
+
 def under(path: str, root: Path | str) -> bool:
-    """Whether a Windows path lies under root, by Windows' rules on any OS (testable on Linux)."""
-    return ntpath.normcase(ntpath.abspath(path)).startswith(
-        ntpath.normcase(ntpath.abspath(str(root))).rstrip("\\") + "\\")
+    """Whether a Windows path lies under root, by Windows' rules on any OS (testable on Linux).
+    Both sides are canonical: a hosted runner's TEMP is an 8.3 short name (RUNNER~1), while a
+    loaded module's path is long. (On Linux ntpath.realpath is abspath.)"""
+    return ntpath.normcase(ntpath.realpath(path)).startswith(
+        ntpath.normcase(ntpath.realpath(str(root))).rstrip("\\") + "\\")
 
 
 def classify_modules(paths: list[str], bundle: Path) -> dict:
@@ -223,52 +245,86 @@ def classify_modules(paths: list[str], bundle: Path) -> dict:
     neither (a security product's scanner, an overlay) is listed."""
     windows = os.environ.get("SystemRoot") or r"C:\Windows"
     profile = ntpath.join(os.environ.get("LOCALAPPDATA") or str(bundle), "odin-desktop")
-    counts = {"bundle": 0, "windows": 0, "extracted_into_the_profile": 0}
-    redistributable, other = [], []
+    found = {"bundle": [], "windows": [], "extracted_into_the_profile": [],
+             "redistributable_from_outside_the_bundle": [], "other": []}
     for path in paths:
         if under(path, bundle):
-            counts["bundle"] += 1
+            found["bundle"].append(path)
         elif REDISTRIBUTABLE.match(ntpath.basename(path)):
-            redistributable.append(path)
+            found["redistributable_from_outside_the_bundle"].append(path)
         elif under(path, windows):
-            counts["windows"] += 1
+            found["windows"].append(path)
         elif under(path, profile) and re.search(r"[\\/]resources[\\/]pdf[\\/][0-9a-f]{64}[\\/]",
                                                 path):
-            counts["extracted_into_the_profile"] += 1
+            found["extracted_into_the_profile"].append(path)
         else:
-            other.append(path)
-    return {**counts, "redistributable_from_outside_the_bundle": redistributable, "other": other}
+            found["other"].append(path)
+    return found
+
+
+def qualified_modules(observation: dict, image: str, bundle: Path) -> dict:
+    """A process's modules as dependency evidence: the walk complete, nonempty and holding the
+    process's own image, and no redistributable from outside the bundle. Raises otherwise."""
+    assert observation["status"] == "complete", f"modules of {image}: {observation}"
+    paths = observation["items"]
+    canonical = ntpath.normcase(ntpath.realpath(image))
+    assert any(ntpath.normcase(ntpath.realpath(path)) == canonical for path in paths), (
+        f"modules of {image} don't include its own image: {paths}")
+    found = classify_modules(paths, bundle)
+    assert not found["redistributable_from_outside_the_bundle"], (image, found)
+    return found
 
 
 def own_modules() -> dict:
-    """This process's modules, classified; it fails on a redistributable from outside."""
+    """This process's modules after its case, qualified (see qualified_modules)."""
     bundle = Path(sys.prefix).resolve().parent.parent
-    modules = classify_modules(native().modules(os.getpid()) or [], bundle)
-    assert modules["bundle"], "no module of this process read from the bundle"
-    assert not modules["redistributable_from_outside_the_bundle"], modules
-    return modules
+    return qualified_modules(native().modules(os.getpid()), sys.executable, bundle)
 
 
-def bundle_processes(bundle: Path) -> list[dict]:
-    """Every other process running from the bundle: its modules (when this user may read them),
-    token and command line."""
-    query = native()
+def bundle_processes(bundle: Path, query=None) -> dict:
+    """Every other process running from the bundle, as observed: its image, command line (None
+    when unreadable, and then its type and flags unknown), token and module walk."""
+    query = query or native()
+    listing = query.processes()
     rows = []
-    for pid in query.processes():
+    for pid in listing["items"]:
         if pid == os.getpid():
             continue
         image = query.image(pid)
         if not image or not under(image, bundle):
             continue
-        command = query.command_line(pid) or ""
-        kind = re.search(r"--type=([\w-]+)", command)
-        modules = query.modules(pid)
-        rows.append({"image": os.path.relpath(image, bundle), "pid": pid,
-                     "type": kind.group(1) if kind else "main", "token": query.token(pid) or {},
-                     "no_sandbox_flag": "--no-sandbox" in command,
-                     "modules": (classify_modules(modules, bundle) if modules is not None
-                                 else "unreadable by this user")})
-    return rows
+        command = query.command_line(pid)
+        kind = re.search(r"--type=([\w-]+)", command or "")
+        rows.append({"image": image, "pid": pid, "command_line": command,
+                     "type": None if command is None else kind.group(1) if kind else "main",
+                     "no_sandbox_flag": None if command is None else "--no-sandbox" in command,
+                     "token": query.token(pid) or {}, "modules": query.modules(pid)})
+    return {"listing": {key: value for key, value in listing.items() if key != "items"},
+            "processes": rows}
+
+
+def judge_browser(evidence: dict, bundle: Path) -> list[dict]:
+    """The browser case's verdict over bundle_processes. Every Chromium and Node process must be
+    fully observed: a read command line (so its type and flags are known) and a qualified module
+    walk. Every renderer runs at untrusted or low integrity with a restricted or AppContainer
+    token, and no Chromium process carries --no-sandbox. Raises on anything else."""
+    assert evidence["listing"]["status"] == "complete", f"process listing: {evidence['listing']}"
+    relevant = [row for row in evidence["processes"] if ntpath.basename(row["image"]).lower()
+                in {"chrome-headless-shell.exe", "node.exe"}]
+    judged = []
+    for row in relevant:
+        assert row["command_line"] is not None, f"unclassified process (command line unread): {row}"
+        judged.append({**row, "image": ntpath.relpath(row["image"], str(bundle)),
+                       "modules": qualified_modules(row["modules"], row["image"], bundle)})
+    chromium = [row for row in judged if row["image"].lower().endswith("chrome-headless-shell.exe")]
+    renderers = [row for row in chromium if row["type"] == "renderer"]
+    assert renderers, f"no Chromium renderer observed: {judged}"
+    for row in renderers:  # Chromium's sandbox: a lowered label and a restricted token
+        facts = row["token"]
+        assert facts.get("integrity") in SANDBOXED_LEVELS, row
+        assert facts.get("restricted") or facts.get("appcontainer"), row
+    assert not any(row["no_sandbox_flag"] for row in chromium), chromium
+    return judged
 
 
 def loads() -> dict:
@@ -315,22 +371,8 @@ async def browser() -> dict:
             executable = Path(manager._bundled_executable).resolve()
             assert executable.is_relative_to(Path(sys.prefix).resolve().parent)
             assert executable.suffix.lower() == ".exe"
-            processes = bundle_processes(Path(sys.prefix).resolve().parent.parent)
-            chromium = [row for row in processes if row["image"].lower().endswith(
-                "chrome-headless-shell.exe")]
-            renderers = [row for row in chromium if row["type"] == "renderer"]
-            assert renderers, processes
-            for row in renderers:  # Chromium's sandbox: a lowered label and a restricted token
-                facts = row["token"]
-                assert facts.get("integrity") in SANDBOXED_LEVELS, row
-                assert facts.get("restricted") or facts.get("appcontainer"), row
-            assert not any(row["no_sandbox_flag"] for row in chromium), chromium
-            for row in processes:
-                if row["image"].lower().endswith(("chrome-headless-shell.exe", "node.exe")) and (
-                        row["type"] == "main"):
-                    assert isinstance(row["modules"], dict), row  # read, not assumed
-                if isinstance(row["modules"], dict):
-                    assert not row["modules"]["redistributable_from_outside_the_bundle"], row
+            bundle = Path(sys.prefix).resolve().parent.parent
+            processes = judge_browser(bundle_processes(bundle), bundle)
             return {"browser": manager._browser.version, "executable": str(executable),
                     "screenshot_bytes": len(image), "title": await page.title(),
                     "processes": processes}
@@ -578,7 +620,10 @@ def main() -> int:
     executable = resources / "runtime/python/python.exe"
     assert executable.is_file(), executable
     report = {"status": "running", "resources": str(resources), "cases": [],
-              "revision": os.environ.get("GITHUB_SHA"),
+              "revision": (os.environ.get("GITHUB_SHA")
+                           or os.environ.get("ODIN_ACCEPTANCE_REVISION")),
+              "bundle_manifest_sha256": hashlib.sha256(
+                  (resources / "bundle-manifest.json").read_bytes()).hexdigest(),
               "remaining": ["Legion Windows 11 clean-system acceptance",
                             "Linux SSH: strict host keys, wrong-key refusal, private-key ACLs",
                             "phase 4b installer/app and phase 4c whole candidate acceptance"]}
