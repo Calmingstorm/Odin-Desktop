@@ -130,6 +130,8 @@ jobs:
           npm run typecheck
           npm test -- test/isolation-launcher.test.ts test/shard-orchestration.test.ts
           npm test -- --coverage
+          # Packaging staging and sealing rules, Linux and Windows; native Windows cases run in the Windows job.
+          ../.venv/bin/python -m unittest discover -s packaging/tests
           # Four isolated namespace shards share a 10-minute aggregate bound
           # (5 minutes each), not four successive 10-minute allowances.
           npm run test:real-core

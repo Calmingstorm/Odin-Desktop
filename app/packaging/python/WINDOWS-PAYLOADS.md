@@ -59,12 +59,16 @@ The supplier build says static LibreSSL 4.3.3. Native curl --version must verify
 that backend. Both real local routes, windows_helpers.probe (http_probe) and
 windows_validate.windows_probe (validate_action HTTP), use:
 
-`curl.exe --disable --no-ca-native --cacert <absolute install-relative CA file>`
+`curl.exe --disable --ca-native`
 
-They clear CURL_CA_BUNDLE, SSL_CERT_FILE and SSL_CERT_DIR. No curlrc, native roots,
-current-directory/PATH CA discovery, insecure retry, or CA download fallback.
-Explicit caller verify_ssl=false remains separate behavior. Do not mutate the
-real user's certificate store to qualify this policy.
+That trusts the Windows certificate store, where administrators add enterprise
+roots, as Linux's curl trusts the system store. The CA bundle the build ships
+beside curl.exe is trusted as well. CURL_CA_BUNDLE, SSL_CERT_FILE and
+SSL_CERT_DIR keep curl's own meaning, as on Linux. There's no curlrc, insecure
+retry or CA download fallback. Explicit caller verify_ssl=false remains separate
+behavior. Native qualification must show trusted HTTPS succeeding and an
+untrusted certificate and a hostname mismatch refused through both routes. Do
+not mutate the real user's certificate store to qualify this policy.
 
 ## Observed checks and remaining evidence
 

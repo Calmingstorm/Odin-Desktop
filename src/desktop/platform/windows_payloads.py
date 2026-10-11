@@ -7,8 +7,6 @@ import stat
 import sys
 from pathlib import Path
 
-_CA_ENV = frozenset({"CURL_CA_BUNDLE", "SSL_CERT_FILE", "SSL_CERT_DIR"})
-
 
 def packaged_root() -> Path | None:
     prefix = Path(sys.prefix).absolute()
@@ -50,12 +48,9 @@ def packaged_file(relative: str) -> Path | None:
 
 
 def curl_policy_args() -> list[str]:
-    """Pinned Mozilla CA data only; never curlrc, CWD CA discovery or native roots."""
-    ca = packaged_file("tools/curl/curl-ca-bundle.crt")
-    return [] if ca is None else ["--disable", "--no-ca-native", "--cacert", str(ca)]
-
-
-def curl_environment() -> dict[str, str] | None:
-    if packaged_root() is None:
-        return None
-    return {key: value for key, value in os.environ.items() if key.upper() not in _CA_ENV}
+    """The bundled curl trusts what Windows trusts, as Linux's curl trusts the system store: the
+    certificate store (``--ca-native``, where enterprise roots live) on top of the CA bundle its
+    build ships beside it, with curlrc ignored (``--disable``). The user's CA variables stay as
+    curl honours them on Linux. Windows' own curl (a source run) gets no flags: it already uses
+    the store, and older builds don't know ``--ca-native``."""
+    return [] if packaged_root() is None else ["--disable", "--ca-native"]

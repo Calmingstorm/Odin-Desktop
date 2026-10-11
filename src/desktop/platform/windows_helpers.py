@@ -18,7 +18,7 @@ import shlex
 
 from ...tools.branch_freshness import FRESHNESS_CHECK_TIMEOUT
 from .windows_exec import ps_quote, release, spawn, terminate
-from .windows_payloads import curl_environment, curl_policy_args, packaged_file
+from .windows_payloads import curl_policy_args, packaged_file
 
 # --- Branch freshness -----------------------------------------------------------------------
 
@@ -93,8 +93,7 @@ async def run_argv(argv: list[str], timeout: int) -> tuple[int, str]:
     from ...tools.ssh import _truncate_output
 
     try:
-        environment = curl_environment()
-        running = await spawn(argv, **({"env": environment} if environment is not None else {}))
+        running = await spawn(argv)
     except OSError as exc:
         return 1, f"Local exec error: {safe_error(exc)}"
     try:

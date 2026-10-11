@@ -65,8 +65,6 @@ def windows_probe(check) -> str | None:
             from .windows_helpers import curl_exe
 
             prefix = f"$curl = {ps_quote(curl_exe())}\n"
-            prefix += ("Remove-Item Env:CURL_CA_BUNDLE,Env:SSL_CERT_FILE,Env:SSL_CERT_DIR "
-                       "-ErrorAction SilentlyContinue\n")
             policy = " ".join(ps_quote(arg) for arg in curl_policy_args()) + " "
         return (
             prefix

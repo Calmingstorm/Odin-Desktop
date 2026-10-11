@@ -81,7 +81,9 @@ def assert_platform_resources(files: list[dict], platform: str) -> None:
     for item in files:
         name = item['path'].casefold()
         if platform == 'win32':
-            bad = (name in {'apparmor-profile', 'ownership.py'}
+            # ownership.py is cross-platform: the installed Windows app's guardian holds the
+            # per-user nsis lease through it (phase 4b).
+            bad = (name == 'apparmor-profile'
                    or name.startswith(('runtime/helpers/', 'runtime/python/bin/'))
                    or name.endswith(('.so', '.sh', '.appimage'))
                    or '/chrome-headless-shell-linux64/' in name)

@@ -127,7 +127,9 @@ class WindowsSealing(unittest.TestCase):
             seal.windows_inventory(self.root)
 
     def test_platform_payload_refusals(self):
-        windows_forbidden = ['apparmor-profile', 'ownership.py', 'runtime/helpers/foo',
+        # ownership.py is the installed Windows app's guardian too, so Windows ships it.
+        seal.assert_platform_resources([{'path': 'ownership.py'}], 'win32')
+        windows_forbidden = ['apparmor-profile', 'runtime/helpers/foo',
                              'runtime/python/bin/python3',
                              'runtime/browser/chrome-headless-shell-linux64/chrome',
                              'foo.so', 'wrapper.sh']

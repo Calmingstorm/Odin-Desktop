@@ -24,10 +24,15 @@ _DESKTOP_ENV = frozenset({
 })
 
 
-def validate_windows_driver(bundle_root: Path) -> None:
-    """Playwright's driver must come from the same runtime, with no Node override."""
-    if any(os.environ.get(key) for key in ("PLAYWRIGHT_NODEJS_PATH", "NODE_OPTIONS", "NODE_PATH")):
-        raise RuntimeError("Browser unavailable: external Playwright/Node overrides are refused.")
+_NODE_OVERRIDES = frozenset({"PLAYWRIGHT_NODEJS_PATH", "NODE_OPTIONS", "NODE_PATH"})
+
+
+def prepare_windows_driver(bundle_root: Path) -> None:
+    """Playwright's driver must come from the same runtime, and run uninfluenced.
+
+    Its spawn uses the install-relative ``driver\\node.exe`` and drops the user's Node overrides;
+    they stay in the engine's environment, so commands Odin runs keep them, as on Linux.
+    """
     from importlib.util import find_spec
 
     spec = find_spec("playwright")
@@ -40,6 +45,20 @@ def validate_windows_driver(bundle_root: Path) -> None:
     if (not module.resolve().is_relative_to(runtime) or not driver.is_file()
             or not driver.resolve().is_relative_to(runtime) or driver.is_symlink()):
         raise RuntimeError("Browser unavailable: install-relative Playwright node.exe is missing.")
+    from playwright._impl import _transport  # the pinned 1.63.0 transport's own spawn hooks
+
+    if getattr(_transport.get_driver_env, "odin_isolated", False):
+        return
+    driver_env = _transport.get_driver_env
+    executable = (str(driver), str(module.parent / "driver" / "package" / "cli.js"))
+
+    def isolated_env() -> dict:
+        return {key: value for key, value in driver_env().items()
+                if key.upper() not in _NODE_OVERRIDES}
+
+    isolated_env.odin_isolated = True  # type: ignore[attr-defined]
+    _transport.get_driver_env = isolated_env
+    _transport.compute_driver_executable = lambda: executable
 
 
 def resolve_bundled_chromium(bundle_root: Path) -> Path:
@@ -240,7 +259,7 @@ class BrowserRuntime:
             self._state, self._reason = "qualifying", None
             try:
                 if sys.platform == "win32":
-                    validate_windows_driver(self.bundle_root)
+                    prepare_windows_driver(self.bundle_root)
                 executable = (None if self._config.cdp_url
                               else resolve_bundled_chromium(self.bundle_root))
                 candidate = self._manager_factory(
