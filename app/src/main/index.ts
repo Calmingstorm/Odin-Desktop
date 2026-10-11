@@ -35,12 +35,19 @@ import { WindowStateController, loadWindowState, objectRecord, restoreWindowStat
 // The OS-specific pieces (profile paths, start at login, package ownership, session end), chosen once.
 const platform = currentPlatform()
 
-configureIdentity(app)
+// Whether the installed app may start at all (Windows refuses an elevated token), before identity, the
+// single-instance lock or any profile write.
+const startRefusal = app.isPackaged ? (platform.startRefusal?.() ?? null) : null
+if (!startRefusal) configureIdentity(app)
 registerAppScheme()
 
 const flags = parseLaunchFlags(process.argv)
 
-if (!app.requestSingleInstanceLock()) {
+if (startRefusal) {
+  // Shown before readiness: nothing was opened, locked or written.
+  dialog.showErrorBox('Odin didn\'t start', startRefusal)
+  app.exit(1)
+} else if (!app.requestSingleInstanceLock()) {
   // Another Odin is running: it receives our argv through 'second-instance' (focus, or exit for --exit).
   app.quit()
 } else if (flags.exit) {
@@ -240,14 +247,25 @@ function run(): void {
     })
   })
 
-  const appState = (): AppState => ({
-    appVersion: app.getVersion(),
-    link: supervisorLink ?? broker.linkState,
-    coreInstanceId: broker.coreInstanceId,
-    noTray: !lifecycle.trayAvailable,
-    unreceipted: broker.unreceiptedCount,
-    cleanupWarning: cleanup.notice
+  // Where the platform describes a refused link (Windows' sealed session), the window says why until it connects.
+  let linkProblem: string | null = null
+  broker.on('protocol-error', (reason: string) => {
+    linkProblem = platform.describeLinkRefusal?.(reason) ?? null
+    if (linkProblem) publishAppState()
   })
+  const appState = (): AppState => {
+    const link = supervisorLink ?? broker.linkState
+    if (link === 'ready') linkProblem = null
+    return {
+      appVersion: app.getVersion(),
+      link,
+      coreInstanceId: broker.coreInstanceId,
+      noTray: !lifecycle.trayAvailable,
+      unreceipted: broker.unreceiptedCount,
+      cleanupWarning: cleanup.notice,
+      ...(linkProblem ? { linkProblem } : {})
+    }
+  }
 
   const publishAppState = (): void => {
     const state = appState()

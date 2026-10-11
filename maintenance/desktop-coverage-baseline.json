@@ -136,6 +136,16 @@
         "missing": 0,
         "total": 1
       },
+      "app/src/main/platform/windows-autostart.ts": {
+        "covered": 8,
+        "missing": 0,
+        "total": 8
+      },
+      "app/src/main/platform/windows-elevation.ts": {
+        "covered": 16,
+        "missing": 0,
+        "total": 16
+      },
       "app/src/main/platform/windows-paths.ts": {
         "covered": 48,
         "missing": 3,
@@ -2827,6 +2837,8 @@
     "app/src/main/platform/contracts.ts",
     "app/src/main/platform/index.ts",
     "app/src/main/platform/linux.ts",
+    "app/src/main/platform/windows-autostart.ts",
+    "app/src/main/platform/windows-elevation.ts",
     "app/src/main/platform/windows-paths.ts",
     "app/src/main/platform/windows.ts",
     "app/src/main/real-core-smoke.ts",

@@ -644,9 +644,11 @@ def delete_by_handle(handle) -> None:
 LOCK_OFFSET_HIGH = 0x7FFFFFFF
 
 
-def lock(handle, *, blocking: bool) -> None:
+def lock(handle, *, blocking: bool, shared: bool = False) -> None:
+    """Exclusive, or ``shared`` (any number of shared holders, never with an exclusive one)."""
     overlapped = OVERLAPPED(0, 0, 0, LOCK_OFFSET_HIGH, None)
-    flags = LOCKFILE_EXCLUSIVE_LOCK | (0 if blocking else LOCKFILE_FAIL_IMMEDIATELY)
+    flags = ((0 if shared else LOCKFILE_EXCLUSIVE_LOCK)
+             | (0 if blocking else LOCKFILE_FAIL_IMMEDIATELY))
     if not LockFileEx(handle, flags, 0, 1, 0, ctypes.byref(overlapped)):
         code = ctypes.get_last_error()
         if code == ERROR_LOCK_VIOLATION and not blocking:

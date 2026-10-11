@@ -1,4 +1,4 @@
-import { createServer, type Server, type Socket } from 'node:net'
+import { connect, createServer, type Server, type Socket } from 'node:net'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { tmpdir } from 'node:os'
@@ -176,6 +176,8 @@ interface FakeOptions {
   welcome?: (connection: number) => Record<string, unknown> | null
   /** Sealed frames that arrive in the same write as the welcome. */
   trailing?: (connection: number) => Record<string, unknown>[]
+  /** The endpoint name the core binds into the transcript, when the app reaches it under another (a relay). */
+  endpoint?: string
 }
 
 async function sealedCore(options: FakeOptions = {}) {
@@ -222,7 +224,7 @@ async function sealedCore(options: FakeOptions = {}) {
           const fields: TranscriptFields = {
             offered: frame.protocol as { major: number; minor: number }, selected: { major: 0, minor: 3 },
             client: frame.client as { name: string; version: string }, profileId: String(frame.profile_id),
-            endpoint: socketPath, clientNonce: Buffer.from(auth.client_nonce, 'hex'), serverNonce,
+            endpoint: options.endpoint ?? socketPath, clientNonce: Buffer.from(auth.client_nonce, 'hex'), serverNonce,
             instanceId: `core-${mine}`, maxFrame: 4194304, features: frame.features as string[]
           }
           transcript = sessionTranscript(fields)
@@ -265,7 +267,7 @@ async function sealedCore(options: FakeOptions = {}) {
   const errors: string[] = []
   broker.on('protocol-error', (message: string) => errors.push(message))
   cleanups.push(() => broker.close())
-  return { broker, hellos, raw, requests, sockets, errors }
+  return { broker, hellos, raw, requests, sockets, errors, socketPath }
 }
 
 describe('the broker over a sealed link', () => {
@@ -289,6 +291,51 @@ describe('the broker over a sealed link', () => {
       await waitFor(() => errors.length > 0)
       expect(broker.linkState).not.toBe('ready')
       expect(errors[0]).toMatch(/engine proof refused|before the session is authenticated/)
+      broker.close()
+    }
+  })
+
+  it('lets an opaque relay forward the session, reading nothing and changing nothing it can hide', async () => {
+    for (const tamper of [false, true]) {
+      const relayDir = mkdtempSync(join(tmpdir(), 'odin-relay-'))
+      const relayPath = join(relayDir, 'relay.sock')
+      const core = await sealedCore({ endpoint: relayPath })
+      const seen: Buffer[] = []
+      let flipped = false
+      const relay: Server = createServer((client) => {
+        const upstream = connect(core.socketPath)
+        client.on('data', (chunk: Buffer) => { seen.push(chunk); upstream.write(chunk) })
+        upstream.on('data', (chunk: Buffer) => {
+          // Once the plain handshake is over (the proof went up), flip one byte of what comes down.
+          const copy = Buffer.from(chunk)
+          if (tamper && !flipped && seen.length >= 2) { copy[copy.length - 1]! ^= 1; flipped = true }
+          seen.push(copy)
+          client.write(copy)
+        })
+        client.on('error', () => undefined)
+        upstream.on('error', () => undefined)
+        client.on('close', () => upstream.destroy())
+        upstream.on('close', () => client.destroy())
+      })
+      await new Promise<void>((resolve) => relay.listen(relayPath, () => resolve()))
+      const broker = new Broker({ socketPath: relayPath, readToken: () => TOKEN, profileId: 'default',
+        clientVersion: 'test', sealed: true, reconnectDelaysMs: [5_000], requestTimeoutMs: 300 })
+      const errors: string[] = []
+      broker.on('protocol-error', (message: string) => errors.push(message))
+      cleanups.push(() => { broker.close(); relay.close(); rmSync(relayDir, { recursive: true, force: true }) })
+      broker.connect()
+      if (!tamper) {
+        await waitFor(() => broker.linkState === 'ready')
+        expect(await broker.request('status.get')).toEqual({ ok: true, result: {} })
+      } else {
+        await waitFor(() => errors.length > 0)
+        expect(broker.linkState).not.toBe('ready')
+        expect(core.requests).toHaveLength(0)
+      }
+      const relayed = Buffer.concat(seen)
+      expect(relayed.includes(Buffer.from(TOKEN))).toBe(false)
+      expect(relayed.includes(Buffer.from(TOKEN, 'hex'))).toBe(false)
+      expect(relayed.includes(Buffer.from('status.get'))).toBe(false)
       broker.close()
     }
   })

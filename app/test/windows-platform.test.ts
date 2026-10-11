@@ -12,12 +12,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('electron', () => ({ app: new EventEmitter(), BrowserWindow: { getAllWindows: () => [] } }))
 
 import { safeFileName } from '../src/main/artifacts'
-import { coreCommand, WINDOWS_SOURCE_CORE_REQUIRED } from '../src/main/core-command'
+import { acquirePackagedApp, admitPackagedApp } from '../src/main/package-ownership'
+import { inspectPackagedState } from '../src/main/package-state'
+import { coreCommand, packagedCoreCommand, WINDOWS_SOURCE_CORE_REQUIRED } from '../src/main/core-command'
 import { DisplayProfileStore } from '../src/main/display-profile'
-import { configureIdentity } from '../src/main/identity'
+import { APP_ID, configureIdentity } from '../src/main/identity'
 import type { ProfilePaths } from '../src/main/paths'
 import { currentPlatform } from '../src/main/platform'
-import { AUTOSTART_UNAVAILABLE, windowsPlatform, windowsSessionMonitor } from '../src/main/platform/windows'
+import { AUTOSTART_UNAVAILABLE, describeLinkRefusal, windowsPlatform, windowsSessionMonitor } from '../src/main/platform/windows'
+import { setWindowsAutostart, windowsAutostartEnabled } from '../src/main/platform/windows-autostart'
+import { ELEVATED_REFUSAL, elevatedStartRefusal, integrityLevel, UNCHECKED_REFUSAL }
+  from '../src/main/platform/windows-elevation'
 import { ensureWindowsProfileDirs, ensureWindowsToken, localAppData, parseWhoamiUser, pipeName,
   windowsProfilePaths } from '../src/main/platform/windows-paths'
 import { CleanupJournal, type JournalFs } from '../src/main/shutdown'
@@ -202,16 +207,17 @@ describe('session end', () => {
 })
 
 describe('the Windows platform from source', () => {
-  it('is chosen on win32 and offers no installed-app members yet', async () => {
+  it('is chosen on win32; from source it has no start at login, and the package members are the shared ones', () => {
     expect(currentPlatform('win32')).toBe(windowsPlatform)
     expect(windowsPlatform.name).toBe('windows')
+    // This test's Electron app isn't packaged: a source run.
     expect(windowsPlatform.isAutostartEnabled()).toBe(false)
     expect(() => windowsPlatform.setAutostart(true, ['odin'])).toThrow(AUTOSTART_UNAVAILABLE)
     expect(windowsPlatform.autostartUnavailable).toBe(AUTOSTART_UNAVAILABLE)
-    const paths = profileAt(root())
-    expect(() => windowsPlatform.inspectPackagedState(paths, 'resources', {})).toThrow('comes with phase 4')
-    await expect(windowsPlatform.acquirePackagedApp(paths, 'resources', {})).rejects.toThrow('comes with phase 4')
-    await expect(windowsPlatform.admitPackagedApp({} as never)).rejects.toThrow('comes with phase 4')
+    // The Linux modules pick Windows' interpreter and the nsis lease by the system they run on.
+    expect(windowsPlatform.inspectPackagedState).toBe(inspectPackagedState)
+    expect(windowsPlatform.acquirePackagedApp).toBe(acquirePackagedApp)
+    expect(windowsPlatform.admitPackagedApp).toBe(admitPackagedApp)
     expect(windowsPlatform.installLogoutHook(['odin'])).toBeNull()
     expect(windowsPlatform.startSessionMonitor({ command: 'core', args: [], env: {} }, vi.fn())).not.toBeNull()
   })
@@ -236,6 +242,14 @@ describe('the Windows platform from source', () => {
     expect(app.setAppUserModelId).toHaveBeenCalledExactlyOnceWith(process.execPath)
     expect(app.getPath).not.toHaveBeenCalled()
     expect(() => configureIdentity(app, 'win32', {}, makeDir)).toThrow('LOCALAPPDATA must be set')
+  })
+
+  it('gives the installed app its shortcut\'s app ID: electron-builder\'s appId', () => {
+    const app = { setName: vi.fn(), getPath: vi.fn(), setPath: vi.fn(), setAppUserModelId: vi.fn(), isPackaged: true }
+    configureIdentity(app, 'win32', { LOCALAPPDATA: 'C:\\Users\\x\\AppData\\Local' }, vi.fn())
+    expect(app.setAppUserModelId).toHaveBeenCalledExactlyOnceWith(APP_ID)
+    const builder = readFileSync(join(__dirname, '..', 'electron-builder.yml'), 'utf8')
+    expect(builder).toMatch(new RegExp(`^appId: ${APP_ID.replaceAll('.', '\\.')}$`, 'm'))
   })
 
   it('takes the tray as available, and restores window positions', async () => {
@@ -375,5 +389,100 @@ describe('the cleanup journal on Windows', () => {
     const reread = new CleanupJournal(path, { system: 'win32' })
     expect(reread.notice).toBeNull()
     expect(reread.archived.map((row) => row.id)).toContain(notice.id)
+  })
+})
+
+describe('an elevated start of the installed app', () => {
+  // whoami /groups /fo csv /nh: each group's name, type, SID and attributes; the mandatory label is one row.
+  const groups = (label: string): string => [
+    '"Everyone","Well-known group","S-1-1-0","Mandatory group, Enabled by default, Enabled group"',
+    '"BUILTIN\\Administrators","Alias","S-1-5-32-544","Group used for deny only"',
+    `"Mandatory Label\\${label} Mandatory Level","Label","S-1-16-${{ Medium: 8192, High: 12288, System: 16384 }[label]}",""`
+  ].join('\r\n')
+  const answering = (stdout: string, status = 0) => vi.fn(() => ({ status, stdout }))
+  const env = { SystemRoot: 'C:\\Windows' }
+
+  it('reads the integrity level from whoami\'s mandatory label', () => {
+    expect(integrityLevel(groups('Medium'))).toBe(8192)
+    expect(integrityLevel(groups('High'))).toBe(12288)
+    expect(integrityLevel('"Everyone","Well-known group","S-1-1-0",""')).toBeNull()
+  })
+
+  it('lets a normal token start, a filtered administrator\'s included, and refuses High or System', () => {
+    const run = answering(groups('Medium'))
+    expect(elevatedStartRefusal(env, run)).toBeNull()
+    expect(run).toHaveBeenCalledWith('C:\\Windows\\System32\\whoami.exe', ['/groups', '/fo', 'csv', '/nh'],
+      expect.objectContaining({ windowsHide: true, timeout: 5_000 }))
+    expect(elevatedStartRefusal(env, answering(groups('High')))).toBe(ELEVATED_REFUSAL)
+    expect(elevatedStartRefusal(env, answering(groups('System')))).toBe(ELEVATED_REFUSAL)
+  })
+
+  it('refuses when it can\'t tell, rather than starting on a guess', () => {
+    expect(elevatedStartRefusal({}, answering(groups('Medium')))).toBe(UNCHECKED_REFUSAL)
+    expect(elevatedStartRefusal(env, answering(groups('Medium'), 1))).toBe(UNCHECKED_REFUSAL)
+    expect(elevatedStartRefusal(env, vi.fn(() => ({ status: null, error: new Error('timed out') })))).toBe(UNCHECKED_REFUSAL)
+    expect(elevatedStartRefusal(env, answering('"Everyone","Well-known group","S-1-1-0",""'))).toBe(UNCHECKED_REFUSAL)
+  })
+
+  it('is the Windows platform\'s start refusal', () => {
+    vi.stubEnv('SystemRoot', '')  // no whoami to ask, on any system: refused rather than guessed
+    try {
+      expect(windowsPlatform.startRefusal?.()).toBe(UNCHECKED_REFUSAL)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+})
+
+describe('the installed app\'s runtime and start at login', () => {
+  it('starts the bundled interpreter at the runtime\'s root and drops PYTHON variables whatever their case', () => {
+    const exists = vi.fn(() => true)
+    const launch = packagedCoreCommand('C:\\Programs\\Odin\\resources', ['--profile', 'default'],
+      { PythonPath: 'C:\\elsewhere', PYTHONHOME: 'C:\\home', Path: 'C:\\Windows' }, { system: 'win32', exists })
+    expect(launch.command).toBe('C:\\Programs\\Odin\\resources\\runtime\\python\\python.exe')
+    expect(launch.args).toEqual(['-I', '-B', '-m', 'src', '--profile', 'default'])
+    expect(launch.env).not.toHaveProperty('PythonPath')
+    expect(launch.env).not.toHaveProperty('PYTHONHOME')
+    expect(launch.env).toMatchObject({ Path: 'C:\\Windows',
+      ODIN_DESKTOP_BUNDLE_ROOT: 'C:\\Programs\\Odin\\resources\\runtime',
+      PLAYWRIGHT_BROWSERS_PATH: 'C:\\Programs\\Odin\\resources\\runtime\\browser' })
+    expect(exists).toHaveBeenCalledWith('C:\\Programs\\Odin\\resources\\bundle-manifest.json')
+    expect(() => packagedCoreCommand('C:\\Programs\\Odin\\resources', [], {}, { system: 'win32', exists: () => false }))
+      .toThrow('bundled runtime is missing')
+  })
+
+  const items = (settings: { openAtLogin: boolean; executableWillLaunchAtLogin: boolean }, isPackaged = true) => ({
+    isPackaged, execPath: 'C:\\Programs\\Odin\\Odin.exe',
+    getLoginItemSettings: vi.fn(() => settings), setLoginItemSettings: vi.fn()
+  }) as unknown as Parameters<typeof windowsAutostartEnabled>[2]
+
+  it('reads on only for this exact entry, registered and not disabled', () => {
+    const on = items({ openAtLogin: true, executableWillLaunchAtLogin: true })
+    expect(windowsAutostartEnabled(undefined, undefined, on)).toBe(true)
+    expect((on as any).getLoginItemSettings).toHaveBeenCalledWith({ path: 'C:\\Programs\\Odin\\Odin.exe', args: ['--hidden'] })
+    // Disabled from Task Manager's Startup page, or registered with other arguments.
+    expect(windowsAutostartEnabled(undefined, undefined, items({ openAtLogin: true, executableWillLaunchAtLogin: false }))).toBe(false)
+    expect(windowsAutostartEnabled(undefined, undefined, items({ openAtLogin: false, executableWillLaunchAtLogin: true }))).toBe(false)
+    expect(windowsAutostartEnabled(undefined, undefined, items({ openAtLogin: true, executableWillLaunchAtLogin: true }, false))).toBe(false)
+  })
+
+  it('registers and approves, or removes, the installed executable with --hidden, and refuses from source', () => {
+    const fake = items({ openAtLogin: true, executableWillLaunchAtLogin: true })
+    expect(setWindowsAutostart(true, ['ignored'], undefined, fake)).toBe(true)
+    expect((fake as any).setLoginItemSettings).toHaveBeenCalledWith({ openAtLogin: true, enabled: true,
+      path: 'C:\\Programs\\Odin\\Odin.exe', args: ['--hidden'] })
+    setWindowsAutostart(false, [], undefined, fake)
+    expect((fake as any).setLoginItemSettings).toHaveBeenLastCalledWith({ openAtLogin: false, enabled: false,
+      path: 'C:\\Programs\\Odin\\Odin.exe', args: ['--hidden'] })
+    expect(() => setWindowsAutostart(true, [], undefined, items({ openAtLogin: false, executableWillLaunchAtLogin: false }, false)))
+      .toThrow(AUTOSTART_UNAVAILABLE)
+  })
+})
+
+describe('a refused sealed session, in words', () => {
+  it('names the refusal and never claims another program holds the pipe', () => {
+    expect(describeLinkRefusal('engine proof refused')).toBe('Could not authenticate Odin\'s core: engine proof refused.')
+    expect(describeLinkRefusal('x')).not.toMatch(/another program|pipe/i)
+    expect(windowsPlatform.describeLinkRefusal).toBe(describeLinkRefusal)
   })
 })

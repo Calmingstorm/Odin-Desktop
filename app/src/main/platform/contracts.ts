@@ -21,6 +21,10 @@ export interface AppPlatform {
   inspectPackagedState: typeof inspectPackagedState
   acquirePackagedApp: typeof acquirePackagedApp
   admitPackagedApp: typeof admitPackagedApp
+  /** Why the installed app mustn't start at all, checked before anything else (Windows: an elevated token). */
+  startRefusal?: () => string | null
+  /** What the window says while a refused link retries, from the refusal's reason (Windows: the sealed session). */
+  describeLinkRefusal?: (reason: string) => string
   /** Ending the user's session: a monitor, plus the desktop's own logout hook where one is needed. */
   startSessionMonitor: typeof startSessionMonitor
   installLogoutHook: typeof installKdeLogoutHook

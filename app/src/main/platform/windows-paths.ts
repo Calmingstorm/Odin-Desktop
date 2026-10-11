@@ -26,7 +26,7 @@ export function localAppData(env: Env): string {
 }
 
 /** One CSV record's fields: quoted fields may hold commas and doubled quotes. */
-function csvFields(line: string): string[] | null {
+export function csvFields(line: string): string[] | null {
   const fields: string[] = []
   const pattern = /("(?:[^"]|"")*"|[^,"]*)(,|$)/y
   let match: RegExpExecArray | null
