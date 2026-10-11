@@ -64,3 +64,17 @@ def test_pruning_still_evicts_oldest_first_by_mtime(tmp_path):
     # The quiet channel's only archive is protected; the oldest unprotected one goes.
     assert sorted(p.name for p in directory.glob("*.json")) == [
         "busy_101.json", "busy_102.json", "quiet_100.json"]
+
+
+def test_an_archive_name_without_a_time_is_ordered_by_its_mtime(tmp_path):
+    sm = SessionManager(100, 1, str(tmp_path), archive_max_files=2)
+    directory = tmp_path / "archive"
+    directory.mkdir()
+    archive(sm, directory, "busy", "named", 100, mtime=1_000)
+    unnamed = archive(sm, directory, "busy", "unnamed", 101, mtime=5_000)
+    # No time in the name: restore orders this one by its mtime.
+    unnamed.rename(directory / "busy_copy.json")
+    archive(sm, directory, "quiet", "only", 100, mtime=500)
+    sm._prune_old_archives(directory)
+    assert sorted(p.name for p in directory.glob("*.json")) == ["busy_copy.json", "quiet_100.json"]
+    assert restored_texts(tmp_path, "busy")[-1] == "unnamed"
