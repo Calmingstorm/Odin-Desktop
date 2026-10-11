@@ -57,12 +57,21 @@ def test_payload_source_and_bad_roots(monkeypatch):
         windows_payloads.packaged_root()
 
 
+def link(path, target, *, directory=False):
+    """A symbolic link, or a skip where this user may not make one (Windows without Developer
+    Mode or administrator rights)."""
+    try:
+        path.symlink_to(target, target_is_directory=directory)
+    except OSError as error:
+        pytest.skip(f"symbolic links are unavailable to this user: {error}")
+
+
 def test_payload_reparse_alias_refused(resources, tmp_path):
     path = resources / "tools/curl/curl.exe"
     path.unlink()
     outside = tmp_path / "outside.exe"
     outside.write_bytes(b"fixture")
-    path.symlink_to(outside)
+    link(path, outside)
     with pytest.raises(FileNotFoundError, match="reparse alias"):
         windows_payloads.packaged_file("tools/curl/curl.exe")
 
@@ -110,6 +119,19 @@ def test_windows_browser_only_pinned_exe(tmp_path, monkeypatch):
     assert browser_runtime.resolve_bundled_chromium(root) == path
     path.unlink()
     (path.parent / "chrome.exe").write_bytes(b"not pinned")
+    with pytest.raises(RuntimeError, match="Chromium .exe is missing"):
+        browser_runtime.resolve_bundled_chromium(root)
+
+
+def test_windows_browser_refuses_a_link_in_its_path(tmp_path, monkeypatch):
+    monkeypatch.setattr(browser_runtime.sys, "platform", "win32")
+    root = tmp_path / "resources"
+    real = root / "elsewhere"
+    real.mkdir(parents=True)
+    (real / "chrome-headless-shell.exe").write_bytes(b"fixture")
+    folder = root / "runtime/browser/chromium/chrome-headless-shell-win64"
+    folder.parent.mkdir(parents=True)
+    link(folder, real, directory=True)  # resolves inside the install, through a link
     with pytest.raises(RuntimeError, match="Chromium .exe is missing"):
         browser_runtime.resolve_bundled_chromium(root)
 
@@ -166,6 +188,34 @@ def test_windows_driver_drops_node_overrides_without_refusing(tmp_path, monkeypa
         str(package / "driver/node.exe"), str(package / "driver/package/cli.js"))
     browser_runtime.prepare_windows_driver(tmp_path)  # once is enough: no double wrap
     assert transport.get_driver_env.odin_isolated is True
+
+
+def test_windows_driver_refuses_without_the_bundled_playwright(tmp_path, monkeypatch):
+    import importlib.util
+
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: None)
+    with pytest.raises(RuntimeError, match="bundled Windows Playwright is missing"):
+        browser_runtime.prepare_windows_driver(tmp_path)
+
+
+@pytest.mark.asyncio
+async def test_windows_qualification_prepares_the_bundled_driver_first(tmp_path, monkeypatch):
+    from src.config.schema import BrowserConfig
+
+    monkeypatch.setattr(browser_runtime.sys, "platform", "win32")
+    seen = []
+
+    def refuse(root):
+        seen.append(root)
+        raise RuntimeError("Browser unavailable: install-relative Playwright node.exe is missing.")
+
+    monkeypatch.setattr(browser_runtime, "prepare_windows_driver", refuse)
+    owner = browser_runtime.BrowserRuntime(
+        SimpleNamespace(config=SimpleNamespace(browser=BrowserConfig(enabled=True))),
+        executor=SimpleNamespace(_browser_manager=None), bundle_root=tmp_path)
+    assert not await owner.start()  # refused before any Chromium is resolved or launched
+    assert seen == [tmp_path]
+    assert owner.status()["state"] == "unavailable"
 
 
 def test_windows_driver_install_relative_only(tmp_path, monkeypatch):

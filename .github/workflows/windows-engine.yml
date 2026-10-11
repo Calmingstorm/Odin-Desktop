@@ -139,6 +139,7 @@ jobs:
         shell: pwsh
         run: |
           .venv\Scripts\python.exe -m pytest tests/windows tests/test_desktop_platform_variants.py `
+            tests/test_windows_payload_consumers.py `
             -q -p no:cacheprovider -rfEs --cov=src/desktop/platform --cov-report=json:coverage-windows.json `
             --cov-report=term-missing
       - name: Record the revision and the measured sources
