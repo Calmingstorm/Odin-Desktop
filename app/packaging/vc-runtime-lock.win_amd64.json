@@ -22,8 +22,13 @@
     "Ship only unmodified release CRT DLLs with the application; debug_nonredist payloads are not distributable.",
     "Microsoft documents app-local DLL deployment beside the executable. The application distributor must maintain and redeploy these DLLs for servicing."
   ],
-  "license_prerequisite_verified": false,
-  "license_blockers": ["Distributor's valid Visual Studio license and applicable redistribution terms have not been verified; publication requires that verification."],
+  "license_prerequisite_verified": true,
+  "license_verification": {
+    "date": "2026-10-11",
+    "basis": "The distributor holds a Visual Studio Community license. Its terms cover an individual developer's own applications and open-source projects, and include the Distributable Code rights for these files.",
+    "conditions": "Shipped unmodified, app-local beside python.exe, in an MIT-licensed application (not an Excluded License), with Microsoft's notice in python/licenses/MICROSOFT-VC-RUNTIME-NOTICE.txt."
+  },
+  "license_blockers": [],
   "release_root": "Contents/VC/Redist/MSVC/14.44.35112/x64/Microsoft.VC143.CRT",
   "files": [
     {

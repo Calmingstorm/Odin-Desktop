@@ -66,7 +66,10 @@ Independent archive/layout probing spread all 72 payloads safely (not an
 admitted stage); greenlet's sole `.data` payload is its header `greenlet.h`.
 Actual PE imports also exposed ONNX Runtime's need for `msvcp140.dll` and
 `msvcp140_1.dll`, which standalone CPython does not ship. The Microsoft app-local
-CRT pin/helper is separate and carries its redistribution-license prerequisite.
+CRT pin/helper is separate. Its redistribution prerequisite, a Visual Studio
+license held by the distributor, was verified on 2026-10-11 (Community covers an
+individual's own applications and open-source projects), and the lock records
+that. Microsoft's notice for all four runtime DLLs ships in `python/licenses`.
 With those two exactly pinned DLLs app-local, all 112 actual runtime PE images
 passed the static recursive import audit (49 distinct explicit OS imports).
 This was an offline Linux inspection of Windows bytes, not Windows execution.

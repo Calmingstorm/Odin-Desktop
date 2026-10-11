@@ -4,7 +4,8 @@ The caller owns an unpublished private CPython stage. CPython supplies the two
 vcruntime140 DLLs; this helper adds only the missing ONNX C++ DLLs beside python.exe.
 It neither inspects PATH/System32 nor executes the VSIX or any installer. Static
 checks work on any build host; native Windows load qualification remains separate.
-The return value must enter release provenance, including the license blocker.
+The return value must enter release provenance, including the license verification or its
+blockers.
 """
 from __future__ import annotations
 
@@ -36,6 +37,18 @@ def _ordinary(path: Path, *, directory=False):
         raise StageError("vc_runtime_path", PACKAGE, str(path))
 
 
+def _license_state_consistent(pin) -> bool:
+    """Unverified: blockers say why, and publication waits. Verified: no blockers, and a record
+    says when and on what basis. Anything in between is a malformed lock."""
+    verified, blockers = pin.get("license_prerequisite_verified"), pin.get("license_blockers")
+    record = pin.get("license_verification")
+    if verified is False:
+        return isinstance(blockers, list) and bool(blockers) and record is None
+    return (verified is True and blockers == [] and isinstance(record, dict)
+            and all(isinstance(record.get(key), str) and record[key].strip()
+                    for key in ("date", "basis", "conditions")))
+
+
 def _load_pin(lock_path=None):
     pin = json.loads(Path(lock_path or LOCK).read_text(encoding="utf-8"))
     validate_pin(pin, PACKAGE)
@@ -43,8 +56,7 @@ def _load_pin(lock_path=None):
             or pin.get("name") != PACKAGE or pin.get("version") != "14.44.35211"
             or pin.get("release_root") != RELEASE_ROOT
             or not pin.get("license_documents") or not pin.get("redistribution_conditions")
-            or pin.get("license_prerequisite_verified") is not False
-            or not pin.get("license_blockers")):
+            or not _license_state_consistent(pin)):
         raise StageError("vc_runtime_pin", PACKAGE)
     files = pin.get("files", [])
     if len(files) != 2 or {item.get("filename") for item in files} != REQUIRED:

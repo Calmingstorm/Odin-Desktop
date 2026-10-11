@@ -65,8 +65,10 @@ def test_exact_stage_no_installer_no_host_dlls(tmp_path, monkeypatch):
     assert (root / "vcruntime140.dll").read_bytes() == b"CPython owned"
     assert {f["destination"] for f in evidence["files"]} == vc.REQUIRED
     assert all(f["machine"] == "AMD64" for f in evidence["files"])
-    assert evidence["license_prerequisite_verified"] is False
-    assert evidence["license_blockers"]
+    # The distributor's Visual Studio license was verified (2026-10-11): the record travels with it.
+    assert evidence["license_prerequisite_verified"] is True
+    assert evidence["license_blockers"] == []
+    assert evidence["license_verification"]["date"] == "2026-10-11"
     assert evidence["installer_executed"] is False and evidence["host_dll_copies"] is False
     assert evidence["native_qualification"].startswith("pending")
     assert not list(tmp_path.glob(".vc-runtime-*"))
@@ -135,7 +137,8 @@ def test_copy_failure_rolls_back_only_own_files(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("field", ["license", "provenance", "license_documents",
-                                   "redistribution_conditions", "license_blockers"])
+                                   "redistribution_conditions", "license_blockers",
+                                   "license_prerequisite_verified", "license_verification"])
 def test_provenance_and_license_required(tmp_path, monkeypatch, field):
     root, cache, pin = fixture(tmp_path, monkeypatch)
     pin.pop(field)
@@ -143,6 +146,33 @@ def test_provenance_and_license_required(tmp_path, monkeypatch, field):
     with pytest.raises(StageError):
         vc.stage_vc_runtime(root, cache)
     assert not (root / "msvcp140.dll").exists()
+
+
+@pytest.mark.parametrize("change", [
+    {"license_blockers": ["still blocked"]},  # verified, yet blocked
+    {"license_prerequisite_verified": "true"},  # not a boolean
+    {"license_verification": {"date": "2026-10-11", "basis": " ", "conditions": "x"}},  # no basis
+    {"license_prerequisite_verified": False},  # unverified, with no blockers
+    # Unverified, with blockers, but still carrying a verification record.
+    {"license_prerequisite_verified": False, "license_blockers": ["not verified"]},
+])
+def test_the_license_state_is_one_consistent_state(tmp_path, monkeypatch, change):
+    root, cache, pin = fixture(tmp_path, monkeypatch)
+    pin.update(change)
+    vc.LOCK.write_text(json.dumps(pin))
+    with pytest.raises(StageError, match="vc_runtime_pin"):
+        vc.stage_vc_runtime(root, cache)
+    assert not (root / "msvcp140.dll").exists()
+
+
+def test_an_unverified_lock_still_stages_and_carries_its_blockers(tmp_path, monkeypatch):
+    root, cache, pin = fixture(tmp_path, monkeypatch)
+    pin.update(license_prerequisite_verified=False, license_blockers=["not verified"])
+    pin.pop("license_verification")
+    vc.LOCK.write_text(json.dumps(pin))
+    evidence = vc.stage_vc_runtime(root, cache)
+    assert evidence["license_prerequisite_verified"] is False
+    assert evidence["license_blockers"] == ["not verified"]
 
 
 def test_cache_hash_is_reverified(tmp_path, monkeypatch):

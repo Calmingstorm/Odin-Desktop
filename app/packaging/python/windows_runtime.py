@@ -482,6 +482,11 @@ def stage_windows_runtime(repo: Path, dest: Path, cache_dir: Path) -> dict:
         shutil.copyfile(upstream, legal / "UPSTREAM-LICENSE")
         licenses.append({"path": "python/licenses/UPSTREAM-LICENSE", "sha256": digest(upstream),
                          "license": "MIT"})
+        # The Microsoft runtime DLLs beside python.exe (CPython's and the pinned app-local pair).
+        notice = repo / "app/packaging/python/microsoft-vc-runtime-notice.txt"
+        shutil.copyfile(notice, legal / "MICROSOFT-VC-RUNTIME-NOTICE.txt")
+        licenses.append({"path": "python/licenses/MICROSOFT-VC-RUNTIME-NOTICE.txt",
+                         "sha256": digest(notice), "license": "Microsoft Distributable Code"})
         result = {"schema": 1, "platform": "win_amd64", "python": spec["python"],
                   "build_tool": spec["uv"], "pip": spec["pip"],
                   "executable": "python/python.exe", "site_packages": SITE.as_posix(),
