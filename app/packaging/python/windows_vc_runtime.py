@@ -15,6 +15,7 @@ import os
 import shutil
 import stat
 import tempfile
+from datetime import date
 from pathlib import Path
 
 from windows_archive import extract_archive, validate_windows_path
@@ -37,16 +38,28 @@ def _ordinary(path: Path, *, directory=False):
         raise StageError("vc_runtime_path", PACKAGE, str(path))
 
 
+def _text(value) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _calendar_date(value) -> bool:
+    try:
+        return _text(value) and date.fromisoformat(value).isoformat() == value
+    except ValueError:
+        return False
+
+
 def _license_state_consistent(pin) -> bool:
     """Unverified: blockers say why, and publication waits. Verified: no blockers, and a record
-    says when and on what basis. Anything in between is a malformed lock."""
+    says on what calendar date and on what basis. Anything in between is a malformed lock."""
     verified, blockers = pin.get("license_prerequisite_verified"), pin.get("license_blockers")
     record = pin.get("license_verification")
     if verified is False:
-        return isinstance(blockers, list) and bool(blockers) and record is None
+        return (isinstance(blockers, list) and bool(blockers) and all(map(_text, blockers))
+                and record is None)
     return (verified is True and blockers == [] and isinstance(record, dict)
-            and all(isinstance(record.get(key), str) and record[key].strip()
-                    for key in ("date", "basis", "conditions")))
+            and _calendar_date(record.get("date"))
+            and _text(record.get("basis")) and _text(record.get("conditions")))
 
 
 def _load_pin(lock_path=None):

@@ -151,7 +151,6 @@ def test_provenance_and_license_required(tmp_path, monkeypatch, field):
 @pytest.mark.parametrize("change", [
     {"license_blockers": ["still blocked"]},  # verified, yet blocked
     {"license_prerequisite_verified": "true"},  # not a boolean
-    {"license_verification": {"date": "2026-10-11", "basis": " ", "conditions": "x"}},  # no basis
     {"license_prerequisite_verified": False},  # unverified, with no blockers
     # Unverified, with blockers, but still carrying a verification record.
     {"license_prerequisite_verified": False, "license_blockers": ["not verified"]},
@@ -163,6 +162,29 @@ def test_the_license_state_is_one_consistent_state(tmp_path, monkeypatch, change
     with pytest.raises(StageError, match="vc_runtime_pin"):
         vc.stage_vc_runtime(root, cache)
     assert not (root / "msvcp140.dll").exists()
+
+
+@pytest.mark.parametrize("field,value", [
+    ("date", None), ("date", ""), ("date", "not-a-date"), ("date", "2026-13-01"),
+    ("date", "2026-10-11T00:00:00"), ("basis", None), ("basis", " "), ("conditions", None),
+    ("conditions", ""), ("conditions", 7),
+])
+def test_each_verification_field_must_hold(tmp_path, monkeypatch, field, value):
+    root, cache, pin = fixture(tmp_path, monkeypatch)
+    pin["license_verification"][field] = value
+    vc.LOCK.write_text(json.dumps(pin))
+    with pytest.raises(StageError, match="vc_runtime_pin"):
+        vc.stage_vc_runtime(root, cache)
+
+
+@pytest.mark.parametrize("blockers", [[None], [""], ["   "], ["not verified", 3]])
+def test_an_unverified_lock_needs_real_blockers(tmp_path, monkeypatch, blockers):
+    root, cache, pin = fixture(tmp_path, monkeypatch)
+    pin.update(license_prerequisite_verified=False, license_blockers=blockers)
+    pin.pop("license_verification")
+    vc.LOCK.write_text(json.dumps(pin))
+    with pytest.raises(StageError, match="vc_runtime_pin"):
+        vc.stage_vc_runtime(root, cache)
 
 
 def test_an_unverified_lock_still_stages_and_carries_its_blockers(tmp_path, monkeypatch):

@@ -69,7 +69,8 @@ Actual PE imports also exposed ONNX Runtime's need for `msvcp140.dll` and
 CRT pin/helper is separate. Its redistribution prerequisite, a Visual Studio
 license held by the distributor, was verified on 2026-10-11 (Community covers an
 individual's own applications and open-source projects), and the lock records
-that. Microsoft's notice for all four runtime DLLs ships in `python/licenses`.
+that. A Microsoft runtime notice (written by this project, not Microsoft's licence
+text) covers all four runtime DLLs and ships in `python/licenses`.
 With those two exactly pinned DLLs app-local, all 112 actual runtime PE images
 passed the static recursive import audit (49 distinct explicit OS imports).
 This was an offline Linux inspection of Windows bytes, not Windows execution.
