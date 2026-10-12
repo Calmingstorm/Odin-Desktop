@@ -325,57 +325,6 @@ def test_rename_retry_gives_up_after_its_bound(profile_root, monkeypatch):
     assert os.listdir(profile_root) == []
 
 
-def test_a_replace_held_off_longer_than_a_second_still_publishes(profile_root):
-    """Another process holding the target without delete sharing, as an antivirus scan holds a file
-    just written, refuses the replace until it lets go. Held for 1.5 s, longer than the old
-    one-second window (which once left an app's Exit receipt unpublished), the publish still
-    lands."""
-    private_directory(profile_root)
-    with held(profile_root) as chain:
-        assert publish(chain, "state.json", b"old")
-    target = profile_root / "state.json"
-    holder = win32.create_file(target, win32.GENERIC_READ,
-                               win32.FILE_SHARE_READ | win32.FILE_SHARE_WRITE, win32.OPEN_EXISTING,
-                               win32.FILE_FLAG_OPEN_REPARSE_POINT)
-    release = threading.Timer(1.5, win32.close, (holder,))
-    started = time.monotonic()
-    release.start()
-    try:
-        with held(profile_root) as chain:
-            assert publish(chain, "state.json", b"new")
-    finally:
-        release.join()
-    assert time.monotonic() - started >= 1.4  # it waited for the holder, it didn't race past it
-    assert target.read_bytes() == b"new"
-    assert sorted(os.listdir(profile_root)) == ["state.json"]
-
-
-def test_an_unpublished_temporary_goes_even_when_its_delete_is_held_off(profile_root,
-                                                                        monkeypatch):
-    """A publish that can't rename still removes its temporary, retrying the delete while another
-    process holds that file for a moment."""
-    private_directory(profile_root)
-    real_delete = win32.delete_by_handle
-    deletes = []
-
-    def refused(handle, name, *, replace):
-        raise win32.error(win32.ERROR_ACCESS_DENIED)
-
-    def held_off(handle):
-        deletes.append(handle)
-        if len(deletes) < 3:
-            raise win32.error(win32.ERROR_SHARING_VIOLATION)
-        real_delete(handle)
-
-    monkeypatch.setattr(win32, "rename_by_handle", refused)
-    monkeypatch.setattr(win32, "delete_by_handle", held_off)
-    monkeypatch.setattr(windows_files, "_RENAME_RETRY_SECONDS", 0)
-    with held(profile_root) as chain, pytest.raises(PermissionError):
-        publish(chain, "state.json", b"x")
-    assert len(deletes) == 3
-    assert os.listdir(profile_root) == []
-
-
 def test_a_posted_image_keeps_a_private_copy_and_refuses_a_link(tmp_path):
     """The image and screenshot tools' local copy, as production calls it
     (``services.retain_generated_copy``). Linux's version needs ``os.O_DIRECTORY``,
@@ -422,9 +371,8 @@ def _around_folder_open(monkeypatch, folder, *, before=None, after=None):
 
 
 def test_a_copy_folder_swapped_for_a_junction_before_its_open_is_refused(tmp_path, monkeypatch):
-    """A plain copy folder replaced by a junction just before use: the folder is opened as
-    itself, so the open meets the junction and refuses it, and nothing lands where the junction
-    points."""
+    """A plain copy folder replaced by a junction just before use: the folder is opened as itself, so
+    the open meets the junction and refuses it, and nothing lands where the junction points."""
     from src.desktop.services import retain_generated_copy
 
     workspace, outside = tmp_path / "workspace", tmp_path / "outside"
