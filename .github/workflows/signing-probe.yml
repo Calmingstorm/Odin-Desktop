@@ -23,7 +23,7 @@ jobs:
     env:
       ODIN_SIGNING_ENDPOINT: https://eus.codesigning.azure.net
       ODIN_SIGNING_ACCOUNT: Odin
-      ODIN_SIGNING_PROFILE: OdinDesktop
+      ODIN_SIGNING_PROFILE: Odin-Desktop
       ODIN_SIGNING_PUBLISHER: Aaron Charpentier
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

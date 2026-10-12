@@ -87,7 +87,7 @@ def test_it_signs_in_the_release_environment_with_githubs_identity_and_no_stored
     text = (ROOT / ".github/workflows/windows-release.yml").read_text()
     assert "secrets." not in text and "creds" not in text and "CLIENT_SECRET" not in text
     assert job["env"] == {"ODIN_SIGNING_ENDPOINT": "https://eus.codesigning.azure.net",
-                          "ODIN_SIGNING_ACCOUNT": "Odin", "ODIN_SIGNING_PROFILE": "OdinDesktop",
+                          "ODIN_SIGNING_ACCOUNT": "Odin", "ODIN_SIGNING_PROFILE": "Odin-Desktop",
                           "ODIN_SIGNING_PUBLISHER": "Aaron Charpentier"}
 
 
