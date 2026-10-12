@@ -175,8 +175,20 @@ export async function onboardingSmoke(win: BrowserWindow, broker: Broker, out: s
     assert.equal(defaults[2], true)
     await click('.settings-nav .back')
     if (scenario === 'fresh') {
+      // First open with Codex chosen and no account: the banner itself runs the sign-in.
+      assert.equal(await run<string | undefined>(`document.querySelector('.first-run-banner')?.dataset.kind`), 'sign-in', 'first open invites a Codex sign-in')
+      await button('.first-run-banner', 'Sign in with ChatGPT')
+      await until(async () => (await text('.first-run-banner .login-code')) === 'TEST-CODE', 'sign-in code in the banner')
+      await noSecrets()
+      assert.equal(await run<boolean>(`Array.from(document.querySelectorAll('.first-run-banner [role=status]')).some((e) => e.textContent.includes('TEST-CODE'))`), false, 'the sign-in code is never announced')
+      assert.equal(await run<boolean>(`document.querySelector('[data-testid=first-run-later]').disabled`), true, 'Set up later waits for Stop waiting')
+      await button('.first-run-banner', 'Stop waiting')
+      await until(async () => !(await run<boolean>(`document.querySelector('[data-testid=first-run-later]').disabled`)), 'stopped sign-in releases Set up later')
+      checks.push('banner-sign-in')
       await button('.first-run-banner', 'Set up later')
       await until(async () => await run('(async () => { const r=await window.odin.getSetupReminderHidden(); return r.ok && r.result.hidden; })()'), 'durable setup dismissal')
+      await until(async () => (await count('[data-testid=composer-setup-note]')) === 1, 'the way back after Set up later')
+      checks.push('composer-setup-note')
     } else {
       assert.equal(await count('.first-run-banner'), 0, 'second launch keeps fresh invitation dismissed')
       checks.push('dismissal-persisted')

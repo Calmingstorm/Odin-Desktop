@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { odin } from '../bridge'
 import type { ArtifactRef } from '../../../shared/api'
 
 const props = defineProps<{ artifact: ArtifactRef; /** Only the buttons, under an image already on screen. */ actionsOnly?: boolean }>()
@@ -22,10 +23,10 @@ async function act(kind: 'open' | 'save' | 'reveal'): Promise<void> {
   try {
     const result =
       kind === 'open'
-        ? await window.odin.openArtifact(params)
+        ? await odin.openArtifact(params)
         : kind === 'save'
-          ? await window.odin.saveArtifact(params)
-          : await window.odin.revealArtifact(params)
+          ? await odin.saveArtifact(params)
+          : await odin.revealArtifact(params)
     if (!result.ok) status.value = `${params.name}: ${result.error.message}`
     else if (kind === 'save') {
       status.value = (result.result as { saved: boolean }).saved ? `Saved ${params.name}.` : `Save cancelled for ${params.name}.`

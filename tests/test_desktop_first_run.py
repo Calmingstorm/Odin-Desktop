@@ -100,11 +100,43 @@ def test_fresh_second_launch_setup_later_is_durable_projection(tmp_path):
     runtime = make_runtime(tmp_path)
     original = runtime.settings.paths.config_file.read_bytes()
     assert state(runtime) == {"state": "fresh", "reason": "provider_not_configured",
-                              "keyring_unavailable": False}
+                              "keyring_unavailable": False, "provider": "codex",
+                              "credential_present": False}
     runtime.settings.schema()
     second = SettingsService(runtime.settings.paths, runtime.settings.secrets)
     assert state(RuntimeService(runtime.core, second)) == state(runtime)
     assert runtime.settings.paths.config_file.read_bytes() == original
+
+
+def test_projection_names_the_provider_setup_is_for_and_its_stored_credential(tmp_path):
+    runtime = make_runtime(tmp_path)
+    first = state(runtime)
+    assert (first["provider"], first["credential_present"]) == ("codex", False)
+    authorize(runtime)
+    after = state(runtime)
+    assert after["state"] != "fresh"
+    assert (after["provider"], after["credential_present"]) == ("codex", True)
+    compat = make_runtime(tmp_path / "compat", updates={
+        "llm_provider": {"model": "compat:vendor/model", "active_provider": "compat"},
+        "openai_compatible": {"enabled": True, "base_url": "https://example.test/v1",
+                              "model": "vendor/model"},
+    })
+    assert (state(compat)["provider"], state(compat)["credential_present"]) == ("compat", False)
+    compat.settings.secrets.set("openai_compatible.api_key", "test-private-key")
+    assert state(compat)["credential_present"] is True
+    # Ollama needs no credential, so none is claimed either way.
+    local = make_runtime(tmp_path / "local", updates={
+        "llm_provider": {"model": "ollama:qwen3:8b", "active_provider": "ollama"},
+        "ollama": {"enabled": True, "model": "qwen3:8b"},
+    })
+    assert (state(local)["provider"], state(local)["credential_present"]) == ("ollama", None)
+
+
+def test_unreadable_credentials_name_no_provider(tmp_path):
+    runtime = make_runtime(tmp_path)
+    runtime.settings.secrets.set("codex_accounts", "test-private-corrupt-json")
+    assert state(runtime) == {"state": "degraded", "reason": "credential_state_unavailable",
+                              "keyring_unavailable": False}
 
 
 @pytest.mark.parametrize("updates", [

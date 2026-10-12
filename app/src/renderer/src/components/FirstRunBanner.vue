@@ -1,17 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
+import { odin } from '../bridge'
 import type { FirstRunStatus } from '../../../shared/api'
 import { dismissSetupReminder, openSettings, state } from '../store'
-import { loadCodex, loadSettings, settings } from '../stores/settings'
-import { refreshStatus, status } from '../stores/status'
+import { beginLogin, loadCodex, loadSettings, settings } from '../stores/settings'
+import { refreshStatus } from '../stores/status'
+import { codexSignInNeeded, setupProjection as projection } from '../provider-setup'
+import CodexSignIn from './CodexSignIn.vue'
 
 const props = defineProps<{ dismissible?: boolean }>()
-
-const projection = computed(() => {
-  if (state.app.link !== 'ready' || status.epoch !== state.recoveryEpoch ||
-      (state.app.coreInstanceId && status.core?.core_instance_id !== state.app.coreInstanceId)) return null
-  return status.core?.first_run ?? null
-})
 const labels: Record<FirstRunStatus['state'], string> = {
   fresh: 'Not configured', incomplete: 'Setup incomplete', saved: 'Saved, not effective yet',
   'effective-ready': 'Ready', degraded: 'Provider degraded'
@@ -37,6 +34,23 @@ const operational = computed(() => Boolean(projection.value && (
 const invitation = computed(() => Boolean(projection.value && state.setupReminderLoaded && !state.setupReminderHidden &&
   (projection.value.state === 'fresh' || projection.value.state === 'incomplete')))
 const visible = computed(() => state.view === 'chat' && (operational.value || invitation.value || keyringFailed.value))
+// The chosen provider is Codex and no account is stored: the invitation is to sign in, right here.
+const signIn = computed(() => invitation.value && !operational.value && !keyringFailed.value && codexSignInNeeded.value)
+const waiting = computed(() => settings.codex.login?.status === 'waiting')
+let signedInHere = false
+async function signInHere(): Promise<void> {
+  signedInHere = true
+  await beginLogin()
+}
+// Once the core is ready after a sign-in started here, the banner goes and the message box takes focus, unless the
+// user has already moved focus somewhere else.
+watch(visible, async (now, before) => {
+  if (!before || now || !signedInHere) return
+  signedInHere = false
+  await nextTick()
+  if (typeof document.querySelector !== 'function' || (document.activeElement && document.activeElement !== document.body)) return
+  document.querySelector<HTMLElement>('textarea[aria-label="Message"]')?.focus()
+}, { flush: 'post' })
 const retrying = ref(false)
 const retryError = ref('')
 const dismissing = ref(false)
@@ -59,7 +73,7 @@ async function retry(): Promise<void> {
     // Only this explicit owner click may ask the core for a bounded native unlock.
     // Reads, refresh timers and mounting Settings must never call this operation.
     if (keyringFailed.value) {
-      const answer = await window.odin.secretsUnlock()
+      const answer = await odin.secretsUnlock()
       if (!current()) return
       if (!answer.ok) {
         retryError.value = 'The profile keyring could not be unlocked. Retry after dismissing any system prompt.'
@@ -80,19 +94,38 @@ async function retry(): Promise<void> {
 </script>
 
 <template>
-  <section v-if="visible" class="first-run-banner panel" :aria-label="operational || keyringFailed ? 'Provider attention' : 'Provider setup'" role="status"
-    data-testid="first-run-banner" :data-state="projection?.state ?? 'keyring-attention'" :data-kind="operational || keyringFailed ? 'operational' : 'invitation'">
-    <strong>{{ keyringFailed ? 'Keyring needs attention' : (projection ? labels[projection.state] : '') }}</strong>
-    <p v-if="projection && reasons[projection.reason]">{{ reasons[projection.reason] }}</p>
-    <p v-if="keyringFailed && projection?.reason !== 'keyring_unavailable'" class="warn">The profile keyring is unavailable or locked. Retry to unlock it with the system prompt.</p>
-    <p v-if="retryError" class="warn">{{ retryError }}</p>
-    <p v-if="dismissError" class="warn">{{ dismissError }}</p>
+  <section v-if="visible" class="first-run-banner panel" :aria-label="operational || keyringFailed ? 'Provider attention' : 'Provider setup'"
+    data-testid="first-run-banner" :data-state="projection?.state ?? 'keyring-attention'" :data-kind="operational || keyringFailed ? 'operational' : signIn ? 'sign-in' : 'invitation'">
+    <!-- The live region carries the state only; a sign-in code below is shown, never announced. -->
+    <div role="status">
+      <template v-if="signIn">
+        <strong>Sign in to start chatting</strong>
+        <p>Odin uses Codex through your ChatGPT account. Sign in once, and you can start.</p>
+      </template>
+      <template v-else>
+        <strong>{{ keyringFailed ? 'Keyring needs attention' : (projection ? labels[projection.state] : '') }}</strong>
+        <p v-if="projection && reasons[projection.reason]">{{ reasons[projection.reason] }}</p>
+      </template>
+      <p v-if="keyringFailed && projection?.reason !== 'keyring_unavailable'" class="warn">The profile keyring is unavailable or locked. Retry to unlock it with the system prompt.</p>
+      <p v-if="retryError" class="warn">{{ retryError }}</p>
+      <p v-if="dismissError" class="warn">{{ dismissError }}</p>
+      <p v-if="signIn && settings.codex.error" class="warn">{{ settings.codex.error }}</p>
+    </div>
+    <CodexSignIn v-if="signIn" />
     <div class="first-run-actions">
-      <button class="ghost" data-testid="first-run-models" @click="openSettings('models')">Open Models and providers</button>
-      <button v-if="invitation && !operational && !keyringFailed" class="ghost" data-testid="first-run-general" @click="openSettings('general')">Startup and notifications</button>
-      <button class="ghost"
-        data-testid="first-run-retry" :disabled="retrying || state.app.link !== 'ready'" @click="retry">{{ retrying ? 'Retrying…' : 'Retry' }}</button>
-      <button v-if="props.dismissible && invitation && !operational && !keyringFailed" class="ghost" data-testid="first-run-later" :disabled="dismissing" @click="later">Set up later</button>
+      <template v-if="signIn">
+        <button v-if="!waiting" class="primary" data-testid="first-run-sign-in" :disabled="settings.codex.beginning" @click="signInHere">Sign in with ChatGPT</button>
+        <button class="ghost" data-testid="first-run-other-provider" @click="openSettings('models', 'providers')">Use another provider</button>
+        <button class="ghost" data-testid="first-run-import" @click="openSettings('general', 'importer')">Import from Odin</button>
+      </template>
+      <template v-else>
+        <button class="ghost" data-testid="first-run-models" @click="openSettings('models')">Open Models and providers</button>
+        <button v-if="invitation && !operational && !keyringFailed" class="ghost" data-testid="first-run-general" @click="openSettings('general')">Startup and notifications</button>
+        <button class="ghost"
+          data-testid="first-run-retry" :disabled="retrying || state.app.link !== 'ready'" @click="retry">{{ retrying ? 'Retrying…' : 'Retry' }}</button>
+      </template>
+      <!-- Stop waiting first: dismissing must not leave a sign-in polling out of sight. -->
+      <button v-if="props.dismissible && invitation && !operational && !keyringFailed" class="ghost" data-testid="first-run-later" :disabled="dismissing || waiting" @click="later">Set up later</button>
     </div>
   </section>
 </template>

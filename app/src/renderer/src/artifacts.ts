@@ -5,6 +5,7 @@
 // are checked with the core before they are shown again, since the file may have expired there meanwhile and the
 // event saying so may have been missed; an image the core no longer has is dropped and offered as a file.
 import type { ArtifactRef, Result } from '../../shared/api'
+import { odin } from './bridge'
 
 export const RELEASED_IMAGE_BUDGET = 128 * 1024 * 1024
 
@@ -123,10 +124,10 @@ export class ImageCache {
 }
 
 export const images = new ImageCache(
-  (ref) => window.odin.fetchArtifact(ref),
+  (ref) => odin.fetchArtifact(ref),
   RELEASED_IMAGE_BUDGET,
   async (ref) => {
-    const answer = await window.odin.checkArtifact(ref)
+    const answer = await odin.checkArtifact(ref)
     return answer.ok ? answer.result.available : null
   }
 )

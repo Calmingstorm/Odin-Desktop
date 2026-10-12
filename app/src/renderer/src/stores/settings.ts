@@ -1,6 +1,7 @@
 // The settings menu's state: Odin's settings as the core describes them (GET /api/config/meta shape), saved one field
 // at a time through settings.set or the field's dedicated method, plus the Codex accounts with their device login.
 import { reactive } from 'vue'
+import { odin } from '../bridge'
 import {
   SETTINGS_SHAPED,
   type CodexAccount,
@@ -66,7 +67,7 @@ export async function loadSettings(explicit = false): Promise<void> {
   const mine = ++settingsGeneration
   const epoch = appState.recoveryEpoch
   const instance = appState.app.coreInstanceId
-  const result = await window.odin.settingsSchema()
+  const result = await odin.settingsSchema()
   if (mine !== settingsGeneration || epoch !== appState.recoveryEpoch || instance !== appState.app.coreInstanceId) return
   if (!result.ok) {
     settings.metaEpoch = -1
@@ -108,7 +109,7 @@ async function changedElsewhere(path: string): Promise<void> {
 /** The method that saves a field: its owner's settings-shaped method, which runs the owner's transaction, or settings.set. */
 function saverFor(field: ConfigField): (params: SettingsSetParams) => Promise<Result<SettingsSetResult>> {
   const method = settingsShapedMethod(field)
-  return method ? (params) => window.odin[SETTINGS_SHAPED[method].call](params) : (params) => window.odin.settingsSet(params)
+  return method ? (params) => odin[SETTINGS_SHAPED[method].call](params) : (params) => odin.settingsSet(params)
 }
 
 /** Capture editing shape as well as the write owner before queuing deliberate intent. */
@@ -234,7 +235,7 @@ export function saveModelSettings(method: 'models.main.set' | 'models.agents.set
     if (dependent.some((path) => dependentBindings.get(path) !== authority(settings.meta?.fields.find((field) => field.path === path)))) { settings.fields[path] = { status: 'error', message: 'Related model settings changed. Refresh, check, then save again.' }; return false }
     settings.fields[path] = { status: 'saving' }
     settingsGeneration += 1
-    const result = await window.odin.editLeaf({ method, params: { ...params, expected_revision: settings.meta.revision } })
+    const result = await odin.editLeaf({ method, params: { ...params, expected_revision: settings.meta.revision } })
     if (epoch !== appState.recoveryEpoch || instance !== appState.app.coreInstanceId) { settings.unknownSave = true; settings.notice = 'Odin changed while saving. Refresh saved settings and check before submitting again.'; settings.fields[path] = { status: 'error', message: settings.notice }; return false }
     unknownResult(result)
     if (!result.ok) {
@@ -306,7 +307,7 @@ async function saveFieldNow(field: ConfigField, value: unknown): Promise<boolean
   const method = dedicatedMethod(field)
   if (method) {
     const key = field.path.split('.').pop() as string
-    const result = await window.odin.editLeaf({ method, params: { [key]: value, expected_revision: settings.meta.revision } })
+    const result = await odin.editLeaf({ method, params: { [key]: value, expected_revision: settings.meta.revision } })
     if (!current()) return false
     uncertain(result)
     if (!result.ok) {
@@ -351,7 +352,7 @@ async function setImageIntentNow(leaf: ImageLeaf, operation: 'follow' | 'pin'): 
   if (!revision) return false
   const path = `image.openai.${leaf}`
   settings.fields[path] = { status: 'saving' }
-  const result = await window.odin.imageModelIntent({ expected_revision: revision, operations: { [leaf]: operation } })
+  const result = await odin.imageModelIntent({ expected_revision: revision, operations: { [leaf]: operation } })
   unknownResult(result)
   if (!result.ok) {
     if (result.error.code === 'stale_binding') await changedElsewhere(path)
@@ -394,7 +395,7 @@ async function setSecretNow(field: ConfigField, value: string): Promise<boolean>
   const latest = settings.meta?.fields.find((item) => item.path === field.path)
   if (!latest || latest.sensitivity !== 'sensitive' || field.sensitivity !== 'sensitive' || latest.secret_route !== 'secrets.set' || field.secret_route !== 'secrets.set' || latest.apply_handler !== field.apply_handler) return false
   settings.fields[field.path] = { status: 'saving' }
-  const result = await window.odin.secretsSet({ path: field.path, value })
+  const result = await odin.secretsSet({ path: field.path, value })
   unknownResult(result)
   settings.fields[field.path] = result.ok ? { status: 'saved' } : { status: 'error', message: message(result) }
   if (result.ok) await loadSettings()
@@ -410,7 +411,7 @@ async function clearSecretNow(field: ConfigField): Promise<boolean> {
   const latest = settings.meta?.fields.find((item) => item.path === field.path)
   if (!latest || latest.sensitivity !== 'sensitive' || field.sensitivity !== 'sensitive' || latest.secret_route !== 'secrets.set' || field.secret_route !== 'secrets.set' || latest.apply_handler !== field.apply_handler) return false
   settings.fields[field.path] = { status: 'saving' }
-  const result = await window.odin.secretsClear({ path: field.path })
+  const result = await odin.secretsClear({ path: field.path })
   unknownResult(result)
   settings.fields[field.path] = result.ok ? { status: 'saved' } : { status: 'error', message: message(result) }
   if (result.ok) await loadSettings()
@@ -429,7 +430,7 @@ export async function loadCodex(): Promise<boolean> {
   const mine = ++codexRead
   const epoch = appState.recoveryEpoch
   const instance = appState.app.coreInstanceId
-  const result = await window.odin.codexAccounts()
+  const result = await odin.codexAccounts()
   if (mine !== codexRead || epoch !== appState.recoveryEpoch || instance !== appState.app.coreInstanceId) return false
   if (!result.ok) {
     if (isUnavailable(result.error)) {
@@ -487,11 +488,11 @@ async function accountAction(account: CodexAccount, run: (index: number) => Prom
 }
 
 export const activateAccount = (account: CodexAccount): Promise<void> =>
-  accountAction(account, (index) => window.odin.codexActivate({ index }), 'Now the active account.')
+  accountAction(account, (index) => odin.codexActivate({ index }), 'Now the active account.')
 export const labelAccount = (account: CodexAccount, label: string): Promise<void> =>
-  accountAction(account, (index) => window.odin.codexLabel({ index, label }), 'Label saved.')
+  accountAction(account, (index) => odin.codexLabel({ index, label }), 'Label saved.')
 export const removeAccount = (account: CodexAccount): Promise<void> =>
-  accountAction(account, (index) => window.odin.codexRemove({ index }), 'Removed.')
+  accountAction(account, (index) => odin.codexRemove({ index }), 'Removed.')
 
 let loginRun = 0
 
@@ -500,7 +501,7 @@ export async function beginLogin(): Promise<void> {
   if (settings.codex.beginning || settings.codex.login?.status === 'waiting') return
   const run = ++loginRun
   settings.codex.beginning = true
-  const begun = await window.odin.codexLoginBegin().finally(() => { settings.codex.beginning = false })
+  const begun = await odin.codexLoginBegin().finally(() => { settings.codex.beginning = false })
   if (run !== loginRun) return
   if (!begun.ok) {
     settings.codex.error = begun.error.message
@@ -526,7 +527,7 @@ async function pollLogin(run: number): Promise<void> {
   for (;;) {
     await new Promise((resolve) => setTimeout(resolve, Math.max(1, interval) * 1000))
     if (run !== loginRun || settings.codex.login?.status !== 'waiting') return
-    const polled = await window.odin.codexLoginPoll({ login_id: loginId })
+    const polled = await odin.codexLoginPoll({ login_id: loginId })
     if (run !== loginRun) return
     if (!polled.ok) {
       const expired = polled.error.code === 'expired'

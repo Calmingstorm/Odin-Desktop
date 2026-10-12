@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.8]
+
+**Sign in from chat, and an agent model list that saves.** On first open, signing in happens right in
+the chat. Choosing which models agents may use is now a checklist, and saving it works. Linux and
+Windows.
+
+- **Sign in from chat:** on first open, chat shows **Sign in to start chatting** with **Sign in with
+  ChatGPT**. The sign-in link and code appear in the banner, and the message box takes focus once Odin
+  is ready. **Use another provider** and **Import from Odin** go straight to their place in Settings.
+  After **Set up later**, a note by the message box offers **Show setup**, and a message sent before
+  setup stays in the box instead of failing.
+- **Agent models are a checklist:** with **Choose automatically**, **Models Odin can choose from**
+  lists each model with a checkbox and the description Odin itself uses for it. With nothing chosen,
+  Odin's default models show ticked, as the engine actually uses them. Tick, untick and reorder models,
+  set a per-model reasoning effort, or replace a description with your own.
+- **Fixed: saving automatic candidates failed** on every install with "The save outcome could not be
+  confirmed", and nothing was saved: the page handed Electron a live list it can't copy. Every call
+  from the page to the engine now sends plain data, and a test fails if any code skips that.
+- **Fixed:** a reasoning-effort error stayed on screen after a later save succeeded.
+- See [First run](docs/user/first-run.md) and [Settings](docs/user/settings.md).
+
 ## [1.0.7]
 
 **A signed Windows installer.** The Windows installer, the Odin app and its uninstaller are now

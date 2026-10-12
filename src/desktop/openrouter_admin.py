@@ -23,6 +23,8 @@ from ..config.schema import (
 from ..llm.context_budget import compatible_agent_unavailable_reason
 from ..llm.openrouter import conservative_profile, is_openrouter_base_url, openrouter_variant
 from ..observability.diagnostics import safe_text, scrub_diagnostic
+from ..tools.agent_tool_policy import effective_agent_model_choices
+from ..tools.model_hints import seed_entry
 from ..web.api import llm_admin
 from .management import MethodError
 from .secrets import SecretStoreError, secret_call
@@ -82,6 +84,19 @@ def _effort_capabilities(
     return {"values": None, "source": "unknown", "restrictions_known": False}
 
 
+def _builtin_hint(config: Any, model_ref: str) -> str:
+    """The description Odin itself gives automatic selection for this model, if it ships one."""
+    entry = seed_entry(model_ref, config)
+    text = entry.get("clause_hint") or entry.get("hint") or entry.get("hint_derived") or ""
+    return text.strip().rstrip(";").strip() if isinstance(text, str) else ""
+
+
+def _agent_default_candidates(config: Any) -> list[str]:
+    """What automatic agent selection uses while no candidates are chosen."""
+    agents = config.agents.model_copy(update={"auto_model_allowlist": []})
+    return effective_agent_model_choices(config.model_copy(update={"agents": agents}))
+
+
 def _project_model_catalogue(
     config: Any, catalogue: dict[str, list[dict[str, Any]]]
 ) -> dict[str, list[dict[str, Any]]]:
@@ -103,6 +118,7 @@ def _project_model_catalogue(
             )
             projected[provider].append({
                 **row, "efforts": efforts["values"] or [], "effort_capabilities": efforts,
+                "builtin_hint": _builtin_hint(config, row["ref"]),
             })
     return projected
 
@@ -478,7 +494,8 @@ class OpenRouterAdminService:
             "model_catalogue": _project_model_catalogue(
                 config, llm_admin._model_catalogue(projection,
                     codex_configured=codex_client is not None,
-                    ollama_configured=ollama_client is not None))}
+                    ollama_configured=ollama_client is not None)),
+            "agent_default_candidates": _agent_default_candidates(config)}
         serving = owner.capture_serving_identity() if owner is not None else None
         if serving is not None and serving.client is not None:
             result["active_model"] = serving.model

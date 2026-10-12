@@ -1,6 +1,7 @@
 // The composer's slash commands: Discord's /stop, /steer, /status, /usage and /reload, plus /new, /search, and the
 // /model and /effort shortcuts. Each one says what it affects before it runs.
 import { newConversation, runSearch, send, showPanel, state, stop } from './store'
+import { odin } from './bridge'
 import { attachmentsFor } from './stores/composer'
 import { loadSettings, saveField, settings } from './stores/settings'
 import { resultMessage } from './capability'
@@ -54,7 +55,7 @@ export const COMMANDS: PaletteCommand[] = [
     usage: '/status',
     affects: "Shows Odin's runtime configuration and health. Changes nothing.",
     run: async () => {
-      const result = await window.odin.status()
+      const result = await odin.status()
       if (!result.ok) return note(resultMessage(result, 'Core status'))
       const core = result.result
       showPanel('Status', core.summary ?? `Core ${core.core_instance_id}\nVersion: ${core.version}\nPhase: ${core.phase}\nCapabilities: ${core.capabilities.join(', ')}`, core.summary !== undefined)
@@ -70,7 +71,7 @@ export const COMMANDS: PaletteCommand[] = [
         note(`Usage ranges are ${USAGE_RANGES.join(', ')}.`)
         return false
       }
-      const result = await window.odin.usage(range)
+      const result = await odin.usage(range)
       if (!result.ok) return note(resultMessage(result, 'Usage'))
       showPanel(`Usage, ${range}`, result.result.summary, true)
     }
@@ -80,7 +81,7 @@ export const COMMANDS: PaletteCommand[] = [
     usage: '/reload',
     affects: "Reloads Odin's context files and shows what is in context.",
     run: async () => {
-      const result = await window.odin.reload('context')
+      const result = await odin.reload('context')
       if (!result.ok) return note(resultMessage(result, 'Context reload'))
       showPanel('Reload', result.result.summary, true)
     }

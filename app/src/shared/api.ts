@@ -28,6 +28,10 @@ export interface FirstRunStatus {
   state: 'fresh' | 'incomplete' | 'saved' | 'effective-ready' | 'degraded'
   reason: 'provider_not_configured' | 'provider_configuration_incomplete' | 'provider_runtime_unavailable' | 'provider_identity_not_adopted' | 'provider_effective' | 'provider_health_degraded' | 'provider_health_unknown' | 'keyring_unavailable' | 'credential_state_unavailable'
   keyring_unavailable: boolean
+  /** The provider setup is for, once credentials could be read. */
+  provider?: 'codex' | 'compat' | 'ollama'
+  /** Whether that provider's credential is stored: a Codex account or a compatible API key. Null for Ollama. */
+  credential_present?: boolean | null
 }
 
 /** Socket readiness observed by the core, never inferred from saved opt-in. */

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { odin } from '../bridge'
 import type { ReleaseNotice } from '../../../shared/api'
 import { state } from '../store'
 import SettingsSection from './settings/SettingsSection.vue'
@@ -32,7 +33,7 @@ async function check(): Promise<void> {
   notice.value = null
   error.value = ''
   try {
-    const result = await window.odin.checkReleases()
+    const result = await odin.checkReleases()
     if (result.ok) notice.value = result.result
     else error.value = result.error.message
   } catch { error.value = "Can't check for updates. The app operation failed." }
@@ -41,7 +42,7 @@ async function check(): Promise<void> {
 
 async function open(): Promise<void> {
   try {
-    const result = await window.odin.openRelease()
+    const result = await odin.openRelease()
     error.value = result.ok ? '' : result.error.message
   } catch { error.value = 'Could not open the release page.' }
 }

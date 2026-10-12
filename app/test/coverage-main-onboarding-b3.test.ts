@@ -20,6 +20,9 @@ function fixture(scenario: string) {
   let enabled = scenario !== 'fresh-second', compatEnabled = false, credential = false, level = 'INFO', conflict = false, disconnected = false;
   let probeFailure = false, guardDegraded = false, localRevision = false;
   let compatibleOpen = false, modelDraft: string | undefined, secretDraft = '', disablePending = false;
+  // The setup banner's own Codex sign-in: '' before it starts, then waiting or stopped.
+  let bannerLogin = '';
+  const bannerShown = () => !settingsOpen && state !== 'effective-ready' && (!reminderHidden || ['saved', 'degraded'].includes(state));
   const controls: any[] = [];
   disk.read.mockImplementation(() => JSON.stringify({ retained: true, unlock_calls: unlockCalls }));
   disk.write.mockImplementation((path: string, bytes: string) => {
@@ -51,8 +54,12 @@ function fixture(scenario: string) {
   const win: any = { webContents: { isLoading: () => false, executeJavaScript: vi.fn(async (script: string) => {
     if (script === 'window.odin.getSetupReminderHidden()') return { ok: true, result: { hidden: reminderHidden } };
     if (script.includes('await window.odin.getSetupReminderHidden()')) return reminderHidden;
+    if (script.includes(".first-run-banner')?.dataset.kind")) return bannerShown() ? (state === 'fresh' && keyring === 'healthy' ? 'sign-in' : 'invitation') : undefined;
+    if (script.includes('.first-run-banner [role=status]')) return false;
+    if (script.includes('[data-testid=first-run-later]') && script.endsWith('.disabled')) return bannerLogin === 'waiting';
     if (script.startsWith('document.querySelectorAll(')) {
       const selector = JSON.parse(script.slice('document.querySelectorAll('.length, script.indexOf(').length')));
+      if (selector === '[data-testid=composer-setup-note]') return !settingsOpen && reminderHidden && ['fresh', 'incomplete'].includes(state) ? 1 : 0;
       if (selector === '.settings') return settingsOpen ? 1 : 0;
       if (selector === '.first-run-banner') return !settingsOpen && state !== 'effective-ready' &&
         (!reminderHidden || ['saved', 'degraded'].includes(state)) ? 1 : 0;
@@ -72,6 +79,7 @@ function fixture(scenario: string) {
     if (script.startsWith('document.querySelector(') && script.includes('?.innerText')) {
       if (script.includes('#provider-compat-setup .warn')) return probeFailure ? 'Qualification rejected' : '';
       if (script.includes('.settings-body h2')) return section;
+      if (script.includes('.first-run-banner .login-code')) return bannerShown() && bannerLogin === 'waiting' ? 'TEST-CODE' : '';
       if (script.includes('.first-run-banner')) return settingsOpen ? '' : keyring !== 'healthy' ? 'Keyring unavailable' : 'Ready';
       if (script.includes('.login-code')) return 'TEST-CODE';
       if (script.includes('.login')) return auth === 'expired' ? 'Login expired' : 'Pending';
@@ -95,8 +103,10 @@ function fixture(scenario: string) {
       else if (label === 'Save' && script.includes('#main-model-actions')) { expect(modelDraft).toBeDefined(); model = modelDraft!; modelDraft = undefined; state = guardDegraded ? 'degraded' : 'effective-ready'; clicked.push('Save main model') }
       else if (label === 'Store key') { expect(compatibleOpen).toBe(true); expect(secretDraft).not.toBe(''); credential = keyring === 'healthy'; secretDraft = '' }
       else if (label === 'Disable') { expect(disablePending).toBe(true); disablePending = false; enabled = false; state = 'incomplete' }
-      else if (label === 'Set up later') reminderHidden = true;
-      else if (!['Set up later', 'Stop waiting'].includes(label)) throw new Error(`Unmodeled button ${label}`);
+      else if (label === 'Set up later') { expect(bannerLogin).not.toBe('waiting'); reminderHidden = true }
+      else if (label === 'Sign in with ChatGPT') { expect(bannerShown()).toBe(true); bannerLogin = 'waiting' }
+      else if (label === 'Stop waiting') { if (bannerLogin === 'waiting') bannerLogin = 'stopped' }
+      else throw new Error(`Unmodeled button ${label}`);
       clicked.push(label); return undefined;
     }
     if (script.startsWith('Boolean(document.querySelector')) {
@@ -148,10 +158,10 @@ describe('onboarding smoke orchestration without a display', () => {
   it.each(['fresh', 'fresh-second'])('checks %s defaults, setup-later and collision-free section reentry', async scenario => {
     const f = await runScenario(scenario);
     expect(f.sections).toEqual(['General', 'Models and providers', 'General', 'Models and providers', 'General', 'Models and providers', 'General', 'Models and providers']);
-    if (scenario === 'fresh') expect(f.clicked).toContain('Set up later');
+    if (scenario === 'fresh') expect(f.clicked).toEqual(expect.arrayContaining(['Sign in with ChatGPT', 'Stop waiting', 'Set up later']));
     else expect(f.clicked).not.toContain('Set up later');
     expect(f.edits).toEqual(scenario === 'fresh' ? [false] : []);
-    expect(disk.write).toHaveBeenCalledExactlyOnceWith('/mock/result.json', JSON.stringify({ scenario, passed: true, states: scenario === 'fresh' ? ['fresh', 'incomplete'] : ['incomplete'], checks: [...(scenario === 'fresh-second' ? ['dismissal-persisted'] : []), 'dismissal-after-incomplete', 'setup-later', 'section-reentry', 'defaults', 'secret-readback-absent'] }), { mode: 0o600 });
+    expect(disk.write).toHaveBeenCalledExactlyOnceWith('/mock/result.json', JSON.stringify({ scenario, passed: true, states: scenario === 'fresh' ? ['fresh', 'incomplete'] : ['incomplete'], checks: [...(scenario === 'fresh-second' ? ['dismissal-persisted'] : ['secret-readback-absent', 'banner-sign-in', 'composer-setup-note']), 'dismissal-after-incomplete', 'setup-later', 'section-reentry', 'defaults', 'secret-readback-absent'] }), { mode: 0o600 });
     expect(f.core.request.mock.calls.filter(([method]: string[]) => method === 'settings.set')).toEqual([]);
     if (scenario === 'fresh') expect(f.clicked).toContain('Disable');
   })

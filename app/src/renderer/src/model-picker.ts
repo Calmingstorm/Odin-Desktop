@@ -1,9 +1,21 @@
 import type { ConfigField } from '../../shared/api'
 
 export type ModelProvider = 'codex' | 'compat' | 'ollama'
-export type ModelRow = { ref: string; name?: string; capability?: string; effort_capabilities?: { values: string[] | null; restrictions_known: boolean; source: string } }
+export type ModelRow = {
+  ref: string
+  name?: string
+  capability?: string
+  effort_capabilities?: { values: string[] | null; restrictions_known: boolean; source: string }
+  /** Odin's own reason this model can't run agents, if any. */
+  agent_available?: boolean
+  agent_unavailable_reason?: string | null
+  /** A compatible model's saved profile; models listed only from a provider's catalogue have none. */
+  profile?: unknown
+  /** The description Odin gives automatic selection for this model; empty when it ships none. */
+  builtin_hint?: string
+}
 export type ProviderStatus = { configured?: boolean; base_url?: string; model?: string; preset?: string; openrouter_recognized?: boolean }
-export type ModelStatus = { model_catalogue?: Record<string, ModelRow[]>; serving_provider?: string | null; active_provider?: string; codex?: ProviderStatus; ollama?: ProviderStatus; openai_compatible?: ProviderStatus }
+export type ModelStatus = { model_catalogue?: Record<string, ModelRow[]>; serving_provider?: string | null; active_provider?: string; codex?: ProviderStatus; ollama?: ProviderStatus; openai_compatible?: ProviderStatus; agent_default_candidates?: string[] }
 export type ModelOption = { ref: string; label: string; disabled: boolean }
 
 const enabledPaths: Record<ModelProvider, string> = { codex: 'openai_codex.enabled', compat: 'openai_compatible.enabled', ollama: 'ollama.enabled' }

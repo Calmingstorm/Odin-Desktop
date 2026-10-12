@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { odin } from '../bridge'
 import type { Result } from '../../../shared/api'
 import { isUnavailable, settingsUnavailableText as unavailableText } from '../capability'
 import SettingsSection from './settings/SettingsSection.vue'
@@ -67,14 +68,14 @@ const thresholdValid = (): boolean => String(threshold.value).trim() === '' || N
 async function chunks(): Promise<void> {
   const source = chunkSource.value.trim()
   if (!source) return
-  await read('chunks', json({ source }), () => call(window.odin.knowledgeChunks && (() => window.odin.knowledgeChunks({ source }))))
+  await read('chunks', json({ source }), () => call(odin.knowledgeChunks && (() => odin.knowledgeChunks({ source }))))
 }
 
 async function duplicates(): Promise<void> {
   if (!thresholdValid()) return
   const value = duplicateThreshold()
   const args = value === undefined ? {} : { threshold: value }
-  await read('duplicates', json(args), () => call(window.odin.knowledgeDuplicates && (() => window.odin.knowledgeDuplicates(args))))
+  await read('duplicates', json(args), () => call(odin.knowledgeDuplicates && (() => odin.knowledgeDuplicates(args))))
 }
 
 async function getVersion(): Promise<void> {
@@ -82,7 +83,7 @@ async function getVersion(): Promise<void> {
   const number = integer(version.value)
   if (!source || number === undefined) return
   const args = { source, version: number }
-  await read('version', json(args), () => call(window.odin.knowledgeVersion && (() => window.odin.knowledgeVersion(args))))
+  await read('version', json(args), () => call(odin.knowledgeVersion && (() => odin.knowledgeVersion(args))))
 }
 
 async function diff(): Promise<void> {
@@ -91,7 +92,7 @@ async function diff(): Promise<void> {
   const second = integer(v2.value)
   if (!source || first === undefined || second === undefined) return
   const args = { source, v1: first, v2: second }
-  await read('diff', json(args), () => call(window.odin.knowledgeDiff && (() => window.odin.knowledgeDiff(args))))
+  await read('diff', json(args), () => call(odin.knowledgeDiff && (() => odin.knowledgeDiff(args))))
 }
 
 /** The merge's own receipt and in-flight key. It sits outside the `knowledge:<source>` lock
@@ -118,7 +119,7 @@ async function merge(): Promise<void> {
     let dispatched = false
     await act(MERGE, async () => {
       dispatched = true
-      const result = await call(window.odin.knowledgeMerge && (() => window.odin.knowledgeMerge({ keep_source, remove_source })))
+      const result = await call(odin.knowledgeMerge && (() => odin.knowledgeMerge({ keep_source, remove_source })))
       mergeUnavailable.value = !result.ok && isUnavailable(result.error)
       return result
     }, (answer) => {
@@ -162,7 +163,7 @@ const listNote = computed(() => learnedNoteKey.value && !learnedEntries.value.so
   ? management.notes[learnedNoteKey.value] ?? '' : '')
 
 async function learned(): Promise<void> {
-  await read('learned', '{}', () => call(window.odin.learnedList && (() => window.odin.learnedList({}))))
+  await read('learned', '{}', () => call(odin.learnedList && (() => odin.learnedList({}))))
 }
 
 function startEdit(entry: Row): void {
@@ -181,7 +182,7 @@ async function updateLearned(): Promise<void> {
   const sent = { content: draft.content, category: draft.category }
   learnedNoteKey.value = `learned:${key}`
   await act(learnedNoteKey.value, async () => {
-    const result = await call(window.odin.learnedUpdate && (() => window.odin.learnedUpdate(args)))
+    const result = await call(odin.learnedUpdate && (() => odin.learnedUpdate(args)))
     learnedUnavailable.value = !result.ok && isUnavailable(result.error)
     return result
   }, () => {
@@ -203,7 +204,7 @@ async function deleteLearned(key: string): Promise<void> {
     if (!confirmed || management.busy[`learned:${key}`]) return
     learnedNoteKey.value = `learned:${key}`
     await act(learnedNoteKey.value, async () => {
-      const result = await call(window.odin.learnedDelete && (() => window.odin.learnedDelete({ key })))
+      const result = await call(odin.learnedDelete && (() => odin.learnedDelete({ key })))
       learnedUnavailable.value = !result.ok && isUnavailable(result.error)
       return result
     }, () => {

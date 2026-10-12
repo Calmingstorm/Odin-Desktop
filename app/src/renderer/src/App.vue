@@ -21,8 +21,10 @@ watch(() => state.view, async (view) => {
   const focusAtTransition = document.activeElement
   if (view === 'settings') {
     settingsOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    // A targeted opening (openSettings with a destination) owns its focus; Settings moves it there.
+    const targeted = Boolean(state.settingsTarget)
     await nextTick()
-    if (state.view !== view || dialog.current) return
+    if (state.view !== view || dialog.current || targeted) return
     document.querySelector<HTMLElement>('.settings-nav .back')?.focus()
   } else {
     await nextTick()

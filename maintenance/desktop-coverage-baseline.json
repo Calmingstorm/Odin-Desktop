@@ -710,6 +710,26 @@
         "covered": 45,
         "missing": 0,
         "total": 45
+      },
+      "app/src/renderer/src/bridge.ts": {
+        "covered": 12,
+        "missing": 0,
+        "total": 12
+      },
+      "app/src/renderer/src/provider-setup.ts": {
+        "covered": 6,
+        "missing": 0,
+        "total": 6
+      },
+      "app/src/renderer/src/components/AgentCandidates.vue": {
+        "covered": 68,
+        "missing": 0,
+        "total": 68
+      },
+      "app/src/renderer/src/components/CodexSignIn.vue": {
+        "covered": 17,
+        "missing": 0,
+        "total": 17
       }
     },
     "total": {
@@ -2856,15 +2876,18 @@
     "app/src/renderer/src/App.vue",
     "app/src/renderer/src/artifacts.ts",
     "app/src/renderer/src/assistant-name.ts",
+    "app/src/renderer/src/bridge.ts",
     "app/src/renderer/src/capability.ts",
     "app/src/renderer/src/chat-announcements.ts",
     "app/src/renderer/src/code-copy.ts",
     "app/src/renderer/src/commands.ts",
+    "app/src/renderer/src/components/AgentCandidates.vue",
     "app/src/renderer/src/components/AttachmentTray.vue",
     "app/src/renderer/src/components/AvatarPicker.vue",
     "app/src/renderer/src/components/ChatStatus.vue",
     "app/src/renderer/src/components/CleanupNotice.vue",
     "app/src/renderer/src/components/CodexAccounts.vue",
+    "app/src/renderer/src/components/CodexSignIn.vue",
     "app/src/renderer/src/components/CommandPalette.vue",
     "app/src/renderer/src/components/CompletionResult.vue",
     "app/src/renderer/src/components/Composer.vue",
@@ -2912,6 +2935,7 @@
     "app/src/renderer/src/markdown.ts",
     "app/src/renderer/src/mcp-form.ts",
     "app/src/renderer/src/model-picker.ts",
+    "app/src/renderer/src/provider-setup.ts",
     "app/src/renderer/src/schedule-form.ts",
     "app/src/renderer/src/schedule-observations.ts",
     "app/src/renderer/src/schedule-time.ts",

@@ -1,5 +1,6 @@
 // Browser health is a read, not a driver/CDP probe and not a retry command.
 import { reactive } from 'vue'
+import { odin } from '../bridge'
 import type { HealthReport } from '../../../shared/api'
 
 export const browser = reactive({
@@ -14,7 +15,7 @@ export async function loadBrowserStatus(): Promise<void> {
   const mine = ++latest
   browser.busy = true
   try {
-    const answer = await window.odin.healthGet({})
+    const answer = await odin.healthGet({})
     if (mine !== latest) return
     if (!answer.ok) {
       browser.error = answer.error.message

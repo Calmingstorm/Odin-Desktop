@@ -111,10 +111,56 @@ def test_projection_preserves_catalogue_membership_order_and_unrelated_facts():
         for original, enriched in zip(rows, projected[provider], strict=True):
             assert enriched is not original
             assert {key: value for key, value in enriched.items()
-                    if key not in {"efforts", "effort_capabilities"}} == {
+                    if key not in {"efforts", "effort_capabilities", "builtin_hint"}} == {
                         key: value for key, value in original.items() if key != "efforts"
                     }
             assert "effort_capabilities" not in original
+
+
+CODEX_DEFAULT = (
+    "gpt-6-astra", "gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna",
+    "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
+)
+
+
+def test_projection_adds_the_description_odin_gives_automatic_selection():
+    config = Config()
+    rows = {row["ref"]: row for rows in catalogue(config).values() for row in rows}
+    # The shipped Codex descriptions, as automatic selection reads them. A trailing
+    # separator is not text.
+    assert rows["gpt-6-astra"]["builtin_hint"].startswith("flagship: deepest reasoning")
+    assert rows["gpt-6.1-sol"]["builtin_hint"].startswith("default choice for complex coding")
+    assert not rows["gpt-6.1-sol"]["builtin_hint"].endswith(";")
+    assert all(rows[ref]["builtin_hint"] for ref in CODEX_DEFAULT)
+    # A model Odin ships no description for gets none, never an invented one.
+    assert rows[f"ollama:{config.ollama.model}"]["builtin_hint"] == ""
+
+
+def test_projection_description_follows_the_compatible_preset_namespace():
+    config = Config(openai_compatible={"preset": "deepseek", "model": "deepseek-flash"})
+    row = next(item for item in catalogue(config)["compat"]
+               if item["ref"] == "compat:deepseek-flash")
+    assert row["builtin_hint"].startswith("cheapest near-frontier model")
+    custom = Config(openai_compatible={
+        "preset": "custom", "base_url": "http://127.0.0.1:9/v1", "model": "local-only",
+    })
+    row = next(item for item in catalogue(custom)["compat"] if item["ref"] == "compat:local-only")
+    assert row["builtin_hint"] == ""
+
+
+@pytest.mark.asyncio
+async def test_models_status_reports_what_automatic_selection_uses_with_no_candidates(service):
+    config = service.settings.config
+    config.openai_codex.enabled = True
+    config.agents.auto_model_allowlist = ["gpt-6-luna"]
+    result = await service.handle("models.status", {})
+    # The default the empty list stands for, not the configured list.
+    assert result["agent_default_candidates"] == list(CODEX_DEFAULT)
+    assert config.agents.auto_model_allowlist == ["gpt-6-luna"]
+    config.openai_codex.enabled = False
+    config.ollama.enabled = True
+    result = await service.handle("models.status", {})
+    assert result["agent_default_candidates"] == [f"ollama:{config.ollama.model}"]
 
 
 def profile(efforts=None):

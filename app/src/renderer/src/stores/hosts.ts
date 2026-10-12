@@ -2,6 +2,7 @@
 // details, Odin's public key, the host's key checked against what you expect, a connection test, then activation.
 // Nothing is targetable before it passes the test.
 import { reactive } from 'vue'
+import { odin } from '../bridge'
 import type { HostCandidate, HostList, HostPrepare, HostReference, HostRow, HostTest, PublicKeyInfo, Result } from '../../../shared/api'
 import { act, failure, management } from './management'
 import { isUnavailable, settingsResultMessage as resultMessage, settingsUnavailableText as unavailableText } from '../capability'
@@ -89,7 +90,7 @@ async function hostAct<T>(key: string, run: () => Promise<Result<T>>, done: (ans
 
 export async function loadHosts(): Promise<void> {
   const mine = ++hostsRead
-  const [list, key] = await Promise.all([window.odin.hostsList({}), window.odin.hostsPublicKey({})])
+  const [list, key] = await Promise.all([odin.hostsList({}), odin.hostsPublicKey({})])
   if (mine !== hostsRead) return
   if ((!list.ok && isUnavailable(list.error)) || (!key.ok && isUnavailable(key.error))) {
     refuseHosts()
@@ -153,7 +154,7 @@ export function closeEnrollment(): void {
 export async function importLegacy(row: HostRow): Promise<boolean> {
   if (hosts.unavailable || row.trust_mode !== 'legacy' || isLocal(row.address)) return false
   const epoch = enrollmentEpoch
-  return hostAct(`host:${row.alias}`, () => window.odin.hostsImportLegacy({ alias: row.alias }), (candidate) => {
+  return hostAct(`host:${row.alias}`, () => odin.hostsImportLegacy({ alias: row.alias }), (candidate) => {
     if (hosts.unavailable || epoch !== enrollmentEpoch) return 'Trusted key imported as a candidate, not saved. The newer wizard was left alone.'
     beginEdit(row)
     const e = hosts.enrollment!
@@ -215,7 +216,7 @@ export async function scan(): Promise<void> {
   }
   e.busy = true
   const firstLook = e.form.trust_mode === 'tofu' && e.observed.length === 0
-  const result = await window.odin.hostsPrepare(body(e))
+  const result = await odin.hostsPrepare(body(e))
   e.busy = false
   if (!result.ok && isUnavailable(result.error)) {
     refuseHosts()
@@ -243,7 +244,7 @@ export async function testConnection(): Promise<void> {
   const e = hosts.enrollment
   if (!e || e.busy || !e.token) return
   e.busy = true
-  const result = await window.odin.hostsTest({ token: e.token })
+  const result = await odin.hostsTest({ token: e.token })
   e.busy = false
   if (!result.ok && isUnavailable(result.error)) {
     refuseHosts()
@@ -274,7 +275,7 @@ export async function activate(): Promise<boolean> {
   if (management.busy[key]) return false
   management.notes[key] = undefined
   e.busy = true
-  const ok = await hostAct(key, () => window.odin.hostsCommit({ token: e.token }), (answer) => {
+  const ok = await hostAct(key, () => odin.hostsCommit({ token: e.token }), (answer) => {
     if (hosts.enrollment === e) hosts.enrollment = null // another wizard opened since stays
     const saved = e.editing ? 'Saved' : 'Added'
     if (!answer.active) return `${saved}; host remains off for new work.`
@@ -285,7 +286,7 @@ export async function activate(): Promise<boolean> {
 }
 
 export async function setHostEnabled(alias: string, enabled: boolean): Promise<void> {
-  await hostAct(`host:${alias}`, () => window.odin.hostsSetEnabled({ alias, enabled }), (answer) => {
+  await hostAct(`host:${alias}`, () => odin.hostsSetEnabled({ alias, enabled }), (answer) => {
     if (answer.targetable) return 'On.'
     if (answer.active) return `Enabled, but not targetable: ${answer.trust_state}.`
     return answer.draining ? 'Off for new work; existing uses are draining.' : 'Off for new work.'
@@ -293,7 +294,7 @@ export async function setHostEnabled(alias: string, enabled: boolean): Promise<v
 }
 
 export async function saveHostSettings(change: { default_host?: string; allow_host_tofu?: boolean }): Promise<boolean> {
-  return hostAct('hosts', () => window.odin.hostsSettings(change), (answer) => {
+  return hostAct('hosts', () => odin.hostsSettings(change), (answer) => {
     if (answer.configured_default_host && !answer.default_host) return `Saved. Default host ${answer.configured_default_host} is not currently targetable.`
     return 'Saved and live.'
   })
@@ -302,7 +303,7 @@ export async function saveHostSettings(change: { default_host?: string; allow_ho
 /** Deleting a host that something still names is refused; this shows what names it, and deletes nothing. */
 export async function deleteHost(alias: string): Promise<'deleted' | 'blocked' | 'failed'> {
   if (hosts.unavailable) return 'failed'
-  const refs = await window.odin.hostsReferences({ alias })
+  const refs = await odin.hostsReferences({ alias })
   if (!refs.ok && isUnavailable(refs.error)) {
     refuseHosts()
     return 'failed'
@@ -313,14 +314,14 @@ export async function deleteHost(alias: string): Promise<'deleted' | 'blocked' |
   }
   hosts.references[alias] = refs.result.references
   if (refs.result.references.length) return 'blocked'
-  const ok = await hostAct(`host:${alias}`, () => window.odin.hostsDelete({ alias }), () => 'Deleted.')
+  const ok = await hostAct(`host:${alias}`, () => odin.hostsDelete({ alias }), () => 'Deleted.')
   return ok ? 'deleted' : 'failed'
 }
 
 export async function forceRevoke(alias: string): Promise<void> {
   await hostAct(
     `host:${alias}`,
-    () => window.odin.hostsForceRevoke({ alias }),
+    () => odin.hostsForceRevoke({ alias }),
     (r) =>
       `Revoked. ${r.leases_interrupted} running uses interrupted; processes: ${r.processes.killed} stopped, ${r.processes.unknown} unknown.`
   )

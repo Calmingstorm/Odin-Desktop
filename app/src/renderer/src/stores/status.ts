@@ -2,6 +2,7 @@
 // measured, estimated or doesn't know. Fetched when the link becomes ready, and again shortly after a request settles
 // or the core reports a status change.
 import { reactive, watch } from 'vue'
+import { odin } from '../bridge'
 import type { CoreEvent, CoreStatus, UsageResult, Result } from '../../../shared/api'
 import { onCoreEvent, onReady, state } from '../store'
 import { isUnavailable, resultMessage } from '../capability'
@@ -51,7 +52,7 @@ export async function refreshStatus(): Promise<void> {
   const read = async <T>(request: () => Promise<Result<T>>): Promise<Result<T>> => {
     try { return await request() } catch { return unavailable }
   }
-  const [core, usage] = await Promise.all([read(() => window.odin.status()), read(() => window.odin.usage('24h'))])
+  const [core, usage] = await Promise.all([read(() => odin.status()), read(() => odin.usage('24h'))])
   if (mine !== latest || epoch !== state.recoveryEpoch || instance !== state.app.coreInstanceId) return
   status.epoch = epoch
   status.core = core.ok ? core.result : null

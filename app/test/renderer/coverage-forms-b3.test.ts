@@ -286,16 +286,19 @@ describe('B3 Codex accounts: refresh admission, login and confirmation', () => {
     ask.mockResolvedValueOnce(false); await v.root.named('Remove First').fire('click'); expect(actions.removeAccount).not.toHaveBeenCalled()
     await v.root.named('Remove First').fire('click'); expect(actions.removeAccount).toHaveBeenCalledWith(account)
     v.root.named('Use this account: First').fire('click'); expect(actions.activateAccount).toHaveBeenCalledWith(account)
-    await invoke(v, 'copyCode'); expect(bridge.copyText).not.toHaveBeenCalled()
+    // The sign-in shown here is the shared one the chat's setup banner uses too.
+    const signIn = await component('CodexSignIn')
+    await invoke(signIn, 'copyCode'); expect(bridge.copyText).not.toHaveBeenCalled()
     settings.codex.login = { status: 'waiting', code: 'fixture-code', url: 'https://example.com/verify' }; await flush()
-    await v.root.button('Copy sign-in code').fire('click'); expect(bridge.copyText).toHaveBeenCalledWith('fixture-code'); expect(v.setup.copyStatus).toBeTruthy()
-    settings.codex.login.code = 'next-code'; await flush(); expect(v.setup.copyStatus).toBe('')
-    bridge.copyText!.mockResolvedValueOnce(refused); await invoke(v, 'copyCode'); expect(v.setup.copyStatus).toBe('Could not copy the sign-in code.')
-    bridge.codexOpenVerification!.mockResolvedValueOnce({ ok: false, error: { message: 'Browser failed' } }); await invoke(v, 'openVerification'); expect(settings.codex.error).toBe('Browser failed')
-    v.root.button('Stop waiting').fire('click'); expect(actions.stopLogin).toHaveBeenCalled()
-    settings.codex.login.status = 'failed'; await flush(); v.root.button('Retry login').fire('click'); expect(actions.retryLogin).toHaveBeenCalled()
-    settings.codex.login.status = 'stopped'; await flush(); expect(v.setup.loginAnnouncement).toContain('Stopped waiting')
-    settings.codex.login = { status: 'done', message: 'fixture complete' }; await flush(); expect(v.setup.loginAnnouncement).toBe('fixture complete')
+    expect(v.root.findAll((h) => h.props['data-testid'] === 'codex-sign-in')).toHaveLength(1)
+    await signIn.root.button('Copy sign-in code').fire('click'); expect(bridge.copyText).toHaveBeenCalledWith('fixture-code'); expect(signIn.setup.copyStatus).toBeTruthy()
+    settings.codex.login.code = 'next-code'; await flush(); expect(signIn.setup.copyStatus).toBe('')
+    bridge.copyText!.mockResolvedValueOnce(refused); await invoke(signIn, 'copyCode'); expect(signIn.setup.copyStatus).toBe('Could not copy the sign-in code.')
+    bridge.codexOpenVerification!.mockResolvedValueOnce({ ok: false, error: { message: 'Browser failed' } }); await invoke(signIn, 'openVerification'); expect(settings.codex.error).toBe('Browser failed')
+    signIn.root.button('Stop waiting').fire('click'); expect(actions.stopLogin).toHaveBeenCalled()
+    settings.codex.login.status = 'failed'; await flush(); signIn.root.button('Retry login').fire('click'); expect(actions.retryLogin).toHaveBeenCalled()
+    settings.codex.login.status = 'stopped'; await flush(); expect(signIn.setup.announcement).toContain('Stopped waiting')
+    settings.codex.login = { status: 'done', message: 'fixture complete' }; await flush(); expect(signIn.setup.announcement).toBe('fixture complete')
     expect(invoke(v, 'quota', { quota: { primary: { used_percent: 30, window_minutes: 10080 } } })).toContain('30% of the weekly')
     expect(invoke(v, 'quota', {})).toBe('Quota not reported yet')
   })
@@ -337,6 +340,41 @@ describe('B3 Composer: submission, shortcuts and attachment routing', () => {
     const v = await component('Composer')
     return { v, state, composerStore }
   }
+  it('keeps a message unsent while the core says setup is missing, and offers the way back after Set up later', async () => {
+    const { v, state, composerStore } = await fixture()
+    const { status } = await import('../../src/renderer/src/stores/status')
+    bridge.setSetupReminderHidden = vi.fn(async (hidden: boolean) => ok({ hidden }))
+    const firstRun = (ready: boolean) => ({ state: ready ? 'effective-ready' : 'fresh', reason: ready ? 'provider_effective' : 'provider_not_configured', keyring_unavailable: false, provider: 'codex', credential_present: ready }) as const
+    state.app.coreInstanceId = 'core-1'; status.epoch = state.recoveryEpoch
+    status.core = { phase: 'ready', core_instance_id: 'core-1', version: 'test', capabilities: [], first_run: firstRun(false) }; await flush()
+    const note = () => v.root.findAll((h) => h.props['data-testid'] === 'composer-setup-note')[0]
+    expect(note()).toBeUndefined()
+    await invoke(v, 'submit'); await flush()
+    expect(actions.sendBox).not.toHaveBeenCalled(); expect(composerStore.box.text).toBe('body')
+    expect(note()!.textContent()).toContain('Finish setup above to send. Your message is kept.')
+    // Slash commands are local and still run.
+    composerStore.box.text = '/status'; await flush(); await invoke(v, 'submit'); await flush()
+    expect(actions.dispatch).toHaveBeenCalledTimes(1)
+    // After Set up later the note stays, with the way back to the setup invitation.
+    composerStore.box.text = 'body'; state.setupReminderHidden = true; await flush()
+    expect(note()!.textContent()).toContain("Odin isn't set up yet, so messages can't be sent.")
+    await note()!.button('Show setup').fire('click'); await flush()
+    expect(bridge.setSetupReminderHidden).toHaveBeenCalledExactlyOnceWith(false)
+    expect(state.setupReminderHidden).toBe(false)
+    // Once the core is ready the note goes and the message sends.
+    status.core = { ...status.core, first_run: firstRun(true) }; await flush()
+    expect(note()).toBeUndefined()
+    await invoke(v, 'submit'); await flush()
+    expect(actions.sendBox).toHaveBeenCalledTimes(1)
+  })
+  it('never blocks on setup it cannot confirm: an unknown or other core projection sends as before', async () => {
+    const { v, state } = await fixture()
+    const { status } = await import('../../src/renderer/src/stores/status')
+    state.app.coreInstanceId = 'core-1'; status.epoch = state.recoveryEpoch
+    status.core = { phase: 'ready', core_instance_id: 'old-core', version: 'test', capabilities: [], first_run: { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false } }; await flush()
+    await invoke(v, 'submit'); await flush()
+    expect(actions.sendBox).toHaveBeenCalledTimes(1)
+  })
   it('sends the current box once with queue/steer mode and refuses busy or unready submission', async () => {
     const { v, state } = await fixture()
     const sent = deferred<boolean>(); actions.send!.mockReturnValueOnce(sent.promise)
@@ -428,5 +466,13 @@ describe('B3 App shell: keyboard ownership and focus transitions', () => {
     Object.assign(document, { activeElement: null }); state.view = 'chat'; await flush(); expect(opener.focus).toHaveBeenCalledTimes(1)
     Object.assign(document, { activeElement: opener }); state.view = 'settings'; await flush()
     opener.closest.mockReturnValue({} as any); query.mockClear(); state.view = 'chat'; await flush(); expect(query).not.toHaveBeenCalled(); expect(opener.focus).toHaveBeenCalledTimes(1)
+  })
+  it('leaves focus to Settings when it was opened for a destination', async () => {
+    const { state } = await fixture()
+    state.settingsTarget = 'providers'; state.view = 'settings'; await flush()
+    expect(query).not.toHaveBeenCalledWith('.settings-nav .back')
+    state.view = 'chat'; await flush(); state.settingsTarget = ''; query.mockClear()
+    state.view = 'settings'; await flush()
+    expect(query).toHaveBeenCalledWith('.settings-nav .back')
   })
 })

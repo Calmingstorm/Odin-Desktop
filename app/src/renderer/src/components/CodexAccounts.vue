@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { odin } from '../bridge'
 import type { CodexAccount, QuotaWindow } from '../../../shared/api'
 import { ask } from '../dialog'
-import { accountIdentity, activateAccount, beginLogin, labelAccount, loadCodex, removeAccount, retryLogin, settings, stopLogin } from '../stores/settings'
+import { accountIdentity, activateAccount, beginLogin, labelAccount, loadCodex, removeAccount, settings } from '../stores/settings'
 import { isUnavailable, settingsUnavailableText as unavailableText } from '../capability'
 import type { Result } from '../../../shared/api'
 import { act, management } from '../stores/management'
 import OpenRouterAdmin from './OpenRouterAdmin.vue'
+import AgentCandidates, { type Candidate } from './AgentCandidates.vue'
+import CodexSignIn from './CodexSignIn.vue'
 import { isUnknownOutcome, onLateReceipt, state } from '../store'
 import type { ConfigField, ImageLeaf } from '../../../shared/api'
 import { settingsFields } from '../settings-presentation'
@@ -30,7 +33,7 @@ async function loadModels(): Promise<void> {
   const mine = ++modelRead
   modelCatalogue.value = []
   providerStatus.value = null
-  const read = (window.odin as unknown as { modelsStatus?: (params: Record<string, never>) => Promise<Result<ModelStatus>> }).modelsStatus
+  const read = (odin as unknown as { modelsStatus?: (params: Record<string, never>) => Promise<Result<ModelStatus>> }).modelsStatus
   if (!read) { modelReadError.value = 'Model choices are unavailable. Refresh after updating Odin.'; return }
   const epoch = state.recoveryEpoch, instance = state.app.coreInstanceId
   try {
@@ -169,16 +172,13 @@ async function saveMain(): Promise<void> {
 const agentPaths = ['agents.model', 'agents.auto_model_allowlist', 'agents.thinking_mode', 'agents.model_selection_hints']
 const agentMode = computed(() => value('agents.model') === 'auto' ? 'auto' : value('agents.model') === '' || value('agents.model') === 'main' ? 'main' : 'fixed')
 function chooseAgent(mode: string): void { edit('agents.model', mode === 'main' ? '' : mode === 'auto' ? 'auto' : String(field('agents.model')?.desired ?? '').replace(/^auto$/, '') || String(field('llm_provider.model')?.desired ?? '')) }
-type Candidate = string | { model: string; reasoning_effort?: string | null; thinking_mode?: string | null }
 const allowlistDraft = ref<Candidate[] | null>(null)
 const candidates = computed<Candidate[]>(() => allowlistDraft.value ?? (Array.isArray(field('agents.auto_model_allowlist')?.desired) ? field('agents.auto_model_allowlist')!.desired as Candidate[] : []))
 const candidateModel = (item: Candidate): string => typeof item === 'string' ? item : item.model
-function updateCandidate(index: number, key: 'model' | 'reasoning_effort' | 'thinking_mode', raw: string): void {
-  const next = candidates.value.map((item) => typeof item === 'string' ? item : { ...item })
-  const item = next[index]!
-  next[index] = key === 'model' && typeof item === 'string' ? raw : { ...(typeof item === 'string' ? { model: item } : item), [key]: raw || null }
-  allowlistDraft.value = next
-}
+// What automatic selection uses while no candidates are chosen: the core says; an older core gets the Codex list.
+const agentDefaults = computed(() => providerStatus.value?.agent_default_candidates ??
+  (field('openai_codex.enabled')?.desired === true ? modelCatalogue.value.filter((row) => modelProvider(row.ref) === 'codex').map((row) => row.ref) : []))
+const chosenAgentModels = computed(() => candidates.value.length ? candidates.value.map(candidateModel) : agentDefaults.value)
 // Odin's selection hints: what each automatic candidate is good for, keyed by model. The descriptions and the
 // guidance JSON under More options edit one draft, that JSON, so the newest edit in either is the one saved.
 const hintsPath = 'agents.model_selection_hints'
@@ -194,12 +194,11 @@ function updateHint(model: string, text: string): void {
   else delete next[model]
   edit(hintsPath, JSON.stringify(next, null, 2))
 }
-function reorder(index: number, delta: number): void { const next = [...candidates.value]; const to = index + delta; if (to < 0 || to >= next.length) return; [next[index], next[to]] = [next[to]!, next[index]!]; allowlistDraft.value = next }
 async function saveAgents(): Promise<void> {
   if (busy.agents) return
+  errors.agents = ''
   const params: Record<string, unknown> = { model: value('agents.model') || null }
   if (allowlistDraft.value) {
-    if (candidates.value.some((item) => !candidateModel(item).trim())) { errors.agents = 'Enter a model for every automatic candidate.'; return }
     if (candidates.value.some((item) => typeof item !== 'string' && item.reasoning_effort && item.reasoning_effort !== 'auto' && modelEfforts(item.model)?.includes(item.reasoning_effort) !== true)) { errors.agents = 'Choose supported reasoning efforts for every automatic candidate.'; return }
     params.auto_model_allowlist = candidates.value
   }
@@ -211,7 +210,7 @@ async function saveAgents(): Promise<void> {
   finally { busy.agents = false }
 }
 const independentAgentPaths = ['agents.max_concurrent_agents']
-const agentEffortModels = computed(() => (agentMode.value === 'auto' ? candidates.value.map(candidateModel) : [agentMode.value === 'main' ? String(value('llm_provider.model')) : String(value('agents.model'))]).filter((model) => modelProvider(model) === 'codex'))
+const agentEffortModels = computed(() => (agentMode.value === 'auto' ? chosenAgentModels.value : [agentMode.value === 'main' ? String(value('llm_provider.model')) : String(value('agents.model'))]).filter((model) => modelProvider(model) === 'codex'))
 const agentEfforts = computed(() => {
   if (!agentEffortModels.value.length || agentEffortModels.value.some((model) => modelEfforts(model) === null)) return null
   return modelEfforts(agentEffortModels.value[0]!)!.filter((effort) => agentEffortModels.value.every((model) => modelEfforts(model)!.includes(effort)))
@@ -226,7 +225,6 @@ const extraPaths = computed(() => more.value.filter((item) => !item.key.startsWi
 const imagePaths = ['image.openai.enabled', 'image.openai.outer_model', 'image.openai.image_model']
 
 onMounted(loadCodex)
-const copyStatus = ref('')
 const refreshUnavailable = ref(false)
 const refreshKey = 'codex-refresh'
 let alive = true
@@ -245,7 +243,7 @@ async function refreshAccount(account: CodexAccount): Promise<void> {
   const identity = accountIdentity(account)
   const now = settings.codex.status?.accounts.find((entry) => entry.index === account.index)
   if (!now || accountIdentity(now) !== identity) return
-  const refresh = (window.odin as unknown as RefreshBridge).codexRefresh
+  const refresh = (odin as unknown as RefreshBridge).codexRefresh
   if (!refresh) { refreshUnavailable.value = true; return }
   settings.codex.busy = true
   settings.codex.stale = true
@@ -261,26 +259,7 @@ async function refreshAccount(account: CodexAccount): Promise<void> {
     finally { settings.codex.busy = false }
   })
 }
-const loginAnnouncement = computed(() => {
-  const login = settings.codex.login
-  if (!login) return ''
-  if (login.status === 'waiting') return 'Waiting for sign-in approval in the browser.'
-  if (login.status === 'stopped') return 'Stopped waiting. This app is no longer checking or finishing that login. Add an account to start again.'
-  return login.message ?? (login.status === 'done' ? 'Account added.' : `Sign-in ${login.status}.`)
-})
-watch(() => settings.codex.login?.code, () => { copyStatus.value = '' })
-async function copyCode(): Promise<void> {
-  const login = settings.codex.login
-  if (!login || login.status !== 'waiting') return
-  const result = await window.odin.copyText(login.code)
-  copyStatus.value = result.ok ? 'Sign-in code copied.' : 'Could not copy the sign-in code.'
-}
 const accountName = (account: CodexAccount): string => account.label || account.email || `Account ${account.index + 1}`
-
-async function openVerification(): Promise<void> {
-  const result = await window.odin.codexOpenVerification()
-  if (!result.ok) settings.codex.error = result.error.message
-}
 
 function windowName(minutes: number): string {
   if (minutes >= 10080) return 'weekly'
@@ -360,35 +339,10 @@ async function remove(account: CodexAccount): Promise<void> {
       <select :id="modelId('agents.model')" :value="value('agents.model')" @change="edit('agents.model', ($event.target as HTMLSelectElement).value)"><option v-for="row in options(String(value('agents.model')))" :key="row.ref" :value="row.ref" :disabled="row.disabled">{{ row.label }}</option></select>
       <template #note><p v-if="selectionNote(String(value('agents.model')))" class="settings-help">{{ selectionNote(String(value('agents.model'))) }}</p></template>
     </SettingsRow>
-    <div v-if="agentMode === 'auto' && field('agents.auto_model_allowlist')" :id="modelId('agents.auto_model_allowlist')" tabindex="-1" class="model-candidates">
-      <h4>Automatic candidates</h4>
-      <p class="settings-help">Order sets preference. Per-model effort and thinking choices must be compatible with that model. A description tells automatic selection which tasks suit the model.</p>
-      <p v-if="field(hintsPath) && !hints" class="settings-help">Descriptions can't be edited here until the selection guidance under More options is valid JSON.</p>
-      <p v-if="!candidates.length">No candidates. Add a model for automatic selection.</p>
-      <div v-for="(candidate, index) in candidates" :key="index" class="model-candidate">
-        <label :for="modelId(`agents.auto_model_allowlist.${index}.model`)">Model {{ index + 1 }}</label>
-        <select :id="modelId(`agents.auto_model_allowlist.${index}.model`)" :value="candidateModel(candidate)" @change="updateCandidate(index, 'model', ($event.target as HTMLSelectElement).value)"><option v-for="row in options(candidateModel(candidate))" :key="row.ref" :value="row.ref" :disabled="row.disabled">{{ row.label }}</option></select>
-        <p v-if="selectionNote(candidateModel(candidate))" class="settings-help">{{ selectionNote(candidateModel(candidate)) }}</p>
-        <label :for="modelId(`agents.auto_model_allowlist.${index}.reasoning_effort`)">Reasoning effort {{ index + 1 }}</label>
-        <select :id="modelId(`agents.auto_model_allowlist.${index}.reasoning_effort`)" :value="typeof candidate === 'string' ? '' : candidate.reasoning_effort ?? ''" @change="updateCandidate(index, 'reasoning_effort', ($event.target as HTMLSelectElement).value)">
-          <option v-if="typeof candidate !== 'string' && candidate.reasoning_effort && candidate.reasoning_effort !== 'auto' && !modelEfforts(candidateModel(candidate))?.includes(candidate.reasoning_effort)" :value="candidate.reasoning_effort" disabled>{{ candidate.reasoning_effort }} (not supported)</option>
-          <option value="">Use agent policy</option><option value="auto">Choose automatically</option>
-          <option v-for="effort in modelEfforts(candidateModel(candidate)) ?? []" :key="effort" :value="effort">{{ effort }}</option>
-        </select>
-        <label :for="modelId(`agents.auto_model_allowlist.${index}.thinking_mode`)">Thinking mode {{ index + 1 }}</label>
-        <select :id="modelId(`agents.auto_model_allowlist.${index}.thinking_mode`)" :disabled="modelProvider(candidateModel(candidate)) === 'codex'" :value="typeof candidate === 'string' ? '' : candidate.thinking_mode ?? ''" @change="updateCandidate(index, 'thinking_mode', ($event.target as HTMLSelectElement).value)">
-          <option value="">Use agent policy</option><option v-for="mode in field('agents.thinking_mode')?.enum ?? []" :key="mode" :value="mode">{{ mode }}</option>
-        </select>
-        <label v-if="field(hintsPath)" :for="modelId(`${hintsPath}.${index}`)">Description {{ index + 1 }}</label>
-        <textarea v-if="field(hintsPath)" :id="modelId(`${hintsPath}.${index}`)" rows="2" :disabled="!candidateModel(candidate) || !hints" :value="hints?.[candidateModel(candidate)] ?? ''" placeholder="Which tasks suit this model" @input="updateHint(candidateModel(candidate), ($event.target as HTMLTextAreaElement).value)" />
-        <div class="settings-actions">
-          <button class="ghost" :aria-label="`Move model ${index + 1} up`" :disabled="index === 0" @click="reorder(index, -1)">Move up</button>
-          <button class="ghost" :aria-label="`Move model ${index + 1} down`" :disabled="index === candidates.length - 1" @click="reorder(index, 1)">Move down</button>
-          <button class="ghost" :aria-label="`Remove model ${index + 1}`" @click="allowlistDraft = candidates.filter((_, at) => at !== index)">Remove</button>
-        </div>
-      </div>
-      <button class="ghost" @click="allowlistDraft = [...candidates, '']">Add automatic candidate</button>
-    </div>
+    <AgentCandidates v-if="agentMode === 'auto' && field('agents.auto_model_allowlist')" :rows="modelCatalogue" :defaults="agentDefaults"
+      :candidates="candidates" :hints="field(hintsPath) ? hints : undefined" :fields="settings.meta?.fields ?? []"
+      :thinking-modes="(field('agents.thinking_mode')?.enum ?? []).map(String)" :control-id="modelId"
+      @update:candidates="allowlistDraft = $event" @hint="updateHint" />
     <p v-if="errors.agents" role="status" class="warn">{{ errors.agents }}</p>
     <p v-if="busy.agents" role="status">Saving…</p><p v-else-if="notes.agents" role="status">{{ notes.agents }}</p>
     <p v-for="item in present(agentPaths)" :key="item.path" class="warn" role="status">{{ settings.fields[item.path]?.status === 'error' ? settings.fields[item.path]?.message : stateNote(item) }}</p>
@@ -414,21 +368,7 @@ async function remove(account: CodexAccount): Promise<void> {
   <section class="codex-accounts" aria-label="Codex accounts">
     <p v-if="settings.codex.unavailable" class="capability-unavailable" role="status">{{ unavailableText('Codex accounts') }}</p>
     <template v-else>
-      <div v-if="settings.codex.login" class="login">
-      <p role="status" aria-atomic="true">{{ loginAnnouncement }}</p>
-      <template v-if="settings.codex.login.status === 'waiting'">
-        <p>
-          Open <button class="ghost" data-testid="codex-open-verification" aria-describedby="codex-login-browser" @click="openVerification">{{ settings.codex.login.url }}</button>
-          and enter the sign-in code. Odin adds the account once you approve it.
-        </p>
-        <p id="codex-login-browser" class="panel-hint">Opens in your browser. The sign-in code is temporary; your stored credentials are never shown here.</p>
-        <p>Sign-in code: <code class="login-code">{{ settings.codex.login.code }}</code></p>
-        <button class="ghost" @click="copyCode">Copy sign-in code</button>
-        <p v-if="copyStatus" role="status">{{ copyStatus }}</p>
-        <button class="ghost" data-testid="codex-cancel-login" @click="stopLogin">Stop waiting</button>
-      </template>
-      <button v-if="settings.codex.login.status === 'failed'" class="ghost" data-testid="codex-retry-login" @click="retryLogin">Retry login</button>
-      </div>
+      <CodexSignIn />
       <p v-if="settings.codex.error" class="warn" role="status">{{ settings.codex.error }} <button class="ghost" @click="loadCodex">Retry accounts</button></p>
       <p v-if="settings.codex.busy" role="status">Updating Codex accounts.</p>
       <p v-if="refreshUnavailable" class="capability-unavailable" role="status">{{ unavailableText('Codex sign-in refresh') }}</p>
@@ -467,7 +407,7 @@ async function remove(account: CodexAccount): Promise<void> {
     </template>
   </section>
   </SettingsSection>
-  <SettingsSection v-if="providers.some((provider) => field(providerPaths[provider][0]!))" title="Providers">
+  <SettingsSection v-if="providers.some((provider) => field(providerPaths[provider][0]!))" id="settings-target-providers" tabindex="-1" aria-label="Providers" title="Providers">
     <template v-for="provider in providers" :key="provider">
       <SettingsRow v-if="field(providerPaths[provider][0]!)" :label="providerNames[provider]" :description="providerSummary(provider)">
         <SettingsSwitch :id="modelId(providerPaths[provider][0]!)" :label="`Enable ${providerNames[provider]}`" :checked="field(providerPaths[provider][0]!)?.desired === true" :disabled="busy[provider]" @change="toggleProvider(provider, $event)" />
@@ -533,14 +473,12 @@ async function remove(account: CodexAccount): Promise<void> {
 </template>
 
 <style scoped>
-.codex-accounts, .provider-setup, .model-candidates { padding: 1rem; }
+.codex-accounts, .provider-setup { padding: 1rem; }
 .provider-setup { border-bottom: 1px solid var(--border); }
 .model-actions { padding: .75rem 1rem; flex-wrap: wrap; justify-content: flex-end; }
 .model-refresh { font-size: 12px; }
 .context-unavailable { padding: 1rem; margin: 0; }
-.model-candidate { display: grid; gap: .5rem; padding: .75rem 0; border-bottom: 1px solid var(--border); }
-.model-candidate input, .model-candidate select { width: 100%; min-width: 0; }
-.model-candidates h4, .provider-setup h4 { margin-top: 0; }
+.provider-setup h4 { margin-top: 0; }
 .account { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .account-details { flex: 1 1 45%; min-width: 0; }
 .account-controls { flex: 1 1 50%; min-width: 0; text-align: right; }

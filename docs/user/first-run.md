@@ -3,11 +3,32 @@
 Install and launch Odin using [Install](install.md). Setup uses the normal
 Settings screens; there is no separate wizard.
 
+## Sign in from chat
+
+On first open, Codex is the chosen provider. Until a Codex account is signed in,
+chat shows **Sign in to start chatting**:
+
+1. Choose **Sign in with ChatGPT**. The banner shows a verification link and a
+   temporary sign-in code; open the link with its button, use **Copy sign-in code**
+   if needed, and enter the code on that page.
+2. Approve the account and return to Odin. Once Odin is ready, the banner goes
+   and the message box takes focus. Signing in alone is not readiness: if the
+   banner reports **Saved, not effective yet**, read its reason.
+3. **Stop waiting** cancels the wait. **Use another provider** opens **Settings →
+   Models and providers** at **Providers**; **Import from Odin** opens the importer
+   in **General**.
+
+**Set up later** is offered while no sign-in is waiting; choose **Stop waiting**
+first. After it, a note by the message box says Odin isn't set up yet and offers
+**Show setup**. While setup is missing, a message you send stays in the box,
+unsent; slash commands still work. This is the same sign-in as **Add account**
+under **Accounts and quota**.
+
 ## Open Settings
 
 1. Choose **Settings** in the navigation rail or press **Ctrl+,**, then open
    **Models and providers**. A setup invitation in chat can also offer **Open
-   Models and providers**.
+   Models and providers** or **Use another provider**.
 2. If you are not ready, choose **Set up later** when offered. A successful save
    remembers this dismissal across reopening and restarting the app. It hides
    the setup invitation, not provider, keyring, connection or recovery warnings;

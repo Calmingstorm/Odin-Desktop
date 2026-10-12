@@ -100,6 +100,7 @@ describe('real app/core first-run onboarding', () => {
   it('fresh launch supports setup later, section re-entry and a second launch without a local readiness flag', async () => {
     const fresh = await launch('fresh', 'onboarding-fresh', { keyring: 'healthy', auth: 'pending' })
     expect(fresh.states).toEqual(['fresh', 'incomplete'])
+    expect(fresh.checks).toEqual(expect.arrayContaining(['banner-sign-in', 'composer-setup-note']))
     const second = await launch('fresh-second', 'onboarding-fresh', { keyring: 'healthy', auth: 'pending' })
     expect(second.states).toEqual(['incomplete'])
     expect(second.checks).toEqual(expect.arrayContaining(['dismissal-persisted', 'dismissal-after-incomplete']))

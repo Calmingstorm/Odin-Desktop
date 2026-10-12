@@ -1,6 +1,7 @@
 // The State and Personality sections: what Odin remembers and knows, and who he is, in the shapes of Odin's
 // /api/personality, /api/memory and /api/knowledge routes, plus named lists and reloading context.
 import { reactive } from 'vue'
+import { odin } from '../bridge'
 import type { KnowledgeHit, KnowledgeIngest, KnowledgeSource, KnowledgeVersion, MemoryIndex, NamedList, Personality, PersonalitySet, Result } from '../../../shared/api'
 import { isUnavailable, settingsResultMessage as resultMessage } from '../capability'
 import { act, management } from './management'
@@ -87,14 +88,14 @@ onReady(() => { loadPersonality().catch(() => undefined) })
 export async function loadPersonality(): Promise<void> {
   const mine = ++personalityAsked
   const epoch = epochs.personality
-  const result = await window.odin.personalityGet({})
+  const result = await odin.personalityGet({})
   if (mine !== personalityAsked || epoch !== epochs.personality) return
   if (answered('personality', result)) stateStore.personality = activePersonality.value = result.result
 }
 
 export async function savePersonality(change: PersonalitySet, onSaved?: () => void): Promise<boolean> {
   if (stateStore.unavailable.personality) return false
-  return act('personality', () => command('personality', () => window.odin.personalitySet(change)), () => {
+  return act('personality', () => command('personality', () => odin.personalitySet(change)), () => {
     onSaved?.()
     return 'Saved. New requests use it.'
   }, loadPersonality)
@@ -102,12 +103,12 @@ export async function savePersonality(change: PersonalitySet, onSaved?: () => vo
 
 export async function savePreset(preset: { name: string; display_name?: string; identity?: string; voice?: string }): Promise<boolean> {
   if (stateStore.unavailable.personality) return false
-  return act('preset', () => command('personality', () => window.odin.personalityPresetsSave(preset)), (r) => `Saved as ${r.name}.`, loadPersonality)
+  return act('preset', () => command('personality', () => odin.personalityPresetsSave(preset)), (r) => `Saved as ${r.name}.`, loadPersonality)
 }
 
 export async function deletePreset(name: string): Promise<boolean> {
   if (stateStore.unavailable.personality) return false
-  return act(`preset:${name}`, () => command('personality', () => window.odin.personalityPresetsDelete({ name })), () => 'Deleted.', loadPersonality)
+  return act(`preset:${name}`, () => command('personality', () => odin.personalityPresetsDelete({ name })), () => 'Deleted.', loadPersonality)
 }
 
 // ---- Memory and lists ------------------------------------------------------------------------------------------------
@@ -118,13 +119,13 @@ export async function loadMemory(): Promise<void> {
   const memoryEpoch = epochs.memory
   const listsEpoch = epochs.lists
   await Promise.all([
-    window.odin.memoryList({}).then(async (result) => {
+    odin.memoryList({}).then(async (result) => {
       if (memoryAsked !== asked.memory || memoryEpoch !== epochs.memory) return
       if (!answered('memory', result)) return
       stateStore.memory = result.result
       await Promise.all(Object.keys(stateStore.memoryEntries).map(openScope))
     }),
-    window.odin.listsList({}).then((result) => {
+    odin.listsList({}).then((result) => {
       if (listsAsked !== asked.lists || listsEpoch !== epochs.lists) return
       if (answered('lists', result)) stateStore.lists = result.result.items
     })
@@ -137,7 +138,7 @@ export async function openScope(scope: string): Promise<void> {
   if (stateStore.unavailable.memory) return
   const mine = scopesAsked[scope] = (scopesAsked[scope] ?? 0) + 1
   const epoch = epochs.memory
-  const result = await window.odin.memoryGet({ scope })
+  const result = await odin.memoryGet({ scope })
   if (epoch !== epochs.memory || mine !== scopesAsked[scope]) return
   if (answered('memory', result)) stateStore.memoryEntries[scope] = result.result.entries ?? {}
   else delete stateStore.memoryEntries[scope]
@@ -150,15 +151,15 @@ export function closeScope(scope: string): void {
 
 export async function setMemory(scope: string, key: string, value: unknown): Promise<boolean> {
   if (stateStore.unavailable.memory) return false
-  return act(`memory:${scope}`, () => command('memory', () => window.odin.memorySet({ scope, key, value })), () => `Saved ${key}.`, loadMemory)
+  return act(`memory:${scope}`, () => command('memory', () => odin.memorySet({ scope, key, value })), () => `Saved ${key}.`, loadMemory)
 }
 
 export async function deleteMemory(scope: string, keys: string[]): Promise<boolean> {
   if (stateStore.unavailable.memory) return false
-  if (keys.length === 1) return act(`memory:${scope}`, () => command('memory', () => window.odin.memoryDelete({ scope, key: keys[0]! })), () => 'Deleted.', loadMemory)
+  if (keys.length === 1) return act(`memory:${scope}`, () => command('memory', () => odin.memoryDelete({ scope, key: keys[0]! })), () => 'Deleted.', loadMemory)
   return act(
     `memory:${scope}`,
-    () => command('memory', () => window.odin.memoryBulkDelete({ entries: keys.map((key) => ({ scope, key })) })),
+    () => command('memory', () => odin.memoryBulkDelete({ entries: keys.map((key) => ({ scope, key })) })),
     (r) => `Deleted ${r.count}.`,
     loadMemory
   )
@@ -170,7 +171,7 @@ export async function openList(name: string): Promise<void> {
   if (stateStore.unavailable.lists) return
   const mine = listsAsked[name] = (listsAsked[name] ?? 0) + 1
   const epoch = epochs.lists
-  const result = await window.odin.listsGet({ name })
+  const result = await odin.listsGet({ name })
   if (epoch !== epochs.lists || mine !== listsAsked[name]) return
   if (answered('lists', result)) stateStore.listItems[name] = result.result.items
 }
@@ -178,13 +179,13 @@ export async function openList(name: string): Promise<void> {
 export async function deleteList(name: string): Promise<boolean> {
   if (stateStore.unavailable.lists) return false
   delete stateStore.listItems[name]
-  return act(`list:${name}`, () => command('lists', () => window.odin.listsDelete({ name })), () => 'Deleted.', loadMemory)
+  return act(`list:${name}`, () => command('lists', () => odin.listsDelete({ name })), () => 'Deleted.', loadMemory)
 }
 
 /** Odin's /reload: the context files again, and what is in context now. */
 export async function reloadContext(): Promise<void> {
   stateStore.reload = 'Reloading…'
-  const result = await window.odin.reload('context')
+  const result = await odin.reload('context')
   if (answered('context', result)) stateStore.reload = result.result.summary || 'Reloaded.'
   else stateStore.reload = stateStore.errors.context ?? ''
 }
@@ -194,7 +195,7 @@ export async function reloadContext(): Promise<void> {
 export async function loadKnowledge(): Promise<void> {
   const mine = ++asked.knowledge
   const epoch = epochs.knowledge
-  const result = await window.odin.knowledgeList({})
+  const result = await odin.knowledgeList({})
   if (mine !== asked.knowledge || epoch !== epochs.knowledge) return
   if (answered('knowledge', result)) stateStore.knowledge = result.result
 }
@@ -217,7 +218,7 @@ export async function ingest(source: string, content: string): Promise<boolean> 
   let stored = false
   const ok = await act(
     'knowledge',
-    () => command('knowledge', () => window.odin.knowledgeIngest({ source, content })),
+    () => command('knowledge', () => odin.knowledgeIngest({ source, content })),
     (answer) => {
       stored = storedIngest(answer)
       return ingestNote(answer)
@@ -229,13 +230,13 @@ export async function ingest(source: string, content: string): Promise<boolean> 
 
 export async function reingest(source: string): Promise<void> {
   if (stateStore.unavailable.knowledge) return
-  await act(`knowledge:${source}`, () => command('knowledge', () => window.odin.knowledgeReingest({ source })), ingestNote, loadKnowledge)
+  await act(`knowledge:${source}`, () => command('knowledge', () => odin.knowledgeReingest({ source })), ingestNote, loadKnowledge)
 }
 
 export async function deleteSource(source: string): Promise<void> {
   if (stateStore.unavailable.knowledge) return
   delete stateStore.versions[source]
-  await act(`knowledge:${source}`, () => command('knowledge', () => window.odin.knowledgeDelete({ source })), (r) => `Deleted, ${chunkCount(r.chunks_removed)}.`, loadKnowledge)
+  await act(`knowledge:${source}`, () => command('knowledge', () => odin.knowledgeDelete({ source })), (r) => `Deleted, ${chunkCount(r.chunks_removed)}.`, loadKnowledge)
 }
 
 const versionsAsked: Record<string, number> = {}
@@ -244,7 +245,7 @@ export async function loadVersions(source: string): Promise<void> {
   if (stateStore.unavailable.knowledge) return
   const mine = versionsAsked[source] = (versionsAsked[source] ?? 0) + 1
   const epoch = epochs.knowledge
-  const result = await window.odin.knowledgeVersions({ source })
+  const result = await odin.knowledgeVersions({ source })
   if (epoch !== epochs.knowledge || mine !== versionsAsked[source]) return
   if (answered('knowledge', result)) stateStore.versions[source] = result.result
 }
@@ -253,7 +254,7 @@ export async function restoreVersion(source: string, version: number): Promise<v
   if (stateStore.unavailable.knowledge) return
   await act(
     `knowledge:${source}`,
-    () => command('knowledge', () => window.odin.knowledgeRestore({ source, version })),
+    () => command('knowledge', () => odin.knowledgeRestore({ source, version })),
     (r) => `Restored version ${r.version}: ${chunkCount(r.chunks)}.`,
     async () => {
       await loadKnowledge()
@@ -272,7 +273,7 @@ export async function searchKnowledge(q: string): Promise<void> {
     stateStore.hits = null
     return
   }
-  const result = await window.odin.knowledgeSearch({ q: q.trim(), limit: 20 })
+  const result = await odin.knowledgeSearch({ q: q.trim(), limit: 20 })
   if (mine !== latestSearch || epoch !== epochs.knowledge) return
   if (answered('knowledge', result)) stateStore.hits = result.result
   else if (!stateStore.unavailable.knowledge) stateStore.hits = []

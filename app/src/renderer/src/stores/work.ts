@@ -2,6 +2,7 @@
 // controls Odin offers for each one now. The list is the authority: a work.updated event patches the state at once,
 // then the list is fetched again for the new controls and detail.
 import { reactive } from 'vue'
+import { odin } from '../bridge'
 import type { CoreEvent, Result, WorkAction, WorkControlParams, WorkControlReceipt, WorkItem, WorkKind } from '../../../shared/api'
 import { isUnknownOutcome, onCoreEvent, onLateReceipt, onReady } from '../store'
 import { busy } from './locks'
@@ -108,7 +109,7 @@ let latest = 0
 
 export async function loadWork(): Promise<void> {
   const mine = ++latest
-  const result = await window.odin.workList()
+  const result = await odin.workList()
   if (mine !== latest) return // a newer load answers instead
   if (!result.ok) {
     work.unavailable = isUnavailable(result.error)
@@ -178,7 +179,7 @@ export async function controlWork(item: WorkItem, action: WorkAction, text?: str
   if (item.conversation_id !== undefined) params.conversation_id = item.conversation_id
   if (item.kind === 'schedule' && typeof item.detail !== 'string' && typeof item.detail.revision === 'number') params.revision = item.detail.revision
   if (action === 'steer') params.text = text
-  const result = await window.odin.workControl(params)
+  const result = await odin.workControl(params)
   if (!result.ok && isUnknownOutcome(result.error)) {
     uncertain.set(commandId, { key, action })
     work.notes[key] = `${actionLabel(action)}: waiting for Odin to confirm. It is never sent twice.`

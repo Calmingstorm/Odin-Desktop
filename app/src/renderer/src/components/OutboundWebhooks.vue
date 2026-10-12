@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { odin } from '../bridge'
 import type { OutboundWebhookDelivery, OutboundWebhookSave, OutboundWebhookStatus, OutboundWebhookTarget, Result } from '../../../shared/api'
 import { ask } from '../dialog'
 import { state } from '../store'
@@ -67,9 +68,9 @@ async function readProjection(explicit = false): Promise<void> {
   const mine = ++generation
   loading.value = true; stale.value = true; snapshot.value = null
   try {
-    if (typeof window.odin.outboundWebhooksList !== 'function') { unavailable.value = true; error.value = ''; return }
+    if (typeof odin.outboundWebhooksList !== 'function') { unavailable.value = true; error.value = ''; return }
     if (explicit || (!settings.meta && !settings.unavailable)) await loadSettings(explicit)
-    const result = await window.odin.outboundWebhooksList({})
+    const result = await odin.outboundWebhooksList({})
     if (!alive || mine !== generation) return
     unavailable.value = !result.ok && result.error.code === 'capability_unavailable'
     if (unavailable.value) { error.value = ''; return }
@@ -103,7 +104,7 @@ async function save(): Promise<void> {
   // Erase submitted credentials immediately. No masked value ever becomes a replacement.
   current.secret = ''; current.url = ''; error.value = ''
   const mine = generation
-  await act(KEY, () => settingsCommand((latest) => latest === current.revision ? window.odin.outboundWebhooksSave(body) : Promise.resolve(staleResult())), () => {
+  await act(KEY, () => settingsCommand((latest) => latest === current.revision ? odin.outboundWebhooksSave(body) : Promise.resolve(staleResult())), () => {
     if (alive && mine === generation && draft.value === current) draft.value = null
     return 'Target saved. Delivery readiness is not implied.'
   }, async () => { if (alive && mine === generation && draft.value !== current) await readProjection() })
@@ -118,7 +119,7 @@ async function remove(row: OutboundWebhookTarget): Promise<void> {
   finally { confirming.value = false }
   if (locked.value || mine !== generation) return
   let deleted = false
-  const saved = await act(KEY, () => settingsCommand((latest) => latest === baseline ? window.odin.outboundWebhooksDelete({ id: row.id, expected_revision: baseline }) : Promise.resolve(staleResult())), () => { deleted = true; return 'Target and owned credentials deleted.' }, async () => { if (deleted && alive && mine === generation) { cancel(); await readProjection() } })
+  const saved = await act(KEY, () => settingsCommand((latest) => latest === baseline ? odin.outboundWebhooksDelete({ id: row.id, expected_revision: baseline }) : Promise.resolve(staleResult())), () => { deleted = true; return 'Target and owned credentials deleted.' }, async () => { if (deleted && alive && mine === generation) { cancel(); await readProjection() } })
   if (!alive || mine !== generation) return
   if (!saved) stale.value = true
 }
@@ -131,9 +132,9 @@ async function test(row: OutboundWebhookTarget): Promise<void> {
   if (locked.value || mine !== generation) return
   const settled = await act(KEY, () => settingsCommand(async (latest) => {
     if (latest !== baseline) return staleResult<OutboundWebhookDelivery>()
-    const meta = await window.odin.settingsSchema()
+    const meta = await odin.settingsSchema()
     if (!meta.ok || meta.result.revision !== baseline || mine !== generation) return staleResult<OutboundWebhookDelivery>()
-    return window.odin.outboundWebhooksTest({ id: row.id, expected_revision: baseline })
+    return odin.outboundWebhooksTest({ id: row.id, expected_revision: baseline })
   }), (delivery) => {
     if (!alive || mine !== generation) return 'Test settled after the displayed core changed. Refresh and inspect.'
     if (!delivery || typeof delivery.success !== 'boolean' || typeof delivery.status_code !== 'number' || typeof delivery.latency_ms !== 'number' || typeof delivery.attempt !== 'number') return 'Test receipt did not report a measured delivery. Refresh and inspect; it is not sent again.'

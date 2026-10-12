@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { odin } from '../bridge'
 import type { Message } from '../../../shared/api'
 import { images, showsInline, type ImageHandle } from '../artifacts'
 import { onCodeCopyClick } from '../code-copy'
@@ -88,7 +89,7 @@ function fileSize(bytes: number): string {
 async function copy(kind: 'markdown' | 'plain'): Promise<void> {
   closeCopy()
   const text = kind === 'markdown' ? props.message.text : plainTextOf(props.message.text)
-  const result = await window.odin.copyText(text)
+  const result = await odin.copyText(text)
   copied.value = result.ok ? 'Copied' : "Couldn't copy"
   setTimeout(() => (copied.value = ''), 1500)
 }

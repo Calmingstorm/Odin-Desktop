@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import SettingsSection from './settings/SettingsSection.vue'
+import { odin } from '../bridge'
 import SettingsSwitch from './settings/SettingsSwitch.vue'
 import SettingsRow from './settings/SettingsRow.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -92,7 +93,7 @@ async function refreshProjection(): Promise<void> {
   // Old acceptance evidence is not current acceptance evidence.
   ingress.value = undefined
   const [settings, status] = await Promise.all([
-    read(() => window.odin.settingsSchema()), read(() => window.odin.status())
+    read(() => odin.settingsSchema()), read(() => odin.status())
   ])
   if (!alive || mine !== generation) return
   loading.value = false
@@ -112,7 +113,7 @@ async function refreshProjection(): Promise<void> {
 async function writeSettings(changes: SettingsChange[]): Promise<boolean> {
   if (!meta.value) return false
   const mine = generation
-  const result = await read(() => window.odin.settingsSet({ expected_revision: meta.value!.revision, changes }))
+  const result = await read(() => odin.settingsSet({ expected_revision: meta.value!.revision, changes }))
   if (!alive || mine !== generation) return false
   if (!result.ok) {
     stale.value = true
@@ -167,7 +168,7 @@ async function saveTrigger(): Promise<void> {
       await refreshProjection()
       return
     }
-    const submission = read(() => window.odin.secretsSet({ path: `${path}.secret`, value: pendingSecret }))
+    const submission = read(() => odin.secretsSet({ path: `${path}.secret`, value: pendingSecret }))
     pendingSecret = ''
     const result = await submission
     if (!alive || mine !== generation) return
@@ -185,7 +186,7 @@ async function clearTriggerSecret(): Promise<void> {
   ingress.value = undefined
   error.value = ''; notice.value = ''
   try {
-    const result = await read(() => window.odin.secretsClear({ path }))
+    const result = await read(() => odin.secretsClear({ path }))
     if (!alive || mine !== generation) return
     notice.value = result.ok ? 'Per-trigger secret cleared. This trigger cannot receive authenticated deliveries without a secret.'
       : 'Secret clearing was not confirmed. The previous secret may still be in use. Refresh before retrying.'
