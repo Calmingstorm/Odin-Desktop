@@ -50,15 +50,16 @@ function tree() {
 }
 
 // SignTool's and PowerShell's answers, in order; every call recorded.
-function runner(signtool: number[] = [0], signature: Record<string, unknown> | string = VALID) {
+function runner(signtool: number[] = [0], signature: Record<string, unknown> | string = VALID, inspect = 0) {
   const calls: Call[] = []
   const codes = [...signtool]
   const run = (command: string, args: string[], options: Call['options']): Result => {
     calls.push({ command, args, options })
     if (command === 'powershell.exe') {
-      return { status: 0, stdout: typeof signature === 'string' ? signature : JSON.stringify(signature) }
+      return { status: inspect, stdout: typeof signature === 'string' ? signature : JSON.stringify(signature),
+        stderr: inspect ? 'The term Get-AuthenticodeSignature is not recognized' : '' }
     }
-    return { status: codes.length > 1 ? codes.shift()! : codes[0], stdout: '', stderr: 'SignerSign() failed' }
+    return { status: (codes.length > 1 ? codes.shift() : codes[0]) ?? 0, stdout: '', stderr: 'SignerSign() failed' }
   }
   return { calls, run }
 }
@@ -90,16 +91,19 @@ describe('the release build\'s Windows signing hook', () => {
   it('signs Odin.exe, the uninstaller and the installer, then checks each signature', async () => {
     const { files, env } = tree()
     const { calls, run } = runner()
-    const { sign, log } = signer(env, run)
+    const { sign, log } = signer({ ...env, PSModulePath: 'C:\\Program Files\\PowerShell\\7\\Modules' }, run)
     for (const file of [files.app, files.uninstaller, files.installer]) await sign({ path: file, hash: 'sha256' })
     expect(calls.map((call) => call.command)).toEqual([env.ODIN_SIGNTOOL, 'powershell.exe', env.ODIN_SIGNTOOL,
       'powershell.exe', env.ODIN_SIGNTOOL, 'powershell.exe'])
-    expect(calls[0].args).toEqual(['sign', '/v', '/fd', 'SHA256', '/tr', 'http://timestamp.acs.microsoft.com', '/td',
+    expect(calls[0]?.args).toEqual(['sign', '/v', '/fd', 'SHA256', '/tr', 'http://timestamp.acs.microsoft.com', '/td',
       'SHA256', '/dlib', env.ODIN_SIGNING_DLIB, '/dmdf', env.ODIN_SIGNING_METADATA, files.app])
     // The file reaches PowerShell through the environment, never inside the command.
-    expect(calls[1].options.env?.ODIN_SIGNED_FILE).toBe(files.app)
-    expect(calls[1].args.join(' ')).not.toContain(files.app)
-    expect(calls[5].options.env?.ODIN_SIGNED_FILE).toBe(files.installer)
+    expect(calls[1]?.options.env?.ODIN_SIGNED_FILE).toBe(files.app)
+    expect(calls[1]?.args.join(' ')).not.toContain(files.app)
+    // Windows PowerShell gets its own module path, not PowerShell 7's.
+    expect(calls[1]?.options.env).not.toHaveProperty('PSModulePath')
+    expect(calls[0]?.options.env).toBeUndefined()  // SignTool inherits the build's environment
+    expect(calls[5]?.options.env?.ODIN_SIGNED_FILE).toBe(files.installer)
     expect(log).toEqual([
       'signing: signed the app, Odin.exe, as Aaron Charpentier (C2DEDC99)',
       'signing: signed the uninstaller, __uninstaller-nsis-Odin.exe, as Aaron Charpentier (C2DEDC99)',
@@ -142,6 +146,9 @@ describe('the release build\'s Windows signing hook', () => {
       const { run } = runner([0], signature)
       await expect(signer(env, run).sign({ path: files.installer })).rejects.toThrow(files.installer)
     }
+    // PowerShell itself failing is no signature either, whatever it printed.
+    const { run } = runner([0], VALID, 1)
+    await expect(signer(env, run).sign({ path: files.installer })).rejects.toThrow('not recognized')
   })
 
   it('tries SignTool three times, waiting longer each time, then fails the build', async () => {

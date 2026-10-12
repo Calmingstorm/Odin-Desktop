@@ -19,7 +19,8 @@ const UNINSTALLER = /^__uninstaller-.+\.exe$/
 const INSTALLER = /^odin-desktop-.+-x64-setup\.exe$/
 const TOOLS = { signtool: 'ODIN_SIGNTOOL', dlib: 'ODIN_SIGNING_DLIB', metadata: 'ODIN_SIGNING_METADATA' }
 // The signature as Windows reads it, for the file named in ODIN_SIGNED_FILE (no path inside the command).
-const INSPECT = '$s = Get-AuthenticodeSignature -LiteralPath $env:ODIN_SIGNED_FILE; $c = $s.SignerCertificate; ' +
+const INSPECT = "$ErrorActionPreference = 'Stop'; " +
+  '$s = Get-AuthenticodeSignature -LiteralPath $env:ODIN_SIGNED_FILE; $c = $s.SignerCertificate; ' +
   "@{ status = [string]$s.Status; publisher = if ($c) { $c.GetNameInfo('SimpleName', $false) } else { '' }; " +
   'thumbprint = if ($c) { $c.Thumbprint } else { \'\' }; timestamped = [bool]$s.TimeStamperCertificate } | ' +
   'ConvertTo-Json -Compress'
@@ -47,6 +48,13 @@ function settings(env) {
   if (!env.ODIN_SIGNING_PUBLISHER) throw new Error('ODIN_SIGNING_PUBLISHER (the expected signer) isn\'t set')
   found.publisher = env.ODIN_SIGNING_PUBLISHER
   return found
+}
+
+// Windows PowerShell started from PowerShell 7 (the release job's shell) inherits PowerShell 7's module path, and then
+// can't load its own Get-AuthenticodeSignature: it gets its own path back by inheriting none.
+function inspectEnv(env, file) {
+  const child = Object.fromEntries(Object.entries(env).filter(([name]) => name.toUpperCase() !== 'PSMODULEPATH'))
+  return { ...child, ODIN_SIGNED_FILE: file }
 }
 
 const output = (result) => `${result.error ? result.error.message : ''}\n${result.stdout || ''}\n${result.stderr || ''}`
@@ -79,9 +87,10 @@ function createSigner({ env = process.env, run = spawnSync, sleep = (ms) => new 
       await sleep(attempt * 15000)
     }
     const inspected = run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', INSPECT],
-      { encoding: 'utf8', windowsHide: true, timeout: 2 * 60000, env: { ...env, ODIN_SIGNED_FILE: file } })
+      { encoding: 'utf8', windowsHide: true, timeout: 2 * 60000, env: inspectEnv(env, file) })
     let signature = {}
     try {
+      if (inspected.status !== 0) throw new Error('PowerShell failed')
       signature = JSON.parse(inspected.stdout)
     } catch {
       throw new Error(`Couldn't read the signature of ${file}: ${output(inspected)}`)

@@ -7,7 +7,8 @@ name: Signing probe (temporary, branch only)
 on:
   push:
     branches: [release/v1.0.7-windows-signing]
-    paths: [.github/workflows/signing-probe.yml]
+    paths: [.github/workflows/signing-probe.yml, app/packaging/sign-windows.cjs, app/packaging/provision-signing.py,
+      app/packaging/signing-lock.win_amd64.json]
 
 permissions: {}
 
