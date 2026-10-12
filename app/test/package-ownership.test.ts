@@ -34,7 +34,20 @@ describe('independent packaged app lifetime', () => {
       '--app-cleanup', 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\default-cleanup-state.json',
       '--core-cleanup', 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\data\\resource-cleanup.json', 'hold'
     ])
-    expect(options).toMatchObject({ windowsHide: true })
+    // Detached: otherwise Windows ends the guardian with the app, before it records the clean Exit.
+    expect(options).toMatchObject({ windowsHide: true, detached: true })
+    process.stdin.end()
+  })
+
+  it('keeps the Linux guardian a plain child, as before', async () => {
+    const process = child()
+    mocked.spawn.mockReturnValue(process)
+    const pending = acquirePackagedApp(paths, '/candidate/resources', {}, 'linux')
+    process.stdout.write('READY\n')
+    expect(await pending).toBe(process)
+    const options = mocked.spawn.mock.calls[0]![2]
+    expect(options).not.toHaveProperty('detached')
+    expect(options).not.toHaveProperty('windowsHide')
     process.stdin.end()
   })
 

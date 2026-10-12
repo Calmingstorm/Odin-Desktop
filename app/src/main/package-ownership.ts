@@ -13,7 +13,9 @@ export const PENDING_EXIT = 75
 export const INSTALL_UNFINISHED = 'An Odin installation didn\'t finish. Run the Odin installer again.'
 
 /** Independent guardian even when a user invokes the raw Electron executable. Windows' per-user installation is
- * `nsis`, whose lease lives in local AppData; its guardian runs without a console window. */
+ * `nsis`, whose lease lives in local AppData; its guardian runs without a console window, detached: on Windows
+ * Node puts every other child in a job that ends it when the app exits, and the guardian outlives the app to
+ * record its clean Exit after the app's real exit. */
 export function acquirePackagedApp(paths: ProfilePaths, resources: string, env: NodeJS.ProcessEnv,
   system: NodeJS.Platform = process.platform): Promise<ChildProcessWithoutNullStreams> {
   const windows = system === 'win32'
@@ -24,7 +26,7 @@ export function acquirePackagedApp(paths: ProfilePaths, resources: string, env: 
     '--kind', kind, '--role', 'app',
     '--app-cleanup', path.join(paths.configDir, '..', `${paths.profileId}-cleanup-state.json`),
     '--core-cleanup', path.join(paths.dataDir, 'resource-cleanup.json'), 'hold'], {
-    env: launch.env, stdio: ['pipe', 'pipe', 'pipe'], ...(windows ? { windowsHide: true } : {})
+    env: launch.env, stdio: ['pipe', 'pipe', 'pipe'], ...(windows ? { windowsHide: true, detached: true } : {})
   })
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => fail(), 15_000)

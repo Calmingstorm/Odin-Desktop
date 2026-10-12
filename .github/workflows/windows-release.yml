@@ -50,8 +50,9 @@ jobs:
         env:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          python -I -B scripts/release/windows_candidate.py validate --tag $env:RELEASE_TAG
+          $version = python -I -B scripts/release/windows_candidate.py validate --tag $env:RELEASE_TAG
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Build-time Python tools only
         shell: pwsh
         run: |
@@ -80,7 +81,10 @@ jobs:
       - name: The installer, elevated and as a disposable standard user
         shell: powershell
         run: |
-          $setup = (Get-ChildItem .packaging-candidates\*-setup.exe | Select-Object -First 1).FullName
+          # Exactly the installer the receipt retains: the report records these bytes' SHA-256.
+          $setup = Join-Path (Resolve-Path .packaging-candidates) `
+            "odin-desktop-$env:RELEASE_VERSION-candidate-x64-setup.exe"
+          if (-not (Test-Path -LiteralPath $setup)) { throw "no installer at $setup" }
           & .\scripts\packaging\windows-installer-acceptance.ps1 -Installer $setup -Packaging app\packaging `
             -Python .venv\Scripts\python.exe -Report "$env:RUNNER_TEMP\windows-installer-acceptance.json"
           exit $LASTEXITCODE

@@ -128,8 +128,11 @@ function Import-CoreReport([string] $report, [int] $exitCode, [string[]] $requir
 function Finish([string] $outcome = '') {
   if ($outcome) { $checks.Add([ordered]@{ check = 'the run reached its end'; ok = $false; detail = $outcome }) }
   $failed = @($checks | Where-Object { -not $_.ok })
+  # The tested bytes, so a release receipt can require the retained installer to be exactly these.
+  $digest = try { (Get-FileHash -LiteralPath $Installer -Algorithm SHA256).Hash.ToLowerInvariant() } catch { '' }
   [ordered]@{ mode = $Mode; user = [Security.Principal.WindowsIdentity]::GetCurrent().Name; failed = $failed.Count
-    checks = $checks } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $Report -Encoding utf8
+    installer_sha256 = $digest; checks = $checks } | ConvertTo-Json -Depth 4 |
+    Set-Content -LiteralPath $Report -Encoding utf8
   [int]($failed.Count -gt 0)
 }
 
@@ -227,6 +230,16 @@ if ($Mode -eq 'user') {
   $installed = { @(Get-CimInstance Win32_Process | Where-Object {
     $_.ExecutablePath -and $_.ExecutablePath.StartsWith($inst, [StringComparison]::OrdinalIgnoreCase) }) }
   $serving = { [IO.Directory]::GetFiles('\\.\pipe\') -contains $pipe }
+  # Lifetime receipts not marked clean: each fences every later install until a restart. A publication's leftover
+  # (".<name>.<32 hex>.tmp") is never a receipt.
+  $receiptsDir = Join-Path $env:LOCALAPPDATA 'odin-desktop\install-ownership\nsis\receipts'
+  function UnresolvedLifetimes() {
+    @(Get-ChildItem -LiteralPath $receiptsDir -Force -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -notmatch '^\..+\.[0-9a-f]{32}\.tmp$' } | ForEach-Object {
+        $record = try { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json } catch { $null }
+        if (-not $record -or $record.state -ne 'clean') {
+          "$($_.Name): $(if ($record) { "$($record.role) $($record.state)" } else { 'unreadable' })" } })
+  }
   foreach ($start in 'first', 'second') {
     Start-Process -FilePath $exe -ArgumentList '--hidden' | Out-Null
     $deadline = (Get-Date).AddSeconds(180)
@@ -252,6 +265,9 @@ if ($Mode -eq 'user') {
     Check "Exit ends the app, its core, its guardian and their bundled processes ($start start)" (
       $left.Count -eq 0 -and -not (& $serving)) (
       ($left | ForEach-Object { "$($_.Name) $($_.ProcessId)" }) -join ', ')
+    # The app's guardian records its clean Exit after the app's real exit, so it has to outlive the app.
+    $unresolved = @(UnresolvedLifetimes)
+    Check "Exit leaves every lifetime clean ($start start)" ($unresolved.Count -eq 0) ($unresolved -join ', ')
     StopAndWait $left
   }
   Check 'the starts made a profile' (Test-Path (Join-Path $profileRoot 'config\ipc.token')) $profileRoot

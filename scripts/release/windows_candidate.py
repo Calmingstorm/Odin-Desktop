@@ -78,11 +78,20 @@ def receipt(tag: str, candidates: Path, report: Path, out: Path, *, root: Path =
     installer = candidates / installer_name(version)
     if not installer.is_file():
         raise CandidateError(f"no installer for {version} at {installer}")
-    checks = json.loads(report.read_text(encoding="utf-8-sig")).get("checks") or []
-    failed = [check.get("check") for check in checks if not check.get("ok")]
-    if not checks or failed:
+    accepted = json.loads(report.read_text(encoding="utf-8-sig"))
+    checks = accepted.get("checks") or []
+    # Only a whole orchestrated run counts: every row's ok a real true, and its own count of
+    # failures zero.
+    failed = [check for check in checks
+              if not (isinstance(check, dict) and check.get("ok") is True)]
+    if accepted.get("mode") != "orchestrate" or accepted.get("failed") != 0 or not checks or failed:
         raise CandidateError(
-            f"the installer acceptance didn't pass: {len(failed)} of {len(checks)} failed")
+            f"the installer acceptance didn't pass: {len(failed)} of {len(checks)} checks failed "
+            f"(mode {accepted.get('mode')!r}, failed {accepted.get('failed')!r})")
+    tested = accepted.get("installer_sha256")
+    if tested != _sha256(installer):
+        raise CandidateError(
+            f"the acceptance tested other bytes ({tested!r}) than {installer.name}")
     out.mkdir(parents=True)  # a fresh folder: a candidate is never assembled over another
     shutil.copy2(installer, out / installer.name)
     shutil.copy2(report, out / REPORT)

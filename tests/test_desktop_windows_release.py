@@ -62,6 +62,11 @@ def test_the_tag_is_checked_then_built_with_release_provenance_accepted_receipte
     assert tag_format < checkout < validate < build < accept < receipt < kept
     assert STEPS[tag_format]["env"]["RELEASE_TAG"] == "${{ inputs.tag }}"
     assert STEPS[build]["env"]["ODIN_PACKAGING_RELEASE"] == "1"
+    # The acceptance tests exactly the installer the receipt retains, named from the validated
+    # version.
+    assert "RELEASE_VERSION=$version" in STEPS[validate]["run"]
+    assert "$env:GITHUB_ENV" in STEPS[validate]["run"]
+    assert "odin-desktop-$env:RELEASE_VERSION-candidate-x64-setup.exe" in STEPS[accept]["run"]
     retained = STEPS[kept]
     assert "if" not in retained  # only once every earlier step passed
     assert retained["with"]["if-no-files-found"] == "error"
@@ -136,14 +141,16 @@ def test_validate_against_a_real_repository(tmp_path):
         CANDIDATE.validate("v9.9.9", root=project(tmp_path / "other", "9.9.9"))
 
 
-def accepted(tmp_path, checks=None) -> tuple[Path, Path]:
+def accepted(tmp_path, checks=None, **changes) -> tuple[Path, Path]:
     candidates = tmp_path / "candidates"
     candidates.mkdir()
     (candidates / INSTALLER).write_bytes(b"installer")
     report = tmp_path / "report.json"
     rows = [{"check": "a", "ok": True}, {"check": "b", "ok": True}] if checks is None else checks
+    whole = {"mode": "orchestrate", "user": "runner", "failed": 0,
+             "installer_sha256": hashlib.sha256(b"installer").hexdigest(), "checks": rows}
     # PowerShell writes the report with a byte order mark.
-    report.write_text(json.dumps({"checks": rows}), encoding="utf-8-sig")
+    report.write_text(json.dumps({**whole, **changes}), encoding="utf-8-sig")
     return candidates, report
 
 
@@ -170,6 +177,21 @@ def test_the_receipt_names_the_accepted_bytes_the_source_and_the_run(tmp_path):
 def test_no_receipt_without_a_passed_acceptance(tmp_path, checks):
     candidates, report = accepted(tmp_path, checks)
     with pytest.raises(CANDIDATE.CandidateError, match="acceptance didn't pass"):
+        CANDIDATE.receipt("v1.0.6", candidates, report, tmp_path / "out",
+                          root=project(tmp_path / "repo"), run=git_said())
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize("changes", [
+    {"checks": [{"check": "a", "ok": "true"}]},  # a truthy string is not a passed check
+    {"failed": 3},  # the report's own count of failures
+    {"mode": "user"},  # a user-mode part, not the whole orchestrated run
+    {"installer_sha256": hashlib.sha256(b"other bytes").hexdigest()},  # it tested other bytes
+    {"installer_sha256": ""},
+])
+def test_no_receipt_unless_the_whole_run_passed_on_these_bytes(tmp_path, changes):
+    candidates, report = accepted(tmp_path, **changes)
+    with pytest.raises(CANDIDATE.CandidateError):
         CANDIDATE.receipt("v1.0.6", candidates, report, tmp_path / "out",
                           root=project(tmp_path / "repo"), run=git_said())
     assert not (tmp_path / "out").exists()
