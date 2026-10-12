@@ -38,8 +38,18 @@ from pathlib import Path
 
 from . import win32
 
-_RENAME_RETRIES = 50
+# Another process can refuse a rename or delete for a while by holding the file without delete
+# sharing, above all an antivirus scan of a file just written. On a busy machine that outlasts a
+# second: it once left an app's Exit receipt unpublished, fencing installs until a restart. Retries
+# back off from 20 ms to half a second, about ten seconds in all.
+_RENAME_RETRIES = 25
 _RENAME_RETRY_SECONDS = 0.02
+_RENAME_RETRY_MAX_SECONDS = 0.5
+_TRANSIENT_REFUSALS = (win32.ERROR_SHARING_VIOLATION, win32.ERROR_ACCESS_DENIED)
+
+
+def _retry_delay(attempt: int) -> float:
+    return min(_RENAME_RETRY_SECONDS * 2 ** attempt, _RENAME_RETRY_MAX_SECONDS)
 
 
 @functools.cache
@@ -462,16 +472,28 @@ def matches_path(handle, path) -> bool:
 
 
 def _rename(handle, target: Path, *, replace: bool) -> None:
-    """Rename by handle, retrying briefly while a reader holds the target without delete sharing."""
+    """Rename by handle, retrying while another process holds the target or the file itself
+    without delete sharing (a reader, or an antivirus scan of a file just written)."""
     for attempt in range(_RENAME_RETRIES):
         try:
             win32.rename_by_handle(handle, target, replace=replace)
             return
         except OSError as exc:
-            if (exc.winerror not in (win32.ERROR_SHARING_VIOLATION, win32.ERROR_ACCESS_DENIED)
-                    or attempt == _RENAME_RETRIES - 1):
+            if exc.winerror not in _TRANSIENT_REFUSALS or attempt == _RENAME_RETRIES - 1:
                 raise
-            time.sleep(_RENAME_RETRY_SECONDS)
+            time.sleep(_retry_delay(attempt))
+
+
+def _delete_unpublished(handle) -> None:
+    """Best effort: remove a temporary that was never published, retrying as a rename does."""
+    for attempt in range(_RENAME_RETRIES):
+        try:
+            win32.delete_by_handle(handle)
+            return
+        except OSError as exc:
+            if exc.winerror not in _TRANSIENT_REFUSALS or attempt == _RENAME_RETRIES - 1:
+                return
+            time.sleep(_retry_delay(attempt))
 
 
 def _check_existing_target(chain: HeldChain, name: str) -> None:
@@ -517,10 +539,7 @@ def publish(chain: HeldChain, name: str, data: bytes) -> bool:
         return True
     except BaseException:
         if not committed:
-            try:
-                win32.delete_by_handle(handle)
-            except OSError:
-                pass
+            _delete_unpublished(handle)
         raise
     finally:
         win32.close(handle)

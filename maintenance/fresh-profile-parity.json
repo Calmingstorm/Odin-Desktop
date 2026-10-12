@@ -347,7 +347,7 @@
     "src/desktop/platform/windows_dirfd.py": "17d3d02921483b677d2bf9d5d92fb53e45706d2cae48cc29cb3537afdc9b23df",
     "src/desktop/platform/windows_engine.py": "c2963c02e70219a5bef894d249803a94363abc7d74733fbe41ea88b33d4ba278",
     "src/desktop/platform/windows_exec.py": "55f5644da467095b1129197b220ebdd38c4e11cea4b25cf51a40e1dda7981477",
-    "src/desktop/platform/windows_files.py": "213a4cdeb4fa05526f909f32aba825f4545ae36d9bd94181fc83ecc9471e294e",
+    "src/desktop/platform/windows_files.py": "11aa64cf737aef0cf74f5b0f61a9193088546569a1866fc201a3370ae7628946",
     "src/desktop/platform/windows_helpers.py": "3bba8cbd0a94542e08c51fb20560ec6a7f4cac0bb26f64e6bb488d241d3038f2",
     "src/desktop/platform/windows_ipc.py": "3a57902b0ea9230cece7bf8f0a95cfd2265d6c963098034f9ec2e28d9384e7d5",
     "src/desktop/platform/windows_jobs.py": "661601003c29c54560ad659001fd2ab276083cddf9f9bef469827485fbcb5780",
