@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { odin } from '../../bridge'
 import type { HostRow } from '../../../../shared/api'
 import { ask } from '../../dialog'
 import {
@@ -95,7 +96,7 @@ async function saveSettings(): Promise<void> {
 }
 
 async function copy(what: string, text: string): Promise<void> {
-  const result = await window.odin.copyText(text)
+  const result = await odin.copyText(text)
   copied.value = result.ok ? `${what} copied.` : result.error.message
 }
 

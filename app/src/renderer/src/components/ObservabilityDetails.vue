@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue'
+import { odin } from '../bridge'
 import CompletionResult from './CompletionResult.vue'
 import SettingsSection from './settings/SettingsSection.vue'
 import SettingsRow from './settings/SettingsRow.vue'
@@ -21,12 +22,12 @@ onLateReceipt((receipt) => {
   if (!receipt.settled.ok && isUnavailable(receipt.settled.error)) closeUnavailable.value = true
 })
 const sections = [
-  { key: 'stats', feature: 'Runtime statistics', help: 'Requests, tool calls and context compression since Odin started.', run: () => window.odin.observabilityStats({}) },
-  { key: 'recovery-stats', feature: 'Recovery statistics', help: 'How often model requests were retried or recovered.', run: () => window.odin.recoveryStats({}) },
-  { key: 'recovery-recent', feature: 'Recent recovery', help: 'The latest recovery events.', run: () => window.odin.recoveryRecent({ limit: 20 }) },
-  { key: 'capacity', feature: 'Capacity breaker', help: 'Whether model capacity limits are pausing requests.', run: () => window.odin.capacitySnapshot({}) },
-  { key: 'ssh-pools', feature: 'SSH connection pools', help: 'Open SSH connections to your hosts.', run: () => window.odin.poolsSsh({}) },
-  { key: 'http-pools', feature: 'HTTP connection pools', help: 'Open web connections Odin keeps for reuse.', run: () => window.odin.poolsHttp({}) }
+  { key: 'stats', feature: 'Runtime statistics', help: 'Requests, tool calls and context compression since Odin started.', run: () => odin.observabilityStats({}) },
+  { key: 'recovery-stats', feature: 'Recovery statistics', help: 'How often model requests were retried or recovered.', run: () => odin.recoveryStats({}) },
+  { key: 'recovery-recent', feature: 'Recent recovery', help: 'The latest recovery events.', run: () => odin.recoveryRecent({ limit: 20 }) },
+  { key: 'capacity', feature: 'Capacity breaker', help: 'Whether model capacity limits are pausing requests.', run: () => odin.capacitySnapshot({}) },
+  { key: 'ssh-pools', feature: 'SSH connection pools', help: 'Open SSH connections to your hosts.', run: () => odin.poolsSsh({}) },
+  { key: 'http-pools', feature: 'HTTP connection pools', help: 'Open web connections Odin keeps for reuse.', run: () => odin.poolsHttp({}) }
 ]
 const refreshPools = async (): Promise<void> => {
   await Promise.all(sections.slice(-2).map((section) => readCompletion(section.key, section.run)))
@@ -36,7 +37,7 @@ async function closePools(all: boolean): Promise<void> {
   if (!all && !params.host) return
   if (!await ask({ title: all ? 'Close all SSH connection pools?' : 'Close this host pool?', message: all ? 'Existing SSH connections will be closed. New work opens new connections. HTTP pools are unchanged.' : `Close SSH connections for ${params.host}.`, confirmLabel: 'Close connections' })) return
   await act('connection-pools', async () => {
-    const result = await window.odin.poolsClose(params)
+    const result = await odin.poolsClose(params)
     if (!result.ok && isUnknownOutcome(result.error)) pendingClose = result.error.command_id
     if (!result.ok && isUnavailable(result.error)) closeUnavailable.value = true
     return result

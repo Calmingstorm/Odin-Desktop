@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { odin } from '../bridge'
 import { state } from '../store'
 
 const warning = computed(() => state.app.cleanupWarning)
@@ -13,7 +14,7 @@ async function acknowledge(): Promise<void> {
   busy.value = true
   error.value = ''
   try {
-    const result = await window.odin.acknowledgeCleanup(id)
+    const result = await odin.acknowledgeCleanup(id)
     // A pushed new warning is authoritative. An older response must not erase it or change its token.
     if (warning.value?.id !== id) return
     if (result.ok) state.app = result.result

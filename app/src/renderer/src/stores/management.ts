@@ -1,6 +1,7 @@
 // The settings menu's management sections: built-in tools, skills and MCP servers, each in the shape of the Odin route
 // it maps to (protocol.md, Management domains). Every action says what the core answered.
 import { reactive } from 'vue'
+import { odin } from '../bridge'
 import type {
   McpSave,
   McpMutationOutcome,
@@ -163,7 +164,7 @@ function showInventory(sent: number, inventory: ToolInventory): void {
 export async function loadTools(): Promise<void> {
   const sent = ++inventorySent
   const timeout = ++timeoutSent
-  const [tools, timeouts] = await Promise.all([window.odin.toolsList({}), window.odin.toolsTimeoutsGet({})])
+  const [tools, timeouts] = await Promise.all([odin.toolsList({}), odin.toolsTimeoutsGet({})])
   if (sent >= inventoryShown) {
     inventoryShown = sent
     if (readResult('tools', tools) && tools.ok) showInventory(sent, tools.result)
@@ -176,7 +177,7 @@ export async function loadTools(): Promise<void> {
 
 export async function setToolEnabled(name: string, enabled: boolean): Promise<void> {
   const sent = ++inventorySent
-  await act(`tool:${name}`, () => window.odin.toolsSetEnabled({ name, enabled }), (inventory) => {
+  await act(`tool:${name}`, () => odin.toolsSetEnabled({ name, enabled }), (inventory) => {
     showInventory(sent, inventory)
     if (!enabled) return 'Off: Odin no longer sees this tool.'
     const state = inventory.tools.find((tool) => tool.name === name)?.state
@@ -188,7 +189,7 @@ export async function setToolEnabled(name: string, enabled: boolean): Promise<vo
 
 export async function saveTimeouts(change: { default_timeout?: number; overrides?: Record<string, number> }): Promise<boolean> {
   const sent = ++timeoutSent
-  return act('timeouts', () => window.odin.toolsTimeoutsSet(change), (timeouts) => {
+  return act('timeouts', () => odin.toolsTimeoutsSet(change), (timeouts) => {
     if (sent >= timeoutShown) {
       timeoutShown = sent
       management.timeouts = timeouts
@@ -204,8 +205,8 @@ let skillsRead = 0
 export async function loadSkills(): Promise<void> {
   const mine = ++skillsRead
   const [result, core] = await Promise.all([
-    window.odin.skillsList({}),
-    typeof window.odin.status === 'function' ? window.odin.status() : Promise.resolve(null)
+    odin.skillsList({}),
+    typeof odin.status === 'function' ? odin.status() : Promise.resolve(null)
   ])
   if (mine !== skillsRead) return
   if (core?.ok) management.skillTestUnavailable = !core.result.capabilities.includes('skills.test')
@@ -233,7 +234,7 @@ async function readSkill(name: string): Promise<void> {
   const mine = ++skillAsked
   management.validation = null
   management.testResult = null
-  const result = await window.odin.skillsGet({ name })
+  const result = await odin.skillsGet({ name })
   if (mine !== skillAsked) return
   if (!result.ok && isUnavailable(result.error)) {
     refuse('skills')
@@ -272,7 +273,7 @@ export function closeSkill(): void {
 
 export async function validateSkill(code: string): Promise<SkillValidation | null> {
   if (management.unavailable.skills) return null
-  const result = await window.odin.skillsValidate({ code })
+  const result = await odin.skillsValidate({ code })
   if (!result.ok && isUnavailable(result.error)) {
     refuse('skills')
     return null
@@ -298,7 +299,7 @@ export async function saveSkill(): Promise<boolean> {
     if (!report?.valid) return { ok: false, error: { code: 'validation', message: management.validation?.errors.join('\n') || 'Skill validation failed.' } }
     // Only a write admitted by act establishes a new skill's baseline. Later typing stays through readback.
     if (create && epoch === editorEpoch) loaded = { name, code, config: JSON.stringify(management.skillConfig) }
-    return window.odin.skillsSave({ name, code, create })
+    return odin.skillsSave({ name, code, create })
   }, (answer) => {
     if (epoch === editorEpoch && management.editor?.name.trim() === name && (create || editorTarget === name)) void readSkill(name)
     return answer.result
@@ -309,7 +310,7 @@ export async function testSkill(name: string): Promise<void> {
   management.testResult = null
   if (management.skillTestUnavailable) return
   await act(`skill:${name}`, async () => {
-    const answer = await window.odin.skillsTest({ name })
+    const answer = await odin.skillsTest({ name })
     if (!answer.ok && isUnavailable(answer.error)) management.skillTestUnavailable = true
     return answer
   }, (answer) => {
@@ -320,13 +321,13 @@ export async function testSkill(name: string): Promise<void> {
 
 /** The core's reply is Odin's tool text ("Use enable_skill…"); here the switch is the control. */
 export async function setSkillEnabled(name: string, enabled: boolean): Promise<void> {
-  await act(`skill:${name}`, () => window.odin.skillsSetEnabled({ name, enabled }),
+  await act(`skill:${name}`, () => odin.skillsSetEnabled({ name, enabled }),
     () => (enabled ? 'Turned on.' : "Turned off. Odin can't use it until it's turned on again."), loadSkills)
 }
 
 /** Once deleted, now or by a late receipt, the editor closes if it shows that skill. */
 export async function deleteSkill(name: string): Promise<void> {
-  await act(`skill:${name}`, () => window.odin.skillsDelete({ name }), (answer) => {
+  await act(`skill:${name}`, () => odin.skillsDelete({ name }), (answer) => {
     if (management.editor && !management.editor.create && management.editor.name === name) closeSkill()
     return answer.result
   }, loadSkills)
@@ -335,7 +336,7 @@ export async function deleteSkill(name: string): Promise<void> {
 /** Once saved, the skill is read back into the editor if the editor still holds it. */
 export async function saveSkillConfig(name: string, config: Record<string, unknown>): Promise<boolean> {
   const epoch = editorEpoch
-  return act(`skill-config:${name}`, () => window.odin.skillsConfigSet({ name, config }), () => {
+  return act(`skill-config:${name}`, () => odin.skillsConfigSet({ name, config }), () => {
     if (epoch === editorEpoch && editorTarget === name) void readSkill(name)
     return 'Saved.'
   })
@@ -367,7 +368,7 @@ function showMcp(sent: number, status: McpStatus): void {
 
 export async function loadMcp(): Promise<void> {
   const sent = ++mcpSent
-  const result = await window.odin.mcpStatus({})
+  const result = await odin.mcpStatus({})
   if (sent < mcpShown) return
   mcpShown = sent
   if (readResult('mcp', result) && result.ok) showMcp(sent, result.result)
@@ -413,26 +414,26 @@ function mcpAction(name: string, run: () => Promise<Result<McpMutationOutcome>>,
 
 /** Odin's per-server switch answers the whole status: show it, and say how the server is now. */
 export function setMcpEnabled(name: string, enabled: boolean): Promise<boolean> {
-  return mcpAction(name, () => window.odin.mcpSetEnabled(mcpBound({ name, enabled })))
+  return mcpAction(name, () => odin.mcpSetEnabled(mcpBound({ name, enabled })))
 }
 export const reconnectMcp = (name: string): Promise<boolean> => {
-  return mcpAction(name, () => window.odin.mcpReconnect(mcpBound({ name })))
+  return mcpAction(name, () => odin.mcpReconnect(mcpBound({ name })))
 }
 export const refreshMcpTools = (name: string): Promise<boolean> => {
-  return mcpAction(name, () => window.odin.mcpRefreshTools(mcpBound({ name })))
+  return mcpAction(name, () => odin.mcpRefreshTools(mcpBound({ name })))
 }
 export const deleteMcp = (name: string): Promise<boolean> => {
-  return mcpAction(name, () => window.odin.mcpDelete(mcpBound({ name })), true)
+  return mcpAction(name, () => odin.mcpDelete(mcpBound({ name })), true)
 }
 
 export async function saveMcp(change: McpSave): Promise<boolean> {
-  return mcpAction(change.name, () => window.odin.mcpSave(mcpSaveParams(change)))
+  return mcpAction(change.name, () => odin.mcpSave(mcpSaveParams(change)))
 }
 
 export async function loadMcpTools(name: string): Promise<void> {
   if (management.unavailable.mcp) return
   const epoch = mcpToolsEpoch
-  const result = await window.odin.mcpTools({ name })
+  const result = await odin.mcpTools({ name })
   if (epoch !== mcpToolsEpoch) return
   if (!result.ok && isUnavailable(result.error)) {
     delete management.mcpTools[name]
@@ -449,7 +450,7 @@ export async function setMcpGlobal(enabled: boolean): Promise<void> {
   let refresh = true
   await act(
     'mcp',
-    () => window.odin.mcpSetGlobalEnabled(mcpBound({ enabled })),
+    () => odin.mcpSetGlobalEnabled(mcpBound({ enabled })),
     (answer) => {
       if ('servers' in answer) {
         showMcp(sent, answer)
@@ -465,7 +466,7 @@ export async function setMcpGlobal(enabled: boolean): Promise<void> {
 export async function setMcpLimits(limits: { max_published_tools_per_server?: number; max_published_tools_global?: number }): Promise<void> {
   const sent = ++mcpSent
   let refresh = true
-  await act('mcp-limits', () => window.odin.mcpSetLimits(mcpBound(limits)), (status) => {
+  await act('mcp-limits', () => odin.mcpSetLimits(mcpBound(limits)), (status) => {
     showMcp(sent, status)
     refresh = false
     return 'Saved.'

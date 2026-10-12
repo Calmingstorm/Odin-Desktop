@@ -61,7 +61,10 @@ key. Independent short fields may save on Enter/blur; long or explicit editors
 require their Save. Follow the actual control, not a universal Enter-to-save rule.
 
 **Set up later**, when offered in chat, saves dismissal of the setup invitation
-across app restarts, not of operational or recovery warnings. There is no persistent
+across app restarts, not of operational or recovery warnings. It waits while a
+sign-in is in progress: choose **Stop waiting** first. After it, **Show setup** by
+the message box brings the invitation back. The banner announces its state only;
+a temporary sign-in code is shown, never read out automatically. There is no persistent
 success banner for an effective-ready provider, and absent setup status is not
 announced as a fabricated readiness result. Use Settings and the connection state
 when the invitation is absent.

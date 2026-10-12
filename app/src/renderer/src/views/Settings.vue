@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, toRef, nextTick, ref, type Component } from 'vue'
+import { computed, onMounted, onUnmounted, toRef, nextTick, ref, watch, type Component } from 'vue'
+import { odin } from '../bridge'
 import CodexAccounts from '../components/CodexAccounts.vue'
 import { NAV, navOf } from '../settings-form'
 import { presentationFor, presentationDestination, restartFields } from '../settings-presentation'
@@ -48,7 +49,7 @@ const pending = computed(() => {
 const exitNote = ref('')
 const revealed = ref('')
 async function exit(): Promise<void> {
-  try { const result = await window.odin.exitOdin(); exitNote.value = result.ok ? 'Odin is closing…' : result.error.message }
+  try { const result = await odin.exitOdin(); exitNote.value = result.ok ? 'Odin is closing…' : result.error.message }
   catch { exitNote.value = 'Exit could not be requested. Use Exit Odin in the application menu.' }
 }
 async function reveal(path: string): Promise<void> {
@@ -65,6 +66,21 @@ async function reveal(path: string): Promise<void> {
   target?.scrollIntoView?.({ block: 'nearest' })
   target?.focus()
 }
+
+// A destination set by openSettings(section, target): once it has rendered, scroll there and move focus to it, once.
+// Settings may still be loading, so each change retries; a failed load gives up and leaves focus on Back.
+watch(() => [state.settingsTarget, active.value, settings.meta, settings.error, settings.unavailable] as const, async () => {
+  if (!state.settingsTarget) return
+  await nextTick()
+  const target = state.settingsTarget
+  const element = target ? document.getElementById(`settings-target-${target}`) : null
+  if (!element && !settings.error && !settings.unavailable) return
+  state.settingsTarget = ''
+  if (!element) { document.querySelector<HTMLElement>('.settings-nav .back')?.focus(); return }
+  element.scrollIntoView?.({ block: 'start' })
+  element.focus()
+}, { immediate: true })
+onUnmounted(() => { state.settingsTarget = '' })
 
 onMounted(() => void loadSettings())
 </script>

@@ -15,6 +15,7 @@
 //   projection, which every snapshot replaces.
 // - Unknown effects stay listed until the core reports them reconciled; later outcomes never push them out.
 import { reactive } from 'vue'
+import { odin } from './bridge'
 import { images } from './artifacts'
 import { isUnavailable, resultMessage } from './capability'
 import { NAV } from './settings-form'
@@ -168,6 +169,8 @@ export const state = reactive({
   view: 'chat' as 'chat' | 'settings',
   /** Retained section only, never a local readiness or completion flag. */
   settingsSection: 'general',
+  /** Where opening Settings should land, once: Settings scrolls there, moves focus, and clears it. */
+  settingsTarget: '' as SettingsTarget,
   setupReminderHidden: false,
   setupReminderLoaded: false,
   /** The app's notification settings, from the main process. */
@@ -209,8 +212,10 @@ export function onReady(listener: () => void): void {
   readyListeners.push(listener)
 }
 
-export function openSettings(section?: string): void {
+export type SettingsTarget = '' | 'providers' | 'importer'
+export function openSettings(section?: string, target: SettingsTarget = ''): void {
   if (section && NAV.some((entry) => entry.id === section)) state.settingsSection = section
+  state.settingsTarget = target
   state.view = 'settings'
 }
 
@@ -222,25 +227,28 @@ export async function loadSetupReminder(): Promise<void> {
   const mine = ++setupReminderGeneration
   const writes = setupReminderWrites
   try {
-    const answer = await window.odin.getSetupReminderHidden()
+    const answer = await odin.getSetupReminderHidden()
     if (mine === setupReminderGeneration && writes === setupReminderWrites && !setupReminderWriting && answer.ok) state.setupReminderHidden = answer.result.hidden
   } catch { /* UI preferences are best effort, not core readiness. */ }
   finally { if (mine === setupReminderGeneration) state.setupReminderLoaded = true }
 }
 
-export async function dismissSetupReminder(): Promise<boolean> {
+async function writeSetupReminder(hidden: boolean): Promise<boolean> {
   if (setupReminderWriting) return false
   setupReminderWrites += 1
   setupReminderWriting = true
   try {
-    const answer = await window.odin.setSetupReminderHidden(true)
+    const answer = await odin.setSetupReminderHidden(hidden)
     if (!answer.ok) return false
     state.setupReminderHidden = answer.result.hidden
     state.setupReminderLoaded = true
-    return answer.result.hidden
+    return answer.result.hidden === hidden
   } catch { return false }
   finally { setupReminderWriting = false }
 }
+export const dismissSetupReminder = (): Promise<boolean> => writeSetupReminder(true)
+/** The way back after "Set up later": the setup invitation shows in chat again. */
+export const showSetupReminder = (): Promise<boolean> => writeSetupReminder(false)
 
 function notifyReady(): void {
   for (const listener of readyListeners) listener()
@@ -301,7 +309,7 @@ export function canAct(conversationId: string | null): boolean {
 export async function init(): Promise<void> {
   watchColorScheme()
   let pushedAppState = false
-  window.odin.onAppState((app) => {
+  odin.onAppState((app) => {
     pushedAppState = true
     const previous = state.app
     const lostLink = previous.link === 'ready' && app.link !== 'ready'
@@ -315,15 +323,15 @@ export async function init(): Promise<void> {
       void loadAll()
     }
   })
-  window.odin.onEvent(applyEvent)
-  window.odin.onReceipt(applyReceipt)
-  window.odin.onReset(() => void resetViews())
+  odin.onEvent(applyEvent)
+  odin.onReceipt(applyReceipt)
+  odin.onReset(() => void resetViews())
   // The OS action identifies a committed message, which may no longer be the latest or in the loaded page.
   // A recreated preload can receive its queued click before the initial app/list/snapshot bootstrap. Let that
   // bootstrap finish first, or its default conversation selection would fence the user's click navigation.
   let initialized = false
   let pendingNotification: { conversationId: string; messageId: string } | null = null
-  window.odin.onOpenConversation((target) => {
+  odin.onOpenConversation((target) => {
     if (!initialized) pendingNotification = target
     else void jumpToMessage(target.conversationId, target.messageId)
   })
@@ -335,11 +343,11 @@ export async function init(): Promise<void> {
     document.addEventListener('visibilitychange', attend)
     window.addEventListener('focus', attend)
   }
-  const app = await window.odin.getAppState()
+  const app = await odin.getAppState()
   // A main-process state push can overtake this initial IPC reply. Never put
   // the window back on an older link/incarnation after it has learned newer state.
   if (app && !pushedAppState) state.app = app
-  const settings = await window.odin.getSettings()
+  const settings = await odin.getSettings()
   if (settings.ok) {
     state.autostart = settings.result.autostart
     state.autostartUnavailable = settings.result.autostartUnavailable ?? ''
@@ -383,7 +391,7 @@ async function loadAllOnce(epoch: number): Promise<void> {
   appliedWatermark = -1
   listLoading = true
   const generation = ++listGeneration
-  const listed = await window.odin.listConversations()
+  const listed = await odin.listConversations()
   const held = listHeld.sort((a, b) => a.seq - b.seq)
   listHeld = []
   listLoading = false
@@ -408,7 +416,7 @@ async function loadAllOnce(epoch: number): Promise<void> {
   if (state.conversations.length === 0) {
     const created = await conversationCommand(
       'new',
-      (command_id) => window.odin.createConversation({ command_id, title: 'Chat' }),
+      (command_id) => odin.createConversation({ command_id, title: 'Chat' }),
       (answer) => {
         if (answer.ok) upsertConversation(answer.result.conversation)
       }
@@ -504,7 +512,7 @@ export async function loadConversation(conversationId: string): Promise<void> {
   view.loadEpoch = epoch
   state.loadErrors[conversationId] = undefined
   state.unavailableViews[conversationId] = false
-  const result = await window.odin.snapshotConversation({ conversation_id: conversationId })
+  const result = await odin.snapshotConversation({ conversation_id: conversationId })
   if (state.views[conversationId] !== view || view.loadToken !== token) return
   if (!result.ok || epoch !== state.recoveryEpoch) {
     // A failure, or an answer from an earlier recovery: it never makes the view authoritative.
@@ -662,7 +670,7 @@ async function markReadIfAttentive(conversationId: string): Promise<void> {
   if (!isAuthoritative(view) || !attentive()) return
   markingRead.set(conversationId, false)
   try {
-    const result = await window.odin.markRead({ id: conversationId, through_message_id: last.id })
+    const result = await odin.markRead({ id: conversationId, through_message_id: last.id })
     if (result.ok) upsertConversation(result.result.conversation)
   } finally {
     const owed = markingRead.get(conversationId)
@@ -733,7 +741,7 @@ function settleConversation(result: Result<{ conversation: Conversation }>): boo
 async function refreshConversations(): Promise<void> {
   const epoch = state.recoveryEpoch
   const generation = ++listGeneration
-  const listed = await window.odin.listConversations()
+  const listed = await odin.listConversations()
   if (!listed.ok || epoch !== state.recoveryEpoch) return
   applyList(listed.result.items, Number(listed.result.watermark) || 0, generation)
 }
@@ -743,7 +751,7 @@ export async function renameConversation(id: string, title: string): Promise<boo
   if (!conversation) return false
   const answer = await conversationCommand(
     id,
-    (command_id) => window.odin.updateConversation({ command_id, id, expected_rev: conversation.rev, title }),
+    (command_id) => odin.updateConversation({ command_id, id, expected_rev: conversation.rev, title }),
     settleConversation
   )
   return Boolean(answer?.ok)
@@ -754,7 +762,7 @@ export async function setArchived(id: string, archived: boolean): Promise<boolea
   if (!conversation) return false
   const answer = await conversationCommand(
     id,
-    (command_id) => window.odin.updateConversation({ command_id, id, expected_rev: conversation.rev, archived }),
+    (command_id) => odin.updateConversation({ command_id, id, expected_rev: conversation.rev, archived }),
     settleConversation
   )
   return Boolean(answer?.ok)
@@ -765,7 +773,7 @@ export async function resetContext(id: string): Promise<boolean> {
   if (!conversation) return false
   const answer = await conversationCommand(
     id,
-    (command_id) => window.odin.resetContext({ command_id, id, expected_rev: conversation.rev }),
+    (command_id) => odin.resetContext({ command_id, id, expected_rev: conversation.rev }),
     settleConversation
   )
   return Boolean(answer?.ok)
@@ -776,7 +784,7 @@ export async function deleteConversation(id: string): Promise<boolean> {
   if (!conversation) return false
   const answer = await conversationCommand(
     id,
-    (command_id) => window.odin.deleteConversation({ command_id, id, expected_rev: conversation.rev }),
+    (command_id) => odin.deleteConversation({ command_id, id, expected_rev: conversation.rev }),
     (result) => {
       if (result.ok) return removeConversation(id)
       if (result.error.code === 'stale_binding') {
@@ -802,7 +810,7 @@ export async function startThread(parentId: string, fromMessageId?: string): Pro
   await conversationCommand(
     `thread:${parentId}`,
     (command_id) =>
-      window.odin.createConversation({
+      odin.createConversation({
         command_id,
         title: `Thread: ${parent?.title ?? 'Chat'}`.slice(0, 200),
         parent_id: parentId,
@@ -845,7 +853,7 @@ export async function runSearch(query: string): Promise<void> {
   state.search.loading = true
   state.search.error = ''
   state.search.unavailable = false
-  const result = await window.odin.search({ query, limit: 20 })
+  const result = await odin.search({ query, limit: 20 })
   if (mine !== searchGeneration) return
   state.search.loading = false
   if (!result.ok) {
@@ -864,7 +872,7 @@ export async function moreResults(): Promise<void> {
   if (!nextCursor || state.search.loading) return
   const mine = searchGeneration
   state.search.loading = true
-  const result = await window.odin.search({ query, limit: 20, cursor: nextCursor })
+  const result = await odin.search({ query, limit: 20, cursor: nextCursor })
   if (mine !== searchGeneration) return
   state.search.loading = false
   if (!result.ok) {
@@ -915,7 +923,7 @@ export async function jumpToMessage(conversationId: string, messageId: string): 
     void markReadIfAttentive(conversationId)
     return
   }
-  const result = await window.odin.messagesAround({
+  const result = await odin.messagesAround({
     conversation_id: conversationId,
     message_id: messageId,
     before: 20,
@@ -966,7 +974,7 @@ export function backToLatest(): void {
 export async function newConversation(): Promise<void> {
   await conversationCommand(
     'new',
-    (command_id) => window.odin.createConversation({ command_id, title: 'New chat' }),
+    (command_id) => odin.createConversation({ command_id, title: 'New chat' }),
     (answer, late) => openCreated(answer, late, 'Your new conversation')
   )
 }
@@ -979,7 +987,7 @@ export async function loadOlder(conversationId: string): Promise<void> {
   view.loadingOlder = true
   const loadToken = view.loadToken
   const epoch = state.recoveryEpoch
-  const result = await window.odin.listMessages({ conversation_id: conversationId, before: oldest.id, limit: 100 })
+  const result = await odin.listMessages({ conversation_id: conversationId, before: oldest.id, limit: 100 })
   view.loadingOlder = false
   if (state.views[conversationId] !== view || view.loadToken !== loadToken || epoch !== state.recoveryEpoch) return
   if (!result.ok) return note(errorText(result))
@@ -1024,7 +1032,7 @@ export async function send(
     status: 'sending'
   })
   const pending = state.pending[state.pending.length - 1]!
-  const result = await window.odin.submit({
+  const result = await odin.submit({
     client_submission_id: pending.client_submission_id,
     conversation_id: conversationId,
     text,
@@ -1095,7 +1103,7 @@ export async function acknowledgeEffects(conversationId: string, outcome: Pick<T
   }
   const attempt = state.effectsAcknowledgements[key]!
   try {
-    const answer = await window.odin.acknowledgeEffects({
+    const answer = await odin.acknowledgeEffects({
       control_command_id: attempt.commandId, conversation_id: conversationId,
       request_id: attempt.requestId, generation: attempt.generation
     })
@@ -1117,7 +1125,7 @@ async function steer(conversationId: string, running: RunningRequest, text: stri
     text,
     status: 'sending'
   })
-  const result = await window.odin.steer({
+  const result = await odin.steer({
     control_command_id: item.control_command_id,
     conversation_id: conversationId,
     request_id: running.request_id,
@@ -1154,7 +1162,7 @@ export async function stop(): Promise<void> {
     generation: running.generation,
     status: 'sending'
   })
-  const result = await window.odin.stop({
+  const result = await odin.stop({
     control_command_id: item.control_command_id,
     conversation_id: conversationId,
     request_id: running.request_id,
@@ -1206,12 +1214,12 @@ export function isBusy(conversationId: string): boolean {
 }
 
 export async function setAutostart(enabled: boolean): Promise<void> {
-  const result = await window.odin.setAutostart(enabled)
+  const result = await odin.setAutostart(enabled)
   if (result.ok) state.autostart = result.result.autostart
 }
 
 export async function setAppearance(appearance: Appearance): Promise<void> {
-  const result = await window.odin.setAppearance(appearance)
+  const result = await odin.setAppearance(appearance)
   if (result.ok) state.appearance = result.result.appearance
 }
 
@@ -1534,7 +1542,7 @@ export async function resume(conversationId: string, outcome: TerminalOutcome): 
   if (!canAct(conversationId) || status === 'sending' || status === 'admitted' || status === 'unknown') return
   state.resumes[key] = { status: 'sending' }
   const commandId = crypto.randomUUID()
-  const result = await window.odin.resumeRequest({
+  const result = await odin.resumeRequest({
     control_command_id: commandId,
     conversation_id: conversationId,
     request_id: outcome.request_id,
@@ -1550,7 +1558,7 @@ export function isMuted(conversationId: string): boolean {
 
 /** Mutes or unmutes one conversation's notifications. Its unread count still shows. */
 export async function setMuted(conversationId: string, muted: boolean): Promise<void> {
-  const result = await window.odin.setConversationMuted({ conversation_id: conversationId, muted })
+  const result = await odin.setConversationMuted({ conversation_id: conversationId, muted })
   if (result.ok) state.notifications = result.result.notifications
   else note(errorText(result))
 }

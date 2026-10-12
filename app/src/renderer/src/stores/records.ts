@@ -1,6 +1,7 @@
 // The Records section: what Odin did and how he is, in the shapes of Odin's /api/audit, /api/usage,
 // /api/health/components, /api/logs, /api/turn-state and /api/computer routes. Read-only, except computer-use cleanup.
 import { reactive } from 'vue'
+import { odin } from '../bridge'
 import type { AuditEntry, AuditVerify, ComputerStatus, ComputerSession, DesktopComputerStatus, LegacyComputerStatus, HealthReport, LogEntry, Result, TurnStateReport, UsageResult } from '../../../shared/api'
 import { isUnavailable, settingsResultMessage as resultMessage } from '../capability'
 import { act, management } from './management'
@@ -61,7 +62,7 @@ let latestAudit = 0
 export async function loadAudit(filter: AuditFilter = {}): Promise<void> {
   const mine = ++latestAudit
   const params = { limit: 100, ...Object.fromEntries(Object.entries(filter).filter(([, v]) => v !== '' && v !== undefined && v !== false)) }
-  const result = await window.odin.auditQuery(params)
+  const result = await odin.auditQuery(params)
   if (mine !== latestAudit) return
   if (answered('audit', result)) records.audit = result.result
 }
@@ -69,7 +70,7 @@ export async function loadAudit(filter: AuditFilter = {}): Promise<void> {
 /** A failed check is no verdict: the record is neither intact nor broken until a check answers. */
 export async function verifyAudit(): Promise<void> {
   const mine = ++latestVerify
-  const result = await window.odin.auditVerify({})
+  const result = await odin.auditVerify({})
   if (mine !== latestVerify) return
   if (answered('verify', result)) records.verify = result.result
   else records.verify = null
@@ -104,14 +105,14 @@ export function logMessage(entry: LogEntry): string {
 
 export async function loadUsage(period: '24h' | '7d' | '30d' | 'all'): Promise<void> {
   const mine = ++latestUsage
-  const result = await window.odin.usage(period)
+  const result = await odin.usage(period)
   if (mine !== latestUsage) return
   if (answered('usage', result)) records.usage = result.result
 }
 
 export async function loadHealth(): Promise<void> {
   const mine = ++latestHealth
-  const result = await window.odin.healthGet({})
+  const result = await odin.healthGet({})
   if (mine !== latestHealth) return
   if (answered('health', result)) records.health = result.result
 }
@@ -120,21 +121,21 @@ let latestLogs = 0
 
 export async function searchLogs(filter: { q?: string; level?: 'error' | 'info' | 'all' } = {}): Promise<void> {
   const mine = ++latestLogs
-  const result = await window.odin.logsSearch({ limit: 200, level: filter.level ?? 'all', ...(filter.q ? { q: filter.q } : {}) })
+  const result = await odin.logsSearch({ limit: 200, level: filter.level ?? 'all', ...(filter.q ? { q: filter.q } : {}) })
   if (mine !== latestLogs) return
   if (answered('logs', result)) records.logs = result.result.entries
 }
 
 export async function loadTurns(): Promise<void> {
   const mine = ++latestTurns
-  const result = await window.odin.turnStateList({ limit: 50 })
+  const result = await odin.turnStateList({ limit: 50 })
   if (mine !== latestTurns) return
   if (answered('turns', result)) records.turns = result.result
 }
 
 export async function loadComputer(): Promise<void> {
   const mine = ++latestComputer
-  const result = await window.odin.computerStatus({})
+  const result = await odin.computerStatus({})
   if (mine !== latestComputer) return
   if (answered('computer', result)) records.computer = result.result
 }
@@ -217,7 +218,7 @@ export async function reconcileComputer(status: ComputerStatus): Promise<boolean
   return act(
     `computer:${session.session_id}`,
     async () => {
-      const result = await window.odin.computerReconcile({
+      const result = await odin.computerReconcile({
         session_id: session.session_id,
         generation,
         ...(!real ? { acknowledgment: `ACKNOWLEDGE UNVERIFIED CLEANUP ${session.session_id}` } : {})

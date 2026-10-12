@@ -59,12 +59,13 @@ describe('Round E shared model picker eligibility and labels', () => {
     expect(root.textContent()).toContain('OpenAI-compatible is off. This saved selection is kept.')
     expect(root.textContent()).toContain('Ollama is off. This saved selection is kept.')
     control(root, 'agents.model.mode').fire('change', { target: { value: 'auto' } }); await flush()
-    expect(control(root, 'agents.auto_model_allowlist.0.model').options.map((node) => [node.props.value, node.props.disabled])).toEqual([['compat:flash', true], ['gpt-6.1-sol', false], ['gpt-6-luna', false]])
-    expect(control(root, 'agents.auto_model_allowlist.1.model').options.map((node) => node.props.value)).toEqual(['gpt-6.1-sol', 'gpt-6-luna'])
-    root.button('Add automatic candidate').fire('click'); await flush()
-    expect(control(root, 'agents.auto_model_allowlist.2.model').options.map((node) => node.props.value)).toEqual(['', 'gpt-6.1-sol', 'gpt-6-luna'])
+    // Saved choices stay listed and ticked, an off provider's included; only enabled providers offer new ones.
+    const listed = root.findAll((node) => node.tag === 'li' && typeof node.props['data-model'] === 'string')
+    const box = (model: string) => root.findAll((node) => node.props.id === settingsControlId('curated-record', `agents.auto_model_allowlist.${model}.chosen`))[0]!
+    expect(listed.map((node) => [node.props['data-model'], box(String(node.props['data-model'])).props.checked])).toEqual([['compat:flash', true], ['gpt-6.1-sol', true], ['gpt-6-luna', false]])
+    expect(listed[0]!.textContent()).toContain('OpenAI-compatible is off. This saved selection is kept.')
     bridge.editLeaf.mockResolvedValue(ok({ status: 'updated' }))
-    control(root, 'agents.auto_model_allowlist.2.model').fire('change', { target: { value: 'gpt-6-luna' } }); await flush()
+    box('gpt-6-luna').fire('change', { target: { checked: true } }); await flush()
     root.findAll((node) => node.props.id === 'agent-model-actions')[0]!.button('Save').fire('click'); await flush()
     expect(bridge.editLeaf).toHaveBeenCalledWith({ method: 'models.agents.set', params: { model: 'auto', auto_model_allowlist: ['compat:flash', 'gpt-6.1-sol', 'gpt-6-luna'], expected_revision: 'r1' } })
     expect(settings.meta.fields.find((item) => item.path === 'llm_provider.model')?.desired).toBe('compat:flash')

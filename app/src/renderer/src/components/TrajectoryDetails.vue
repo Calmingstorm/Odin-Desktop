@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { odin } from '../bridge'
 import CompletionResult from './CompletionResult.vue'
 import SettingsSection from './settings/SettingsSection.vue'
 import SettingsRow from './settings/SettingsRow.vue'
 import { completion, readCompletion } from '../stores/completion'
 const filename = ref('')
-const api = window.odin
+const api = odin
 const messageId = ref('')
 const filters = reactive({ channel_id: '', user_id: '', tool_name: '', errors_only: false, limit: 100 })
 function selected(): Record<string, string | number | boolean> {
@@ -19,7 +20,7 @@ function files(value: unknown): string[] {
 async function readTrace(search: boolean): Promise<void> {
   const params = selected()
   const label = JSON.stringify(search ? params : { ...params, filename: filename.value })
-  await readCompletion('traces', () => search ? window.odin.trajectoriesSearch(params) : window.odin.trajectoriesRead({ ...params, filename: filename.value }), label)
+  await readCompletion('traces', () => search ? odin.trajectoriesSearch(params) : odin.trajectoriesRead({ ...params, filename: filename.value }), label)
 }
 </script>
 <template>

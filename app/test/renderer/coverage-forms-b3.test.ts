@@ -286,16 +286,19 @@ describe('B3 Codex accounts: refresh admission, login and confirmation', () => {
     ask.mockResolvedValueOnce(false); await v.root.named('Remove First').fire('click'); expect(actions.removeAccount).not.toHaveBeenCalled()
     await v.root.named('Remove First').fire('click'); expect(actions.removeAccount).toHaveBeenCalledWith(account)
     v.root.named('Use this account: First').fire('click'); expect(actions.activateAccount).toHaveBeenCalledWith(account)
-    await invoke(v, 'copyCode'); expect(bridge.copyText).not.toHaveBeenCalled()
+    // The sign-in shown here is the shared one the chat's setup banner uses too.
+    const signIn = await component('CodexSignIn')
+    await invoke(signIn, 'copyCode'); expect(bridge.copyText).not.toHaveBeenCalled()
     settings.codex.login = { status: 'waiting', code: 'fixture-code', url: 'https://example.com/verify' }; await flush()
-    await v.root.button('Copy sign-in code').fire('click'); expect(bridge.copyText).toHaveBeenCalledWith('fixture-code'); expect(v.setup.copyStatus).toBeTruthy()
-    settings.codex.login.code = 'next-code'; await flush(); expect(v.setup.copyStatus).toBe('')
-    bridge.copyText!.mockResolvedValueOnce(refused); await invoke(v, 'copyCode'); expect(v.setup.copyStatus).toBe('Could not copy the sign-in code.')
-    bridge.codexOpenVerification!.mockResolvedValueOnce({ ok: false, error: { message: 'Browser failed' } }); await invoke(v, 'openVerification'); expect(settings.codex.error).toBe('Browser failed')
-    v.root.button('Stop waiting').fire('click'); expect(actions.stopLogin).toHaveBeenCalled()
-    settings.codex.login.status = 'failed'; await flush(); v.root.button('Retry login').fire('click'); expect(actions.retryLogin).toHaveBeenCalled()
-    settings.codex.login.status = 'stopped'; await flush(); expect(v.setup.loginAnnouncement).toContain('Stopped waiting')
-    settings.codex.login = { status: 'done', message: 'fixture complete' }; await flush(); expect(v.setup.loginAnnouncement).toBe('fixture complete')
+    expect(v.root.findAll((h) => h.props['data-testid'] === 'codex-sign-in')).toHaveLength(1)
+    await signIn.root.button('Copy sign-in code').fire('click'); expect(bridge.copyText).toHaveBeenCalledWith('fixture-code'); expect(signIn.setup.copyStatus).toBeTruthy()
+    settings.codex.login.code = 'next-code'; await flush(); expect(signIn.setup.copyStatus).toBe('')
+    bridge.copyText!.mockResolvedValueOnce(refused); await invoke(signIn, 'copyCode'); expect(signIn.setup.copyStatus).toBe('Could not copy the sign-in code.')
+    bridge.codexOpenVerification!.mockResolvedValueOnce({ ok: false, error: { message: 'Browser failed' } }); await invoke(signIn, 'openVerification'); expect(settings.codex.error).toBe('Browser failed')
+    signIn.root.button('Stop waiting').fire('click'); expect(actions.stopLogin).toHaveBeenCalled()
+    settings.codex.login.status = 'failed'; await flush(); signIn.root.button('Retry login').fire('click'); expect(actions.retryLogin).toHaveBeenCalled()
+    settings.codex.login.status = 'stopped'; await flush(); expect(signIn.setup.announcement).toContain('Stopped waiting')
+    settings.codex.login = { status: 'done', message: 'fixture complete' }; await flush(); expect(signIn.setup.announcement).toBe('fixture complete')
     expect(invoke(v, 'quota', { quota: { primary: { used_percent: 30, window_minutes: 10080 } } })).toContain('30% of the weekly')
     expect(invoke(v, 'quota', {})).toBe('Quota not reported yet')
   })
@@ -337,6 +340,102 @@ describe('B3 Composer: submission, shortcuts and attachment routing', () => {
     const v = await component('Composer')
     return { v, state, composerStore }
   }
+  const firstRun = (ready: boolean, provider: 'codex' | 'compat' = 'codex') => ({ state: ready ? 'effective-ready' : provider === 'codex' ? 'fresh' : 'incomplete', reason: ready ? 'provider_effective' : provider === 'codex' ? 'provider_not_configured' : 'provider_configuration_incomplete', keyring_unavailable: false, provider, credential_present: ready }) as const
+  async function coreSays(first_run: ReturnType<typeof firstRun>, { stale = false } = {}) {
+    const { status } = await import('../../src/renderer/src/stores/status')
+    const { state } = await import(paths.store)
+    state.app.coreInstanceId = 'core-1'; status.epoch = state.recoveryEpoch
+    const core = { phase: 'ready' as const, core_instance_id: 'core-1', version: 'test', capabilities: [] as string[], first_run }
+    status.core = core
+    // What a fresh read returns: the same, or (stale) a core that is ready by now.
+    bridge.status = vi.fn(async () => ok(stale ? { ...core, first_run: firstRun(true, first_run.provider) } : core))
+    bridge.usage = vi.fn(async () => refused)
+    await flush()
+    return status
+  }
+  it('keeps a message unsent while Codex has no account, and offers the way back after Set up later', async () => {
+    const { v, state, composerStore } = await fixture()
+    bridge.setSetupReminderHidden = vi.fn(async (hidden: boolean) => ok({ hidden }))
+    const status = await coreSays(firstRun(false))
+    const note = () => v.root.findAll((h) => h.props['data-testid'] === 'composer-setup-note')[0]
+    expect(note()).toBeUndefined()
+    await invoke(v, 'submit'); await flush()
+    // Confirmed with the core first, then held.
+    expect(bridge.status).toHaveBeenCalledTimes(1)
+    expect(actions.sendBox).not.toHaveBeenCalled(); expect(composerStore.box.text).toBe('body')
+    expect(note()!.textContent()).toContain('Sign in above to send. Your message is kept.')
+    // Slash commands are local and still run.
+    composerStore.box.text = '/status'; await flush(); await invoke(v, 'submit'); await flush()
+    expect(actions.dispatch).toHaveBeenCalledTimes(1)
+    // After Set up later the note stays, with the way back to the setup invitation.
+    composerStore.box.text = 'body'; state.setupReminderHidden = true; await flush()
+    expect(note()!.textContent()).toContain('Odin needs a ChatGPT sign-in before it can reply.')
+    await note()!.button('Show setup').fire('click'); await flush()
+    expect(bridge.setSetupReminderHidden).toHaveBeenCalledExactlyOnceWith(false)
+    expect(state.setupReminderHidden).toBe(false)
+    // Once the core is ready the note goes and the message sends.
+    status.core = { ...status.core!, first_run: firstRun(true) }; await flush()
+    expect(note()).toBeUndefined()
+    await invoke(v, 'submit'); await flush()
+    expect(actions.sendBox).toHaveBeenCalledTimes(1)
+  })
+  it('sends nothing when the conversation or its draft changes while the core is asked', async () => {
+    const { v, state, composerStore } = await fixture()
+    const status = await coreSays(firstRun(false))
+    let answer!: (value: unknown) => void
+    bridge.status = vi.fn(() => new Promise((resolve) => { answer = resolve }))
+    const sending = invoke(v, 'submit'); await flush()
+    // Switch conversations before the core answers: the other conversation's draft was never submitted.
+    state.views.c2 = { running: null }; state.activeId = 'c2'; await flush()
+    composerStore.box.owner = 'c2'; composerStore.box.text = 'never submitted'; await flush()
+    answer(ok({ ...status.core, first_run: firstRun(true) })); await sending; await flush()
+    expect(actions.sendBox).not.toHaveBeenCalled()
+    expect(composerStore.box.text).toBe('never submitted')
+  })
+  it('steers only the request it was aimed at: a request that starts meanwhile gets nothing', async () => {
+    const { v, state } = await fixture()
+    const status = await coreSays(firstRun(false))
+    state.views.c1 = { running: { request_id: 'r_a', generation: 1, started_at: 'now' } }; await flush()
+    let answer!: (value: unknown) => void
+    bridge.status = vi.fn(() => new Promise((resolve) => { answer = resolve }))
+    const steering = invoke(v, 'submit'); await flush()
+    // Request A finishes and B starts in the same conversation while the core is asked.
+    state.views.c1 = { running: { request_id: 'r_b', generation: 1, started_at: 'later' } }; await flush()
+    answer(ok({ ...status.core, first_run: firstRun(true) })); await steering; await flush()
+    expect(actions.sendBox).not.toHaveBeenCalled()
+    // Aimed at the request still running, it goes through.
+    status.core = { ...status.core!, first_run: firstRun(false) }; await flush()
+    bridge.status = vi.fn(async () => ok({ ...status.core, first_run: firstRun(true) }))
+    await invoke(v, 'submit'); await flush()
+    expect(actions.sendBox).toHaveBeenCalledTimes(1)
+  })
+  it('never holds a message back on a stale reading: a fresh read that says ready sends it', async () => {
+    const { v } = await fixture()
+    await coreSays(firstRun(false), { stale: true })
+    await invoke(v, 'submit'); await flush()
+    expect(bridge.status).toHaveBeenCalledTimes(1)
+    expect(actions.sendBox).toHaveBeenCalledTimes(1)
+    expect(v.root.findAll((h) => h.props['data-testid'] === 'composer-setup-note')).toHaveLength(0)
+  })
+  it('never holds a message back for other incomplete setups, such as a local server with no key', async () => {
+    const { v, state } = await fixture()
+    await coreSays(firstRun(false, 'compat'))
+    await invoke(v, 'submit'); await flush()
+    expect(bridge.status).not.toHaveBeenCalled()
+    expect(actions.sendBox).toHaveBeenCalledTimes(1)
+    state.setupReminderHidden = true; await flush()
+    const note = v.root.findAll((h) => h.props['data-testid'] === 'composer-setup-note')[0]!
+    expect(note.textContent()).toContain("Provider setup isn't finished.")
+    expect(note.textContent()).not.toContain("can't")
+  })
+  it('never blocks on setup it cannot confirm: an unknown or other core projection sends as before', async () => {
+    const { v, state } = await fixture()
+    const { status } = await import('../../src/renderer/src/stores/status')
+    state.app.coreInstanceId = 'core-1'; status.epoch = state.recoveryEpoch
+    status.core = { phase: 'ready', core_instance_id: 'old-core', version: 'test', capabilities: [], first_run: { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false, provider: 'codex', credential_present: false } }; await flush()
+    await invoke(v, 'submit'); await flush()
+    expect(actions.sendBox).toHaveBeenCalledTimes(1)
+  })
   it('sends the current box once with queue/steer mode and refuses busy or unready submission', async () => {
     const { v, state } = await fixture()
     const sent = deferred<boolean>(); actions.send!.mockReturnValueOnce(sent.promise)
@@ -428,5 +527,13 @@ describe('B3 App shell: keyboard ownership and focus transitions', () => {
     Object.assign(document, { activeElement: null }); state.view = 'chat'; await flush(); expect(opener.focus).toHaveBeenCalledTimes(1)
     Object.assign(document, { activeElement: opener }); state.view = 'settings'; await flush()
     opener.closest.mockReturnValue({} as any); query.mockClear(); state.view = 'chat'; await flush(); expect(query).not.toHaveBeenCalled(); expect(opener.focus).toHaveBeenCalledTimes(1)
+  })
+  it('leaves focus to Settings when it was opened for a destination', async () => {
+    const { state } = await fixture()
+    state.settingsTarget = 'providers'; state.view = 'settings'; await flush()
+    expect(query).not.toHaveBeenCalledWith('.settings-nav .back')
+    state.view = 'chat'; await flush(); state.settingsTarget = ''; query.mockClear()
+    state.view = 'settings'; await flush()
+    expect(query).toHaveBeenCalledWith('.settings-nav .back')
   })
 })

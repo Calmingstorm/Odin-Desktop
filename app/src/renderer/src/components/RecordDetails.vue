@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import SettingsSection from './settings/SettingsSection.vue'
+import { odin } from '../bridge'
 import SettingsRow from './settings/SettingsRow.vue'
 import { computed, onBeforeUnmount, reactive } from 'vue'
 import type { Result } from '../../../shared/api'
@@ -48,8 +49,8 @@ async function read(kind: ReadKind): Promise<void> {
   try {
     const tool = filters.diffs.trim()
     const input = { limit: 50, ...(tool ? { tool } : {}) }
-    const answer: Result<unknown> = kind === 'diffs' ? await window.odin.auditDiffs(input)
-      : kind === 'failures' ? await window.odin.auditFailures({ window: Math.max(1, Math.min(336, Number(filters.window) || 24)) }) : await window.odin.logsStats({})
+    const answer: Result<unknown> = kind === 'diffs' ? await odin.auditDiffs(input)
+      : kind === 'failures' ? await odin.auditFailures({ window: Math.max(1, Math.min(336, Number(filters.window) || 24)) }) : await odin.logsStats({})
     if (!alive) return
     if (!answer.ok) {
       item.unavailable = isUnavailable(answer.error)
@@ -77,7 +78,7 @@ async function readTail(kind: TailKind, latest = false): Promise<void> {
   item.error = ''
   try {
     const input = { lines: RETAIN, ...(!latest && item.cursor !== undefined ? { cursor: item.cursor } : {}) }
-    const answer: Result<unknown> = kind === 'audit' ? await window.odin.auditTail(input) : await window.odin.logsTail(input)
+    const answer: Result<unknown> = kind === 'audit' ? await odin.auditTail(input) : await odin.logsTail(input)
     if (!alive) return
     if (!answer.ok) {
       item.unavailable = isUnavailable(answer.error)

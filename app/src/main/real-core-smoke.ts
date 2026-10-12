@@ -72,7 +72,8 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
 export type RealCoreStatus = { phase: string; version: string; core_instance_id: string; capabilities: string[];
   model: { main: string | null; effort: string | null; provider: string | null };
   providers: Array<{ name: string; health: string }>; limits: Record<string, number>; summary: string;
-  first_run: { state: string; reason: string; keyring_unavailable: boolean }; webhook_ingress: WebhookIngressStatus }
+  first_run: { state: string; reason: string; keyring_unavailable: boolean; provider?: string; credential_present?: boolean | null };
+  webhook_ingress: WebhookIngressStatus }
 
 export function assertFreshManagementStatus(status: RealCoreStatus, memoryKeyring = false): void {
   assert.equal(status.phase, 'ready') // Transport lifetime, not provider readiness.
@@ -86,7 +87,8 @@ export function assertFreshManagementStatus(status: RealCoreStatus, memoryKeyrin
   assert.deepEqual(status.limits, { chunk_bytes: 512 * 1024, attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10 })
   assert.match(status.summary, /Codex: unavailable/)
   assert.deepEqual(status.first_run, memoryKeyring
-    ? { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false }
+    // Fresh names the provider setup is for and that no Codex account is stored yet.
+    ? { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false, provider: 'codex', credential_present: false }
     : { state: 'degraded', reason: 'keyring_unavailable', keyring_unavailable: true })
   // Inbound ingress is opt-in (D10): a fresh profile never listens.
   assert.deepEqual(status.webhook_ingress, { reason: 'disabled', address: null, eligible_schedules: 0, unknown_deliveries: 0 })
@@ -1199,13 +1201,34 @@ export async function realCoreSmoke(win: BrowserWindow, broker: Broker, out: str
     input.value = ${JSON.stringify(submissionText)}; input.dispatchEvent(new Event('input', { bubbles: true }));
   })()`)
   await until(async () => await run<boolean>('document.querySelector(".composer button[type=submit]")?.disabled === false'), 'served composer ready to submit')
+  // Codex chosen with no account is the one setup the box holds a message for; any other unready setup sends.
+  const before = await broker.request('status.get')
+  assert(before.ok, 'status read before the unavailable-provider check')
+  const setup = (before.result as RealCoreStatus).first_run
+  const held = (setup.state === 'fresh' || setup.state === 'incomplete') && setup.provider === 'codex' && setup.credential_present === false
   await click('.composer button[type=submit]')
+  if (held) {
+    // After checking with the core, the box keeps the message rather than send a request that can't reach a model.
+    await until(async () => (await content('[data-testid="composer-setup-note"]')).includes('Your message is kept.'), 'held send without a Codex account')
+    assert.equal(await count('.message-scroll .msg.user'), 0, 'a held message is not submitted')
+    assert(await run(`document.querySelector(".composer textarea").value === ${JSON.stringify(submissionText)}`), 'a held message stays in the box')
+    // A request that does reach the core with no provider still fails visibly: submit the same text as another
+    // client would.
+    const submissionId = randomUUID()
+    const accepted = await broker.request('submission.send', { client_submission_id: submissionId, conversation_id: conversationId, text: submissionText }, submissionId)
+    assert(accepted.ok && (accepted.result as { disposition?: string }).disposition === 'accepted', 'the core admits a direct submission')
+  }
   await until(async () => (await content('.message-scroll .msg.notice .body')).includes('No LLM provider available. Please try again later.') &&
     (await content('.message-scroll .outcome')).includes('The task failed.') && (await count('.working, .msg.pending')) === 0, 'actual unavailable-provider task outcome')
   assert.equal(await count('.message-scroll .msg.user'), 1, 'submission must commit exactly one user message')
   await until(async () => (await content('.message-scroll .msg.user .body')) === submissionText, 'committed user message text')
   assert.equal(await count('.message-scroll .msg.assistant'), 0, 'missing provider must not invent an assistant reply')
-  assert(await run('document.querySelector(".composer textarea").value === ""'), 'accepted submission clears its draft')
+  if (held) {
+    await run(`(() => {
+      const input = document.querySelector('.composer textarea');
+      input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true }));
+    })()`)
+  } else assert(await run('document.querySelector(".composer textarea").value === ""'), 'accepted submission clears its draft')
   const failed = await broker.request('conversation.snapshot', { conversation_id: conversationId })
   assert(failed.ok, 'failed request remains readable through its real snapshot')
   const failedSnapshot = failed.result as ConversationSnapshot

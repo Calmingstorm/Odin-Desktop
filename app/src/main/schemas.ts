@@ -50,7 +50,10 @@ export const releaseNoticeSchema = z.object({}).strict()
 export const firstRunStatusSchema = z.object({
   state: z.enum(['fresh', 'incomplete', 'saved', 'effective-ready', 'degraded']),
   reason: z.enum(['provider_not_configured', 'provider_configuration_incomplete', 'provider_runtime_unavailable', 'provider_identity_not_adopted', 'provider_effective', 'provider_health_degraded', 'provider_health_unknown', 'keyring_unavailable', 'credential_state_unavailable']),
-  keyring_unavailable: z.boolean()
+  keyring_unavailable: z.boolean(),
+  // Which provider setup is for, and whether its credential is stored: a fixed name and a yes/no, never credential data.
+  provider: z.enum(['codex', 'compat', 'ollama']).optional(),
+  credential_present: z.boolean().nullable().optional()
 })
 
 /** The window names each conversation command, so a lost answer is reconciled by its late receipt, never re-sent. */

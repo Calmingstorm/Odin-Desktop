@@ -2,6 +2,7 @@
 // Attachments upload as soon as they are added, so sending is quick; nothing is sent while one is still uploading or
 // has failed, and the user always decides whether an attachment goes into knowledge.
 import { reactive } from 'vue'
+import { odin } from '../bridge'
 import type { AttachmentProgress, Result, StagedAttachment, StagedBatch } from '../../../shared/api'
 
 export interface ComposerAttachment {
@@ -23,7 +24,7 @@ let perTurn: number | null = null
 
 async function perTurnLimit(): Promise<number | null> {
   if (perTurn !== null) return perTurn
-  const status = await window.odin.status()
+  const status = await odin.status()
   const announced = status.ok ? status.result.limits?.attachments_per_turn : undefined
   if (typeof announced === 'number' && announced > 0) perTurn = announced
   return perTurn
@@ -69,7 +70,7 @@ let listening = false
 function listen(): void {
   if (listening) return
   listening = true
-  window.odin.onAttachmentProgress((progress: AttachmentProgress) => {
+  odin.onAttachmentProgress((progress: AttachmentProgress) => {
     for (const list of Object.values(composer.attachments)) {
       const item = list?.find((a) => a.id === progress.id)
       if (item) item.sent = progress.sent
@@ -84,7 +85,7 @@ export function attachmentsFor(conversationId: string | null): ComposerAttachmen
 export async function loadDraft(conversationId: string): Promise<string> {
   const known = composer.drafts[conversationId]
   if (known !== undefined) return known
-  const loaded = await window.odin.getDraft(conversationId)
+  const loaded = await odin.getDraft(conversationId)
   const text = loaded.ok ? loaded.result.text : ''
   composer.drafts[conversationId] ??= text
   return composer.drafts[conversationId] ?? ''
@@ -108,7 +109,7 @@ export function saveDraft(conversationId: string, text: string): void {
     conversationId,
     setTimeout(() => {
       saveTimers.delete(conversationId)
-      void window.odin.setDraft(conversationId, text)
+      void odin.setDraft(conversationId, text)
     }, 300)
   )
 }
@@ -116,12 +117,12 @@ export function saveDraft(conversationId: string, text: string): void {
 /** Files dropped on the composer or chosen in the system picker. */
 export async function addFiles(conversationId: string, files: readonly File[]): Promise<void> {
   listen()
-  await addBatch(conversationId, await window.odin.attachFiles(files), files)
+  await addBatch(conversationId, await odin.attachFiles(files), files)
 }
 
 export async function pickFiles(conversationId: string): Promise<void> {
   listen()
-  await addBatch(conversationId, await window.odin.pickFiles(), [])
+  await addBatch(conversationId, await odin.pickFiles(), [])
 }
 
 /** Clipboard images have no file on disk, so their bytes are attached directly; pasted files keep their path. */
@@ -136,7 +137,7 @@ export async function addPasted(conversationId: string, files: readonly File[]):
     for (const image of kept) {
       const name = image.name || `pasted-image.${image.type.split('/')[1] ?? 'png'}`
       try {
-        const staged = await window.odin.attachBytes({ name, mime: image.type, data: new Uint8Array(await image.arrayBuffer()) })
+        const staged = await odin.attachBytes({ name, mime: image.type, data: new Uint8Array(await image.arrayBuffer()) })
         if (staged.ok) start(conversationId, staged.result, URL.createObjectURL(image))
         else composer.errors = [...composer.errors, staged.error.message]
       } catch {
@@ -160,7 +161,7 @@ async function addBatch(conversationId: string, batch: Result<StagedBatch>, file
   }
   composer.errors = batch.result.errors
   const kept = await fitting(conversationId, batch.result.staged)
-  for (const staged of batch.result.staged) if (!kept.includes(staged)) void window.odin.cancelAttachment(staged.id)
+  for (const staged of batch.result.staged) if (!kept.includes(staged)) void odin.cancelAttachment(staged.id)
   for (const staged of kept) {
     const source = files.find((f) => f.name === staged.name && f.size === staged.size)
     const preview = source && source.type.startsWith('image/') ? URL.createObjectURL(source) : undefined
@@ -177,7 +178,7 @@ function start(conversationId: string, staged: StagedAttachment, previewUrl?: st
 }
 
 async function upload(conversationId: string, id: string): Promise<void> {
-  const result = await window.odin.uploadAttachment({ id, conversation_id: conversationId })
+  const result = await odin.uploadAttachment({ id, conversation_id: conversationId })
   const item = composer.attachments[conversationId]?.find((a) => a.id === id)
   if (!item) return // removed while uploading
   if (result.ok) {
@@ -198,7 +199,7 @@ export function setKnowledge(conversationId: string, id: string, value: boolean)
 
 /** Removes an attachment from the composer: stops its upload, and releases what the main process holds for it. */
 export function removeAttachment(conversationId: string, id: string): void {
-  void window.odin.cancelAttachment(id)
+  void odin.cancelAttachment(id)
   remove(conversationId, id)
 }
 

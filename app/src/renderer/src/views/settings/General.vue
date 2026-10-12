@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, reactive } from 'vue'
+import { odin } from '../../bridge'
 import type { Appearance, NotificationChange, DesktopInfo, DisplayPictureTarget } from '../../../../shared/api'
 import ReleaseNotice from '../../components/ReleaseNotice.vue'
 import { state } from '../../store'
@@ -37,16 +38,16 @@ async function pickZone(value: string): Promise<void> {
 }
 const core = computed(() => status.epoch === state.recoveryEpoch && state.app.link === 'ready' && status.core?.core_instance_id === state.app.coreInstanceId ? status.core : null)
 async function readInfo(): Promise<void> {
-  try { const result = await window.odin.getDesktopInfo(); desktop.value = result.ok ? result.result : null; support.info = result.ok ? '' : result.error.message }
+  try { const result = await odin.getDesktopInfo(); desktop.value = result.ok ? result.result : null; support.info = result.ok ? '' : result.error.message }
   catch { support.info = 'Desktop build information is unavailable.' }
 }
 async function folder(): Promise<void> {
-  try { const result = await window.odin.openSettingsFolder(); support.folder = result.ok ? 'Opened the settings folder.' : result.error.message }
+  try { const result = await odin.openSettingsFolder(); support.folder = result.ok ? 'Opened the settings folder.' : result.error.message }
   catch { support.folder = 'The settings folder could not be opened.' }
 }
 async function diagnostics(): Promise<void> {
   const text = JSON.stringify({ desktop: desktop.value, connection: linkLabel(state.app.link), engineBuild: core.value?.version ?? null, enginePhase: core.value?.phase ?? null }, null, 2)
-  try { const result = await window.odin.copyText(text); support.diagnostics = result.ok ? 'Copied redacted diagnostics.' : result.error.message }
+  try { const result = await odin.copyText(text); support.diagnostics = result.ok ? 'Copied redacted diagnostics.' : result.error.message }
   catch { support.diagnostics = 'Diagnostics could not be copied.' }
 }
 onMounted(readInfo)
@@ -104,11 +105,11 @@ async function localPreference(key: string, action: () => Promise<{ ok: boolean;
   preferenceTail = operation.then(() => undefined, () => undefined)
   return await operation
 }
-function appearance(value: Appearance): void { void localPreference('theme', () => window.odin.setAppearance(value), (result) => { state.appearance = (result as { appearance: Appearance }).appearance }) }
-function autostart(enabled: boolean): void { void localPreference('autostart', () => window.odin.setAutostart(enabled), (result) => { state.autostart = (result as { autostart: boolean }).autostart }) }
+function appearance(value: Appearance): void { void localPreference('theme', () => odin.setAppearance(value), (result) => { state.appearance = (result as { appearance: Appearance }).appearance }) }
+function autostart(enabled: boolean): void { void localPreference('autostart', () => odin.setAutostart(enabled), (result) => { state.autostart = (result as { autostart: boolean }).autostart }) }
 
 async function change(update: NotificationChange): Promise<boolean> {
-  return await localPreference('notifications', () => window.odin.setNotifications(update), (result) => { state.notifications = (result as { notifications: NonNullable<typeof state.notifications> }).notifications })
+  return await localPreference('notifications', () => odin.setNotifications(update), (result) => { state.notifications = (result as { notifications: NonNullable<typeof state.notifications> }).notifications })
 }
 
 const quietDraft = reactive<{ start?: string; end?: string }>({})
@@ -225,7 +226,7 @@ async function quiet(key: 'start' | 'end'): Promise<void> {
   </SettingsSection>
   <SettingsSection title="Support and advanced">
     <SettingsRow label="Settings folder" description="Exit before editing, then reopen Odin; manage credentials in the app and leave app-managed files unchanged."><button class="ghost" @click="folder">Open settings folder</button><template #note><p v-if="support.folder" role="status">{{ support.folder }}</p></template></SettingsRow>
-    <SettingsRow label="Import from Odin" description="Bring memory, skills, MCP servers, personality, hosts and settings over from an Odin install."><OdinImport /></SettingsRow>
+    <SettingsRow id="settings-target-importer" tabindex="-1" aria-label="Import from Odin" label="Import from Odin" description="Bring memory, skills, MCP servers, personality, hosts and settings over from an Odin install."><OdinImport /></SettingsRow>
     <SettingsRow label="Advanced settings" description="Search compatibility, execution limits and retention policies."><button class="ghost" @click="state.settingsSection = 'advanced'">Advanced settings</button></SettingsRow>
   </SettingsSection>
 </template>

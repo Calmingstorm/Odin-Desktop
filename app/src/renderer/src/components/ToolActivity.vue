@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref, useId } from 'vue'
+import { odin } from '../bridge'
 import type { ToolDetail } from '../../../shared/api'
 import type { ToolEntry } from '../store'
 import { appendPage, type OutputView } from '../tool-output'
@@ -45,7 +46,7 @@ async function toggle(entry: ToolEntry): Promise<void> {
   if (!props.requestId) return
   expanded[id] = { loading: true, error: '', detail: null, output: { text: '', files: [], next: null, loading: false, error: '', eof: false } }
   const pending = expanded[id]
-  const result = await window.odin.toolDetail({ request_id: props.requestId, invocation_id: id })
+  const result = await odin.toolDetail({ request_id: props.requestId, invocation_id: id })
   const current = expanded[id]
   if (!current || current !== pending) return
   current.loading = false
@@ -59,7 +60,7 @@ async function more(id: string, tool: string): Promise<void> {
   const cursor = current?.output.next ?? current?.detail?.output.cursor
   if (!current || !cursor || current.output.loading || current.output.eof) return
   current.output.loading = true
-  const result = await window.odin.toolOutput({ cursor, limit: OUTPUT_PAGE })
+  const result = await odin.toolOutput({ cursor, limit: OUTPUT_PAGE })
   if (expanded[id] !== current) return
   current.output.loading = false
   if (!result.ok) {

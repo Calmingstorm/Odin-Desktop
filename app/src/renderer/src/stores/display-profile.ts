@@ -1,6 +1,7 @@
 // Your name and picture in chat, and a picture per personality. Odin calls you by the name (the engine reads it from
 // the profile); the pictures are display only and never reach Odin.
 import { reactive } from 'vue'
+import { odin } from '../bridge'
 import type { DisplayPictureTarget, DisplayProfile, Result } from '../../../shared/api'
 import { activePersonality } from '../assistant-name'
 
@@ -44,8 +45,8 @@ export function pictureFailed(picture: string): void {
 /** Loads once; later calls share it. A failed load is tried again by the next call. A page without the app's bridge
  * (a preview or test page) keeps the defaults. */
 export function loadDisplayProfile(): Promise<void> {
-  if (typeof window === 'undefined' || typeof window.odin?.getDisplayProfile !== 'function') return Promise.resolve()
-  loading ??= window.odin.getDisplayProfile().then((result) => {
+  if (typeof window === 'undefined' || typeof odin?.getDisplayProfile !== 'function') return Promise.resolve()
+  loading ??= odin.getDisplayProfile().then((result) => {
     if (settle(result) !== null) loading = null
   }, () => {
     loading = null
@@ -69,7 +70,7 @@ export function personalityPicture(key: string | undefined = activePersonality.v
 
 /** Null when saved; otherwise why not. */
 export async function saveDisplayName(name: string): Promise<string | null> {
-  return settle(await window.odin.setDisplayName(name))
+  return settle(await odin.setDisplayName(name))
 }
 
 /** The centred square of a picture, so a portrait or landscape picture fills the round avatar. */
@@ -133,11 +134,11 @@ export async function saveDisplayPicture(target: DisplayPictureTarget, file: Blo
   }
   // Checked and sent with no await between, so a later change always reaches the app after this one.
   if (!current()) return 'That picture was replaced or removed before it was saved.'
-  return settle(await window.odin.setDisplayPicture(target, png))
+  return settle(await odin.setDisplayPicture(target, png))
 }
 
 /** Null when removed; otherwise why not. A picture for the same target still being prepared is dropped. */
 export async function removeDisplayPicture(target: DisplayPictureTarget): Promise<string | null> {
   nextGeneration(target)
-  return settle(await window.odin.removeDisplayPicture(target))
+  return settle(await odin.removeDisplayPicture(target))
 }

@@ -1,6 +1,7 @@
 // Schedules, in the shapes of Odin's /api/schedules routes: what each one does and when, its runs and failures, and
 // the controls Odin's page offers. Running one now is a separate, explicit action; it never happens by itself.
 import { reactive } from 'vue'
+import { odin } from '../bridge'
 import type { ScheduleRow, ScheduleRun, ScheduleSave } from '../../../shared/api'
 import { act, failure, management } from './management'
 import { isUnavailable } from '../capability'
@@ -20,7 +21,7 @@ let listRead = 0
 
 export async function loadSchedules(): Promise<void> {
   const mine = ++listRead
-  const result = await window.odin.schedulesList({})
+  const result = await odin.schedulesList({})
   if (mine !== listRead) return
   management.error = failure(result)
   schedules.unavailable = !result.ok && isUnavailable(result.error)
@@ -41,7 +42,7 @@ export async function loadSchedules(): Promise<void> {
 
 export async function loadHistory(id: string): Promise<void> {
   const generation = listRead
-  const result = await window.odin.schedulesHistory({ id, limit: 20 })
+  const result = await odin.schedulesHistory({ id, limit: 20 })
   if (generation !== listRead || schedules.unavailable) return
   if (result.ok) schedules.history[id] = result.result
   else management.notes[`schedule:${id}`] = result.error.message
@@ -53,20 +54,20 @@ export async function loadHistory(id: string): Promise<void> {
  */
 export async function saveSchedule(change: ScheduleSave, saved?: (row: ScheduleRow) => void): Promise<boolean> {
   const key = 'id' in change ? `schedule:${change.id}` : 'schedule:new'
-  return act(key, () => window.odin.schedulesSave(change), (row) => {
+  return act(key, () => odin.schedulesSave(change), (row) => {
     saved?.(row)
     return `Saved. ${row.next_run ? 'It runs next ' + new Date(row.next_run).toLocaleString() + '.' : ''}`.trim()
   }, loadSchedules)
 }
 
 export async function setPaused(row: ScheduleRow, paused: boolean): Promise<void> {
-  await act(`schedule:${row.id}`, () => window.odin.schedulesSave({ id: row.id, paused }), () => (paused ? 'Paused.' : 'Running on its schedule again.'), loadSchedules)
+  await act(`schedule:${row.id}`, () => odin.schedulesSave({ id: row.id, paused }), () => (paused ? 'Paused.' : 'Running on its schedule again.'), loadSchedules)
 }
 
 export async function runNow(row: ScheduleRow): Promise<void> {
   await act(
     `schedule:${row.id}`,
-    () => window.odin.schedulesRun({ id: row.id }),
+    () => odin.schedulesRun({ id: row.id }),
     (r) => {
       const outcome = r.status === 'success' ? 'Ran: it succeeded.' : r.status === 'failure' ? `Ran: it failed. ${r.error ?? ''}` : `Not run: ${r.error ?? 'skipped'}.`
       return r.warning ? `${outcome} Note: ${r.warning}.` : outcome
@@ -79,11 +80,11 @@ export async function runNow(row: ScheduleRow): Promise<void> {
 }
 
 export async function resetFailures(row: ScheduleRow): Promise<void> {
-  await act(`schedule:${row.id}`, () => window.odin.schedulesResetFailures({ id: row.id }), () => 'Failures cleared, and pending retries cancelled.', loadSchedules)
+  await act(`schedule:${row.id}`, () => odin.schedulesResetFailures({ id: row.id }), () => 'Failures cleared, and pending retries cancelled.', loadSchedules)
 }
 
 export async function deleteSchedule(row: ScheduleRow): Promise<void> {
-  await act(`schedule:${row.id}`, () => window.odin.schedulesDelete({ id: row.id }), () => 'Deleted.', loadSchedules)
+  await act(`schedule:${row.id}`, () => odin.schedulesDelete({ id: row.id }), () => 'Deleted.', loadSchedules)
 }
 
 let latestCron = 0
@@ -97,7 +98,7 @@ export async function checkCron(expression: string, timezone = ''): Promise<void
     return
   }
   const zone = timezone.trim()
-  const result = await window.odin.schedulesValidateCron({ expression: expression.trim(), ...(zone ? { timezone: zone } : {}) })
+  const result = await odin.schedulesValidateCron({ expression: expression.trim(), ...(zone ? { timezone: zone } : {}) })
   if (mine !== latestCron) return
   schedules.cron = result.ok
     ? { expression, timezone: zone, next_runs: result.result.next_runs, error: '' }

@@ -133,7 +133,12 @@ describe('named IPC behavior through the real validation boundary', () => {
     const webhook_ingress = { reason: 'closed', address: null, eligible_schedules: 0, unknown_deliveries: 0 };
     deps.broker.request.mockResolvedValueOnce(ok({ first_run: { ...first_run, secret: 'private' }, webhook_ingress: { ...webhook_ingress, secret: 'private' }, version: 'fixture' }));
     expect(await call(IPC.status)).toEqual(ok({ first_run, webhook_ingress, version: 'fixture' }));
-    for (const result of [null, 'bad', { first_run: { state: 'impossible' } }, { webhook_ingress: { reason: 'impossible' } }]) {
+    // The provider setup is for and whether its credential is stored pass as a fixed name and a yes/no.
+    const named = { ...first_run, provider: 'codex', credential_present: false }
+    deps.broker.request.mockResolvedValueOnce(ok({ first_run: { ...named, account: 'private' } }));
+    expect(await call(IPC.status)).toEqual(ok({ first_run: named }));
+    for (const result of [null, 'bad', { first_run: { state: 'impossible' } }, { webhook_ingress: { reason: 'impossible' } },
+      { first_run: { ...first_run, provider: 'person@example.test' } }, { first_run: { ...first_run, credential_present: 'token' } }]) {
       deps.broker.request.mockResolvedValueOnce(ok(result)); expect(await call(IPC.status)).toMatchObject({ ok: false, error: { code: 'internal' } });
     }
     deps.broker.request.mockResolvedValueOnce(failed); expect(await call(IPC.status)).toEqual(failed);

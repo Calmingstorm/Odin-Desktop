@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref } from 'vue'
+import { odin } from '../../bridge'
 import type { OdinImportCategory, OdinImportItem, OdinImportOutcome, OdinImportPick, OdinImportReport } from '../../../../shared/api'
 
 const GROUPS: Array<{ category: OdinImportCategory; title: string }> = [
@@ -98,7 +99,7 @@ async function look(): Promise<void> {
   busy.value = true
   const mine = session
   try {
-    const answer = await window.odin.odinImportPreview(source())
+    const answer = await odin.odinImportPreview(source())
     if (mine !== session) return
     if (!answer.ok) {
       error.value = answer.error.message
@@ -120,7 +121,7 @@ async function run(selection: OdinImportPick[]): Promise<void> {
   busy.value = true
   const mine = session
   try {
-    const answer = await window.odin.odinImportApply({ ...source(), picks: selection })
+    const answer = await odin.odinImportApply({ ...source(), picks: selection })
     if (mine !== session) return
     if (!answer.ok) {
       error.value = answer.error.message
@@ -138,7 +139,7 @@ async function run(selection: OdinImportPick[]): Promise<void> {
 async function copyKey(): Promise<void> {
   const text = report.value?.public_key
   if (!text) return
-  const answer = await window.odin.copyText(text)
+  const answer = await odin.copyText(text)
   copied.value = answer.ok ? 'Copied.' : 'Copy failed. Select the key and copy it.'
 }
 

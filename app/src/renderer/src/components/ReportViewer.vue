@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { odin } from '../bridge'
 import type { ArtifactRef } from '../../../shared/api'
 import { onCodeCopyClick } from '../code-copy'
 import { renderMarkdown } from '../markdown'
@@ -25,7 +26,7 @@ async function load(target: number): Promise<void> {
   error.value = ''
   status.value = `Loading page ${target} of ${props.artifact.name}…`
   try {
-    const result = await window.odin.reportPage({ report_id: props.artifact.ref, page: target })
+    const result = await odin.reportPage({ report_id: props.artifact.ref, page: target })
     if (!result.ok) {
       error.value = result.error.message
       status.value = `Could not load page ${target} of ${props.artifact.name}: ${result.error.message}`
@@ -50,7 +51,7 @@ async function copyPage(): Promise<void> {
   const copiedPage = page.value
   status.value = `Copying page ${copiedPage} of ${name}…`
   try {
-    const result = await window.odin.copyText(text.value)
+    const result = await odin.copyText(text.value)
     status.value = !result.ok ? `${name}: ${result.error.message}` : result.result.copied
       ? `Copied page ${copiedPage} of ${name}.` : `Could not copy page ${copiedPage} of ${name}.`
   } catch {

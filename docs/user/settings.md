@@ -120,9 +120,15 @@ the catalogue; unavailable choices or unknown effort support are not fabricated.
 Changing the main model does not enable its provider.
 
 **Agents → Agent model** offers **Same as main**, **Choose automatically**, or
-**Choose a model**. Automatic candidates are ordered by preference and can have
-supported per-model effort/thinking choices. Use the group's **Save/Cancel**;
-independent agent reasoning effort and concurrency controls are separate.
+**Choose a model**. With **Choose automatically**, **Models Odin can choose from**
+lists models as checkboxes, each with the description Odin uses for it. With none
+chosen, Odin's default applies and its models show ticked. Untick or tick models
+to choose your own; ticked models are ordered by preference (**Move up**, **Move
+down**) and can have a supported reasoning effort, and a thinking mode where the
+model has one. **Edit description** replaces Odin's description for a ticked model;
+**Use Odin's description** goes back. **Use Odin's default** clears your choice. At
+least one model stays ticked. Use the group's **Save/Cancel**; independent agent
+reasoning effort and concurrency controls are separate.
 Changes for new agents do not change an already-running agent's captured configuration.
 
 **Accounts and quota** shows **In use**, expiry/limit warnings and reported quota.

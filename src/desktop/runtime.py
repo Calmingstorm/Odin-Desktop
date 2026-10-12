@@ -110,8 +110,8 @@ class RuntimeService:
         observations can degrade it, but do not impose a new provider probe or
         success-count gate stricter than Odin's existing runtime behavior.
         """
-        def result(state, reason, *, keyring=False):
-            return {"state": state, "reason": reason, "keyring_unavailable": keyring}
+        def result(state, reason, *, keyring=False, **known):
+            return {"state": state, "reason": reason, "keyring_unavailable": keyring, **known}
 
         try:
             paths = self.settings.paths
@@ -144,6 +144,13 @@ class RuntimeService:
             # Presence is not full hydration. Explicit Retry rehydrates before
             # reporting its result, without claiming runtime client adoption.
             return result("degraded", "keyring_unavailable", keyring=True)
+        # Which provider setup is for, and whether its credential is stored, so a setup prompt
+        # never guesses from a separate account read. Ollama needs no credential.
+        provider = desired.provider.value
+        credential = {"codex": codex, "compat": compat}.get(provider)
+
+        def settled(state, reason):
+            return result(state, reason, provider=provider, credential_present=credential)
 
         def choices(config):
             values = config.model_dump(mode="json")
@@ -157,22 +164,22 @@ class RuntimeService:
                       and (desired.provider.value == "codex" or bool(section.base_url)))
         if not configured:
             if choices(saved) == choices(defaults) and not (codex or compat or ollama):
-                return result("fresh", "provider_not_configured")
-            return result("incomplete", "provider_configuration_incomplete")
+                return settled("fresh", "provider_not_configured")
+            return settled("incomplete", "provider_configuration_incomplete")
 
         # A runtime-only switch or an uncommitted desired candidate is not setup
         # completion. A successful save alone is not serving readiness either.
         committed = parse_model_ref(saved.llm_provider.model, allow_auto=False)
         if (committed.provider, committed.model) != (desired.provider, desired.model):
-            return result("saved", "provider_identity_not_adopted")
+            return settled("saved", "provider_identity_not_adopted")
         try:
             identity = self.llm_gateway.capture_serving_identity()
         except Exception:
-            return result("saved", "provider_runtime_unavailable")
+            return settled("saved", "provider_runtime_unavailable")
         if getattr(identity, "client", None) is None:
-            return result("saved", "provider_runtime_unavailable")
+            return settled("saved", "provider_runtime_unavailable")
         if (identity.provider, identity.model) != (desired.provider.value, desired.model):
-            return result("saved", "provider_identity_not_adopted")
+            return settled("saved", "provider_identity_not_adopted")
         adopted = getattr(self.llm_gateway, "_effective_config", None)
         if adopted is not None:
             def provider_settings(config):
@@ -180,17 +187,17 @@ class RuntimeService:
                         flatten(getattr(config, section_name).model_dump(mode="json"), section_name)
                         if not is_secret(path)}
             if provider_settings(adopted) != provider_settings(self.config):
-                return result("saved", "provider_identity_not_adopted")
+                return settled("saved", "provider_identity_not_adopted")
         if (getattr(self.llm_gateway, "_closed", False)
                 or getattr(identity.client, "_generation_retired", False)):
-            return result("degraded", "provider_health_degraded")
+            return settled("degraded", "provider_health_degraded")
         guard = getattr(self.llm_gateway, "subsystem_guard", None)
         try:
             if guard is not None:
                 usable = guard.is_usable(f"llm_{desired.provider.value}")
                 healthy = guard.is_available(f"llm_{desired.provider.value}")
                 if usable is False or healthy is False:
-                    return result("degraded", "provider_health_degraded")
+                    return settled("degraded", "provider_health_degraded")
         except Exception:
             # Unknown optional health observations are not an execution or
             # completion gate. Effective-ready describes adoption, not proof
@@ -199,10 +206,10 @@ class RuntimeService:
         try:
             breaker = getattr(identity.client, "breaker", None)
             if breaker is not None and getattr(breaker, "state", None) != "closed":
-                return result("degraded", "provider_health_degraded")
+                return settled("degraded", "provider_health_degraded")
         except Exception:
             pass
-        return result("effective-ready", "provider_effective")
+        return settled("effective-ready", "provider_effective")
 
     def status(self) -> dict:
         # Never call core.status here: the core delegates back to this service.

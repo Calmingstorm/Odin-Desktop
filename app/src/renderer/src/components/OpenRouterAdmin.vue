@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { odin } from '../bridge'
 import type { Result } from '../../../shared/api'
 import { isUnavailable, settingsUnavailableText as unavailableText } from '../capability'
 import { act, management } from '../stores/management'
@@ -19,7 +20,7 @@ type RouterBridge = {
   openrouterSelect?: (params: { model: string; provider_tag: string; expected_revision: string }) => Promise<Result<Selection>>
   providersCompatDiagnostic?: (params: Record<string, never>) => Promise<Result<Payload>>
 }
-const bridge = () => window.odin as unknown as RouterBridge
+const bridge = () => odin as unknown as RouterBridge
 const catalogue = ref<Catalogue | null>(null)
 const endpoints = ref<Payload | null>(null)
 const diagnostic = ref<Payload | null>(null)

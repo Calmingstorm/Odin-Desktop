@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { odin } from '../bridge'
 import type { Result } from '../../../shared/api'
 import { catalogueRows, modelEffortPath, modelOptions, modelSelectionNote, providerEnabled, type ModelRow, type ModelStatus } from '../model-picker'
 import { state } from '../store'
@@ -29,7 +30,7 @@ async function show(): Promise<void> {
   const mine = ++generation, epoch = state.recoveryEpoch, instance = state.app.coreInstanceId
   open.value = true; loading.value = true; error.value = ''; rows.value = []; selected.value = ''; effort.value = ''
   try {
-    const read = (window.odin as unknown as { modelsStatus?: (params: Record<string, never>) => Promise<Result<ModelStatus>> }).modelsStatus
+    const read = (odin as unknown as { modelsStatus?: (params: Record<string, never>) => Promise<Result<ModelStatus>> }).modelsStatus
     if (!read) { error.value = 'Model choices are unavailable. Update Odin, then try again.'; return }
     const [answer] = await Promise.all([read({}), loadSettings(true)])
     if (mine !== generation || epoch !== state.recoveryEpoch || instance !== state.app.coreInstanceId) return
