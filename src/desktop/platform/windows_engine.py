@@ -13,10 +13,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import ctypes
+import errno
 import hashlib
 import json
 import os
 import secrets
+import stat
 import tempfile
 from pathlib import Path, PurePosixPath
 
@@ -64,6 +67,64 @@ def write_private_atomic(path, content):
     if not durable:
         log.error("Private state committed but its final flush failed; durability degraded")
     return durable
+
+
+# --- desktop/services -----------------------------------------------------------------------
+
+
+def retain_generated_copy(workspace, folder, name, data) -> str:
+    """The Windows ``services.retain_generated_copy``: the image tools' owner-only copy.
+
+    A missing folder is created private, and the copy is published whole and private.
+    As Linux's ``O_NOFOLLOW`` refuses a link as the folder itself, so does this: the
+    held chain resolves links before it checks, so it would write through one. Linux's
+    ``os.O_DIRECTORY`` doesn't exist here: it once escaped the image and screenshot tools
+    as an AttributeError after their post. A refusal is an OSError, which those tools
+    absorb (the image stays posted, with no local copy named).
+    """
+    directory = Path(workspace) / folder
+    try:
+        attributes = os.lstat(directory).st_file_attributes
+    except FileNotFoundError:
+        attributes = 0
+    if attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+        raise OSError(errno.ELOOP, "a link as the local copy's folder is refused", str(directory))
+    path = directory / name
+    _publish_path(path, data, create=True)
+    return str(path)
+
+
+# --- health/checker -------------------------------------------------------------------------
+
+# A process's handle table holds at most 2**24 handles (16,777,216).
+_HANDLE_LIMIT = 1 << 24
+
+
+def check_open_files(_bot):
+    """The Windows ``checker.check_open_files``: this process's open handles.
+
+    Windows has neither ``/proc/self/fd`` nor ``RLIMIT_NOFILE``, so Linux's probe reported
+    "unavailable", which left every Windows install's overall health "degraded". Handles
+    are this process's open resources, under the per-process limit; the warning threshold,
+    status and metadata keys are Linux's.
+    """
+    from src.health.checker import ComponentStatus
+
+    count = win32.DWORD()
+    if not win32.GetProcessHandleCount(win32.GetCurrentProcess(), ctypes.byref(count)):
+        return ComponentStatus(name="open_files", healthy=False, status="down",
+                               detail=f"Unable to count open handles: {win32.error()}")
+    usage_percent = count.value / _HANDLE_LIMIT * 100
+    degraded = usage_percent > 70
+    return ComponentStatus(
+        name="open_files",
+        healthy=not degraded,
+        status="degraded" if degraded else "ok",
+        detail=(f"{count.value} open handles / {_HANDLE_LIMIT} per-process limit "
+                f"({usage_percent:.1f}%)" + (" — above 70% warning threshold" if degraded else "")),
+        metadata={"open_descriptors": count.value, "soft_limit": _HANDLE_LIMIT,
+                  "usage_percent": usage_percent},
+    )
 
 
 # --- permissions/host_access ----------------------------------------------------------------

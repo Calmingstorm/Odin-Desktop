@@ -224,3 +224,29 @@ async def test_computer_management_reports_windows_without_opening_a_store():
     service._closed = True
     with pytest.raises(Exception, match="closed"):
         await service.start()
+
+
+def test_health_counts_open_handles_instead_of_reporting_unavailable():
+    """Linux's descriptor probe has nothing to read on Windows: it reported "unavailable",
+    which left every Windows install's overall health "degraded"."""
+    from src.health.checker import check_open_files
+
+    status = check_open_files(None)
+    assert (status.name, status.healthy, status.status) == ("open_files", True, "ok")
+    assert status.metadata["soft_limit"] == 1 << 24
+    assert 0 < status.metadata["open_descriptors"] < 1 << 24
+    assert "open handles" in status.detail
+
+
+def test_health_still_warns_when_handles_near_the_limit(monkeypatch):
+    from src.desktop.platform import win32
+    from src.health.checker import check_open_files
+
+    def three_quarters(process, count):
+        count._obj.value = (1 << 24) * 3 // 4
+        return True
+
+    monkeypatch.setattr(win32, "GetProcessHandleCount", three_quarters)
+    status = check_open_files(None)
+    assert (status.healthy, status.status) == (False, "degraded")
+    assert "above 70% warning threshold" in status.detail

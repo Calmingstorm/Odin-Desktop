@@ -227,6 +227,7 @@ def _declare(function, argtypes, restype=BOOL):
 
 
 GetCurrentProcess = _declare(kernel32.GetCurrentProcess, [], HANDLE)
+GetProcessHandleCount = _declare(kernel32.GetProcessHandleCount, [HANDLE, ctypes.POINTER(DWORD)])
 CloseHandle = _declare(kernel32.CloseHandle, [HANDLE])
 LocalFree = _declare(kernel32.LocalFree, [PVOID], PVOID)
 CreateFileW = _declare(

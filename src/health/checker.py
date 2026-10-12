@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import UTC
 from typing import TYPE_CHECKING, Any
 
+from ..desktop.platform.variants import windows_variant
 from ..odin_log import get_logger
 
 if TYPE_CHECKING:
@@ -119,6 +120,7 @@ def _open_files_status(open_descriptors: int, soft_limit: int | float) -> Compon
     )
 
 
+@windows_variant("src.desktop.platform.windows_engine:check_open_files")
 def check_open_files(_bot: Any) -> ComponentStatus:
     """Report actual process descriptor usage, failing truthfully on probe errors."""
     try:

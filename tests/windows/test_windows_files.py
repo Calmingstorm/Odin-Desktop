@@ -322,3 +322,28 @@ def test_rename_retry_gives_up_after_its_bound(profile_root, monkeypatch):
     assert len(attempts) == windows_files._RENAME_RETRIES
     assert time.monotonic() - started < 30
     assert os.listdir(profile_root) == []
+
+
+def test_a_posted_image_keeps_a_private_copy_and_refuses_a_link(tmp_path):
+    """The image and screenshot tools' local copy, as production calls it
+    (``services.retain_generated_copy``). Linux's version needs ``os.O_DIRECTORY``,
+    which escaped those tools as an AttributeError after their post."""
+    from pathlib import Path
+
+    from src.desktop.services import retain_generated_copy
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    saved = Path(retain_generated_copy(str(workspace), "generated-images", "a.png", b"png-a"))
+    assert saved == workspace / "generated-images" / "a.png"
+    assert saved.read_bytes() == b"png-a"
+    assert dacl_is_private(security_of(saved, directory=False))
+    assert dacl_is_private(security_of(saved.parent, directory=True))
+    again = Path(retain_generated_copy(str(workspace), "generated-images", "b.png", b"png-b"))
+    assert (again.read_bytes(), saved.read_bytes()) == (b"png-b", b"png-a")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    _winapi.CreateJunction(str(outside), str(workspace / "screenshots"))
+    with pytest.raises(OSError):
+        retain_generated_copy(str(workspace), "screenshots", "c.png", b"png-c")
+    assert os.listdir(outside) == []
