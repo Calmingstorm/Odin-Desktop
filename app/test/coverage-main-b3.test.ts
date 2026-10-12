@@ -262,6 +262,53 @@ describe('inert main-process lifecycle wiring', () => {
     broker.emit('protocol-error', 'malformed frame')
     expect(win.webContents.send).not.toHaveBeenCalledWith(IPC.appState, expect.anything())
   })
+  // A saved maximized window, as the app state file holds it.
+  const savedMaximized = (): void => {
+    m.read.mockImplementation((path: string) => path.includes('token') ? ' token\n' : path === '/mock/app.json'
+      ? JSON.stringify({ windowState: { version: 1, normalBounds: { x: 10, y: 10, width: 900, height: 600 }, maximized: true } })
+      : '{}')
+  }
+  const deferringPlatform = (): void => {
+    vi.doMock('../src/main/platform', async (original) => {
+      const real = await original<typeof import('../src/main/platform')>()
+      return { currentPlatform: () => ({ ...real.currentPlatform(), maximizeOnFirstShow: true }) }
+    })
+  }
+  it('a hidden start keeps a saved maximized window hidden until its first show, where the platform asks', async () => {
+    deferringPlatform()
+    try {
+      savedMaximized()
+      const { win } = await boot(['--hidden'])
+      win.emit('ready-to-show')
+      expect(win.maximize).not.toHaveBeenCalled()
+      expect(win.show).not.toHaveBeenCalled()
+      m.app.emit('second-instance', {}, [])
+      expect(win.maximize).toHaveBeenCalledOnce()
+      expect(win.show).toHaveBeenCalledOnce()
+      expect(win.maximize.mock.invocationCallOrder[0]).toBeLessThan(win.show.mock.invocationCallOrder[0])
+      m.app.emit('second-instance', {}, [])
+      expect(win.maximize).toHaveBeenCalledOnce()
+    } finally {
+      vi.doUnmock('../src/main/platform')
+    }
+  })
+  it('a start that opens the window maximizes a saved maximized window at once, even where hidden starts wait', async () => {
+    deferringPlatform()
+    try {
+      savedMaximized()
+      const { win } = await boot()
+      expect(win.maximize).toHaveBeenCalledOnce()
+      expect(win.show).not.toHaveBeenCalled()
+    } finally {
+      vi.doUnmock('../src/main/platform')
+    }
+  })
+  it('Linux still maximizes a saved maximized window when it is created, hidden start or not', async () => {
+    savedMaximized()
+    const { win } = await boot(['--hidden'])
+    expect(win.maximize).toHaveBeenCalledOnce()
+    expect(win.show).not.toHaveBeenCalled()
+  })
   it('quits duplicate/exit-only launches before constructing the profile or core', async () => {
     m.lock = false; await boot(); expect(m.app.quit).toHaveBeenCalledOnce(); expect(m.brokers).toHaveLength(0);
     vi.resetModules(); m.lock = true; await boot(['--exit']); expect(m.app.quit).toHaveBeenCalledTimes(2); expect(m.supervisors).toHaveLength(0);

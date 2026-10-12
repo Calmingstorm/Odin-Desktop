@@ -60,6 +60,7 @@ export const windowsPlatform: AppPlatform = {
   get autostartUnavailable() {
     return app.isPackaged ? undefined : AUTOSTART_UNAVAILABLE
   },
+  maximizeOnFirstShow: true,
   // The Linux modules choose Windows' interpreter and the nsis lease by the system they run on.
   inspectPackagedState,
   acquirePackagedApp,

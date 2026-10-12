@@ -215,6 +215,10 @@ describe('the Windows platform from source', () => {
     expect(windowsPlatform.isAutostartEnabled()).toBe(false)
     expect(() => windowsPlatform.setAutostart(true, ['odin'])).toThrow(AUTOSTART_UNAVAILABLE)
     expect(windowsPlatform.autostartUnavailable).toBe(AUTOSTART_UNAVAILABLE)
+    // maximize() shows a hidden window here, so a start at login keeps a maximized window for its first show; Linux
+    // keeps maximizing at creation.
+    expect(windowsPlatform.maximizeOnFirstShow).toBe(true)
+    expect(currentPlatform('linux').maximizeOnFirstShow).toBeUndefined()
     // The Linux modules pick Windows' interpreter and the nsis lease by the system they run on.
     expect(windowsPlatform.inspectPackagedState).toBe(inspectPackagedState)
     expect(windowsPlatform.acquirePackagedApp).toBe(acquirePackagedApp)

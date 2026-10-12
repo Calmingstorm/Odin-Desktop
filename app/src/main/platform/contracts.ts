@@ -17,6 +17,9 @@ export interface AppPlatform {
   setAutostart: typeof setAutostart
   /** Why start at login isn't offered, where it isn't (Settings shows it and disables the switch). */
   autostartUnavailable?: string
+  /** A hidden start (start at login) maximizes a saved maximized window at its first show, not when it's created:
+   * maximize() also shows a hidden window (Windows). */
+  maximizeOnFirstShow?: boolean
   /** The installed package's ownership and state, checked before the first window. */
   inspectPackagedState: typeof inspectPackagedState
   acquirePackagedApp: typeof acquirePackagedApp

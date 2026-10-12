@@ -117,6 +117,7 @@ function run(): void {
   let tray: OdinTray | null = null
   let supervisorLink: LinkState | null = null
   let pendingOpen = !flags.hidden
+  let maximizeOnFirstShow = false
   let notificationRouteReady = false
   let pendingNotificationTarget: { conversationId: string; messageId: string } | null = null
   const drainNotificationTarget = (): void => {
@@ -316,6 +317,8 @@ function run(): void {
     if (!win) return
     if (win.webContents.isCrashed()) void win.loadURL(`${APP_ORIGIN}/index.html`)
     if (win.isMinimized()) win.restore()
+    // A hidden start kept the saved maximized state for this first show; maximize() shows the window as well.
+    if (maximizeOnFirstShow) { maximizeOnFirstShow = false; win.maximize() }
     win.show()
     win.focus()
   }
@@ -545,7 +548,9 @@ function run(): void {
       webPreferences: hardenedWebPreferences(preloadPath)
     })
     windowState = new WindowStateController(win, restored.state, savePersisted, backend)
-    if (restored.state.maximized) win.maximize()
+    // maximize() also shows a hidden window, so where the platform asks, a hidden start keeps it for the first show.
+    if (restored.state.maximized && !pendingOpen && platform.maximizeOnFirstShow) maximizeOnFirstShow = true
+    else if (restored.state.maximized) win.maximize()
     screen.on('display-removed', repairWindow)
     screen.on('display-metrics-changed', displayMetricsChanged)
     win.on('close', (event) => {
