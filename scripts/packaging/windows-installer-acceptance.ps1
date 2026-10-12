@@ -12,7 +12,9 @@
 # profile, and three fresh cycles. Every install is silent (/S). The report is JSON and is written however the run
 # ends: an exception is recorded as a failed check, and so is each cleanup step that fails (every step is still
 # tried). Any failed check makes the exit code 1. Test hooks: -FailAt names a check to fail right after; -FailCleanup
-# a cleanup step to fail after its work.
+# a cleanup step to fail after its work. -Publisher names the signer of a signed build: the installer, then the
+# installed Odin.exe and its uninstaller, must each carry that publisher's valid, timestamped signature, and the report
+# records the publisher and the installer's certificate.
 param(
   [Parameter(Mandatory = $true)] [string] $Installer,
   [Parameter(Mandatory = $true)] [string] $Report,
@@ -21,7 +23,8 @@ param(
   [string] $Mode = 'orchestrate',
   [string] $FailAt = '',
   [string] $FailCleanup = '',
-  [string] $CoreScript = ''
+  [string] $CoreScript = '',
+  [string] $Publisher = ''
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -38,6 +41,19 @@ function Check([string] $name, [bool] $ok, $detail) {
   $checks.Add([ordered]@{ check = $name; ok = $ok; detail = "$detail" })
   if ($Progress) { Add-Content -LiteralPath $Progress -Value "$ok $name" -Encoding utf8 }
   if ($FailAt -and $name -eq $FailAt) { throw "intentional failure after '$name' (-FailAt)" }
+}
+# A signed build's signature as Windows reads it: valid, by -Publisher, timestamped (the certificates last three days;
+# the timestamp keeps a signature valid after that).
+if ($Publisher -and $Publisher -notmatch "^[A-Za-z0-9 .,'-]+$") { throw "an unexpected publisher name: $Publisher" }
+$SignerThumbprint = ''
+function SignedBy([string] $path) {
+  $signature = Get-AuthenticodeSignature -LiteralPath $path
+  $certificate = $signature.SignerCertificate
+  $name = if ($certificate) { $certificate.GetNameInfo('SimpleName', $false) } else { '' }
+  $stamped = $null -ne $signature.TimeStamperCertificate
+  [ordered]@{ ok = ($signature.Status -eq 'Valid' -and $name -eq $Publisher -and $stamped)
+    thumbprint = $(if ($certificate) { $certificate.Thumbprint } else { '' })
+    detail = "$($signature.Status), signer '$name', $(if ($stamped) { 'timestamped' } else { 'no timestamp' })" }
 }
 # Every process this test waits for is bounded, and only the process itself is waited for (Start-Process -Wait also
 # waits for every descendant, so one that lingers stalls the run with no report). One that doesn't exit in time ends
@@ -130,8 +146,10 @@ function Finish([string] $outcome = '') {
   $failed = @($checks | Where-Object { -not $_.ok })
   # The tested bytes, so a release receipt can require the retained installer to be exactly these.
   $digest = try { (Get-FileHash -LiteralPath $Installer -Algorithm SHA256).Hash.ToLowerInvariant() } catch { '' }
+  # The signer this run checked, for the receipt: none for an unsigned build, or the user's part of a signed one.
+  $signature = if ($Publisher -and $SignerThumbprint) { [ordered]@{ publisher = $Publisher; thumbprint = $SignerThumbprint } }
   [ordered]@{ mode = $Mode; user = [Security.Principal.WindowsIdentity]::GetCurrent().Name; failed = $failed.Count
-    installer_sha256 = $digest; checks = $checks } | ConvertTo-Json -Depth 4 |
+    installer_sha256 = $digest; signature = $signature; checks = $checks } | ConvertTo-Json -Depth 4 |
     Set-Content -LiteralPath $Report -Encoding utf8
   [int]($failed.Count -gt 0)
 }
@@ -195,6 +213,12 @@ if ($Mode -eq 'user') {
   $missing = @('Uninstall Odin.exe', 'resources\ownership.py', 'resources\bundle-manifest.json',
     'resources\runtime\python\python.exe' | Where-Object { -not (Test-Path (Join-Path $inst $_)) })
   Check 'the installed layout' ($missing.Count -eq 0) ($missing -join ', ')
+  if ($Publisher) {
+    foreach ($file in 'Odin.exe', 'Uninstall Odin.exe') {
+      $signed = SignedBy (Join-Path $inst $file)
+      Check "the installed $file is validly signed by the expected publisher, with a timestamp" $signed.ok $signed.detail
+    }
+  }
   $keys = OdinUninstallKeys $userKeys
   $quiet = if ($keys.Count -eq 1) { (Get-ItemProperty $keys[0].PSPath).QuietUninstallString } else { '' }
   Check 'one HKCU entry, current user only' ($keys.Count -eq 1 -and $keys[0].PSChildName -eq $Guid -and
@@ -489,6 +513,12 @@ if (-not (New-Object Security.Principal.WindowsPrincipal $identity).IsInRole(
   throw 'The orchestrator creates a local user, so it runs elevated, on a disposable machine'
 }
 $runnerProgram = Join-Path $env:LOCALAPPDATA 'Programs\Odin'
+if ($Publisher) {
+  $signed = SignedBy $Installer
+  Check 'the installer is validly signed by the expected publisher, with a timestamp' $signed.ok (
+    "$($signed.detail), certificate $($signed.thumbprint)")
+  if ($signed.ok) { $SignerThumbprint = $signed.thumbprint }
+}
 # The runner's token as the app's own check reads it (the guardian's token action), for the record.
 $facts = if ($Python) { & $Python -I -B (Join-Path $Packaging 'ownership.py') token 2>&1 } else { 'not read' }
 $before = Test-Path $runnerProgram
@@ -515,6 +545,7 @@ $credential = New-Object Management.Automation.PSCredential ($name, $secret)
 $arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$work\acceptance.ps1`" -Mode user " +
   "-Installer `"$work\setup.exe`" -Report `"$userReport`" -Packaging `"$work\packaging`""
 if ($FailAt) { $arguments += " -FailAt `"$FailAt`"" }
+if ($Publisher) { $arguments += " -Publisher `"$Publisher`"" }
 $process = Start-Process powershell.exe -Credential $credential -LoadUserProfile -ArgumentList $arguments `
   -WorkingDirectory $work -PassThru
 $null = $process.Handle

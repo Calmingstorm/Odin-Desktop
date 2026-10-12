@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "platform": "win_amd64",
+  "purpose": "Release signing only: these tools sign the Windows installer on the release builder (windows-release.yml) and are never bundled into the app.",
+  "packages": {
+    "signtool": {
+      "package": "Microsoft.Windows.SDK.BuildTools",
+      "version": "10.0.26100.9169",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.windows.sdk.buildtools/10.0.26100.9169/microsoft.windows.sdk.buildtools.10.0.26100.9169.nupkg",
+      "sha256": "6000c971fc9155052a8359779b30b6682c39e091664d83b3852c4702ab6d238e",
+      "size": 22680539,
+      "folder": "bin/10.0.26100.0/x64",
+      "file": "signtool.exe",
+      "provenance": "nuget.org, published 2026-08-26; the package digest computed from the downloaded bytes on 2026-10-12. Artifact Signing needs SignTool 10.0.22621.755 or later, and not 10.0.20348."
+    },
+    "dlib": {
+      "package": "Microsoft.ArtifactSigning.Client",
+      "version": "1.0.128",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.artifactsigning.client/1.0.128/microsoft.artifactsigning.client.1.0.128.nupkg",
+      "sha256": "74bd7d27e6ce1051409c38d9b46bc8df0400ecd643d51ffbf2ac00869061e40b",
+      "size": 14653224,
+      "folder": "bin/x64",
+      "file": "Azure.CodeSigning.Dlib.dll",
+      "provenance": "nuget.org, published 2026-03-30; the package digest computed from the downloaded bytes on 2026-10-12. SignTool's Artifact Signing library, which runs on the .NET 8 runtime."
+    }
+  }
+}

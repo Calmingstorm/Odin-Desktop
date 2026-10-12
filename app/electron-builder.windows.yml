@@ -27,6 +27,12 @@ win:
       arch: [x64]
   icon: resources/icon.png
   artifactName: odin-desktop-${version}-candidate-x64-setup.${ext}
+  # The release build signs Odin.exe, the uninstaller and the installer with Artifact Signing (SHA-256 only), and
+  # leaves every bundled executable as its publisher shipped it. The hook does nothing unless the build asks for
+  # signing (ODIN_WINDOWS_SIGNING=1, windows-release.yml only), so local and CI builds stay unsigned.
+  signtoolOptions:
+    sign: packaging/sign-windows.cjs
+    signingHashAlgorithms: [sha256]
 nsis:
   oneClick: true
   perMachine: false

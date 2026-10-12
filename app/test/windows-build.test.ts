@@ -43,6 +43,8 @@ describe('the Windows build configuration', () => {
     expect(windows.extraResources).toEqual(shared.extraResources)
     expect(windows.win).toMatchObject({ target: [{ target: 'nsis', arch: ['x64'] }],
       artifactName: 'odin-desktop-${version}-candidate-x64-setup.${ext}' })
+    // Signing goes through the release build's own hook, never electron-builder's certificate lookup.
+    expect(windows.win.signtoolOptions).toEqual({ sign: 'packaging/sign-windows.cjs', signingHashAlgorithms: ['sha256'] })
     expect(windows.nsis).toEqual({ oneClick: true, perMachine: false, runAfterFinish: false,
       createDesktopShortcut: false, createStartMenuShortcut: true, shortcutName: 'Odin', uninstallDisplayName: 'Odin',
       menuCategory: false, deleteAppDataOnUninstall: false, packElevateHelper: false,
