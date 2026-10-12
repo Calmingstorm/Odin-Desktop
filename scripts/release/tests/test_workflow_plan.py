@@ -137,11 +137,24 @@ class WorkflowPlanTests(unittest.TestCase):
 
     def test_engine_actions_are_commit_pinned(self):
         engine = yaml.safe_load((ROOT / '.github/workflows/phase1-engine.yml').read_text())
+        workflows = {'phase1-engine.yml': engine}
         for name, job in engine['jobs'].items():
-            for step in job['steps']:
-                if 'uses' in step:
-                    with self.subTest(job=name, action=step['uses']):
-                        self.assertRegex(step['uses'], r'@[0-9a-f]{40}$')
+            # A job may call a reusable workflow instead of running steps: only a local one
+            # runs at this commit without a pin, and the actions in its steps are pinned like
+            # the engine's own.
+            if 'uses' in job:
+                local = job['uses'].startswith('./.github/workflows/')
+                with self.subTest(job=name, workflow=job['uses']):
+                    self.assertTrue(local, 'a called workflow must be local')
+                if local:
+                    workflows[job['uses']] = yaml.safe_load((ROOT / job['uses']).read_text())
+        self.assertGreater(len(workflows), 1, 'the Windows jobs run in a called workflow')
+        for workflow, document in workflows.items():
+            for name, job in document['jobs'].items():
+                for step in job.get('steps', []):
+                    if 'uses' in step:
+                        with self.subTest(workflow=workflow, job=name, action=step['uses']):
+                            self.assertRegex(step['uses'], r'@[0-9a-f]{40}$')
 
     def test_fake_upload_action_not_called_for_dry_run(self):
         upload = next(s for s in self.workflow['jobs']['build']['steps'] if s.get('id') == 'retain')

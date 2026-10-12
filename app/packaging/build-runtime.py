@@ -21,6 +21,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent.parent
 FONTS = REPO / 'app/src/renderer/src/assets/fonts'
+# The Windows stage is built in a scratch folder beside it, then renamed into place. Release
+# provenance re-checks the source while that folder exists, so .gitignore covers it like the stage.
+STAGE_SCRATCH = '.runtime-stage-'
 
 # Archive checked against upstream v44.5.1 SHASUMS256.txt. Executable and
 # notice hashes measured from that archive, never from a developer install.
@@ -259,7 +262,7 @@ def main() -> None:
                 raise ValueError('Windows stage target already exists; refusing stage mixing')
             stage.parent.mkdir(parents=True, exist_ok=True)
             with tempfile.TemporaryDirectory(
-                    prefix='.runtime-stage-', dir=stage.parent) as temporary:
+                    prefix=STAGE_SCRATCH, dir=stage.parent) as temporary:
                 work = Path(temporary) / 'resources'
                 work.mkdir()
                 result = stage_build(work, cache, options.platform, source, False, electron)
