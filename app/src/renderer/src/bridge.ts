@@ -1,4 +1,4 @@
-import { isReactive, isReadonly, toRaw } from 'vue'
+import { reactive, readonly, shallowReactive, shallowReadonly } from 'vue'
 import type { OdinApi } from '../../shared/api'
 
 /**
@@ -8,10 +8,7 @@ import type { OdinApi } from '../../shared/api'
  * functions such as event listeners) passes unchanged.
  */
 export function toPlain<T>(value: T): T {
-  // Unwrap only an actual Vue proxy. Plain data may hold any key, Vue's own `__v_raw` included: toRaw and isProxy
-  // both read that key, so a plain object holding it would lose its other keys. Proxies answer the reactive and
-  // readonly flags themselves.
-  const raw = isReactive(value) || isReadonly(value) ? toRaw(value) : value
+  const raw: unknown = value !== null && typeof value === 'object' ? unwrap(value) : value
   if (Array.isArray(raw)) return raw.map(toPlain) as T
   if (raw !== null && typeof raw === 'object') {
     const prototype = Object.getPrototypeOf(raw)
@@ -19,7 +16,20 @@ export function toPlain<T>(value: T): T {
       return Object.fromEntries(Object.entries(raw).map(([key, member]) => [key, toPlain(member)])) as T
     }
   }
-  return raw
+  return raw as T
+}
+
+const VIEWS: ReadonlyArray<(target: object) => unknown> = [reactive, readonly, shallowReactive, shallowReadonly]
+
+/**
+ * The data behind a genuine Vue proxy, or the value itself. Vue's marker keys (`__v_raw`, `__v_isReactive`,
+ * `__v_isReadonly`) can be ordinary data in a plain object, so Vue's own toRaw, isProxy and isReactive prove nothing:
+ * a value counts as a proxy only when Vue maps the target it names back to this very object.
+ */
+function unwrap(value: object): object {
+  const target = (value as Record<string, unknown>).__v_raw
+  if (target === null || typeof target !== 'object' || target === value) return value
+  return VIEWS.some((view) => view(target) === value) ? unwrap(target) : value
 }
 
 /**

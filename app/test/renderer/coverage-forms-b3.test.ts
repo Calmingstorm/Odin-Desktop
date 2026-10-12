@@ -392,6 +392,23 @@ describe('B3 Composer: submission, shortcuts and attachment routing', () => {
     expect(actions.sendBox).not.toHaveBeenCalled()
     expect(composerStore.box.text).toBe('never submitted')
   })
+  it('steers only the request it was aimed at: a request that starts meanwhile gets nothing', async () => {
+    const { v, state } = await fixture()
+    const status = await coreSays(firstRun(false))
+    state.views.c1 = { running: { request_id: 'r_a', generation: 1, started_at: 'now' } }; await flush()
+    let answer!: (value: unknown) => void
+    bridge.status = vi.fn(() => new Promise((resolve) => { answer = resolve }))
+    const steering = invoke(v, 'submit'); await flush()
+    // Request A finishes and B starts in the same conversation while the core is asked.
+    state.views.c1 = { running: { request_id: 'r_b', generation: 1, started_at: 'later' } }; await flush()
+    answer(ok({ ...status.core, first_run: firstRun(true) })); await steering; await flush()
+    expect(actions.sendBox).not.toHaveBeenCalled()
+    // Aimed at the request still running, it goes through.
+    status.core = { ...status.core!, first_run: firstRun(false) }; await flush()
+    bridge.status = vi.fn(async () => ok({ ...status.core, first_run: firstRun(true) }))
+    await invoke(v, 'submit'); await flush()
+    expect(actions.sendBox).toHaveBeenCalledTimes(1)
+  })
   it('never holds a message back on a stale reading: a fresh read that says ready sends it', async () => {
     const { v } = await fixture()
     await coreSays(firstRun(false), { stale: true })

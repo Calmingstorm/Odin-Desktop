@@ -62,7 +62,7 @@ function fixture(provider = false, seeded = false, fault = '') {
     ports.files.set(root + '/work-proof.json', JSON.stringify({ conversation_id: 'c_chat', report_id: 'report', recovery_id: 'recovery' }))
     for (const name of ['background', 'report']) ports.files.set(root + '/' + name + '-effects', 'one\n')
   }
-  let section = '', input = '', search = '', mode = 'normal', dialogKind = '', title = 'Chat', panelText = ''
+  let section = '', input = '', search = '', mode = 'normal', dialogKind = '', title = 'Chat', panelText = '', setupNote = ''
   let compat = false, modelConfigured = false, resumePending = provider, attached = false, compatibleSetupOpen = false
   let skill = false, skillRuns = 0, mcp = false, mcpEnabled = false, revision = 0
   let outputPages = 0, reportPage = 0, cancelled = false, ingressEnabled = false, secret = '', sourceSecret = ''
@@ -88,7 +88,9 @@ function fixture(provider = false, seeded = false, fault = '') {
     model: modelConfigured ? { main: 'canned-contract', effort: null, provider: 'compat' } : { main: 'gpt-6.1-sol', effort: null, provider: 'codex' },
     providers: [{ name: 'codex', health: 'unavailable' }, { name: 'ollama', health: 'disabled' }, { name: 'compat', health: 'disabled' }],
     limits: { chunk_bytes: 524288, attachment_bytes: 52428800, attachments_per_turn: 10 }, summary: 'Codex: unavailable',
-    first_run: seeded ? { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false, provider: 'codex', credential_present: false } : { state: 'degraded', reason: 'keyring_unavailable', keyring_unavailable: true }, webhook_ingress: ingress() })
+    first_run: !seeded ? { state: 'degraded', reason: 'keyring_unavailable', keyring_unavailable: true }
+      : modelConfigured ? { state: 'effective-ready', reason: 'provider_effective', keyring_unavailable: false, provider: 'compat', credential_present: true }
+        : { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false, provider: 'codex', credential_present: false }, webhook_ingress: ingress() })
   const snapshot = () => ({ messages: { items: messages }, running, queued, recent, unresolved: [] })
   const workItems = ['agent', 'task', 'workflow', 'loop', 'process', 'schedule'].map((kind, index) => ({ kind, id: 'w_' + index, manager_generation: 1, run_id: 'run', generation: 1, conversation_id: 'c_chat', title: kind === 'task' ? 'Harmless cancellable task' : kind }))
   const core: any = new EventEmitter()
@@ -104,6 +106,11 @@ function fixture(provider = false, seeded = false, fault = '') {
       event('request.started', request); complete(request); return
     }
     if (mode === 'steer') { operations.push(['steer', running.request_id, value]); return }
+    // Codex with no account: the real box keeps the message after checking with the core.
+    const setup: any = status().first_run
+    if (mode !== 'queue' && !value.startsWith('[hold-') && ['fresh', 'incomplete'].includes(setup.state) && setup.provider === 'codex' && setup.credential_present === false) {
+      input = value; setupNote = 'Sign in above to send. Your message is kept.'; return
+    }
     const request = { request_id: 'r_' + (++nextId).toString(16), generation: 1, conversation_id: conversations.at(-1)!.id }
     const user: any = { id: 'm_' + (++nextId).toString(16), role: 'user', text: value, request_id: request.request_id }
     if (attached) { user.attachments = [{ name: 'smoke-upload.txt' }]; attached = false }
@@ -136,6 +143,13 @@ function fixture(provider = false, seeded = false, fault = '') {
       case 'logs.search': return ok({ entries: [], count: 0 })
       case 'turn_state.list': return ok({ availability: 'available' })
       case 'conversations.list': return ok({ items: conversations })
+      case 'submission.send': {
+        // A direct submission reaches the core even with no provider, and fails visibly.
+        const request = { request_id: 'r_' + (++nextId).toString(16), generation: 1, conversation_id: params.conversation_id }
+        messages.push({ id: 'm_' + (++nextId).toString(16), role: 'user', text: params.text, request_id: request.request_id })
+        reply(request, missing, 'notice'); complete(request, 'failed'); setupNote = ''
+        return ok({ disposition: 'accepted', request_id: request.request_id })
+      }
       case 'conversation.snapshot': return ok(seeded && params.conversation_id === 'c_chat' ? { ...snapshot(), messages: { items: webhookMessages } } : snapshot())
       case 'messages.list': return ok({ items: messages })
       case 'search.query': return ok({ hits: messages.filter(m => m.text.includes(params.query)), next_cursor: null })
@@ -218,6 +232,7 @@ function fixture(provider = false, seeded = false, fault = '') {
     if (selector === '.message-scroll .msg.user .body' || selector === '.message-scroll .msg.highlight .body') return messages.find(m => m.role === 'user')?.text ?? ''
     if (selector === '.message-scroll .msg.notice .body') return missing
     if (selector === '.message-scroll .outcome') return 'The task failed.'
+    if (selector === '[data-testid="composer-setup-note"]') return setupNote
     if (selector === '.message-scroll') return messages.length ? messages.map(m => m.text).join('\n') + ' waiting for Odin' : seeded && title === 'Chat' ? 'Harmless catch-up notice Due: yesterday late by 1 Omitted slots: 1' : 'Ask Odin anything.'
     if (selector === '.composer .panel-text') return panelText
     if (selector === '.report-body') return reportPage ? 'no rerun' : 'produced once'
@@ -269,6 +284,8 @@ function fixture(provider = false, seeded = false, fault = '') {
     if (selector.endsWith(' .capability-unavailable')) return selector.startsWith('section[aria-label="Computer use"]') ? 1 : 0
     if (selector === '.conv-row') return conversations.length
     if (selector === '.msg') return seeded ? 2 : messages.length
+    // While the box holds a message, nothing new is committed to the transcript.
+    if (selector === '.message-scroll .msg.user') return setupNote ? 0 : 1
     if (selector === '.search-hits li' || selector === '.search-hits .hit') return messages.length ? 1 : 0
     if (selector === '.settings-nav-item') return sections.length
     if (selector === '[id="settings-curated-timezone"]') return section === 'General' && fault !== 'missing-curated-timezone' ? 1 : 0

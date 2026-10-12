@@ -112,7 +112,9 @@ const setupNote = computed(() => setupMissing.value && (state.setupReminderHidde
 const setupNoteText = computed(() => !codexSignInNeeded.value ? "Provider setup isn't finished."
   : state.setupReminderHidden ? 'Odin needs a ChatGPT sign-in before it can reply. Your message stays here until then.'
     : 'Sign in above to send. Your message is kept.')
-const submission = (): string => JSON.stringify([state.activeId, box.owner, box.text, mode.value, running.value, attachments.value])
+// What a send is bound to: its conversation, draft, attachments, mode and, for a steer, the exact running request.
+const submission = (): string => JSON.stringify([state.activeId, box.owner, box.text, mode.value,
+  runningRequest.value ? [runningRequest.value.request_id, runningRequest.value.generation] : null, attachments.value])
 const settingUp = ref(false)
 async function showSetup(): Promise<void> {
   if (settingUp.value) return

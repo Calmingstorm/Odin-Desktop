@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { computed, isProxy, reactive, ref } from 'vue'
+import { computed, isProxy, reactive, readonly, ref, shallowReactive, shallowReadonly } from 'vue'
 import { odin, toPlain } from '../../src/renderer/src/bridge'
 
 // Electron's contextBridge copies each argument the way structuredClone does, and refuses a Vue proxy the same way:
@@ -28,13 +28,29 @@ describe('toPlain', () => {
   })
 
   it("keeps keys that share Vue's internal names, in plain data and inside reactive state", () => {
-    // A tool input is ordinary JSON: any key, `__v_raw` included, must arrive as written.
-    const input = { command: 'echo hi', __v_raw: { other: 1 }, __v_skip: true }
-    expect(toPlain(input)).toEqual(input)
-    expect(toPlain([input])).toEqual([input])
-    const held = reactive({ input: { command: 'echo hi', __v_raw: { other: 1 } } })
-    expect(toPlain(held)).toEqual({ input: { command: 'echo hi', __v_raw: { other: 1 } } })
-    expect(() => structuredClone(toPlain(held))).not.toThrow()
+    // A tool input is ordinary JSON: any key must arrive as written, Vue's marker names included, even ones that
+    // claim the object is a reactive or readonly proxy.
+    for (const input of [
+      { command: 'echo hi', __v_raw: { other: 1 }, __v_skip: true },
+      { command: 'echo hi', __v_raw: { command: 'replaced' }, __v_isReactive: true },
+      { command: 'echo hi', __v_raw: { command: 'replaced' }, __v_isReadonly: true, __v_isShallow: true }
+    ]) {
+      expect(toPlain(input)).toEqual(input)
+      expect(toPlain([input])).toEqual([input])
+      const held = reactive({ input: JSON.parse(JSON.stringify(input)) })
+      expect(toPlain(held)).toEqual({ input })
+      expect(() => structuredClone(toPlain(held))).not.toThrow()
+    }
+  })
+
+  it('unwraps every kind of genuine Vue proxy, nested ones included', () => {
+    const data = { list: ['a', { b: 1 }], deep: { c: [2] } }
+    for (const view of [reactive(data), readonly(data), shallowReactive(data), shallowReadonly(data), readonly(reactive(data))]) {
+      const plain = toPlain(view)
+      expect(plain).toEqual(data)
+      expect(isProxy(plain)).toBe(false)
+      expect(() => structuredClone(plain)).not.toThrow()
+    }
   })
 
   it('passes everything that is not a plain list or object unchanged', () => {

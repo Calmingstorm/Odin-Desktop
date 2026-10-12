@@ -1,11 +1,23 @@
 // Real Electron, real engine, disposable fresh profile: automatic agent candidates save from the Models page through
 // the actual preload bridge. Electron refuses a live Vue proxy there, which a unit test's fake bridge can't show.
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { assertIsolated, exitApp, launchApp, waitForCore } from './harness'
+import { assertIsolated, exitApp, launchApp, repository, waitForCore } from './harness'
+import { isolatedServicesBootstrap } from '../isolated-services-bootstrap'
+
+// The isolated runner has no keyring daemon, and the model choices report whether a provider key is stored: the core
+// starts with the in-memory keyring double, as the R4 cases do.
+function memoryKeyringCore(): Record<string, string> {
+  const python = process.env.ODIN_DESKTOP_ENGINE_PYTHON ?? join(repository, '.venv/bin/python')
+  const script = join(process.env.ODIN_REAL_CORE_ROOT!, 'agent-candidates-memory-keyring-core.py')
+  writeFileSync(script, isolatedServicesBootstrap, { mode: 0o600 })
+  return { ODIN_DESKTOP_CORE_CMD: JSON.stringify([python, '-B', script, 'memory', '-', '-', 'stage']) }
+}
 
 test('saves automatic agent candidates chosen on the Models page through the real bridge and engine', async () => {
   assertIsolated()
-  const application = await launchApp({ profile: 'agent-candidates' })
+  const application = await launchApp({ profile: 'agent-candidates', env: memoryKeyringCore() })
   try {
     await waitForCore(application)
     const page = await application.firstWindow()
