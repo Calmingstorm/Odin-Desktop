@@ -34,7 +34,8 @@ beforeEach(() => {
         compat: [
           { ref: 'compat:vendor/free', name: 'vendor/free', capability: 'none', builtin_hint: '', agent_available: false, agent_unavailable_reason: 'free variant is not offered for ordinary agents' },
           { ref: 'compat:vendor/catalogue-only', name: 'vendor/catalogue-only', capability: 'none', builtin_hint: '' },
-          { ref: 'compat:vendor/profiled', name: 'vendor/profiled', capability: 'none', builtin_hint: '', profile: { total_window_tokens: 200000 } }
+          { ref: 'compat:vendor/profiled', name: 'vendor/profiled', capability: 'none', builtin_hint: '', profile: { total_window_tokens: 200000 } },
+          { ref: 'compat:vendor/hinted', name: 'vendor/hinted', capability: 'none', builtin_hint: 'Repo-wide reading', builtin_hint_source: 'profile', profile: { total_window_tokens: 200000 } }
         ]
       }
     })),
@@ -53,7 +54,7 @@ async function models(agents?: Parameters<typeof fields>[0], compat = false) {
   mounted = mount((await import('../../src/renderer/src/components/CodexAccounts.vue')).default); await flush()
   return { root: mounted.root, settings }
 }
-const id = (path: string) => settingsControlId('curated', path)
+const id = (path: string) => settingsControlId(path.startsWith('agents.auto_model_allowlist.') ? 'curated-record' : 'curated', path)
 const control = (root: Host, path: string) => root.findAll((node) => node.props.id === id(path))[0]!
 const box = (root: Host, model: string) => control(root, `agents.auto_model_allowlist.${model}.chosen`)
 const listed = (root: Host) => root.findAll((node) => node.tag === 'li' && typeof node.props['data-model'] === 'string')
@@ -137,6 +138,32 @@ describe('Automatic agent candidates', () => {
     expect(box(root, 'compat:vendor/profiled').props.disabled).toBe(false)
     expect(root.findAll((node) => node.props.id === id('agents.auto_model_allowlist.compat:vendor/catalogue-only.chosen'))).toHaveLength(0)
     expect(root.findAll((node) => node.props['data-testid'] === 'candidate-description-compat:vendor/profiled')[0]!.textContent()).toContain('Odin has no description for this model.')
+  })
+
+  it("shows a profile's own description as the model's, and offers it back after an override", async () => {
+    const { root } = await models({ allowlist: ['compat:vendor/hinted'], hints: { 'compat:vendor/hinted': 'Mine' } }, true)
+    const text = () => root.findAll((node) => node.props['data-testid'] === 'candidate-description-compat:vendor/hinted')[0]!.textContent()
+    expect(text()).toContain('Mine')
+    root.named("Use the profile's description for compat:vendor/hinted").fire('click'); await flush()
+    expect(text()).toContain('Repo-wide reading')
+    expect(text()).toContain('From its profile')
+    await save(root)
+    expect(bridge.editLeaf).toHaveBeenCalledExactlyOnceWith({ method: 'models.agents.set', params: { model: 'auto', model_selection_hints: {}, expected_revision: 'rev-1' } })
+  })
+
+  it('reads the model choices again when a compatible profile is saved, so a new model is offered', async () => {
+    const { root, settings } = await models({}, true)
+    const reads = bridge.modelsStatus.mock.calls.length
+    const status = (await bridge.modelsStatus()).result
+    status.model_catalogue.compat.push({ ref: 'compat:vendor/new', name: 'vendor/new', capability: 'none', builtin_hint: '', profile: { total_window_tokens: 200000 } })
+    bridge.modelsStatus.mockClear(); bridge.modelsStatus.mockResolvedValue(ok(status))
+    expect(root.findAll((node) => node.props.id === id('agents.auto_model_allowlist.compat:vendor/new.chosen'))).toHaveLength(0)
+    // What Save routing does: settings reload with the new profile.
+    settings.meta = { ...settings.meta!, revision: 'rev-2', fields: [...settings.meta!.fields, make('openai_compatible.model_profiles.vendor/new.max_output_tokens', 4096, 'providers.compat.set')] } as any
+    await flush(); await flush()
+    expect(reads).toBeGreaterThan(0)
+    expect(bridge.modelsStatus).toHaveBeenCalledTimes(1)
+    expect(box(root, 'compat:vendor/new').props.checked).toBe(false)
   })
 
   it("falls back to the Codex catalogue when the core doesn't report its default", async () => {

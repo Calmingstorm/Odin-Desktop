@@ -11,8 +11,10 @@ export type ModelRow = {
   agent_unavailable_reason?: string | null
   /** A compatible model's saved profile; models listed only from a provider's catalogue have none. */
   profile?: unknown
-  /** The description Odin gives automatic selection for this model; empty when it ships none. */
+  /** What automatic selection says of this model without an Agents description; empty when there's none. */
   builtin_hint?: string
+  /** Where that comes from: the compatible model's profile, or Odin's catalogue. */
+  builtin_hint_source?: 'profile' | 'catalogue' | ''
 }
 export type ProviderStatus = { configured?: boolean; base_url?: string; model?: string; preset?: string; openrouter_recognized?: boolean }
 export type ModelStatus = { model_catalogue?: Record<string, ModelRow[]>; serving_provider?: string | null; active_provider?: string; codex?: ProviderStatus; ollama?: ProviderStatus; openai_compatible?: ProviderStatus; agent_default_candidates?: string[] }

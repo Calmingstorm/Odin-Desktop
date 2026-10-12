@@ -54,6 +54,12 @@ const validMainPair = computed(() => {
   return !mainEffort.value || efforts === null || efforts.length === 0 || efforts.includes(String(value(mainEffort.value)))
 })
 onMounted(loadModels)
+// Compatible models are listed from their saved profiles. When a save adds or changes one (OpenRouter's Save routing
+// included, even when its receipt arrives late and settings reload then), read the model choices again.
+const profileSettings = computed(() => JSON.stringify((settings.meta?.fields ?? [])
+  .filter((item) => item.path.startsWith('openai_compatible.model_profiles') || item.path.startsWith('openai_compatible.openrouter.catalogue_profiles'))
+  .map((item) => [item.path, item.desired])))
+watch(profileSettings, (now, before) => { if (now !== before) void loadModels() })
 
 const primary = computed(() => settingsFields('models', 'primary'))
 const more = computed(() => settingsFields('models', 'more-options'))

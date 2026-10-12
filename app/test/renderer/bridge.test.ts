@@ -27,6 +27,16 @@ describe('toPlain', () => {
     expect(isProxy(nested.params.auto_model_allowlist[1])).toBe(false)
   })
 
+  it("keeps keys that share Vue's internal names, in plain data and inside reactive state", () => {
+    // A tool input is ordinary JSON: any key, `__v_raw` included, must arrive as written.
+    const input = { command: 'echo hi', __v_raw: { other: 1 }, __v_skip: true }
+    expect(toPlain(input)).toEqual(input)
+    expect(toPlain([input])).toEqual([input])
+    const held = reactive({ input: { command: 'echo hi', __v_raw: { other: 1 } } })
+    expect(toPlain(held)).toEqual({ input: { command: 'echo hi', __v_raw: { other: 1 } } })
+    expect(() => structuredClone(toPlain(held))).not.toThrow()
+  })
+
   it('passes everything that is not a plain list or object unchanged', () => {
     const bytes = new Uint8Array([1, 2, 3])
     const listener = () => undefined

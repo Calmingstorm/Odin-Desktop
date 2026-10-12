@@ -379,6 +379,19 @@ describe('B3 Composer: submission, shortcuts and attachment routing', () => {
     await invoke(v, 'submit'); await flush()
     expect(actions.sendBox).toHaveBeenCalledTimes(1)
   })
+  it('sends nothing when the conversation or its draft changes while the core is asked', async () => {
+    const { v, state, composerStore } = await fixture()
+    const status = await coreSays(firstRun(false))
+    let answer!: (value: unknown) => void
+    bridge.status = vi.fn(() => new Promise((resolve) => { answer = resolve }))
+    const sending = invoke(v, 'submit'); await flush()
+    // Switch conversations before the core answers: the other conversation's draft was never submitted.
+    state.views.c2 = { running: null }; state.activeId = 'c2'; await flush()
+    composerStore.box.owner = 'c2'; composerStore.box.text = 'never submitted'; await flush()
+    answer(ok({ ...status.core, first_run: firstRun(true) })); await sending; await flush()
+    expect(actions.sendBox).not.toHaveBeenCalled()
+    expect(composerStore.box.text).toBe('never submitted')
+  })
   it('never holds a message back on a stale reading: a fresh read that says ready sends it', async () => {
     const { v } = await fixture()
     await coreSays(firstRun(false), { stale: true })

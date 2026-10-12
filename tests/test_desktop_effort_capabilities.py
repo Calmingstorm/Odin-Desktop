@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from src.config.schema import Config, OpenAICompatibleModelProfile, ReasoningEffort
 from src.desktop.openrouter_admin import _project_model_catalogue
+from src.tools.model_hints import render_spawn_model_guidance, seed_entry
 from src.web.api import llm_admin
 from tests import test_desktop_step5_llm_methods as model_fixtures
 
@@ -111,7 +112,8 @@ def test_projection_preserves_catalogue_membership_order_and_unrelated_facts():
         for original, enriched in zip(rows, projected[provider], strict=True):
             assert enriched is not original
             assert {key: value for key, value in enriched.items()
-                    if key not in {"efforts", "effort_capabilities", "builtin_hint"}} == {
+                    if key not in {"efforts", "effort_capabilities", "builtin_hint",
+                                   "builtin_hint_source"}} == {
                         key: value for key, value in original.items() if key != "efforts"
                     }
             assert "effort_capabilities" not in original
@@ -132,8 +134,33 @@ def test_projection_adds_the_description_odin_gives_automatic_selection():
     assert rows["gpt-6.1-sol"]["builtin_hint"].startswith("default choice for complex coding")
     assert not rows["gpt-6.1-sol"]["builtin_hint"].endswith(";")
     assert all(rows[ref]["builtin_hint"] for ref in CODEX_DEFAULT)
+    assert rows["gpt-6-astra"]["builtin_hint_source"] == "catalogue"
     # A model Odin ships no description for gets none, never an invented one.
     assert rows[f"ollama:{config.ollama.model}"]["builtin_hint"] == ""
+    assert rows[f"ollama:{config.ollama.model}"]["builtin_hint_source"] == ""
+
+
+def test_projection_description_prefers_the_model_profile_hint_as_spawn_guidance_does():
+    config = Config(openai_compatible={
+        "preset": "deepseek", "model": "deepseek-flash",
+        "model_profiles": {"local-coder": profile()},
+    })
+    config.openai_compatible.model_profiles["local-coder"].selection_hint = "  Repo-wide reading  "
+    rows = {row["ref"]: row for row in catalogue(config)["compat"]}
+    # A profile hint with no catalogue entry describes the model, as the spawn guidance says.
+    assert (rows["compat:local-coder"]["builtin_hint"],
+            rows["compat:local-coder"]["builtin_hint_source"]) == ("Repo-wide reading", "profile")
+    assert "Repo-wide reading" in render_spawn_model_guidance(config, ["compat:local-coder"])[0]
+    # Without one, the catalogue's text.
+    assert rows["compat:deepseek-flash"]["builtin_hint_source"] == "catalogue"
+    # The profile's hint wins over the catalogue's for the same model.
+    profiled = Config(openai_compatible={
+        "preset": "moonshot", "model": "kimi-k2.6", "model_profiles": {"kimi-k2.6": profile()},
+    })
+    assert seed_entry("compat:kimi-k2.6", profiled)
+    profiled.openai_compatible.model_profiles["kimi-k2.6"].selection_hint = "Bulk edits"
+    row = next(item for item in catalogue(profiled)["compat"] if item["ref"] == "compat:kimi-k2.6")
+    assert (row["builtin_hint"], row["builtin_hint_source"]) == ("Bulk edits", "profile")
 
 
 def test_projection_description_follows_the_compatible_preset_namespace():

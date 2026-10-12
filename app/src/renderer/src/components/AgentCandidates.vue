@@ -2,6 +2,7 @@
 import { computed, reactive, watch } from 'vue'
 import type { ConfigField } from '../../../shared/api'
 import { catalogueModelLabel, modelProvider, modelSelectionNote, providerEnabled, type ModelRow } from '../model-picker'
+import { settingsControlId } from '../settings-accessibility'
 
 /** One automatic-selection entry, as `agents.auto_model_allowlist` stores it. */
 export type Candidate = string | { model: string; reasoning_effort?: string | null; thinking_mode?: string | null }
@@ -93,6 +94,8 @@ const setting = (model: string, key: 'reasoning_effort' | 'thinking_mode'): stri
 const efforts = (model: string): string[] | null => rowFor(model)?.effort_capabilities?.values ?? null
 
 const builtin = (model: string): string => rowFor(model)?.builtin_hint ?? ''
+// A compatible model's own profile hint is what automatic selection uses before Odin's catalogue text.
+const fromProfile = (model: string): boolean => rowFor(model)?.builtin_hint_source === 'profile'
 const custom = (model: string): string | undefined => props.hints?.[model] || undefined
 const editing = reactive<Record<string, boolean>>({})
 /** Editing starts from Odin's description; text back to it, or cleared, stores no custom description. */
@@ -105,7 +108,8 @@ function useBuiltin(model: string): void {
   emit('hint', model, '')
   editing[model] = false
 }
-const id = (model: string, part: string): string => props.controlId(`agents.auto_model_allowlist.${model}.${part}`)
+// Each control belongs to the candidate list setting, as a structured setting's members do.
+const id = (model: string, part: string): string => settingsControlId('curated-record', `agents.auto_model_allowlist.${model}.${part}`)
 </script>
 
 <template>
@@ -113,7 +117,8 @@ const id = (model: string, part: string): string => props.controlId(`agents.auto
     <h4>Models Odin can choose from</h4>
     <p class="settings-help">For each agent, Odin picks one of the ticked models. Models nearer the top are preferred. A model's description tells Odin what it's good for.</p>
     <p class="candidates-state" data-testid="agent-candidates-state">
-      <template v-if="usingDefault">Using Odin's default: {{ defaults.length === 1 ? 'one model' : `${defaults.length} models` }}. Untick a model to choose your own.</template>
+      <template v-if="usingDefault && defaults.length">Using Odin's default: {{ defaults.length === 1 ? 'one model' : `${defaults.length} models` }}. Untick a model to choose your own.</template>
+      <template v-else-if="usingDefault">Using Odin's default.</template>
       <template v-else>{{ chosen.length }} of {{ list.length }} models ticked.</template>
     </p>
     <p v-if="hints === null" class="settings-help">Descriptions can't be edited here until the selection guidance under More options is valid JSON.</p>
@@ -135,7 +140,7 @@ const id = (model: string, part: string): string => props.controlId(`agents.auto
         <p v-if="item.ticked && chosen.length === 1" class="settings-help">At least one model stays ticked.</p>
         <p class="candidate-description" :data-testid="`candidate-description-${item.model}`">
           <template v-if="custom(item.model)">{{ custom(item.model) }} <span class="candidate-source">Your description</span></template>
-          <template v-else-if="builtin(item.model)">{{ builtin(item.model) }}</template>
+          <template v-else-if="builtin(item.model)">{{ builtin(item.model) }}<template v-if="fromProfile(item.model)"> <span class="candidate-source">From its profile</span></template></template>
           <template v-else>Odin has no description for this model.<template v-if="item.ticked"> Add one so Odin knows which tasks suit it.</template></template>
         </p>
         <div v-if="item.ticked" class="candidate-options">
@@ -155,7 +160,7 @@ const id = (model: string, part: string): string => props.controlId(`agents.auto
           </span>
           <span v-if="hints !== undefined" class="candidate-description-actions">
             <button class="ghost" :aria-label="`${editing[item.model] ? 'Close' : 'Edit'} the description of ${item.model}`" :aria-expanded="Boolean(editing[item.model])" :aria-controls="id(item.model, 'description')" @click="editing[item.model] = !editing[item.model]">{{ editing[item.model] ? 'Close description' : 'Edit description' }}</button>
-            <button v-if="custom(item.model) && builtin(item.model)" class="ghost" :disabled="!hints" :aria-label="`Use Odin's description for ${item.model}`" @click="useBuiltin(item.model)">Use Odin's description</button>
+            <button v-if="custom(item.model) && builtin(item.model)" class="ghost" :disabled="!hints" :aria-label="`${fromProfile(item.model) ? `Use the profile's description` : `Use Odin's description`} for ${item.model}`" @click="useBuiltin(item.model)">{{ fromProfile(item.model) ? "Use the profile's description" : "Use Odin's description" }}</button>
           </span>
         </div>
         <template v-if="item.ticked && hints !== undefined && editing[item.model]">

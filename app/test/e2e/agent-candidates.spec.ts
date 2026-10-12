@@ -13,7 +13,8 @@ test('saves automatic agent candidates chosen on the Models page through the rea
     await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Models and providers', exact: true }).click()
     await page.getByLabel('Agent model', { exact: true }).selectOption('auto')
     // Odin's default: every model it uses with nothing chosen is ticked, each with Odin's own description.
-    await expect(page.getByTestId('agent-candidates-state')).toContainText("Using Odin's default")
+    // Wait for the model choices: the default's count shows once they are read.
+    await expect(page.getByTestId('agent-candidates-state')).toContainText(/Using Odin's default: \d+ models/)
     const list = page.getByRole('list', { name: 'Models Odin can choose from' })
     const defaults = await list.locator('li[data-model]').evaluateAll((items) => items
       .filter((item) => (item.querySelector('input[type=checkbox]') as HTMLInputElement | null)?.checked)

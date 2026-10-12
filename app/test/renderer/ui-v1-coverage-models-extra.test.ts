@@ -123,7 +123,7 @@ describe('Models canonical references, ownership and negative paths', () => {
   it('saves bare Codex with dependent effort and intersects bare candidate efforts', async () => {
     const { root } = await models()
     // Codex has no thinking switch, so a Codex candidate offers none.
-    expect(root.findAll((node) => node.props.id === settingsControlId('curated', 'agents.auto_model_allowlist.gpt-6.1-sol.thinking_mode'))).toHaveLength(0)
+    expect(root.findAll((node) => node.props.id === settingsControlId('curated-record', 'agents.auto_model_allowlist.gpt-6.1-sol.thinking_mode'))).toHaveLength(0)
     choose(root, 'openai_codex.reasoning_effort', 'low'); await flush()
     control(root, 'main-model-actions').button('Save').fire('click'); await flush()
     expect(bridge.editLeaf).toHaveBeenCalledExactlyOnceWith({ method: 'models.main.set', params: { model: 'gpt-6.1-sol', reasoning_effort: 'low', expected_revision: 'rev-1' } })
@@ -166,10 +166,10 @@ describe('Models canonical references, ownership and negative paths', () => {
   })
   it('blocks incompatible candidate efforts, edits mixed policy, and cancels locally', async () => {
     const { root } = await models()
-    const pick = (model: string, part: string, value: string) => control(root, settingsControlId('curated', `agents.auto_model_allowlist.${model}.${part}`)).fire('change', { target: { value } })
+    const pick = (model: string, part: string, value: string) => control(root, settingsControlId('curated-record', `agents.auto_model_allowlist.${model}.${part}`)).fire('change', { target: { value } })
     // The compatible main model is offered; a model only in the provider's catalogue is not.
-    expect(root.findAll((node) => node.props.id === settingsControlId('curated', 'agents.auto_model_allowlist.compat:unknown.chosen'))).toHaveLength(0)
-    control(root, settingsControlId('curated', 'agents.auto_model_allowlist.compat:deepseek-v4-flash.chosen')).fire('change', { target: { checked: true } }); await flush()
+    expect(root.findAll((node) => node.props.id === settingsControlId('curated-record', 'agents.auto_model_allowlist.compat:unknown.chosen'))).toHaveLength(0)
+    control(root, settingsControlId('curated-record', 'agents.auto_model_allowlist.compat:deepseek-v4-flash.chosen')).fire('change', { target: { checked: true } }); await flush()
     pick('gpt-6.1-sol', 'reasoning_effort', 'unsupported'); await flush()
     control(root, 'agent-model-actions').button('Save').fire('click'); await flush()
     expect(root.textContent()).toContain('Choose supported reasoning efforts')

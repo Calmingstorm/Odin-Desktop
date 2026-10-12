@@ -84,6 +84,19 @@ describe('Sign in from the first-run banner', () => {
     expect(bridge.setSetupReminderHidden).not.toHaveBeenCalled()
   })
 
+  it('holds Set up later while a sign-in is still starting, so a late start never polls out of sight', async () => {
+    let start!: (value: unknown) => void
+    bridge.codexLoginBegin!.mockImplementationOnce(() => new Promise((resolve) => { start = resolve }))
+    const v = await banner()
+    v.root.button('Sign in with ChatGPT').fire('click'); await flush()
+    expect(settingsStore.settings.codex.beginning).toBe(true)
+    expect(v.root.button('Set up later').props.disabled).toBe(true)
+    start(ok({ login_id: '00000000-0000-4000-8000-000000000000', user_code: 'CODE-1234', interval: 3600, verify_url: 'https://auth.example/device' })); await flush()
+    expect(settingsStore.settings.codex.login?.status).toBe('waiting')
+    expect(v.root.button('Set up later').props.disabled).toBe(true)
+    expect(bridge.setSetupReminderHidden).not.toHaveBeenCalled()
+  })
+
   it('goes once the core is ready after a sign-in started here, and gives the message box focus', async () => {
     const v = await banner()
     v.root.button('Sign in with ChatGPT').fire('click'); await flush()

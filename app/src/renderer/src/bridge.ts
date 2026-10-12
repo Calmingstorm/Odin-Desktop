@@ -1,4 +1,4 @@
-import { toRaw } from 'vue'
+import { isReactive, isReadonly, toRaw } from 'vue'
 import type { OdinApi } from '../../shared/api'
 
 /**
@@ -8,7 +8,10 @@ import type { OdinApi } from '../../shared/api'
  * functions such as event listeners) passes unchanged.
  */
 export function toPlain<T>(value: T): T {
-  const raw = toRaw(value)
+  // Unwrap only an actual Vue proxy. Plain data may hold any key, Vue's own `__v_raw` included: toRaw and isProxy
+  // both read that key, so a plain object holding it would lose its other keys. Proxies answer the reactive and
+  // readonly flags themselves.
+  const raw = isReactive(value) || isReadonly(value) ? toRaw(value) : value
   if (Array.isArray(raw)) return raw.map(toPlain) as T
   if (raw !== null && typeof raw === 'object') {
     const prototype = Object.getPrototypeOf(raw)

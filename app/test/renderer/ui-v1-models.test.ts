@@ -45,9 +45,9 @@ async function models(hints: Record<string, string> = {}) {
   return { root: mounted.root, settings }
 }
 const control = (root: Host, id: string) => root.findAll((item) => item.props.id === id)[0]!
-const chosen = (model: string) => settingsControlId('curated', `agents.auto_model_allowlist.${model}.chosen`)
+const chosen = (model: string) => settingsControlId('curated-record', `agents.auto_model_allowlist.${model}.chosen`)
 const open = (root: Host, model: string) => root.named(`Edit the description of ${model}`).fire('click')
-const description = (root: Host, model: string) => control(root, settingsControlId('curated', `agents.auto_model_allowlist.${model}.description`))
+const description = (root: Host, model: string) => control(root, settingsControlId('curated-record', `agents.auto_model_allowlist.${model}.description`))
 describe('UI v1 curated Models', () => {
   it('shows main and agent draft actions only when dirty, as the last card content', async () => {
     const { root } = await models()
@@ -285,7 +285,7 @@ describe('UI v1 curated Models', () => {
     expect(description(root, 'codex:second').props.value).toBe('Long refactors')
     expect(root.findAll((item) => item.props.id === 'agent-model-actions')).toHaveLength(0)
     // A model that isn't ticked shows its description but offers no editor.
-    expect(root.findAll((item) => item.props.id === settingsControlId('curated', 'agents.auto_model_allowlist.codex:new-second.description'))).toHaveLength(0)
+    expect(root.findAll((item) => item.props.id === settingsControlId('curated-record', 'agents.auto_model_allowlist.codex:new-second.description'))).toHaveLength(0)
     expect(root.findAll((item) => item.props['aria-label'] === 'Edit the description of codex:new-second')).toHaveLength(0)
     expect(bridge.editLeaf).not.toHaveBeenCalled()
   })

@@ -20,7 +20,7 @@ from ..config.schema import (
     effort_incompatibility_error,
     retired_codex_model_error,
 )
-from ..llm.context_budget import compatible_agent_unavailable_reason
+from ..llm.context_budget import compatible_agent_unavailable_reason, compatible_model_profile
 from ..llm.openrouter import conservative_profile, is_openrouter_base_url, openrouter_variant
 from ..observability.diagnostics import safe_text, scrub_diagnostic
 from ..tools.agent_tool_policy import effective_agent_model_choices
@@ -84,11 +84,21 @@ def _effort_capabilities(
     return {"values": None, "source": "unknown", "restrictions_known": False}
 
 
-def _builtin_hint(config: Any, model_ref: str) -> str:
-    """The description Odin itself gives automatic selection for this model, if it ships one."""
+def _builtin_hint(config: Any, model_ref: str) -> tuple[str, str]:
+    """What automatic selection says of a model without an Agents description, and its source.
+
+    The spawn guidance's precedence: a compatible model profile's own hint, then the shipped
+    catalogue's text. Neither present means no description, never an invented one.
+    """
+    if model_ref.startswith("compat:"):
+        profile = compatible_model_profile(model_ref, getattr(config, "openai_compatible", None))
+        hint = getattr(profile, "selection_hint", None)
+        if isinstance(hint, str) and hint.strip():
+            return hint.strip(), "profile"
     entry = seed_entry(model_ref, config)
     text = entry.get("clause_hint") or entry.get("hint") or entry.get("hint_derived") or ""
-    return text.strip().rstrip(";").strip() if isinstance(text, str) else ""
+    text = text.strip().rstrip(";").strip() if isinstance(text, str) else ""
+    return (text, "catalogue") if text else ("", "")
 
 
 def _agent_default_candidates(config: Any) -> list[str]:
@@ -116,9 +126,10 @@ def _project_model_catalogue(
             efforts = _effort_capabilities(
                 config, row["ref"], row["capability"], catalogue_model=cached_model,
             )
+            hint, source = _builtin_hint(config, row["ref"])
             projected[provider].append({
                 **row, "efforts": efforts["values"] or [], "effort_capabilities": efforts,
-                "builtin_hint": _builtin_hint(config, row["ref"]),
+                "builtin_hint": hint, "builtin_hint_source": source,
             })
     return projected
 

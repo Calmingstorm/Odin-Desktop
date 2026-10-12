@@ -112,6 +112,7 @@ const setupNote = computed(() => setupMissing.value && (state.setupReminderHidde
 const setupNoteText = computed(() => !codexSignInNeeded.value ? "Provider setup isn't finished."
   : state.setupReminderHidden ? 'Odin needs a ChatGPT sign-in before it can reply. Your message stays here until then.'
     : 'Sign in above to send. Your message is kept.')
+const submission = (): string => JSON.stringify([state.activeId, box.owner, box.text, mode.value, running.value, attachments.value])
 const settingUp = ref(false)
 async function showSetup(): Promise<void> {
   if (settingUp.value) return
@@ -124,9 +125,12 @@ async function submit(): Promise<void> {
   busy.value = true
   try {
     if (codexSignInNeeded.value) {
-      // Confirm with the core first: a stale reading must never hold a message back.
+      // Confirm with the core first: a stale reading must never hold a message back. The send belongs to this
+      // conversation, its draft, attachments and mode: if any of them changes meanwhile, nothing is sent.
+      const binding = submission()
       await refreshStatus()
       if (codexSignInNeeded.value) { setupBlocked.value = true; return }
+      if (submission() !== binding) return
     }
     await sendBox(state.activeId, (body, refs) => send(body, running.value ? mode.value : 'queue', refs))
   } finally { busy.value = false }

@@ -36,7 +36,8 @@ const invitation = computed(() => Boolean(projection.value && state.setupReminde
 const visible = computed(() => state.view === 'chat' && (operational.value || invitation.value || keyringFailed.value))
 // The chosen provider is Codex and no account is stored: the invitation is to sign in, right here.
 const signIn = computed(() => invitation.value && !operational.value && !keyringFailed.value && codexSignInNeeded.value)
-const waiting = computed(() => settings.codex.login?.status === 'waiting')
+// A sign-in that is starting or waiting keeps the banner: dismissing must not leave it polling out of sight.
+const waiting = computed(() => settings.codex.beginning || settings.codex.login?.status === 'waiting')
 let signedInHere = false
 async function signInHere(): Promise<void> {
   signedInHere = true
