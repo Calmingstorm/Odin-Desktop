@@ -51,6 +51,17 @@ function Run([string] $file, [string[]] $arguments, [int] $minutes, [hashtable] 
   }
   $run.ExitCode
 }
+# Ends these processes, then waits (bounded) until they're gone: Stop-Process returns before Windows has torn a
+# process down, and an installer started at once still finds it running and refuses.
+function StopAndWait($processes, [int] $seconds = 30) {
+  $ids = @($processes | Where-Object { $_ } | ForEach-Object { $_.ProcessId } | Where-Object { $_ })
+  if (-not $ids.Count) { return }
+  $ids | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+  $deadline = (Get-Date).AddSeconds($seconds)
+  while ((Get-Date) -lt $deadline -and @(Get-Process -Id $ids -ErrorAction SilentlyContinue).Count) {
+    Start-Sleep -Milliseconds 500
+  }
+}
 function Install([string[]] $arguments) {
   Run $Installer $arguments 10
 }
@@ -241,7 +252,7 @@ if ($Mode -eq 'user') {
     Check "Exit ends the app, its core, its guardian and their bundled processes ($start start)" (
       $left.Count -eq 0 -and -not (& $serving)) (
       ($left | ForEach-Object { "$($_.Name) $($_.ProcessId)" }) -join ', ')
-    $left | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    StopAndWait $left
   }
   Check 'the starts made a profile' (Test-Path (Join-Path $profileRoot 'config\ipc.token')) $profileRoot
 
@@ -318,8 +329,9 @@ if ($Mode -eq 'user') {
   $guardians = @(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*ownership.py*hold*' })
   Check 'an unfinished installer run fences the start' (-not (& $serving) -and $guardians.Count -eq 0) (
     "guardians left: $($guardians.Count)")
-  # The refused app waits on its error box; it's this test's own process.
-  (& $installed) | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+  # The refused app waits on its error box; it's this test's own process. The installer runs next, so it waits
+  # until the app is gone: a process still being torn down counts as Odin running (exit 2).
+  StopAndWait (& $installed)
   $code = Install @('/S')
   Check 'running the installer again completes the transaction' ($code -eq 0 -and -not (Test-Path $marker)) "exit $code"
   Check 'and Odin starts again' (Serve) ''
@@ -460,7 +472,7 @@ if (-not $finished) {
 }
 Check 'no process of the disposable user outlives its run' ($left.Count -eq 0) (
   ($left | ForEach-Object { "$($_.Name) $($_.ProcessId): $($_.CommandLine)" }) -join ' | ')
-$left | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+StopAndWait $left
 $result = Get-Content -LiteralPath $userReport -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json
 if ($null -eq $result) {
   Check 'the standard user''s cases ran' $false "exit $(if ($finished) { $process.ExitCode } else { 'none' }), no report"
