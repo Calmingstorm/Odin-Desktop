@@ -35,7 +35,8 @@ def test_it_runs_only_by_hand_for_the_owner_and_never_takes_a_tag_push():
     assert "github.actor == 'Calmingstorm'" in job["if"]
     assert "github.repository == 'Calmingstorm/Odin-Desktop'" in job["if"]
     assert WORKFLOW["permissions"] == {}
-    assert job["permissions"] == {"contents": "read"}
+    # GitHub's identity token, for the signing sign-in, is this job's only addition.
+    assert job["permissions"] == {"contents": "read", "id-token": "write"}
     assert job["runs-on"] == "windows-2025"
     assert WORKFLOW["concurrency"]["cancel-in-progress"] is False
 
@@ -73,6 +74,39 @@ def test_the_tag_is_checked_then_built_with_release_provenance_accepted_receipte
     assert retained["with"]["overwrite"] is False
     assert retained["with"]["compression-level"] == 0
     assert retained["with"]["retention-days"] == 30
+
+
+def test_it_signs_in_the_release_environment_with_githubs_identity_and_no_stored_secret():
+    job = WORKFLOW["jobs"]["candidate"]
+    # The Azure identity's federated credential names this environment, which takes master alone.
+    assert job["environment"] == "release-signing"
+    login = STEPS[at(lambda step: "azure/login@" in step.get("uses", ""))]
+    assert login["with"] == {"client-id": "${{ vars.AZURE_CLIENT_ID }}",
+                             "tenant-id": "${{ vars.AZURE_TENANT_ID }}",
+                             "allow-no-subscriptions": True}
+    text = (ROOT / ".github/workflows/windows-release.yml").read_text()
+    assert "secrets." not in text and "creds" not in text and "CLIENT_SECRET" not in text
+    assert job["env"] == {"ODIN_SIGNING_ENDPOINT": "https://eus.codesigning.azure.net",
+                          "ODIN_SIGNING_ACCOUNT": "Odin", "ODIN_SIGNING_PROFILE": "Odin-Desktop",
+                          "ODIN_SIGNING_PUBLISHER": "Aaron Charpentier"}
+
+
+def test_the_tools_and_the_sign_in_come_before_a_build_that_signs_and_an_acceptance_that_checks():
+    tools = at(lambda step: "provision-signing.py" in step.get("run", ""))
+    login = at(lambda step: "azure/login@" in step.get("uses", ""))
+    token = at(lambda step: "az account get-access-token" in step.get("run", ""))
+    build = at(lambda step: "build-windows.mjs" in step.get("run", ""))
+    accept = at(lambda step: "windows-installer-acceptance.ps1" in step.get("run", ""))
+    receipt = at(lambda step: "windows_candidate.py receipt" in step.get("run", ""))
+    # The access token is taken right after the sign-in, the last step before the build.
+    assert tools < login < token == build - 1 < accept < receipt
+    assert "https://codesigning.azure.net/.default" in STEPS[token]["run"]
+    provision = STEPS[tools]["run"]
+    assert "$env:GITHUB_ENV" in provision and "Get-AuthenticodeSignature" in provision
+    assert "Microsoft Corporation" in provision and "Microsoft.NETCore.App 8." in provision
+    assert STEPS[build]["env"]["ODIN_WINDOWS_SIGNING"] == "1"
+    assert "-Publisher $env:ODIN_SIGNING_PUBLISHER" in STEPS[accept]["run"]
+    assert "--publisher $env:ODIN_SIGNING_PUBLISHER" in STEPS[receipt]["run"]
 
 
 def test_the_installer_name_is_electron_builders_for_the_version():
@@ -245,6 +279,49 @@ def test_no_receipt_without_the_installer_or_over_an_existing_candidate(tmp_path
     with pytest.raises(CANDIDATE.CandidateError, match="no installer for 1.0.6"):
         CANDIDATE.receipt("v1.0.6", candidates, report, tmp_path / "out2", root=repo,
                           run=git_said())
+
+
+SIGNED = {"publisher": "Aaron Charpentier",
+          "thumbprint": "C2DEDC993AD1DA831FA7AB180FA67879FC1F8C75"}
+
+
+def test_a_signed_receipt_records_the_signer_the_acceptance_checked(tmp_path):
+    candidates, report = accepted(tmp_path, signature=SIGNED)
+    record = CANDIDATE.receipt("v1.0.6", candidates, report, tmp_path / "out",
+                               publisher="Aaron Charpentier", root=project(tmp_path / "repo"),
+                               run=git_said())
+    assert record["signed"] is True
+    assert record["signature"] == SIGNED
+    assert json.loads((tmp_path / "out" / "windows-candidate-receipt.json").read_text()) == record
+
+
+@pytest.mark.parametrize("signature", [
+    None,  # the acceptance checked no signature
+    {**SIGNED, "publisher": "Someone Else"},
+    {**SIGNED, "thumbprint": ""},
+    {**SIGNED, "thumbprint": "not a thumbprint"},
+    "Aaron Charpentier",
+])
+def test_no_signed_receipt_without_the_named_signers_checked_signature(tmp_path, signature):
+    candidates, report = accepted(tmp_path, signature=signature)
+    with pytest.raises(CANDIDATE.CandidateError, match="didn't check a signature by"):
+        CANDIDATE.receipt("v1.0.6", candidates, report, tmp_path / "out",
+                          publisher="Aaron Charpentier", root=project(tmp_path / "repo"),
+                          run=git_said())
+    assert not (tmp_path / "out").exists()
+
+
+def test_an_unsigned_receipt_never_hides_a_checked_signature(tmp_path):
+    repo = project(tmp_path / "repo")
+    candidates, report = accepted(tmp_path, signature=SIGNED)
+    with pytest.raises(CANDIDATE.CandidateError, match="no publisher was named"):
+        CANDIDATE.receipt("v1.0.6", candidates, report, tmp_path / "out", root=repo,
+                          run=git_said())
+    (tmp_path / "unsigned").mkdir()
+    candidates, report = accepted(tmp_path / "unsigned", signature=None)
+    record = CANDIDATE.receipt("v1.0.6", candidates, report, tmp_path / "unsigned" / "out",
+                               root=repo, run=git_said())
+    assert record["signed"] is False and "signature" not in record
 
 
 def test_the_command_line_reports_a_refusal_and_exits_1(capsys):

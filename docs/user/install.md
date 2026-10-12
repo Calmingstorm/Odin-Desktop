@@ -54,7 +54,7 @@ sandbox or weaken system security policy to make the app start.
    hexadecimal characters. A file manager's checksum feature can do the same.
    Do not use a file whose digest differs.
 
-Release files are **unsigned**. A matching SHA-256 detects changed bytes; it is
+The `.deb` and AppImage files are **unsigned**. A matching SHA-256 detects changed bytes; it is
 not an independent signature or proof that the publisher is trustworthy. Obtain
 both the file and expected digest from a trusted release record. Do not give
 the app a GitHub token or set up an update feed.

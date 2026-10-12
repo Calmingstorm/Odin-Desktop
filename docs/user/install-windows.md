@@ -11,20 +11,21 @@ Download `odin-desktop-<version>-x64-setup.exe` and `SHA256SUMS` from
 Before you run the installer, compare its SHA-256 with the value in `SHA256SUMS`, in PowerShell:
 
 ```powershell
-(Get-FileHash .\odin-desktop-1.0.6-x64-setup.exe -Algorithm SHA256).Hash
+(Get-FileHash .\odin-desktop-1.0.7-x64-setup.exe -Algorithm SHA256).Hash
 ```
 
-The two must match exactly. The installer and the app are **unsigned** for now: a matching checksum
-shows the bytes are the published ones, not who published them.
+The two must match exactly. The installer, the app and its uninstaller are **signed by Aaron
+Charpentier** through Microsoft's Artifact Signing (since 1.0.7): the installer's **Properties** →
+**Digital Signatures** names him, and the matching checksum shows the bytes are the published ones.
 
 ## Install
 
 Double-click the installer.
 
-- **SmartScreen** shows "Windows protected your PC" for an unsigned app. Choose **More info**, then
-  **Run anyway**.
-- **Smart App Control**, when it's turned on, blocks unsigned apps and offers no way past it. Odin can't
-  be installed on that computer until it's signed.
+- **SmartScreen** can still show "Windows protected your PC" while a new release builds its reputation.
+  Choose **More info**, check that the publisher is **Aaron Charpentier**, then choose **Run anyway**.
+- **Smart App Control**, when it's turned on, still blocks Odin: some parts the app bundles, its Python
+  runtime among them, aren't signed yet. Odin can't run on that computer for now.
 
 The installer needs no administrator rights and asks for none. It installs for your account only, into
 `%LOCALAPPDATA%\Programs\Odin`, adds **Odin** to the Start menu (no desktop shortcut) and starts nothing

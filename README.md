@@ -19,8 +19,10 @@ Supported sessions are **Cinnamon/X11, GNOME/Wayland, KDE/Wayland and Hyprland**
 
 On **Windows 11 (64-bit)**, download **`odin-desktop-<version>-x64-setup.exe`** from the same page
 and check its SHA-256 the same way. It installs for your account only, without administrator rights.
-It is **unsigned**: SmartScreen asks first (**More info**, then **Run anyway**), and Smart App Control,
-when it's on, blocks it. Computer use isn't available on Windows yet.
+It is **signed by Aaron Charpentier** (Microsoft Artifact Signing). SmartScreen can still ask first
+while a release builds its reputation (**More info**, check the publisher, then **Run anyway**), and
+Smart App Control, when it's on, still blocks it: some bundled parts aren't signed yet. Computer use
+isn't available on Windows yet.
 See [Install on Windows](docs/user/install-windows.md).
 
 macOS and ARM builds are not supported.

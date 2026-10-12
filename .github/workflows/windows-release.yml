@@ -3,8 +3,10 @@ name: Desktop Windows release candidate
 # The Windows installer for a release tag, built on GitHub's hosted Windows and kept as a candidate,
 # never published. Only release.yml takes tags (its jobs run on the self-hosted Linux builders), so
 # this one runs by hand, by the owner, for a tag that is already pushed. Publication stays the manual
-# verified-candidate operation. Unsigned for now (Aaron, 2026-10-11): a signing step slots in after
-# the build, before the acceptance, so the acceptance and the receipt cover the signed bytes.
+# verified-candidate operation. Signed with Artifact Signing (Aaron, 2026-10-12): the build signs
+# Odin.exe, its uninstaller and the installer through packaging/sign-windows.cjs, signing in with
+# GitHub's identity token in the release-signing environment (no stored secret, master only), so
+# the acceptance and the receipt cover the signed bytes and check the signer.
 
 on:
   workflow_dispatch:
@@ -25,8 +27,17 @@ jobs:
     if: github.repository == 'Calmingstorm/Odin-Desktop' && github.actor == 'Calmingstorm'
     runs-on: windows-2025
     timeout-minutes: 90
+    # Only this job can sign: the environment's federated credential is the Azure identity's only
+    # sign-in, and the environment takes runs from master alone.
+    environment: release-signing
     permissions:
       contents: read
+      id-token: write
+    env:
+      ODIN_SIGNING_ENDPOINT: https://eus.codesigning.azure.net
+      ODIN_SIGNING_ACCOUNT: Odin
+      ODIN_SIGNING_PROFILE: Odin-Desktop
+      ODIN_SIGNING_PUBLISHER: Aaron Charpentier
     steps:
       - name: The input is a release tag
         shell: pwsh
@@ -70,11 +81,44 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node node_modules/electron/install.js
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Provision the pinned signing tools (release signing only, never bundled)
+        shell: pwsh
+        env:
+          ODIN_PACKAGING_CACHE: ${{ runner.temp }}\pc
+        run: |
+          $lines = @(python -I -B app/packaging/provision-signing.py "$env:RUNNER_TEMP\signing")
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $lines | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          # Beyond its pinned digest: SignTool is Microsoft's own executable, and the library needs .NET 8.
+          $tool = ($lines | Where-Object { $_ -like 'ODIN_SIGNTOOL=*' }) -replace '^ODIN_SIGNTOOL=', ''
+          $signature = Get-AuthenticodeSignature -LiteralPath $tool
+          if ($signature.Status -ne 'Valid' -or
+              $signature.SignerCertificate.Subject -notmatch '^CN=Microsoft Corporation,') {
+            throw "SignTool isn't validly signed by Microsoft: $($signature.Status), $($signature.SignerCertificate.Subject)"
+          }
+          if (-not (dotnet --list-runtimes | Select-String -SimpleMatch 'Microsoft.NETCore.App 8.')) {
+            throw 'the Artifact Signing library needs the .NET 8 runtime'
+          }
+      - name: Sign in to Azure with GitHub's identity token (no stored secret)
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+      - name: The signing service's token, while GitHub's identity token is fresh
+        shell: pwsh
+        run: |
+          # GitHub's identity token is short-lived and the build signs well after this, so the Azure CLI
+          # holds the signing service's access token now, for the library's sign-ins through it.
+          $expires = az account get-access-token --scope https://codesigning.azure.net/.default --query expiresOn -o tsv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "The signing service's token lasts until $expires"
       - name: Build the per-user installer with release provenance
         shell: pwsh
         working-directory: app
         env:
           ODIN_PACKAGING_RELEASE: '1'
+          ODIN_WINDOWS_SIGNING: '1'
           # Release provenance builds from a git-object copy of the source inside this cache; the default
           # cache in the user profile plus the deepest committed path passes Windows' 260-character limit.
           ODIN_PACKAGING_CACHE: ${{ runner.temp }}\pc
@@ -89,7 +133,8 @@ jobs:
             "odin-desktop-$env:RELEASE_VERSION-candidate-x64-setup.exe"
           if (-not (Test-Path -LiteralPath $setup)) { throw "no installer at $setup" }
           & .\scripts\packaging\windows-installer-acceptance.ps1 -Installer $setup -Packaging app\packaging `
-            -Python .venv\Scripts\python.exe -Report "$env:RUNNER_TEMP\windows-installer-acceptance.json"
+            -Python .venv\Scripts\python.exe -Report "$env:RUNNER_TEMP\windows-installer-acceptance.json" `
+            -Publisher $env:ODIN_SIGNING_PUBLISHER
           exit $LASTEXITCODE
       - name: Candidate receipt
         shell: pwsh
@@ -101,7 +146,8 @@ jobs:
         run: |
           python -I -B scripts/release/windows_candidate.py receipt --tag $env:RELEASE_TAG `
             --candidates .packaging-candidates `
-            --report "$env:RUNNER_TEMP\windows-installer-acceptance.json" --out windows-candidate
+            --report "$env:RUNNER_TEMP\windows-installer-acceptance.json" --out windows-candidate `
+            --publisher $env:ODIN_SIGNING_PUBLISHER
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload the acceptance report, passed or not (not an installer)
         if: always()

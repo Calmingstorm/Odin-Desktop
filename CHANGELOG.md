@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.7]
+
+**A signed Windows installer.** The Windows installer, the Odin app and its uninstaller are now
+code-signed by **Aaron Charpentier** through Microsoft's Artifact Signing. The Linux packages are
+rebuilt at 1.0.7 and behave as 1.0.6 did.
+
+- **Windows names the publisher:** the installer's Properties → Digital Signatures, and SmartScreen's
+  **More info**, show Aaron Charpentier instead of an unknown publisher. SmartScreen can still ask
+  first while a new release builds its reputation: choose **More info**, check the publisher, then
+  **Run anyway**.
+- **Smart App Control** still blocks Odin when it's on: some parts the app bundles, its Python
+  runtime among them, aren't signed yet.
+- **Checked on every release:** the release build checks each signature (valid, by the expected
+  publisher, timestamped), and its install test checks the installer, the installed app and its
+  uninstaller.
+- **Updating from 1.0.6:** run the new installer while Odin is closed (**Exit Odin** from its tray
+  icon), as before. Your profile and settings stay.
+- See [Install on Windows](docs/user/install-windows.md).
+
 ## [1.0.6]
 
 **Odin Desktop for Windows.** The first Windows release: a per-user installer for 64-bit Windows 11,
