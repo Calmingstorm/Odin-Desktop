@@ -7,8 +7,9 @@ for `.deb` and AppImage files. Do not give the app a GitHub token or copy creden
 installation. If the page has no published files, there is no release to download.
 
 Read release notes and check the file's SHA-256 as described in
-[Install](install.md#download-and-check-the-file). Release files are **unsigned**:
-a matching hash identifies bytes, not an independent signature.
+[Install](install.md#download-and-check-the-file). The `.deb` and AppImage files are **unsigned**:
+a matching hash identifies bytes, not an independent signature. The Windows installer is signed; see
+[Install on Windows](install-windows.md).
 
 There is **no in-app update download or apply operation**. Use the package manager
 for `.deb` upgrades and manual replacement for AppImage. Updating standalone Odin
