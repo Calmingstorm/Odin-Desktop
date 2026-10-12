@@ -1,6 +1,7 @@
 # Odin Desktop
 
-A Linux desktop app for [Odin](https://github.com/Calmingstorm/Odin), the self-hosted AI execution agent.
+A Linux and Windows desktop app for [Odin](https://github.com/Calmingstorm/Odin), the self-hosted AI
+execution agent.
 Chat with your configured model, run tools locally or over managed SSH, and keep conversations,
 knowledge and background work in your own Desktop profile. Desktop runs its own local engine;
 it does not require a separate Odin server or Discord account.
@@ -15,7 +16,14 @@ publisher signature. Follow [Installation](docs/user/install.md) for package, ke
 
 Supported sessions are **Cinnamon/X11, GNOME/Wayland, KDE/Wayland and Hyprland**.
 **Computer use is X11 only**; Wayland computer use is planned for **1.1**.
-Windows, macOS and ARM builds are not supported in 1.0.
+
+On **Windows 11 (64-bit)**, download **`odin-desktop-<version>-x64-setup.exe`** from the same page
+and check its SHA-256 the same way. It installs for your account only, without administrator rights.
+It is **unsigned**: SmartScreen asks first (**More info**, then **Run anyway**), and Smart App Control,
+when it's on, blocks it. Computer use isn't available on Windows yet.
+See [Install on Windows](docs/user/install-windows.md).
+
+macOS and ARM builds are not supported.
 
 Desktop can be installed alongside Odin without adopting its state automatically.
 **Import from Odin** previews selected memory, skills, MCP servers, personality, managed hosts

@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.0.6]
+
+**Odin Desktop for Windows.** The first Windows release: a per-user installer for 64-bit Windows 11,
+built and checked by its own release workflow. The Linux packages are rebuilt at 1.0.6 and behave as
+1.0.5 did.
+
+- **Install:** `odin-desktop-1.0.6-x64-setup.exe` installs for your account only, into
+  `%LOCALAPPDATA%\Programs\Odin`, with a Start menu entry and without administrator rights. Nothing
+  starts when it finishes. It refuses to run elevated (Run as administrator), and so does the app.
+- **Unsigned:** the installer and the app aren't code-signed yet. Check the file's SHA-256 against
+  `SHA256SUMS` first. Windows SmartScreen then shows "Windows protected your PC": choose **More info**,
+  then **Run anyway**. Smart App Control, when it's on, blocks unsigned apps with no override, so Odin
+  can't be installed there until it's signed.
+- **The same Odin:** the same engine, tools and settings as on Linux, run locally: chats, tools,
+  memory, knowledge, schedules, agents and background work, hosts over SSH, MCP servers and skills.
+  Computer use isn't available on Windows yet.
+- **Your profile** lives in `%LOCALAPPDATA%\odin-desktop\default`, private to your account.
+  Uninstalling (Settings → Apps → Odin → Uninstall) removes the app and keeps the profile, as on
+  Linux.
+- **Start at login** is in Settings → General. Odin then starts hidden, in the notification area.
+- **Updates:** run the newer installer. It refuses while Odin runs ("Choose Exit Odin from its tray
+  icon"). After Odin ends without confirmed cleanup (a crash, or a power cut), installing and
+  uninstalling wait for a restart of Windows, and say so.
+- **Known limits** of this first Windows release are listed in
+  [Windows install safety](docs/design/windows-install-safety.md#accepted-limits).
+- See [Install on Windows](docs/user/install-windows.md).
+
 ## [1.0.5]
 
 - **Fixed:** once an agent, task, loop or process had finished, the engine kept one CPU core at 100% until the app
