@@ -11,7 +11,8 @@ and Windows.**
 
 Ask Odin to do something and it does the work on your own computer: shell commands locally or on your hosts
 over SSH, file changes, browsing, schedules and sub-agents. Then it shows you exactly what ran. There's no
-server to host, no Discord account to set up, and nothing listening on the network.
+server to host and no Discord account to set up, and the app needs no network listener for normal use
+(inbound webhooks are optional).
 
 **[Download the latest release](https://github.com/Calmingstorm/Odin-Desktop/releases/latest)** for Linux
 (`.deb` or AppImage) or Windows 11 (a signed installer).
@@ -26,7 +27,8 @@ server to host, no Discord account to set up, and nothing listening on the netwo
 - **Your data stays yours.** Chats, keys and settings live in your own user profile. The app talks to its
   engine over a private local connection, never a network port.
 - **Bring your Odin setup.** If you already run Odin, *Import from Odin* previews its memory, skills, MCP
-  servers, personality, hosts and model settings, and never overwrites anything already there.
+  servers, personality, hosts and model settings. Existing entries are preserved; the current personality
+  or model settings change only if you select those changes in the preview.
 
 ## Install
 
