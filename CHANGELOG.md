@@ -10,7 +10,7 @@ Windows.
   ChatGPT**. The sign-in link and code appear in the banner, and the message box takes focus once Odin
   is ready. **Use another provider** and **Import from Odin** go straight to their place in Settings.
   After **Set up later**, a note by the message box offers **Show setup**, and a message sent before
-  setup stays in the box instead of failing.
+  signing in stays in the box instead of failing.
 - **Agent models are a checklist:** with **Choose automatically**, **Models Odin can choose from**
   lists each model with a checkbox and the description Odin itself uses for it. With nothing chosen,
   Odin's default models show ticked, as the engine actually uses them. Tick, untick and reorder models,

@@ -3,7 +3,8 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { observeComposer } from '../composer-geometry'
 import { dispatch, matchCommands, parseCommand } from '../commands'
 import { canAct, chatUnavailable, loadFailure, retry, send, showSetupReminder, state, stop, type ComposerMode } from '../store'
-import { setupMissing } from '../provider-setup'
+import { codexSignInNeeded, setupMissing } from '../provider-setup'
+import { refreshStatus } from '../stores/status'
 import { useStoppingLabel } from '../stopping-label'
 import { unavailableText } from '../capability'
 import { reportParts } from '../../../shared/report-text'
@@ -102,11 +103,15 @@ watch(text, () => {
   if (selected.value >= matches.value.length) selected.value = 0
 })
 
-// While the core says no provider is set up, a message can't reach a model: it stays in the box, unsent, and the note
-// says what to do. Slash commands still run.
+// Codex chosen with no account stored is the one setup state that certainly can't reach a model: a message sent then
+// stays in the box, unsent, and the note says what to do. Other incomplete setups (a local server with no key, say)
+// may still work, so they never hold a message back. Slash commands still run.
 const setupBlocked = ref(false)
-watch(setupMissing, (missing) => { if (!missing) setupBlocked.value = false })
+watch(codexSignInNeeded, (needed) => { if (!needed) setupBlocked.value = false })
 const setupNote = computed(() => setupMissing.value && (state.setupReminderHidden || setupBlocked.value))
+const setupNoteText = computed(() => !codexSignInNeeded.value ? "Provider setup isn't finished."
+  : state.setupReminderHidden ? 'Odin needs a ChatGPT sign-in before it can reply. Your message stays here until then.'
+    : 'Sign in above to send. Your message is kept.')
 const settingUp = ref(false)
 async function showSetup(): Promise<void> {
   if (settingUp.value) return
@@ -116,10 +121,15 @@ async function showSetup(): Promise<void> {
 async function submit(): Promise<void> {
   if (matches.value.length) return runCommand()
   if (!canSend.value) return
-  if (setupMissing.value) { setupBlocked.value = true; return }
   busy.value = true
-  await sendBox(state.activeId, (body, refs) => send(body, running.value ? mode.value : 'queue', refs))
-  busy.value = false
+  try {
+    if (codexSignInNeeded.value) {
+      // Confirm with the core first: a stale reading must never hold a message back.
+      await refreshStatus()
+      if (codexSignInNeeded.value) { setupBlocked.value = true; return }
+    }
+    await sendBox(state.activeId, (body, refs) => send(body, running.value ? mode.value : 'queue', refs))
+  } finally { busy.value = false }
 }
 
 async function runCommand(): Promise<void> {
@@ -284,7 +294,7 @@ async function closeReport(): Promise<void> {
     <p v-if="composer.errors.length" id="composer-errors" class="notice error" role="alert">{{ composer.errors.join(' ') }}</p>
     <p v-if="chatUnavailable()" class="notice" role="status">{{ unavailableText('Chat') }} Sending messages and attachments is unavailable.</p>
     <p v-if="setupNote" class="notice setup-note" role="status" data-testid="composer-setup-note">
-      {{ state.setupReminderHidden ? "Odin isn't set up yet, so messages can't be sent." : 'Finish setup above to send. Your message is kept.' }}
+      {{ setupNoteText }}
       <button v-if="state.setupReminderHidden" type="button" class="ghost" :disabled="settingUp" @click="showSetup">Show setup</button>
     </p>
     <p v-else-if="loadError" class="notice error" role="alert">

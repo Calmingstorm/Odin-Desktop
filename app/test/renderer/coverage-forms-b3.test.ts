@@ -340,38 +340,69 @@ describe('B3 Composer: submission, shortcuts and attachment routing', () => {
     const v = await component('Composer')
     return { v, state, composerStore }
   }
-  it('keeps a message unsent while the core says setup is missing, and offers the way back after Set up later', async () => {
-    const { v, state, composerStore } = await fixture()
+  const firstRun = (ready: boolean, provider: 'codex' | 'compat' = 'codex') => ({ state: ready ? 'effective-ready' : provider === 'codex' ? 'fresh' : 'incomplete', reason: ready ? 'provider_effective' : provider === 'codex' ? 'provider_not_configured' : 'provider_configuration_incomplete', keyring_unavailable: false, provider, credential_present: ready }) as const
+  async function coreSays(first_run: ReturnType<typeof firstRun>, { stale = false } = {}) {
     const { status } = await import('../../src/renderer/src/stores/status')
-    bridge.setSetupReminderHidden = vi.fn(async (hidden: boolean) => ok({ hidden }))
-    const firstRun = (ready: boolean) => ({ state: ready ? 'effective-ready' : 'fresh', reason: ready ? 'provider_effective' : 'provider_not_configured', keyring_unavailable: false, provider: 'codex', credential_present: ready }) as const
+    const { state } = await import(paths.store)
     state.app.coreInstanceId = 'core-1'; status.epoch = state.recoveryEpoch
-    status.core = { phase: 'ready', core_instance_id: 'core-1', version: 'test', capabilities: [], first_run: firstRun(false) }; await flush()
+    const core = { phase: 'ready' as const, core_instance_id: 'core-1', version: 'test', capabilities: [] as string[], first_run }
+    status.core = core
+    // What a fresh read returns: the same, or (stale) a core that is ready by now.
+    bridge.status = vi.fn(async () => ok(stale ? { ...core, first_run: firstRun(true, first_run.provider) } : core))
+    bridge.usage = vi.fn(async () => refused)
+    await flush()
+    return status
+  }
+  it('keeps a message unsent while Codex has no account, and offers the way back after Set up later', async () => {
+    const { v, state, composerStore } = await fixture()
+    bridge.setSetupReminderHidden = vi.fn(async (hidden: boolean) => ok({ hidden }))
+    const status = await coreSays(firstRun(false))
     const note = () => v.root.findAll((h) => h.props['data-testid'] === 'composer-setup-note')[0]
     expect(note()).toBeUndefined()
     await invoke(v, 'submit'); await flush()
+    // Confirmed with the core first, then held.
+    expect(bridge.status).toHaveBeenCalledTimes(1)
     expect(actions.sendBox).not.toHaveBeenCalled(); expect(composerStore.box.text).toBe('body')
-    expect(note()!.textContent()).toContain('Finish setup above to send. Your message is kept.')
+    expect(note()!.textContent()).toContain('Sign in above to send. Your message is kept.')
     // Slash commands are local and still run.
     composerStore.box.text = '/status'; await flush(); await invoke(v, 'submit'); await flush()
     expect(actions.dispatch).toHaveBeenCalledTimes(1)
     // After Set up later the note stays, with the way back to the setup invitation.
     composerStore.box.text = 'body'; state.setupReminderHidden = true; await flush()
-    expect(note()!.textContent()).toContain("Odin isn't set up yet, so messages can't be sent.")
+    expect(note()!.textContent()).toContain('Odin needs a ChatGPT sign-in before it can reply.')
     await note()!.button('Show setup').fire('click'); await flush()
     expect(bridge.setSetupReminderHidden).toHaveBeenCalledExactlyOnceWith(false)
     expect(state.setupReminderHidden).toBe(false)
     // Once the core is ready the note goes and the message sends.
-    status.core = { ...status.core, first_run: firstRun(true) }; await flush()
+    status.core = { ...status.core!, first_run: firstRun(true) }; await flush()
     expect(note()).toBeUndefined()
     await invoke(v, 'submit'); await flush()
     expect(actions.sendBox).toHaveBeenCalledTimes(1)
+  })
+  it('never holds a message back on a stale reading: a fresh read that says ready sends it', async () => {
+    const { v } = await fixture()
+    await coreSays(firstRun(false), { stale: true })
+    await invoke(v, 'submit'); await flush()
+    expect(bridge.status).toHaveBeenCalledTimes(1)
+    expect(actions.sendBox).toHaveBeenCalledTimes(1)
+    expect(v.root.findAll((h) => h.props['data-testid'] === 'composer-setup-note')).toHaveLength(0)
+  })
+  it('never holds a message back for other incomplete setups, such as a local server with no key', async () => {
+    const { v, state } = await fixture()
+    await coreSays(firstRun(false, 'compat'))
+    await invoke(v, 'submit'); await flush()
+    expect(bridge.status).not.toHaveBeenCalled()
+    expect(actions.sendBox).toHaveBeenCalledTimes(1)
+    state.setupReminderHidden = true; await flush()
+    const note = v.root.findAll((h) => h.props['data-testid'] === 'composer-setup-note')[0]!
+    expect(note.textContent()).toContain("Provider setup isn't finished.")
+    expect(note.textContent()).not.toContain("can't")
   })
   it('never blocks on setup it cannot confirm: an unknown or other core projection sends as before', async () => {
     const { v, state } = await fixture()
     const { status } = await import('../../src/renderer/src/stores/status')
     state.app.coreInstanceId = 'core-1'; status.epoch = state.recoveryEpoch
-    status.core = { phase: 'ready', core_instance_id: 'old-core', version: 'test', capabilities: [], first_run: { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false } }; await flush()
+    status.core = { phase: 'ready', core_instance_id: 'old-core', version: 'test', capabilities: [], first_run: { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false, provider: 'codex', credential_present: false } }; await flush()
     await invoke(v, 'submit'); await flush()
     expect(actions.sendBox).toHaveBeenCalledTimes(1)
   })

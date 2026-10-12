@@ -19,10 +19,10 @@ chat shows **Sign in to start chatting**:
    in **General**.
 
 **Set up later** is offered while no sign-in is waiting; choose **Stop waiting**
-first. After it, a note by the message box says Odin isn't set up yet and offers
-**Show setup**. While setup is missing, a message you send stays in the box,
-unsent; slash commands still work. This is the same sign-in as **Add account**
-under **Accounts and quota**.
+first. After it, a note by the message box says setup isn't finished and offers
+**Show setup**. While Codex is chosen and no account is signed in, a message you
+send stays in the box, unsent; slash commands still work. This is the same sign-in
+as **Add account** under **Accounts and quota**.
 
 ## Open Settings
 
