@@ -1,0 +1,83 @@
+name: Signing probe (temporary, branch only)
+
+# A short end-to-end check of release signing before the full Windows release run: the pinned tools,
+# GitHub's identity sign-in, and packaging/sign-windows.cjs signing two copies of a PE file, the second
+# after GitHub's identity token has expired. Removed before the branch merges.
+
+on:
+  push:
+    branches: [release/v1.0.7-windows-signing]
+    paths: [.github/workflows/signing-probe.yml]
+
+permissions: {}
+
+jobs:
+  probe:
+    if: github.repository == 'Calmingstorm/Odin-Desktop' && github.actor == 'Calmingstorm'
+    runs-on: windows-2025
+    timeout-minutes: 30
+    environment: release-signing
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ODIN_SIGNING_ENDPOINT: https://eus.codesigning.azure.net
+      ODIN_SIGNING_ACCOUNT: Odin
+      ODIN_SIGNING_PROFILE: OdinDesktop
+      ODIN_SIGNING_PUBLISHER: Aaron Charpentier
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Provision the pinned signing tools
+        shell: pwsh
+        env:
+          ODIN_PACKAGING_CACHE: ${{ runner.temp }}\pc
+        run: |
+          $lines = @(python -I -B app/packaging/provision-signing.py "$env:RUNNER_TEMP\signing")
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $lines | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $tool = ($lines | Where-Object { $_ -like 'ODIN_SIGNTOOL=*' }) -replace '^ODIN_SIGNTOOL=', ''
+          $signature = Get-AuthenticodeSignature -LiteralPath $tool
+          "SignTool: $($signature.Status), $($signature.SignerCertificate.Subject)"
+          (Get-Item $tool).VersionInfo.FileVersion
+          dotnet --list-runtimes
+      - name: Sign in to Azure with GitHub's identity token
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+      - name: The signing service's token
+        shell: pwsh
+        run: |
+          $expires = az account get-access-token --scope https://codesigning.azure.net/.default --query expiresOn -o tsv
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "The signing service's token lasts until $expires"
+      - name: Sign through the hook, now and after GitHub's identity token has expired
+        shell: pwsh
+        env:
+          ODIN_WINDOWS_SIGNING: '1'
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'probe'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          $first = Join-Path $dir 'odin-desktop-0.0.0-probe-x64-setup.exe'
+          $second = Join-Path $dir '__uninstaller-probe-Odin.exe'
+          $source = (Get-Command python).Source
+          Copy-Item $source $first
+          Copy-Item $source $second
+          $sign = "require('./app/packaging/sign-windows.cjs').sign({ path: process.argv[1], hash: 'sha256' })" +
+            ".then(() => console.log('signed'), (error) => { console.error(error.message); process.exit(1) })"
+          node -e $sign $first
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Start-Sleep -Seconds 720
+          node -e $sign $second
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($file in $first, $second) {
+            $s = Get-AuthenticodeSignature -LiteralPath $file
+            "$(Split-Path -Leaf $file): $($s.Status), $($s.SignerCertificate.Subject), timestamp $([bool]$s.TimeStamperCertificate)"
+          }
