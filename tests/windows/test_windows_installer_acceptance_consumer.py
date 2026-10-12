@@ -9,6 +9,7 @@ import importlib.util
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -163,3 +164,75 @@ def test_a_wait_that_overruns_ends_the_run_named_and_reported(tmp_path):
         [str(shell), "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", query],
         capture_output=True, text=True, timeout=120)
     assert listing.stdout.strip() == "0", listing.stdout + listing.stderr
+
+
+FACTS_HARNESS = r"""
+$ErrorActionPreference = 'Stop'
+$tokens = $null; $errors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile(
+  $env:ODIN_SCRIPT, [ref]$tokens, [ref]$errors)
+foreach ($name in 'Run', 'InstallFacts') {
+  $definition = $ast.Find({ param($node)
+    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+      $node.Name -eq $name }, $true)
+  . ([scriptblock]::Create($definition.Extent.Text))
+}
+$inst = $env:ODIN_INSTALL; $python = $env:ODIN_PYTHON
+$ownership = $env:ODIN_OWNERSHIP; $marker = Join-Path $ownership 'transaction.json'
+InstallFacts -Verdict
+"""
+
+# The installed guardian, stood in: its refusal goes to stderr with exit 3, as the real one's does,
+# and its lease is held by another owner, so the lease probe ends in a traceback.
+FAKE_GUARDIAN = '''import sys
+
+
+def ownership_paths(kind):
+    return kind
+
+
+def _open(paths):
+    return 3
+
+
+def _lock(fd, *, exclusive):
+    raise BlockingIOError(11, "the lock is held by another owner")
+
+
+def _close(fd):
+    pass
+
+
+if __name__ == "__main__":
+    print("Odin install ownership refusal: one-app.json: Core resource cleanup is unresolved",
+          file=sys.stderr)
+    sys.exit(3)
+'''
+
+
+def test_refused_install_facts_keep_stderr_as_text_under_stop(tmp_path):
+    """A refused install's facts, from the exact InstallFacts under the script's 'Stop', in Windows
+    PowerShell 5.1: the guardian's refusal (stderr, exit 3) and a held lease (a traceback) are
+    recorded as text, never raised, so the check they describe is still written."""
+    install = tmp_path / "Odin"
+    (install / "resources").mkdir(parents=True)
+    (install / "resources" / "ownership.py").write_text(FAKE_GUARDIAN, encoding="utf-8")
+    ownership = tmp_path / "nsis"
+    (ownership / "receipts").mkdir(parents=True)
+    (ownership / "receipts" / "one-app.json").write_text(
+        json.dumps({"role": "app", "state": "running", "boot_id": "b1"}), encoding="utf-8")
+    root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+    shell = root / r"System32\WindowsPowerShell\v1.0\powershell.exe"
+    result = subprocess.run(
+        [str(shell), "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", FACTS_HARNESS],
+        capture_output=True, text=True, timeout=120,
+        env={**os.environ, "ODIN_SCRIPT": str(SCRIPT), "ODIN_INSTALL": str(install),
+             "ODIN_PYTHON": sys.executable, "ODIN_OWNERSHIP": str(ownership)})
+    assert result.returncode == 0, result.stderr
+    facts = result.stdout.strip().split("; ")
+    assert facts[:3] == ["running: none", "marker: False",
+                         "receipt one-app.json: app running boot b1"], facts
+    assert facts[3] == ("receipts verdict: exit 3 Odin install ownership refusal: one-app.json: "
+                        "Core resource cleanup is unresolved"), facts
+    assert facts[4] == ("lease: exit 1 BlockingIOError: [Errno 11] "
+                        "the lock is held by another owner"), facts

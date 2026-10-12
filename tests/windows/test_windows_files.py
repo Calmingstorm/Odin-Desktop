@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import _winapi
+import errno
 import os
 import subprocess
 import sys
@@ -341,9 +342,98 @@ def test_a_posted_image_keeps_a_private_copy_and_refuses_a_link(tmp_path):
     assert dacl_is_private(security_of(saved.parent, directory=True))
     again = Path(retain_generated_copy(str(workspace), "generated-images", "b.png", b"png-b"))
     assert (again.read_bytes(), saved.read_bytes()) == (b"png-b", b"png-a")
+    with pytest.raises(FileExistsError):  # a taken name is never replaced (Linux: O_EXCL)
+        retain_generated_copy(str(workspace), "generated-images", "a.png", b"png-other")
+    assert saved.read_bytes() == b"png-a"
     outside = tmp_path / "outside"
     outside.mkdir()
     _winapi.CreateJunction(str(outside), str(workspace / "screenshots"))
     with pytest.raises(OSError):
         retain_generated_copy(str(workspace), "screenshots", "c.png", b"png-c")
     assert os.listdir(outside) == []
+
+
+def _around_folder_open(monkeypatch, folder, *, before=None, after=None):
+    """Run ``before`` and ``after`` around the copy folder's own open, which the copy makes by name
+    under the held workspace (Linux: open with O_NOFOLLOW)."""
+    real = windows_files._open_directory
+
+    def opening(path, *args, **kwargs):
+        mine = os.path.normcase(str(path)) == os.path.normcase(str(folder))
+        if mine and before:
+            before()
+        handle = real(path, *args, **kwargs)
+        if mine and after:
+            after()
+        return handle
+
+    monkeypatch.setattr(windows_files, "_open_directory", opening)
+
+
+def test_a_copy_folder_swapped_for_a_junction_before_its_open_is_refused(tmp_path, monkeypatch):
+    """A plain copy folder replaced by a junction just before use: the folder is opened as itself, so
+    the open meets the junction and refuses it, and nothing lands where the junction points."""
+    from src.desktop.services import retain_generated_copy
+
+    workspace, outside = tmp_path / "workspace", tmp_path / "outside"
+    folder = workspace / "generated-images"
+    folder.mkdir(parents=True)
+    outside.mkdir()
+
+    def swap():
+        folder.rmdir()
+        _winapi.CreateJunction(str(outside), str(folder))
+
+    _around_folder_open(monkeypatch, folder, before=swap)
+    with pytest.raises(OSError) as refused:
+        retain_generated_copy(str(workspace), "generated-images", "a.png", b"png-a")
+    assert refused.value.errno == errno.ELOOP
+    assert os.listdir(outside) == []
+
+
+def test_an_open_copy_folder_cant_be_swapped_until_the_copy_is_written(tmp_path, monkeypatch):
+    """Once opened, the copy folder is held without delete sharing: renaming it away, to put a
+    junction in its place, fails, and the copy lands in the folder that was checked."""
+    from src.desktop.services import retain_generated_copy
+
+    workspace, outside = tmp_path / "workspace", tmp_path / "outside"
+    workspace.mkdir()
+    outside.mkdir()
+    folder = workspace / "generated-images"
+    attempts = []
+
+    def swap():
+        try:
+            os.rename(folder, workspace / "moved")
+        except PermissionError as exc:
+            attempts.append(exc.winerror)
+        else:
+            attempts.append("renamed")
+            _winapi.CreateJunction(str(outside), str(folder))
+
+    _around_folder_open(monkeypatch, folder, after=swap)
+    retain_generated_copy(str(workspace), "generated-images", "a.png", b"png-a")
+    assert attempts == [32]  # ERROR_SHARING_VIOLATION
+    assert (folder / "a.png").read_bytes() == b"png-a"
+    assert os.listdir(outside) == []
+    assert not (workspace / "moved").exists()
+
+
+@pytest.mark.parametrize("descriptor", [
+    "D:P(A;OICI;FA;;;WD)(A;OICI;FA;;;OW)",  # everyone, and inherited by every new file
+    "D:P(A;OICI;FA;;;OW)(A;;FR;;;WD)",  # private for new files; everyone on the folder alone
+])
+def test_an_existing_shared_copy_folder_is_refused(tmp_path, sddl, descriptor):
+    """An existing copy folder must be the user's own private folder, wherever the workspace is
+    (Linux: st_uid and mode 0700). A broad grant refuses it, inheritable or not; nothing is
+    written in it and its DACL is left as it was."""
+    from src.desktop.services import retain_generated_copy
+
+    folder = tmp_path / "workspace" / "generated-images"
+    folder.mkdir(parents=True)
+    sddl(folder, descriptor, directory=True)
+    before = security_of(folder, directory=True).aces
+    with pytest.raises(PermissionError):
+        retain_generated_copy(str(tmp_path / "workspace"), "generated-images", "a.png", b"png-a")
+    assert os.listdir(folder) == []
+    assert security_of(folder, directory=True).aces == before

@@ -19,7 +19,6 @@ import hashlib
 import json
 import os
 import secrets
-import stat
 import tempfile
 from pathlib import Path, PurePosixPath
 
@@ -73,25 +72,62 @@ def write_private_atomic(path, content):
 
 
 def retain_generated_copy(workspace, folder, name, data) -> str:
-    """The Windows ``services.retain_generated_copy``: the image tools' owner-only copy.
+    """The Windows ``services.retain_generated_copy``: Linux's steps, on held handles.
 
-    A missing folder is created private, and the copy is published whole and private.
-    As Linux's ``O_NOFOLLOW`` refuses a link as the folder itself, so does this: the
-    held chain resolves links before it checks, so it would write through one. Linux's
-    ``os.O_DIRECTORY`` doesn't exist here: it once escaped the image and screenshot tools
-    as an AttributeError after their post. A refusal is an OSError, which those tools
-    absorb (the image stays posted, with no local copy named).
+    The workspace resolves once and stays held, as Linux's path walk follows its links.
+    The copy folder itself is never followed (Linux: ``O_NOFOLLOW``): it is opened as
+    itself under the held workspace and kept open without delete sharing, so it can't be
+    renamed or swapped for a link until the copy is written. It must be the user's own
+    private folder (Linux: ``st_uid`` and mode 0700), created private when missing; an
+    existing shared one is refused, not repaired, as on Linux. The copy is created new
+    (Linux: ``O_EXCL``), so an existing name is never replaced. A refusal is an OSError,
+    which the image and screenshot tools absorb: the image stays posted, with no local
+    copy named.
     """
-    directory = Path(workspace) / folder
-    try:
-        attributes = os.lstat(directory).st_file_attributes
-    except FileNotFoundError:
-        attributes = 0
-    if attributes & stat.FILE_ATTRIBUTE_REPARSE_POINT:
-        raise OSError(errno.ELOOP, "a link as the local copy's folder is refused", str(directory))
-    path = directory / name
-    _publish_path(path, data, create=True)
-    return str(path)
+    from .windows_files import (
+        _create_directory,
+        _open_directory,
+        dacl_is_private,
+        own_sids,
+        verify_file,
+    )
+
+    if not name or os.path.basename(name) != name or name in {".", ".."}:
+        raise ValueError("a local copy's name is a single path component")
+    with held(workspace) as chain:
+        directory = chain.child(folder)
+        try:
+            folder_handle = _open_directory(directory)
+        except FileNotFoundError:
+            _create_directory(directory)
+            folder_handle = _open_directory(directory)
+        try:
+            tag = win32.attribute_tag(folder_handle)
+            if tag.FileAttributes & win32.FILE_ATTRIBUTE_REPARSE_POINT:
+                raise OSError(errno.ELOOP, "a link as the local copy's folder is refused",
+                              str(directory))
+            if not tag.FileAttributes & win32.FILE_ATTRIBUTE_DIRECTORY:
+                raise NotADirectoryError(errno.ENOTDIR, "the local copy's folder is not a folder",
+                                         str(directory))
+            security = win32.object_security(folder_handle)
+            if security.owner not in own_sids() or not dacl_is_private(security, children=True):
+                raise PermissionError(errno.EACCES, "not a private directory", str(directory))
+            path = directory / name
+            handle = win32.create_file(
+                path, _WRITE_NEW, win32.FILE_SHARE_READ, win32.CREATE_NEW,
+                win32.FILE_FLAG_OPEN_REPARSE_POINT | win32.FILE_ATTRIBUTE_NORMAL)
+            try:
+                verify_file(handle, path)
+                win32.write_all(handle, data)
+            except BaseException:
+                with contextlib.suppress(OSError):
+                    win32.delete_by_handle(handle)
+                raise
+            finally:
+                win32.close(handle)
+        finally:
+            win32.close(folder_handle)
+    return str(Path(workspace) / folder / name)
 
 
 # --- health/checker -------------------------------------------------------------------------

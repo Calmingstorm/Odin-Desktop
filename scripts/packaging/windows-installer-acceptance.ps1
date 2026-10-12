@@ -291,27 +291,46 @@ if ($Mode -eq 'user') {
   }
   # What the installer's own gates see, for a refused install's detail (its refusal box answers itself when silent):
   # processes under the install folder as .NET reads them, the marker and each receipt's state; with -Verdict, the
-  # installed guardian's receipt verdict and a lease probe. Facts only, never a check of their own.
+  # installed guardian's receipt verdict and a lease probe. Facts only, never a check of their own, and nothing here
+  # throws: what can't be captured becomes text. Native output goes to files, never 2>&1, because under 'Stop'
+  # Windows PowerShell 5.1 raises a redirected stderr line, and these diagnostics write to stderr by design.
   function InstallFacts([switch] $Verdict) {
-    $running = @([System.Diagnostics.Process]::GetProcesses() | Where-Object {
-      $_.Path -and $_.Path.StartsWith($inst, [StringComparison]::OrdinalIgnoreCase) } |
-      ForEach-Object { "$($_.ProcessName) $($_.Id)" })
-    $facts = @('running: ' + $(if ($running.Count) { $running -join ', ' } else { 'none' }),
-      "marker: $(Test-Path $marker)")
-    $receipts = @(Get-ChildItem -LiteralPath (Join-Path $ownership 'receipts') -Force -ErrorAction SilentlyContinue)
-    foreach ($file in $receipts) {
-      $record = try { Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json } catch { $null }
-      $state = if ($record) { "$($record.role) $($record.state) boot $($record.boot_id)" } else { 'unreadable' }
-      $facts += "receipt $($file.Name): $state"
-    }
+    $facts = @()
+    try {
+      $running = @([System.Diagnostics.Process]::GetProcesses() | Where-Object {
+        $_.Path -and $_.Path.StartsWith($inst, [StringComparison]::OrdinalIgnoreCase) } |
+        ForEach-Object { "$($_.ProcessName) $($_.Id)" })
+      $facts += 'running: ' + $(if ($running.Count) { $running -join ', ' } else { 'none' })
+      $facts += "marker: $(Test-Path $marker)"
+      $receipts = @(Get-ChildItem -LiteralPath (Join-Path $ownership 'receipts') -Force -ErrorAction SilentlyContinue)
+      foreach ($file in $receipts) {
+        $record = try { Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json } catch { $null }
+        $state = if ($record) { "$($record.role) $($record.state) boot $($record.boot_id)" } else { 'unreadable' }
+        $facts += "receipt $($file.Name): $state"
+      }
+    } catch { $facts += "facts not captured: $($_.Exception.Message)" }
     if ($Verdict) {
       $resources = Join-Path $inst 'resources'
-      $out = & $python -I -B (Join-Path $resources 'ownership.py') receipts --kind nsis 2>&1 | Out-String
-      $facts += "receipts verdict: exit $LASTEXITCODE $($out.Trim() -replace '\s+', ' ')"
-      $probe = "import sys; sys.path.insert(0, sys.argv[1]); import ownership as o; p = o.ownership_paths('nsis'); " +
-        "fd = o._open(p); o._lock(fd, exclusive=True); o._close(fd); print('lease free')"
-      $out = & $python -I -B -c $probe $resources 2>&1 | Select-Object -Last 1 | Out-String
-      $facts += "lease: $($out.Trim())"
+      $probe = "import sys; sys.path.insert(0, sys.argv[1]); import ownership as o; " +
+        "p = o.ownership_paths('nsis'); fd = o._open(p); o._lock(fd, exclusive=True); o._close(fd); print('lease free')"
+      $captures = @(
+        @('receipts verdict', @('-I', '-B', "`"$(Join-Path $resources 'ownership.py')`"", 'receipts', '--kind', 'nsis')),
+        @('lease', @('-I', '-B', '-c', "`"$probe`"", "`"$resources`"")))
+      foreach ($capture in $captures) {
+        $log = Join-Path $env:TEMP "odin-install-facts-$([guid]::NewGuid().ToString('N'))"
+        try {
+          $code = Run $python $capture[1] 1 @{
+            NoNewWindow = $true; RedirectStandardOutput = "$log.out"; RedirectStandardError = "$log.err" }
+          # stdout whole, and stderr's last line: a refusal's message, or a traceback's exception.
+          $lines = @(Get-Content -LiteralPath "$log.out" -ErrorAction SilentlyContinue) +
+            @(Get-Content -LiteralPath "$log.err" -ErrorAction SilentlyContinue | Select-Object -Last 1)
+          $facts += ("$($capture[0]): exit $code " + (($lines -join ' ') -replace '\s+', ' ')).Trim()
+        } catch {
+          $facts += "$($capture[0]): not captured ($($_.Exception.Message))"
+        } finally {
+          Remove-Item -LiteralPath "$log.out", "$log.err" -ErrorAction SilentlyContinue
+        }
+      }
     }
     $facts -join '; '
   }

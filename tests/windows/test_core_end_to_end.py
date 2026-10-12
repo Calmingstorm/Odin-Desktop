@@ -193,56 +193,72 @@ async def test_the_real_core_serves_the_trace_and_exits_clean(core):
 NON_LATIN = "Odin → ✓ 日本"
 
 
+async def save_twice_and_restart(home, flags) -> tuple[str, str, str, bytes]:
+    """Set the custom name, then save another setting, then restart on the same profile.
+
+    Returns both saves' outcomes, the name read back after the restart and config.yml's bytes.
+    """
+    first = launch(home, flags=flags)
+    try:
+        client = await connect(first)
+        try:
+            saved = await call(client, "personality.set",
+                               {"preset": "odin", "custom_name": NON_LATIN})
+            schema = (await call(client, "settings.schema"))["result"]
+            other = await call(client, "settings.set", {
+                "expected_revision": schema["revision"],
+                "changes": [{"path": "timezone", "value": "Pacific/Auckland"}]})
+        finally:
+            await client.close()
+        first.process.stdin.close()
+        assert first.process.wait(60) == 0, first.stderr()[-3000:]
+    finally:
+        end(first)
+    again = start(home, first.profile, first.paths, first.token_file, first.token, flags,
+                  "core-2.log")
+    try:
+        client = await connect(again)
+        try:
+            name = (await call(client, "personality.get"))["result"]["custom_name"]
+        finally:
+            await client.close()
+    finally:
+        end(again)
+    return outcome(saved), outcome(other), name, first.paths.config_file.read_bytes()
+
+
 async def test_text_outside_the_ansi_code_page_survives_another_save_and_a_restart(tmp_path):
     """Started as the app starts it (-X utf8), the engine keeps a setting the ANSI code page can't
-    hold through a later save of another setting and a restart, like Linux. Without UTF-8 mode
-    that later save reads config.yml back as the ANSI code page and writes the name back
-    garbled; the installed app lost a turn's trajectory to the same default, over a "→"."""
+    hold through a later save of another setting and a restart, like Linux. The installed app
+    lost a turn's trajectory to the old default, over a "→"."""
+    # Short folder names: a restart writes a profile backup deep enough to meet MAX_PATH here.
+    home = tmp_path / "utf8"
+    home.mkdir()
+    saved, other, name, config = await save_twice_and_restart(home, LAUNCH)
+    assert (saved, other) == ("ok", "ok")
+    assert name == NON_LATIN
+    assert NON_LATIN in config.decode("utf-8")
+
+
+async def test_without_utf8_mode_that_text_is_garbled_or_its_save_refused(tmp_path):
+    """The negative control: without -X utf8 the later save reads config.yml back in the ANSI code
+    page. A single-byte page (Windows-1252) reads the UTF-8 name as other text and writes that back;
+    a double-byte one (cp932, cp936, cp949, cp950) can't decode it and refuses the save. Either way
+    only UTF-8 mode keeps the setting and every later save working."""
     import ctypes
 
-    names, configs = {}, {}
-    # Short folder names: a restart writes a profile backup deep enough to meet MAX_PATH here.
-    for arm, folder, flags in (
-            ("shipped", "utf8", LAUNCH),
-            ("without UTF-8 mode", "ansi", [f for f in LAUNCH if f not in ("-X", "utf8")])):
-        home = tmp_path / folder
-        home.mkdir()
-        first = launch(home, flags=flags)
-        try:
-            client = await connect(first)
-            try:
-                saved = await call(client, "personality.set",
-                                   {"preset": "odin", "custom_name": NON_LATIN})
-                assert outcome(saved) == "ok", saved
-                schema = (await call(client, "settings.schema"))["result"]
-                other = await call(client, "settings.set", {
-                    "expected_revision": schema["revision"],
-                    "changes": [{"path": "timezone", "value": "Pacific/Auckland"}]})
-                assert outcome(other) == "ok", other
-            finally:
-                await client.close()
-            first.process.stdin.close()
-            assert first.process.wait(60) == 0, first.stderr()[-3000:]
-        finally:
-            end(first)
-        again = start(home, first.profile, first.paths, first.token_file, first.token, flags,
-                      "core-2.log")
-        try:
-            client = await connect(again)
-            try:
-                names[arm] = (await call(client, "personality.get"))["result"]["custom_name"]
-            finally:
-                await client.close()
-        finally:
-            end(again)
-        configs[arm] = first.paths.config_file.read_bytes()
-
-    assert names["shipped"] == NON_LATIN
-    assert NON_LATIN in configs["shipped"].decode("utf-8")
     if ctypes.windll.kernel32.GetACP() == 65001:
-        pytest.skip("this Windows's ANSI code page is UTF-8: the failing arm can't fail here")
-    assert names["without UTF-8 mode"] != NON_LATIN, names
-    assert NON_LATIN.encode("utf-8") not in configs["without UTF-8 mode"]
+        pytest.skip("this Windows's ANSI code page is UTF-8: the old mode can't fail here")
+    home = tmp_path / "ansi"
+    home.mkdir()
+    saved, other, name, config = await save_twice_and_restart(
+        home, [f for f in LAUNCH if f not in ("-X", "utf8")])
+    assert saved == "ok"  # the first save writes UTF-8; only reading it back goes wrong
+    if other == "ok":
+        assert name != NON_LATIN
+        assert NON_LATIN.encode("utf-8") not in config
+    else:
+        assert other.startswith("error "), other  # refused, not crashed (the core exited 0)
 
 
 async def refusals(core: Core) -> None:

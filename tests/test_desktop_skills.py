@@ -396,7 +396,12 @@ async def test_blank_optional_input_reaches_skill_unchanged(graph, value):
 
 
 def test_pip_retained_arguments_success_failure_timeout(monkeypatch):
-    monkeypatch.setattr(sys, "dont_write_bytecode", False)  # a plain interpreter, as Odin's
+    import src.tools.skill_manager as skill_manager
+
+    # A plain interpreter, as Odin's: no -I, -B or -X utf8, however this runner was started.
+    monkeypatch.setattr(skill_manager, "sys", SimpleNamespace(
+        executable=sys.executable, flags=SimpleNamespace(isolated=0, utf8_mode=0),
+        dont_write_bytecode=False, path=[]))
     run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
     monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
     assert _install_packages(["example-package>=1"]) == (True, "")
@@ -444,8 +449,13 @@ def test_pip_runs_in_the_parents_utf8_mode(monkeypatch):
 
 
 def test_pip_installs_into_the_profiles_package_folder(monkeypatch, tmp_path):
-    monkeypatch.setattr(sys, "dont_write_bytecode", False)
-    monkeypatch.setattr(sys, "path", [*sys.path])
+    import src.tools.skill_manager as skill_manager
+
+    # A plain interpreter, as Odin's: no -I, -B or -X utf8, however this runner was started.
+    plain = SimpleNamespace(executable=sys.executable,
+                            flags=SimpleNamespace(isolated=0, utf8_mode=0),
+                            dont_write_bytecode=False, path=[*sys.path])
+    monkeypatch.setattr(skill_manager, "sys", plain)
     run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
     monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
     target = tmp_path / "skill-packages"
@@ -454,7 +464,7 @@ def test_pip_installs_into_the_profiles_package_folder(monkeypatch, tmp_path):
                                    "--disable-pip-version-check", "--target", str(target),
                                    "--upgrade", "example-package>=1"]
     assert target.stat().st_mode & 0o777 == 0o700
-    assert sys.path[-1] == str(target)  # after the runtime's own packages
+    assert plain.path[-1] == str(target)  # after the runtime's own packages
 
 
 BACKEND = """import base64, hashlib, json, os, sys, zipfile
