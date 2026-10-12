@@ -11,7 +11,9 @@ describe('real-core smoke safety and provider configuration contracts', () => {
       first_run: { state: 'degraded', reason: 'keyring_unavailable', keyring_unavailable: true },
       webhook_ingress: { reason: 'disabled', address: null, eligible_schedules: 0, unknown_deliveries: 0 } };
     expect(() => assertFreshManagementStatus(status)).not.toThrow();
-    expect(() => assertFreshManagementStatus({ ...status, first_run: { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false } }, true)).not.toThrow();
+    expect(() => assertFreshManagementStatus({ ...status, first_run: { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false, provider: 'codex', credential_present: false } }, true)).not.toThrow();
+    // An older core's fresh projection, without the provider facts, no longer passes.
+    expect(() => assertFreshManagementStatus({ ...status, first_run: { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false } }, true)).toThrow();
     expect(() => assertFreshManagementStatus({ ...status, capabilities: ['status.get'] })).toThrow();
     expect(() => assertFreshManagementStatus({ ...status, webhook_ingress: { ...status.webhook_ingress, reason: 'accepting', address: ['127.0.0.1', 9999] } })).toThrow();
     expect(() => assertFreshManagementStatus({ ...status, first_run: { state: 'effective-ready', reason: 'provider_effective', keyring_unavailable: false } })).toThrow();

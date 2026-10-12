@@ -72,7 +72,8 @@ export const realCoreCapabilities = ['status.get', 'events.subscribe', 'runtime.
 export type RealCoreStatus = { phase: string; version: string; core_instance_id: string; capabilities: string[];
   model: { main: string | null; effort: string | null; provider: string | null };
   providers: Array<{ name: string; health: string }>; limits: Record<string, number>; summary: string;
-  first_run: { state: string; reason: string; keyring_unavailable: boolean }; webhook_ingress: WebhookIngressStatus }
+  first_run: { state: string; reason: string; keyring_unavailable: boolean; provider?: string; credential_present?: boolean | null };
+  webhook_ingress: WebhookIngressStatus }
 
 export function assertFreshManagementStatus(status: RealCoreStatus, memoryKeyring = false): void {
   assert.equal(status.phase, 'ready') // Transport lifetime, not provider readiness.
@@ -86,7 +87,8 @@ export function assertFreshManagementStatus(status: RealCoreStatus, memoryKeyrin
   assert.deepEqual(status.limits, { chunk_bytes: 512 * 1024, attachment_bytes: 50 * 1024 * 1024, attachments_per_turn: 10 })
   assert.match(status.summary, /Codex: unavailable/)
   assert.deepEqual(status.first_run, memoryKeyring
-    ? { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false }
+    // Fresh names the provider setup is for and that no Codex account is stored yet.
+    ? { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false, provider: 'codex', credential_present: false }
     : { state: 'degraded', reason: 'keyring_unavailable', keyring_unavailable: true })
   // Inbound ingress is opt-in (D10): a fresh profile never listens.
   assert.deepEqual(status.webhook_ingress, { reason: 'disabled', address: null, eligible_schedules: 0, unknown_deliveries: 0 })

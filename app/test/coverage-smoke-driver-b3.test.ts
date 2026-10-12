@@ -88,7 +88,7 @@ function fixture(provider = false, seeded = false, fault = '') {
     model: modelConfigured ? { main: 'canned-contract', effort: null, provider: 'compat' } : { main: 'gpt-6.1-sol', effort: null, provider: 'codex' },
     providers: [{ name: 'codex', health: 'unavailable' }, { name: 'ollama', health: 'disabled' }, { name: 'compat', health: 'disabled' }],
     limits: { chunk_bytes: 524288, attachment_bytes: 52428800, attachments_per_turn: 10 }, summary: 'Codex: unavailable',
-    first_run: seeded ? { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false } : { state: 'degraded', reason: 'keyring_unavailable', keyring_unavailable: true }, webhook_ingress: ingress() })
+    first_run: seeded ? { state: 'fresh', reason: 'provider_not_configured', keyring_unavailable: false, provider: 'codex', credential_present: false } : { state: 'degraded', reason: 'keyring_unavailable', keyring_unavailable: true }, webhook_ingress: ingress() })
   const snapshot = () => ({ messages: { items: messages }, running, queued, recent, unresolved: [] })
   const workItems = ['agent', 'task', 'workflow', 'loop', 'process', 'schedule'].map((kind, index) => ({ kind, id: 'w_' + index, manager_generation: 1, run_id: 'run', generation: 1, conversation_id: 'c_chat', title: kind === 'task' ? 'Harmless cancellable task' : kind }))
   const core: any = new EventEmitter()
