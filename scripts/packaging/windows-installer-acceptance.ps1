@@ -289,6 +289,32 @@ if ($Mode -eq 'user') {
     $deadline = (Get-Date).AddSeconds(120)
     while ((Get-Date) -lt $deadline -and ((& $installed).Count -or (& $serving))) { Start-Sleep -Seconds 2 }
   }
+  # What the installer's own gates see, for a refused install's detail (its refusal box answers itself when silent):
+  # processes under the install folder as .NET reads them, the marker and each receipt's state; with -Verdict, the
+  # installed guardian's receipt verdict and a lease probe. Facts only, never a check of their own.
+  function InstallFacts([switch] $Verdict) {
+    $running = @([System.Diagnostics.Process]::GetProcesses() | Where-Object {
+      $_.Path -and $_.Path.StartsWith($inst, [StringComparison]::OrdinalIgnoreCase) } |
+      ForEach-Object { "$($_.ProcessName) $($_.Id)" })
+    $facts = @('running: ' + $(if ($running.Count) { $running -join ', ' } else { 'none' }),
+      "marker: $(Test-Path $marker)")
+    $receipts = @(Get-ChildItem -LiteralPath (Join-Path $ownership 'receipts') -Force -ErrorAction SilentlyContinue)
+    foreach ($file in $receipts) {
+      $record = try { Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json } catch { $null }
+      $state = if ($record) { "$($record.role) $($record.state) boot $($record.boot_id)" } else { 'unreadable' }
+      $facts += "receipt $($file.Name): $state"
+    }
+    if ($Verdict) {
+      $resources = Join-Path $inst 'resources'
+      $out = & $python -I -B (Join-Path $resources 'ownership.py') receipts --kind nsis 2>&1 | Out-String
+      $facts += "receipts verdict: exit $LASTEXITCODE $($out.Trim() -replace '\s+', ' ')"
+      $probe = "import sys; sys.path.insert(0, sys.argv[1]); import ownership as o; p = o.ownership_paths('nsis'); " +
+        "fd = o._open(p); o._lock(fd, exclusive=True); o._close(fd); print('lease free')"
+      $out = & $python -I -B -c $probe $resources 2>&1 | Select-Object -Last 1 | Out-String
+      $facts += "lease: $($out.Trim())"
+    }
+    $facts -join '; '
+  }
   $up = Serve
   $running = (& $installed).Count
   $code = Install @('/S')
@@ -322,6 +348,7 @@ if ($Mode -eq 'user') {
   $stray.WaitForExit(10000) | Out-Null
 
   # An installer run that never finished leaves its fence: Odin refuses to start until a run completes.
+  $beforeFence = InstallFacts
   Set-Content -LiteralPath $marker -Value '{"operation": "install", "version": 1}' -Encoding ascii
   Start-Process -FilePath $exe -ArgumentList '--hidden' | Out-Null
   $deadline = (Get-Date).AddSeconds(45)
@@ -332,8 +359,11 @@ if ($Mode -eq 'user') {
   # The refused app waits on its error box; it's this test's own process. The installer runs next, so it waits
   # until the app is gone: a process still being torn down counts as Odin running (exit 2).
   StopAndWait (& $installed)
+  $beforeInstall = InstallFacts
   $code = Install @('/S')
-  Check 'running the installer again completes the transaction' ($code -eq 0 -and -not (Test-Path $marker)) "exit $code"
+  Check 'running the installer again completes the transaction' ($code -eq 0 -and -not (Test-Path $marker)) (
+    "exit $code" + $(if ($code -ne 0) { " | before the fence: $beforeFence | before this install: $beforeInstall" +
+      " | after it: $(InstallFacts -Verdict)" } else { '' }))
   Check 'and Odin starts again' (Serve) ''
   ExitOdin
 
