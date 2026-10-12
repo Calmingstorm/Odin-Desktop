@@ -6,11 +6,13 @@ import secrets
 import stat
 from pathlib import Path
 
+from ..desktop.platform.variants import windows_variant
 from ..odin_log import get_logger
 
 log = get_logger("permissions.persistence")
 
 
+@windows_variant("src.desktop.platform.windows_engine:write_private_atomic")
 def write_private_atomic(path: Path, content: str) -> bool:
     """Publish a complete 0600 file; return whether directory durability is proven.
 

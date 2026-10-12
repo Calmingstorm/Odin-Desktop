@@ -15,6 +15,7 @@ from pathlib import Path
 from ..turn_state.codec import CODEC_VERSION
 from ..turn_state.store import SCHEMA_VERSION
 from .paths import ProfilePaths
+from .platform.variants import windows_variant
 from .protocol import PROTOCOL_MAJOR, PROTOCOL_MINOR
 from .schema import validate_domains
 
@@ -46,6 +47,7 @@ def _check_versions(value):
 
 
 @contextlib.contextmanager
+@windows_variant("src.desktop.platform.windows_desktop:package_reader")
 def _reader(path: Path):
     """Resolve supported XDG ancestor links once, then anchor the real folders.
 
@@ -220,6 +222,7 @@ def _computer(path):
             validator._validate_current_schema(allow_obsolete_restrictions=True)
 
 
+@windows_variant("src.desktop.platform.windows_desktop:inspect_profile")
 def inspect_profile(paths: ProfilePaths, *, package_version: str | None = None) -> dict | None:
     """No profile writes, locks, defaults, migrations, or ledger boot sweeps."""
     try:
@@ -258,6 +261,7 @@ def inspect_profile(paths: ProfilePaths, *, package_version: str | None = None) 
             "Package compatibility inspection failed; original state preserved") from None
 
 
+@windows_variant("src.desktop.platform.windows_desktop:sync_directory")
 def _sync_directory(path):
     fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
@@ -266,6 +270,7 @@ def _sync_directory(path):
         os.close(fd)
 
 
+@windows_variant("src.desktop.platform.windows_desktop:package_publish")
 def _publish(path, document):
     fd, temporary = tempfile.mkstemp(prefix=".package-", dir=path.parent)
     try:
@@ -324,6 +329,7 @@ class PackageUpgrade:
                 _publish(self.paths.data_dir / STATE_NAME, record)
             self.record = record
 
+    @windows_variant("src.desktop.platform.windows_desktop:package_backup")
     def _backup(self):
         root = self.paths.data_dir / BACKUPS_NAME
         try:

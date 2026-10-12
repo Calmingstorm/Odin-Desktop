@@ -153,6 +153,8 @@ export const state = reactive({
   effectsAcknowledgements: {} as Record<string, EffectAcknowledgement | undefined>,
   notice: '',
   autostart: false,
+  /** Why start at login isn't offered, where it isn't (the switch is disabled). */
+  autostartUnavailable: '',
   showArchived: false,
   search: { open: false, query: '', loading: false, hits: [] as SearchHit[], nextCursor: null as string | null, error: '', unavailable: false },
   /** A window of messages around a search hit that is outside the loaded history. The live view is untouched. */
@@ -340,6 +342,7 @@ export async function init(): Promise<void> {
   const settings = await window.odin.getSettings()
   if (settings.ok) {
     state.autostart = settings.result.autostart
+    state.autostartUnavailable = settings.result.autostartUnavailable ?? ''
     state.notifications = settings.result.notifications
     if (settings.result.appearance) state.appearance = settings.result.appearance
   }

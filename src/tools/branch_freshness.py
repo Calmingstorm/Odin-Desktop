@@ -12,6 +12,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
+from ..desktop.platform.variants import windows_variant
 from ..odin_log import get_logger
 
 log = get_logger("branch_freshness")
@@ -143,6 +144,7 @@ class FreshnessStats:
         self._recent.clear()
 
 
+@windows_variant("src.desktop.platform.windows_helpers:check_branch_freshness")
 async def check_branch_freshness(
     exec_fn: ExecFn,
     address: str,

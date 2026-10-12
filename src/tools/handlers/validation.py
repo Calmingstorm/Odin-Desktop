@@ -7,6 +7,7 @@ re-anchored one level. The command governor is reached live through deps
 
 from __future__ import annotations
 
+from ...desktop.platform.variants import windows_variant
 from ...odin_log import get_logger
 from .deps import HandlerBase
 
@@ -18,6 +19,7 @@ class ValidationTools(HandlerBase):
     def command_governor(self):
         return self._deps.command_governor()
 
+    @windows_variant("src.desktop.platform.windows_tools:handle_validate_action")
     async def _handle_validate_action(self, inp: dict) -> str:
         from ..post_validation import (
             format_report_summary,

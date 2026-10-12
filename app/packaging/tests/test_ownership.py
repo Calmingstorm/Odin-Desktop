@@ -1,4 +1,5 @@
 import importlib.util
+import io
 import json
 import os
 import signal
@@ -7,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 BOOT_A = 'a1b2c3d4-0000-4000-8000-00000000000a'
@@ -43,6 +45,36 @@ class OwnershipTests(unittest.TestCase):
     def lease(self, role='app'):
         return own.acquire_lifetime(self.paths, role, self.app, self.core)
 
+    def test_token_action_reports_the_token_as_one_lf_json_line(self):
+        facts = {'elevated': False, 'elevation_type': 3, 'integrity': 'S-1-16-8192',
+                 'owner': 'S-1-5-21-1-2-3-1001', 'session': 1, 'user': 'S-1-5-21-1-2-3-1001'}
+        raw = io.BytesIO()
+        stdout = io.TextIOWrapper(raw, newline='\r\n')  # Windows' text newline
+        engine = SimpleNamespace(win32=SimpleNamespace(token_facts=lambda: facts))
+        with mock.patch.object(own, 'WINDOWS', True), \
+                mock.patch.dict(sys.modules, {'src.desktop.platform': engine}), \
+                mock.patch.object(sys, 'stdout', stdout):
+            self.assertEqual(own.main(['token']), 0)
+        self.assertEqual(raw.getvalue(), json.dumps(facts, sort_keys=True).encode() + b'\n')
+
+    def test_token_action_fails_closed_and_needs_no_kind(self):
+        def unreadable():
+            raise OSError('Access is denied')
+        stderr = io.StringIO()
+        engine = SimpleNamespace(win32=SimpleNamespace(token_facts=unreadable))
+        with mock.patch.object(own, 'WINDOWS', True), \
+                mock.patch.dict(sys.modules, {'src.desktop.platform': engine}), \
+                mock.patch.object(sys, 'stderr', stderr):
+            self.assertEqual(own.main(['token']), 1)
+        self.assertIn('Access is denied', stderr.getvalue())
+        with mock.patch.object(own, 'WINDOWS', False), \
+                mock.patch.object(sys, 'stderr', io.StringIO()):
+            self.assertEqual(own.main(['token']), 1)  # Windows only
+        with mock.patch.object(sys, 'stderr', io.StringIO()), \
+                self.assertRaises(SystemExit) as raised:
+            own.main(['hold'])  # the lease actions still need their kind
+        self.assertEqual(raised.exception.code, 2)
+
     def test_app_and_core_independent_lifetimes(self):
         app, core = self.lease(), self.lease('core')
         try:
@@ -62,6 +94,16 @@ class OwnershipTests(unittest.TestCase):
         finally:
             app.close()
             core.close()
+
+    def test_a_pending_transaction_is_its_own_refusal_for_the_windows_app(self):
+        self.paths.directory.mkdir(parents=True, mode=0o700)  # private, as the guardian makes it
+        self.paths.pending.write_text('{}')
+        with mock.patch.object(own, 'ownership_paths', lambda kind, env=None: self.paths), \
+                mock.patch.object(sys, 'stderr', io.StringIO()):
+            self.assertEqual(own.main(['hold', '--kind', 'nsis', '--app-cleanup', str(self.app),
+                                       '--core-cleanup', str(self.core)]), own.PENDING_EXIT)
+            self.assertEqual(own.main(['hold', '--kind', 'appimage', '--app-cleanup', str(self.app),
+                                       '--core-cleanup', str(self.core)]), 1)  # Linux unchanged
 
     def test_pending_transaction_denies_launch_before_receipts(self):
         with own.replacement_guard(self.paths):
@@ -125,6 +167,150 @@ class OwnershipTests(unittest.TestCase):
         core = json.loads(self.core.read_text())
         core['previous_unknown'] = {'state': 'unknown', 'boot_id': boot}
         self.core.write_text(json.dumps(core))
+
+    def receipts_verdict(self):
+        stderr = io.StringIO()
+        with mock.patch.object(own, 'ownership_paths', lambda kind, env=None: self.paths), \
+                mock.patch.object(sys, 'stderr', stderr):
+            return own.main(['receipts', '--kind', 'appimage']), stderr.getvalue()
+
+    def test_receipts_action_is_the_replacement_verdict_without_the_lock(self):
+        self.assertEqual(self.receipts_verdict(), (0, ''))  # nothing admitted: no receipts yet
+        with self.boot(BOOT_A):
+            crashed = self.lease('core')
+            crashed.close()  # ended without finish: its receipt stays running
+            code, message = self.receipts_verdict()
+            self.assertEqual(code, own.RECEIPTS_RESTART)
+            self.assertIn('Unresolved lifetime evidence', message)
+        with self.boot(BOOT_B):
+            self.assertEqual(self.receipts_verdict(), (0, ''))  # an earlier boot no longer fences
+            # The installer holds the lease exclusively while it asks: the verdict only reads.
+            with own.replacement_guard(self.paths):
+                self.assertEqual(self.receipts_verdict(), (0, ''))
+
+    def test_receipts_verdict_exit_says_whether_a_restart_ends_the_refusal(self):
+        with self.boot(BOOT_A):
+            self.lease('core').close()  # this boot's lifetime, unresolved: the next boot ends it
+            self.assertEqual(self.receipts_verdict()[0], own.RECEIPTS_RESTART)
+        with mock.patch.object(own, 'BOOT_ID', self.root / 'missing'):
+            # No readable boot identity: a restart may change nothing.
+            code, message = self.receipts_verdict()
+            self.assertEqual(code, 2)
+            self.assertIn('Unresolved lifetime evidence', message)
+        with self.boot(BOOT_B):
+            self.assertEqual(self.receipts_verdict(), (0, ''))
+            (self.paths.receipts / 'damaged.json').write_text('{"version": 1, "ro')
+            # Evidence that can't be read: a restart changes nothing.
+            code, message = self.receipts_verdict()
+            self.assertEqual(code, 2)
+            self.assertIn('Odin install ownership refusal', message)
+
+    def test_a_receipt_bound_to_no_boot_never_gets_restart_advice(self):
+        # Admitted while the boot identity was unreadable: it records none, so no boot ever makes
+        # it an earlier boot's, before a restart or after one.
+        with mock.patch.object(own, 'BOOT_ID', self.root / 'missing'):
+            self.lease('core').close()
+        receipt = json.loads(next(self.paths.receipts.iterdir()).read_text())
+        self.assertIsNone(receipt['boot_id'])
+        for boot in (BOOT_A, BOOT_B):
+            with self.boot(boot):
+                code, message = self.receipts_verdict()
+                self.assertEqual(code, 2, boot)
+                self.assertIn('Unresolved lifetime evidence', message)
+
+    def test_a_lasting_refusal_outranks_restart_advice_in_any_order(self):
+        with self.boot(BOOT_A):
+            self.lease('core').close()  # bound to boot A: a restart ends it
+        bound = next(self.paths.receipts.iterdir())
+        damaged = self.paths.receipts / 'damaged.json'
+        damaged.write_text('{"version": 1, "ro')
+        for order in ([bound, damaged], [damaged, bound]):
+            # The folder's listing order, as the file system happens to give it.
+            listing = mock.patch.object(own.Path, 'iterdir', lambda path, order=order: iter(order))
+            with self.boot(BOOT_A), listing:
+                code, message = self.receipts_verdict()
+            self.assertEqual(code, 2, order)
+            self.assertEqual(message.count('Odin install ownership refusal'), 2)  # both reported
+        damaged.unlink()
+        with self.boot(BOOT_A):
+            self.assertEqual(self.receipts_verdict()[0], own.RECEIPTS_RESTART)
+        with self.boot(BOOT_B):
+            self.assertEqual(self.receipts_verdict(), (0, ''))  # restarted: it no longer fences
+
+    def verdict_process(self, boot):
+        """The receipts action as the installer runs it: its own process, its exit status."""
+        boot_file = self.root / f'boot-{boot[-1]}'
+        boot_file.write_text(boot + '\n')
+        driver = ('import importlib.util, sys\n'
+                  'from pathlib import Path\n'
+                  'spec = importlib.util.spec_from_file_location("ownership_cli", sys.argv[1])\n'
+                  'own = sys.modules[spec.name] = importlib.util.module_from_spec(spec)\n'
+                  'spec.loader.exec_module(own)\n'
+                  'own.BOOT_ID = Path(sys.argv[2])\n'
+                  'root = own.OwnershipPaths(Path(sys.argv[3]))\n'
+                  'own.ownership_paths = lambda kind, env=None: root\n'
+                  'sys.exit(own.main(["receipts", "--kind", "appimage"]))\n')
+        return subprocess.run([sys.executable, '-I', '-c', driver, str(MODULE), str(boot_file),
+                               str(self.paths.directory)], capture_output=True, text=True,
+                              timeout=60)
+
+    def test_a_wrong_typed_cleanup_record_is_a_classified_refusal(self):
+        # Odin's round 8 case: a clean receipt bound to no boot, whose core journal holds a
+        # list where a state belongs. Judging it raises TypeError; as an uncaught exception that
+        # was Python's exit 1, the old restart answer, which no restart could make true. The codes
+        # are the numbers the installer matches: 2 lasting, 3 restart, 0 clear.
+        self.paths.directory.mkdir(mode=0o700)
+        self.paths.receipts.mkdir(mode=0o700)
+        self.core.write_text(json.dumps({
+            'version': 1, 'state': 'complete', 'previous_unknown': None,
+            'resources': {'computer': {'state': []}, 'processes': {'state': 'released'}}}))
+        (self.paths.receipts / 'unbound.json').write_text(json.dumps(
+            {'version': 1, 'role': 'core', 'state': 'clean', 'boot_id': None,
+             'app_cleanup': str(self.app), 'core_cleanup': str(self.core)}))
+        for boot in (BOOT_A, BOOT_B):
+            run = self.verdict_process(boot)
+            self.assertEqual(run.returncode, 2, (boot, run.stderr))
+            self.assertIn('unbound.json: TypeError', run.stderr)
+            self.assertNotIn('Traceback', run.stderr)
+        # One receipt's failure never stops the others being judged.
+        with self.boot(BOOT_A):
+            self.lease('core').close()  # bound to boot A, unresolved
+        run = self.verdict_process(BOOT_A)
+        self.assertEqual(run.returncode, 2, run.stderr)
+        self.assertEqual(run.stderr.count('Odin install ownership refusal'), 2, run.stderr)
+        # Without it, the bound one alone: restart advice now, nothing after a restart.
+        (self.paths.receipts / 'unbound.json').unlink()
+        self.assertEqual(self.verdict_process(BOOT_A).returncode, 3)
+        self.assertEqual(self.verdict_process(BOOT_B).returncode, 0)
+
+    def test_an_interrupted_windows_receipt_write_is_not_a_receipt(self):
+        with self.boot(BOOT_A):
+            self.lease('core').close()  # an earlier boot's lifetime, below
+        # Windows' publish primitive's temporary, cut off mid-write and never renamed into place.
+        name = f'.{os.urandom(16).hex()}-app.json.{os.urandom(16).hex()}.tmp'
+        leftover = self.paths.receipts / name
+        leftover.write_text('{"version": 1, "ro')
+
+        def plain(path):  # the Windows reader's result, without the Windows file API
+            return json.loads(Path(path).read_text())
+
+        with mock.patch.object(own, '_read', plain), \
+                mock.patch.object(own, '_boot_id', lambda: BOOT_B):
+            with mock.patch.object(own, 'WINDOWS', True):
+                own.verify_receipts(self.paths)
+                # Only that exact shape is skipped: anything else is still read, and refused.
+                leftover.unlink()
+                for name in ('.short.tmp', f'.x.{os.urandom(15).hex()}.tmp',
+                             f'x.{os.urandom(16).hex()}.tmp', f'.x.{os.urandom(16).hex()}.tmp.old',
+                             f'.X.{os.urandom(16).hex().upper()}.tmp', 'stray.json'):
+                    near = self.paths.receipts / name
+                    near.write_text('{"version": 1, "ro')
+                    with self.assertRaises(ValueError, msg=name):
+                        own.verify_receipts(self.paths)
+                    near.unlink()
+                leftover.write_text('{"version": 1, "ro')
+            with mock.patch.object(own, 'WINDOWS', False), self.assertRaises(ValueError):
+                own.verify_receipts(self.paths)  # Linux reads every file, as before
 
     def test_earlier_unknown_fences_its_boot_not_the_next(self):
         with self.boot(BOOT_A):

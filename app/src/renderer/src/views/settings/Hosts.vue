@@ -211,9 +211,10 @@ function lastTest(host: HostRow): string {
         <label class="field-input">SSH user <input v-model="e.form.ssh_user" /></label>
         <label class="field-input">
           System
-          <select v-model="e.form.os">
+          <select v-model="e.form.os" :disabled="e.form.os === 'windows'">
             <option value="linux">Linux</option>
             <option value="macos">macOS</option>
+            <option v-if="e.form.os === 'windows'" value="windows">Windows (this computer)</option>
           </select>
         </label>
         <label class="field-input">Description <input v-model="e.form.description" maxlength="200" placeholder="What the machine is" /></label>

@@ -16,6 +16,17 @@ export function stableVersion(value: unknown): number[] | null {
   return parts.every(Number.isSafeInteger) ? parts : null
 }
 
+/** The published Windows installer's exact name: a release without it isn't one Windows can install. */
+export function windowsInstallerName(tag: string): string {
+  return `odin-desktop-${tag.replace(/^v/, '')}-x64-setup.exe`
+}
+
+function carriesWindowsInstaller(row: { tag_name: string; assets?: unknown }): boolean {
+  const name = windowsInstallerName(row.tag_name)
+  return Array.isArray(row.assets) && row.assets.some((asset) => !!asset && typeof asset === 'object'
+    && asset.name === name && asset.state === 'uploaded' && typeof asset.size === 'number' && asset.size > 0)
+}
+
 export function validReleaseUrl(url: unknown, tag: unknown): url is string {
   return stableVersion(tag) !== null && typeof tag === 'string' && url === RELEASE_BASE + tag
 }
@@ -48,8 +59,10 @@ export const anonymousReleaseTransport: ReleaseTransport = () => new Promise((re
 export class ReleaseNoticeService {
   private latest: { tag: string; url: string } | null = null
   private pending: Promise<ReleaseNotice> | null = null
+  /** On Windows only releases carrying the Windows installer count; Linux counts every stable release. */
   constructor(private readonly currentVersion: string, private readonly openExternal: (url: string) => Promise<void>,
-    private readonly transport: ReleaseTransport = anonymousReleaseTransport) {}
+    private readonly transport: ReleaseTransport = anonymousReleaseTransport,
+    private readonly system: NodeJS.Platform = process.platform) {}
 
   check(): Promise<ReleaseNotice> {
     if (this.pending) return this.pending
@@ -79,6 +92,7 @@ export class ReleaseNoticeService {
       const version = stableVersion(row.tag_name)
       if (!version || !validReleaseUrl(row.html_url, row.tag_name) || typeof row.published_at !== 'string' ||
         !Number.isFinite(Date.parse(row.published_at))) return result('malformed')
+      if (this.system === 'win32' && !carriesWindowsInstaller(row)) continue
       stable.push({ tag: row.tag_name, url: row.html_url, version })
     }
     if (!stable.length) return result('no-release')

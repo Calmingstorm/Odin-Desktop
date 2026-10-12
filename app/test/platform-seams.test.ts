@@ -30,8 +30,8 @@ describe('app platform seam', () => {
   })
 
   it('refuses other systems before any profile work', () => {
-    for (const system of ['win32', 'darwin'] as const) {
-      expect(() => currentPlatform(system)).toThrow('Odin Desktop runs on Linux only')
+    for (const system of ['darwin', 'freebsd'] as const) {
+      expect(() => currentPlatform(system)).toThrow('Odin Desktop runs on Linux and Windows only')
     }
   })
 })

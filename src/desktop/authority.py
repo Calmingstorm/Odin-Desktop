@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from ..permissions.persistence import write_private_atomic
 from .paths import ProfilePaths
 from .platform import locks
+from .platform.variants import windows_variant
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +25,7 @@ class OwnerContext:
 
 
 class OwnerAuthority:
+    @windows_variant("src.desktop.platform.windows_authority:owner_authority_init")
     def __init__(self, paths: ProfilePaths, *, app_bootstrap: bool = False) -> None:
         paths.create_private()
         self.paths = paths
@@ -80,6 +82,7 @@ class OwnerAuthority:
             self.profile_id = data["profile_id"]
             self.owner_id = data["owner_id"]
 
+    @windows_variant("src.desktop.platform.windows_authority:_app_bootstrap_files")
     def _app_bootstrap_files(self) -> tuple[set, set]:
         """Recognize app-owned scaffolding, not engine state or imported authority.
 
@@ -118,6 +121,7 @@ class OwnerAuthority:
         return config, data
 
     @contextlib.contextmanager
+    @windows_variant("src.desktop.platform.windows_authority:_locked")
     def _locked(self):
         fd = os.open(
             self.paths.config_dir / ".identity.lock",
@@ -137,6 +141,7 @@ class OwnerAuthority:
         finally:
             os.close(fd)
 
+    @windows_variant("src.desktop.platform.windows_authority:_validate")
     def _validate(self, data) -> None:
         if (
             not isinstance(data, dict)
@@ -153,6 +158,7 @@ class OwnerAuthority:
             if not isinstance(data[key], str) or str(uuid.UUID(data[key])) != data[key]:
                 raise ValueError("profile identity must contain canonical UUIDs")
 
+    @windows_variant("src.desktop.platform.windows_authority:authenticate_local")
     def authenticate_local(self, *, peer_uid: int) -> OwnerContext:
         """Mint from OS-verified peer credentials only, never a payload UID."""
         if self.durability_degraded:
@@ -188,6 +194,7 @@ class OwnerAuthority:
             and self._identity_current()
         )
 
+    @windows_variant("src.desktop.platform.windows_authority:_identity_current")
     def _identity_current(self) -> bool:
         """Existing contexts cannot hide revoked/corrupt or rebound private storage."""
         try:
@@ -213,6 +220,7 @@ class OwnerAuthority:
         except (OSError, ValueError, TypeError):
             return False
 
+    @windows_variant("src.desktop.platform.windows_authority:acquire_runtime")
     def acquire_runtime(self) -> None:
         """Hold a lifetime profile lock. PID alone is never runtime identity."""
         if self._runtime_lock_fd is not None:
@@ -242,6 +250,7 @@ class OwnerAuthority:
             raise
         self._runtime_lock_fd = fd
 
+    @windows_variant("src.desktop.platform.windows_authority:_runtime_current")
     def _runtime_current(self) -> bool:
         """A held descriptor cannot authenticate a replaced profile lock."""
         if self._runtime_lock_fd is None:

@@ -133,6 +133,19 @@ describe('B3 Hosts: settings, confirmation and enrollment controls', () => {
   })
 })
 
+describe('B3 Hosts: this computer on Windows', () => {
+  it('shows its system fixed while editing it', async () => {
+    const { hosts } = await import(paths.hosts)
+    const row = { host_id: 'l', alias: 'localhost', address: '127.0.0.1', port: 22, ssh_user: 'root', os: 'windows', description: '', trust_state: 'local', trust_mode: 'pinned', enabled: true, targetable: true, draining: false, last_test: null }
+    hosts.list = { hosts: [row], tofu_enabled: false }; hosts.key = { public_key: 'public', authorized_keys_command: 'install', fingerprint: '', permissions: '' }
+    const v = await view('Hosts')
+    expect(v.root.textContent()).toContain('windows')
+    v.root.named('Edit host localhost').fire('click'); await flush()
+    const system = v.root.findAll((n) => n.tag === 'select').find((n) => n.props.disabled === true)!
+    expect(system.findAll((n) => n.tag === 'option').map((n) => n.textContent())).toContain('Windows (this computer)')
+  })
+})
+
 describe('B3 MCP: patches and form ownership', () => {
   async function fixture() {
     const { management } = await import(paths.management)

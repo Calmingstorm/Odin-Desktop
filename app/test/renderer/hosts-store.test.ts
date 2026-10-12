@@ -108,6 +108,18 @@ describe('adding a host', () => {
   })
 })
 
+describe('editing this computer on Windows', () => {
+  it('keeps its Windows system through the local enrollment', async () => {
+    hosts.beginEdit({ ...legacy, alias: 'localhost', address: '127.0.0.1', os: 'windows', trust_mode: 'pinned' })
+    expect(hosts.hosts.enrollment!.form.os).toBe('windows')
+    hosts.hosts.enrollment!.form.confirm_local = true
+    await hosts.scan()
+    expect(calls[0]).toEqual(['prepare', expect.objectContaining({ os: 'windows', confirm_local: true })])
+    hosts.beginEdit({ ...legacy, os: 'solaris' })
+    expect(hosts.hosts.enrollment!.form.os).toBe('linux')
+  })
+})
+
 describe('deleting a host', () => {
   it('shows what still names it, and deletes nothing', async () => {
     references = [{ kind: 'schedule', location: 'schedule ab12: Disk check' }]

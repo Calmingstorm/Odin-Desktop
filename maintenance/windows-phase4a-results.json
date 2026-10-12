@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "base": "d85217a117e7c377aab8a8b30acccc541758c01d",
+  "implementation": "Windows phase4a P1-P6 runtime lanes",
+  "qualification_status": "native stage blocked by supplier tag mismatch",
+  "local": {
+    "additional_desktop_boundaries": {"passed": 922, "failed": 0},
+    "focused_runtime": {"passed": 316, "skipped": 2, "subtests": 12},
+    "last_changes": {"passed": 102, "skipped": 1},
+    "packaging_unittest": {"run": 182, "skipped": 32, "failed": 0},
+    "app_check": {"passed": 1898, "skipped": 1, "typechecks": "pass", "build": "pass"},
+    "real_linux_pip_delta": {"passed": 7, "skipped": 0, "original_objects": 8904, "changed_objects": 552, "outside_allowlist": 0},
+    "full_qualification": {"status": "pass", "groups": 38, "failed_groups": [], "passed_executions": 19899, "skipped": 3},
+    "app_real_core": {"status": "pass", "isolated_shards": 4, "passed": 66, "onboarding_passed": 6}
+  },
+  "record_gates": {"inventory_errors": [], "new_lint_findings": [], "d19_errors": [], "closure_ready": true, "parity_valid": true},
+  "actual_artifact_checks": {
+    "selected_windows_wheels": 72,
+    "verified_locked_size_sha256": 72,
+    "strict_metadata_valid": 71,
+    "refused": {"package": "playwright", "artifact": "playwright-1.63.0-py3-none-win_amd64.whl", "filename_tag": "py3-none-win_amd64", "metadata_tag": "py3-none-any", "reason": "wheel_tag_mismatch"},
+    "static_runtime_pe_images": 112,
+    "static_runtime_os_imports": 49,
+    "native_execution_claim": false
+  },
+  "publication_conditions": ["OpenSSH upstream non-production-ready Preview acceptance", "Microsoft app-local CRT redistribution prerequisite unverified", "phase5 publication and existing-install safety"],
+  "native_remaining": ["hosted admitted stage and load/consumer evidence after supplier correction", "Legion Windows11 clean standard-user qualification", "disposable Linux SSH strict-host-key success/wrong-key refusal", "negative private-key ACL and supplier Authenticode evidence"],
+  "safety": {"merged": false, "installed": false, "live_services_changed": false, "active_desktop_changed": false, "disk_free_gb_minimum": 159}
+}

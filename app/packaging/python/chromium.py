@@ -8,6 +8,7 @@ import os
 import platform
 import shutil
 import stat
+import sys
 import tempfile
 import tomllib
 import urllib.request
@@ -31,7 +32,8 @@ def _cached(spec: dict, cache: Path, filename: str) -> Path:
     cache.mkdir(parents=True, exist_ok=True)
     artifact = cache / filename
     if artifact.exists():
-        if _sha256(artifact) != spec["sha256"]:
+        if (_sha256(artifact) != spec["sha256"]
+                or "size" in spec and artifact.stat().st_size != spec["size"]):
             raise ValueError(f"Chromium input hash mismatch: {artifact}")
         return artifact
     fd, temporary = tempfile.mkstemp(prefix=filename + ".", suffix=".download", dir=cache)
@@ -39,7 +41,8 @@ def _cached(spec: dict, cache: Path, filename: str) -> Path:
         with os.fdopen(fd, "wb") as output:
             with urllib.request.urlopen(spec["url"], timeout=120) as response:
                 shutil.copyfileobj(response, output)
-        if _sha256(Path(temporary)) != spec["sha256"]:
+        if (_sha256(Path(temporary)) != spec["sha256"]
+                or "size" in spec and Path(temporary).stat().st_size != spec["size"]):
             raise ValueError(f"Chromium downloaded input hash mismatch: {spec['url']}")
         os.replace(temporary, artifact)
     finally:
@@ -58,6 +61,14 @@ def _validate_playwright(lock: dict, uv_lock: Path, wheel: Path) -> None:
         raise ValueError("Chromium lock does not match uv.lock's pinned Playwright wheel")
     with zipfile.ZipFile(wheel) as archive:
         browsers = json.loads(archive.read("playwright/driver/package/browsers.json"))
+        if "driver" in pin:
+            driver = pin["driver"]
+            content = archive.read(driver["path"])
+            browser_bytes = archive.read("playwright/driver/package/browsers.json")
+            if (len(content) != driver["size"]
+                    or hashlib.sha256(content).hexdigest() != driver["sha256"]
+                    or hashlib.sha256(browser_bytes).hexdigest() != pin["browsers_json_sha256"]):
+                raise ValueError("Pinned Windows Playwright driver content mismatch")
     browser = next(
         item for item in browsers["browsers"] if item["name"] == lock["chromium"]["name"]
     )
@@ -98,22 +109,43 @@ def stage_chromium(bundle_root: Path, cache_dir: Path) -> dict:
     allowed only here during the build. A warmed cache works without networking.
     Repeated staging verifies the complete existing tree rather than overwriting it.
     """
-    if platform.system() != "Linux" or platform.machine() not in ("x86_64", "AMD64"):
-        raise ValueError("Chromium lock currently supports Linux x86_64 only")
-    lock = json.loads(LOCK_PATH.read_text())
+    windows = sys.platform == "win32"
+    if (platform.system() not in ("Linux", "Windows")
+            or platform.machine() not in ("x86_64", "AMD64")):
+        raise ValueError("Chromium lock supports Linux x86_64 and Windows AMD64 only")
+    lock_path = Path(__file__).with_name("chromium.lock.win_amd64.json") if windows else LOCK_PATH
+    lock = json.loads(lock_path.read_text())
     pin = lock["chromium"]
     cache = Path(cache_dir) / "chromium"
-    wheel = _cached(lock["playwright"], cache, f"playwright-{lock['playwright']['version']}.whl")
+    wheel_name = f"playwright-{lock['playwright']['version']}"
+    wheel_name += "-win_amd64.whl" if windows else ".whl"
+    wheel = _cached(lock["playwright"], cache, wheel_name)
     _validate_playwright(lock, REPOSITORY / "uv.lock", wheel)
-    archive = _cached(pin, cache, f"chrome-headless-shell-linux64-{pin['version']}.zip")
+    archive = _cached(pin, cache, f"{pin['archive_root']}-{pin['version']}.zip")
     destination = Path(bundle_root) / "browser" / "chromium"
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=".chromium-", dir=destination.parent))
     try:
         temporary.chmod(0o755)
-        _extract(archive, temporary, pin["archive_root"])
+        if windows:
+            from windows_archive import extract_archive
+
+            extract_archive(archive, temporary, package="chromium",
+                            expected_root=pin["archive_root"])
+            paths = sorted(temporary.rglob("*"),
+                           key=lambda path: path.relative_to(temporary).as_posix())
+            records = [{"path": path.relative_to(temporary).as_posix(),
+                        "size": path.stat().st_size, "sha256": _sha256(path)}
+                       for path in paths if path.is_file()]
+            closure = pin["closure"]
+            content = json.dumps(records, sort_keys=True, separators=(",", ":")).encode()
+            if (len(records) != closure["files"]
+                    or hashlib.sha256(content).hexdigest() != closure["inventory_sha256"]):
+                raise ValueError("Windows Chromium DLL/data closure mismatch")
+        else:
+            _extract(archive, temporary, pin["archive_root"])
         executable = temporary / pin["executable"]
-        if not executable.is_file() or not os.access(executable, os.X_OK):
+        if not executable.is_file() or (not windows and not os.access(executable, os.X_OK)):
             raise ValueError("Pinned Chromium archive has no executable headless shell")
         if _sha256(temporary / pin["license_file"]) != pin["license_sha256"]:
             raise ValueError("Pinned Chromium license content mismatch")
@@ -122,13 +154,14 @@ def stage_chromium(bundle_root: Path, cache_dir: Path) -> dict:
             actual = sorted(path.relative_to(destination) for path in destination.rglob("*"))
             if actual != expected or destination.is_symlink():
                 raise ValueError("Existing Chromium resource closure mismatch")
-            if destination.stat().st_mode & 0o7777 != 0o755:
+            if not windows and destination.stat().st_mode & 0o7777 != 0o755:
                 raise ValueError("Existing Chromium resource root mode mismatch")
             for relative in expected:
                 staged = temporary / relative
                 existing = destination / relative
                 if (existing.is_symlink() or existing.is_dir() != staged.is_dir()
-                        or existing.stat().st_mode & 0o7777 != staged.stat().st_mode & 0o7777
+                        or not windows and (existing.stat().st_mode & 0o7777
+                                            != staged.stat().st_mode & 0o7777)
                         or staged.is_file() and _sha256(existing) != _sha256(staged)):
                     raise ValueError(f"Existing Chromium resource mismatch: {relative}")
         else:
@@ -148,7 +181,7 @@ def stage_chromium(bundle_root: Path, cache_dir: Path) -> dict:
         "license_sha256": pin["license_sha256"],
         "provenance": {
             "playwright_wheel": lock["playwright"],
-            "input_lock": "app/packaging/python/chromium.lock.json",
+            "input_lock": "app/packaging/python/" + lock_path.name,
         },
         "sandbox_required": True,
         "files": sum(path.is_file() for path in destination.rglob("*")),

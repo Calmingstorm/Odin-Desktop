@@ -37,6 +37,7 @@ from ..odin_log import get_logger
 from ..sessions.manager import CHAT_RESPONSE_MAX_CHARS, summarize_tool_response
 from ..tools.builtin_policy import BUILTIN_TOOL_NAMES, BuiltinToolPolicy, unavailable_rejection
 from ..tools.registry import PHASE1_EXECUTOR_TOOL_NAMES
+from .platform.variants import windows_variant
 
 log = get_logger("desktop.services")
 
@@ -440,6 +441,36 @@ class EngineServices:
             fire_and_forget(d.turn_recorder._operational_reflection(
                 message.content, tools, response, error, message.owner_id, tool_details=details),
                 name="operational_reflection")
+
+
+@windows_variant("src.desktop.platform.windows_engine:retain_generated_copy")
+def retain_generated_copy(workspace, folder, name, data) -> str:
+    """An owner-only copy of a posted image in the local workspace; its path.
+
+    The folder must be a private directory this user owns, reached without following
+    a link; otherwise no copy is kept (an OSError the caller absorbs).
+    """
+    directory = Path(workspace) / folder
+    try:
+        os.mkdir(directory, 0o700)
+    except FileExistsError:
+        pass
+    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(fd)
+        if info.st_uid != os.geteuid() or info.st_mode & 0o077:
+            raise PermissionError(f"{directory} is not a private directory")
+        leaf = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                       0o600, dir_fd=fd)
+        try:
+            with os.fdopen(leaf, "wb") as handle:
+                handle.write(data)
+        except BaseException:
+            os.unlink(name, dir_fd=fd)
+            raise
+    finally:
+        os.close(fd)
+    return str(directory / name)
 
 
 def build_engine_services(config, paths, permissions, *, delivery, request_service=None,
@@ -910,31 +941,9 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
 
         def _retain_generated_image(self, data, folder="generated-images"):
             # The conversation shows the posted artifact; this owner-only copy in
-            # the local workspace is the one the model can open again. The folder
-            # must be a private directory this user owns, reached without following
-            # a link; otherwise no copy is kept (an OSError the caller absorbs).
-            directory = Path(get_config().tools.local_working_dir) / folder
-            try:
-                os.mkdir(directory, 0o700)
-            except FileExistsError:
-                pass
-            folder = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-            try:
-                info = os.fstat(folder)
-                if info.st_uid != os.geteuid() or info.st_mode & 0o077:
-                    raise PermissionError(f"{directory} is not a private directory")
-                name = self._generated_image_name()
-                leaf = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-                               0o600, dir_fd=folder)
-                try:
-                    with os.fdopen(leaf, "wb") as handle:
-                        handle.write(data)
-                except BaseException:
-                    os.unlink(name, dir_fd=folder)
-                    raise
-            finally:
-                os.close(folder)
-            return str(directory / name)
+            # the local workspace is the one the model can open again.
+            return retain_generated_copy(get_config().tools.local_working_dir, folder,
+                                         self._generated_image_name(), data)
 
         async def _handle_generate_file(self, message, inp):
             token = publication_tool.set("generate_file")

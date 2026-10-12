@@ -626,6 +626,14 @@ class UsageRollup:
             pos = start
         return 0
 
+    @staticmethod
+    def _sqlite_integer(value: int) -> int:
+        """A file identity number as SQLite's signed 64-bit INTEGER can hold it. Windows file IDs
+        are unsigned 64-bit (NTFS) or 128-bit (ReFS); the device and inode columns are only
+        informational, and source_id's text keeps the exact identity. Smaller values (every
+        Linux one) are stored unchanged."""
+        return value if 0 <= value < 1 << 63 else value % (1 << 63)
+
     def _source_cursor(
         self,
         conn,
@@ -650,8 +658,8 @@ class UsageRollup:
                     source_id,
                     kind,
                     path,
-                    stat.st_dev,
-                    stat.st_ino,
+                    self._sqlite_integer(stat.st_dev),
+                    self._sqlite_integer(stat.st_ino),
                     stat.st_size,
                     stat.st_size if initial_high_offset is None else initial_high_offset,
                     stat.st_size,

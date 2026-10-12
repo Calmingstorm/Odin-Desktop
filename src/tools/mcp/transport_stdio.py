@@ -27,6 +27,7 @@ from collections import deque
 from collections.abc import Callable
 from typing import Any
 
+from ...desktop.platform.variants import windows_variant
 from ...odin_log import get_logger
 from .errors import MCPConnectError, MCPPreWriteError, MCPProtocolError
 from .protocol import (
@@ -47,6 +48,7 @@ _KILL_GRACE = 3.0
 MAX_STDIN_FRAME_BYTES = 4 * 1024 * 1024
 
 
+@windows_variant("src.desktop.platform.windows_mcp:build_child_env")
 def build_child_env(configured: dict[str, str] | None) -> dict[str, str]:
     """Allowlisted base environment + the server's configured env."""
     env = {k: v for k in _ENV_ALLOWLIST if (v := os.environ.get(k)) is not None}
@@ -124,6 +126,7 @@ class StdioTransport:
     def pid(self) -> int | None:
         return self._process.pid if self._process else None
 
+    @windows_variant("src.desktop.platform.windows_mcp:start")
     async def start(self) -> None:
         if self._process is not None:
             raise MCPConnectError(f"{self.server_name}: transport already started")
@@ -335,6 +338,7 @@ class StdioTransport:
         if cancelled:
             raise asyncio.CancelledError
 
+    @windows_variant("src.desktop.platform.windows_mcp:shutdown_inner")
     async def _shutdown_inner(self) -> None:
         """stdin close → TERM → KILL → descendant sweep; never raises."""
         proc = self._process

@@ -16,6 +16,7 @@ from pathlib import Path
 from . import ipc_auth
 from .authority import OwnerAuthority, OwnerContext
 from .platform import current_platform
+from .platform.variants import windows_variant
 from .protocol import (
     HANDSHAKE_TIMEOUT,
     MAX_FRAME,
@@ -75,6 +76,7 @@ class IpcServer:
         self._token = None
         self._closing = False
 
+    @windows_variant("src.desktop.platform.windows_ipc:ipc_server_start")
     async def start(self) -> None:
         if self._server is not None or self._closing:
             raise RuntimeError("IPC server already started or closed")

@@ -27,6 +27,7 @@ from ..computer.integration import ComputerIntegration, _grant
 from ..computer.models import ComputerError, ManagementContext, RequestContext
 from ..tools.output_authorization import tool_scope_allows
 from .management import MethodError
+from .platform.variants import windows_variant
 
 
 @dataclass(eq=False)
@@ -347,6 +348,7 @@ class ComputerBindingService:
         # nor advertise cleanup/activation operations that it cannot perform.
         return self.METHODS if self._started and not self._closed else self.READ_METHODS
 
+    @windows_variant("src.desktop.platform.windows_desktop:computer_binding_start")
     async def start(self):
         """Open private state and, when opted in, read-only native X11 readiness."""
         async with self._lifecycle:

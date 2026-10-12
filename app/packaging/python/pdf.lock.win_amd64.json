@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "platform": "windows-amd64",
+  "package": "PyMuPDF",
+  "version": "1.28.2",
+  "wheel": "pymupdf-1.28.2-cp310-abi3-win_amd64.whl",
+  "url": "https://files.pythonhosted.org/packages/4a/61/d563bbccba262f9dd6d2d35ccb72593648184d886188efb12d9ce8f34dd6/pymupdf-1.28.2-cp310-abi3-win_amd64.whl",
+  "sha256": "ebd244918798502d7b4504c90410d1711a4d7675a32584ca30f1bab419ecbffe",
+  "license": "GNU AGPL-3.0-or-later OR Artifex Commercial License",
+  "license_file": "pymupdf-1.28.2.dist-info/COPYING",
+  "license_sha256": "40e60697600535eabfb5ae05f72829d88cfe8d02dd4792f5a754f6f51dabe55b",
+  "source": "PyPI wheel; artifact and license hashes cross-checked against uv.lock and wheel metadata",
+  "wheelhouse": "python-runtime/wheelhouse"
+}

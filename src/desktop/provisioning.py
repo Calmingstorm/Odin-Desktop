@@ -14,6 +14,7 @@ from ..config.schema import Config, load_config
 from ..permissions.persistence import write_private_atomic
 from .authority import OwnerAuthority
 from .paths import ProfilePaths
+from .platform.variants import windows_variant
 from .ssh_sockets import normalize_config_sockets, socket_directory
 
 # A new Desktop profile runs background work (compaction, reflection, the completion
@@ -45,6 +46,7 @@ def system_timezone() -> str:
     return "UTC"
 
 
+@windows_variant("src.desktop.platform.windows_desktop:fresh_config_document")
 def fresh_config_document(paths: ProfilePaths) -> dict:
     """Bind every path default to the explicit profile, not the process HOME.
 
@@ -98,6 +100,7 @@ def fresh_config(paths: ProfilePaths) -> Config:
     return Config.model_validate(fresh_config_document(paths))
 
 
+@windows_variant("src.desktop.platform.windows_desktop:ensure_ssh_key")
 def _ensure_ssh_key(paths: ProfilePaths, authority: OwnerAuthority, config: Config) -> None:
     """Provision only the profile-owned key, under the shared authority lock.
 

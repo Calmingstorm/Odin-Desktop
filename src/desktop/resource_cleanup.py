@@ -14,11 +14,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ..permissions.persistence import write_private_atomic
+from .platform.variants import windows_variant
 
 BOOT_ID = Path("/proc/sys/kernel/random/boot_id")
 _BOOT_ID_SHAPE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 
+@windows_variant("src.desktop.platform.windows_desktop:current_boot_id")
 def current_boot_id() -> str | None:
     """This boot's kernel identity, or None when it cannot be read or is malformed."""
     try:

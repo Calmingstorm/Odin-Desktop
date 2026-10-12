@@ -149,8 +149,9 @@ def test_missing_skill_dependencies_use_retained_installer(monkeypatch):
 def test_missing_dependencies_leave_import_failure_to_module(tmp_path, monkeypatch):
     manager = SkillManager(str(tmp_path), SimpleNamespace(), allowed_urls=("http://127.0.0.1:8188",))
     monkeypatch.setattr("src.tools.skill_manager._is_package_installed", lambda _spec: False)
-    monkeypatch.setattr("src.tools.skill_manager._install_packages",
-                        lambda packages: (False, "fixture dependency installation failed"))
+    monkeypatch.setattr(
+        "src.tools.skill_manager._install_packages",
+        lambda packages, target=None: (False, "fixture dependency installation failed"))
     code = (
         'SKILL_DEFINITION = {"name": "missing", "description": "test", '
         '"input_schema": {"type": "object", "properties": {}}, '

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
+import re
 import subprocess
 import sys
 from fractions import Fraction
@@ -11,6 +14,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = ROOT / "maintenance/desktop-coverage-baseline.json"
+WINDOWS_INVENTORY = "maintenance/windows-only-files.json"
+# Windows-only engine files are named so; the explicit inventory must match exactly.
+WINDOWS_NAME = re.compile(r"src/desktop/platform/(win32|windows(_[a-z]+)*)\.py")
 
 
 def row(total, covered):
@@ -70,9 +76,65 @@ def executable_inventory(root=ROOT):
     }
 
 
+def windows_inventory(root=ROOT) -> set[str]:
+    """The explicit Windows-only files; the naming invariant keeps the list complete."""
+    listed = json.loads((root / WINDOWS_INVENTORY).read_text())
+    if (not isinstance(listed, list) or any(type(path) is not str for path in listed)
+            or len(set(listed)) != len(listed)):
+        raise ValueError("Windows-only inventory must be a list of unique paths")
+    named = {path.relative_to(root).as_posix()
+             for path in (root / "src/desktop/platform").glob("*.py")
+             if WINDOWS_NAME.fullmatch(path.relative_to(root).as_posix())}
+    if set(listed) != named:
+        difference = sorted(set(listed) ^ named)
+        raise ValueError(f"Windows-only inventory differs from its files: {difference}")
+    return set(listed)
+
+
+def source_digest(path: Path) -> str:
+    """Line-ending neutral: the Windows checkout may write CRLF."""
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def windows_path(key: str) -> str:
+    """A Windows report key as a repository-relative POSIX path."""
+    text = key.replace("\\", "/")
+    if re.match(r"[A-Za-z]:/", text) or text.startswith("/"):
+        index = text.find("/src/")
+        if index < 0:
+            raise ValueError(f"Unexpected Windows coverage path: {key}")
+        text = text[index + 1:]
+    if not text.startswith("src/") or ".." in text.split("/"):
+        raise ValueError(f"Unexpected Windows coverage path: {key}")
+    return text
+
+
+def windows_rows(report, provenance, inventory, *, sha, root=ROOT):
+    """Native rows for the Windows-only files, from this exact revision's sources."""
+    if provenance.get("sha") != sha:
+        raise ValueError("Windows coverage was measured at another revision")
+    sources = provenance.get("sources")
+    if not isinstance(sources, dict) or set(sources) != inventory:
+        raise ValueError("Windows coverage provenance does not name the inventory exactly")
+    for path in sorted(inventory):
+        if sources[path] != source_digest(root / path):
+            raise ValueError(f"{path}: Windows coverage measured other source bytes")
+    rows = {}
+    for key, data in report["files"].items():
+        path = windows_path(key)
+        if path in inventory:
+            rows[path] = row(data["summary"]["num_statements"], data["summary"]["covered_lines"])
+    if set(rows) != inventory:
+        raise ValueError(f"Windows coverage lacks rows: {sorted(inventory - set(rows))}")
+    return rows
+
+
 def evaluate(baseline, current):
     findings = []
-    for runtime in ("python", "app"):
+    windows = set(baseline.get("windows", {}).get("files", {})) | set(current.get("windows", {}))
+    for runtime in ("python", "app", "windows"):
+        if runtime not in baseline and runtime not in current:
+            continue
         actual = current[runtime]
         expected = baseline[runtime]
         aggregate = total(actual)
@@ -88,7 +150,9 @@ def evaluate(baseline, current):
             if ratio(value) < ratio(previous) or value["missing"] > previous["missing"]:
                 findings.append(f"{path}: coverage regressed")
         for path in baseline["target_files"]:
-            if not path.startswith("src/" if runtime == "python" else "app/"):
+            owner = ("windows" if path in windows else "python" if path.startswith("src/")
+                     else "app")
+            if owner != runtime:
                 continue
             value = actual.get(path)
             if value is None:
@@ -137,14 +201,29 @@ def main(argv=None):
     parser.add_argument("--baseline", type=Path, default=BASELINE)
     parser.add_argument("--update-baseline", action="store_true",
                         help="Explicit reviewed baseline creation/update, never used by CI")
+    parser.add_argument("--windows-json", type=Path,
+                        help="The Windows job's coverage report for the Windows-only files")
+    parser.add_argument("--windows-provenance", type=Path,
+                        help="The Windows job's revision and source digests")
+    parser.add_argument("--revision", default=os.environ.get("GITHUB_SHA"),
+                        help="The commit both measurements must come from")
     args = parser.parse_args(argv)
     try:
         args.output.mkdir(parents=True, exist_ok=True)
         python_report = combine(args.combine, args.output) if args.combine else args.python_json
+        inventory = windows_inventory()
+        linux = python_rows(json.loads(python_report.read_text()))
         current = {
-            "python": python_rows(json.loads(python_report.read_text())),
+            # Linux rows come from Linux data only; Windows hits can't hide a Linux miss.
+            "python": {path: value for path, value in linux.items() if path not in inventory},
             "app": app_rows(json.loads(args.app_json.read_text())),
         }
+        if inventory:
+            if not args.windows_json or not args.windows_provenance or not args.revision:
+                raise ValueError("Windows coverage evidence or its revision is missing")
+            current["windows"] = windows_rows(
+                json.loads(args.windows_json.read_text()),
+                json.loads(args.windows_provenance.read_text()), inventory, sha=args.revision)
         if args.update_baseline:
             changed = subprocess.check_output([
                 "git", "log", "--since=2026-10-04T00:00:00-04:00", "--format=", "--name-only",
@@ -160,6 +239,8 @@ def main(argv=None):
             # the code/tests improve or a separate reviewed policy change occurs.
             if previous:
                 for runtime in current:
+                    if runtime not in previous:
+                        continue
                     for path, old in previous[runtime]["files"].items():
                         value = baseline[runtime]["files"].get(path)
                         if (value is None or ratio(value) < ratio(old)
@@ -170,14 +251,16 @@ def main(argv=None):
                     if ratio(value) < ratio(old) or value["missing"] > old["missing"]:
                         baseline[runtime]["total"] = old
             print("Explicit baseline update; prior totals:",
-                  {key: previous[key]["total"] for key in current} if previous else "none")
+                  {key: previous[key]["total"] for key in current if key in previous}
+                  if previous else "none")
             args.baseline.write_text(json.dumps(baseline, indent=2, sort_keys=True) + "\n")
         else:
             baseline = json.loads(args.baseline.read_text())
         findings = evaluate(baseline, current)
+        measured = {**current, "python": {**current["python"], **current.get("windows", {})}}
         for runtime, paths in executable_inventory().items():
             findings.extend(f"{path}: executable source absent from measurement"
-                            for path in sorted(paths - set(current[runtime])))
+                            for path in sorted(paths - set(measured[runtime])))
         # A checked-in list cannot omit an executable file changed since the
         # release-scope date. Git history is the authority, not that JSON list.
         changed = subprocess.check_output([

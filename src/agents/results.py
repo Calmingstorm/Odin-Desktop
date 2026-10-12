@@ -12,6 +12,7 @@ import os
 import tempfile
 from pathlib import Path
 
+from ..desktop.platform.variants import windows_variant
 from ..llm.secret_scrubber import scrub_output_secrets
 from ..tools.input_defaults import default_if_empty
 
@@ -21,6 +22,7 @@ def result_path(directory: Path, agent_id: str) -> Path:
     return directory / "results" / f"{key}.json"
 
 
+@windows_variant("src.desktop.platform.windows_engine:publish_result")
 def publish_result(directory: Path, snapshot: dict) -> None:
     path = result_path(directory, snapshot["id"])
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)

@@ -144,7 +144,7 @@ class MediaTools:
                     return ToolFailure(f"Failed to read file: {exc}")
             else:
                 try:
-                    from ...tools.ssh import read_binary_file
+                    from ...tools.binary_read import read_binary_file
 
                     file_bytes, read_error = await lease.run(
                         lambda: read_binary_file(
@@ -248,7 +248,7 @@ class MediaTools:
                 # Same defect as analyze_pdf: base64 over the text pipeline is
                 # truncated at MAX_OUTPUT_CHARS, so any image over roughly 12KB
                 # arrived corrupt (adversarial review). Raw bounded bytes instead.
-                from ...tools.ssh import read_binary_file
+                from ...tools.binary_read import read_binary_file
 
                 image_bytes, read_error = await lease.run(
                     lambda: read_binary_file(

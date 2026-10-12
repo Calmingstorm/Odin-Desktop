@@ -446,7 +446,7 @@ export const MANAGEMENT_SCHEMAS: Record<ManagementMethod, z.ZodType> = {
       address: z.string().min(1).max(253),
       ssh_user: sshUser,
       port: z.number().int().min(1).max(65_535).optional(),
-      os: z.enum(['linux', 'macos']).optional(),
+      os: z.enum(['linux', 'macos', 'windows']).optional(),
       description: z.string().max(200).optional(),
       enabled: z.boolean().optional(),
       trust_mode: z.enum(['pinned', 'ca', 'tofu']),

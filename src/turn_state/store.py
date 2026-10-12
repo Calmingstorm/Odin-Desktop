@@ -49,6 +49,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..desktop.platform.variants import windows_variant
 from ..odin_log import get_logger
 from ..tools.effect_classifier import (
     ToolEffectClass,
@@ -213,6 +214,7 @@ class TurnStateStore:
     the whole feature (not the process) when init fails.
     """
 
+    @windows_variant("src.desktop.platform.windows_engine:turn_state_init")
     def __init__(
         self,
         db_path: str | Path,
@@ -338,6 +340,7 @@ class TurnStateStore:
         )
         return reconciled
 
+    @windows_variant("src.desktop.platform.windows_engine:restrict_db_modes")
     def _restrict_db_modes(self) -> None:
         """0600 on the database and its WAL/SHM sidecars (best-effort — the
         sidecars appear lazily; called again from the TTL sweep)."""
@@ -353,6 +356,7 @@ class TurnStateStore:
     def available(self) -> bool:
         return self._conn is not None
 
+    @windows_variant("src.desktop.platform.windows_engine:turn_state_close")
     def close(self) -> None:
         if self._conn is not None:
             try:
@@ -1154,6 +1158,7 @@ class TurnStateStore:
 
     # ── blobs ────────────────────────────────────────────────────────
 
+    @windows_variant("src.desktop.platform.windows_engine:store_blob_sync")
     def store_blob_sync(self, data: bytes) -> str:
         """Content-addressed blob write (tmp+rename, 0600 — the codex_auth
         secure-write discipline). Returns 'blob:<sha256>'."""
@@ -1173,6 +1178,7 @@ class TurnStateStore:
                 raise TurnStateUnavailableError(f"blob write failed: {exc}") from exc
         return f"blob:{digest}"
 
+    @windows_variant("src.desktop.platform.windows_engine:load_blob_sync")
     def load_blob_sync(self, ref: str) -> bytes:
         digest = ref.split(":", 1)[1] if ref.startswith("blob:") else ref
         path = self._blob_dir / digest

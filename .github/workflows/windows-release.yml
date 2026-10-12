@@ -1,0 +1,118 @@
+name: Desktop Windows release candidate
+
+# The Windows installer for a release tag, built on GitHub's hosted Windows and kept as a candidate,
+# never published. Only release.yml takes tags (its jobs run on the self-hosted Linux builders), so
+# this one runs by hand, by the owner, for a tag that is already pushed. Publication stays the manual
+# verified-candidate operation. Unsigned for now (Aaron, 2026-10-11): a signing step slots in after
+# the build, before the acceptance, so the acceptance and the receipt cover the signed bytes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build (vX.Y.Z), already pushed
+        required: true
+        type: string
+
+permissions: {}
+concurrency:
+  group: odin-desktop-release-windows
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    name: Build Windows candidate
+    if: github.repository == 'Calmingstorm/Odin-Desktop' && github.actor == 'Calmingstorm'
+    runs-on: windows-2025
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: The input is a release tag
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if ($env:RELEASE_TAG -cnotmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+            throw "not a release tag: $env:RELEASE_TAG"
+          }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: The checkout is the tag, unchanged, and the product version is the tag's
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          $version = python -I -B scripts/release/windows_candidate.py validate --tag $env:RELEASE_TAG
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Build-time Python tools only
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.23
+          uv python install 3.12.15
+          uv venv --python 3.12.15 .venv
+          uv pip install --python .venv\Scripts\python.exe setuptools==84.0.0 wheel==0.48.0
+          uv sync --locked --extra dev --no-build-isolation-package odin-desktop-engine
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Provision pinned Electron
+        shell: pwsh
+        working-directory: app
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node node_modules/electron/install.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build the per-user installer with release provenance
+        shell: pwsh
+        working-directory: app
+        env:
+          ODIN_PACKAGING_RELEASE: '1'
+        run: |
+          node packaging/build-windows.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: The installer, elevated and as a disposable standard user
+        shell: powershell
+        run: |
+          # Exactly the installer the receipt retains: the report records these bytes' SHA-256.
+          $setup = Join-Path (Resolve-Path .packaging-candidates) `
+            "odin-desktop-$env:RELEASE_VERSION-candidate-x64-setup.exe"
+          if (-not (Test-Path -LiteralPath $setup)) { throw "no installer at $setup" }
+          & .\scripts\packaging\windows-installer-acceptance.ps1 -Installer $setup -Packaging app\packaging `
+            -Python .venv\Scripts\python.exe -Report "$env:RUNNER_TEMP\windows-installer-acceptance.json"
+          exit $LASTEXITCODE
+      - name: Candidate receipt
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          RELEASE_ATTEMPT: ${{ github.run_attempt }}
+          RELEASE_WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          python -I -B scripts/release/windows_candidate.py receipt --tag $env:RELEASE_TAG `
+            --candidates .packaging-candidates `
+            --report "$env:RUNNER_TEMP\windows-installer-acceptance.json" --out windows-candidate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload the acceptance report, passed or not (not an installer)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-release-acceptance-${{ github.run_id }}
+          path: ${{ runner.temp }}/windows-installer-acceptance.json
+          if-no-files-found: warn
+      - name: Retain the candidate in Actions storage, not a Release
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-candidate-windows-${{ github.run_id }}
+          path: windows-candidate/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+          overwrite: false

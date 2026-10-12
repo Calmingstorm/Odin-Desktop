@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { acquirePackagedApp, admitPackagedApp } from '../src/main/package-ownership'
+import { acquirePackagedApp, admitPackagedApp, hasLine, INSTALL_UNFINISHED, PENDING_EXIT } from '../src/main/package-ownership'
 
 const mocked = vi.hoisted(() => ({ spawn: vi.fn(), read: vi.fn(), exists: vi.fn(() => true) }))
 vi.mock('node:child_process', () => ({ spawn: mocked.spawn }))
@@ -18,6 +18,57 @@ function child() {
 
 describe('independent packaged app lifetime', () => {
   beforeEach(() => { mocked.spawn.mockReset(); mocked.read.mockReturnValue('deb\n') })
+
+  it('holds the per-user nsis lease through the Windows runtime, without a console window', async () => {
+    const process = child()
+    mocked.spawn.mockReturnValue(process)
+    const windowsPaths = { profileId: 'default', configDir: 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\config',
+      dataDir: 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\data' } as Parameters<typeof acquirePackagedApp>[0]
+    const pending = acquirePackagedApp(windowsPaths, 'C:\\Programs\\Odin\\resources', {}, 'win32')
+    process.stdout.write('READY\n')
+    expect(await pending).toBe(process)
+    const [command, args, options] = mocked.spawn.mock.calls[0]!
+    expect(command).toBe('C:\\Programs\\Odin\\resources\\runtime\\python\\python.exe')
+    expect(args).toEqual([
+      '-I', '-B', 'C:\\Programs\\Odin\\resources\\ownership.py', '--kind', 'nsis', '--role', 'app',
+      '--app-cleanup', 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\default-cleanup-state.json',
+      '--core-cleanup', 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\data\\resource-cleanup.json', 'hold'
+    ])
+    // Detached: otherwise Windows ends the guardian with the app, before it records the clean Exit.
+    expect(options).toMatchObject({ windowsHide: true, detached: true })
+    process.stdin.end()
+  })
+
+  it('keeps the Linux guardian a plain child, as before', async () => {
+    const process = child()
+    mocked.spawn.mockReturnValue(process)
+    const pending = acquirePackagedApp(paths, '/candidate/resources', {}, 'linux')
+    process.stdout.write('READY\n')
+    expect(await pending).toBe(process)
+    const options = mocked.spawn.mock.calls[0]![2]
+    expect(options).not.toHaveProperty('detached')
+    expect(options).not.toHaveProperty('windowsHide')
+    process.stdin.end()
+  })
+
+  it('reads the guardian\'s lines whether they end in LF or CRLF, even split across chunks', async () => {
+    expect(hasLine('READY\n', 'READY')).toBe(true)
+    expect(hasLine('READY\r\n', 'READY')).toBe(true)
+    expect(hasLine('noise\r\nADMITTED\r\n', 'ADMITTED')).toBe(true)
+    expect(hasLine('NOT-READY\n', 'READY')).toBe(false)
+    expect(hasLine('READY', 'READY')).toBe(false)
+    const process = child()
+    mocked.spawn.mockReturnValue(process)
+    const pending = acquirePackagedApp(paths, '/candidate/resources', {})
+    process.stdout.write('REA')
+    process.stdout.write('DY\r')
+    process.stdout.write('\n')
+    expect(await pending).toBe(process)
+    const admitted = admitPackagedApp(process as never)
+    process.stdout.write('ADMITTED\r\n')
+    await expect(admitted).resolves.toBeUndefined()
+    process.stdin.end()
+  })
 
   it('does not admit app startup until guardian confirms durable lifetime', async () => {
     const process = child()
@@ -60,6 +111,20 @@ describe('independent packaged app lifetime', () => {
     const args = mocked.spawn.mock.calls[0]![1] as string[]
     expect(args[args.indexOf('--kind') + 1]).toBe('appimage')
     process.stdin.end()
+  })
+
+  it('names the remedy on Windows when an unfinished installer run fences the start', async () => {
+    const windowsPaths = { profileId: 'default', configDir: 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\config',
+      dataDir: 'C:\\Users\\Ada\\AppData\\Local\\odin-desktop\\default\\data' } as Parameters<typeof acquirePackagedApp>[0]
+    for (const [system, code, message] of [['win32', PENDING_EXIT, INSTALL_UNFINISHED],
+      ['win32', 1, 'ownership is unavailable'], ['linux', PENDING_EXIT, 'ownership is unavailable']] as const) {
+      const process = child()
+      mocked.spawn.mockReturnValue(process)
+      const pending = acquirePackagedApp(system === 'win32' ? windowsPaths : paths,
+        system === 'win32' ? 'C:\\Programs\\Odin\\resources' : '/candidate/resources', {}, system)
+      process.emit('exit', code)
+      await expect(pending).rejects.toThrow(message)
+    }
   })
 
   it('guardian loss before readiness is not admission', async () => {

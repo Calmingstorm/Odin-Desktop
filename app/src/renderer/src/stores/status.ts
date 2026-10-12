@@ -15,8 +15,10 @@ const LINK_LABELS: Record<string, string> = {
   'core-failed': 'Odin stopped unexpectedly'
 }
 
-/** The connection to the core, in words: the rail's indicator and the status bar while it isn't connected. */
-export function linkLabel(link: string): string {
+/** The connection to the core, in words: the rail's indicator and the status bar while it isn't connected. A link
+ * that couldn't authenticate the core says why, until it connects. */
+export function linkLabel(link: string, problem?: string): string {
+  if (problem && link !== 'ready') return problem
   return LINK_LABELS[link] ?? link
 }
 

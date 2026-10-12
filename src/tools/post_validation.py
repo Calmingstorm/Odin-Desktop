@@ -30,6 +30,7 @@ from typing import Any
 
 import regex as bounded_regex
 
+from ..desktop.platform.variants import windows_variant
 from ..odin_log import get_logger
 
 log = get_logger("tools.post_validation")
@@ -342,6 +343,7 @@ _LOG_PROBE_SCRIPT = (
 _LOG_STATUS_LINES = frozenset({"LOG_READ_OK", "LOG_READ_PARTIAL"})
 
 
+@windows_variant("src.desktop.platform.windows_validate:build_command")
 def _build_command(check: Check) -> str | None:
     """Build the shell command the check will execute on the target host.
 

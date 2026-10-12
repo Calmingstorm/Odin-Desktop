@@ -20,7 +20,7 @@ function report(name: 'status' | 'usage'): void {
 
 <template>
   <footer class="status" tabindex="0" aria-label="Odin status">
-    <span :class="['link-text', state.app.link]">{{ linkLabel(state.app.link) }}</span>
+    <span :class="['link-text', state.app.link]">{{ linkLabel(state.app.link, state.app.linkProblem) }}</span>
     <button class="status-item core-status" title="Open the full /status report." @click="report('status')">Status</button>
     <button class="status-item" title="Open the full /usage report." @click="report('usage')">Usage</button>
     <span v-if="state.app.link === 'ready' && status.coreError" role="status">{{ status.coreError }}</span>

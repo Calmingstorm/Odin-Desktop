@@ -1,0 +1,13 @@
+Microsoft Visual C++ runtime libraries
+
+This program includes Microsoft Visual C++ runtime libraries, Microsoft Distributable Code,
+copyright Microsoft Corporation: vcruntime140.dll and vcruntime140_1.dll, which ship with the
+bundled CPython, and msvcp140.dll and msvcp140_1.dll (14.44.35211), which ONNX Runtime needs.
+They are redistributed unmodified, beside python.exe, under the Distributable Code terms of the
+Microsoft Visual Studio license held by this program's distributor.
+
+If you distribute this program further, you must comply with Microsoft's requirements for the
+Distributable Code. In particular, you must require your distributors and end users to agree to
+terms that protect it at least as much as Microsoft's own terms do. See
+https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution and
+https://visualstudio.microsoft.com/license-terms/.

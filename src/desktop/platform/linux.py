@@ -8,6 +8,7 @@ from pathlib import Path
 
 class LinuxPlatform:
     name = "linux"
+    computer_supported = True
 
     @cached_property
     def ipc(self):
@@ -16,8 +17,8 @@ class LinuxPlatform:
 
         return LinuxIpc()
 
-    def secret_backend(self):
-        """The profile keyring: the desktop session's Secret Service."""
+    def secret_backend(self, paths=None):
+        """The profile keyring: the desktop session's Secret Service, shared by every profile."""
         from .. import secrets
 
         return secrets._SecretServiceBackend()
@@ -38,3 +39,9 @@ class LinuxPlatform:
         from ..paths import ProfilePaths
 
         return ProfilePaths.from_xdg(profile_id, environ=environ, home=home)
+
+    def resolve_workspace(self, *args, **kwargs):
+        """Odin's pinned resolver itself."""
+        from ...tools.workspace import resolve_workspace
+
+        return resolve_workspace(*args, **kwargs)

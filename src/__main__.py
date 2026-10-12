@@ -11,10 +11,12 @@ from dataclasses import dataclass
 from typing import NoReturn
 
 from src import restart
+from src.desktop.platform.variants import windows_variant
 from src.runtime_paths import runtime_install_root
 from src.tools.process_manager import AdoptedZombieReaper
 
 
+@windows_variant("src.desktop.platform.windows_process:enable_process_containment")
 def _enable_process_containment(log) -> bool:
     """Become a child subreaper so escaped descendants stay ours.
 
@@ -244,6 +246,7 @@ class _FinalizeWatchdog:
     waitpid: Callable[[int, int], tuple[int, int]]
 
 
+@windows_variant("src.desktop.platform.windows_process:arm_finalize_watchdog")
 def _arm_finalize_watchdog(exit_code: int) -> _FinalizeWatchdog:
     """Arm an out-of-process, GIL-independent finalization deadline.
 
@@ -318,6 +321,7 @@ def _arm_finalize_watchdog(exit_code: int) -> _FinalizeWatchdog:
         raise AssertionError("os._exit returned")  # test doubles only
 
 
+@windows_variant("src.desktop.platform.windows_process:disarm_finalize_watchdog")
 def _disarm_finalize_watchdog(
     watchdog: _FinalizeWatchdog, exit_code: int
 ) -> None:
@@ -338,6 +342,7 @@ def _disarm_finalize_watchdog(
         watchdog.hard_exit(exit_code or 1)
 
 
+@windows_variant("src.desktop.platform.windows_process:finalize_and_exit")
 def _finalize_and_exit(
     loop, zombie_reaper: AdoptedZombieReaper, log, exit_code: int
 ) -> None:
@@ -486,6 +491,7 @@ def _startup_diagnostic(exc: BaseException, fallback_path: str, token_path: str)
     return f"Odin stopped: {kind}: {reason}: {path}"
 
 
+@windows_variant("src.desktop.platform.windows_process:core_main")
 def main() -> None:
     """Run one profile core, then prove the retained finalization barrier."""
     if "--version" in sys.argv or "-V" in sys.argv:

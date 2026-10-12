@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "platform": "win_amd64",
+  "playwright": {
+    "version": "1.63.0",
+    "url": "https://files.pythonhosted.org/packages/76/eb/d6b8d92658038e260dbc7dd69fb3fdbe245aac283953de8b50b02bfe5f61/playwright-1.63.0-py3-none-win_amd64.whl",
+    "sha256": "2f9a707a6c6c91157ed77bff2b8caeb04b3c8d46e70d585fc134298cbe4b5cc6",
+    "size": 38606082,
+    "wheel_tag_exception": {
+      "sha256": "2f9a707a6c6c91157ed77bff2b8caeb04b3c8d46e70d585fc134298cbe4b5cc6",
+      "size": 38606082,
+      "filename": "playwright-1.63.0-py3-none-win_amd64.whl",
+      "filename_tag": "py3-none-win_amd64",
+      "wheel_tag": "py3-none-any",
+      "reason": "Reviewed phase-4a decision: the supplier builds one wheel per platform but keeps a generic WHEEL metadata tag. Admit only these exact bytes with a Windows x64 driver content check."
+    },
+    "license": "Apache-2.0",
+    "provenance": "https://pypi.org/pypi/playwright/1.63.0/json; downloaded bytes agree with PyPI and uv.lock",
+    "driver": {"path": "playwright/driver/node.exe", "size": 93580104, "sha256": "ba4e6d110e8c1592a1ecd390f6b05f3da124b13871a5be62b341a07a853c6c32"},
+    "browsers_json_sha256": "545d52f8382c391e605562c330e9c1c534a16045898203037a49bb8bd769a946"
+  },
+  "chromium": {
+    "name": "chromium-headless-shell",
+    "revision": "1243",
+    "version": "153.0.8010.12",
+    "url": "https://cdn.playwright.dev/builds/cft/153.0.8010.12/win64/chrome-headless-shell-win64.zip",
+    "sha256": "7aec872f3090e639c4237467624ea863c20fe2878914c93a6556bdbb52aa6c4c",
+    "size": 120200717,
+    "archive_root": "chrome-headless-shell-win64",
+    "executable": "chrome-headless-shell-win64/chrome-headless-shell.exe",
+    "license": "BSD-3-Clause AND bundled third-party notices",
+    "license_file": "chrome-headless-shell-win64/LICENSE.headless_shell",
+    "license_sha256": "477eecded4058f14bee802ac3a97b439e89ca2a8b4e8aed2ce70485d84c9b5b5",
+    "provenance": "Version/revision verified against the pinned Windows wheel browsers.json; bytes downloaded from Playwright's versioned Chrome for Testing endpoint. Integrity pin is locally measured, not a publisher signature.",
+    "closure": {"policy": "all 290 ordinary files in the pinned browser archive; no pruning of DLL/data/locales", "files": 290, "inventory_sha256": "47d7b90e4e33c5b45c6d2076635dffcd259bd3b499acb3519b9d854db7185453", "inventory_format": "sorted file records path,size,sha256; json sort_keys=True separators=(',',':')"}
+  }
+}

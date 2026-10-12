@@ -55,8 +55,8 @@ function toggleTheme(): void {
       <span v-if="active" class="rail-count" aria-hidden="true">{{ active }}</span>
     </button>
     <span class="rail-spacer"></span>
-    <span :class="['link', 'rail-link', state.app.link]" role="status" aria-atomic="true" :title="linkLabel(state.app.link)">
-      <span class="rail-dot" aria-hidden="true"></span><span class="sr-only">{{ linkLabel(state.app.link) }}</span>
+    <span :class="['link', 'rail-link', state.app.link]" role="status" aria-atomic="true" :title="linkLabel(state.app.link, state.app.linkProblem)">
+      <span class="rail-dot" aria-hidden="true"></span><span class="sr-only">{{ linkLabel(state.app.link, state.app.linkProblem) }}</span>
     </span>
     <button type="button" class="rail-button theme-toggle" :aria-label="themeLabel" :title="themeLabel" @click="toggleTheme">
       <Icon :name="state.dark ? 'sun' : 'moon'" :size="19" />

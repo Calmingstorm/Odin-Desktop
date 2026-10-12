@@ -381,6 +381,22 @@ describe('P3.2 core-authoritative first run', () => {
     expect(write).toHaveBeenCalledTimes(1)
   })
 
+  it('General disables start at login where it isn\'t offered, and says why', async () => {
+    store.state.notifications = { enabled: true, previews: true, muted: [], quietHours: { enabled: false, start: '22:00', end: '08:00' } }
+    store.state.autostartUnavailable = 'Start at login comes with the installed Windows app.'
+    const v = mount((await import('../../src/renderer/src/views/settings/General.vue')).default)
+    mounts.push(v)
+    await flush()
+    const startup = v.root.findAll((n) => n.props['data-testid'] === 'start-at-login')[0]!
+    expect(startup.props.disabled).toBe(true)
+    const note = v.root.findAll((n) => n.props['data-testid'] === 'start-at-login-unavailable')[0]!
+    expect(note.textContent()).toBe('Start at login comes with the installed Windows app.')
+    store.state.autostartUnavailable = ''
+    await flush()
+    expect(v.root.findAll((n) => n.props['data-testid'] === 'start-at-login')[0]!.props.disabled).toBe(false)
+    expect(v.root.findAll((n) => n.props['data-testid'] === 'start-at-login-unavailable')).toEqual([])
+  })
+
   it('General exposes opt-in startup, previews, mute guidance and quiet hours immediately, then adopts persisted choices', async () => {
     const notifications: NotificationSettings = { enabled: true, previews: true, muted: [], quietHours: { enabled: false, start: '22:00', end: '08:00' } }
     store.state.notifications = notifications

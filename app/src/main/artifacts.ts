@@ -27,13 +27,22 @@ function failure(code: string, message: string): Failure {
 /** The core said the file is gone while it was being fetched or checked. */
 const GONE = failure('not_found', 'That file is no longer available.')
 
-/** A file name safe to create in a directory: no separators, control characters or leading dots. */
-export function safeFileName(name: string): string {
-  const cleaned = name
+// Device names Windows reserves, with or without an extension (COM0 to COM9 and LPT0 to LPT9 include the
+// superscript digits Windows treats the same).
+const WINDOWS_RESERVED = /^(?:con|prn|aux|nul|conin\$|conout\$|com[0-9\u00b9\u00b2\u00b3]|lpt[0-9\u00b9\u00b2\u00b3])\s*(?:\.|$)/i
+
+/** A file name safe to create in a directory: no separators, control characters or leading dots. On Windows also
+ * none of `< > : " | ? *` (a colon would name an NTFS stream), no trailing dots or spaces, and no device name. */
+export function safeFileName(name: string, system: NodeJS.Platform = process.platform): string {
+  let cleaned = name
     .replace(/[\\/\u0000-\u001f\u007f]/g, '_')
     .replace(/^\.+/, '')
     .trim()
     .slice(0, 200)
+  if (system === 'win32') {
+    cleaned = cleaned.replace(/[<>:"|?*]/g, '_').replace(/[. ]+$/, '')
+    if (WINDOWS_RESERVED.test(cleaned)) cleaned = `_${cleaned}`
+  }
   return cleaned || 'file'
 }
 

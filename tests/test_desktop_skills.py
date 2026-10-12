@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -67,6 +69,7 @@ def graph(tmp_path, monkeypatch):
     # No test can reach real pip, even if a regression tries installing a dep.
     monkeypatch.setattr("src.tools.skill_manager.subprocess.run", MagicMock(
         return_value=SimpleNamespace(returncode=1, stdout="", stderr="")))
+    monkeypatch.setattr(sys, "path", [*sys.path])  # a profile's package folder joins it
     paths = ProfilePaths.from_xdg(home=tmp_path, environ={})
     authority = OwnerAuthority(paths)
     permissions = PermissionManager(authority)
@@ -393,6 +396,12 @@ async def test_blank_optional_input_reaches_skill_unchanged(graph, value):
 
 
 def test_pip_retained_arguments_success_failure_timeout(monkeypatch):
+    import src.tools.skill_manager as skill_manager
+
+    # A plain interpreter, as Odin's: no -I, -B or -X utf8, however this runner was started.
+    monkeypatch.setattr(skill_manager, "sys", SimpleNamespace(
+        executable=sys.executable, flags=SimpleNamespace(isolated=0, utf8_mode=0),
+        dont_write_bytecode=False, path=[]))
     run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
     monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
     assert _install_packages(["example-package>=1"]) == (True, "")
@@ -409,6 +418,225 @@ def test_pip_retained_arguments_success_failure_timeout(monkeypatch):
     run.reset_mock()
     assert not _install_packages(["example package"])[0]
     run.assert_not_called()
+
+
+def test_pip_runs_under_the_parents_isolation_and_no_bytecode_flags(monkeypatch):
+    # Desktop's core runs -I -B over a sealed, user-writable runtime: pip writes no bytecode there.
+    import src.tools.skill_manager as skill_manager
+
+    run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
+    monkeypatch.setattr(skill_manager, "sys", SimpleNamespace(
+        executable="python.exe", flags=SimpleNamespace(isolated=1, utf8_mode=0),
+        dont_write_bytecode=True))
+    assert _install_packages(["example-package>=1"]) == (True, "")
+    assert run.call_args[0][0][:5] == ["python.exe", "-I", "-B", "-m", "pip"]
+
+
+def test_pip_runs_in_the_parents_utf8_mode(monkeypatch):
+    # Desktop's Windows engine runs -X utf8 and reads pip's text output as UTF-8:
+    # pip writes UTF-8 then.
+    import src.tools.skill_manager as skill_manager
+
+    run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
+    monkeypatch.setattr(skill_manager, "sys", SimpleNamespace(
+        executable="python.exe", flags=SimpleNamespace(isolated=1, utf8_mode=1),
+        dont_write_bytecode=True))
+    assert _install_packages(["example-package>=1"]) == (True, "")
+    assert run.call_args[0][0][:7] == ["python.exe", "-I", "-B", "-X", "utf8", "-m", "pip"]
+    assert run.call_args[1]["text"] is True
+
+
+def test_pip_installs_into_the_profiles_package_folder(monkeypatch, tmp_path):
+    import src.tools.skill_manager as skill_manager
+
+    # A plain interpreter, as Odin's: no -I, -B or -X utf8, however this runner was started.
+    plain = SimpleNamespace(executable=sys.executable,
+                            flags=SimpleNamespace(isolated=0, utf8_mode=0),
+                            dont_write_bytecode=False, path=[*sys.path])
+    monkeypatch.setattr(skill_manager, "sys", plain)
+    run = MagicMock(return_value=SimpleNamespace(returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr("src.tools.skill_manager.subprocess.run", run)
+    target = tmp_path / "skill-packages"
+    assert _install_packages(["example-package>=1"], target=target) == (True, "")
+    assert run.call_args[0][0] == [sys.executable, "-m", "pip", "install", "--quiet",
+                                   "--disable-pip-version-check", "--target", str(target),
+                                   "--upgrade", "example-package>=1"]
+    assert target.stat().st_mode & 0o777 == 0o700
+    assert plain.path[-1] == str(target)  # after the runtime's own packages
+
+
+BACKEND = """import base64, hashlib, json, os, sys, zipfile
+
+
+def _record(hook):
+    with open(os.environ["ODIN_PROBE_HOOK_RECORD"], "a", encoding="utf-8") as out:
+        record = {"hook": hook, "dont_write_bytecode": sys.dont_write_bytecode}
+        out.write(json.dumps(record) + "\\n")
+
+
+def get_requires_for_build_wheel(config_settings=None):
+    _record("get_requires_for_build_wheel")
+    return []
+
+
+def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
+    _record("build_wheel")
+    info = "odin_sdist_probe-1.0.dist-info"
+    files = {"odin_sdist_probe/__init__.py": "MARK = 'built from source'\\n",
+             info + "/METADATA": "Metadata-Version: 2.1\\nName: odin-sdist-probe\\nVersion: 1.0\\n",
+             info + "/WHEEL": "Wheel-Version: 1.0\\nRoot-Is-Purelib: true\\nTag: py3-none-any\\n"}
+    name = "odin_sdist_probe-1.0-py3-none-any.whl"
+    record = []
+    with zipfile.ZipFile(os.path.join(wheel_directory, name), "w") as archive:
+        for path, text in files.items():
+            data = text.encode()
+            archive.writestr(path, data)
+            digest = base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
+            record.append(path + ",sha256=" + digest + "," + str(len(data)))
+        archive.writestr(info + "/RECORD", "\\n".join(record + [info + "/RECORD,,"]) + "\\n")
+    return name
+
+
+def build_sdist(sdist_directory, config_settings=None):
+    raise NotImplementedError
+"""
+
+
+def probe_sdist(folder) -> Path:
+    """A source package whose in-tree build backend records how its hook processes run."""
+    import io
+    import tarfile
+
+    sdist = folder / "odin_sdist_probe-1.0.tar.gz"
+    members = {"pyproject.toml": ('[build-system]\nrequires = []\nbuild-backend = "backend"\n'
+                                  'backend-path = ["."]\n'),
+               "backend.py": BACKEND,
+               "PKG-INFO": "Metadata-Version: 2.1\nName: odin-sdist-probe\nVersion: 1.0\n"}
+    with tarfile.open(sdist, "w:gz") as archive:
+        for name, text in members.items():
+            data = text.encode()
+            info = tarfile.TarInfo(f"odin_sdist_probe-1.0/{name}")
+            info.size = len(data)
+            archive.addfile(info, io.BytesIO(data))
+    return sdist
+
+
+def simple_index(package: str, archive: Path):
+    """A one-package PEP 503 index on 127.0.0.1 (a secure origin to pip)."""
+    import hashlib
+    import http.server
+    import threading
+
+    data = archive.read_bytes()
+    link = f"/files/{archive.name}#sha256={hashlib.sha256(data).hexdigest()}"
+
+    class Index(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_GET(self):  # noqa: N802 - http.server's name
+            if self.path.rstrip("/") == f"/simple/{package}":
+                body, kind = f'<a href="{link}">{archive.name}</a>'.encode(), "text/html"
+            elif self.path == f"/files/{archive.name}":
+                body, kind = data, "application/octet-stream"
+            else:
+                self.send_error(404)
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Index)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+def test_a_source_packages_build_hooks_inherit_no_bytecode(monkeypatch, tmp_path):
+    # pip runs a source package's build backend in children it starts without flags. With -B
+    # (Desktop's core) the environment carries the rule to them; a plain run (Odin) stays plain.
+    server = simple_index("odin-sdist-probe", probe_sdist(tmp_path))
+    try:
+        monkeypatch.setattr(sys, "path", [*sys.path])
+        monkeypatch.setenv("PIP_INDEX_URL", f"http://127.0.0.1:{server.server_address[1]}/simple/")
+        monkeypatch.setenv("PIP_CONFIG_FILE", os.devnull)
+        monkeypatch.setenv("PIP_NO_CACHE_DIR", "1")
+        monkeypatch.delenv("PYTHONDONTWRITEBYTECODE", raising=False)  # each arm decides
+        for no_bytecode in (True, False):
+            record = tmp_path / f"hooks-{no_bytecode}.jsonl"
+            monkeypatch.setenv("ODIN_PROBE_HOOK_RECORD", str(record))
+            monkeypatch.setattr(sys, "dont_write_bytecode", no_bytecode)
+            ok, detail = _install_packages(["odin-sdist-probe==1.0"],
+                                           target=tmp_path / f"target-{no_bytecode}")
+            assert ok, detail
+            hooks = [json.loads(line) for line in record.read_text().splitlines()]
+            assert {"get_requires_for_build_wheel", "build_wheel"} <= {h["hook"] for h in hooks}
+            assert {hook["dont_write_bytecode"] for hook in hooks} == {no_bytecode}
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def demo_wheel(folder) -> None:
+    """A one-module wheel, installed from this folder without an index."""
+    import base64
+    import hashlib
+    import zipfile
+
+    dist = "odin_demo_pkg-1.0.dist-info"
+    files = {"odin_demo_pkg/__init__.py": "VALUE = 42\n",
+             f"{dist}/METADATA": "Metadata-Version: 2.1\nName: odin-demo-pkg\nVersion: 1.0\n",
+             f"{dist}/WHEEL": ("Wheel-Version: 1.0\nGenerator: odin-test\n"
+                               "Root-Is-Purelib: true\nTag: py3-none-any\n")}
+
+    def digest(text: str) -> str:
+        raw = hashlib.sha256(text.encode()).digest()
+        return "sha256=" + base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+    record = "".join(f"{path},{digest(text)},{len(text.encode())}\n"
+                     for path, text in files.items())
+    with zipfile.ZipFile(folder / "odin_demo_pkg-1.0-py3-none-any.whl", "w") as wheel:
+        for path, text in files.items():
+            wheel.writestr(path, text)
+        wheel.writestr(f"{dist}/RECORD", record + f"{dist}/RECORD,,\n")
+
+
+def test_a_dependency_installs_into_the_profile_and_imports(tmp_path, monkeypatch):
+    pytest.importorskip("pip")  # the packaged runtime gets pip with phase 4
+    monkeypatch.setattr(sys, "path", [*sys.path])
+    (tmp_path / "wheels").mkdir()
+    demo_wheel(tmp_path / "wheels")
+    monkeypatch.setenv("PIP_NO_INDEX", "1")
+    monkeypatch.setenv("PIP_FIND_LINKS", str(tmp_path / "wheels"))
+    target = tmp_path / "skill-packages"
+    already, added, diagnostics = resolve_dependencies(["odin-demo-pkg==1.0"], target)
+    assert (already, added) == ([], ["odin-demo-pkg==1.0"]), diagnostics
+    try:
+        import odin_demo_pkg
+
+        assert odin_demo_pkg.VALUE == 42 and odin_demo_pkg.__file__.startswith(str(target))
+        assert resolve_dependencies(["odin-demo-pkg==1.0"], target)[:2] == (
+            ["odin-demo-pkg==1.0"], [])
+    finally:
+        sys.modules.pop("odin_demo_pkg", None)
+
+
+async def test_skills_install_into_the_profiles_package_folder(graph, monkeypatch):
+    targets = []
+    monkeypatch.setattr("src.tools.skill_manager._is_package_installed", lambda _spec: False)
+    monkeypatch.setattr("src.tools.skill_manager._install_packages",
+                        lambda specs, target=None: (targets.append(target) or True, ""))
+    await graph.service.start()
+    token = owner(graph)
+    try:
+        await graph.service.handle("skills.save", {
+            "name": "demo", "code": code(dependencies=["example-package>=1"])})
+    finally:
+        PermissionManager.reset_request_owner(token)
+    assert targets == [graph.settings.paths.data_dir / "skill-packages"]
 
 
 async def test_dependency_install_failure_is_diagnostic_if_imports_work(graph, monkeypatch):

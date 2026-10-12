@@ -16,7 +16,9 @@ def bundled_model_roots() -> tuple[Path, ...]:
     if prefix.name != "python" or prefix.parent.name != "runtime":
         return ()
     version = f"python{sys.version_info.major}.{sys.version_info.minor}"
-    installed = prefix / "lib" / version / "site-packages"
+    # Windows' standalone CPython keeps its packages in Lib\site-packages, with no version folder.
+    installed = (prefix / "Lib" / "site-packages" if sys.platform == "win32"
+                 else prefix / "lib" / version / "site-packages")
     try:
         Path(__file__).resolve().relative_to(installed)
     except ValueError:

@@ -63,6 +63,72 @@ Every message has a type field `t`. An unknown `t` is a protocol error. Unknown 
    - **Otherwise,** it sends `bye` with a reason (`unauthorized`, `incompatible` or `wrong_profile`) and closes.
 3. After `welcome`, the app may send `req` frames. Events flow only after `events.subscribe`.
 
+## Windows: the named pipe and the sealed session
+
+Windows replaces the transport and the handshake's credential check. Framing, messages, methods, events and delivery
+rules above are unchanged. The engine side is `src/desktop/platform/windows_ipc.py` and `src/desktop/ipc_auth.py`; the
+app side is `app/src/main/windows-session.ts` and the broker. `tests/fixtures/windows-session-vectors.json` binds
+both implementations byte for byte.
+
+**Endpoint.**
+- A named pipe: `\\.\pipe\odin-desktop-<first 16 hex of SHA-256(user SID)>-<profile_id>`. The core accepts only this
+  name for its profile (`--socket`).
+- The core creates it as the first instance of its name, so a squatter makes the core's start fail rather than sit in
+  front of it. It rejects remote clients, works in byte mode, and has a protected DACL that admits only the user.
+- The core and the engine's own clients check the user SID of the process at the other end, from the OS
+  (`GetNamedPipeClientProcessId` / `GetNamedPipeServerProcessId`), before anything else. That is an owner check, not
+  proof of the exact core process.
+- The app's broker doesn't obtain the server's SID: Node has no API for it, and the design rules out a native
+  module. Its boundary is the session below. The core proves it holds the token before the app answers, every frame
+  after the proofs is sealed, and nothing reaches readiness or is re-sent before the authenticated welcome.
+  - Token possession authenticates the session, not a process or an executable.
+  - A foreign listener can receive the hello, its nonce and the non-secret negotiation fields, but never the token.
+  - The core's first-instance creation stops one takeover (a squatter makes the core's start fail), not every
+    failure or denial of service.
+- A refused session tells the window why ("Could not authenticate Odin's core: …"). The window never says another
+  program holds the pipe unless the core's own first-instance failure shows it.
+
+**Session (always on Windows; there is no fallback and no plaintext mode).**
+1. `hello` carries no `token`. It carries `auth: {v: 1, client_nonce}`: 32 fresh random bytes, as 64 lowercase hex.
+   A token-bearing hello is refused with a plain `bye` (`unauthorized`).
+2. The core answers `challenge`: `server_nonce` (32 fresh bytes), the selected `protocol`, `max_frame`,
+   `core: {instance_id}` and `server_proof`.
+3. The app checks the server proof, then sends `proof`: `client_proof`.
+4. From then on every frame in both directions is sealed; `welcome` is the first sealed frame. The app becomes ready,
+   re-sends unreceipted commands and renews its subscription only after the sealed `welcome` opens.
+
+Before the proofs, frames are capped at 4 KiB, and one 5-second deadline covers the whole exchange. Anything early
+(a `welcome`, `res` or `evt` before the proofs, a duplicate or reordered proof, a request before authentication)
+closes the connection.
+
+**Encodings.**
+- A string is a 4-byte big-endian byte length and its UTF-8 bytes. An integer is 8 bytes big-endian unsigned. A list
+  is a 4-byte big-endian count and its items. The nonces are their raw 32 bytes.
+- **Transcript:** SHA-256 over, in order: the label `odin-desktop/windows-session/v1`; the auth version; the offered
+  major and minor, then the selected major and minor; the client name and version; `profile_id` and the endpoint
+  name; the client nonce and the server nonce; `core.instance_id`, `max_frame` and the features list.
+- **Keys:** HKDF-SHA256 with the token's 32 raw bytes as input and the client nonce followed by the server nonce as
+  salt. Three 32-byte outputs, each with its own `info` (its label, then the transcript hash): `proof`, `c2s`, `s2c`.
+- **Proofs:** HMAC-SHA256 under the proof key over `server proof v1` or `client proof v1` followed by the transcript
+  hash, sent as hex and compared in constant time.
+- **Sealed frame:** the 4-byte length `L`, an 8-byte big-endian counter, then the AES-256-GCM ciphertext and its 16-byte
+  tag. The 12-byte nonce is `ODW`, a direction byte (`0x01` app to core, `0x02` core to app) and the counter; the AAD
+  is that nonce followed by `L`. `L` lies between 24 and `max_frame` + 24 and is checked before the body is read.
+- **Order:** each direction counts from 0. A receiver accepts only the next counter and advances only after the tag
+  verifies. Any failure closes the connection. A connection closes and re-handshakes before 2^32 frames or 2^36 bytes
+  in either direction; a nonce and key pair is never reused. A reconnect uses fresh nonces and keys.
+
+**What the session proves.**
+- Independently expected by both sides: `profile_id` and the endpoint name.
+- Authenticated as a claim: `core.instance_id`.
+- Proven: the peer holds this profile's token. A same-user relay can drop or delay sealed frames but can't read,
+  inject or reorder them. Same-user code is outside the boundary, as on Linux.
+
+**Parent link.** The core's stdin is a pipe held by the app, as on Linux. Windows watches it by polling
+(`PeekNamedPipe`), never with a waiting read: a synchronous read left pending holds the pipe's file object and blocks
+every other call on it, including the C runtime start-up of any DLL loaded meanwhile. A closed write end is the
+end-of-file.
+
 ## Methods (minor 1 and 2)
 
 | Method | Params | Result |

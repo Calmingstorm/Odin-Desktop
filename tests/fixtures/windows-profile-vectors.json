@@ -1,0 +1,71 @@
+{
+  "source": "Windows profile layout and pipe names, read by the engine (pytest, through src/desktop/platform/windows.py) and the app (vitest, through app/src/main/platform/windows.ts). Hashes were computed independently with sha256sum.",
+  "pipes": [
+    {
+      "profile": "default",
+      "sid": "S-1-5-21-1004336348-1177238915-682003330-1001",
+      "name": "\\\\.\\pipe\\odin-desktop-c683d27c80f2d3b9-default"
+    },
+    {
+      "profile": "work_2",
+      "sid": "S-1-5-21-3623811015-3361044348-30300820-1013",
+      "name": "\\\\.\\pipe\\odin-desktop-72c8a69c4fadaa23-work_2"
+    }
+  ],
+  "layouts": [
+    {
+      "localappdata": "C:\\Users\\Ada Lovelace\\AppData\\Local",
+      "profile": "default",
+      "config": "C:\\Users\\Ada Lovelace\\AppData\\Local\\odin-desktop\\default\\config",
+      "data": "C:\\Users\\Ada Lovelace\\AppData\\Local\\odin-desktop\\default\\data",
+      "cache": "C:\\Users\\Ada Lovelace\\AppData\\Local\\odin-desktop\\default\\cache",
+      "token": "C:\\Users\\Ada Lovelace\\AppData\\Local\\odin-desktop\\default\\config\\ipc.token",
+      "app_state": "C:\\Users\\Ada Lovelace\\AppData\\Local\\odin-desktop\\default\\config\\app-state.json",
+      "logs": "C:\\Users\\Ada Lovelace\\AppData\\Local\\odin-desktop\\default\\data\\logs"
+    },
+    {
+      "localappdata": "D:\\Profiles\\Zoë\\AppData\\Local",
+      "profile": "work_2",
+      "config": "D:\\Profiles\\Zoë\\AppData\\Local\\odin-desktop\\work_2\\config",
+      "data": "D:\\Profiles\\Zoë\\AppData\\Local\\odin-desktop\\work_2\\data",
+      "cache": "D:\\Profiles\\Zoë\\AppData\\Local\\odin-desktop\\work_2\\cache",
+      "token": "D:\\Profiles\\Zoë\\AppData\\Local\\odin-desktop\\work_2\\config\\ipc.token",
+      "app_state": "D:\\Profiles\\Zoë\\AppData\\Local\\odin-desktop\\work_2\\config\\app-state.json",
+      "logs": "D:\\Profiles\\Zoë\\AppData\\Local\\odin-desktop\\work_2\\data\\logs"
+    },
+    {
+      "localappdata": "C:/Users/x/AppData/Local",
+      "profile": "default",
+      "config": "C:\\Users\\x\\AppData\\Local\\odin-desktop\\default\\config",
+      "data": "C:\\Users\\x\\AppData\\Local\\odin-desktop\\default\\data",
+      "cache": "C:\\Users\\x\\AppData\\Local\\odin-desktop\\default\\cache",
+      "token": "C:\\Users\\x\\AppData\\Local\\odin-desktop\\default\\config\\ipc.token",
+      "app_state": "C:\\Users\\x\\AppData\\Local\\odin-desktop\\default\\config\\app-state.json",
+      "logs": "C:\\Users\\x\\AppData\\Local\\odin-desktop\\default\\data\\logs"
+    }
+  ],
+  "refused_by_both": {
+    "localappdata": [
+      "\\\\server\\share\\Local",
+      "C:Users\\x",
+      "\\Users\\x",
+      "C:\\a\\..\\b",
+      "C:\\a\nb"
+    ],
+    "profile": [
+      "-bad",
+      "a/b",
+      "",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ]
+  },
+  "refused_by_the_app_only": {
+    "localappdata": [
+      ""
+    ],
+    "profile": [
+      "Default"
+    ],
+    "why": "The app admits a subset: LOCALAPPDATA must be set (the engine falls back to the user folder), and profile IDs are lowercase (the engine also takes uppercase)."
+  }
+}
