@@ -75,6 +75,9 @@ jobs:
         working-directory: app
         env:
           ODIN_PACKAGING_RELEASE: '1'
+          # Release provenance builds from a git-object copy of the source inside this cache; the default
+          # cache in the user profile plus the deepest committed path passes Windows' 260-character limit.
+          ODIN_PACKAGING_CACHE: ${{ runner.temp }}\pc
         run: |
           node packaging/build-windows.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

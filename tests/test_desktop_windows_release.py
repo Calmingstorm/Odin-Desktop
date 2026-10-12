@@ -100,6 +100,43 @@ def git_said(head="a" * 40, tagged="a" * 40, status=""):
     return run
 
 
+def test_the_release_source_copy_keeps_every_committed_path_within_windows_limits():
+    # Release provenance builds from a git-object copy at <cache>\release-source-XXXXXXXX\
+    # (tempfile's eight characters). The hosted runner's temp folder is D:\a\_temp, and Windows
+    # refuses a path of 260 characters.
+    build = STEPS[at(lambda step: "build-windows.mjs" in step.get("run", ""))]
+    cache = build["env"]["ODIN_PACKAGING_CACHE"].replace("${{ runner.temp }}", "D:\\a\\_temp")
+    copy = cache + "\\release-source-" + "x" * 8 + "\\"
+    committed = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z"], check=True,
+                               capture_output=True).stdout.decode().split("\0")
+    deepest = max(filter(None, committed), key=len)
+    assert len(copy) + len(deepest) < 260, deepest
+
+
+def test_release_provenance_accepts_the_stages_scratch_folder_and_nothing_else(tmp_path):
+    spec = importlib.util.spec_from_file_location(
+        "build_runtime", ROOT / "app/packaging/build-runtime.py")
+    build_runtime = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(build_runtime)
+    repo = tmp_path / "repo"
+    (repo / "app").mkdir(parents=True)
+    (repo / ".gitignore").write_bytes((ROOT / ".gitignore").read_bytes())
+    (repo / "uv.lock").write_text("lock\n")
+    (repo / "app" / "package-lock.json").write_text("{}\n")
+    for args in (["init", "-q"], ["add", "-A"], ["commit", "-q", "-m", "release"]):
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@e",
+                        "-c", "commit.gpgsign=false", *args], check=True, capture_output=True)
+    clean = build_runtime.source_record(repo, "release")
+    # The Windows build re-checks the source while its scratch folder is beside the stage.
+    scratch = repo / (build_runtime.STAGE_SCRATCH + "a1b2c3d4") / "resources"
+    scratch.mkdir(parents=True)
+    (scratch / "python.exe").write_bytes(b"MZ")
+    assert build_runtime.source_record(repo, "release") == clean
+    (repo / "notes.txt").write_text("not committed\n")
+    with pytest.raises(ValueError, match="clean committed revision"):
+        build_runtime.source_record(repo, "release")
+
+
 @pytest.mark.parametrize("tag", [
     "1.0.6", "v1.0", "v1.0.6-rc1", "v1.0.6\n", "v01.0.6", " v1.0.6", "V1.0.6", "v1.0.6/../x"])
 def test_validate_refuses_what_isnt_a_release_tag(tmp_path, tag):

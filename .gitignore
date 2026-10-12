@@ -21,4 +21,5 @@ dist/
 app/node_modules/
 app/dist/
 /.packaging-stage
+/.runtime-stage-*/
 /.packaging-candidates/
