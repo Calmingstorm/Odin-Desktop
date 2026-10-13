@@ -85,6 +85,20 @@ async def test_stop_ends_a_term_immune_member_and_one_in_another_group():
     assert await gone(members)
 
 
+async def test_a_term_immune_member_in_its_own_group_waits_for_the_kill_deadline():
+    """Sent TERM once, then left alone each round until the deadline, when it is killed."""
+    command = "set -m; (trap '' TERM; sleep 60) >/dev/null 2>&1 & echo $!; echo ready; wait"
+    proc = await shell(command)
+    lines = [await proc.stdout.readline() for _ in range(2)]
+    assert lines[1] == b"ready\n"
+    member = int(lines[0])
+    assert os.getpgid(member) == member  # job control: the job leads its own group
+    started = time.monotonic()
+    assert await proc.terminate_tree(grace=0.5) is True
+    assert 0.4 < time.monotonic() - started < 10  # it outlived TERM until the deadline
+    assert await gone([member])
+
+
 async def test_a_detached_member_is_outside_the_scope(tmp_path):
     """The documented limit: a member that starts its own session is neither seen nor stopped."""
     record = tmp_path / "pid"

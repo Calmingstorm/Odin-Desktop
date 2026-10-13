@@ -3255,14 +3255,19 @@
         "missing": 11,
         "total": 275
       },
+      "src/desktop/platform/macos_shell.py": {
+        "covered": 28,
+        "missing": 0,
+        "total": 28
+      },
       "src/desktop/platform/macos_storage.py": {
         "covered": 16,
         "missing": 2,
         "total": 18
       },
       "src/desktop/platform/macos_supervisor_worker.py": {
-        "covered": 343,
-        "missing": 51,
+        "covered": 344,
+        "missing": 50,
         "total": 394
       },
       "src/desktop/platform/macos_validate.py": {
@@ -3272,9 +3277,9 @@
       }
     },
     "total": {
-      "covered": 1416,
-      "missing": 137,
-      "total": 1553
+      "covered": 1445,
+      "missing": 136,
+      "total": 1581
     }
   }
 }
