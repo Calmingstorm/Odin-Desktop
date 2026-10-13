@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from ..config.schema import ToolsConfig
-from ..desktop.platform.variants import windows_variant
+from ..desktop.platform.variants import darwin_variant, windows_variant
 from ..odin_log import get_logger
 from ..permissions.host_access import HostAccessManager
 from ..permissions.manager import PermissionManager
@@ -612,6 +612,7 @@ class ToolExecutor:
         return workspace
 
     @windows_variant("src.desktop.platform.windows_tools:ensure_process_registry")
+    @darwin_variant("src.desktop.platform.macos_jobs:ensure_process_registry")
     def _ensure_process_registry(self):
         """Lazy-init the ProcessRegistry ON THE EXECUTOR (RFC-004 P4).
 
@@ -1304,6 +1305,7 @@ class ToolExecutor:
         return provider() if provider is not None else self.config.command_shell
 
     @windows_variant("src.desktop.platform.windows_tools:exec_command")
+    @darwin_variant("src.desktop.platform.macos_jobs:exec_command")
     async def _exec_command(
         self,
         address: str,
@@ -1441,6 +1443,7 @@ class ToolExecutor:
         return raw_command_result(code, output), code
 
     @windows_variant("src.desktop.platform.windows_safety:govern_command")
+    @darwin_variant("src.desktop.platform.macos_safety:govern_command")
     def _govern_command(self, command: str, host: str | None = None) -> tuple[bool, str, str]:
         """Shared governor check. Returns (allowed, denial_message, governor_note)."""
         if not getattr(self, "command_governor", None):
