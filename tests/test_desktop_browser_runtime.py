@@ -102,6 +102,16 @@ def test_resolve_package_layout_only(tmp_path, monkeypatch, layout):
     assert resolve_bundled_chromium(root) == executable
 
 
+def test_the_mac_resolves_its_own_headless_shell_only(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "platform", "darwin")
+    root, executable = bundle(
+        tmp_path, "browser/chromium/chrome-headless-shell-mac-arm64/chrome-headless-shell")
+    assert resolve_bundled_chromium(root) == executable
+    linux_root, _ = bundle(tmp_path / "linux")  # a Linux layout is not the Mac's
+    with pytest.raises(RuntimeError, match="bundled Chromium is missing"):
+        resolve_bundled_chromium(linux_root)
+
+
 def test_bundle_directory_symlink_and_unrelated_modes_preserved(tmp_path):
     root, executable = bundle(tmp_path)
     root.chmod(0o777)

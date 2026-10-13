@@ -86,15 +86,20 @@ def resolve_bundled_chromium(bundle_root: Path) -> Path:
                     return resolved
         raise RuntimeError("Browser unavailable: required bundled Chromium .exe is missing. "
                            "Repair the desktop installation.")
-    candidates = [root / "browser/chromium/chrome-headless-shell-linux64/chrome-headless-shell"]
-    # Retain development bundles; P4.1 resources are the packaging authority.
-    legacy_root = root / "browser" if (root / "browser").is_dir() else root
-    candidates.extend(legacy_root / parent / layout / "chrome"
-                      for parent in ("chromium", "")
-                      for layout in ("chrome-linux64", "chrome-linux"))
-    for revision in sorted(legacy_root.glob("chromium-*"), reverse=True):
-        candidates.extend(revision / layout / "chrome"
+    if sys.platform == "darwin":
+        # The Mac app's headless shell (app/packaging/python/chromium.lock.macos_arm64.json).
+        candidates = [root / "browser/chromium/chrome-headless-shell-mac-arm64"
+                      / "chrome-headless-shell"]
+    else:
+        candidates = [root / "browser/chromium/chrome-headless-shell-linux64/chrome-headless-shell"]
+        # Retain development bundles; P4.1 resources are the packaging authority.
+        legacy_root = root / "browser" if (root / "browser").is_dir() else root
+        candidates.extend(legacy_root / parent / layout / "chrome"
+                          for parent in ("chromium", "")
                           for layout in ("chrome-linux64", "chrome-linux"))
+        for revision in sorted(legacy_root.glob("chromium-*"), reverse=True):
+            candidates.extend(revision / layout / "chrome"
+                              for layout in ("chrome-linux64", "chrome-linux"))
     for candidate in candidates:
         resolved = candidate.resolve()
         if (resolved.is_relative_to(root) and resolved.is_file()

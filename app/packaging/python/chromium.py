@@ -110,15 +110,19 @@ def stage_chromium(bundle_root: Path, cache_dir: Path) -> dict:
     Repeated staging verifies the complete existing tree rather than overwriting it.
     """
     windows = sys.platform == "win32"
-    if (platform.system() not in ("Linux", "Windows")
-            or platform.machine() not in ("x86_64", "AMD64")):
-        raise ValueError("Chromium lock supports Linux x86_64 and Windows AMD64 only")
-    lock_path = Path(__file__).with_name("chromium.lock.win_amd64.json") if windows else LOCK_PATH
+    darwin = sys.platform == "darwin"
+    if not (platform.system() in ("Linux", "Windows") and platform.machine() in ("x86_64", "AMD64")
+            or darwin and platform.machine() == "arm64"):
+        raise ValueError("Chromium lock supports Linux x86_64, Windows AMD64 and macOS arm64 only")
+    lock_path = (Path(__file__).with_name("chromium.lock.win_amd64.json") if windows
+                 else Path(__file__).with_name("chromium.lock.macos_arm64.json") if darwin
+                 else LOCK_PATH)
     lock = json.loads(lock_path.read_text())
     pin = lock["chromium"]
     cache = Path(cache_dir) / "chromium"
     wheel_name = f"playwright-{lock['playwright']['version']}"
-    wheel_name += "-win_amd64.whl" if windows else ".whl"
+    wheel_name += ("-win_amd64.whl" if windows else "-macosx_11_0_arm64.whl" if darwin
+                   else ".whl")
     wheel = _cached(lock["playwright"], cache, wheel_name)
     _validate_playwright(lock, REPOSITORY / "uv.lock", wheel)
     archive = _cached(pin, cache, f"{pin['archive_root']}-{pin['version']}.zip")

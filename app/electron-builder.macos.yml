@@ -1,0 +1,47 @@
+# The installed Mac app (phase 4), built only by packaging/build-macos.mjs on Apple silicon: the
+# shared configuration, with macOS's own identity and construction. Linux metadata stays as
+# electron-builder.yml has it.
+#
+# The product is Odin.app for Apple silicon on macOS 26 or newer, in a .dmg to drag to
+# Applications. Its bundle identifier is the shared appId. Dragging it to the Trash keeps the
+# profile (chats, settings, Keychain keys), as uninstalling does on Linux and Windows.
+#
+# Nothing is signed here (identity: null): phase 5's release build signs every binary with the
+# Developer ID under the hardened runtime and notarizes the result. The privacy strings say why
+# Odin may need each protected place; macOS asks the user when a tool first needs it.
+extends: electron-builder.yml
+productName: Odin
+executableName: Odin
+afterPack: packaging/after-pack-macos.cjs
+mac:
+  target:
+    - target: dmg
+      arch: [arm64]
+  category: public.app-category.developer-tools
+  icon: resources/icon.icns
+  minimumSystemVersion: '26.0'
+  identity: null
+  hardenedRuntime: true
+  darkModeSupport: true
+  # The menu bar's template images (tinted for light and dark), beside the shared files.
+  files:
+    - resources/trayTemplate.png
+    - resources/trayTemplate@2x.png
+  artifactName: odin-desktop-${version}-candidate-arm64.${ext}
+  extendInfo:
+    NSDesktopFolderUsageDescription: Odin reads and changes files on your Desktop when you ask it to.
+    NSDocumentsFolderUsageDescription: Odin reads and changes files in Documents when you ask it to.
+    NSDownloadsFolderUsageDescription: Odin reads and changes files in Downloads when you ask it to.
+    NSRemovableVolumesUsageDescription: Odin reads and changes files on external drives when you ask it to.
+    NSNetworkVolumesUsageDescription: Odin reads and changes files on network drives when you ask it to.
+    NSLocalNetworkUsageDescription: Odin connects to the computers on your network that you add as hosts, and checks local services when you ask it to.
+dmg:
+  title: Odin
+  artifactName: odin-desktop-${version}-candidate-arm64.${ext}
+  contents:
+    - x: 140
+      y: 200
+    - x: 400
+      y: 200
+      type: link
+      path: /Applications

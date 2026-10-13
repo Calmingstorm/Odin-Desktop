@@ -24,6 +24,7 @@
     "test:e2e": "electron-vite build && node scripts/lifecycle-e2e.mjs",
     "package:candidate": "node packaging/build-linux.mjs",
     "package:windows": "node packaging/build-windows.mjs",
+    "package:macos": "node packaging/build-macos.mjs",
     "test:packaging": "python3 -m unittest discover -s packaging/tests -v"
   },
   "dependencies": {

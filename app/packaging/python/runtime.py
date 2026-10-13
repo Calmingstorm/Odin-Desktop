@@ -237,14 +237,14 @@ def _stage_licenses(bundle_root: Path, cache: Path, spec: dict) -> list[dict]:
     return result
 
 
-def _locked_pip(spec: dict) -> dict:
-    """Named Linux exception: pip is an exact uv.lock wheel, not bootstrap pip."""
+def _locked_pip(spec: dict, named: str = "linux-pinned-pip-runtime-exception") -> dict:
+    """Named exception (Linux's, or the caller's): pip is an exact uv.lock wheel, not bootstrap."""
     pin = spec["pip"]
     lock = tomllib.loads((REPO / "uv.lock").read_text())
     packages = [p for p in lock["package"] if p["name"] == "pip"]
     if len(packages) != 1 or packages[0]["version"] != pin["version"]:
         raise ValueError("Pinned runtime pip differs from uv.lock")
-    if (pin.get("named_change") != "linux-pinned-pip-runtime-exception"
+    if (pin.get("named_change") != named
             or not pin.get("license") or not pin.get("provenance")):
         raise ValueError("Runtime pip requires named-change, license and provenance")
     matches = [w for w in packages[0].get("wheels", [])
@@ -257,13 +257,14 @@ def _locked_pip(spec: dict) -> dict:
     return pin
 
 
-def _stage_pip(bundle_root: Path, cache: Path, spec: dict) -> dict:
+def _stage_pip(bundle_root: Path, cache: Path, spec: dict,
+               named: str = "linux-pinned-pip-runtime-exception") -> dict:
     """Replace bootstrap payload with an exact wheel in an unpublished stage.
 
     No entrypoint or generated installer metadata is added. Validate the entire
     wheel before removing upstream pip, including a shadowing --target version.
     """
-    pin = _locked_pip(spec)
+    pin = _locked_pip(spec, named)
     artifact = _download(pin, cache / "artifacts")
     if artifact.stat().st_size != pin["size"]:
         raise ValueError("Pinned runtime pip artifact size mismatch")

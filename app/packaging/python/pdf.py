@@ -46,8 +46,9 @@ def assert_no_pdf_payload(root: Path) -> dict:
 def stage_pdf(bundle_root: Path, cache_dir: Path) -> dict:
     """Copy the immutable download lock. No wheel/license staging or download."""
     root = Path(bundle_root).resolve()
-    lock_path = (Path(__file__).with_name("pdf.lock.win_amd64.json")
-                 if sys.platform == "win32" else LOCK_PATH)
+    lock_path = (Path(__file__).with_name("pdf.lock.win_amd64.json") if sys.platform == "win32"
+                 else Path(__file__).with_name("pdf.lock.macos_arm64.json")
+                 if sys.platform == "darwin" else LOCK_PATH)
     lock = json.loads(lock_path.read_text())
     _locked_wheel(lock)
     assert_no_pdf_payload(root)

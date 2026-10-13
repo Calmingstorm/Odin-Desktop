@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "platform": "macos-arm64",
+  "minimum_macos": "26.0",
+  "python": {
+    "version": "3.12.15",
+    "release": "20261003",
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.12.15%2B20261003-aarch64-apple-darwin-install_only.tar.gz",
+    "sha256": "316a463172740e71d8dca1f2730784e325f3f720941137b5d674d5801a632213",
+    "size": 25146462,
+    "license": "PSF-2.0 AND bundled component licenses",
+    "provenance": "https://github.com/astral-sh/python-build-standalone/releases/tag/20261003"
+  },
+  "uv": {
+    "version": "0.11.26",
+    "url": "https://github.com/astral-sh/uv/releases/download/0.11.26/uv-aarch64-apple-darwin.tar.gz",
+    "sha256": "8f7fbf1708399b921857bce71e1d60f0d3ccf52a30caebc1c1a2f175dce13ab6",
+    "size": 21974303,
+    "license": "MIT OR Apache-2.0",
+    "provenance": "https://github.com/astral-sh/uv/releases/tag/0.11.26"
+  },
+  "pip": {
+    "version": "26.2.1",
+    "url": "https://files.pythonhosted.org/packages/f3/6e/1736e5b4ae2b778ef2f81c47d797de9f891d4d8acb047a24ca37a60294dd/pip-26.2.1-py3-none-any.whl",
+    "sha256": "71138adf1f4ca900cdb7d289c21b7494329f2332b6d85f0e1c42108c0384ed3e",
+    "size": 1816632,
+    "license": "MIT",
+    "provenance": "https://pypi.org/project/pip/26.2.1/",
+    "named_change": "macos-pinned-pip-runtime-exception"
+  },
+  "source_date_epoch": 1704067200,
+  "dependency_source": "uv.lock",
+  "python_license_commit": "5e46737f6480fc315ebfea83866910cbfcc772f0",
+  "python_license_hashes": {
+    "LICENSE": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+    "python-licenses.rst": "e43fb936c6655d7996dba480d7ebdea492d6040ec388eb8ed9d1000f72de8cab",
+    "LICENSE.bdb.txt": "3bdff06e69991c94664f2ef5c5f8096f60b7dbec071756ea6cc26b445e06ec5b",
+    "LICENSE.bzip2.txt": "1f38bbc7caacafd65169276d759c0d88c991b753b643ce35d0e45ea1971dd441",
+    "LICENSE.cpython.txt": "86e61415828a8b5b06ec8d024e6f086ce155a8b85fd0c419c0ba4dc004e74fdd",
+    "LICENSE.expat.txt": "122f2c27000472a201d337b9b31f7eb2b52d091b02857061a8880371612d9534",
+    "LICENSE.libffi.txt": "deaf3a42effb551a5b140fa9afefed183a27f1341c6d1bf430d106a5e6931fc0",
+    "LICENSE.liblzma.txt": "9a4062de0a2c388a98cf35a35d348b62fa97c838a71c3c28ee1a2d7d0a565b02",
+    "LICENSE.mpdecimal.txt": "669512af7219f58be03a398766d7c9da11a3b3df9d3f05cb74c5ceca25c8da3b",
+    "LICENSE.openssl-3.txt": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+    "LICENSE.sqlite.txt": "38bef3d28b24f145ea293bd3b6eb4b20396982abc8303128fb493986ea5bc719",
+    "LICENSE.tcl.txt": "c0a69a2bfd757361ec7e6143973b103c90409316b49e9c88db26ad6388e79f16",
+    "LICENSE.tix.txt": "3ac5cdd0bef6c43ce34c6a7ced452081d9e5a0bf94082b9f9147d23ec9e214f5"
+  },
+  "python_license_note": "Components linked from macOS itself (zlib, libedit, ncurses) are not redistributed; X11, libuuid and OpenSSL 1.1 are Linux-only.",
+  "engine_license": "MIT"
+}
