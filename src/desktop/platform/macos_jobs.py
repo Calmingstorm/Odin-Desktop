@@ -11,11 +11,13 @@ The worker's cleanup is best effort (session observation, see its notes). The re
 labels its local jobs' scope ``session_best_effort``: Work reports a converged stop as best effort,
 and the tool text and poll metadata carry the caveat, as Odin does for a remote process group.
 
-Engine-built commands (any host) are made portable before they run, since Odin writes them for GNU
-hosts: ``chmod 600 -- FILES`` becomes ``chmod -- 600 FILES`` (BSD chmod reads ``--`` after the mode
-as a file; both mean the same on GNU), and apply_patch's host runner is given a rename that is
-renameatx_np(RENAME_EXCL) on a macOS host and Linux's own renameat2 elsewhere. Each rewrite is
-anchored on Odin's exact text; a command without the anchor runs unchanged and fails honestly.
+Two commands Odin builds for itself, read_file's raw transport and apply_patch, are written for GNU
+hosts. They are recognized by their exact opening text (any host) and made portable before they
+run: their ``chmod 600 -- FILES`` becomes ``chmod -- 600 FILES`` (BSD chmod reads ``--`` after the
+mode as a file; both mean the same on GNU), and apply_patch's host runner is given a rename that is
+renameatx_np(RENAME_EXCL) on a macOS host and Linux's own renameat2 elsewhere. Only that opening is
+rewritten, never text after it (paths, scripts); every other command runs exactly as written, and
+a raw command route (run_command) is never rewritten.
 """
 # ruff: noqa: E501
 from __future__ import annotations
@@ -24,6 +26,7 @@ import asyncio
 import base64
 import json
 import re
+import shlex
 import socket
 import sys
 import zlib
@@ -56,8 +59,24 @@ RENAME_ON_THE_HOST = (
     "                                 'required by apply_patch')\n"
     "            raise OSError(code, os.strerror(code), destination)\n"
 )
-_RUNNER = re.compile(
-    r'printf %s ([A-Za-z0-9+/=]+) \| (base64 -d|python3 -c (?:\'[^\']*\'|\S+)) > "\$runner"')
+# The opening text of Odin's own commands (src/tools/handlers/files_docs.py), exactly.
+_READ_FILE_RAW = (
+    "metadata=$(mktemp) || exit 1; "
+    'body=$(mktemp) || { rm -f -- "$metadata"; exit 1; }; '
+    'encoded=$(mktemp) || { rm -f -- "$metadata" "$body"; exit 1; }; '
+    'trap \'rm -f -- "$metadata" "$body" "$encoded"\' EXIT; '
+    'chmod 600 -- "$metadata" "$body" "$encoded" || exit 1; ')
+_APPLY_PATCH = (
+    "runner=$(mktemp) || exit 1; "
+    'plan=$(mktemp) || { rm -f -- "$runner"; exit 1; }; '
+    'trap \'rm -f -- "$runner" "$plan"\' EXIT; '
+    'chmod 600 -- "$runner" "$plan" || exit 1; ')
+_DECODER = shlex.quote(
+    "import base64,sys,zlib; "
+    "sys.stdout.buffer.write(zlib.decompress(base64.b64decode(sys.stdin.buffer.read())))")
+# apply_patch's next step, right after its opening: the runner, plain or compressed.
+_RUNNER = re.compile(r'printf %s ([A-Za-z0-9+/=]+) \| (base64 -d|'
+                     + re.escape(f"python3 -c {_DECODER}") + r') > "\$runner" \|\| exit 1; ')
 _WRAPPER = "\nimport json\nimport sys as _sys\n"
 _APPLY_CALL = "    _changed = apply_plan(_sys.argv[1], _plan)\n"
 _APPLY_WITH_RENAME = "    _changed = apply_plan(_sys.argv[1], _plan, rename_noreplace=_rename)\n"
@@ -79,27 +98,43 @@ def _with_rename(payload: str, *, compressed: bool) -> str:
     return base64.b64encode(zlib.compress(patched) if compressed else patched).decode("ascii")
 
 
+def engine_command(command: str) -> str | None:
+    """Which of Odin's own GNU-written commands this is, by its exact opening; else None."""
+    if command.startswith(_READ_FILE_RAW):
+        return "read_file"
+    if command.startswith(_APPLY_PATCH) and _RUNNER.match(command, len(_APPLY_PATCH)):
+        return "apply_patch"
+    return None
+
+
+def _bsd_order(opening: str) -> str:
+    return opening.replace("chmod 600 -- ", "chmod -- 600 ", 1)
+
+
 def portable_command(command: str) -> str:
-    """An engine-built command, written to run on GNU and BSD hosts alike (see the notes)."""
-    command = command.replace("chmod 600 -- ", "chmod -- 600 ")
-    match = _RUNNER.search(command)
-    if match is None:
-        return command
-    payload = _with_rename(match.group(1), compressed=match.group(2) != "base64 -d")
-    return command[:match.start(1)] + payload + command[match.end(1):]
+    """One of Odin's own commands, written to run on GNU and BSD hosts alike (see the notes)."""
+    kind = engine_command(command)
+    if kind == "read_file":
+        return _bsd_order(_READ_FILE_RAW) + command[len(_READ_FILE_RAW):]
+    if kind == "apply_patch":
+        match = _RUNNER.match(command, len(_APPLY_PATCH))
+        payload = _with_rename(match.group(1), compressed=match.group(2) != "base64 -d")
+        return (_bsd_order(_APPLY_PATCH) + command[len(_APPLY_PATCH):match.start(1)] + payload
+                + command[match.end(1):])
+    return command
 
 
 _internal_bin: Path | None = None
 
 
 def _internal_environment(env):
-    """The environment for an engine-built command: the engine's interpreter first as python3.
+    """The environment for apply_patch's runner: the engine's interpreter first as python3.
 
-    Commands the engine writes for itself (apply_patch's runner) need a current python3. On macOS,
-    /usr/bin/python3 is Apple's older interpreter, or a stub that offers to install developer
-    tools; neither is the engine's. A private folder in the verified per-user temporary folder
-    holds a python3 link to the engine's interpreter, ahead of the rest of PATH. Commands a model
-    writes keep the user's own PATH.
+    The runner is engine code and needs a current python3. On macOS, /usr/bin/python3 is Apple's
+    older interpreter, or a stub that offers to install developer tools; neither is the engine's.
+    A private folder in the verified per-user temporary folder holds a python3 link to the
+    engine's interpreter, ahead of the rest of PATH. Every other command keeps the user's own
+    PATH, run_script included: its script is the model's, run by the user's interpreter.
     """
     import os
     import tempfile
@@ -246,7 +281,7 @@ async def run_local_command(
         # right back into it (review finding, 2026-07-27).
         choice = resolve_local_shell(command_shell)
         env = workspace_env(Path(cwd)) if cwd else None
-        if internal:  # macOS: engine-built commands use the engine's own python3
+        if internal:  # macOS: apply_patch's runner uses the engine's own python3
             env = _internal_environment(env)
         # start_new_session puts the shell at the head of its own process
         # group, so timeout/cancellation cleanup can take out descendants
@@ -323,7 +358,10 @@ async def exec_command(
         is_local_address,
     )
 
-    if not use_command_shell:  # engine-built: portable for whichever host runs it
+    # Odin's own GNU-written commands, made portable for whichever host runs them. A raw
+    # command route (run_command) is never rewritten, whatever its text.
+    kind = None if use_command_shell else engine_command(command)
+    if kind is not None:
         command = portable_command(command)
     if not is_local_address(address):
         return await ToolExecutor._exec_command.linux_original(
@@ -333,7 +371,7 @@ async def exec_command(
         timeout = _current_tool_timeout_ctx.get() or self.config.command_timeout_seconds
     cwd = self._ensure_local_workspace() if use_workspace else None
     shell = self._command_shell_mode() if use_command_shell else "sh"
-    internal = not use_command_shell  # raw command routes opt into the configured shell
+    internal = kind == "apply_patch"  # only its runner needs the engine's python3
     bh = self.bulkheads.get("subprocess")
     if bh:
         try:

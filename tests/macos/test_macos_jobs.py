@@ -249,59 +249,100 @@ def test_the_registry_states_the_caveat_for_local_jobs_only():
     assert caveat(other) == ""
 
 
-# --- Engine-built commands made portable -------------------------------------------------------
+# --- Odin's own GNU-written commands, made portable ---------------------------------------------
 
 
-def _runner_command(text: str, *, compressed: bool) -> str:
-    import base64
-    import shlex
-    import zlib
+async def built(tool: str, request: dict) -> str:
+    """The exact command Odin's own handler builds for this request (captured, never run).
 
-    raw = text.encode()
-    if compressed:
-        payload = base64.b64encode(zlib.compress(raw)).decode()
-        decoder = shlex.quote("import base64,sys,zlib; sys.stdout.buffer.write("
-                              "zlib.decompress(base64.b64decode(sys.stdin.buffer.read())))")
-        return (f'runner=$(mktemp) || exit 1; chmod 600 -- "$runner" || exit 1; '
-                f'printf %s {payload} | python3 -c {decoder} > "$runner" || exit 1; '
-                'python3 "$runner" /root')
-    payload = base64.b64encode(raw).decode()
-    return (f'runner=$(mktemp) || exit 1; chmod 600 -- "$runner" || exit 1; '
-            f'printf %s {payload} | base64 -d > "$runner" || exit 1; python3 "$runner" /root')
+    The handler is set up as Odin's own handler tests set it up (tests/test_handlers_files_docs.py).
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    from src.tools.handlers.files_docs import FilesDocsTools
+    from src.tools.hosts import HostRegistry
+
+    resolved = ("127.0.0.1", "root", "macos")
+    tools = FilesDocsTools.__new__(FilesDocsTools)
+    tools._run_on_host = AsyncMock(return_value=("", 1))
+    tools._govern_command = MagicMock(return_value=(True, "", None))
+    tools._resolve_host = lambda host: resolved
+    tools._acquire_host = lambda host: HostRegistry.unmanaged_lease(host, resolved)
+    tools._deps = SimpleNamespace(config=lambda: SimpleNamespace(
+        ssh_key_path="/dev/null", ssh_known_hosts_path="/dev/null"))
+    await getattr(tools, f"_handle_{tool}")({"host": "localhost", **request})
+    return tools._run_on_host.call_args.args[1]
 
 
-RUNNER = ("def apply_plan(root, plan, *, rename_noreplace=None):\n    pass\n"
-          "\nimport json\nimport sys as _sys\ntry:\n    _plan = json.loads(_sys.stdin.read())\n"
-          "    _changed = apply_plan(_sys.argv[1], _plan)\nexcept BaseException:\n    pass\n")
+def add_file(text: str) -> str:
+    return f"*** Begin Patch\n*** Add File: added.txt\n+{text}\n*** End Patch\n"
 
 
-@pytest.mark.parametrize("compressed", [False, True])
-def test_the_patch_runner_gets_the_hosts_rename(compressed):
+LARGE = "large \u03bb payload " * 2800  # over Odin's plain command limit: it compresses this one
+
+
+def runner_of(command: str) -> str:
     import base64
     import re
     import zlib
 
-    portable = macos_jobs.portable_command(_runner_command(RUNNER, compressed=compressed))
-    assert 'chmod -- 600 "$runner"' in portable and "chmod 600 --" not in portable
-    payload = re.search(r"printf %s ([A-Za-z0-9+/=]+) \|", portable).group(1)
-    raw = base64.b64decode(payload)
-    text = (zlib.decompress(raw) if compressed else raw).decode()
-    assert "renameatx_np" in text and "rename_noreplace=_rename)" in text
-    compile(text, "runner", "exec")  # still a valid program
+    match = re.search(r'printf %s ([A-Za-z0-9+/=]+) \| (base64 -d|python3 -c )', command)
+    raw = base64.b64decode(match.group(1))
+    return (raw if match.group(2) == "base64 -d" else zlib.decompress(raw)).decode()
 
 
-@pytest.mark.parametrize("command", [
-    "echo hello",                                                      # nothing to change
-    'printf %s aGVsbG8= | base64 -d > "$runner"',                     # not Odin's runner
-    'printf %s %%%% | base64 -d > "$runner"',                         # not base64 at all
-])
-def test_other_commands_are_left_as_they_are(command):
-    assert macos_jobs.portable_command(command) == command
+@pytest.mark.parametrize("text", ["small", LARGE], ids=["plain", "compressed"])
+async def test_odins_patch_command_gets_bsd_chmod_and_the_hosts_rename(tmp_path, text):
+    command = await built("apply_patch", {"root": str(tmp_path), "patch_text": add_file(text)})
+    assert ("python3 -c" in command) == (text is LARGE)
+    assert macos_jobs.engine_command(command) == "apply_patch"
+    portable = macos_jobs.portable_command(command)
+    opening = macos_jobs._APPLY_PATCH
+    assert portable.startswith(opening.replace('chmod 600 -- "$runner"', 'chmod -- 600 "$runner"'))
+    assert "chmod 600 --" not in portable
+    runner = runner_of(portable)
+    assert "renameatx_np" in runner and "rename_noreplace=_rename)" in runner
+    assert runner_of(command) not in runner and "renameatx_np" not in runner_of(command)
+    compile(runner, "runner", "exec")  # still a valid program
+    after = '> "$runner" || exit 1; '  # the plan and the call are Odin's, unchanged
+    assert portable.split(after, 1)[1] == command.split(after, 1)[1]
 
 
-async def test_exec_command_rewrites_only_engine_built_commands(monkeypatch):
+async def test_odins_raw_read_command_gets_bsd_chmod_and_nothing_else():
+    path = "/tmp/a chmod 600 -- b"  # Odin's text inside a path is the path's: never rewritten
+    command = await built("read_file", {"path": path, "raw": True})
+    assert macos_jobs.engine_command(command) == "read_file"
+    portable = macos_jobs.portable_command(command)
+    opening = macos_jobs._READ_FILE_RAW
+    assert portable[:len(opening)] == opening.replace("chmod 600 --", "chmod -- 600")
+    assert portable[len(opening):] == command[len(opening):]
+    assert "'/tmp/a chmod 600 -- b'" in portable
+
+
+async def test_every_other_command_runs_exactly_as_written():
+    numbered = await built("read_file", {"path": "/etc/hosts"})  # numbered reads need nothing
+    not_a_runner = (macos_jobs._APPLY_PATCH
+                    + 'printf %s aGVsbG8= | base64 -c > "$runner" || exit 1; true')
+    for command in (numbered, "echo hello", 'chmod 600 -- "$runner" "$plan"', not_a_runner,
+                    "x" + macos_jobs._READ_FILE_RAW):
+        assert macos_jobs.engine_command(command) is None
+        assert macos_jobs.portable_command(command) == command
+
+
+def test_a_runner_that_is_not_odins_keeps_its_payload():
+    tail = 'printf %s aGVsbG8= | base64 -d > "$runner" || exit 1; python3 "$runner" / < "$plan"'
+    command = macos_jobs._APPLY_PATCH + tail
+    assert macos_jobs.engine_command(command) == "apply_patch"
+    assert macos_jobs.portable_command(command).endswith(tail)  # it fails honestly as written
+
+
+async def test_exec_command_rewrites_odins_commands_and_only_patches_get_its_python(
+        monkeypatch, tmp_path):
     from src.tools.executor import ToolExecutor
 
+    patch = await built("apply_patch", {"root": str(tmp_path), "patch_text": add_file("x")})
+    read = await built("read_file", {"path": "/etc/hosts", "raw": True})
+    script = 'TMPF=$(mktemp) && python3 "$TMPF"'  # run_script's shape: the user's own python3
     seen = []
 
     async def local(command, **kwargs):
@@ -317,11 +358,15 @@ async def test_exec_command_rewrites_only_engine_built_commands(monkeypatch):
     fake = SimpleNamespace(config=SimpleNamespace(command_timeout_seconds=30),
                            bulkheads={}, _ensure_local_workspace=lambda: "/tmp",
                            _command_shell_mode=lambda: "bash")
-    await macos_jobs.exec_command(fake, "127.0.0.1", "chmod 600 -- x")
-    await macos_jobs.exec_command(fake, "127.0.0.1", "chmod 600 -- x", use_command_shell=True)
-    await macos_jobs.exec_command(fake, "192.0.2.5", "chmod 600 -- x")
-    assert seen == [("local", "chmod -- 600 x", True), ("local", "chmod 600 -- x", False),
-                    ("remote", "chmod -- 600 x", None)]
+    await macos_jobs.exec_command(fake, "127.0.0.1", patch)
+    await macos_jobs.exec_command(fake, "127.0.0.1", read)
+    await macos_jobs.exec_command(fake, "127.0.0.1", script, use_workspace=True)
+    await macos_jobs.exec_command(fake, "127.0.0.1", patch, use_command_shell=True)  # raw route
+    await macos_jobs.exec_command(fake, "192.0.2.5", patch)
+    portable = macos_jobs.portable_command
+    assert seen == [("local", portable(patch), True), ("local", portable(read), False),
+                    ("local", script, False), ("local", patch, False),
+                    ("remote", portable(patch), None)]
 
 
 async def test_a_full_bulkhead_refuses_a_local_command(monkeypatch):

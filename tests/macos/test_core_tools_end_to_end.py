@@ -351,19 +351,23 @@ async def test_local_tools_run_through_the_engine(tmp_path):
     add = "*** Begin Patch\n*** Add File: notes.txt\n+first line\n+second line\n*** End Patch"
     update = ("*** Begin Patch\n*** Update File: notes.txt\n@@\n first line\n-second line\n"
               "+second line, patched\n*** End Patch")
+    large_text = "large \u03bb payload " * 2800  # over Odin's plain command limit: compressed
+    large = f"*** Begin Patch\n*** Add File: large.txt\n+{large_text}\n*** End Patch"
     model.scripts.update({
         "command": sequence(("run_command", {
             "host": "localhost", "command": 'echo "e2e $((40 + 2))"'})),
         "failure": sequence(("run_command", {"host": "localhost", "command": "exit 7"})),
         "script": sequence(("run_script", {
             "host": "localhost", "interpreter": "bash",
-            "script": 'total=$((6 * 7))\necho "script $total"'})),
+            "script": 'total=$((6 * 7))\necho "script $total"\necho "path ${PATH%%:*}"'})),
         "job": job,
         "file": sequence(
             ("apply_patch", {"host": "localhost", "root": str(work), "patch_text": add}),
             ("read_file", {"host": "localhost", "path": str(notes)}),
             ("apply_patch", {"host": "localhost", "root": str(work), "patch_text": update}),
-            ("read_file", {"host": "localhost", "path": str(notes)})),
+            ("read_file", {"host": "localhost", "path": str(notes)}),
+            ("read_file", {"host": "localhost", "path": str(notes), "raw": True}),
+            ("apply_patch", {"host": "localhost", "root": str(work), "patch_text": large})),
         "validate": sequence(("validate_action", {"bundle_name": "e2e", "checks": [
             {"type": "http", "target": f"{model.base_url}/models", "expected": [200],
              "host": "localhost"},
@@ -393,6 +397,8 @@ async def test_local_tools_run_through_the_engine(tmp_path):
             settled(done, core, model, "script")
             assert calls(tools) == [("run_script", "success")], model.results
             assert "script 42" in model.results["script"][0]
+            # The model's script runs with the user's PATH, never the engine's private python3.
+            assert "odin-desktop-bin-" not in model.results["script"][0], model.results
 
             done, tools = await run(client, conversation, "job")
             settled(done, core, model, "job")
@@ -411,11 +417,16 @@ async def test_local_tools_run_through_the_engine(tmp_path):
 
             done, tools = await run(client, conversation, "file")
             settled(done, core, model, "file")
-            expected = [("apply_patch", "success"), ("read_file", "success")] * 2
+            expected = [("apply_patch", "success"), ("read_file", "success")] * 2 + [
+                ("read_file", "success"), ("apply_patch", "success")]
             assert calls(tools) == expected, model.results
             results = model.results["file"]
             assert "second line" in results[1] and "patched" not in results[1], results
             assert "second line, patched" in results[3], results
+            assert ("<<<ODIN_READ_FILE_RAW_CONTENT_V1>>>\nfirst line\nsecond line, patched\n"
+                    "<<<ODIN_READ_FILE_RAW_END_V1>>>") in results[4], results
+            assert (work / "large.txt").read_text(encoding="utf-8") == large_text + "\n"
+            assert sorted(path.name for path in work.iterdir()) == ["large.txt", "notes.txt"]
             assert notes.read_bytes() == b"first line\nsecond line, patched\n"
 
             done, tools = await run(client, conversation, "validate")
