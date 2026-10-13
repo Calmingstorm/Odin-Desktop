@@ -11,10 +11,11 @@
 # login keychain is never used.
 set -euo pipefail
 
-RUNTIME=$(cd "$1" && pwd)
+# The physical path: on macOS /var is a link to /private/var, and the Mach-O list holds resolved paths.
+RUNTIME=$(cd "$1" && pwd -P)
 P12=$2
 P12_PASSWORD_FILE=$3
-HERE=$(cd "$(dirname "$0")" && pwd)
+HERE=$(cd "$(dirname "$0")" && pwd -P)
 PYTHON="$RUNTIME/python/bin/python3.12"
 STRICT="$RUNTIME/python/bin/python3.12-strict"
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/odin-sign.XXXXXX")
