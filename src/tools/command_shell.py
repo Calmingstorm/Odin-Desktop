@@ -6,7 +6,7 @@ import shutil
 import signal
 from dataclasses import dataclass
 
-from ..desktop.platform.variants import windows_variant
+from ..desktop.platform.variants import darwin_variant, windows_variant
 
 
 @dataclass(frozen=True)
@@ -113,6 +113,7 @@ def format_command_result(
 
 
 @windows_variant("src.desktop.platform.windows_exec:apply_shell_contracts")
+@darwin_variant("src.desktop.platform.macos_shell:apply_shell_contracts")
 def apply_shell_contracts(definitions: list[dict], mode: str = "auto") -> list[dict]:
     try:
         choice = resolve_local_shell(mode)

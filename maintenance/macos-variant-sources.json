@@ -11,6 +11,7 @@
   "src/desktop/ssh_sockets.py:prepare_socket_directory -> src.desktop.platform.macos_desktop:prepare_socket_directory": "a2e7fc59f450468b2582deff341a934e496177c24f83824e5ccf22a2c9bd8a63",
   "src/desktop/ssh_sockets.py:socket_directory -> src.desktop.platform.macos_desktop:socket_directory": "232b35281218156e0893ff448d12769c24e8ab79d128a6671f829518d8acb6c9",
   "src/health/checker.py:_process_descriptor_usage -> src.desktop.platform.darwin:process_descriptor_usage": "cefbe4c25a0b426fab05f06307f8f2c92227a329d01eea5a15ffb99f7f44c3cf",
+  "src/tools/command_shell.py:apply_shell_contracts -> src.desktop.platform.macos_shell:apply_shell_contracts": "0166e13812315068f84c0769f8d6aaa820c0bbd63919955f4fe2ee2e6b3648d2",
   "src/tools/executor.py:_ensure_process_registry -> src.desktop.platform.macos_jobs:ensure_process_registry": "6ef30bb5c1d3351abe23f9cdb1b73d15ddcfa549d8ec46d98564d4f5a80e132d",
   "src/tools/executor.py:_exec_command -> src.desktop.platform.macos_jobs:exec_command": "a7e1260e5e4f30bef8719d0fc04437eaadaf5063a381296b52cbcf5bfdca7fc4",
   "src/tools/executor.py:_govern_command -> src.desktop.platform.macos_safety:govern_command": "11d43248aa6e5172019f872db9b9acdd90de50a155708188d887d96cf8f1155c",

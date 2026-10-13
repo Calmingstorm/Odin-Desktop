@@ -151,6 +151,7 @@ class ScriptedModel:
         self.scripts: dict = {}
         self.results: dict[str, list[str]] = {}
         self.errors: list[str] = []
+        self.tools: dict[str, str] = {}  # the latest description of each tool the model was given
         self._ids = itertools.count(1)
         model = self
 
@@ -202,6 +203,9 @@ class ScriptedModel:
     def answer(self, request: dict) -> dict:
         if not request.get("tools"):
             return {"content": "COMPLETE"}
+        for tool in request["tools"]:
+            function = tool.get("function") or tool
+            self.tools[function.get("name")] = function.get("description") or ""
         messages = request.get("messages") or []
         prompts = [index for index, message in enumerate(messages)
                    if message.get("role") == "user" and "[script:" in _text(message)]
@@ -387,6 +391,11 @@ async def test_local_tools_run_through_the_engine(tmp_path):
             settled(done, core, model, "command")
             assert calls(tools) == [("run_command", "success")], model.results
             assert "e2e 42" in model.results["command"][0]
+            # The model is told which bash runs commands here and that the Mac's tools differ.
+            told = re.search(r" Local commands run under (Apple's bash 3\.2 \(/bin/bash\)|"
+                             r"bash \(/\S+\)) on this Mac, where the system's own tools are the "
+                             r"BSD versions, not GNU", model.tools["run_command"])
+            assert told, model.tools["run_command"]
 
             done, tools = await run(client, conversation, "failure")
             settled(done, core, model, "failure")
