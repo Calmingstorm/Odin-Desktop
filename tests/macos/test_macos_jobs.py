@@ -190,6 +190,27 @@ def test_a_command_that_cannot_start_is_reported():
 # --- The job helpers ---------------------------------------------------------------------------
 
 
+def test_a_member_that_exits_before_it_is_watched_is_skipped():
+    """The race between seeing a member and watching it: a gone process is not watched."""
+    from src.desktop.platform import macos_supervisor_worker as worker
+
+    left, right = socket.socketpair()
+    supervisor = worker.Worker(left)
+    try:
+        child = subprocess.Popen(["/usr/bin/true"])
+        child.wait()  # reaped: macOS hands out numbers in order, so this one names nothing now
+        supervisor.watch(child.pid)
+        assert child.pid not in supervisor.watched
+        supervisor.watch(os.getpid())
+        supervisor.watch(os.getpid())
+        assert supervisor.watched == {os.getpid()}
+    finally:
+        supervisor.selector.close()
+        supervisor.queue.close()
+        left.close()
+        right.close()
+
+
 def test_internal_commands_get_the_engines_python3_and_raw_ones_keep_path(monkeypatch):
     monkeypatch.setattr(macos_jobs, "_internal_bin", None)
     environment = macos_jobs._internal_environment({"PATH": "/usr/bin:/bin", "KEEP": "1"})

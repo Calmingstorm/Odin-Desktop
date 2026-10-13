@@ -127,6 +127,23 @@ async def test_process_pid_reuse_cannot_cancel_successor(work):
     assert service.processes.calls == []
 
 
+@pytest.mark.parametrize(("containment", "confirmed_empty", "release", "state"), [
+    ("process_group", True, "confirmed", "settled"),
+    ("session_best_effort", True, "best_effort", "settled"),  # macOS: converged, not proven
+    ("session_best_effort", False, "unproven", "unknown"),
+])
+def test_a_settled_process_reports_how_its_release_is_known(work, containment, confirmed_empty,
+                                                            release, state):
+    service, message, _context = work
+    item = ProcessInfo(778, "harmless", "stub", 1, owner_id=message.owner_id,
+                       origin_channel=message.conversation_id, status="completed",
+                       session_confirmed_empty=confirmed_empty, containment=containment)
+    service.processes._processes[778] = item
+    service.register("process", "778", message)
+    settlement = service.list()["items"][0]["settlement"]
+    assert settlement == {"state": state, "resource_release": release, "scope": containment}
+
+
 
 def test_a_restored_process_keeps_the_command_work_recorded(work):
     """L6 (1.0.5): after a restart a finished process came back without its command

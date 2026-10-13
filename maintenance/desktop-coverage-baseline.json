@@ -3215,9 +3215,9 @@
         "total": 150
       },
       "src/desktop/platform/macos.py": {
-        "covered": 41,
+        "covered": 43,
         "missing": 3,
-        "total": 44
+        "total": 46
       },
       "src/desktop/platform/macos_desktop.py": {
         "covered": 46,
@@ -3230,14 +3230,24 @@
         "total": 50
       },
       "src/desktop/platform/macos_ipc.py": {
-        "covered": 94,
-        "missing": 13,
+        "covered": 95,
+        "missing": 12,
         "total": 107
+      },
+      "src/desktop/platform/macos_jobs.py": {
+        "covered": 228,
+        "missing": 33,
+        "total": 261
       },
       "src/desktop/platform/macos_process.py": {
         "covered": 71,
         "missing": 4,
         "total": 75
+      },
+      "src/desktop/platform/macos_safety.py": {
+        "covered": 93,
+        "missing": 0,
+        "total": 93
       },
       "src/desktop/platform/macos_secrets.py": {
         "covered": 264,
@@ -3248,12 +3258,22 @@
         "covered": 16,
         "missing": 2,
         "total": 18
+      },
+      "src/desktop/platform/macos_supervisor_worker.py": {
+        "covered": 340,
+        "missing": 54,
+        "total": 394
+      },
+      "src/desktop/platform/macos_validate.py": {
+        "covered": 21,
+        "missing": 2,
+        "total": 23
       }
     },
     "total": {
-      "covered": 713,
-      "missing": 52,
-      "total": 765
+      "covered": 1398,
+      "missing": 140,
+      "total": 1538
     }
   }
 }
