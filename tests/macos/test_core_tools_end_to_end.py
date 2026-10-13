@@ -528,11 +528,21 @@ async def test_a_remote_host_serves_the_model_over_ssh(tmp_path):
     with socket.socket() as free:
         free.bind((address, 0))
         port = free.getsockname()[1]
+    remote = Path(os.path.realpath(tmp_path)) / "remote"
+    remote.mkdir()
+    add = "*** Begin Patch\n*** Add File: notes.txt\n+first line\n+second line\n*** End Patch"
+    update = ("*** Begin Patch\n*** Update File: notes.txt\n@@\n first line\n-second line\n"
+              "+second line, patched\n*** End Patch")
     model = ScriptedModel()
     model.scripts["ssh"] = sequence(
         ("run_command", {"host": "box", "command": "uname -s; echo e2e-$((6 * 7))"}),
         ("run_command", {"host": "box", "command": "exit 7"}),
-        ("read_file", {"host": "box", "path": "/etc/hosts"}))
+        ("read_file", {"host": "box", "path": "/etc/hosts"}),
+        # Odin's own GNU-written commands on a remote Mac, made portable by Desktop; the host's
+        # own python3 runs the patch runner.
+        ("apply_patch", {"host": "box", "root": str(remote), "patch_text": add}),
+        ("apply_patch", {"host": "box", "root": str(remote), "patch_text": update}),
+        ("read_file", {"host": "box", "path": str(remote / "notes.txt"), "raw": True}))
     core = launch(tmp_path)
     sshd = None
     try:
@@ -562,12 +572,16 @@ async def test_a_remote_host_serves_the_model_over_ssh(tmp_path):
             done, tools = await run(client, await chat(client), "ssh")
             settled(done, core, model, "ssh")
             expected = [("run_command", "success"), ("run_command", "failure"),
-                        ("read_file", "success")]
+                        ("read_file", "success"), ("apply_patch", "success"),
+                        ("apply_patch", "success"), ("read_file", "success")]
             assert calls(tools) == expected, model.results
             results = model.results["ssh"]
             assert "Darwin" in results[0] and "e2e-42" in results[0], results
             assert results[1].startswith("Command failed (exit 7)"), results
             assert "localhost" in results[2], results
+            assert (remote / "notes.txt").read_bytes() == b"first line\nsecond line, patched\n"
+            assert ("<<<ODIN_READ_FILE_RAW_CONTENT_V1>>>\nfirst line\nsecond line, patched\n"
+                    "<<<ODIN_READ_FILE_RAW_END_V1>>>") in results[5], results
             assert model.errors == []
         finally:
             await client.close()
