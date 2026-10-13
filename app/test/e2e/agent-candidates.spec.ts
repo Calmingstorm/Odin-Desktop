@@ -2,7 +2,7 @@
 // the actual preload bridge. Electron refuses a live Vue proxy there, which a unit test's fake bridge can't show.
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { expect, test, type ElectronApplication } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { assertIsolated, exitApp, launchApp, repository, request, waitForCore } from './harness'
 import { isolatedServicesBootstrap } from '../isolated-services-bootstrap'
 
@@ -67,28 +67,14 @@ test('saves automatic agent candidates chosen on the Models page through the rea
   }
 })
 
-// A settings save through the app's own core methods, as the R4 cases configure their canned provider.
-async function save(application: ElectronApplication, method: string, changes: Array<{ path: string; value: unknown }>): Promise<void> {
-  const schema = await request(application, 'settings.schema')
-  expect(schema.ok).toBe(true)
-  const answer = await request(application, method, { expected_revision: (schema.result as { revision: string }).revision, changes })
-  expect(answer.ok, `${method}: ${JSON.stringify(answer)}`).toBe(true)
-}
-
 test('keeps every candidate control in view with a long compatible model name, at 1024 and 1180 wide', async () => {
   assertIsolated()
   const application = await launchApp({ profile: 'agent-candidates-geometry', env: memoryKeyringCore() })
   const model = 'anthropic/claude-sonnet-4.6'
   try {
     await waitForCore(application)
-    // A compatible endpoint whose catalogue name is a long qualified reference; nothing is ever called.
-    await save(application, 'providers.compat.set', [
-      { path: 'openai_compatible.preset', value: 'custom' },
-      { path: 'openai_compatible.base_url', value: 'http://127.0.0.1:9/v1' },
-      { path: 'openai_compatible.model', value: model }
-    ])
-    expect((await request(application, 'secrets.set', { path: 'openai_compatible.api_key', value: 'geometry-test-only' })).ok).toBe(true)
-    await save(application, 'providers.compat.set', [{ path: 'openai_compatible.enabled', value: true }])
+    // A saved automatic choice with a realistic compatible reference: its provider is off, so the row also carries a
+    // note, the widest case.
     const schema = await request(application, 'settings.schema')
     const chosen = await request(application, 'models.agents.set', { model: 'auto', expected_revision: (schema.result as { revision: string }).revision,
       auto_model_allowlist: [`compat:${model}`, { model: 'gpt-6-astra', reasoning_effort: 'high' }, 'gpt-6.1-sol'] })
