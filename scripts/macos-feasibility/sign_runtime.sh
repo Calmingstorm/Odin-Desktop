@@ -35,10 +35,17 @@ while IFS= read -r keychain; do
   BEFORE+=("$keychain")
 done <<< "$BEFORE_TEXT"
 
+CREATED=0
 cleanup() {
   local status=$? problems=0 after
-  if ! security delete-keychain "$KEYCHAIN" 2>/dev/null && [ -e "$KEYCHAIN" ]; then
-    echo "cleanup: the temporary keychain could not be deleted: $KEYCHAIN" >&2
+  if [ "$CREATED" -eq 1 ]; then
+    if ! security delete-keychain "$KEYCHAIN" 2>/dev/null; then
+      echo "cleanup: deleting the temporary keychain failed: $KEYCHAIN" >&2
+      problems=1
+    fi
+  fi
+  if [ -e "$KEYCHAIN" ]; then
+    echo "cleanup: the temporary keychain file remains: $KEYCHAIN" >&2
     problems=1
   fi
   if after=$(search_list 2>/dev/null); then
@@ -66,6 +73,7 @@ trap cleanup EXIT
 
 KEYCHAIN_PASSWORD=$(/usr/bin/openssl rand -hex 24)
 security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+CREATED=1
 security set-keychain-settings -lut 1800 "$KEYCHAIN"
 security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
 security list-keychains -d user -s "$KEYCHAIN" ${BEFORE[@]+"${BEFORE[@]}"}
@@ -143,7 +151,10 @@ elif submission:
     verdict = "submission recorded; status unknown (it could not be read)"
 else:
     verdict = "submission failed"
-detail = "" if status in known else f" [notarytool exit {code}: {(errors or text)[-200:]!r}]"
+# Apple's verdict and the command's own outcome are separate facts: a nonzero exit is reported
+# next to a recognized verdict, never instead of it.
+detail = "" if code == 0 and status in known else (
+    f" [notarytool exit {code}: {(errors or text)[-200:]!r}]")
 print(f"notarization: {verdict}" + (f" (submission {submission})" if submission else "") + detail)
 REPORT
 fi
