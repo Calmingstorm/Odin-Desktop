@@ -3235,9 +3235,9 @@
         "total": 107
       },
       "src/desktop/platform/macos_jobs.py": {
-        "covered": 228,
+        "covered": 243,
         "missing": 33,
-        "total": 261
+        "total": 276
       },
       "src/desktop/platform/macos_process.py": {
         "covered": 71,
@@ -3260,8 +3260,8 @@
         "total": 18
       },
       "src/desktop/platform/macos_supervisor_worker.py": {
-        "covered": 340,
-        "missing": 54,
+        "covered": 343,
+        "missing": 51,
         "total": 394
       },
       "src/desktop/platform/macos_validate.py": {
@@ -3271,9 +3271,9 @@
       }
     },
     "total": {
-      "covered": 1398,
-      "missing": 140,
-      "total": 1538
+      "covered": 1416,
+      "missing": 137,
+      "total": 1553
     }
   }
 }

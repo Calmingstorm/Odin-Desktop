@@ -211,6 +211,20 @@ def test_a_member_that_exits_before_it_is_watched_is_skipped():
         right.close()
 
 
+def test_a_member_that_exits_while_it_is_read_is_left_out(monkeypatch):
+    """The race between listing a session and reading a member: a gone member is not kept."""
+    import errno
+
+    from src.desktop.platform import macos_supervisor_worker as worker
+
+    child = subprocess.Popen(["/usr/bin/true"])
+    child.wait()  # reaped: its number names nothing now
+    assert worker._identity(child.pid) == (errno.ESRCH, None, 0)
+    monkeypatch.setattr(worker, "list_pids", lambda: [child.pid])
+    monkeypatch.setattr(worker, "session_of", lambda pid: 4242)  # listed in the session, then gone
+    assert worker.observe_session(4242) == {}
+
+
 def test_internal_commands_get_the_engines_python3_and_raw_ones_keep_path(monkeypatch):
     monkeypatch.setattr(macos_jobs, "_internal_bin", None)
     environment = macos_jobs._internal_environment({"PATH": "/usr/bin:/bin", "KEEP": "1"})
