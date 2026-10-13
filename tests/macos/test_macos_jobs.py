@@ -397,6 +397,42 @@ async def test_exec_command_rewrites_odins_commands_and_only_patches_get_its_pyt
                     ("remote", portable(patch), None)]
 
 
+def test_a_privacy_refusal_names_the_setting_once():
+    from src.tools.command_shell import CommandOutput
+
+    refused = CommandOutput("cat: /Users/ada/Desktop/x: Operation not permitted", shell="bash",
+                            reason="exited", returncode=1)
+    hinted = macos_jobs.with_privacy_hint(1, refused)
+    assert hinted.endswith(macos_jobs.PRIVACY_HINT) and hinted.startswith(str(refused))
+    assert (hinted.effective_shell, hinted.termination_reason, hinted.raw_returncode) == (
+        "bash", "exited", 1)
+    assert macos_jobs.with_privacy_hint(1, hinted) == hinted  # once
+    assert macos_jobs.with_privacy_hint(1, "rm: x: Operation not permitted").endswith(
+        "then retry.")
+    for code, text in ((0, "Operation not permitted, then it worked"), (1, "No such file")):
+        assert macos_jobs.with_privacy_hint(code, text) == text
+
+
+async def test_exec_command_adds_the_privacy_hint_to_local_failures_only(monkeypatch):
+    from src.tools.executor import ToolExecutor
+
+    async def local(command, **kwargs):
+        return 1, "ls: Documents: Operation not permitted"
+
+    async def remote(self, address, command, *rest):
+        return 1, "ls: Documents: Operation not permitted"
+
+    monkeypatch.setattr(macos_jobs, "run_local_command", local)
+    monkeypatch.setattr(ToolExecutor._exec_command, "linux_original", remote)
+    fake = SimpleNamespace(config=SimpleNamespace(command_timeout_seconds=30),
+                           bulkheads={}, _ensure_local_workspace=lambda: "/tmp",
+                           _command_shell_mode=lambda: "bash")
+    code, text = await macos_jobs.exec_command(fake, "127.0.0.1", "ls ~", use_command_shell=True)
+    assert code == 1 and text.endswith(macos_jobs.PRIVACY_HINT)
+    code, text = await macos_jobs.exec_command(fake, "192.0.2.5", "ls ~", use_command_shell=True)
+    assert text == "ls: Documents: Operation not permitted"  # another computer's privacy
+
+
 async def test_a_full_bulkhead_refuses_a_local_command(monkeypatch):
     from src.tools.bulkhead import BulkheadFullError
 

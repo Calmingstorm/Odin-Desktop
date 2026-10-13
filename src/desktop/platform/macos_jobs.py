@@ -124,6 +124,26 @@ def portable_command(command: str) -> str:
     return command
 
 
+PRIVACY_HINT = (
+    "\n[macOS privacy] macOS refused access (Operation not permitted). If this is a protected place "
+    "(Desktop, Documents, Downloads, iCloud Drive, or an external or network drive), allow Odin in "
+    "System Settings > Privacy & Security > Files and Folders (Full Disk Access for other "
+    "protected data), then retry.")
+
+
+def with_privacy_hint(code: int, output):
+    """A local failure that macOS refused for privacy names the setting that allows it, once."""
+    from src.tools.command_shell import CommandOutput
+
+    text = str(output)
+    if code == 0 or "Operation not permitted" not in text or PRIVACY_HINT in text:
+        return output
+    if isinstance(output, CommandOutput):
+        return CommandOutput(text + PRIVACY_HINT, shell=output.effective_shell,
+                             reason=output.termination_reason, returncode=output.raw_returncode)
+    return text + PRIVACY_HINT
+
+
 _internal_bin: Path | None = None
 
 
@@ -376,12 +396,15 @@ async def exec_command(
     if bh:
         try:
             async with bh.acquire():
-                return await run_local_command(command, timeout=timeout, on_output=on_output,
-                                               cwd=cwd, command_shell=shell, internal=internal)
+                code, output = await run_local_command(
+                    command, timeout=timeout, on_output=on_output, cwd=cwd,
+                    command_shell=shell, internal=internal)
         except BulkheadFullError:
             return 1, "Error: subprocess bulkhead full — too many concurrent local commands"
-    return await run_local_command(command, timeout=timeout, on_output=on_output, cwd=cwd,
-                                   command_shell=shell, internal=internal)
+    else:
+        code, output = await run_local_command(command, timeout=timeout, on_output=on_output,
+                                               cwd=cwd, command_shell=shell, internal=internal)
+    return code, with_privacy_hint(code, output)
 
 
 # Lifted from the Linux original (ProcessRegistry._start_local_reserved), with the macOS

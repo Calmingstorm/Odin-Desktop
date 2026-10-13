@@ -21,8 +21,12 @@ export function windowsInstallerName(tag: string): string {
   return `odin-desktop-${tag.replace(/^v/, '')}-x64-setup.exe`
 }
 
-function carriesWindowsInstaller(row: { tag_name: string; assets?: unknown }): boolean {
-  const name = windowsInstallerName(row.tag_name)
+/** The published Mac disk image's exact name (Apple silicon): a release without it isn't one a Mac can install. */
+export function macDiskImageName(tag: string): string {
+  return `odin-desktop-${tag.replace(/^v/, '')}-arm64.dmg`
+}
+
+function carries(row: { tag_name: string; assets?: unknown }, name: string): boolean {
   return Array.isArray(row.assets) && row.assets.some((asset) => !!asset && typeof asset === 'object'
     && asset.name === name && asset.state === 'uploaded' && typeof asset.size === 'number' && asset.size > 0)
 }
@@ -92,7 +96,8 @@ export class ReleaseNoticeService {
       const version = stableVersion(row.tag_name)
       if (!version || !validReleaseUrl(row.html_url, row.tag_name) || typeof row.published_at !== 'string' ||
         !Number.isFinite(Date.parse(row.published_at))) return result('malformed')
-      if (this.system === 'win32' && !carriesWindowsInstaller(row)) continue
+      if (this.system === 'win32' && !carries(row, windowsInstallerName(row.tag_name))) continue
+      if (this.system === 'darwin' && !carries(row, macDiskImageName(row.tag_name))) continue
       stable.push({ tag: row.tag_name, url: row.html_url, version })
     }
     if (!stable.length) return result('no-release')
