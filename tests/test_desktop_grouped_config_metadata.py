@@ -11,6 +11,7 @@ MAPS = (
     "openai_codex.context_budget_overrides",
     "sessions.context_budget_overrides",
     "tools.governor.host_overrides",
+    "agents.model_selection_hints",
 )
 
 
@@ -29,6 +30,8 @@ def test_grouped_maps_have_unique_authoritative_records(populated):
         if populated:
             if path.endswith("model_profiles"):
                 value = {"example": {"total_window_tokens": 10000, "max_output_tokens": 1000}}
+            elif path.endswith("model_selection_hints"):
+                value = {"gpt-6-astra": "Hardest problems"}
             else:
                 value = {"example": "strict" if path.endswith("host_overrides") else 4096}
         put(dump, path, value)
@@ -82,3 +85,23 @@ def test_missing_or_malformed_maps_never_gain_invented_records():
     fields = build_meta_payload({"openai_compatible": {"model_profiles": "not-a-map"}})["fields"]
     assert {field["path"] for field in fields} == {"openai_compatible.model_profiles"}
     assert "record_members" not in fields[0]
+
+
+@pytest.mark.parametrize("allowlist", [
+    [], ["gpt-6-luna"],
+    [{"model": "gpt-6-astra", "reasoning_effort": "high", "thinking_mode": None}, "gpt-6-luna"],
+])
+def test_the_agent_candidate_list_keeps_one_complete_record(allowlist):
+    # Candidates with their own effort flatten into entry leaves; the Models editor still needs the
+    # whole list as one record with the agents owner's authority.
+    dump = Config().model_dump(mode="json")
+    dump["agents"]["auto_model_allowlist"] = allowlist
+    payload = build_meta_payload(dump, boot_dump=deepcopy(dump))
+    path = "agents.auto_model_allowlist"
+    records = [field for field in payload["fields"] if field["path"] == path]
+    assert len(records) == 1
+    expected = build_field_record(
+        "agents.auto_model_allowlist", allowlist, boot_value=allowlist, has_boot=True,
+    )
+    assert records[0] == expected
+    assert records[0]["desired"] == allowlist

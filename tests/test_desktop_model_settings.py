@@ -658,6 +658,10 @@ async def test_agents_candidate_effort_and_descriptions_save_through_the_real_ow
     assert saved["auto_model_allowlist"][2] == "gpt-6.1-sol"
     assert saved["model_selection_hints"] == {"gpt-6-astra": "Hardest problems"}
     assert settings.config.agents.model_selection_hints == {"gpt-6-astra": "Hardest problems"}
+    # The page reads both back whole, as single records, though their entries flatten into leaves.
+    fields = {field["path"]: field for field in settings.schema()["fields"]}
+    assert fields["agents.auto_model_allowlist"]["desired"] == saved["auto_model_allowlist"]
+    assert fields["agents.model_selection_hints"]["desired"] == {"gpt-6-astra": "Hardest problems"}
     # The generic route still may not change them.
     for change in ({"path": "agents.auto_model_allowlist", "value": ["gpt-6-luna"]},
                    {"path": "agents.model_selection_hints", "value": {}}):

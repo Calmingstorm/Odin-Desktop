@@ -319,7 +319,7 @@
     "docs/design/prompt-changes.md": "3e685af175e5195c489ae4af3f4d08fe2fcfbd20050002428047573d972f4b12",
     "scripts/maintenance/fresh_profile_parity.py": "d138190781599220b6b123b03f2f75d94c5edf4d1fe51513a01f7cd1e0456118",
     "src/config/__init__.py": "7624b8d6c9f55d85ee27ca3e714b5d180dd81f990d74fa4f96773f7ead37eacb",
-    "src/config/apply_registry.py": "dea437516cef985b364a05562326ab22656b1be5fe289e427b3de509661eaca8",
+    "src/config/apply_registry.py": "3e83c899b2538a7a0090aa10fc5abffaf7d51616b1148fffc897f0484748d7cf",
     "src/config/environment.py": "93f7601bcfcc28d7d1ba76c19b274dd163dbdeb87a1214160f8bc91a4b2b3944",
     "src/config/image_defaults.py": "a78c396288a4dcbf5d578bad545645e9e3187b91409896cd7e4e59216ffa1678",
     "src/config/initialization.py": "2ee1a9de821bb42b21126229bf25da987521ec1604b813e28a74286124695ebe",
