@@ -12,6 +12,8 @@ export class Host {
   clientHeight = 0
   /** Every scrollTop the component set, in order. */
   scrolls: number[] = []
+  /** Inline style, as v-show sets display on it. */
+  style: Record<string, string> = {}
   /** What a form control holds, as v-model and bound props read and set it. */
   value: unknown = ''
   checked = false

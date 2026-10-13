@@ -2223,7 +2223,11 @@ def build_meta_payload(
         "openai_codex.context_budget_overrides",
         "sessions.context_budget_overrides",
         "tools.governor.host_overrides",
+        "agents.model_selection_hints",
     )
+    # Lists of records flatten into entry leaves too; the Models editor owns
+    # this one whole, so its complete value always has a record.
+    grouped_lists = ("agents.auto_model_allowlist",)
     missing = object()
 
     def map_value(dump: dict[str, Any], path: str) -> Any:
@@ -2235,6 +2239,15 @@ def build_meta_payload(
         return value
 
     facts = schema_facts()
+    for path in grouped_lists:
+        desired = map_value(config_dump, path)
+        if not isinstance(desired, list) or any(item["path"] == path for item in fields):
+            continue
+        boot = map_value(boot_dump, path) if boot_dump is not None else missing
+        fields.append(build_field_record(
+            path, desired, boot_value=None if boot is missing else boot,
+            has_boot=has_boot and boot is not missing,
+        ))
     for path in grouped_maps:
         desired = map_value(config_dump, path)
         if not isinstance(desired, dict):

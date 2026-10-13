@@ -49,6 +49,8 @@ const blocked = (row: ModelRow | undefined): string => {
   return reason && reason !== 'not configured' && reason !== 'disabled' ? reason : ''
 }
 const label = (model: string, row: ModelRow | undefined): string => row ? catalogueModelLabel(row) : model
+// The row shows the model's own name; the provider tag says where it runs, and the full reference is on hover.
+const shortName = (model: string, row: ModelRow | undefined): string => row?.name?.trim() || model.replace(/^(compat|ollama):/, '')
 const note = (model: string): string => {
   if (!rowFor(model)) return 'Not in the current model choices. It stays chosen until you untick it.'
   return modelSelectionNote(model, props.rows, props.fields)
@@ -98,6 +100,11 @@ const builtin = (model: string): string => rowFor(model)?.builtin_hint ?? ''
 const fromProfile = (model: string): boolean => rowFor(model)?.builtin_hint_source === 'profile'
 const custom = (model: string): string | undefined => props.hints?.[model] || undefined
 const editing = reactive<Record<string, boolean>>({})
+// Each row is one line; its details (the full description, editing, thinking mode, notes) open on demand, and stay
+// open while its description is being edited.
+const open = reactive<Record<string, boolean>>({})
+const isOpen = (model: string): boolean => Boolean(open[model] || editing[model])
+const summary = (model: string): string => custom(model) ?? builtin(model)
 /** Editing starts from Odin's description; text back to it, or cleared, stores no custom description. */
 function describe(model: string, text: string): void {
   if (!props.hints) return
@@ -114,82 +121,92 @@ const id = (model: string, part: string): string => settingsControlId('curated-r
 
 <template>
   <div :id="controlId('agents.auto_model_allowlist')" tabindex="-1" class="agent-candidates" data-testid="agent-candidates">
-    <h4>Models Odin can choose from</h4>
-    <p class="settings-help">For each agent, Odin picks one of the ticked models. Models nearer the top are preferred. A model's description tells Odin what it's good for.</p>
+    <div class="candidates-heading">
+      <h4>Models Odin can choose from</h4>
+      <button v-if="!usingDefault" class="ghost" data-testid="agent-candidates-reset" @click="update([])">Use Odin's default</button>
+    </div>
+    <p class="settings-help">For each agent, Odin picks one of the ticked models, preferring those nearer the top. Its description tells Odin what each model is good for.</p>
     <p class="candidates-state" data-testid="agent-candidates-state">
       <template v-if="usingDefault && defaults.length">Using Odin's default: {{ defaults.length === 1 ? 'one model' : `${defaults.length} models` }}. Untick a model to choose your own.</template>
       <template v-else-if="usingDefault">Using Odin's default.</template>
       <template v-else>{{ chosen.length }} of {{ list.length }} models ticked.</template>
+      <template v-if="chosen.length === 1"> At least one model stays ticked.</template>
     </p>
     <p v-if="hints === null" class="settings-help">Descriptions can't be edited here until the selection guidance under More options is valid JSON.</p>
     <ul class="candidate-list" aria-label="Models Odin can choose from">
       <li v-for="(item, index) in list" :key="item.model" :class="['candidate', { ticked: item.ticked }]" :data-model="item.model">
-        <div class="candidate-head">
+        <div class="candidate-row">
           <input :id="id(item.model, 'chosen')" type="checkbox" :checked="item.ticked"
             :disabled="item.ticked ? chosen.length === 1 : Boolean(blocked(item.row))"
             @change="toggle(item.model, ($event.target as HTMLInputElement).checked)" />
-          <label :for="id(item.model, 'chosen')"><span v-if="item.ticked" class="candidate-rank">{{ index + 1 }}.</span> {{ label(item.model, item.row) }}</label>
+          <label :for="id(item.model, 'chosen')" class="candidate-name" :title="label(item.model, item.row)"><span v-if="item.ticked" class="candidate-rank">{{ index + 1 }}.</span> {{ shortName(item.model, item.row) }}</label>
           <span class="candidate-provider">{{ providerNames[modelProvider(item.model)] }}</span>
+          <span v-if="blocked(item.row) || (item.ticked && note(item.model))" class="candidate-flag" :title="blocked(item.row) ? `Can't run agents: ${blocked(item.row)}` : note(item.model)">{{ blocked(item.row) ? 'Unavailable' : 'Note' }}</span>
+          <span class="candidate-summary" :title="summary(item.model)">{{ summary(item.model) }}</span>
+          <select v-if="item.ticked" :id="id(item.model, 'reasoning_effort')" class="candidate-effort" :aria-label="`Reasoning effort for ${item.model}`" :title="'Reasoning effort'" :value="setting(item.model, 'reasoning_effort')" @change="choose(item.model, 'reasoning_effort', ($event.target as HTMLSelectElement).value)">
+            <option v-if="setting(item.model, 'reasoning_effort') && setting(item.model, 'reasoning_effort') !== 'auto' && !efforts(item.model)?.includes(setting(item.model, 'reasoning_effort'))" :value="setting(item.model, 'reasoning_effort')" disabled>{{ setting(item.model, 'reasoning_effort') }} (not supported)</option>
+            <option value="">Agents' effort</option><option value="auto">Automatic</option>
+            <option v-for="effort in efforts(item.model) ?? []" :key="effort" :value="effort">{{ effort }}</option>
+          </select>
           <span v-if="item.ticked" class="candidate-order">
-            <button class="ghost" :aria-label="`Move ${item.model} up`" :disabled="index === 0" @click="move(item.model, -1)">Move up</button>
-            <button class="ghost" :aria-label="`Move ${item.model} down`" :disabled="index === chosen.length - 1" @click="move(item.model, 1)">Move down</button>
+            <button class="ghost" :aria-label="`Move ${item.model} up`" title="Move up" :disabled="index === 0" @click="move(item.model, -1)">↑</button>
+            <button class="ghost" :aria-label="`Move ${item.model} down`" title="Move down" :disabled="index === chosen.length - 1" @click="move(item.model, 1)">↓</button>
           </span>
+          <button class="ghost candidate-toggle" :aria-label="`Details for ${item.model}`" :aria-expanded="isOpen(item.model)" :aria-controls="id(item.model, 'details')" @click="open[item.model] = !isOpen(item.model)">{{ isOpen(item.model) ? '▾' : '▸' }}</button>
         </div>
-        <p v-if="blocked(item.row)" class="settings-help">Can't run agents: {{ blocked(item.row) }}</p>
-        <p v-if="item.ticked && note(item.model)" class="settings-help">{{ note(item.model) }}</p>
-        <p v-if="item.ticked && chosen.length === 1" class="settings-help">At least one model stays ticked.</p>
-        <p class="candidate-description" :data-testid="`candidate-description-${item.model}`">
-          <template v-if="custom(item.model)">{{ custom(item.model) }} <span class="candidate-source">Your description</span></template>
-          <template v-else-if="builtin(item.model)">{{ builtin(item.model) }}<template v-if="fromProfile(item.model)"> <span class="candidate-source">From its profile</span></template></template>
-          <template v-else>Odin has no description for this model.<template v-if="item.ticked"> Add one so Odin knows which tasks suit it.</template></template>
-        </p>
-        <div v-if="item.ticked" class="candidate-options">
-          <span>
-            <label :for="id(item.model, 'reasoning_effort')">Reasoning effort</label>
-            <select :id="id(item.model, 'reasoning_effort')" :value="setting(item.model, 'reasoning_effort')" @change="choose(item.model, 'reasoning_effort', ($event.target as HTMLSelectElement).value)">
-              <option v-if="setting(item.model, 'reasoning_effort') && setting(item.model, 'reasoning_effort') !== 'auto' && !efforts(item.model)?.includes(setting(item.model, 'reasoning_effort'))" :value="setting(item.model, 'reasoning_effort')" disabled>{{ setting(item.model, 'reasoning_effort') }} (not supported)</option>
-              <option value="">Same as agent reasoning effort</option><option value="auto">Automatic</option>
-              <option v-for="effort in efforts(item.model) ?? []" :key="effort" :value="effort">{{ effort }}</option>
-            </select>
-          </span>
-          <span v-if="item.row?.capability === 'thinking'">
-            <label :for="id(item.model, 'thinking_mode')">Thinking mode</label>
-            <select :id="id(item.model, 'thinking_mode')" :value="setting(item.model, 'thinking_mode')" @change="choose(item.model, 'thinking_mode', ($event.target as HTMLSelectElement).value)">
-              <option value="">Same as agents</option><option v-for="mode in thinkingModes" :key="mode" :value="mode">{{ mode }}</option>
-            </select>
-          </span>
-          <span v-if="hints !== undefined" class="candidate-description-actions">
-            <button class="ghost" :aria-label="`${editing[item.model] ? 'Close' : 'Edit'} the description of ${item.model}`" :aria-expanded="Boolean(editing[item.model])" :aria-controls="id(item.model, 'description')" @click="editing[item.model] = !editing[item.model]">{{ editing[item.model] ? 'Close description' : 'Edit description' }}</button>
-            <button v-if="custom(item.model) && builtin(item.model)" class="ghost" :disabled="!hints" :aria-label="`${fromProfile(item.model) ? `Use the profile's description` : `Use Odin's description`} for ${item.model}`" @click="useBuiltin(item.model)">{{ fromProfile(item.model) ? "Use the profile's description" : "Use Odin's description" }}</button>
-          </span>
+        <div v-show="isOpen(item.model)" :id="id(item.model, 'details')" class="candidate-details">
+          <p v-if="blocked(item.row)" class="settings-help">Can't run agents: {{ blocked(item.row) }}</p>
+          <p v-if="item.ticked && note(item.model)" class="settings-help">{{ note(item.model) }}</p>
+          <p class="candidate-description" :data-testid="`candidate-description-${item.model}`">
+            <template v-if="custom(item.model)">{{ custom(item.model) }} <span class="candidate-source">Your description</span></template>
+            <template v-else-if="builtin(item.model)">{{ builtin(item.model) }}<template v-if="fromProfile(item.model)"> <span class="candidate-source">From its profile</span></template></template>
+            <template v-else>Odin has no description for this model.<template v-if="item.ticked"> Add one so Odin knows which tasks suit it.</template></template>
+          </p>
+          <div v-if="item.ticked" class="candidate-options">
+            <span v-if="item.row?.capability === 'thinking'">
+              <label :for="id(item.model, 'thinking_mode')">Thinking mode</label>
+              <select :id="id(item.model, 'thinking_mode')" :value="setting(item.model, 'thinking_mode')" @change="choose(item.model, 'thinking_mode', ($event.target as HTMLSelectElement).value)">
+                <option value="">Same as agents</option><option v-for="mode in thinkingModes" :key="mode" :value="mode">{{ mode }}</option>
+              </select>
+            </span>
+            <template v-if="hints !== undefined">
+              <button class="ghost" :aria-label="`${editing[item.model] ? 'Close' : 'Edit'} the description of ${item.model}`" :aria-expanded="Boolean(editing[item.model])" :aria-controls="id(item.model, 'description')" @click="editing[item.model] = !editing[item.model]">{{ editing[item.model] ? 'Close description' : 'Edit description' }}</button>
+              <button v-if="custom(item.model) && builtin(item.model)" class="ghost" :disabled="!hints" :aria-label="`${fromProfile(item.model) ? `Use the profile's description` : `Use Odin's description`} for ${item.model}`" @click="useBuiltin(item.model)">{{ fromProfile(item.model) ? "Use the profile's description" : "Use Odin's description" }}</button>
+            </template>
+          </div>
+          <template v-if="item.ticked && hints !== undefined && editing[item.model]">
+            <label :for="id(item.model, 'description')" class="sr-only">Description for {{ item.model }}</label>
+            <textarea :id="id(item.model, 'description')" rows="3" :disabled="!hints" :value="custom(item.model) ?? builtin(item.model)" placeholder="Which tasks suit this model" @input="describe(item.model, ($event.target as HTMLTextAreaElement).value)" />
+          </template>
         </div>
-        <template v-if="item.ticked && hints !== undefined && editing[item.model]">
-          <label :for="id(item.model, 'description')" class="sr-only">Description for {{ item.model }}</label>
-          <textarea :id="id(item.model, 'description')" rows="3" :disabled="!hints" :value="custom(item.model) ?? builtin(item.model)" placeholder="Which tasks suit this model" @input="describe(item.model, ($event.target as HTMLTextAreaElement).value)" />
-        </template>
       </li>
     </ul>
-    <button v-if="!usingDefault" class="ghost" data-testid="agent-candidates-reset" @click="update([])">Use Odin's default</button>
   </div>
 </template>
 
 <style scoped>
 .agent-candidates { padding: 1rem; }
-.agent-candidates h4 { margin-top: 0; }
-.candidates-state { font-weight: 600; }
-.candidate-list { list-style: none; margin: 0; padding: 0; }
-.candidate { padding: .75rem 0; border-bottom: 1px solid var(--border); display: grid; gap: .4rem; }
-.candidate:not(.ticked) { opacity: .8; }
-.candidate-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-.candidate-head label { font-weight: 600; overflow-wrap: anywhere; }
+.candidates-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.candidates-heading h4 { margin: 0; }
+.candidates-state { font-weight: 600; margin: .25rem 0 .5rem; }
+.candidate-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+.candidate { border-bottom: 1px solid var(--border); }
+/* A row wraps when its column runs out of room, so no control is ever pushed out of view. */
+.candidate-row { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .5rem; min-height: 2.25rem; padding: .25rem 0; }
+.candidate:not(.ticked) .candidate-row { opacity: .75; }
+.candidate-name { flex: 0 1 auto; min-width: 0; max-width: 100%; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .candidate-rank { font-variant-numeric: tabular-nums; }
-.candidate-provider { font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 .5rem; }
-.candidate-order { margin-left: auto; display: flex; gap: .25rem; }
+.candidate-provider, .candidate-flag { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 .45rem; white-space: nowrap; }
+.candidate-flag { cursor: help; }
+.candidate-summary { flex: 1 1 8rem; min-width: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.candidate-effort { flex: 0 0 auto; max-width: 9.5rem; font-size: 12px; }
+.candidate-order { display: flex; gap: .1rem; }
+.candidate-order button, .candidate-toggle { padding: 0 .4rem; min-width: 1.75rem; line-height: 1.6; }
+.candidate-details { padding: 0 0 .6rem 1.6rem; display: grid; gap: .4rem; }
 .candidate-description { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
 .candidate-source { font-size: 12px; font-style: italic; }
 .candidate-options { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; }
-.candidate-options > span { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
-.candidate-description-actions { margin-left: auto; }
+.candidate-options > span { display: flex; gap: .4rem; align-items: center; }
 .candidate textarea { width: 100%; min-width: 0; }
-@media (max-width: 760px) { .candidate-order, .candidate-description-actions { margin-left: 0; } }
+@media (max-width: 760px) { .candidate-summary { flex-basis: 100%; order: 9; } }
 </style>

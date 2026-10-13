@@ -627,3 +627,46 @@ async def test_discovery_http_failure_body_and_credentials_are_not_reflected(ser
         assert service.settings.writes == []
     finally:
         await runner.cleanup()
+
+
+@pytest.mark.asyncio
+async def test_agents_candidate_effort_and_descriptions_save_through_the_real_owner(tmp_path):
+    # A candidate carrying its own effort or thinking mode, and one model's description, are leaves
+    # inside the agents settings; the real owner must route them to models.agents.set (1.0.8 refused
+    # them as "changed through settings.set").
+    from src.desktop.paths import ProfilePaths
+    from src.desktop.settings import SettingsService
+
+    paths = ProfilePaths.from_xdg("fixture", home=tmp_path, environ={})
+    paths.create_private()
+    paths.config_file.write_text("{}\n", encoding="utf-8")
+    settings = SettingsService(paths, SimpleNamespace(get=lambda path: None), config=Config())
+    service = ModelSettingsService(settings)
+    saved = await service.handle("models.agents.set", {
+        "model": "auto",
+        "auto_model_allowlist": [
+            {"model": "gpt-6-astra", "reasoning_effort": "high"},
+            {"model": "gpt-6-luna", "reasoning_effort": "auto", "thinking_mode": None},
+            "gpt-6.1-sol",
+        ],
+        "model_selection_hints": {"gpt-6-astra": "Hardest problems"},
+        "expected_revision": settings.revision,
+    })
+    assert saved["auto_model_allowlist"][0] == {
+        "model": "gpt-6-astra", "reasoning_effort": "high", "thinking_mode": None,
+    }
+    assert saved["auto_model_allowlist"][2] == "gpt-6.1-sol"
+    assert saved["model_selection_hints"] == {"gpt-6-astra": "Hardest problems"}
+    assert settings.config.agents.model_selection_hints == {"gpt-6-astra": "Hardest problems"}
+    # The page reads both back whole, as single records, though their entries flatten into leaves.
+    fields = {field["path"]: field for field in settings.schema()["fields"]}
+    assert fields["agents.auto_model_allowlist"]["desired"] == saved["auto_model_allowlist"]
+    assert fields["agents.model_selection_hints"]["desired"] == {"gpt-6-astra": "Hardest problems"}
+    # The generic route still may not change them.
+    for change in ({"path": "agents.auto_model_allowlist", "value": ["gpt-6-luna"]},
+                   {"path": "agents.model_selection_hints", "value": {}}):
+        with pytest.raises(MethodError) as caught:
+            await settings.handle(
+                "settings.set", {"expected_revision": settings.revision, "changes": [change]},
+            )
+        assert "changed through models.agents.set" in str(caught.value)

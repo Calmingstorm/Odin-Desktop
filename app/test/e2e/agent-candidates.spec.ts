@@ -3,7 +3,7 @@
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { assertIsolated, exitApp, launchApp, repository, waitForCore } from './harness'
+import { assertIsolated, exitApp, launchApp, repository, request, waitForCore } from './harness'
 import { isolatedServicesBootstrap } from '../isolated-services-bootstrap'
 
 // The isolated runner has no keyring daemon, and the model choices report whether a provider key is stored: the core
@@ -37,12 +37,20 @@ test('saves automatic agent candidates chosen on the Models page through the rea
     expect(status.ok).toBe(true)
     expect(status.result?.agent_default_candidates).toEqual(defaults)
     await expect(page.getByTestId(`candidate-description-${defaults[0]}`)).not.toContainText('Odin has no description')
-    // Untick one, move the last up, and save: the edited list crosses the bridge.
+    // Untick one, move the last up, give the first its own effort and description, and save: the edited list
+    // crosses the bridge, and the engine must accept a candidate's own effort and a model's description.
     await list.locator(`li[data-model="${defaults[1]}"] input[type=checkbox]`).uncheck()
     await page.getByRole('button', { name: `Move ${defaults.at(-1)} up`, exact: true }).click()
+    await page.getByLabel(`Reasoning effort for ${defaults[0]}`, { exact: true }).selectOption('high')
+    await page.getByRole('button', { name: `Details for ${defaults[0]}`, exact: true }).click()
+    await page.getByRole('button', { name: `Edit the description of ${defaults[0]}`, exact: true }).click()
+    await page.getByLabel(`Description for ${defaults[0]}`, { exact: true }).fill('Release check description')
+    // A picture of the list for review; not an assertion.
+    await page.getByTestId('agent-candidates').screenshot({ path: test.info().outputPath('agent-candidates.png') })
     await page.getByTestId('agent-model-actions').getByRole('button', { name: 'Save', exact: true }).click()
     await expect(page.getByText('Saved.', { exact: true })).toBeVisible()
     await expect(page.getByText('could not be confirmed')).toHaveCount(0)
+    await expect(page.getByText('changed through')).toHaveCount(0)
     const expected = defaults.filter((model) => model !== defaults[1])
     ;[expected[expected.length - 2], expected[expected.length - 1]] = [expected.at(-1)!, expected.at(-2)!]
     // Read back as the app does: the core's saved settings.
@@ -50,7 +58,48 @@ test('saves automatic agent candidates chosen on the Models page through the rea
     expect(schema.ok).toBe(true)
     const saved = (path: string) => schema.result?.fields.find((field) => field.path === path)?.desired
     expect(saved('agents.model')).toBe('auto')
-    expect(saved('agents.auto_model_allowlist')).toEqual(expected)
+    const savedList = saved('agents.auto_model_allowlist') as Array<string | { model: string; reasoning_effort?: string }>
+    expect(savedList.map((entry) => typeof entry === 'string' ? entry : entry.model)).toEqual(expected)
+    expect(savedList[0]).toMatchObject({ model: defaults[0], reasoning_effort: 'high' })
+    expect(saved('agents.model_selection_hints')).toEqual({ [defaults[0]!]: 'Release check description' })
+  } finally {
+    await exitApp(application)
+  }
+})
+
+test('keeps every candidate control in view with a long compatible model name, at 1024 and 1180 wide', async () => {
+  assertIsolated()
+  const application = await launchApp({ profile: 'agent-candidates-geometry', env: memoryKeyringCore() })
+  const model = 'anthropic/claude-sonnet-4.6'
+  try {
+    await waitForCore(application)
+    // A saved automatic choice with a realistic compatible reference: its provider is off, so the row also carries a
+    // note, the widest case.
+    const schema = await request(application, 'settings.schema')
+    const chosen = await request(application, 'models.agents.set', { model: 'auto', expected_revision: (schema.result as { revision: string }).revision,
+      auto_model_allowlist: [`compat:${model}`, { model: 'gpt-6-astra', reasoning_effort: 'high' }, 'gpt-6.1-sol'] })
+    expect(chosen.ok, JSON.stringify(chosen)).toBe(true)
+    const page = await application.firstWindow()
+    await page.getByRole('button', { name: 'Settings', exact: true }).click()
+    await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Models and providers', exact: true }).click()
+    const list = page.getByRole('list', { name: 'Models Odin can choose from' })
+    await expect(list.locator(`li[data-model="compat:${model}"]`)).toHaveCount(1)
+    await expect(page.getByTestId('agent-candidates-state')).toContainText(/models ticked/)
+    for (const width of [1024, 1180]) {
+      await application.evaluate(({ BrowserWindow }, size) => { BrowserWindow.getAllWindows()[0]!.setContentSize(size.width, size.height) }, { width, height: 800 })
+      await expect.poll(() => page.evaluate(() => innerWidth)).toBe(width)
+      const outside = await page.evaluate(() => {
+        const column = document.querySelector('.settings-body')!.getBoundingClientRect()
+        return Array.from(document.querySelectorAll('.candidate-row')).flatMap((row) => [
+          ...(row.scrollWidth > row.clientWidth + 1 ? [`${row.parentElement?.getAttribute('data-model')}: row overflows`] : []),
+          ...Array.from(row.querySelectorAll('input, select, button')).filter((control) => {
+            const box = control.getBoundingClientRect()
+            return box.width > 0 && (box.right > column.right + 0.5 || box.left < column.left - 0.5)
+          }).map((control) => `${row.parentElement?.getAttribute('data-model')}: ${control.getAttribute('aria-label') ?? control.id}`)
+        ])
+      })
+      expect(outside, `candidate controls outside the settings column at ${width}px`).toEqual([])
+    }
   } finally {
     await exitApp(application)
   }
