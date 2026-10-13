@@ -161,11 +161,22 @@ def skill_wheel(work: Path, control: str | None) -> dict:
         raise RuntimeError(loaded.stderr.strip() or loaded.stdout.strip())
     result = {"loaded": loaded.stdout.strip()}
     if control:
+        # The control must be the same build, must run, and must fail for code signing alone.
+        probe = "import sys; print(sys.version)"
+        baseline = subprocess.run(
+            [control, "-c", probe], capture_output=True, text=True, timeout=60
+        )
+        if baseline.returncode or baseline.stdout.strip() != sys.version:
+            raise AssertionError(f"the control is not a working copy of this build: {baseline}")
         refused = _load(control, target, "import ujson")
-        result["control_refused"] = refused.returncode != 0
-        result["control_error"] = refused.stderr.strip().splitlines()[-1:] if refused.stderr else []
-        if not result["control_refused"]:
-            raise AssertionError("the control interpreter loaded the package without the exception")
+        reason = refused.stderr.strip().splitlines()[-1:] if refused.stderr else []
+        signing = "code signature" in refused.stderr and (
+            "not valid for use in process" in refused.stderr or "Team ID" in refused.stderr
+        )
+        result["control_refused_for_code_signing"] = refused.returncode != 0 and signing
+        result["control_error"] = reason
+        if not result["control_refused_for_code_signing"]:
+            raise AssertionError(f"the control did not refuse for code signing: {reason}")
     return result
 
 

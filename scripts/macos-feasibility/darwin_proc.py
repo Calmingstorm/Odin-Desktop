@@ -1,12 +1,21 @@
 """Darwin process facts for the macOS feasibility spike (phase 1).
 
-Evidence harness only: phase 2 re-implements what this proves under src/ with the full gates. It
-reads processes through public interfaces: libproc's proc_listallpids and
-proc_pidinfo(PROC_PIDTBSDINFO) and getsid(2). Darwin has no kernel session filter (sysctl
-KERN_PROC_SESSION fails with ENOENT on macOS 27), so session membership is getsid over the full
-process table, cross-checked against the kernel's process-group filter (KERN_PROC_PGRP).
-proc_pidinfo does not report exited, unreaped processes. A scan that cannot complete raises
-ObservationError; callers treat that scope as unknown, never as empty.
+Evidence harness only: phase 2 re-implements what this proves under src/ with the full gates.
+
+Membership comes first and needs no special access: getsid(2) over libproc's PID list (Darwin has no
+kernel session filter; sysctl KERN_PROC_SESSION fails with ENOENT on macOS 27). Group and parent
+come from PROC_PIDT_SHORTBSDINFO, which also works for other users' processes. A process's identity
+is its 64-bit unique ID plus its PID version (PROC_PIDUNIQIDENTIFIERINFO); the version changes on
+exec. A member whose identity cannot be read stays a member with no identity, never a missing one.
+
+Signals use the identity, not the number: proc_signal_with_audittoken signals only the process whose
+PID version still matches, and returns ESRCH otherwise (qualified on macOS 27). group_probe sends
+signal 0 to a group, which harms no one even if the number is now someone else's, and reports
+"live" (signallable members), "no-signallable" (only exited unreaped members or other users'
+processes; EPERM) or "empty" (ESRCH).
+
+Enumeration is not atomic: a process can fork and exit between the PID list and its inspection, so
+a scan alone never proves a session empty. Callers combine scans with group probes and fork events.
 """
 
 from __future__ import annotations
@@ -23,45 +32,47 @@ if sys.platform != "darwin":
 
 _libc = ctypes.CDLL("/usr/lib/libSystem.B.dylib", use_errno=True)
 
-PROC_PIDTBSDINFO = 3
-MAXCOMLEN = 16
+PROC_PIDT_SHORTBSDINFO = 13
+PROC_PIDUNIQIDENTIFIERINFO = 17
 SZOMB = 5
 CTL_KERN, KERN_PROC, KERN_PROC_PGRP = 1, 14, 2
-KINFO_PROC_SIZE = (
-    648  # sizeof(struct kinfo_proc) on 64-bit macOS; checked against every sysctl reply
-)
+KINFO_PROC_SIZE = 648  # sizeof(struct kinfo_proc) on 64-bit macOS; checked against every reply
 P_PID_OFFSET = 40  # offsetof(struct kinfo_proc, kp_proc.p_pid)
+P_PID, WNOHANG, WEXITED, WNOWAIT = 1, 0x1, 0x4, 0x20
 
 
-class _BsdInfo(ctypes.Structure):
+class _ShortInfo(ctypes.Structure):
     _fields_ = [
-        ("pbi_flags", ctypes.c_uint32),
-        ("pbi_status", ctypes.c_uint32),
-        ("pbi_xstatus", ctypes.c_uint32),
-        ("pbi_pid", ctypes.c_uint32),
-        ("pbi_ppid", ctypes.c_uint32),
-        ("pbi_uid", ctypes.c_uint32),
-        ("pbi_gid", ctypes.c_uint32),
-        ("pbi_ruid", ctypes.c_uint32),
-        ("pbi_rgid", ctypes.c_uint32),
-        ("pbi_svuid", ctypes.c_uint32),
-        ("pbi_svgid", ctypes.c_uint32),
-        ("rfu_1", ctypes.c_uint32),
-        ("pbi_comm", ctypes.c_char * MAXCOMLEN),
-        ("pbi_name", ctypes.c_char * (2 * MAXCOMLEN)),
-        ("pbi_nfiles", ctypes.c_uint32),
-        ("pbi_pgid", ctypes.c_uint32),
-        ("pbi_pjobc", ctypes.c_uint32),
-        ("e_tdev", ctypes.c_uint32),
-        ("e_tpgid", ctypes.c_uint32),
-        ("pbi_nice", ctypes.c_int32),
-        ("pbi_start_tvsec", ctypes.c_uint64),
-        ("pbi_start_tvusec", ctypes.c_uint64),
+        ("pid", ctypes.c_uint32),
+        ("ppid", ctypes.c_uint32),
+        ("pgid", ctypes.c_uint32),
+        ("status", ctypes.c_uint32),
+        ("comm", ctypes.c_char * 16),
+        ("flags", ctypes.c_uint32),
+        ("uid", ctypes.c_uint32),
+        ("gid", ctypes.c_uint32),
+        ("ruid", ctypes.c_uint32),
+        ("rgid", ctypes.c_uint32),
+        ("svuid", ctypes.c_uint32),
+        ("svgid", ctypes.c_uint32),
+        ("rfu", ctypes.c_uint32),
     ]
 
 
-if ctypes.sizeof(_BsdInfo) != 136:
-    raise ImportError(f"unexpected proc_bsdinfo layout: {ctypes.sizeof(_BsdInfo)} bytes")
+class _UniqInfo(ctypes.Structure):
+    _fields_ = [
+        ("uuid", ctypes.c_uint8 * 16),
+        ("uniqueid", ctypes.c_uint64),
+        ("puniqueid", ctypes.c_uint64),
+        ("idversion", ctypes.c_int32),
+        ("orig_ppidversion", ctypes.c_int32),
+        ("reserve3", ctypes.c_uint64),
+        ("reserve4", ctypes.c_uint64),
+    ]
+
+
+class _AuditToken(ctypes.Structure):
+    _fields_ = [("val", ctypes.c_uint32 * 8)]
 
 
 class _SigInfo(ctypes.Structure):
@@ -79,10 +90,9 @@ class _SigInfo(ctypes.Structure):
     ]
 
 
-if ctypes.sizeof(_SigInfo) != 104:
-    raise ImportError(f"unexpected siginfo_t layout: {ctypes.sizeof(_SigInfo)} bytes")
-
-P_PID, WNOHANG, WEXITED, WNOWAIT = 1, 0x1, 0x4, 0x20
+for _struct, _size in ((_ShortInfo, 64), (_UniqInfo, 56), (_AuditToken, 32), (_SigInfo, 104)):
+    if ctypes.sizeof(_struct) != _size:
+        raise ImportError(f"unexpected {_struct.__name__} layout: {ctypes.sizeof(_struct)} bytes")
 
 _libc.proc_listallpids.argtypes = [ctypes.c_void_p, ctypes.c_int]
 _libc.proc_listallpids.restype = ctypes.c_int
@@ -105,32 +115,40 @@ _libc.sysctl.argtypes = [
 _libc.sysctl.restype = ctypes.c_int
 _libc.waitid.argtypes = [ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(_SigInfo), ctypes.c_int]
 _libc.waitid.restype = ctypes.c_int
+try:
+    _signal_by_token = _libc.proc_signal_with_audittoken
+    _signal_by_token.argtypes = [ctypes.POINTER(_AuditToken), ctypes.c_int]
+    _signal_by_token.restype = ctypes.c_int  # 0 or an errno value, not -1 with errno
+except AttributeError:
+    _signal_by_token = None
 
 
 class ObservationError(RuntimeError):
-    """A process scan could not be completed."""
+    """A scan could not be completed; the scope is unknown, never empty."""
 
 
 @dataclass(frozen=True)
 class Identity:
-    """A PID pinned to one process incarnation by its start time."""
+    """One process incarnation: its unique ID, plus the PID version the kernel checks."""
 
     pid: int
-    start: tuple[int, int]
+    uniqueid: int
+    idversion: int
 
 
 @dataclass(frozen=True)
-class ProcessFact:
-    identity: Identity
-    ppid: int
+class Member:
+    pid: int
     pgid: int
-    sid: int
+    ppid: int
+    uid: int
     zombie: bool
     name: str
+    identity: Identity | None  # None when the identity cannot be read: it cannot be signalled
 
 
 def list_pids() -> list[int]:
-    """Every PID on the system, or ObservationError; never a silently partial list."""
+    """Every PID libproc reports; ObservationError instead of a list known to be partial."""
     for _ in range(5):
         ctypes.set_errno(0)
         estimate = _libc.proc_listallpids(None, 0)
@@ -142,60 +160,139 @@ def list_pids() -> list[int]:
         filled = _libc.proc_listallpids(buffer, ctypes.sizeof(buffer))
         if filled <= 0:
             raise ObservationError(f"proc_listallpids failed: errno {ctypes.get_errno()}")
-        if (
-            filled < capacity
-        ):  # a full buffer may have been truncated, so only a short one is complete
+        if filled < capacity:
             return [pid for pid in buffer[:filled] if pid > 0]
     raise ObservationError("the process table kept growing during the scan")
 
 
-def process_fact(pid: int) -> ProcessFact | None:
-    """Facts for one PID, or None when it is gone or belongs to someone we cannot inspect."""
-    info = _BsdInfo()
-    ctypes.set_errno(0)
-    size = _libc.proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, ctypes.byref(info), ctypes.sizeof(info))
-    if size != ctypes.sizeof(info):
-        error = ctypes.get_errno()
-        if error in (0, errno.ESRCH, errno.EPERM):
-            return None
-        raise ObservationError(f"proc_pidinfo({pid}) failed: errno {error}")
+def session_of(pid: int) -> int | None:
+    """The PID's session, or None when it no longer exists."""
     try:
-        sid = os.getsid(pid)
-    except (ProcessLookupError, PermissionError):
+        return os.getsid(pid)
+    except ProcessLookupError:
         return None
-    return ProcessFact(
-        identity=Identity(pid, (int(info.pbi_start_tvsec), int(info.pbi_start_tvusec))),
-        ppid=int(info.pbi_ppid),
-        pgid=int(info.pbi_pgid),
-        sid=sid,
-        zombie=info.pbi_status == SZOMB,
-        name=info.pbi_comm.decode(errors="replace"),
-    )
+    except PermissionError as error:
+        raise ObservationError(f"getsid({pid}) was refused") from error
 
 
-def scan() -> dict[int, ProcessFact]:
-    """One full pass over the process table."""
-    facts = {}
+def _pidinfo(pid: int, flavor: int, info: ctypes.Structure) -> int:
+    """0 when filled; otherwise the errno (ESRCH means the process is gone)."""
+    ctypes.set_errno(0)
+    size = _libc.proc_pidinfo(pid, flavor, 0, ctypes.byref(info), ctypes.sizeof(info))
+    if size == ctypes.sizeof(info):
+        return 0
+    return ctypes.get_errno() or errno.EIO
+
+
+def observe_session(sid: int) -> dict[int, Member]:
+    """One pass over the PID list: every process whose session is sid."""
+    members = {}
     for pid in list_pids():
-        fact = process_fact(pid)
-        if fact is not None:
-            facts[pid] = fact
-    return facts
+        if session_of(pid) != sid:
+            continue
+        short = _ShortInfo()
+        error = _pidinfo(pid, PROC_PIDT_SHORTBSDINFO, short)
+        if error == errno.ESRCH:
+            continue  # exited between the two calls
+        if error:
+            raise ObservationError(f"short info for {pid} failed: {os.strerror(error)}")
+        uniq = _UniqInfo()
+        error = _pidinfo(pid, PROC_PIDUNIQIDENTIFIERINFO, uniq)
+        if error == errno.ESRCH:
+            continue
+        identity = None if error else Identity(pid, int(uniq.uniqueid), int(uniq.idversion))
+        members[pid] = Member(
+            pid=pid,
+            pgid=int(short.pgid),
+            ppid=int(short.ppid),
+            uid=int(short.uid),
+            zombie=short.status == SZOMB,
+            name=short.comm.decode(errors="replace"),
+            identity=identity,
+        )
+    return members
 
 
-def session_members(
-    sid: int, facts: dict[int, ProcessFact] | None = None
-) -> dict[int, ProcessFact]:
-    """Processes whose session is sid, from one full scan (getsid over the whole table)."""
-    facts = scan() if facts is None else facts
-    return {pid: fact for pid, fact in facts.items() if fact.sid == sid}
+def identity_of(pid: int) -> Identity | None:
+    uniq = _UniqInfo()
+    if _pidinfo(pid, PROC_PIDUNIQIDENTIFIERINFO, uniq):
+        return None
+    return Identity(pid, int(uniq.uniqueid), int(uniq.idversion))
+
+
+def signal_identity(identity: Identity, signal_number: int) -> int:
+    """Signal exactly that incarnation; 0, or an errno (ESRCH: it is gone or has exec'd since)."""
+    if _signal_by_token is None:
+        return errno.ENOSYS
+    token = _AuditToken()
+    token.val[5] = identity.pid
+    token.val[7] = identity.idversion & 0xFFFFFFFF
+    return int(_signal_by_token(ctypes.byref(token), signal_number))
+
+
+def group_probe(pgid: int) -> str:
+    """Signal 0 to the group: "live", "no-signallable" (EPERM) or "empty" (ESRCH)."""
+    try:
+        os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return "empty"
+    except PermissionError:
+        return "no-signallable"
+    return "live"
+
+
+def exited_unreaped(pid: int) -> bool:
+    """Whether our child exited, seen through waitid(WNOWAIT) so it stays unreaped.
+
+    Called through libSystem because Python 3.12, the bundled runtime, has no os.waitid on macOS.
+    """
+    info = _SigInfo()
+    ctypes.set_errno(0)
+    if _libc.waitid(P_PID, pid, ctypes.byref(info), WEXITED | WNOHANG | WNOWAIT) != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error))
+    return info.si_pid == pid
+
+
+class ForkWatch:
+    """kqueue NOTE_FORK/NOTE_EXIT on observed processes: a fork means the scope may have grown."""
+
+    def __init__(self):
+        self._queue = select.kqueue()
+        self._watched: set[int] = set()
+
+    def add(self, pid: int) -> None:
+        if pid in self._watched:
+            return
+        event = select.kevent(
+            pid,
+            filter=select.KQ_FILTER_PROC,
+            flags=select.KQ_EV_ADD,
+            fflags=select.KQ_NOTE_FORK | select.KQ_NOTE_EXIT,
+        )
+        try:
+            self._queue.control([event], 0)
+        except (ProcessLookupError, PermissionError):
+            return  # gone, or another user's: such a member blocks settling while it is seen
+        self._watched.add(pid)
+
+    def drain_forks(self) -> int:
+        """Fork events since the last drain; exited processes stop being watched."""
+        forks = 0
+        while events := self._queue.control(None, 64, 0):
+            for event in events:
+                if event.fflags & select.KQ_NOTE_FORK:
+                    forks += 1
+                if event.fflags & select.KQ_NOTE_EXIT:
+                    self._watched.discard(event.ident)
+        return forks
+
+    def close(self) -> None:
+        self._queue.close()
 
 
 def sysctl_group_pids(pgid: int) -> set[int]:
-    """The kernel's own process-group filter, for cross-checking the getsid scan.
-
-    Raises ObservationError when the call fails or the reply has an unexpected record size.
-    """
+    """The kernel's process-group filter, for cross-checking the getsid scan."""
     mib = (ctypes.c_int * 4)(CTL_KERN, KERN_PROC, KERN_PROC_PGRP, pgid)
     for _ in range(5):
         size = ctypes.c_size_t(0)
@@ -215,40 +312,7 @@ def sysctl_group_pids(pgid: int) -> set[int]:
             raise ObservationError(f"unexpected kinfo_proc reply size {size.value}")
         raw = buffer.raw[: size.value]
         return {
-            int.from_bytes(
-                raw[offset + P_PID_OFFSET : offset + P_PID_OFFSET + 4], sys.byteorder, signed=True
-            )
-            for offset in range(0, len(raw), KINFO_PROC_SIZE)
+            int.from_bytes(raw[i + P_PID_OFFSET : i + P_PID_OFFSET + 4], sys.byteorder, signed=True)
+            for i in range(0, len(raw), KINFO_PROC_SIZE)
         }
     raise ObservationError("the group table kept growing")
-
-
-def exited_unreaped(pid: int) -> bool:
-    """Whether our child pid exited, seen through waitid(WNOWAIT) so it stays unreaped.
-
-    Called through libSystem because Python 3.12, the bundled runtime, has no os.waitid on macOS.
-    """
-    info = _SigInfo()
-    ctypes.set_errno(0)
-    if _libc.waitid(P_PID, pid, ctypes.byref(info), WEXITED | WNOHANG | WNOWAIT) != 0:
-        error = ctypes.get_errno()
-        raise OSError(error, os.strerror(error))
-    return info.si_pid == pid
-
-
-def watch_exit(pid: int) -> select.kqueue:
-    """A kqueue that fires once when pid exits (EVFILT_PROC/NOTE_EXIT); it never reaps."""
-    queue = select.kqueue()
-    event = select.kevent(
-        pid,
-        filter=select.KQ_FILTER_PROC,
-        flags=select.KQ_EV_ADD | select.KQ_EV_ONESHOT,
-        fflags=select.KQ_NOTE_EXIT,
-    )
-    queue.control([event], 0)
-    return queue
-
-
-def wait_exit(queue: select.kqueue, timeout: float) -> bool:
-    """True when the watched process exited within timeout."""
-    return bool(queue.control(None, 1, timeout))

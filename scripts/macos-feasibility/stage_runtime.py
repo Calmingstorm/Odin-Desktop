@@ -11,9 +11,12 @@ Evidence harness for the macOS feasibility spike (phase 1); phase 4 builds the r
   python3 stage_runtime.py --audit DIR
       the Mach-O audit alone, as JSON
 
-The audit finds Mach-O files by content, not by name, and reports any file without an arm64 slice,
-any arm64 slice that needs a macOS newer than the support floor, and any library load outside the
-system and the bundle.
+The audit finds Mach-O files by content, not by name. For every arm64 slice it requires the macOS
+platform and a known minimum macOS no newer than the support floor, and it resolves every library
+load outside /usr/lib and /System/Library (following @rpath through the binary's own run paths and
+the interpreter's, @loader_path and @executable_path) to an existing file inside the staged bundle,
+symlinks resolved. An unresolved weak load is a warning; anything else unresolved is a problem.
+Run paths inherited from a chain of loaders are approximated by the binary's and the interpreter's.
 """
 
 from __future__ import annotations
@@ -21,6 +24,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import struct
 import subprocess
 import sys
@@ -33,12 +37,15 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 LOCK = json.loads((HERE / "runtime-lock.json").read_text())
 FLOOR = tuple(int(part) for part in LOCK["minimum_macos"].split(".")) + (0,)
-ALLOWED_LOADS = ("/usr/lib/", "/System/Library/", "@rpath/", "@loader_path/", "@executable_path/")
+SYSTEM_LOADS = ("/usr/lib/", "/System/Library/")
 
 MH_MAGIC_64 = 0xFEEDFACF
 FAT_MAGIC, FAT_MAGIC_64 = 0xCAFEBABE, 0xCAFEBABF
 CPU_TYPES = {0x0100000C: "arm64", 0x01000007: "x86_64"}
-LC_BUILD_VERSION, LC_VERSION_MIN_MACOSX = 0x32, 0x24
+LC_BUILD_VERSION, LC_VERSION_MIN_MACOSX, LC_RPATH = 0x32, 0x24, 0x8000001C
+LC_LOAD_WEAK_DYLIB = 0x80000018
+PLATFORM_MACOS = 1
+MH_EXECUTE = 2
 LOAD_COMMANDS = {
     0xC,
     0x20,
@@ -138,26 +145,39 @@ def _version(packed: int) -> tuple[int, int, int]:
     return packed >> 16, (packed >> 8) & 0xFF, packed & 0xFF
 
 
+def _string(data: bytes, command: int, size: int) -> str:
+    name_offset = struct.unpack_from("<I", data, command + 8)[0]
+    return data[command + name_offset : command + size].split(b"\0", 1)[0].decode(errors="replace")
+
+
 def _thin(data: bytes, base: int) -> dict:
-    magic, cputype, _, _, ncmds, _, _, _ = struct.unpack_from("<IiiIIIII", data, base)
+    magic, cputype, _, filetype, ncmds, _, _, _ = struct.unpack_from("<IiiIIIII", data, base)
     if magic != MH_MAGIC_64:
         raise ValueError("not a 64-bit Mach-O slice")
     slice_info = {
         "arch": CPU_TYPES.get(cputype & 0xFFFFFFFF, hex(cputype)),
+        "filetype": filetype,
+        "platform": None,
         "minos": None,
         "loads": [],
+        "weak": [],
+        "rpaths": [],
     }
     offset = base + 32
     for _ in range(ncmds):
         command, size = struct.unpack_from("<II", data, offset)
         if command == LC_BUILD_VERSION:
-            slice_info["minos"] = _version(struct.unpack_from("<I", data, offset + 12)[0])
+            platform, minos = struct.unpack_from("<II", data, offset + 8)
+            slice_info["platform"], slice_info["minos"] = platform, _version(minos)
         elif command == LC_VERSION_MIN_MACOSX and slice_info["minos"] is None:
+            slice_info["platform"] = PLATFORM_MACOS
             slice_info["minos"] = _version(struct.unpack_from("<I", data, offset + 8)[0])
+        elif command == LC_LOAD_WEAK_DYLIB:
+            slice_info["weak"].append(_string(data, offset, size))
         elif command in LOAD_COMMANDS:
-            name_offset = struct.unpack_from("<I", data, offset + 8)[0]
-            raw = data[offset + name_offset : offset + size]
-            slice_info["loads"].append(raw.split(b"\0", 1)[0].decode(errors="replace"))
+            slice_info["loads"].append(_string(data, offset, size))
+        elif command == LC_RPATH:
+            slice_info["rpaths"].append(_string(data, offset, size))
         offset += size
     return slice_info
 
@@ -186,8 +206,33 @@ def list_macho(root: Path) -> list[Path]:
     return sorted(files, key=lambda path: (-len(path.parts), str(path)))
 
 
+def _resolve(load: str, binary: Path, rpaths: list[str], executable_dir: Path, root: Path):
+    """The file a load resolves to inside root, or None."""
+
+    def expand(path: str) -> str:
+        path = path.replace("@loader_path", str(binary.parent))
+        return path.replace("@executable_path", str(executable_dir))
+
+    if load.startswith("@rpath/"):
+        candidates = [Path(expand(rpath)) / load[len("@rpath/") :] for rpath in rpaths]
+    else:
+        candidates = [Path(expand(load))]
+    for candidate in candidates:
+        resolved = Path(os.path.realpath(candidate))
+        if resolved.is_file() and resolved.is_relative_to(root):
+            return resolved
+    return None
+
+
 def audit(root: Path) -> dict:
-    problems = []
+    root = Path(os.path.realpath(root))
+    interpreter = root / "python" / "bin" / "python3.12"
+    interpreter_rpaths = []
+    if interpreter.is_file():
+        interpreter_rpaths = next(
+            (item["rpaths"] for item in slices(interpreter) if item["arch"] == "arm64"), []
+        )
+    problems, warnings = [], []
     files = list_macho(root)
     for path in files:
         relative = str(path.relative_to(root))
@@ -196,12 +241,27 @@ def audit(root: Path) -> dict:
         if not arm64:
             problems.append(f"{relative}: no arm64 slice ({[item['arch'] for item in found]})")
         for item in arm64:
-            if item["minos"] and item["minos"] > FLOOR:
+            if item["platform"] != PLATFORM_MACOS:
+                problems.append(f"{relative}: platform {item['platform']} is not macOS")
+            if item["minos"] is None:
+                problems.append(f"{relative}: no minimum macOS recorded")
+            elif item["minos"] > FLOOR:
                 problems.append(f"{relative}: needs macOS {'.'.join(map(str, item['minos']))}")
-            for load in item["loads"]:
-                if not load.startswith(ALLOWED_LOADS):
-                    problems.append(f"{relative}: loads {load}")
-    return {"macho_files": len(files), "floor": LOCK["minimum_macos"], "problems": problems}
+            executable_dir = path.parent if item["filetype"] == MH_EXECUTE else interpreter.parent
+            rpaths = item["rpaths"] + interpreter_rpaths
+            for load, weak in [(load, False) for load in item["loads"]] + [
+                (load, True) for load in item["weak"]
+            ]:
+                if load.startswith(SYSTEM_LOADS):
+                    continue
+                if _resolve(load, path, rpaths, executable_dir, root) is None:
+                    (warnings if weak else problems).append(f"{relative}: unresolved load {load}")
+    return {
+        "macho_files": len(files),
+        "floor": LOCK["minimum_macos"],
+        "problems": problems,
+        "warnings": warnings,
+    }
 
 
 def main() -> int:
