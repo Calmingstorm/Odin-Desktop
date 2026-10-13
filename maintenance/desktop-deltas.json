@@ -5019,7 +5019,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/test_desktop_core_entry.py": "fb06470d0a5bb84424d8e533e1b7616bfed05d7bcb79d1e5f2c4daecff900b3f",
         "tests/test_desktop_core_lifecycle.py": "6ee476b3fb3af1ac8ab2abd98e20867c2f17870e0fabc018a206d24848b99f60",
@@ -10924,7 +10924,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/test_desktop_platform_seams.py": "cf667a4a6d238adc4f83d7ee1af9454ec98feb21d7fe8bb7f4f038030713852a",
         "tests/windows/test_windows_files.py": "665227bcc034c827116acd8dd441ac8960539853650570d1e2c5ebfcf86d42a7",
         "tests/windows/test_windows_platform.py": "591ee35550ce2a6a5dc647e8115fb1af3bfd1411af87d1e168307c2d4b049423",
@@ -11009,7 +11009,7 @@
       "state": "pending",
       "test_sha256": {
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e"
       },
       "tests": [
@@ -11142,29 +11142,29 @@
       ]
     },
     {
-      "after_sha256": "f0510f5e0a84c972b0b86a9c59b070c8de4f4f0d42b6b0ad1b9425fde54640f2",
+      "after_sha256": "4fffad952e7ecb0170f72f0baff9345da8fca71b67bb8602f20ec65e36d11664",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "contract": "The profile is Application Support's odin-desktop/<profile>/{config,data} and Caches' odin-desktop/<profile>; the socket is <verified per-user temp>/odin-desktop/<profile>/core.sock, refused over 103 bytes.",
+      "contract": "The profile is Application Support's odin-desktop/<profile>/{config,data} and Caches' odin-desktop/<profile>; the socket is <verified per-user temp>/odin-desktop/<profile>/core.sock, refused over 103 bytes. | macos-3: OpenSSH splits -o values on whitespace and Odin passes profile paths there, so no profile path has whitespace; a home with whitespace is refused.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Loaded only on macOS; Linux and Windows never import it.",
+      "invariant": "Loaded only on macOS; Linux and Windows never import it. | macos-3: Loaded only on macOS.",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Desktop foundation",
       "owner": "Odin",
       "patch": [
         {
           "end": 0,
-          "new_base64": "IiIibWFjT1M6IHRoZSBEZXNrdG9wIGVuZ2luZSdzIHBsYXRmb3JtIG1lbWJlcnMuCgpUaGUgcHJvZmlsZSBsaXZlcyB1bmRlciB0aGUgdXNlcidzIExpYnJhcnk6IGNvbmZpZyBhbmQgZGF0YSBpbiBBcHBsaWNhdGlvbiBTdXBwb3J0J3MKb2Rpbi1kZXNrdG9wLzxwcm9maWxlPiwgdGhlIGNhY2hlIGluIENhY2hlcycgb2Rpbi1kZXNrdG9wLzxwcm9maWxlPiAodGhlIG5hbWVzcGFjZSBwYWlycyBMaW51eCBhbmQKV2luZG93cyB1c2UsIHNvIHRoZSBzaGFyZWQgcHJpdmF0ZS1mb2xkZXIgY2hlY2tzIHJlY29nbml6ZSB0aGVtKS4gVGhlIHRyYW5zcG9ydCBpcyBhbiBvd25lci1vbmx5ClVuaXggc29ja2V0IGluIHRoZSBwZXItdXNlciB0ZW1wb3JhcnkgZm9sZGVyLCB3aGljaCBtYWNPUyBjcmVhdGVzIHByaXZhdGUgdG8gdGhlIHVzZXIgYW5kIHRoaXMKZW5naW5lIHZlcmlmaWVzLiBTZWNyZXRzIGxpdmUgaW4gdGhlIGxvZ2luIEtleWNoYWluLiBUaGUgY29yZSdzIGxpZmV0aW1lIGlzIExpbnV4J3Mgb3duOiBhc3luY2lvCnNpZ25hbCBoYW5kbGVycyBhbmQgdGhlIHBhcmVudCBwaXBlIHdvcmsgdGhlIHNhbWUgb24gbWFjT1MuCiIiIgoKZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IG9zCmltcG9ydCByZQpmcm9tIGNvbGxlY3Rpb25zLmFiYyBpbXBvcnQgTWFwcGluZwpmcm9tIGZ1bmN0b29scyBpbXBvcnQgY2FjaGVkX3Byb3BlcnR5CmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAoKX1BST0ZJTEVfSUQgPSByZS5jb21waWxlKHIiW0EtWmEtejAtOV1bQS1aYS16MC05Xy1dezAsNjN9IikKU09DS0VUX1BBVEhfTElNSVQgPSAxMDMgICMgc3VuX3BhdGggaXMgMTA0IGJ5dGVzIG9uIG1hY09TLCBpbmNsdWRpbmcgdGhlIHRlcm1pbmF0aW5nIE5VTAoKCmRlZiBtYWNvc19wcm9maWxlX3BhdGhzKAogICAgcHJvZmlsZV9pZDogc3RyID0gImRlZmF1bHQiLAogICAgKiwKICAgIGVudmlyb246IE1hcHBpbmdbc3RyLCBzdHJdIHwgTm9uZSA9IE5vbmUsCiAgICBob21lOiBQYXRoIHwgc3RyIHwgTm9uZSA9IE5vbmUsCik6CiAgICAiIiJgYH4vTGlicmFyeS9BcHBsaWNhdGlvbiBTdXBwb3J0L29kaW4tZGVza3RvcC88cHJvZmlsZT4ve2NvbmZpZyxkYXRhfWBgIGFuZAogICAgYGB+L0xpYnJhcnkvQ2FjaGVzL29kaW4tZGVza3RvcC88cHJvZmlsZT5gYC4gU2VjcmV0cyBtZXRhZGF0YSBsaXZlcyB1bmRlciBkYXRhOyB2YWx1ZXMgYXJlIGluCiAgICB0aGUgS2V5Y2hhaW4uCgogICAgYGBob21lYGAgc3RhbmRzIGluIGZvciBgYH5gYCBhcyBvbiBMaW51eDsgYGBlbnZpcm9uYGAgaXMgYWNjZXB0ZWQgZm9yIHRoZSBzaGFyZWQgc2lnbmF0dXJlLgogICAgIiIiCiAgICBmcm9tIC4ucGF0aHMgaW1wb3J0IFByb2ZpbGVQYXRocwoKICAgIGlmIG5vdCBpc2luc3RhbmNlKHByb2ZpbGVfaWQsIHN0cikgb3Igbm90IF9QUk9GSUxFX0lELmZ1bGxtYXRjaChwcm9maWxlX2lkKToKICAgICAgICByYWlzZSBWYWx1ZUVycm9yKCJpbnZhbGlkIHByb2ZpbGUgaWRlbnRpZmllciIpCiAgICBob21lX3BhdGggPSBQYXRoKGhvbWUpIGlmIGhvbWUgaXMgbm90IE5vbmUgZWxzZSBQYXRoLmhvbWUoKQogICAgaWYgKAogICAgICAgIG5vdCBob21lX3BhdGguaXNfYWJzb2x1dGUoKQogICAgICAgIG9yICIuLiIgaW4gaG9tZV9wYXRoLnBhcnRzCiAgICAgICAgb3IgYW55KG9yZChjKSA8IDMyIGZvciBjIGluIHN0cihob21lX3BhdGgpKQogICAgKToKICAgICAgICByYWlzZSBWYWx1ZUVycm9yKCJob21lIG11c3QgYmUgYW4gYWJzb2x1dGUgbG9jYWwgcGF0aCIpCiAgICBzdXBwb3J0ID0gaG9tZV9wYXRoIC8gIkxpYnJhcnkiIC8gIkFwcGxpY2F0aW9uIFN1cHBvcnQiIC8gIm9kaW4tZGVza3RvcCIgLyBwcm9maWxlX2lkCiAgICBkYXRhID0gc3VwcG9ydCAvICJkYXRhIgogICAgcmV0dXJuIFByb2ZpbGVQYXRocygKICAgICAgICBwcm9maWxlX2lkLAogICAgICAgIHN1cHBvcnQgLyAiY29uZmlnIiwKICAgICAgICBkYXRhLAogICAgICAgIGhvbWVfcGF0aCAvICJMaWJyYXJ5IiAvICJDYWNoZXMiIC8gIm9kaW4tZGVza3RvcCIgLyBwcm9maWxlX2lkLAogICAgICAgIGRhdGEgLyAic2VjcmV0cyIsCiAgICApCgoKZGVmIG1hY29zX3NvY2tldF9wYXRoKHByb2ZpbGVfaWQ6IHN0ciA9ICJkZWZhdWx0Iiwgcm9vdDogUGF0aCB8IE5vbmUgPSBOb25lKSAtPiBQYXRoOgogICAgIiIiYGA8cGVyLXVzZXIgdGVtcG9yYXJ5IGZvbGRlcj4vb2Rpbi1kZXNrdG9wLzxwcm9maWxlPi9jb3JlLnNvY2tgYCwgYXQgbW9zdCAxMDMgYnl0ZXMuCgogICAgVGhlIGFwcCBkZXJpdmVzIHRoZSBzYW1lIHBhdGg7IGEgcGF0aCBvdmVyIHRoZSBsaW1pdCBpcyByZWZ1c2VkLCBuZXZlciBzaG9ydGVuZWQgc2lsZW50bHkuCiAgICAiIiIKICAgIGZyb20gLmRhcndpbiBpbXBvcnQgdXNlcl90ZW1wX3Jvb3QKCiAgICBpZiBub3QgaXNpbnN0YW5jZShwcm9maWxlX2lkLCBzdHIpIG9yIG5vdCBfUFJPRklMRV9JRC5mdWxsbWF0Y2gocHJvZmlsZV9pZCk6CiAgICAgICAgcmFpc2UgVmFsdWVFcnJvcigiaW52YWxpZCBwcm9maWxlIGlkZW50aWZpZXIiKQogICAgcGF0aCA9ICgKICAgICAgICAocm9vdCBpZiByb290IGlzIG5vdCBOb25lIGVsc2UgdXNlcl90ZW1wX3Jvb3QoKSkgLyAib2Rpbi1kZXNrdG9wIiAvIHByb2ZpbGVfaWQgLyAiY29yZS5zb2NrIgogICAgKQogICAgaWYgbGVuKG9zLmZzZW5jb2RlKHBhdGgpKSA+IFNPQ0tFVF9QQVRIX0xJTUlUOgogICAgICAgIHJhaXNlIFZhbHVlRXJyb3IoZiJ0aGUgc29ja2V0IHBhdGggaXMgbG9uZ2VyIHRoYW4gbWFjT1MgYWxsb3dzICh7U09DS0VUX1BBVEhfTElNSVR9IGJ5dGVzKSIpCiAgICByZXR1cm4gcGF0aAoKCmNsYXNzIE1hY09TUGxhdGZvcm06CiAgICBuYW1lID0gIm1hY29zIgogICAgY29tcHV0ZXJfc3VwcG9ydGVkID0gRmFsc2UKCiAgICBAY2FjaGVkX3Byb3BlcnR5CiAgICBkZWYgaXBjKHNlbGYpOgogICAgICAgICIiIlRoZSBhcHAg4oaUIGVuZ2luZSB0cmFuc3BvcnQ6IGFuIG93bmVyLW9ubHkgVW5peCBzb2NrZXQsIHBlZXIgY2hlY2tlZCBieSB0aGUga2VybmVsLiIiIgogICAgICAgIGZyb20gLm1hY29zX2lwYyBpbXBvcnQgTWFjT1NJcGMKCiAgICAgICAgcmV0dXJuIE1hY09TSXBjKCkKCiAgICBkZWYgc2VjcmV0X2JhY2tlbmQoc2VsZiwgcGF0aHM9Tm9uZSk6CiAgICAgICAgIiIiVGhlIGxvZ2luIEtleWNoYWluOyBvbmUgc3RvcmUgZm9yIGV2ZXJ5IHByb2ZpbGUsIGtleWVkIGFzIG9uIExpbnV4LiIiIgogICAgICAgIGZyb20gLm1hY29zX3NlY3JldHMgaW1wb3J0IEtleWNoYWluQmFja2VuZAoKICAgICAgICByZXR1cm4gS2V5Y2hhaW5CYWNrZW5kKCkKCiAgICBkZWYgY29yZV9saWZldGltZShzZWxmKToKICAgICAgICAiIiJTaWduYWxzIGFuZCB0aGUgcGFyZW50IHBpcGUsIHdhdGNoZWQgb24gdGhlIGV2ZW50IGxvb3AsIGFzIG9uIExpbnV4LiIiIgogICAgICAgIGZyb20gLi5saWZlY3ljbGUgaW1wb3J0IENvcmVMaWZldGltZQoKICAgICAgICByZXR1cm4gQ29yZUxpZmV0aW1lKCkKCiAgICBkZWYgcHJvZmlsZV9wYXRocygKICAgICAgICBzZWxmLAogICAgICAgIHByb2ZpbGVfaWQ6IHN0ciA9ICJkZWZhdWx0IiwKICAgICAgICAqLAogICAgICAgIGVudmlyb246IE1hcHBpbmdbc3RyLCBzdHJdIHwgTm9uZSA9IE5vbmUsCiAgICAgICAgaG9tZTogUGF0aCB8IHN0ciB8IE5vbmUgPSBOb25lLAogICAgKToKICAgICAgICByZXR1cm4gbWFjb3NfcHJvZmlsZV9wYXRocyhwcm9maWxlX2lkLCBlbnZpcm9uPWVudmlyb24sIGhvbWU9aG9tZSkKCiAgICBkZWYgcmVzb2x2ZV93b3Jrc3BhY2Uoc2VsZiwgKmFyZ3MsICoqa3dhcmdzKToKICAgICAgICAiIiJPZGluJ3MgcGlubmVkIHJlc29sdmVyOyBtYWNPUyBwYXRoIHJ1bGVzIGFycml2ZSB3aXRoIGV4ZWN1dGlvbiAocGhhc2UgMykuIiIiCiAgICAgICAgZnJvbSAuLi50b29scy53b3Jrc3BhY2UgaW1wb3J0IHJlc29sdmVfd29ya3NwYWNlCgogICAgICAgIHJldHVybiByZXNvbHZlX3dvcmtzcGFjZSgqYXJncywgKiprd2FyZ3MpCg==",
+          "new_base64": "IiIibWFjT1M6IHRoZSBEZXNrdG9wIGVuZ2luZSdzIHBsYXRmb3JtIG1lbWJlcnMuCgpUaGUgcHJvZmlsZSBsaXZlcyBpbiB0aGUgdXNlcidzIExpYnJhcnk6IGNvbmZpZyBhbmQgZGF0YSBpbiB+L0xpYnJhcnkvb2Rpbi1kZXNrdG9wLzxwcm9maWxlPiwgdGhlCmNhY2hlIGluIH4vTGlicmFyeS9DYWNoZXMvb2Rpbi1kZXNrdG9wLzxwcm9maWxlPiAodGhlIG5hbWVzcGFjZSBwYWlycyBMaW51eCBhbmQgV2luZG93cyB1c2UsIHNvIHRoZQpzaGFyZWQgcHJpdmF0ZS1mb2xkZXIgY2hlY2tzIHJlY29nbml6ZSB0aGVtKS4gTm90IEFwcGxpY2F0aW9uIFN1cHBvcnQ6IE9kaW4gcGFzc2VzIHByb2ZpbGUgcGF0aHMgdG8KT3BlblNTSCdzIC1vIG9wdGlvbnMgKFVzZXJLbm93bkhvc3RzRmlsZSksIHdoaWNoIHNwbGl0IHRoZWlyIHZhbHVlcyBvbiB3aGl0ZXNwYWNlLCBzbyB0aGUKcHJvZmlsZSdzIHBhdGhzIG11c3QgaGF2ZSBub25lLiBUaGUgdHJhbnNwb3J0IGlzIGFuIG93bmVyLW9ubHkKVW5peCBzb2NrZXQgaW4gdGhlIHBlci11c2VyIHRlbXBvcmFyeSBmb2xkZXIsIHdoaWNoIG1hY09TIGNyZWF0ZXMgcHJpdmF0ZSB0byB0aGUgdXNlciBhbmQgdGhpcwplbmdpbmUgdmVyaWZpZXMuIFNlY3JldHMgbGl2ZSBpbiB0aGUgbG9naW4gS2V5Y2hhaW4uIFRoZSBjb3JlJ3MgbGlmZXRpbWUgaXMgTGludXgncyBvd246IGFzeW5jaW8Kc2lnbmFsIGhhbmRsZXJzIGFuZCB0aGUgcGFyZW50IHBpcGUgd29yayB0aGUgc2FtZSBvbiBtYWNPUy4KIiIiCgpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgb3MKaW1wb3J0IHJlCmZyb20gY29sbGVjdGlvbnMuYWJjIGltcG9ydCBNYXBwaW5nCmZyb20gZnVuY3Rvb2xzIGltcG9ydCBjYWNoZWRfcHJvcGVydHkKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpfUFJPRklMRV9JRCA9IHJlLmNvbXBpbGUociJbQS1aYS16MC05XVtBLVphLXowLTlfLV17MCw2M30iKQpTT0NLRVRfUEFUSF9MSU1JVCA9IDEwMyAgIyBzdW5fcGF0aCBpcyAxMDQgYnl0ZXMgb24gbWFjT1MsIGluY2x1ZGluZyB0aGUgdGVybWluYXRpbmcgTlVMCgoKZGVmIG1hY29zX3Byb2ZpbGVfcGF0aHMoCiAgICBwcm9maWxlX2lkOiBzdHIgPSAiZGVmYXVsdCIsCiAgICAqLAogICAgZW52aXJvbjogTWFwcGluZ1tzdHIsIHN0cl0gfCBOb25lID0gTm9uZSwKICAgIGhvbWU6IFBhdGggfCBzdHIgfCBOb25lID0gTm9uZSwKKToKICAgICIiImBgfi9MaWJyYXJ5L29kaW4tZGVza3RvcC88cHJvZmlsZT4ve2NvbmZpZyxkYXRhfWBgIGFuZAogICAgYGB+L0xpYnJhcnkvQ2FjaGVzL29kaW4tZGVza3RvcC88cHJvZmlsZT5gYCwgd2l0aCBubyB3aGl0ZXNwYWNlIChzZWUgdGhlIG1vZHVsZSBub3RlcykuIFNlY3JldHMKICAgIG1ldGFkYXRhIGxpdmVzIHVuZGVyIGRhdGE7IHZhbHVlcyBhcmUgaW4gdGhlIEtleWNoYWluLgoKICAgIGBgaG9tZWBgIHN0YW5kcyBpbiBmb3IgYGB+YGAgYXMgb24gTGludXg7IGBgZW52aXJvbmBgIGlzIGFjY2VwdGVkIGZvciB0aGUgc2hhcmVkIHNpZ25hdHVyZS4KICAgICIiIgogICAgZnJvbSAuLnBhdGhzIGltcG9ydCBQcm9maWxlUGF0aHMKCiAgICBpZiBub3QgaXNpbnN0YW5jZShwcm9maWxlX2lkLCBzdHIpIG9yIG5vdCBfUFJPRklMRV9JRC5mdWxsbWF0Y2gocHJvZmlsZV9pZCk6CiAgICAgICAgcmFpc2UgVmFsdWVFcnJvcigiaW52YWxpZCBwcm9maWxlIGlkZW50aWZpZXIiKQogICAgaG9tZV9wYXRoID0gUGF0aChob21lKSBpZiBob21lIGlzIG5vdCBOb25lIGVsc2UgUGF0aC5ob21lKCkKICAgIGlmICgKICAgICAgICBub3QgaG9tZV9wYXRoLmlzX2Fic29sdXRlKCkKICAgICAgICBvciAiLi4iIGluIGhvbWVfcGF0aC5wYXJ0cwogICAgICAgIG9yIGFueShvcmQoYykgPCAzMiBmb3IgYyBpbiBzdHIoaG9tZV9wYXRoKSkKICAgICk6CiAgICAgICAgcmFpc2UgVmFsdWVFcnJvcigiaG9tZSBtdXN0IGJlIGFuIGFic29sdXRlIGxvY2FsIHBhdGgiKQogICAgaWYgYW55KGNoYXJhY3Rlci5pc3NwYWNlKCkgZm9yIGNoYXJhY3RlciBpbiBzdHIoaG9tZV9wYXRoKSk6CiAgICAgICAgcmFpc2UgVmFsdWVFcnJvcigiaG9tZSBtdXN0IGhhdmUgbm8gd2hpdGVzcGFjZSAoT3BlblNTSCBvcHRpb25zIHNwbGl0IG9uIGl0KSIpCiAgICBzdXBwb3J0ID0gaG9tZV9wYXRoIC8gIkxpYnJhcnkiIC8gIm9kaW4tZGVza3RvcCIgLyBwcm9maWxlX2lkCiAgICBkYXRhID0gc3VwcG9ydCAvICJkYXRhIgogICAgcmV0dXJuIFByb2ZpbGVQYXRocygKICAgICAgICBwcm9maWxlX2lkLAogICAgICAgIHN1cHBvcnQgLyAiY29uZmlnIiwKICAgICAgICBkYXRhLAogICAgICAgIGhvbWVfcGF0aCAvICJMaWJyYXJ5IiAvICJDYWNoZXMiIC8gIm9kaW4tZGVza3RvcCIgLyBwcm9maWxlX2lkLAogICAgICAgIGRhdGEgLyAic2VjcmV0cyIsCiAgICApCgoKZGVmIG1hY29zX3NvY2tldF9wYXRoKHByb2ZpbGVfaWQ6IHN0ciA9ICJkZWZhdWx0Iiwgcm9vdDogUGF0aCB8IE5vbmUgPSBOb25lKSAtPiBQYXRoOgogICAgIiIiYGA8cGVyLXVzZXIgdGVtcG9yYXJ5IGZvbGRlcj4vb2Rpbi1kZXNrdG9wLzxwcm9maWxlPi9jb3JlLnNvY2tgYCwgYXQgbW9zdCAxMDMgYnl0ZXMuCgogICAgVGhlIGFwcCBkZXJpdmVzIHRoZSBzYW1lIHBhdGg7IGEgcGF0aCBvdmVyIHRoZSBsaW1pdCBpcyByZWZ1c2VkLCBuZXZlciBzaG9ydGVuZWQgc2lsZW50bHkuCiAgICAiIiIKICAgIGZyb20gLmRhcndpbiBpbXBvcnQgdXNlcl90ZW1wX3Jvb3QKCiAgICBpZiBub3QgaXNpbnN0YW5jZShwcm9maWxlX2lkLCBzdHIpIG9yIG5vdCBfUFJPRklMRV9JRC5mdWxsbWF0Y2gocHJvZmlsZV9pZCk6CiAgICAgICAgcmFpc2UgVmFsdWVFcnJvcigiaW52YWxpZCBwcm9maWxlIGlkZW50aWZpZXIiKQogICAgcGF0aCA9ICgKICAgICAgICAocm9vdCBpZiByb290IGlzIG5vdCBOb25lIGVsc2UgdXNlcl90ZW1wX3Jvb3QoKSkgLyAib2Rpbi1kZXNrdG9wIiAvIHByb2ZpbGVfaWQgLyAiY29yZS5zb2NrIgogICAgKQogICAgaWYgbGVuKG9zLmZzZW5jb2RlKHBhdGgpKSA+IFNPQ0tFVF9QQVRIX0xJTUlUOgogICAgICAgIHJhaXNlIFZhbHVlRXJyb3IoZiJ0aGUgc29ja2V0IHBhdGggaXMgbG9uZ2VyIHRoYW4gbWFjT1MgYWxsb3dzICh7U09DS0VUX1BBVEhfTElNSVR9IGJ5dGVzKSIpCiAgICByZXR1cm4gcGF0aAoKCmNsYXNzIE1hY09TUGxhdGZvcm06CiAgICBuYW1lID0gIm1hY29zIgogICAgY29tcHV0ZXJfc3VwcG9ydGVkID0gRmFsc2UKCiAgICBAY2FjaGVkX3Byb3BlcnR5CiAgICBkZWYgaXBjKHNlbGYpOgogICAgICAgICIiIlRoZSBhcHAg4oaUIGVuZ2luZSB0cmFuc3BvcnQ6IGFuIG93bmVyLW9ubHkgVW5peCBzb2NrZXQsIHBlZXIgY2hlY2tlZCBieSB0aGUga2VybmVsLiIiIgogICAgICAgIGZyb20gLm1hY29zX2lwYyBpbXBvcnQgTWFjT1NJcGMKCiAgICAgICAgcmV0dXJuIE1hY09TSXBjKCkKCiAgICBkZWYgc2VjcmV0X2JhY2tlbmQoc2VsZiwgcGF0aHM9Tm9uZSk6CiAgICAgICAgIiIiVGhlIGxvZ2luIEtleWNoYWluOyBvbmUgc3RvcmUgZm9yIGV2ZXJ5IHByb2ZpbGUsIGtleWVkIGFzIG9uIExpbnV4LiIiIgogICAgICAgIGZyb20gLm1hY29zX3NlY3JldHMgaW1wb3J0IEtleWNoYWluQmFja2VuZAoKICAgICAgICByZXR1cm4gS2V5Y2hhaW5CYWNrZW5kKCkKCiAgICBkZWYgY29yZV9saWZldGltZShzZWxmKToKICAgICAgICAiIiJTaWduYWxzIGFuZCB0aGUgcGFyZW50IHBpcGUsIHdhdGNoZWQgb24gdGhlIGV2ZW50IGxvb3AsIGFzIG9uIExpbnV4LiIiIgogICAgICAgIGZyb20gLi5saWZlY3ljbGUgaW1wb3J0IENvcmVMaWZldGltZQoKICAgICAgICByZXR1cm4gQ29yZUxpZmV0aW1lKCkKCiAgICBkZWYgcHJvZmlsZV9wYXRocygKICAgICAgICBzZWxmLAogICAgICAgIHByb2ZpbGVfaWQ6IHN0ciA9ICJkZWZhdWx0IiwKICAgICAgICAqLAogICAgICAgIGVudmlyb246IE1hcHBpbmdbc3RyLCBzdHJdIHwgTm9uZSA9IE5vbmUsCiAgICAgICAgaG9tZTogUGF0aCB8IHN0ciB8IE5vbmUgPSBOb25lLAogICAgKToKICAgICAgICByZXR1cm4gbWFjb3NfcHJvZmlsZV9wYXRocyhwcm9maWxlX2lkLCBlbnZpcm9uPWVudmlyb24sIGhvbWU9aG9tZSkKCiAgICBkZWYgcmVzb2x2ZV93b3Jrc3BhY2Uoc2VsZiwgKmFyZ3MsICoqa3dhcmdzKToKICAgICAgICAiIiJPZGluJ3MgcGlubmVkIHJlc29sdmVyOyBtYWNPUyBwYXRoIHJ1bGVzIGFycml2ZSB3aXRoIGV4ZWN1dGlvbiAocGhhc2UgMykuIiIiCiAgICAgICAgZnJvbSAuLi50b29scy53b3Jrc3BhY2UgaW1wb3J0IHJlc29sdmVfd29ya3NwYWNlCgogICAgICAgIHJldHVybiByZXNvbHZlX3dvcmtzcGFjZSgqYXJncywgKiprd2FyZ3MpCg==",
           "old_base64": "",
           "start": 0
         }
       ],
       "path": "src/desktop/platform/macos.py",
-      "reason": "macOS port phase 2: MacOSPlatform and the Library profile and socket paths.",
+      "reason": "macOS port phase 2: MacOSPlatform and the Library profile and socket paths. | macos-3: macOS port phase 3: the profile moves to ~/Library/odin-desktop/<profile> (no whitespace).",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -11172,8 +11172,8 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994"
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f"
       },
       "tests": [
         "tests/macos/test_core_end_to_end.py",
@@ -11211,7 +11211,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7"
       },
       "tests": [
@@ -11250,7 +11250,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17"
       },
       "tests": [
@@ -11289,7 +11289,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17"
       },
       "tests": [
@@ -11369,7 +11369,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e"
       },
       "tests": [
@@ -11484,7 +11484,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_macos_storage.py": "0088170fdcafbc4f02fde3d80a8e267777ffc4095a57c4da7a4b2724bd3da722"
       },
       "tests": [
@@ -11568,6 +11568,45 @@
       "tests": [
         "tests/macos/test_core_tools_end_to_end.py",
         "tests/test_desktop_platform_variants.py"
+      ]
+    },
+    {
+      "after_sha256": "241275f7aed604a113c1136a43f92298e11a798beff7046f4aaa7e8553a693a8",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "port: GNU timeout when present, else a perl alarm; service: launchd in systemctl's words; logs: the unified log; a Linux host runs Odin's own probe.",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Loaded only on macOS; Linux and Windows never import it.",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIibWFjT1M6IGBgdmFsaWRhdGVfYWN0aW9uYGAncyBmaXhlZCBwcm9iZXMsIGNob29zaW5nIHRoZWlyIHRvb2xzIHdoZXJlIHRoZXkgcnVuLgoKT2RpbiBidWlsZHMgZWFjaCBwcm9iZSBhcyBhIFBPU0lYIGNvbW1hbmQgYW5kIHJlYWRzIHdoYXQgaXQgcHJpbnRzLiBUaHJlZSBvZiB0aGVtIG5hbWUgdG9vbHMgYQpNYWMgbGFja3MgKEdOVSB0aW1lb3V0LCBzeXN0ZW1jdGwsIGpvdXJuYWxjdGwpLiBPbiBtYWNPUyB0aGUgZW5naW5lIGJ1aWxkcyB0aG9zZSBwcm9iZXMgc28gdGhhdAp0aGV5IHBpY2sgdGhlaXIgdG9vbHMgb24gdGhlIHRhcmdldCBob3N0OiBhIExpbnV4IGhvc3QgcnVucyBPZGluJ3Mgb3duIHByb2JlLCB1bmNoYW5nZWQsIGFuZCBhCk1hYyBwcmludHMgZXhhY3RseSB3aGF0IE9kaW4ncyBldmFsdWF0aW9uIGV4cGVjdHMuCgoqIGBgcG9ydGBgOiBHTlUgdGltZW91dCB3aGVuIHRoZSBob3N0IGhhcyBpdCwgb3RoZXJ3aXNlIHRoZSBzYW1lIGJhc2ggL2Rldi90Y3AgcHJvYmUgdW5kZXIgYQogIHBlcmwgYWxhcm0gKHBlcmwgc2hpcHMgd2l0aCBtYWNPUyk7IGBgT1BFTmBgIG9yIGBgQ0xPU0VEYGAuCiogYGBzZXJ2aWNlYGA6IHRoZSBsYXVuY2hkIGpvYiBuYW1lZCAodGhlIHVzZXIncyBkb21haW4sIHRoZW4gdGhlIHN5c3RlbSdzKTsgYSBydW5uaW5nIGpvYiBpcwogIGBgYWN0aXZlYGAgYW5kIGFueXRoaW5nIGVsc2UsIGEgbWlzc2luZyBqb2IgaW5jbHVkZWQsIGBgaW5hY3RpdmVgYCwgaW4gc3lzdGVtY3RsJ3Mgd29yZHMuCiogYGBsb2dfYWJzZW50YGAvYGBsb2dfcHJlc2VudGBgOiB0aGUgdW5pZmllZCBsb2cgKGBgbG9nIHNob3dgYCkgb3ZlciB0aGUgd2luZG93LCBgYHVuaXQ9YGAKICBuYW1pbmcgYSBwcm9jZXNzIG9yIHN1YnN5c3RlbTsgbWF0Y2hlZCBsaW5lcywgdGhlbiBgYExPR19SRUFEX09LYGAsIG9yIGBgTE9HX0NIRUNLX0VSUk9SYGAuCgpFdmVyeSBvdGhlciBjaGVjayBpcyBPZGluJ3Mgb3duIHByb2JlLgoiIiIKZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IHNobGV4CgpfUE9SVCA9ICdjYXQgPCAvZGV2L251bGwgPiAiL2Rldi90Y3AvJDEvJDIiJwpfU0VSVklDRSA9ICgKICAgICdjYXNlICIkKGxhdW5jaGN0bCBwcmludCAiZ3VpLyQoaWQgLXUpLyQxIiAyPi9kZXYvbnVsbCB8fCAnCiAgICAnbGF1bmNoY3RsIHByaW50ICJzeXN0ZW0vJDEiIDI+L2Rldi9udWxsKSIgaW4gJwogICAgJyoic3RhdGUgPSBydW5uaW5nIiopIGVjaG8gYWN0aXZlOzsgKikgZWNobyBpbmFjdGl2ZTs7IGVzYWMnCikKX0xPRyA9ICgKICAgICdwPSIkMyI7ICcKICAgICdwcmludGYgIiIgfCBncmVwIC1FIC1lICIkcCIgPi9kZXYvbnVsbCAyPiYxOyAnCiAgICAnaWYgWyAiJD8iIC1ndCAxIF07IHRoZW4gZWNobyAiTE9HX0NIRUNLX0VSUk9SIGludmFsaWQgcGF0dGVybiI7ICcKICAgICdwcmludGYgIiIgfCBncmVwIC1FIC1lICIkcCIgMj4mMSB8IGhlYWQgLW4gMjsgZXhpdCAwOyBmaTsgJwogICAgJ2lmIFsgLW4gIiQxIiBdOyB0aGVuICcKICAgICdzZXQgLS0gLS1sYXN0ICIkezJ9cyIgLS1zdHlsZSBjb21wYWN0ICcKICAgICctLXByZWRpY2F0ZSAicHJvY2VzcyA9PSBcXCIkMVxcIiBPUiBzdWJzeXN0ZW0gPT0gXFwiJDFcXCIiOyAnCiAgICAnZWxzZSBzZXQgLS0gLS1sYXN0ICIkezJ9cyIgLS1zdHlsZSBjb21wYWN0OyBmaTsgJwogICAgJ2U9JChsb2cgc2hvdyAiJEAiIDI+JjEgPi9kZXYvbnVsbCk7IHI9JD87ICcKICAgICdpZiBbICIkciIgLW5lIDAgXTsgdGhlbiBlY2hvICJMT0dfQ0hFQ0tfRVJST1IgbG9nIGV4aXQgJHIiOyAnCiAgICAncHJpbnRmICIlc1xcbiIgIiRlIiB8IHRhaWwgLW4gMTsgZXhpdCAwOyBmaTsgJwogICAgJ2xvZyBzaG93ICIkQCIgMj4vZGV2L251bGwgfCBncmVwIC1FIC1lICIkcCIgfCBoZWFkIC1uIDIwOyBlY2hvIExPR19SRUFEX09LJwopCgoKZGVmIGJ1aWxkX2NvbW1hbmQoY2hlY2spIC0+IHN0ciB8IE5vbmU6CiAgICAiIiJgYF9idWlsZF9jb21tYW5kYGAgb24gbWFjT1M6IHRoZSBwcm9iZXMgYWJvdmUsIE9kaW4ncyBvd24gZm9yIGV2ZXJ5IG90aGVyIGNoZWNrLiIiIgogICAgZnJvbSAuLi50b29scy5wb3N0X3ZhbGlkYXRpb24gaW1wb3J0IF9MT0dfUFJPQkVfU0NSSVBULCBfYnVpbGRfY29tbWFuZAoKICAgIG9yaWdpbmFsID0gX2J1aWxkX2NvbW1hbmQubGludXhfb3JpZ2luYWwoY2hlY2spCiAgICBpZiBvcmlnaW5hbCBpcyBOb25lOgogICAgICAgIHJldHVybiBOb25lCiAgICB0LCB0YXJnZXQsIHRpbWVvdXQgPSBjaGVjay50eXBlLCBjaGVjay50YXJnZXQsIGludChjaGVjay50aW1lb3V0X3NlY29uZHMpCiAgICBpZiB0ID09ICJwb3J0IjoKICAgICAgICBob3N0LCBwb3J0ID0gdGFyZ2V0LnJzcGxpdCgiOiIsIDEpIGlmICI6IiBpbiB0YXJnZXQgZWxzZSAoIjEyNy4wLjAuMSIsIHRhcmdldCkKICAgICAgICBwcm9iZSA9IGYiYmFzaCAtYyB7c2hsZXgucXVvdGUoX1BPUlQpfSBfIHtzaGxleC5xdW90ZShob3N0KX0ge3NobGV4LnF1b3RlKHBvcnQpfSIKICAgICAgICByZXR1cm4gKAogICAgICAgICAgICBmInt7IGlmIGNvbW1hbmQgLXYgdGltZW91dCA+L2Rldi9udWxsIDI+JjE7IHRoZW4gdGltZW91dCB7dGltZW91dH0ge3Byb2JlfTsgIgogICAgICAgICAgICBmImVsc2UgcGVybCAtZSAnYWxhcm0gc2hpZnQgQEFSR1Y7IGV4ZWMgQEFSR1YnIHt0aW1lb3V0fSB7cHJvYmV9OyBmaTsgfX0gIgogICAgICAgICAgICAiJiYgZWNobyBPUEVOIHx8IGVjaG8gQ0xPU0VEIgogICAgICAgICkKICAgIGlmIHQgPT0gInNlcnZpY2UiOgogICAgICAgIHJldHVybiAoCiAgICAgICAgICAgIGYnaWYgWyAiJCh1bmFtZSAtcykiID0gRGFyd2luIF07IHRoZW4gJwogICAgICAgICAgICBmInNoIC1jIHtzaGxleC5xdW90ZShfU0VSVklDRSl9IG9kaW4tc2VydmljZS1jaGVjayB7c2hsZXgucXVvdGUodGFyZ2V0KX07ICIKICAgICAgICAgICAgZiJlbHNlIHtvcmlnaW5hbH07IGZpIgogICAgICAgICkKICAgIGlmIHQgaW4gKCJsb2dfYWJzZW50IiwgImxvZ19wcmVzZW50Iik6CiAgICAgICAgZGFyd2luID0gb3JpZ2luYWwucmVwbGFjZShzaGxleC5xdW90ZShfTE9HX1BST0JFX1NDUklQVCksIHNobGV4LnF1b3RlKF9MT0cpLCAxKQogICAgICAgIGlmIGRhcndpbiA9PSBvcmlnaW5hbDoKICAgICAgICAgICAgcmV0dXJuIG9yaWdpbmFsCiAgICAgICAgcmV0dXJuIGYnaWYgWyAiJCh1bmFtZSAtcykiID0gRGFyd2luIF07IHRoZW4ge2Rhcndpbn07IGVsc2Uge29yaWdpbmFsfTsgZmknCiAgICByZXR1cm4gb3JpZ2luYWwK",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "src/desktop/platform/macos_validate.py",
+      "reason": "macOS port phase 3: validate_action probes that choose their tools where they run.",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/macos/test_core_tools_end_to_end.py": "069dcba0ef94735b2aa796c33ca18217f5e95e3ee8a418f8391c9924e4a3de19",
+        "tests/macos/test_macos_validate.py": "af06c1cf5ca6ed2c2f006053aecc04b4a1214c8e5e42e98fcf1e1fd1d00b8b7e"
+      },
+      "tests": [
+        "tests/macos/test_core_tools_end_to_end.py",
+        "tests/macos/test_macos_validate.py"
       ]
     },
     {
@@ -13642,7 +13681,7 @@
         "app/test/e2e/admitted-work.spec.ts": "f1a9162c87fa5b64d74556935d47f3e503d97444c41ed2b29aa798f966ef815a",
         "app/test/e2e/execution-containment.spec.ts": "00ee3a46536beaecc27002bbb408d48ac78b01257be18be0b446744074d09e9a",
         "app/test/e2e/native-reconciliation.spec.ts": "ba4837b5084bfda2b90d8b7a577bf344c1aaf18277b48ce7f01414f1549661e8",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/test_desktop_engine_services.py": "b948ba998dc5d9856d5af47d3c7416d26c5edc49f4078d3c0c8d89df9fd5932d",
         "tests/test_desktop_platform_variants.py": "44604afc98fce111b9f9b837f58762dd354cb591ca26f9ec77572ed7fe69e19c",
         "tests/test_desktop_request_core.py": "590e19f97501a9e550790a03bfc4c1d052a9afd6ec5f5a6f72fb5ec43908261c",
@@ -19661,7 +19700,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/test_desktop_health_delivery.py": "3f521fcea8f33ae87bbd7efff2cee9eba7abf6563f357a0c01885db0b8b7fcbc",
         "tests/test_desktop_management_core.py": "1dc20f2f83cfb04037f5a3b3547b7b426b25c88b920f26409e9f72a4560b2ed2",
         "tests/test_desktop_platform_variants.py": "44604afc98fce111b9f9b837f58762dd354cb591ca26f9ec77572ed7fe69e19c",
@@ -25815,35 +25854,35 @@
       ]
     },
     {
-      "after_sha256": "7e94f957147e5b854fb01e7410dc6d44a9bf99dd248790ff9dba9730fee67bc7",
+      "after_sha256": "1cdd1b33cba0f45450f8aac7260f2d7b008eab74d3c5b75b31ecdea01595e2f9",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e8b17e5dce197ed7c7a7820c7eccb1e4eb64a905f2908aaca5479d257ef3ed4e",
-      "contract": "Linux keeps the original function objects (the decorator returns them); Windows routes to its variant.",
+      "contract": "Linux keeps the original function objects (the decorator returns them); Windows routes to its variant. | macos-3: macOS builds the port, service and log probes to choose their tools on the target; others are Odin's.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Off Windows the module is Odin's own.",
+      "invariant": "Off Windows the module is Odin's own. | macos-3: Linux and Windows run their own objects.",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Odin to Desktop",
       "owner": "Odin",
       "patch": [
         {
           "end": 1188,
-          "new_base64": "ZnJvbSAuLmRlc2t0b3AucGxhdGZvcm0udmFyaWFudHMgaW1wb3J0IHdpbmRvd3NfdmFyaWFudAo=",
+          "new_base64": "ZnJvbSAuLmRlc2t0b3AucGxhdGZvcm0udmFyaWFudHMgaW1wb3J0IGRhcndpbl92YXJpYW50LCB3aW5kb3dzX3ZhcmlhbnQK",
           "old_base64": "",
           "start": 1188
         },
         {
           "end": 12874,
-          "new_base64": "QHdpbmRvd3NfdmFyaWFudCgic3JjLmRlc2t0b3AucGxhdGZvcm0ud2luZG93c192YWxpZGF0ZTpidWlsZF9jb21tYW5kIikK",
+          "new_base64": "QHdpbmRvd3NfdmFyaWFudCgic3JjLmRlc2t0b3AucGxhdGZvcm0ud2luZG93c192YWxpZGF0ZTpidWlsZF9jb21tYW5kIikKQGRhcndpbl92YXJpYW50KCJzcmMuZGVza3RvcC5wbGF0Zm9ybS5tYWNvc192YWxpZGF0ZTpidWlsZF9jb21tYW5kIikK",
           "old_base64": "",
           "start": 12874
         }
       ],
       "path": "src/tools/post_validation.py",
-      "reason": "Windows port phase 3b: _build_command routes to the Windows probes.",
+      "reason": "Windows port phase 3b: _build_command routes to the Windows probes. | macos-3: macOS port phase 3: @darwin_variant on _build_command.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -25851,10 +25890,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
+        "tests/macos/test_macos_validate.py": "af06c1cf5ca6ed2c2f006053aecc04b4a1214c8e5e42e98fcf1e1fd1d00b8b7e",
         "tests/test_desktop_platform_variants.py": "44604afc98fce111b9f9b837f58762dd354cb591ca26f9ec77572ed7fe69e19c",
         "tests/windows/test_windows_validate.py": "40d4e9a9ee019783c28b3da7eb664e85fa784666bff9c7138d059441539b344c"
       },
       "tests": [
+        "tests/macos/test_macos_validate.py",
         "tests/test_desktop_platform_variants.py",
         "tests/windows/test_windows_validate.py"
       ]
@@ -34930,12 +34971,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
         "tests/macos/test_macos_storage.py": "0088170fdcafbc4f02fde3d80a8e267777ffc4095a57c4da7a4b2724bd3da722"
@@ -34983,12 +35024,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
         "tests/macos/test_macos_storage.py": "0088170fdcafbc4f02fde3d80a8e267777ffc4095a57c4da7a4b2724bd3da722"
@@ -35006,7 +35047,7 @@
       ]
     },
     {
-      "after_sha256": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+      "after_sha256": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -35022,7 +35063,7 @@
       "patch": [
         {
           "end": 0,
-          "new_base64": "IiIiVGhlIHJlYWwgY29yZSBvbiBtYWNPUywgZW5kIHRvIGVuZC4KCkEgZnJlc2ggcHJvZmlsZSB1bmRlciBhIHRlbXBvcmFyeSBob21lJ3MgTGlicmFyeSwgdGhlIHNvY2tldCBpbiB0aGUgdmVyaWZpZWQgcGVyLXVzZXIgdGVtcG9yYXJ5CmZvbGRlciwgdGhlIHRva2VuIGhhbmRzaGFrZSBhbmQgaXRzIHJlZnVzYWxzLCB0aGUgY29tbWl0dGVkIHJlYWQtb25seSBtZXRob2QgbGlzdCwgb3JkaW5hcnkgd3JpdGVzCnRoYXQgc3RheSBpbiB0aGUgcHJvZmlsZSwgYW5kIGEgY2xlYW4gZXhpdCBvbiBwYXJlbnQgRU9GLCBvbiBydW50aW1lLnNodXRkb3duIGFuZCBvbiBTSUdURVJNLgpUaGUgdGVtcG9yYXJ5IGhvbWUgaGFzIG5vIGxvZ2luIGtleWNoYWluLCBzbyB0aGUgZW5naW5lJ3Mga2V5Y2hhaW4gaXMgdW5hdmFpbGFibGUgaGVyZSwgZXhhY3RseSBhcwpMaW51eCBDSSBoYXMgbm8gU2VjcmV0IFNlcnZpY2U6IG5vIGtleWNoYWluIGlzIHJlYWQgb3Igd3JpdHRlbiBieSB0aGVzZSB0ZXN0cy4KIiIiCmZyb20gX19mdXR1cmVfXyBpbXBvcnQgYW5ub3RhdGlvbnMKCmltcG9ydCBhc3luY2lvCmltcG9ydCBqc29uCmltcG9ydCBvcwppbXBvcnQgc2VjcmV0cwppbXBvcnQgc2h1dGlsCmltcG9ydCBzaWduYWwKaW1wb3J0IHN0cnVjdAppbXBvcnQgc3VicHJvY2VzcwppbXBvcnQgc3lzCmltcG9ydCB0ZW1wZmlsZQppbXBvcnQgdXVpZApmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKCmltcG9ydCBweXRlc3QKCmZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0ubWFjb3MgaW1wb3J0IG1hY29zX3Byb2ZpbGVfcGF0aHMsIG1hY29zX3NvY2tldF9wYXRoCmZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0ubWFjb3NfaXBjIGltcG9ydCBNYWNPU0lwYwoKUk9PVCA9IFBhdGgoX19maWxlX18pLnJlc29sdmUoKS5wYXJlbnRzWzJdCkZJWFRVUkUgPSBqc29uLmxvYWRzKChST09UIC8gInRlc3RzIiAvICJmaXh0dXJlcyIgLyAid2luZG93cy1jb3JlLW1ldGhvZHMuanNvbiIpLnJlYWRfdGV4dCgpKQpTVEFSVFVQX1NFQ09ORFMgPSAxMjAKCgpjbGFzcyBDb3JlOgogICAgZGVmIF9faW5pdF9fKHNlbGYsIGhvbWU6IFBhdGgpOgogICAgICAgIHNlbGYuaG9tZSA9IGhvbWUKICAgICAgICBzZWxmLnByb2ZpbGUgPSBmImUyZXt1dWlkLnV1aWQ0KCkuaGV4Wzo4XX0iCiAgICAgICAgc2VsZi5wYXRocyA9IG1hY29zX3Byb2ZpbGVfcGF0aHMoc2VsZi5wcm9maWxlLCBob21lPWhvbWUpCiAgICAgICAgc2VsZi5wYXRocy5jcmVhdGVfcHJpdmF0ZSgpCiAgICAgICAgc2VsZi50b2tlbiA9IHNlY3JldHMudG9rZW5faGV4KDMyKQogICAgICAgIHNlbGYudG9rZW5fZmlsZSA9IHNlbGYucGF0aHMuY29uZmlnX2RpciAvICJpcGMudG9rZW4iCiAgICAgICAgc2VsZi50b2tlbl9maWxlLndyaXRlX3RleHQoc2VsZi50b2tlbiwgZW5jb2Rpbmc9ImFzY2lpIikKICAgICAgICBzZWxmLnRva2VuX2ZpbGUuY2htb2QoMG82MDApCiAgICAgICAgc2VsZi5zb2NrZXQgPSBtYWNvc19zb2NrZXRfcGF0aChzZWxmLnByb2ZpbGUpCiAgICAgICAgc2VsZi5sb2cgPSBob21lIC8gZiJjb3JlLXt1dWlkLnV1aWQ0KCkuaGV4Wzo2XX0ubG9nIgogICAgICAgIHNlbGYucHJvY2VzcyA9IE5vbmUKCiAgICBkZWYgc3RhcnQoc2VsZik6CiAgICAgICAgZW52aXJvbm1lbnQgPSB7IlBBVEgiOiBvcy5lbnZpcm9uWyJQQVRIIl0sICJIT01FIjogc3RyKHNlbGYuaG9tZSksICJMQU5HIjogImVuX1VTLlVURi04IiwKICAgICAgICAgICAgICAgICAgICAgICAiVE1QRElSIjogb3MuZW52aXJvbi5nZXQoIlRNUERJUiIsICIvdG1wIiksICJQWVRIT05ET05UV1JJVEVCWVRFQ09ERSI6ICIxIn0KICAgICAgICB3aXRoIG9wZW4oc2VsZi5sb2csICJ3YiIpIGFzIHN0ZGVycjoKICAgICAgICAgICAgc2VsZi5wcm9jZXNzID0gc3VicHJvY2Vzcy5Qb3BlbigKICAgICAgICAgICAgICAgIFtzeXMuZXhlY3V0YWJsZSwgIi1tIiwgInNyYyIsICItLXNvY2tldCIsIHN0cihzZWxmLnNvY2tldCksCiAgICAgICAgICAgICAgICAgIi0tdG9rZW4tZmlsZSIsIHN0cihzZWxmLnRva2VuX2ZpbGUpLCAiLS1wcm9maWxlIiwgc2VsZi5wcm9maWxlLAogICAgICAgICAgICAgICAgICItLWRhdGEtZGlyIiwgc3RyKHNlbGYucGF0aHMuZGF0YV9kaXIpXSwKICAgICAgICAgICAgICAgIHN0ZGluPXN1YnByb2Nlc3MuUElQRSwgc3Rkb3V0PXN1YnByb2Nlc3MuREVWTlVMTCwgc3RkZXJyPXN0ZGVyciwgY3dkPVJPT1QsCiAgICAgICAgICAgICAgICBlbnY9ZW52aXJvbm1lbnQpCiAgICAgICAgcmV0dXJuIHNlbGYKCiAgICBkZWYgc3RkZXJyKHNlbGYpIC0+IHN0cjoKICAgICAgICByZXR1cm4gc2VsZi5sb2cucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIsIGVycm9ycz0icmVwbGFjZSIpCgogICAgZGVmIHN0b3Aoc2VsZik6CiAgICAgICAgaWYgc2VsZi5wcm9jZXNzIGlzIG5vdCBOb25lIGFuZCBzZWxmLnByb2Nlc3MucG9sbCgpIGlzIE5vbmU6CiAgICAgICAgICAgIHNlbGYucHJvY2Vzcy5raWxsKCkKICAgICAgICAgICAgc2VsZi5wcm9jZXNzLndhaXQoMzApCiAgICAgICAgc2h1dGlsLnJtdHJlZShzZWxmLnNvY2tldC5wYXJlbnQsIGlnbm9yZV9lcnJvcnM9VHJ1ZSkKICAgICAgICAjIFRoZSBTU0ggcG9vbCdzIHBlci1wcm9maWxlIGNvbnRyb2wtc29ja2V0IGZvbGRlciAobWFjb3NfZGVza3RvcCdzIC9wcml2YXRlL3RtcCByb290KS4KICAgICAgICBzc2ggPSBmIi9wcml2YXRlL3RtcC9vZGluLWRlc2t0b3Ate29zLmdldGV1aWQoKX0ve3NlbGYucHJvZmlsZX0iCiAgICAgICAgc2h1dGlsLnJtdHJlZShzc2gsIGlnbm9yZV9lcnJvcnM9VHJ1ZSkKCgpAcHl0ZXN0LmZpeHR1cmUKZGVmIGhvbWUoKToKICAgIGZvbGRlciA9IFBhdGgob3MucGF0aC5yZWFscGF0aCh0ZW1wZmlsZS5ta2R0ZW1wKHByZWZpeD0ib2Rpbi1lMmUtIikpKQogICAgeWllbGQgZm9sZGVyCiAgICBzaHV0aWwucm10cmVlKGZvbGRlciwgaWdub3JlX2Vycm9ycz1UcnVlKQoKCmFzeW5jIGRlZiBzZW5kKHdyaXRlciwgbWVzc2FnZSk6CiAgICBlbmNvZGVkID0ganNvbi5kdW1wcyhtZXNzYWdlKS5lbmNvZGUoKQogICAgd3JpdGVyLndyaXRlKHN0cnVjdC5wYWNrKCI+SSIsIGxlbihlbmNvZGVkKSkgKyBlbmNvZGVkKQogICAgYXdhaXQgd3JpdGVyLmRyYWluKCkKCgphc3luYyBkZWYgcmVjZWl2ZShyZWFkZXIsIHRpbWVvdXQ9NjApOgogICAgYXN5bmMgd2l0aCBhc3luY2lvLnRpbWVvdXQodGltZW91dCk6CiAgICAgICAgaGVhZGVyID0gYXdhaXQgcmVhZGVyLnJlYWRleGFjdGx5KDQpCiAgICAgICAgcmV0dXJuIGpzb24ubG9hZHMoYXdhaXQgcmVhZGVyLnJlYWRleGFjdGx5KHN0cnVjdC51bnBhY2soIj5JIiwgaGVhZGVyKVswXSkpCgoKYXN5bmMgZGVmIGhlbGxvKGNvcmU6IENvcmUsICosIHRva2VuPU5vbmUsIHByb2ZpbGU9Tm9uZSk6CiAgICBsb29wID0gYXN5bmNpby5nZXRfcnVubmluZ19sb29wKCkKICAgIGRlYWRsaW5lID0gbG9vcC50aW1lKCkgKyBTVEFSVFVQX1NFQ09ORFMKICAgIHdoaWxlIFRydWU6CiAgICAgICAgaWYgY29yZS5wcm9jZXNzLnBvbGwoKSBpcyBub3QgTm9uZToKICAgICAgICAgICAgcHl0ZXN0LmZhaWwoZiJjb3JlIGV4aXRlZCB7Y29yZS5wcm9jZXNzLnJldHVybmNvZGV9OiB7Y29yZS5zdGRlcnIoKVstMzAwMDpdfSIpCiAgICAgICAgdHJ5OgogICAgICAgICAgICByZWFkZXIsIHdyaXRlciA9IGF3YWl0IE1hY09TSXBjLmNvbm5lY3QoY29yZS5zb2NrZXQpCiAgICAgICAgICAgIGJyZWFrCiAgICAgICAgZXhjZXB0IChGaWxlTm90Rm91bmRFcnJvciwgQ29ubmVjdGlvblJlZnVzZWRFcnJvcik6CiAgICAgICAgICAgIGlmIGxvb3AudGltZSgpID4gZGVhZGxpbmU6CiAgICAgICAgICAgICAgICBweXRlc3QuZmFpbChmIm5vIGxpc3RlbmVyIHdpdGhpbiB7U1RBUlRVUF9TRUNPTkRTfSBzOiB7Y29yZS5zdGRlcnIoKVstMzAwMDpdfSIpCiAgICAgICAgICAgIGF3YWl0IGFzeW5jaW8uc2xlZXAoMC4wNSkKICAgIGF3YWl0IHNlbmQod3JpdGVyLCB7InQiOiAiaGVsbG8iLCAicHJvdG9jb2wiOiB7Im1ham9yIjogMCwgIm1pbm9yIjogMn0sCiAgICAgICAgICAgICAgICAgICAgICAgICJjbGllbnQiOiB7Im5hbWUiOiAibWFjb3MtZTJlIiwgInZlcnNpb24iOiAiMSJ9LAogICAgICAgICAgICAgICAgICAgICAgICAicHJvZmlsZV9pZCI6IHByb2ZpbGUgb3IgY29yZS5wcm9maWxlLCAidG9rZW4iOiB0b2tlbiBvciBjb3JlLnRva2VuLAogICAgICAgICAgICAgICAgICAgICAgICAiZmVhdHVyZXMiOiBbXX0pCiAgICByZXR1cm4gcmVhZGVyLCB3cml0ZXIsIGF3YWl0IHJlY2VpdmUocmVhZGVyKQoKCmFzeW5jIGRlZiBjYWxsKHJlYWRlciwgd3JpdGVyLCBtZXRob2QsIHBhcmFtcz1Ob25lKToKICAgIHJlcXVlc3RfaWQgPSBzdHIodXVpZC51dWlkNCgpKQogICAgYXdhaXQgc2VuZCh3cml0ZXIsIHsidCI6ICJyZXEiLCAiaWQiOiByZXF1ZXN0X2lkLCAibWV0aG9kIjogbWV0aG9kLCAicGFyYW1zIjogcGFyYW1zIG9yIHt9fSkKICAgIHdoaWxlIFRydWU6CiAgICAgICAgbWVzc2FnZSA9IGF3YWl0IHJlY2VpdmUocmVhZGVyKQogICAgICAgIGlmIG1lc3NhZ2UuZ2V0KCJ0IikgPT0gInJlcyIgYW5kIG1lc3NhZ2UuZ2V0KCJpZCIpID09IHJlcXVlc3RfaWQ6CiAgICAgICAgICAgIHJldHVybiBtZXNzYWdlCgoKZGVmIG91dGNvbWUocmVwbHk6IGRpY3QpIC0+IHN0cjoKICAgIHJldHVybiAib2siIGlmIHJlcGx5LmdldCgib2siKSBlbHNlICJlcnJvciAiICsgc3RyKHJlcGx5LmdldCgiZXJyb3IiLCB7fSkuZ2V0KCJjb2RlIikpCgoKYXN5bmMgZGVmIGNsb3NlKHdyaXRlcik6CiAgICB3cml0ZXIuY2xvc2UoKQogICAgdHJ5OgogICAgICAgIGF3YWl0IHdyaXRlci53YWl0X2Nsb3NlZCgpCiAgICBleGNlcHQgT1NFcnJvcjoKICAgICAgICBwYXNzCgoKYXN5bmMgZGVmIHRlc3RfdGhlX2NvcmVfYm9vdHNfYW5zd2Vyc19hbmRfZXhpdHNfb25fcGFyZW50X2VvZihob21lKToKICAgIGNvcmUgPSBDb3JlKGhvbWUpLnN0YXJ0KCkKICAgIHRyeToKICAgICAgICByZWFkZXIsIHdyaXRlciwgd2VsY29tZSA9IGF3YWl0IGhlbGxvKGNvcmUpCiAgICAgICAgYXNzZXJ0IHdlbGNvbWVbInQiXSA9PSAid2VsY29tZSIgYW5kIHdlbGNvbWVbInByb2ZpbGVfaWQiXSA9PSBjb3JlLnByb2ZpbGUKICAgICAgICB0cnk6CiAgICAgICAgICAgIHN0YXR1cyA9IGF3YWl0IGNhbGwocmVhZGVyLCB3cml0ZXIsICJzdGF0dXMuZ2V0IikKICAgICAgICAgICAgYXNzZXJ0IHN0YXR1c1sicmVzdWx0Il1bInBoYXNlIl0gPT0gInJlYWR5Iiwgc3RhdHVzCiAgICAgICAgICAgIGNhcGFiaWxpdGllcyA9IHdlbGNvbWVbImNhcGFiaWxpdGllcyJdCiAgICAgICAgICAgIHJlYWRfb25seSA9IHNvcnRlZChtIGZvciBtIGluIGNhcGFiaWxpdGllcwogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgaWYgbS5yc3BsaXQoIi4iLCAxKVstMV0gaW4geyJnZXQiLCAibGlzdCIsICJzY2hlbWEifSkKICAgICAgICAgICAgYXNzZXJ0IHJlYWRfb25seSA9PSBzb3J0ZWQoRklYVFVSRVsicmVhZF9vbmx5Il0pLCAidXBkYXRlIHRoZSBjb21taXR0ZWQgbWV0aG9kIGxpc3QiCiAgICAgICAgICAgIG91dGNvbWVzID0ge206IG91dGNvbWUoYXdhaXQgY2FsbChyZWFkZXIsIHdyaXRlciwgbSwgRklYVFVSRVsicGFyYW1zIl0uZ2V0KG0pKSkKICAgICAgICAgICAgICAgICAgICAgICAgZm9yIG0gaW4gcmVhZF9vbmx5fQogICAgICAgICAgICAjIFdpbmRvd3MgYWx3YXlzIGhhcyBEUEFQSTsgdGhpcyBob21lIGhhcyBubyBsb2dpbiBrZXljaGFpbiwgYXMgTGludXggQ0kgaGFzIG5vCiAgICAgICAgICAgICMgU2VjcmV0IFNlcnZpY2UsIHNvIHRoZSBvbmUga2V5Y2hhaW4tYmFja2VkIGxpc3RpbmcgcmVwb3J0cyBpdCB1bmF2YWlsYWJsZS4KICAgICAgICAgICAgZXhwZWN0ZWQgPSB7KipGSVhUVVJFWyJyZWFkX29ubHkiXSwgImNvZGV4LmFjY291bnRzLmxpc3QiOiAiZXJyb3Iga2V5cmluZ191bmF2YWlsYWJsZSJ9CiAgICAgICAgICAgIGFzc2VydCBvdXRjb21lcyA9PSBleHBlY3RlZAoKICAgICAgICAgICAgY3JlYXRlZCA9IChhd2FpdCBjYWxsKHJlYWRlciwgd3JpdGVyLCAiY29udmVyc2F0aW9ucy5jcmVhdGUiLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgeyJ0aXRsZSI6ICJlMmUifSkpWyJyZXN1bHQiXVsiY29udmVyc2F0aW9uIl0KICAgICAgICAgICAgZGVsZXRlZCA9IGF3YWl0IGNhbGwocmVhZGVyLCB3cml0ZXIsICJjb252ZXJzYXRpb25zLmRlbGV0ZSIsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHsiaWQiOiBjcmVhdGVkWyJpZCJdLCAiZXhwZWN0ZWRfcmV2IjogY3JlYXRlZFsicmV2Il19KQogICAgICAgICAgICBhc3NlcnQgb3V0Y29tZShkZWxldGVkKSA9PSAib2siCiAgICAgICAgICAgIHNjaGVtYSA9IChhd2FpdCBjYWxsKHJlYWRlciwgd3JpdGVyLCAic2V0dGluZ3Muc2NoZW1hIikpWyJyZXN1bHQiXQogICAgICAgICAgICBzYXZlZCA9IGF3YWl0IGNhbGwocmVhZGVyLCB3cml0ZXIsICJzZXR0aW5ncy5zZXQiLCB7CiAgICAgICAgICAgICAgICAiZXhwZWN0ZWRfcmV2aXNpb24iOiBzY2hlbWFbInJldmlzaW9uIl0sCiAgICAgICAgICAgICAgICAiY2hhbmdlcyI6IFt7InBhdGgiOiAidGltZXpvbmUiLCAidmFsdWUiOiAiQW1lcmljYS9OZXdfWW9yayJ9XX0pCiAgICAgICAgICAgIGFzc2VydCBvdXRjb21lKHNhdmVkKSA9PSAib2siLCBzYXZlZAogICAgICAgICAgICBtZW1vcnkgPSB7InNjb3BlIjogImdsb2JhbCIsICJrZXkiOiAiZTJlIn0KICAgICAgICAgICAgYXNzZXJ0IG91dGNvbWUoYXdhaXQgY2FsbChyZWFkZXIsIHdyaXRlciwgIm1lbW9yeS5zZXQiLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHsqKm1lbW9yeSwgInZhbHVlIjogImtlcHQifSkpID09ICJvayIKICAgICAgICAgICAgYXNzZXJ0IChhd2FpdCBjYWxsKHJlYWRlciwgd3JpdGVyLCAibWVtb3J5LmdldCIsIG1lbW9yeSkpWyJyZXN1bHQiXVsidmFsdWUiXSA9PSAia2VwdCIKICAgICAgICBmaW5hbGx5OgogICAgICAgICAgICBhd2FpdCBjbG9zZSh3cml0ZXIpCgogICAgICAgICMgUmVmdXNhbHM6IGEgd3JvbmcgdG9rZW4gYW5kIGEgd3JvbmcgcHJvZmlsZSBhcmUgdG9sZCBnb29kYnllLCB0aGUgY29yZSBrZWVwcyBzZXJ2aW5nLgogICAgICAgIHJlYWRlciwgd3JpdGVyLCBieWUgPSBhd2FpdCBoZWxsbyhjb3JlLCB0b2tlbj1zZWNyZXRzLnRva2VuX2hleCgzMikpCiAgICAgICAgYXNzZXJ0IGJ5ZSA9PSB7InQiOiAiYnllIiwgInJlYXNvbiI6ICJ1bmF1dGhvcml6ZWQifQogICAgICAgIGF3YWl0IGNsb3NlKHdyaXRlcikKICAgICAgICByZWFkZXIsIHdyaXRlciwgYnllID0gYXdhaXQgaGVsbG8oY29yZSwgcHJvZmlsZT0ic29tZW9uZWVsc2UiKQogICAgICAgIGFzc2VydCBieWUgPT0geyJ0IjogImJ5ZSIsICJyZWFzb24iOiAid3JvbmdfcHJvZmlsZSJ9CiAgICAgICAgYXdhaXQgY2xvc2Uod3JpdGVyKQoKICAgICAgICBjb3JlLnByb2Nlc3Muc3RkaW4uY2xvc2UoKSAgIyB0aGUgYXBwJ3MgZW5kIG9mIHRoZSBwYXJlbnQgbGluawogICAgICAgIGFzc2VydCBjb3JlLnByb2Nlc3Mud2FpdCg2MCkgPT0gMCwgY29yZS5zdGRlcnIoKVstMzAwMDpdCiAgICAgICAgYXNzZXJ0IG5vdCBjb3JlLnNvY2tldC5leGlzdHMoKQogICAgICAgIGxvZyA9IGNvcmUuc3RkZXJyKCkKICAgICAgICBhc3NlcnQgIlRyYWNlYmFjayIgbm90IGluIGxvZyBhbmQgIlRlYXJkb3duIHVucHJvdmVuIiBub3QgaW4gbG9nLCBsb2dbLTMwMDA6XQogICAgICAgIGFzc2VydCAibWFjT1MgcHJvY2VzcyBjb250YWlubWVudDogc2Vzc2lvbi1zY29wZWQsIGJlc3QgZWZmb3J0IiBpbiBsb2cKICAgICAgICAjIEV2ZXJ5dGhpbmcgdGhlIHByb2ZpbGUgd3JvdGUgaXMgdW5kZXIgdGhlIHRlbXBvcmFyeSBob21lJ3MgTGlicmFyeS4KICAgICAgICBsaWJyYXJ5ID0gaG9tZSAvICJMaWJyYXJ5IgogICAgICAgIGFzc2VydCAobGlicmFyeSAvICJBcHBsaWNhdGlvbiBTdXBwb3J0IiAvICJvZGluLWRlc2t0b3AiIC8gY29yZS5wcm9maWxlIC8gImRhdGEiKS5pc19kaXIoKQogICAgICAgIGFzc2VydCAobGlicmFyeSAvICJDYWNoZXMiIC8gIm9kaW4tZGVza3RvcCIgLyBjb3JlLnByb2ZpbGUpLmlzX2RpcigpCiAgICBmaW5hbGx5OgogICAgICAgIGNvcmUuc3RvcCgpCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKCJzdG9wIiwgWyJydW50aW1lLnNodXRkb3duIiwgIlNJR1RFUk0iXSkKYXN5bmMgZGVmIHRlc3RfdGhlX2NvcmVfc3RvcHNfY2xlYW5seV9vbl9yZXF1ZXN0X2FuZF9zaWduYWwoaG9tZSwgc3RvcCk6CiAgICBjb3JlID0gQ29yZShob21lKS5zdGFydCgpCiAgICB0cnk6CiAgICAgICAgcmVhZGVyLCB3cml0ZXIsIHdlbGNvbWUgPSBhd2FpdCBoZWxsbyhjb3JlKQogICAgICAgIGFzc2VydCB3ZWxjb21lWyJ0Il0gPT0gIndlbGNvbWUiCiAgICAgICAgaWYgc3RvcCA9PSAicnVudGltZS5zaHV0ZG93biI6CiAgICAgICAgICAgIHJlcGx5ID0gYXdhaXQgY2FsbChyZWFkZXIsIHdyaXRlciwgInJ1bnRpbWUuc2h1dGRvd24iLCB7InJlYXNvbiI6ICJlMmUifSkKICAgICAgICAgICAgYXNzZXJ0IG91dGNvbWUocmVwbHkpID09ICJvayIKICAgICAgICBlbHNlOgogICAgICAgICAgICBjb3JlLnByb2Nlc3Muc2VuZF9zaWduYWwoc2lnbmFsLlNJR1RFUk0pCiAgICAgICAgYXdhaXQgY2xvc2Uod3JpdGVyKQogICAgICAgIGFzc2VydCBjb3JlLnByb2Nlc3Mud2FpdCg2MCkgPT0gMCwgY29yZS5zdGRlcnIoKVstMzAwMDpdCiAgICAgICAgYXNzZXJ0IG5vdCBjb3JlLnNvY2tldC5leGlzdHMoKQogICAgICAgIGFzc2VydCAiVHJhY2ViYWNrIiBub3QgaW4gY29yZS5zdGRlcnIoKQogICAgZmluYWxseToKICAgICAgICBjb3JlLnN0b3AoKQo=",
+          "new_base64": "IiIiVGhlIHJlYWwgY29yZSBvbiBtYWNPUywgZW5kIHRvIGVuZC4KCkEgZnJlc2ggcHJvZmlsZSB1bmRlciBhIHRlbXBvcmFyeSBob21lJ3MgTGlicmFyeSwgdGhlIHNvY2tldCBpbiB0aGUgdmVyaWZpZWQgcGVyLXVzZXIgdGVtcG9yYXJ5CmZvbGRlciwgdGhlIHRva2VuIGhhbmRzaGFrZSBhbmQgaXRzIHJlZnVzYWxzLCB0aGUgY29tbWl0dGVkIHJlYWQtb25seSBtZXRob2QgbGlzdCwgb3JkaW5hcnkgd3JpdGVzCnRoYXQgc3RheSBpbiB0aGUgcHJvZmlsZSwgYW5kIGEgY2xlYW4gZXhpdCBvbiBwYXJlbnQgRU9GLCBvbiBydW50aW1lLnNodXRkb3duIGFuZCBvbiBTSUdURVJNLgpUaGUgdGVtcG9yYXJ5IGhvbWUgaGFzIG5vIGxvZ2luIGtleWNoYWluLCBzbyB0aGUgZW5naW5lJ3Mga2V5Y2hhaW4gaXMgdW5hdmFpbGFibGUgaGVyZSwgZXhhY3RseSBhcwpMaW51eCBDSSBoYXMgbm8gU2VjcmV0IFNlcnZpY2U6IG5vIGtleWNoYWluIGlzIHJlYWQgb3Igd3JpdHRlbiBieSB0aGVzZSB0ZXN0cy4KIiIiCmZyb20gX19mdXR1cmVfXyBpbXBvcnQgYW5ub3RhdGlvbnMKCmltcG9ydCBhc3luY2lvCmltcG9ydCBqc29uCmltcG9ydCBvcwppbXBvcnQgc2VjcmV0cwppbXBvcnQgc2h1dGlsCmltcG9ydCBzaWduYWwKaW1wb3J0IHN0cnVjdAppbXBvcnQgc3VicHJvY2VzcwppbXBvcnQgc3lzCmltcG9ydCB0ZW1wZmlsZQppbXBvcnQgdXVpZApmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKCmltcG9ydCBweXRlc3QKCmZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0ubWFjb3MgaW1wb3J0IG1hY29zX3Byb2ZpbGVfcGF0aHMsIG1hY29zX3NvY2tldF9wYXRoCmZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0ubWFjb3NfaXBjIGltcG9ydCBNYWNPU0lwYwoKUk9PVCA9IFBhdGgoX19maWxlX18pLnJlc29sdmUoKS5wYXJlbnRzWzJdCkZJWFRVUkUgPSBqc29uLmxvYWRzKChST09UIC8gInRlc3RzIiAvICJmaXh0dXJlcyIgLyAid2luZG93cy1jb3JlLW1ldGhvZHMuanNvbiIpLnJlYWRfdGV4dCgpKQpTVEFSVFVQX1NFQ09ORFMgPSAxMjAKCgpjbGFzcyBDb3JlOgogICAgZGVmIF9faW5pdF9fKHNlbGYsIGhvbWU6IFBhdGgpOgogICAgICAgIHNlbGYuaG9tZSA9IGhvbWUKICAgICAgICBzZWxmLnByb2ZpbGUgPSBmImUyZXt1dWlkLnV1aWQ0KCkuaGV4Wzo4XX0iCiAgICAgICAgc2VsZi5wYXRocyA9IG1hY29zX3Byb2ZpbGVfcGF0aHMoc2VsZi5wcm9maWxlLCBob21lPWhvbWUpCiAgICAgICAgc2VsZi5wYXRocy5jcmVhdGVfcHJpdmF0ZSgpCiAgICAgICAgc2VsZi50b2tlbiA9IHNlY3JldHMudG9rZW5faGV4KDMyKQogICAgICAgIHNlbGYudG9rZW5fZmlsZSA9IHNlbGYucGF0aHMuY29uZmlnX2RpciAvICJpcGMudG9rZW4iCiAgICAgICAgc2VsZi50b2tlbl9maWxlLndyaXRlX3RleHQoc2VsZi50b2tlbiwgZW5jb2Rpbmc9ImFzY2lpIikKICAgICAgICBzZWxmLnRva2VuX2ZpbGUuY2htb2QoMG82MDApCiAgICAgICAgc2VsZi5zb2NrZXQgPSBtYWNvc19zb2NrZXRfcGF0aChzZWxmLnByb2ZpbGUpCiAgICAgICAgc2VsZi5sb2cgPSBob21lIC8gZiJjb3JlLXt1dWlkLnV1aWQ0KCkuaGV4Wzo2XX0ubG9nIgogICAgICAgIHNlbGYucHJvY2VzcyA9IE5vbmUKCiAgICBkZWYgc3RhcnQoc2VsZik6CiAgICAgICAgZW52aXJvbm1lbnQgPSB7IlBBVEgiOiBvcy5lbnZpcm9uWyJQQVRIIl0sICJIT01FIjogc3RyKHNlbGYuaG9tZSksICJMQU5HIjogImVuX1VTLlVURi04IiwKICAgICAgICAgICAgICAgICAgICAgICAiVE1QRElSIjogb3MuZW52aXJvbi5nZXQoIlRNUERJUiIsICIvdG1wIiksICJQWVRIT05ET05UV1JJVEVCWVRFQ09ERSI6ICIxIn0KICAgICAgICB3aXRoIG9wZW4oc2VsZi5sb2csICJ3YiIpIGFzIHN0ZGVycjoKICAgICAgICAgICAgc2VsZi5wcm9jZXNzID0gc3VicHJvY2Vzcy5Qb3BlbigKICAgICAgICAgICAgICAgIFtzeXMuZXhlY3V0YWJsZSwgIi1tIiwgInNyYyIsICItLXNvY2tldCIsIHN0cihzZWxmLnNvY2tldCksCiAgICAgICAgICAgICAgICAgIi0tdG9rZW4tZmlsZSIsIHN0cihzZWxmLnRva2VuX2ZpbGUpLCAiLS1wcm9maWxlIiwgc2VsZi5wcm9maWxlLAogICAgICAgICAgICAgICAgICItLWRhdGEtZGlyIiwgc3RyKHNlbGYucGF0aHMuZGF0YV9kaXIpXSwKICAgICAgICAgICAgICAgIHN0ZGluPXN1YnByb2Nlc3MuUElQRSwgc3Rkb3V0PXN1YnByb2Nlc3MuREVWTlVMTCwgc3RkZXJyPXN0ZGVyciwgY3dkPVJPT1QsCiAgICAgICAgICAgICAgICBlbnY9ZW52aXJvbm1lbnQpCiAgICAgICAgcmV0dXJuIHNlbGYKCiAgICBkZWYgc3RkZXJyKHNlbGYpIC0+IHN0cjoKICAgICAgICByZXR1cm4gc2VsZi5sb2cucmVhZF90ZXh0KGVuY29kaW5nPSJ1dGYtOCIsIGVycm9ycz0icmVwbGFjZSIpCgogICAgZGVmIHN0b3Aoc2VsZik6CiAgICAgICAgaWYgc2VsZi5wcm9jZXNzIGlzIG5vdCBOb25lIGFuZCBzZWxmLnByb2Nlc3MucG9sbCgpIGlzIE5vbmU6CiAgICAgICAgICAgIHNlbGYucHJvY2Vzcy5raWxsKCkKICAgICAgICAgICAgc2VsZi5wcm9jZXNzLndhaXQoMzApCiAgICAgICAgc2h1dGlsLnJtdHJlZShzZWxmLnNvY2tldC5wYXJlbnQsIGlnbm9yZV9lcnJvcnM9VHJ1ZSkKICAgICAgICAjIFRoZSBTU0ggcG9vbCdzIHBlci1wcm9maWxlIGNvbnRyb2wtc29ja2V0IGZvbGRlciAobWFjb3NfZGVza3RvcCdzIC9wcml2YXRlL3RtcCByb290KS4KICAgICAgICBzc2ggPSBmIi9wcml2YXRlL3RtcC9vZGluLWRlc2t0b3Ate29zLmdldGV1aWQoKX0ve3NlbGYucHJvZmlsZX0iCiAgICAgICAgc2h1dGlsLnJtdHJlZShzc2gsIGlnbm9yZV9lcnJvcnM9VHJ1ZSkKCgpAcHl0ZXN0LmZpeHR1cmUKZGVmIGhvbWUoKToKICAgIGZvbGRlciA9IFBhdGgob3MucGF0aC5yZWFscGF0aCh0ZW1wZmlsZS5ta2R0ZW1wKHByZWZpeD0ib2Rpbi1lMmUtIikpKQogICAgeWllbGQgZm9sZGVyCiAgICBzaHV0aWwucm10cmVlKGZvbGRlciwgaWdub3JlX2Vycm9ycz1UcnVlKQoKCmFzeW5jIGRlZiBzZW5kKHdyaXRlciwgbWVzc2FnZSk6CiAgICBlbmNvZGVkID0ganNvbi5kdW1wcyhtZXNzYWdlKS5lbmNvZGUoKQogICAgd3JpdGVyLndyaXRlKHN0cnVjdC5wYWNrKCI+SSIsIGxlbihlbmNvZGVkKSkgKyBlbmNvZGVkKQogICAgYXdhaXQgd3JpdGVyLmRyYWluKCkKCgphc3luYyBkZWYgcmVjZWl2ZShyZWFkZXIsIHRpbWVvdXQ9NjApOgogICAgYXN5bmMgd2l0aCBhc3luY2lvLnRpbWVvdXQodGltZW91dCk6CiAgICAgICAgaGVhZGVyID0gYXdhaXQgcmVhZGVyLnJlYWRleGFjdGx5KDQpCiAgICAgICAgcmV0dXJuIGpzb24ubG9hZHMoYXdhaXQgcmVhZGVyLnJlYWRleGFjdGx5KHN0cnVjdC51bnBhY2soIj5JIiwgaGVhZGVyKVswXSkpCgoKYXN5bmMgZGVmIGhlbGxvKGNvcmU6IENvcmUsICosIHRva2VuPU5vbmUsIHByb2ZpbGU9Tm9uZSk6CiAgICBsb29wID0gYXN5bmNpby5nZXRfcnVubmluZ19sb29wKCkKICAgIGRlYWRsaW5lID0gbG9vcC50aW1lKCkgKyBTVEFSVFVQX1NFQ09ORFMKICAgIHdoaWxlIFRydWU6CiAgICAgICAgaWYgY29yZS5wcm9jZXNzLnBvbGwoKSBpcyBub3QgTm9uZToKICAgICAgICAgICAgcHl0ZXN0LmZhaWwoZiJjb3JlIGV4aXRlZCB7Y29yZS5wcm9jZXNzLnJldHVybmNvZGV9OiB7Y29yZS5zdGRlcnIoKVstMzAwMDpdfSIpCiAgICAgICAgdHJ5OgogICAgICAgICAgICByZWFkZXIsIHdyaXRlciA9IGF3YWl0IE1hY09TSXBjLmNvbm5lY3QoY29yZS5zb2NrZXQpCiAgICAgICAgICAgIGJyZWFrCiAgICAgICAgZXhjZXB0IChGaWxlTm90Rm91bmRFcnJvciwgQ29ubmVjdGlvblJlZnVzZWRFcnJvcik6CiAgICAgICAgICAgIGlmIGxvb3AudGltZSgpID4gZGVhZGxpbmU6CiAgICAgICAgICAgICAgICBweXRlc3QuZmFpbChmIm5vIGxpc3RlbmVyIHdpdGhpbiB7U1RBUlRVUF9TRUNPTkRTfSBzOiB7Y29yZS5zdGRlcnIoKVstMzAwMDpdfSIpCiAgICAgICAgICAgIGF3YWl0IGFzeW5jaW8uc2xlZXAoMC4wNSkKICAgIGF3YWl0IHNlbmQod3JpdGVyLCB7InQiOiAiaGVsbG8iLCAicHJvdG9jb2wiOiB7Im1ham9yIjogMCwgIm1pbm9yIjogMn0sCiAgICAgICAgICAgICAgICAgICAgICAgICJjbGllbnQiOiB7Im5hbWUiOiAibWFjb3MtZTJlIiwgInZlcnNpb24iOiAiMSJ9LAogICAgICAgICAgICAgICAgICAgICAgICAicHJvZmlsZV9pZCI6IHByb2ZpbGUgb3IgY29yZS5wcm9maWxlLCAidG9rZW4iOiB0b2tlbiBvciBjb3JlLnRva2VuLAogICAgICAgICAgICAgICAgICAgICAgICAiZmVhdHVyZXMiOiBbXX0pCiAgICByZXR1cm4gcmVhZGVyLCB3cml0ZXIsIGF3YWl0IHJlY2VpdmUocmVhZGVyKQoKCmFzeW5jIGRlZiBjYWxsKHJlYWRlciwgd3JpdGVyLCBtZXRob2QsIHBhcmFtcz1Ob25lKToKICAgIHJlcXVlc3RfaWQgPSBzdHIodXVpZC51dWlkNCgpKQogICAgYXdhaXQgc2VuZCh3cml0ZXIsIHsidCI6ICJyZXEiLCAiaWQiOiByZXF1ZXN0X2lkLCAibWV0aG9kIjogbWV0aG9kLCAicGFyYW1zIjogcGFyYW1zIG9yIHt9fSkKICAgIHdoaWxlIFRydWU6CiAgICAgICAgbWVzc2FnZSA9IGF3YWl0IHJlY2VpdmUocmVhZGVyKQogICAgICAgIGlmIG1lc3NhZ2UuZ2V0KCJ0IikgPT0gInJlcyIgYW5kIG1lc3NhZ2UuZ2V0KCJpZCIpID09IHJlcXVlc3RfaWQ6CiAgICAgICAgICAgIHJldHVybiBtZXNzYWdlCgoKZGVmIG91dGNvbWUocmVwbHk6IGRpY3QpIC0+IHN0cjoKICAgIHJldHVybiAib2siIGlmIHJlcGx5LmdldCgib2siKSBlbHNlICJlcnJvciAiICsgc3RyKHJlcGx5LmdldCgiZXJyb3IiLCB7fSkuZ2V0KCJjb2RlIikpCgoKYXN5bmMgZGVmIGNsb3NlKHdyaXRlcik6CiAgICB3cml0ZXIuY2xvc2UoKQogICAgdHJ5OgogICAgICAgIGF3YWl0IHdyaXRlci53YWl0X2Nsb3NlZCgpCiAgICBleGNlcHQgT1NFcnJvcjoKICAgICAgICBwYXNzCgoKYXN5bmMgZGVmIHRlc3RfdGhlX2NvcmVfYm9vdHNfYW5zd2Vyc19hbmRfZXhpdHNfb25fcGFyZW50X2VvZihob21lKToKICAgIGNvcmUgPSBDb3JlKGhvbWUpLnN0YXJ0KCkKICAgIHRyeToKICAgICAgICByZWFkZXIsIHdyaXRlciwgd2VsY29tZSA9IGF3YWl0IGhlbGxvKGNvcmUpCiAgICAgICAgYXNzZXJ0IHdlbGNvbWVbInQiXSA9PSAid2VsY29tZSIgYW5kIHdlbGNvbWVbInByb2ZpbGVfaWQiXSA9PSBjb3JlLnByb2ZpbGUKICAgICAgICB0cnk6CiAgICAgICAgICAgIHN0YXR1cyA9IGF3YWl0IGNhbGwocmVhZGVyLCB3cml0ZXIsICJzdGF0dXMuZ2V0IikKICAgICAgICAgICAgYXNzZXJ0IHN0YXR1c1sicmVzdWx0Il1bInBoYXNlIl0gPT0gInJlYWR5Iiwgc3RhdHVzCiAgICAgICAgICAgIGNhcGFiaWxpdGllcyA9IHdlbGNvbWVbImNhcGFiaWxpdGllcyJdCiAgICAgICAgICAgIHJlYWRfb25seSA9IHNvcnRlZChtIGZvciBtIGluIGNhcGFiaWxpdGllcwogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgaWYgbS5yc3BsaXQoIi4iLCAxKVstMV0gaW4geyJnZXQiLCAibGlzdCIsICJzY2hlbWEifSkKICAgICAgICAgICAgYXNzZXJ0IHJlYWRfb25seSA9PSBzb3J0ZWQoRklYVFVSRVsicmVhZF9vbmx5Il0pLCAidXBkYXRlIHRoZSBjb21taXR0ZWQgbWV0aG9kIGxpc3QiCiAgICAgICAgICAgIG91dGNvbWVzID0ge206IG91dGNvbWUoYXdhaXQgY2FsbChyZWFkZXIsIHdyaXRlciwgbSwgRklYVFVSRVsicGFyYW1zIl0uZ2V0KG0pKSkKICAgICAgICAgICAgICAgICAgICAgICAgZm9yIG0gaW4gcmVhZF9vbmx5fQogICAgICAgICAgICAjIFdpbmRvd3MgYWx3YXlzIGhhcyBEUEFQSTsgdGhpcyBob21lIGhhcyBubyBsb2dpbiBrZXljaGFpbiwgYXMgTGludXggQ0kgaGFzIG5vCiAgICAgICAgICAgICMgU2VjcmV0IFNlcnZpY2UsIHNvIHRoZSBvbmUga2V5Y2hhaW4tYmFja2VkIGxpc3RpbmcgcmVwb3J0cyBpdCB1bmF2YWlsYWJsZS4KICAgICAgICAgICAgZXhwZWN0ZWQgPSB7KipGSVhUVVJFWyJyZWFkX29ubHkiXSwgImNvZGV4LmFjY291bnRzLmxpc3QiOiAiZXJyb3Iga2V5cmluZ191bmF2YWlsYWJsZSJ9CiAgICAgICAgICAgIGFzc2VydCBvdXRjb21lcyA9PSBleHBlY3RlZAoKICAgICAgICAgICAgY3JlYXRlZCA9IChhd2FpdCBjYWxsKHJlYWRlciwgd3JpdGVyLCAiY29udmVyc2F0aW9ucy5jcmVhdGUiLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgeyJ0aXRsZSI6ICJlMmUifSkpWyJyZXN1bHQiXVsiY29udmVyc2F0aW9uIl0KICAgICAgICAgICAgZGVsZXRlZCA9IGF3YWl0IGNhbGwocmVhZGVyLCB3cml0ZXIsICJjb252ZXJzYXRpb25zLmRlbGV0ZSIsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHsiaWQiOiBjcmVhdGVkWyJpZCJdLCAiZXhwZWN0ZWRfcmV2IjogY3JlYXRlZFsicmV2Il19KQogICAgICAgICAgICBhc3NlcnQgb3V0Y29tZShkZWxldGVkKSA9PSAib2siCiAgICAgICAgICAgIHNjaGVtYSA9IChhd2FpdCBjYWxsKHJlYWRlciwgd3JpdGVyLCAic2V0dGluZ3Muc2NoZW1hIikpWyJyZXN1bHQiXQogICAgICAgICAgICBzYXZlZCA9IGF3YWl0IGNhbGwocmVhZGVyLCB3cml0ZXIsICJzZXR0aW5ncy5zZXQiLCB7CiAgICAgICAgICAgICAgICAiZXhwZWN0ZWRfcmV2aXNpb24iOiBzY2hlbWFbInJldmlzaW9uIl0sCiAgICAgICAgICAgICAgICAiY2hhbmdlcyI6IFt7InBhdGgiOiAidGltZXpvbmUiLCAidmFsdWUiOiAiQW1lcmljYS9OZXdfWW9yayJ9XX0pCiAgICAgICAgICAgIGFzc2VydCBvdXRjb21lKHNhdmVkKSA9PSAib2siLCBzYXZlZAogICAgICAgICAgICBtZW1vcnkgPSB7InNjb3BlIjogImdsb2JhbCIsICJrZXkiOiAiZTJlIn0KICAgICAgICAgICAgYXNzZXJ0IG91dGNvbWUoYXdhaXQgY2FsbChyZWFkZXIsIHdyaXRlciwgIm1lbW9yeS5zZXQiLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHsqKm1lbW9yeSwgInZhbHVlIjogImtlcHQifSkpID09ICJvayIKICAgICAgICAgICAgYXNzZXJ0IChhd2FpdCBjYWxsKHJlYWRlciwgd3JpdGVyLCAibWVtb3J5LmdldCIsIG1lbW9yeSkpWyJyZXN1bHQiXVsidmFsdWUiXSA9PSAia2VwdCIKICAgICAgICBmaW5hbGx5OgogICAgICAgICAgICBhd2FpdCBjbG9zZSh3cml0ZXIpCgogICAgICAgICMgUmVmdXNhbHM6IGEgd3JvbmcgdG9rZW4gYW5kIGEgd3JvbmcgcHJvZmlsZSBhcmUgdG9sZCBnb29kYnllLCB0aGUgY29yZSBrZWVwcyBzZXJ2aW5nLgogICAgICAgIHJlYWRlciwgd3JpdGVyLCBieWUgPSBhd2FpdCBoZWxsbyhjb3JlLCB0b2tlbj1zZWNyZXRzLnRva2VuX2hleCgzMikpCiAgICAgICAgYXNzZXJ0IGJ5ZSA9PSB7InQiOiAiYnllIiwgInJlYXNvbiI6ICJ1bmF1dGhvcml6ZWQifQogICAgICAgIGF3YWl0IGNsb3NlKHdyaXRlcikKICAgICAgICByZWFkZXIsIHdyaXRlciwgYnllID0gYXdhaXQgaGVsbG8oY29yZSwgcHJvZmlsZT0ic29tZW9uZWVsc2UiKQogICAgICAgIGFzc2VydCBieWUgPT0geyJ0IjogImJ5ZSIsICJyZWFzb24iOiAid3JvbmdfcHJvZmlsZSJ9CiAgICAgICAgYXdhaXQgY2xvc2Uod3JpdGVyKQoKICAgICAgICBjb3JlLnByb2Nlc3Muc3RkaW4uY2xvc2UoKSAgIyB0aGUgYXBwJ3MgZW5kIG9mIHRoZSBwYXJlbnQgbGluawogICAgICAgIGFzc2VydCBjb3JlLnByb2Nlc3Mud2FpdCg2MCkgPT0gMCwgY29yZS5zdGRlcnIoKVstMzAwMDpdCiAgICAgICAgYXNzZXJ0IG5vdCBjb3JlLnNvY2tldC5leGlzdHMoKQogICAgICAgIGxvZyA9IGNvcmUuc3RkZXJyKCkKICAgICAgICBhc3NlcnQgIlRyYWNlYmFjayIgbm90IGluIGxvZyBhbmQgIlRlYXJkb3duIHVucHJvdmVuIiBub3QgaW4gbG9nLCBsb2dbLTMwMDA6XQogICAgICAgIGFzc2VydCAibWFjT1MgcHJvY2VzcyBjb250YWlubWVudDogc2Vzc2lvbi1zY29wZWQsIGJlc3QgZWZmb3J0IiBpbiBsb2cKICAgICAgICAjIEV2ZXJ5dGhpbmcgdGhlIHByb2ZpbGUgd3JvdGUgaXMgdW5kZXIgdGhlIHRlbXBvcmFyeSBob21lJ3MgTGlicmFyeS4KICAgICAgICBsaWJyYXJ5ID0gaG9tZSAvICJMaWJyYXJ5IgogICAgICAgIGFzc2VydCAobGlicmFyeSAvICJvZGluLWRlc2t0b3AiIC8gY29yZS5wcm9maWxlIC8gImRhdGEiKS5pc19kaXIoKQogICAgICAgIGFzc2VydCAobGlicmFyeSAvICJDYWNoZXMiIC8gIm9kaW4tZGVza3RvcCIgLyBjb3JlLnByb2ZpbGUpLmlzX2RpcigpCiAgICBmaW5hbGx5OgogICAgICAgIGNvcmUuc3RvcCgpCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKCJzdG9wIiwgWyJydW50aW1lLnNodXRkb3duIiwgIlNJR1RFUk0iXSkKYXN5bmMgZGVmIHRlc3RfdGhlX2NvcmVfc3RvcHNfY2xlYW5seV9vbl9yZXF1ZXN0X2FuZF9zaWduYWwoaG9tZSwgc3RvcCk6CiAgICBjb3JlID0gQ29yZShob21lKS5zdGFydCgpCiAgICB0cnk6CiAgICAgICAgcmVhZGVyLCB3cml0ZXIsIHdlbGNvbWUgPSBhd2FpdCBoZWxsbyhjb3JlKQogICAgICAgIGFzc2VydCB3ZWxjb21lWyJ0Il0gPT0gIndlbGNvbWUiCiAgICAgICAgaWYgc3RvcCA9PSAicnVudGltZS5zaHV0ZG93biI6CiAgICAgICAgICAgIHJlcGx5ID0gYXdhaXQgY2FsbChyZWFkZXIsIHdyaXRlciwgInJ1bnRpbWUuc2h1dGRvd24iLCB7InJlYXNvbiI6ICJlMmUifSkKICAgICAgICAgICAgYXNzZXJ0IG91dGNvbWUocmVwbHkpID09ICJvayIKICAgICAgICBlbHNlOgogICAgICAgICAgICBjb3JlLnByb2Nlc3Muc2VuZF9zaWduYWwoc2lnbmFsLlNJR1RFUk0pCiAgICAgICAgYXdhaXQgY2xvc2Uod3JpdGVyKQogICAgICAgIGFzc2VydCBjb3JlLnByb2Nlc3Mud2FpdCg2MCkgPT0gMCwgY29yZS5zdGRlcnIoKVstMzAwMDpdCiAgICAgICAgYXNzZXJ0IG5vdCBjb3JlLnNvY2tldC5leGlzdHMoKQogICAgICAgIGFzc2VydCAiVHJhY2ViYWNrIiBub3QgaW4gY29yZS5zdGRlcnIoKQogICAgZmluYWxseToKICAgICAgICBjb3JlLnN0b3AoKQo=",
           "old_base64": "",
           "start": 0
         }
@@ -35036,12 +35077,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
         "tests/macos/test_macos_storage.py": "0088170fdcafbc4f02fde3d80a8e267777ffc4095a57c4da7a4b2724bd3da722"
@@ -35089,14 +35130,14 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_core_tools_end_to_end.py": "069dcba0ef94735b2aa796c33ca18217f5e95e3ee8a418f8391c9924e4a3de19",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
         "tests/macos/test_macos_jobs.py": "4b952e03f5424106e6d08c0fe9e97843c469ad2a75a9543be19786fca502f514",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_safety.py": "97b4182209bea66925b7cb27c460f06c5f2e71537c9f2307ec992a94e67c166d",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
@@ -35148,12 +35189,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
         "tests/macos/test_macos_storage.py": "0088170fdcafbc4f02fde3d80a8e267777ffc4095a57c4da7a4b2724bd3da722"
@@ -35201,12 +35242,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
         "tests/macos/test_macos_storage.py": "0088170fdcafbc4f02fde3d80a8e267777ffc4095a57c4da7a4b2724bd3da722"
@@ -35254,12 +35295,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
         "tests/macos/test_macos_storage.py": "0088170fdcafbc4f02fde3d80a8e267777ffc4095a57c4da7a4b2724bd3da722"
@@ -35307,12 +35348,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
         "tests/macos/test_macos_storage.py": "0088170fdcafbc4f02fde3d80a8e267777ffc4095a57c4da7a4b2724bd3da722"
@@ -35360,14 +35401,14 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_core_tools_end_to_end.py": "069dcba0ef94735b2aa796c33ca18217f5e95e3ee8a418f8391c9924e4a3de19",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
         "tests/macos/test_macos_jobs.py": "4b952e03f5424106e6d08c0fe9e97843c469ad2a75a9543be19786fca502f514",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_safety.py": "97b4182209bea66925b7cb27c460f06c5f2e71537c9f2307ec992a94e67c166d",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
@@ -35389,7 +35430,7 @@
       ]
     },
     {
-      "after_sha256": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+      "after_sha256": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -35405,7 +35446,7 @@
       "patch": [
         {
           "end": 0,
-          "new_base64": "IiIibWFjT1MgcGxhdGZvcm0gc2VsZWN0aW9uLCBwcm9maWxlIGxheW91dCwgc29ja2V0IHBhdGggYW5kIHRoZSBkYXJ3aW4gcHJpbWl0aXZlcy4iIiIKZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IG9zCmltcG9ydCByZQppbXBvcnQgc3RhdApmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKCmltcG9ydCBweXRlc3QKCmZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0gaW1wb3J0IGN1cnJlbnRfcGxhdGZvcm0sIGRhcndpbgpmcm9tIHNyYy5kZXNrdG9wLnBsYXRmb3JtLm1hY29zIGltcG9ydCBTT0NLRVRfUEFUSF9MSU1JVCwgbWFjb3NfcHJvZmlsZV9wYXRocywgbWFjb3Nfc29ja2V0X3BhdGgKCgpkZWYgdGVzdF9kYXJ3aW5fc2VsZWN0c190aGVfbWFjb3NfcGxhdGZvcm0oKToKICAgIHBsYXRmb3JtID0gY3VycmVudF9wbGF0Zm9ybSgpCiAgICBhc3NlcnQgKHBsYXRmb3JtLm5hbWUsIHBsYXRmb3JtLmNvbXB1dGVyX3N1cHBvcnRlZCkgPT0gKCJtYWNvcyIsIEZhbHNlKQogICAgYXNzZXJ0IHR5cGUocGxhdGZvcm0uaXBjKS5fX25hbWVfXyA9PSAiTWFjT1NJcGMiCgoKZGVmIHRlc3RfdGhlX3Byb2ZpbGVfbGl2ZXNfdW5kZXJfbGlicmFyeSh0bXBfcGF0aCk6CiAgICBwYXRocyA9IG1hY29zX3Byb2ZpbGVfcGF0aHMoIndvcmsiLCBob21lPXRtcF9wYXRoKQogICAgc3VwcG9ydCA9IHRtcF9wYXRoIC8gIkxpYnJhcnkiIC8gIkFwcGxpY2F0aW9uIFN1cHBvcnQiIC8gIm9kaW4tZGVza3RvcCIgLyAid29yayIKICAgIGFzc2VydCBwYXRocy5jb25maWdfZGlyID09IHN1cHBvcnQgLyAiY29uZmlnIgogICAgYXNzZXJ0IHBhdGhzLmRhdGFfZGlyID09IHN1cHBvcnQgLyAiZGF0YSIKICAgIGFzc2VydCBwYXRocy5jYWNoZV9kaXIgPT0gdG1wX3BhdGggLyAiTGlicmFyeSIgLyAiQ2FjaGVzIiAvICJvZGluLWRlc2t0b3AiIC8gIndvcmsiCiAgICBhc3NlcnQgcGF0aHMuc2VjcmV0c19kaXIgPT0gcGF0aHMuZGF0YV9kaXIgLyAic2VjcmV0cyIKCgpAcHl0ZXN0Lm1hcmsucGFyYW1ldHJpemUoInByb2ZpbGUiLCBbIiIsICIteCIsICJhIiAqIDY1LCAid2l0aCBzcGFjZSIsICIuLi91cCJdKQpkZWYgdGVzdF9pbnZhbGlkX3Byb2ZpbGVzX2FyZV9yZWZ1c2VkKHRtcF9wYXRoLCBwcm9maWxlKToKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhWYWx1ZUVycm9yKToKICAgICAgICBtYWNvc19wcm9maWxlX3BhdGhzKHByb2ZpbGUsIGhvbWU9dG1wX3BhdGgpCgoKZGVmIHRlc3RfYV9yZWxhdGl2ZV9ob21lX2lzX3JlZnVzZWQoKToKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhWYWx1ZUVycm9yKToKICAgICAgICBtYWNvc19wcm9maWxlX3BhdGhzKCJkZWZhdWx0IiwgaG9tZT1QYXRoKCJyZWxhdGl2ZS9ob21lIikpCgoKZGVmIHRlc3RfdGhlX3NvY2tldF9saXZlc19pbl90aGVfdmVyaWZpZWRfcHJpdmF0ZV90ZW1wX2ZvbGRlcigpOgogICAgcm9vdCA9IGRhcndpbi51c2VyX3RlbXBfcm9vdCgpCiAgICBpbmZvID0gb3MubHN0YXQocm9vdCkKICAgIGFzc2VydCBzdGF0LlNfSVNESVIoaW5mby5zdF9tb2RlKSBhbmQgaW5mby5zdF91aWQgPT0gb3MuZ2V0ZXVpZCgpCiAgICBhc3NlcnQgc3RhdC5TX0lNT0RFKGluZm8uc3RfbW9kZSkgPT0gMG83MDAKICAgIGFzc2VydCBzdHIocm9vdCkuc3RhcnRzd2l0aCgiL3ByaXZhdGUvIikgICMgY2Fub25pY2FsLCBub3QgdGhlIC92YXIgbGluawogICAgcGF0aCA9IG1hY29zX3NvY2tldF9wYXRoKCJkZWZhdWx0IikKICAgIGFzc2VydCBwYXRoID09IHJvb3QgLyAib2Rpbi1kZXNrdG9wIiAvICJkZWZhdWx0IiAvICJjb3JlLnNvY2siCiAgICBhc3NlcnQgbGVuKG9zLmZzZW5jb2RlKHBhdGgpKSA8PSBTT0NLRVRfUEFUSF9MSU1JVAoKCmRlZiB0ZXN0X2FuX292ZXJsb25nX3NvY2tldF9wYXRoX2lzX3JlZnVzZWRfbm90X3Nob3J0ZW5lZCh0bXBfcGF0aCk6CiAgICB3aXRoIHB5dGVzdC5yYWlzZXMoVmFsdWVFcnJvciwgbWF0Y2g9ImxvbmdlciB0aGFuIG1hY09TIGFsbG93cyIpOgogICAgICAgIG1hY29zX3NvY2tldF9wYXRoKCJkZWZhdWx0Iiwgcm9vdD10bXBfcGF0aCAvICgieCIgKiA5MCkpCgoKZGVmIHRlc3RfYm9vdF9pZGVudGl0eV9oYXNfdGhlX2xpbnV4X3NoYXBlKCk6CiAgICBmcm9tIHNyYy5kZXNrdG9wLnJlc291cmNlX2NsZWFudXAgaW1wb3J0IGN1cnJlbnRfYm9vdF9pZAoKICAgIHZhbHVlID0gY3VycmVudF9ib290X2lkKCkKICAgIGFzc2VydCB2YWx1ZSBpcyBub3QgTm9uZSBhbmQgcmUuZnVsbG1hdGNoKHIiWzAtOWEtZi1dezM2fSIsIHZhbHVlKQogICAgYXNzZXJ0IGN1cnJlbnRfYm9vdF9pZC5kYXJ3aW5fdGFyZ2V0ID09ICJzcmMuZGVza3RvcC5wbGF0Zm9ybS5kYXJ3aW46Y3VycmVudF9ib290X2lkIgoKCmRlZiB0ZXN0X2Rlc2NyaXB0b3JfdXNhZ2VfaXNfbWVhc3VyZWRfbm90X3VuYXZhaWxhYmxlKCk6CiAgICBmcm9tIHNyYy5oZWFsdGguY2hlY2tlciBpbXBvcnQgX3Byb2Nlc3NfZGVzY3JpcHRvcl91c2FnZQoKICAgIGRlc2NyaXB0b3JzLCBzb2Z0X2xpbWl0ID0gX3Byb2Nlc3NfZGVzY3JpcHRvcl91c2FnZSgpCiAgICBhc3NlcnQgMCA8IGRlc2NyaXB0b3JzIDwgc29mdF9saW1pdAoKCmRlZiB0ZXN0X3Byb2Nlc3NfaWRlbnRpdHlfaXNfcmVhZGFibGVfZm9yX3RoaXNfcHJvY2VzcygpOgogICAgaWRlbnRpdHkgPSBkYXJ3aW4ucHJvY2Vzc19pZGVudGl0eShvcy5nZXRwaWQoKSkKICAgIGFzc2VydCBpZGVudGl0eSBpcyBub3QgTm9uZSBhbmQgaWRlbnRpdHkucGlkID09IG9zLmdldHBpZCgpIGFuZCBpZGVudGl0eS51bmlxdWVpZCA+IDAKCgpkZWYgdGVzdF90aGVfcGxhdGZvcm1fbWVtYmVycygpOgogICAgZnJvbSBzcmMuZGVza3RvcC5saWZlY3ljbGUgaW1wb3J0IENvcmVMaWZldGltZQogICAgZnJvbSBzcmMuZGVza3RvcC5wbGF0Zm9ybS5tYWNvc19zZWNyZXRzIGltcG9ydCBLZXljaGFpbkJhY2tlbmQKICAgIGZyb20gc3JjLnRvb2xzLndvcmtzcGFjZSBpbXBvcnQgcmVzb2x2ZV93b3Jrc3BhY2UKCiAgICBwbGF0Zm9ybSA9IGN1cnJlbnRfcGxhdGZvcm0oKQogICAgYXNzZXJ0IGlzaW5zdGFuY2UocGxhdGZvcm0uc2VjcmV0X2JhY2tlbmQoTm9uZSksIEtleWNoYWluQmFja2VuZCkKICAgIGFzc2VydCBpc2luc3RhbmNlKHBsYXRmb3JtLmNvcmVfbGlmZXRpbWUoKSwgQ29yZUxpZmV0aW1lKQogICAgYXNzZXJ0IHBsYXRmb3JtLmlwYyBpcyBwbGF0Zm9ybS5pcGMgICMgb25lIHRyYW5zcG9ydCBwZXIgcGxhdGZvcm0gb2JqZWN0CiAgICBwYXRocyA9IHBsYXRmb3JtLnByb2ZpbGVfcGF0aHMoImRlZmF1bHQiLCBob21lPVBhdGgoIi9Vc2Vycy9zb21lb25lIikpCiAgICBhc3NlcnQgcGF0aHMuY29uZmlnX2RpciA9PSBQYXRoKAogICAgICAgICIvVXNlcnMvc29tZW9uZS9MaWJyYXJ5L0FwcGxpY2F0aW9uIFN1cHBvcnQvb2Rpbi1kZXNrdG9wL2RlZmF1bHQvY29uZmlnIikKICAgIGFzc2VydCByZXNvbHZlX3dvcmtzcGFjZS5fX25hbWVfXyA9PSAicmVzb2x2ZV93b3Jrc3BhY2UiCgoKZGVmIHRlc3RfYV9mb2xkZXJfdGhhdF9pc19ub3RfcHJpdmF0ZV9pc19yZWZ1c2VkX2FzX3RoZV90ZW1wX3Jvb3QobW9ua2V5cGF0Y2gsIHRtcF9wYXRoKToKICAgIHNoYXJlZCA9IHRtcF9wYXRoIC8gInNoYXJlZCIKICAgIHNoYXJlZC5ta2Rpcihtb2RlPTBvNzU1KQogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihkYXJ3aW4ub3MucGF0aCwgInJlYWxwYXRoIiwgbGFtYmRhIHZhbHVlOiBzdHIoc2hhcmVkKSkKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhQZXJtaXNzaW9uRXJyb3IsIG1hdGNoPSJub3QgcHJpdmF0ZSIpOgogICAgICAgIGRhcndpbi51c2VyX3RlbXBfcm9vdCgpCgoKZGVmIHRlc3RfdGhlX3BlZXJfb2ZfYV9zb2NrZXRfcGFpcl9pc190aGlzX3VzZXIoKToKICAgIGltcG9ydCBzb2NrZXQKCiAgICBsZWZ0LCByaWdodCA9IHNvY2tldC5zb2NrZXRwYWlyKHNvY2tldC5BRl9VTklYLCBzb2NrZXQuU09DS19TVFJFQU0pCiAgICB0cnk6CiAgICAgICAgYXNzZXJ0IGRhcndpbi5wZWVyX3VpZChsZWZ0KSA9PSBvcy5nZXRldWlkKCkKICAgIGZpbmFsbHk6CiAgICAgICAgbGVmdC5jbG9zZSgpCiAgICAgICAgcmlnaHQuY2xvc2UoKQogICAgd2l0aCBweXRlc3QucmFpc2VzKE9TRXJyb3IpOgogICAgICAgIGRhcndpbi5wZWVyX3VpZChsZWZ0KSAgIyBjbG9zZWQ6IHRoZSBrZXJuZWwncyBlcnJvciwgbmV2ZXIgYSBndWVzc2VkIFVJRAoKCmRlZiB0ZXN0X2FfZ29uZV9wcm9jZXNzX2hhc19ub19pZGVudGl0eV9hbmRfYV9taXNzaW5nX3N5bWJvbF9pc19lbm9zeXMobW9ua2V5cGF0Y2gpOgogICAgaW1wb3J0IHN1YnByb2Nlc3MKICAgIGltcG9ydCBzeXMKCiAgICBjaGlsZCA9IHN1YnByb2Nlc3MuUG9wZW4oW3N5cy5leGVjdXRhYmxlLCAiLWMiLCAicGFzcyJdKQogICAgY2hpbGQud2FpdCgpCiAgICBhc3NlcnQgZGFyd2luLnByb2Nlc3NfaWRlbnRpdHkoY2hpbGQucGlkKSBpcyBOb25lCiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKGRhcndpbiwgIl9zaWduYWxfYnlfdG9rZW4iLCBOb25lKQogICAgYXNzZXJ0IGRhcndpbi5zaWduYWxfaWRlbnRpdHkoZGFyd2luLlByb2Nlc3NJZGVudGl0eSgxLCAxLCAxKSwgMCkgPT0gZGFyd2luLmVycm5vLkVOT1NZUwo=",
+          "new_base64": "IiIibWFjT1MgcGxhdGZvcm0gc2VsZWN0aW9uLCBwcm9maWxlIGxheW91dCwgc29ja2V0IHBhdGggYW5kIHRoZSBkYXJ3aW4gcHJpbWl0aXZlcy4iIiIKZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IG9zCmltcG9ydCByZQppbXBvcnQgc3RhdApmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKCmltcG9ydCBweXRlc3QKCmZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0gaW1wb3J0IGN1cnJlbnRfcGxhdGZvcm0sIGRhcndpbgpmcm9tIHNyYy5kZXNrdG9wLnBsYXRmb3JtLm1hY29zIGltcG9ydCBTT0NLRVRfUEFUSF9MSU1JVCwgbWFjb3NfcHJvZmlsZV9wYXRocywgbWFjb3Nfc29ja2V0X3BhdGgKCgpkZWYgdGVzdF9kYXJ3aW5fc2VsZWN0c190aGVfbWFjb3NfcGxhdGZvcm0oKToKICAgIHBsYXRmb3JtID0gY3VycmVudF9wbGF0Zm9ybSgpCiAgICBhc3NlcnQgKHBsYXRmb3JtLm5hbWUsIHBsYXRmb3JtLmNvbXB1dGVyX3N1cHBvcnRlZCkgPT0gKCJtYWNvcyIsIEZhbHNlKQogICAgYXNzZXJ0IHR5cGUocGxhdGZvcm0uaXBjKS5fX25hbWVfXyA9PSAiTWFjT1NJcGMiCgoKZGVmIHRlc3RfdGhlX3Byb2ZpbGVfbGl2ZXNfdW5kZXJfbGlicmFyeSh0bXBfcGF0aCk6CiAgICBwYXRocyA9IG1hY29zX3Byb2ZpbGVfcGF0aHMoIndvcmsiLCBob21lPXRtcF9wYXRoKQogICAgc3VwcG9ydCA9IHRtcF9wYXRoIC8gIkxpYnJhcnkiIC8gIm9kaW4tZGVza3RvcCIgLyAid29yayIKICAgIGFzc2VydCBwYXRocy5jb25maWdfZGlyID09IHN1cHBvcnQgLyAiY29uZmlnIgogICAgYXNzZXJ0IHBhdGhzLmRhdGFfZGlyID09IHN1cHBvcnQgLyAiZGF0YSIKICAgIGFzc2VydCBwYXRocy5jYWNoZV9kaXIgPT0gdG1wX3BhdGggLyAiTGlicmFyeSIgLyAiQ2FjaGVzIiAvICJvZGluLWRlc2t0b3AiIC8gIndvcmsiCiAgICBhc3NlcnQgcGF0aHMuc2VjcmV0c19kaXIgPT0gcGF0aHMuZGF0YV9kaXIgLyAic2VjcmV0cyIKCgpAcHl0ZXN0Lm1hcmsucGFyYW1ldHJpemUoInByb2ZpbGUiLCBbIiIsICIteCIsICJhIiAqIDY1LCAid2l0aCBzcGFjZSIsICIuLi91cCJdKQpkZWYgdGVzdF9pbnZhbGlkX3Byb2ZpbGVzX2FyZV9yZWZ1c2VkKHRtcF9wYXRoLCBwcm9maWxlKToKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhWYWx1ZUVycm9yKToKICAgICAgICBtYWNvc19wcm9maWxlX3BhdGhzKHByb2ZpbGUsIGhvbWU9dG1wX3BhdGgpCgoKZGVmIHRlc3RfYV9yZWxhdGl2ZV9ob21lX2lzX3JlZnVzZWQoKToKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhWYWx1ZUVycm9yKToKICAgICAgICBtYWNvc19wcm9maWxlX3BhdGhzKCJkZWZhdWx0IiwgaG9tZT1QYXRoKCJyZWxhdGl2ZS9ob21lIikpCgoKZGVmIHRlc3Rfbm9fcHJvZmlsZV9wYXRoX2hhc193aGl0ZXNwYWNlKHRtcF9wYXRoKToKICAgICIiIk9wZW5TU0ggc3BsaXRzIC1vIFVzZXJLbm93bkhvc3RzRmlsZSB2YWx1ZXMgb24gd2hpdGVzcGFjZTogcHJvZmlsZSBwYXRocyBtdXN0IGhhdmUgbm9uZS4iIiIKICAgIHBhdGhzID0gbWFjb3NfcHJvZmlsZV9wYXRocygiZGVmYXVsdCIsIGhvbWU9dG1wX3BhdGgpCiAgICBmb3IgcGF0aCBpbiAocGF0aHMuY29uZmlnX2RpciwgcGF0aHMuZGF0YV9kaXIsIHBhdGhzLmNhY2hlX2RpciwgcGF0aHMuc2VjcmV0c19kaXIpOgogICAgICAgIGFzc2VydCBub3QgYW55KGNoYXJhY3Rlci5pc3NwYWNlKCkgZm9yIGNoYXJhY3RlciBpbiBzdHIocGF0aCkpLCBwYXRoCiAgICB3aXRoIHB5dGVzdC5yYWlzZXMoVmFsdWVFcnJvciwgbWF0Y2g9IndoaXRlc3BhY2UiKToKICAgICAgICBtYWNvc19wcm9maWxlX3BhdGhzKCJkZWZhdWx0IiwgaG9tZT10bXBfcGF0aCAvICJ3aXRoIHNwYWNlIikKCgpkZWYgdGVzdF90aGVfc29ja2V0X2xpdmVzX2luX3RoZV92ZXJpZmllZF9wcml2YXRlX3RlbXBfZm9sZGVyKCk6CiAgICByb290ID0gZGFyd2luLnVzZXJfdGVtcF9yb290KCkKICAgIGluZm8gPSBvcy5sc3RhdChyb290KQogICAgYXNzZXJ0IHN0YXQuU19JU0RJUihpbmZvLnN0X21vZGUpIGFuZCBpbmZvLnN0X3VpZCA9PSBvcy5nZXRldWlkKCkKICAgIGFzc2VydCBzdGF0LlNfSU1PREUoaW5mby5zdF9tb2RlKSA9PSAwbzcwMAogICAgYXNzZXJ0IHN0cihyb290KS5zdGFydHN3aXRoKCIvcHJpdmF0ZS8iKSAgIyBjYW5vbmljYWwsIG5vdCB0aGUgL3ZhciBsaW5rCiAgICBwYXRoID0gbWFjb3Nfc29ja2V0X3BhdGgoImRlZmF1bHQiKQogICAgYXNzZXJ0IHBhdGggPT0gcm9vdCAvICJvZGluLWRlc2t0b3AiIC8gImRlZmF1bHQiIC8gImNvcmUuc29jayIKICAgIGFzc2VydCBsZW4ob3MuZnNlbmNvZGUocGF0aCkpIDw9IFNPQ0tFVF9QQVRIX0xJTUlUCgoKZGVmIHRlc3RfYW5fb3Zlcmxvbmdfc29ja2V0X3BhdGhfaXNfcmVmdXNlZF9ub3Rfc2hvcnRlbmVkKHRtcF9wYXRoKToKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhWYWx1ZUVycm9yLCBtYXRjaD0ibG9uZ2VyIHRoYW4gbWFjT1MgYWxsb3dzIik6CiAgICAgICAgbWFjb3Nfc29ja2V0X3BhdGgoImRlZmF1bHQiLCByb290PXRtcF9wYXRoIC8gKCJ4IiAqIDkwKSkKCgpkZWYgdGVzdF9ib290X2lkZW50aXR5X2hhc190aGVfbGludXhfc2hhcGUoKToKICAgIGZyb20gc3JjLmRlc2t0b3AucmVzb3VyY2VfY2xlYW51cCBpbXBvcnQgY3VycmVudF9ib290X2lkCgogICAgdmFsdWUgPSBjdXJyZW50X2Jvb3RfaWQoKQogICAgYXNzZXJ0IHZhbHVlIGlzIG5vdCBOb25lIGFuZCByZS5mdWxsbWF0Y2gociJbMC05YS1mLV17MzZ9IiwgdmFsdWUpCiAgICBhc3NlcnQgY3VycmVudF9ib290X2lkLmRhcndpbl90YXJnZXQgPT0gInNyYy5kZXNrdG9wLnBsYXRmb3JtLmRhcndpbjpjdXJyZW50X2Jvb3RfaWQiCgoKZGVmIHRlc3RfZGVzY3JpcHRvcl91c2FnZV9pc19tZWFzdXJlZF9ub3RfdW5hdmFpbGFibGUoKToKICAgIGZyb20gc3JjLmhlYWx0aC5jaGVja2VyIGltcG9ydCBfcHJvY2Vzc19kZXNjcmlwdG9yX3VzYWdlCgogICAgZGVzY3JpcHRvcnMsIHNvZnRfbGltaXQgPSBfcHJvY2Vzc19kZXNjcmlwdG9yX3VzYWdlKCkKICAgIGFzc2VydCAwIDwgZGVzY3JpcHRvcnMgPCBzb2Z0X2xpbWl0CgoKZGVmIHRlc3RfcHJvY2Vzc19pZGVudGl0eV9pc19yZWFkYWJsZV9mb3JfdGhpc19wcm9jZXNzKCk6CiAgICBpZGVudGl0eSA9IGRhcndpbi5wcm9jZXNzX2lkZW50aXR5KG9zLmdldHBpZCgpKQogICAgYXNzZXJ0IGlkZW50aXR5IGlzIG5vdCBOb25lIGFuZCBpZGVudGl0eS5waWQgPT0gb3MuZ2V0cGlkKCkgYW5kIGlkZW50aXR5LnVuaXF1ZWlkID4gMAoKCmRlZiB0ZXN0X3RoZV9wbGF0Zm9ybV9tZW1iZXJzKCk6CiAgICBmcm9tIHNyYy5kZXNrdG9wLmxpZmVjeWNsZSBpbXBvcnQgQ29yZUxpZmV0aW1lCiAgICBmcm9tIHNyYy5kZXNrdG9wLnBsYXRmb3JtLm1hY29zX3NlY3JldHMgaW1wb3J0IEtleWNoYWluQmFja2VuZAogICAgZnJvbSBzcmMudG9vbHMud29ya3NwYWNlIGltcG9ydCByZXNvbHZlX3dvcmtzcGFjZQoKICAgIHBsYXRmb3JtID0gY3VycmVudF9wbGF0Zm9ybSgpCiAgICBhc3NlcnQgaXNpbnN0YW5jZShwbGF0Zm9ybS5zZWNyZXRfYmFja2VuZChOb25lKSwgS2V5Y2hhaW5CYWNrZW5kKQogICAgYXNzZXJ0IGlzaW5zdGFuY2UocGxhdGZvcm0uY29yZV9saWZldGltZSgpLCBDb3JlTGlmZXRpbWUpCiAgICBhc3NlcnQgcGxhdGZvcm0uaXBjIGlzIHBsYXRmb3JtLmlwYyAgIyBvbmUgdHJhbnNwb3J0IHBlciBwbGF0Zm9ybSBvYmplY3QKICAgIHBhdGhzID0gcGxhdGZvcm0ucHJvZmlsZV9wYXRocygiZGVmYXVsdCIsIGhvbWU9UGF0aCgiL1VzZXJzL3NvbWVvbmUiKSkKICAgIGFzc2VydCBwYXRocy5jb25maWdfZGlyID09IFBhdGgoCiAgICAgICAgIi9Vc2Vycy9zb21lb25lL0xpYnJhcnkvb2Rpbi1kZXNrdG9wL2RlZmF1bHQvY29uZmlnIikKICAgIGFzc2VydCByZXNvbHZlX3dvcmtzcGFjZS5fX25hbWVfXyA9PSAicmVzb2x2ZV93b3Jrc3BhY2UiCgoKZGVmIHRlc3RfYV9mb2xkZXJfdGhhdF9pc19ub3RfcHJpdmF0ZV9pc19yZWZ1c2VkX2FzX3RoZV90ZW1wX3Jvb3QobW9ua2V5cGF0Y2gsIHRtcF9wYXRoKToKICAgIHNoYXJlZCA9IHRtcF9wYXRoIC8gInNoYXJlZCIKICAgIHNoYXJlZC5ta2Rpcihtb2RlPTBvNzU1KQogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihkYXJ3aW4ub3MucGF0aCwgInJlYWxwYXRoIiwgbGFtYmRhIHZhbHVlOiBzdHIoc2hhcmVkKSkKICAgIHdpdGggcHl0ZXN0LnJhaXNlcyhQZXJtaXNzaW9uRXJyb3IsIG1hdGNoPSJub3QgcHJpdmF0ZSIpOgogICAgICAgIGRhcndpbi51c2VyX3RlbXBfcm9vdCgpCgoKZGVmIHRlc3RfdGhlX3BlZXJfb2ZfYV9zb2NrZXRfcGFpcl9pc190aGlzX3VzZXIoKToKICAgIGltcG9ydCBzb2NrZXQKCiAgICBsZWZ0LCByaWdodCA9IHNvY2tldC5zb2NrZXRwYWlyKHNvY2tldC5BRl9VTklYLCBzb2NrZXQuU09DS19TVFJFQU0pCiAgICB0cnk6CiAgICAgICAgYXNzZXJ0IGRhcndpbi5wZWVyX3VpZChsZWZ0KSA9PSBvcy5nZXRldWlkKCkKICAgIGZpbmFsbHk6CiAgICAgICAgbGVmdC5jbG9zZSgpCiAgICAgICAgcmlnaHQuY2xvc2UoKQogICAgd2l0aCBweXRlc3QucmFpc2VzKE9TRXJyb3IpOgogICAgICAgIGRhcndpbi5wZWVyX3VpZChsZWZ0KSAgIyBjbG9zZWQ6IHRoZSBrZXJuZWwncyBlcnJvciwgbmV2ZXIgYSBndWVzc2VkIFVJRAoKCmRlZiB0ZXN0X2FfZ29uZV9wcm9jZXNzX2hhc19ub19pZGVudGl0eV9hbmRfYV9taXNzaW5nX3N5bWJvbF9pc19lbm9zeXMobW9ua2V5cGF0Y2gpOgogICAgaW1wb3J0IHN1YnByb2Nlc3MKICAgIGltcG9ydCBzeXMKCiAgICBjaGlsZCA9IHN1YnByb2Nlc3MuUG9wZW4oW3N5cy5leGVjdXRhYmxlLCAiLWMiLCAicGFzcyJdKQogICAgY2hpbGQud2FpdCgpCiAgICBhc3NlcnQgZGFyd2luLnByb2Nlc3NfaWRlbnRpdHkoY2hpbGQucGlkKSBpcyBOb25lCiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKGRhcndpbiwgIl9zaWduYWxfYnlfdG9rZW4iLCBOb25lKQogICAgYXNzZXJ0IGRhcndpbi5zaWduYWxfaWRlbnRpdHkoZGFyd2luLlByb2Nlc3NJZGVudGl0eSgxLCAxLCAxKSwgMCkgPT0gZGFyd2luLmVycm5vLkVOT1NZUwo=",
           "old_base64": "",
           "start": 0
         }
@@ -35419,12 +35460,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
         "tests/macos/test_macos_storage.py": "0088170fdcafbc4f02fde3d80a8e267777ffc4095a57c4da7a4b2724bd3da722"
@@ -35472,12 +35513,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
         "tests/macos/test_macos_storage.py": "0088170fdcafbc4f02fde3d80a8e267777ffc4095a57c4da7a4b2724bd3da722"
@@ -35525,14 +35566,14 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_core_tools_end_to_end.py": "069dcba0ef94735b2aa796c33ca18217f5e95e3ee8a418f8391c9924e4a3de19",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
         "tests/macos/test_macos_jobs.py": "4b952e03f5424106e6d08c0fe9e97843c469ad2a75a9543be19786fca502f514",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_safety.py": "97b4182209bea66925b7cb27c460f06c5f2e71537c9f2307ec992a94e67c166d",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
@@ -35584,12 +35625,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
         "tests/macos/test_macos_storage.py": "0088170fdcafbc4f02fde3d80a8e267777ffc4095a57c4da7a4b2724bd3da722"
@@ -35637,12 +35678,12 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "tests/macos/test_core_end_to_end.py": "5c47410eb8aa08e1a8dfaf5a84afcb386d8601672ba3ea0cbeda19fabf6dc36b",
+        "tests/macos/test_core_end_to_end.py": "84fde6785946387ea21b02d8256cb866742c914464936aa21ee4119fad9a8718",
         "tests/macos/test_guardian.py": "02ed260a623521853fe98ad41cdccb55a7f60990bb426f8e527707fe317ac92d",
         "tests/macos/test_macos_desktop.py": "7cbd37d1f820ec2f152755addac7c709495862ef8ce2dc88f9c9950bfb8c5fc7",
         "tests/macos/test_macos_files.py": "75b3ee80800355ce6027d11d3b2d5f9d447921438fd234d666ff648f50cd4a17",
         "tests/macos/test_macos_ipc.py": "19c6e6b870186042823341472459d1fa9c349f488f45b7e377a263033f7a7e17",
-        "tests/macos/test_macos_platform.py": "81b3aef6234b5c4964fc6a7ae4dc66fc6e75ef9f21c772ffca181d2cdf458994",
+        "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
         "tests/macos/test_macos_process.py": "96ea9e04ee93465b2d9fb8d5567bcfb444cdcbfdd1d9f680e79380371af5c19e",
         "tests/macos/test_macos_secrets.py": "ab64f19fcdab0f0d3bf231a6fd95a743057fd014356cf7b0f6e7947356fa7206",
         "tests/macos/test_macos_storage.py": "0088170fdcafbc4f02fde3d80a8e267777ffc4095a57c4da7a4b2724bd3da722"
@@ -35657,6 +35698,45 @@
         "tests/macos/test_macos_process.py",
         "tests/macos/test_macos_secrets.py",
         "tests/macos/test_macos_storage.py"
+      ]
+    },
+    {
+      "after_sha256": "af06c1cf5ca6ed2c2f006053aecc04b4a1214c8e5e42e98fcf1e1fd1d00b8b7e",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Collected only on macOS; run by the macOS engine job.",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Never collected on Linux or Windows.",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Odin",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIidmFsaWRhdGVfYWN0aW9uJ3MgcHJvYmVzIG9uIG1hY09TOiB0aGV5IGNob29zZSB0aGVpciB0b29scyB3aGVyZSB0aGV5IHJ1bi4iIiIKZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IG9zCmltcG9ydCBzb2NrZXQKaW1wb3J0IHN1YnByb2Nlc3MKCmltcG9ydCBweXRlc3QKCmZyb20gc3JjLmRlc2t0b3AucGxhdGZvcm0gaW1wb3J0IG1hY29zX3ZhbGlkYXRlCmZyb20gc3JjLnRvb2xzIGltcG9ydCBwb3N0X3ZhbGlkYXRpb24KZnJvbSBzcmMudG9vbHMucG9zdF92YWxpZGF0aW9uIGltcG9ydCBDaGVjawoKCmRlZiBjaGVjayhraW5kOiBzdHIsIHRhcmdldDogc3RyLCAqKnZhbHVlcykgLT4gQ2hlY2s6CiAgICByZXR1cm4gQ2hlY2sodHlwZT1raW5kLCB0YXJnZXQ9dGFyZ2V0LCBob3N0PSJsb2NhbGhvc3QiLCB0aW1lb3V0X3NlY29uZHM9MywgKip2YWx1ZXMpCgoKZGVmIHJ1bihjb21tYW5kOiBzdHIsIHBhdGg6IHN0ciB8IE5vbmUgPSBOb25lKSAtPiBzdHI6CiAgICBlbnZpcm9ubWVudCA9IGRpY3Qob3MuZW52aXJvbikKICAgIGlmIHBhdGggaXMgbm90IE5vbmU6CiAgICAgICAgZW52aXJvbm1lbnRbIlBBVEgiXSA9IHBhdGgKICAgIHJldHVybiBzdWJwcm9jZXNzLnJ1bihbIi9iaW4vc2giLCAiLWMiLCBjb21tYW5kXSwgY2FwdHVyZV9vdXRwdXQ9VHJ1ZSwgdGV4dD1UcnVlLAogICAgICAgICAgICAgICAgICAgICAgICAgIHRpbWVvdXQ9NjAsIGVudj1lbnZpcm9ubWVudCkuc3Rkb3V0CgoKZGVmIHRlc3RfdGhlX3JvdXRlX3JlYWNoZXNfdGhlX21hY29zX3Byb2JlcygpOgogICAgYXNzZXJ0IHBvc3RfdmFsaWRhdGlvbi5fYnVpbGRfY29tbWFuZC5kYXJ3aW5fdGFyZ2V0ID09IFwKICAgICAgICAic3JjLmRlc2t0b3AucGxhdGZvcm0ubWFjb3NfdmFsaWRhdGU6YnVpbGRfY29tbWFuZCIKCgpkZWYgdGVzdF9hX3BvcnRfcHJvYmVfd29ya3Nfd2l0aG91dF9nbnVfdGltZW91dCgpOgogICAgd2l0aCBzb2NrZXQuc29ja2V0KCkgYXMgbGlzdGVuZXI6CiAgICAgICAgbGlzdGVuZXIuYmluZCgoIjEyNy4wLjAuMSIsIDApKQogICAgICAgIGxpc3RlbmVyLmxpc3RlbigxKQogICAgICAgIHBvcnQgPSBsaXN0ZW5lci5nZXRzb2NrbmFtZSgpWzFdCiAgICAgICAgcHJvYmUgPSBtYWNvc192YWxpZGF0ZS5idWlsZF9jb21tYW5kKGNoZWNrKCJwb3J0IiwgZiIxMjcuMC4wLjE6e3BvcnR9IikpCiAgICAgICAgYXNzZXJ0ICJPUEVOIiBpbiBydW4ocHJvYmUsIHBhdGg9Ii91c3IvYmluOi9iaW4iKSAgIyBzdG9jayBtYWNPUzogbm8gdGltZW91dCBoZXJlCiAgICBjbG9zZWQgPSBtYWNvc192YWxpZGF0ZS5idWlsZF9jb21tYW5kKGNoZWNrKCJwb3J0IiwgZiIxMjcuMC4wLjE6e3BvcnR9IikpCiAgICBhc3NlcnQgcnVuKGNsb3NlZCwgcGF0aD0iL3Vzci9iaW46L2JpbiIpLnN0cmlwKCkuZW5kc3dpdGgoIkNMT1NFRCIpCgoKZGVmIHRlc3RfYV9wb3J0X3Byb2JlX2tlZXBzX29kaW5zX293bl9mb3JtX3doZXJlX3RpbWVvdXRfZXhpc3RzKCk6CiAgICBwcm9iZSA9IG1hY29zX3ZhbGlkYXRlLmJ1aWxkX2NvbW1hbmQoY2hlY2soInBvcnQiLCAiMTAuMC4wLjE6MjIiKSkKICAgIGFzc2VydCAidGltZW91dCAzIGJhc2ggLWMiIGluIHByb2JlIGFuZCAicGVybCAtZSIgaW4gcHJvYmUKCgpAcHl0ZXN0Lm1hcmsucGFyYW1ldHJpemUoImxhYmVsLGV4cGVjdGVkIiwgWygiY29tLmFwcGxlLnN5c2xvZ2QiLCAiYWN0aXZlIiksCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgKCJvcmcuZXhhbXBsZS5taXNzaW5nLmpvYiIsICJpbmFjdGl2ZSIpXSkKZGVmIHRlc3RfYV9zZXJ2aWNlX3Byb2JlX3JlYWRzX2xhdW5jaGQobGFiZWwsIGV4cGVjdGVkKToKICAgIHByb2JlID0gbWFjb3NfdmFsaWRhdGUuYnVpbGRfY29tbWFuZChjaGVjaygic2VydmljZSIsIGxhYmVsKSkKICAgIGFzc2VydCBydW4ocHJvYmUpLnN0cmlwKCkgPT0gZXhwZWN0ZWQKICAgIGFzc2VydCAic3lzdGVtY3RsIGlzLWFjdGl2ZSIgaW4gcHJvYmUgICMgYSBMaW51eCBob3N0IHN0aWxsIHJ1bnMgT2RpbidzIHByb2JlCgoKZGVmIHRlc3RfYV9sb2dfcHJvYmVfcmVhZHNfdGhlX3VuaWZpZWRfbG9nKCk6CiAgICBwcm9iZSA9IG1hY29zX3ZhbGlkYXRlLmJ1aWxkX2NvbW1hbmQoY2hlY2soImxvZ19wcmVzZW50IiwgInVuaXQ9c3lzbG9nZDouIiwgd2luZG93X3NlY29uZHM9NSkpCiAgICBvdXQgPSBydW4ocHJvYmUpLnN0cmlwKCkuc3BsaXRsaW5lcygpCiAgICBhc3NlcnQgb3V0IGFuZCBvdXRbLTFdIGluIHsiTE9HX1JFQURfT0sifSB8IHtsaW5lIGZvciBsaW5lIGluIG91dCBpZiAiTE9HX0NIRUNLX0VSUk9SIiBpbiBsaW5lfQogICAgYmFkID0gbWFjb3NfdmFsaWRhdGUuYnVpbGRfY29tbWFuZChjaGVjaygibG9nX2Fic2VudCIsICIoWyIsIHdpbmRvd19zZWNvbmRzPTUpKQogICAgYXNzZXJ0IHJ1bihiYWQpLnN0YXJ0c3dpdGgoIkxPR19DSEVDS19FUlJPUiBpbnZhbGlkIHBhdHRlcm4iKQogICAgYXNzZXJ0ICJqb3VybmFsY3RsIiBpbiBiYWQgICMgYSBMaW51eCBob3N0IHN0aWxsIHJ1bnMgT2RpbidzIHByb2JlCgoKQHB5dGVzdC5tYXJrLnBhcmFtZXRyaXplKCJraW5kLHRhcmdldCIsIFsoImh0dHAiLCAiaHR0cDovLzEyNy4wLjAuMTo5LyIpLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICgicHJvY2VzcyIsICItLXRva2VuLWZpbGUiKSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAoImNvbW1hbmQiLCAiZWNobyByZWFkeSIpXSkKZGVmIHRlc3Rfb3RoZXJfY2hlY2tzX2FyZV9vZGluc19vd24oa2luZCwgdGFyZ2V0KToKICAgIGl0ZW0gPSBjaGVjayhraW5kLCB0YXJnZXQpCiAgICBhc3NlcnQgbWFjb3NfdmFsaWRhdGUuYnVpbGRfY29tbWFuZChpdGVtKSA9PSBwb3N0X3ZhbGlkYXRpb24uX2J1aWxkX2NvbW1hbmQubGludXhfb3JpZ2luYWwoaXRlbSkK",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/macos/test_macos_validate.py",
+      "reason": "macOS port phase 3: native macOS tests.",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/macos/test_core_tools_end_to_end.py": "069dcba0ef94735b2aa796c33ca18217f5e95e3ee8a418f8391c9924e4a3de19",
+        "tests/macos/test_macos_validate.py": "af06c1cf5ca6ed2c2f006053aecc04b4a1214c8e5e42e98fcf1e1fd1d00b8b7e"
+      },
+      "tests": [
+        "tests/macos/test_core_tools_end_to_end.py",
+        "tests/macos/test_macos_validate.py"
       ]
     },
     {

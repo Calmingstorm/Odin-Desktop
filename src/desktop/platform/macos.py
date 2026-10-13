@@ -1,8 +1,10 @@
 """macOS: the Desktop engine's platform members.
 
-The profile lives under the user's Library: config and data in Application Support's
-odin-desktop/<profile>, the cache in Caches' odin-desktop/<profile> (the namespace pairs Linux and
-Windows use, so the shared private-folder checks recognize them). The transport is an owner-only
+The profile lives in the user's Library: config and data in ~/Library/odin-desktop/<profile>, the
+cache in ~/Library/Caches/odin-desktop/<profile> (the namespace pairs Linux and Windows use, so the
+shared private-folder checks recognize them). Not Application Support: Odin passes profile paths to
+OpenSSH's -o options (UserKnownHostsFile), which split their values on whitespace, so the
+profile's paths must have none. The transport is an owner-only
 Unix socket in the per-user temporary folder, which macOS creates private to the user and this
 engine verifies. Secrets live in the login Keychain. The core's lifetime is Linux's own: asyncio
 signal handlers and the parent pipe work the same on macOS.
@@ -26,9 +28,9 @@ def macos_profile_paths(
     environ: Mapping[str, str] | None = None,
     home: Path | str | None = None,
 ):
-    """``~/Library/Application Support/odin-desktop/<profile>/{config,data}`` and
-    ``~/Library/Caches/odin-desktop/<profile>``. Secrets metadata lives under data; values are in
-    the Keychain.
+    """``~/Library/odin-desktop/<profile>/{config,data}`` and
+    ``~/Library/Caches/odin-desktop/<profile>``, with no whitespace (see the module notes). Secrets
+    metadata lives under data; values are in the Keychain.
 
     ``home`` stands in for ``~`` as on Linux; ``environ`` is accepted for the shared signature.
     """
@@ -43,7 +45,9 @@ def macos_profile_paths(
         or any(ord(c) < 32 for c in str(home_path))
     ):
         raise ValueError("home must be an absolute local path")
-    support = home_path / "Library" / "Application Support" / "odin-desktop" / profile_id
+    if any(character.isspace() for character in str(home_path)):
+        raise ValueError("home must have no whitespace (OpenSSH options split on it)")
+    support = home_path / "Library" / "odin-desktop" / profile_id
     data = support / "data"
     return ProfilePaths(
         profile_id,

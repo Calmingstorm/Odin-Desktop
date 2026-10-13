@@ -182,7 +182,7 @@ async def test_the_core_boots_answers_and_exits_on_parent_eof(home):
         assert "macOS process containment: session-scoped, best effort" in log
         # Everything the profile wrote is under the temporary home's Library.
         library = home / "Library"
-        assert (library / "Application Support" / "odin-desktop" / core.profile / "data").is_dir()
+        assert (library / "odin-desktop" / core.profile / "data").is_dir()
         assert (library / "Caches" / "odin-desktop" / core.profile).is_dir()
     finally:
         core.stop()

@@ -10,5 +10,6 @@
   "src/desktop/platform/macos_secrets.py",
   "src/desktop/platform/macos_storage.py",
   "src/desktop/platform/macos_supervisor_worker.py",
-  "src/desktop/platform/macos_tools.py"
+  "src/desktop/platform/macos_tools.py",
+  "src/desktop/platform/macos_validate.py"
 ]

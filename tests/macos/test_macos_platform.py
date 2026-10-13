@@ -20,7 +20,7 @@ def test_darwin_selects_the_macos_platform():
 
 def test_the_profile_lives_under_library(tmp_path):
     paths = macos_profile_paths("work", home=tmp_path)
-    support = tmp_path / "Library" / "Application Support" / "odin-desktop" / "work"
+    support = tmp_path / "Library" / "odin-desktop" / "work"
     assert paths.config_dir == support / "config"
     assert paths.data_dir == support / "data"
     assert paths.cache_dir == tmp_path / "Library" / "Caches" / "odin-desktop" / "work"
@@ -36,6 +36,15 @@ def test_invalid_profiles_are_refused(tmp_path, profile):
 def test_a_relative_home_is_refused():
     with pytest.raises(ValueError):
         macos_profile_paths("default", home=Path("relative/home"))
+
+
+def test_no_profile_path_has_whitespace(tmp_path):
+    """OpenSSH splits -o UserKnownHostsFile values on whitespace: profile paths must have none."""
+    paths = macos_profile_paths("default", home=tmp_path)
+    for path in (paths.config_dir, paths.data_dir, paths.cache_dir, paths.secrets_dir):
+        assert not any(character.isspace() for character in str(path)), path
+    with pytest.raises(ValueError, match="whitespace"):
+        macos_profile_paths("default", home=tmp_path / "with space")
 
 
 def test_the_socket_lives_in_the_verified_private_temp_folder():
@@ -85,7 +94,7 @@ def test_the_platform_members():
     assert platform.ipc is platform.ipc  # one transport per platform object
     paths = platform.profile_paths("default", home=Path("/Users/someone"))
     assert paths.config_dir == Path(
-        "/Users/someone/Library/Application Support/odin-desktop/default/config")
+        "/Users/someone/Library/odin-desktop/default/config")
     assert resolve_workspace.__name__ == "resolve_workspace"
 
 
