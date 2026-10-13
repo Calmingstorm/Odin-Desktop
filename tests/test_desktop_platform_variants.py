@@ -294,8 +294,8 @@ def test_linux_runs_the_originals_and_imports_no_macos_module():
 # macOS stand-ins for Odin code, each reviewed against what it lifts or overrides: macos_jobs'
 # copies of create_supervised_shell, run_local_command and the registry's local start, and its
 # registry overrides; macos_process's reaper subclass; macos_safety's copy of the governor check;
-# macos_tools' copies of read_file and apply_patch, and their runner's macOS rename (apply_plan's
-# parameter and Linux's own rename); and the macOS worker, which speaks Linux's worker protocol.
+# the command text macos_jobs makes portable (read_file's and apply_patch's handlers, their runner's
+# apply_plan parameter and Linux's own rename); and the macOS worker, which speaks Linux's protocol.
 MACOS_OVERRIDE_SOURCES = {
     "src/tools/local_supervisor.py:create_supervised_shell":
         "912122289118a78f03b84fdd1ae86bddbd490285cf27db609055feb99aa3e8de",

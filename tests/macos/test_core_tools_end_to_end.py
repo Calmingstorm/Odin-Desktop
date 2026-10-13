@@ -110,7 +110,8 @@ def launch(tmp_path) -> Core:
     core = Core(home)
     entry = home / "memory-keyring-core.py"
     entry.write_text(MEMORY_KEYRING_ENTRY)
-    environment = {"PATH": os.environ["PATH"], "HOME": str(home), "LANG": "en_US.UTF-8",
+    # Inherited (coverage measures the engine through its environment), with this home.
+    environment = {**os.environ, "HOME": str(home), "LANG": "en_US.UTF-8",
                    "TMPDIR": os.environ.get("TMPDIR", "/tmp"), "PYTHONDONTWRITEBYTECODE": "1",
                    "PYTHONPATH": str(ROOT)}
     with open(core.log, "wb") as stderr:

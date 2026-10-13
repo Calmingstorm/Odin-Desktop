@@ -10,14 +10,23 @@ create_supervised_shell (local_supervisor), run_local_command (ssh) and the regi
 The worker's cleanup is best effort (session observation, see its notes). The registry therefore
 labels its local jobs' scope ``session_best_effort``: Work reports a converged stop as best effort,
 and the tool text and poll metadata carry the caveat, as Odin does for a remote process group.
+
+Engine-built commands (any host) are made portable before they run, since Odin writes them for GNU
+hosts: ``chmod 600 -- FILES`` becomes ``chmod -- 600 FILES`` (BSD chmod reads ``--`` after the mode
+as a file; both mean the same on GNU), and apply_patch's host runner is given a rename that is
+renameatx_np(RENAME_EXCL) on a macOS host and Linux's own renameat2 elsewhere. Each rewrite is
+anchored on Odin's exact text; a command without the anchor runs unchanged and fails honestly.
 """
 # ruff: noqa: E501
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
+import re
 import socket
 import sys
+import zlib
 from pathlib import Path
 
 from src.tools import local_supervisor as _ls
@@ -27,6 +36,57 @@ SCOPE = "session_best_effort"
 CAVEAT = "detached or raced descendants are unverified"
 _CAVEAT_TEXT = f" containment={SCOPE}; {CAVEAT}."
 _META_RESERVE = 160  # room for the two metadata fields within the page budget
+
+# The host runner's rename: renameatx_np(RENAME_EXCL) on a macOS host, Linux's own elsewhere.
+RENAME_ON_THE_HOST = (
+    "_rename = _rename_noreplace\n"
+    "if _sys.platform == 'darwin':\n"
+    "    def _rename(source, destination, *, src_dir_fd, dst_dir_fd):\n"
+    "        import ctypes, errno\n"
+    "        _libc = ctypes.CDLL('/usr/lib/libSystem.B.dylib', use_errno=True)\n"
+    "        _call = _libc.renameatx_np\n"
+    "        _call.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p,\n"
+    "                          ctypes.c_uint]\n"
+    "        _call.restype = ctypes.c_int\n"
+    "        if _call(src_dir_fd, os.fsencode(source), dst_dir_fd, os.fsencode(destination),\n"
+    "                 0x4) != 0:  # RENAME_EXCL\n"
+    "            code = ctypes.get_errno()\n"
+    "            if code in {errno.ENOSYS, errno.EINVAL, errno.ENOTSUP}:\n"
+    "                raise PatchError('target filesystem lacks the atomic no-replace rename '\n"
+    "                                 'required by apply_patch')\n"
+    "            raise OSError(code, os.strerror(code), destination)\n"
+)
+_RUNNER = re.compile(
+    r'printf %s ([A-Za-z0-9+/=]+) \| (base64 -d|python3 -c (?:\'[^\']*\'|\S+)) > "\$runner"')
+_WRAPPER = "\nimport json\nimport sys as _sys\n"
+_APPLY_CALL = "    _changed = apply_plan(_sys.argv[1], _plan)\n"
+_APPLY_WITH_RENAME = "    _changed = apply_plan(_sys.argv[1], _plan, rename_noreplace=_rename)\n"
+
+
+def _with_rename(payload: str, *, compressed: bool) -> str:
+    """apply_patch's runner payload, given the host's rename; unchanged if it isn't Odin's."""
+    try:
+        raw = base64.b64decode(payload, validate=True)
+        text = (zlib.decompress(raw) if compressed else raw).decode("utf-8")
+    except (ValueError, zlib.error):
+        return payload
+    anchor = text.rfind(_WRAPPER)
+    tail = text[anchor + len(_WRAPPER):] if anchor >= 0 else ""
+    if anchor < 0 or tail.count(_APPLY_CALL) != 1:
+        return payload
+    patched = (text[:anchor + len(_WRAPPER)] + RENAME_ON_THE_HOST
+               + tail.replace(_APPLY_CALL, _APPLY_WITH_RENAME, 1)).encode("utf-8")
+    return base64.b64encode(zlib.compress(patched) if compressed else patched).decode("ascii")
+
+
+def portable_command(command: str) -> str:
+    """An engine-built command, written to run on GNU and BSD hosts alike (see the notes)."""
+    command = command.replace("chmod 600 -- ", "chmod -- 600 ")
+    match = _RUNNER.search(command)
+    if match is None:
+        return command
+    payload = _with_rename(match.group(1), compressed=match.group(2) != "base64 -d")
+    return command[:match.start(1)] + payload + command[match.end(1):]
 
 
 _internal_bin: Path | None = None
@@ -263,6 +323,8 @@ async def exec_command(
         is_local_address,
     )
 
+    if not use_command_shell:  # engine-built: portable for whichever host runs it
+        command = portable_command(command)
     if not is_local_address(address):
         return await ToolExecutor._exec_command.linux_original(
             self, address, command, ssh_user, timeout, on_output, use_workspace, target,

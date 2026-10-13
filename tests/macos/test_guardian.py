@@ -150,7 +150,7 @@ def test_the_real_engine_runs_and_stops_under_the_guardian(guardian, tmp_path):
 
     home = Path(os.path.realpath(tmp_path))
     core = Core(home)
-    environment = {"PATH": os.environ["PATH"], "HOME": str(home), "LANG": "en_US.UTF-8",
+    environment = {**os.environ, "HOME": str(home), "LANG": "en_US.UTF-8",
                    "TMPDIR": os.environ.get("TMPDIR", "/tmp"), "PYTHONDONTWRITEBYTECODE": "1"}
     with open(core.log, "wb") as stderr:
         core.process = subprocess.Popen(

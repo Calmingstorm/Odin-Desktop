@@ -46,7 +46,8 @@ class Core:
         self.process = None
 
     def start(self):
-        environment = {"PATH": os.environ["PATH"], "HOME": str(self.home), "LANG": "en_US.UTF-8",
+        # Inherited (coverage measures the engine through its environment), with this home.
+        environment = {**os.environ, "HOME": str(self.home), "LANG": "en_US.UTF-8",
                        "TMPDIR": os.environ.get("TMPDIR", "/tmp"), "PYTHONDONTWRITEBYTECODE": "1"}
         with open(self.log, "wb") as stderr:
             self.process = subprocess.Popen(
