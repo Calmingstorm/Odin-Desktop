@@ -270,22 +270,22 @@ def test_linux_runs_the_originals_and_imports_no_macos_module():
     program = (
         "import sys\n"
         "import src.__main__ as entry\n"
-        "from src.desktop import commands, resource_cleanup, ssh_sockets\n"
+        "from src.desktop import commands, ipc_auth, paths, resource_cleanup, ssh_sockets\n"
         "from src.health import checker\n"
-        "from src.tools.process_manager import AdoptedZombieReaper\n"
         "routed = [entry._enable_process_containment, entry._arm_finalize_watchdog,\n"
-        "          AdoptedZombieReaper.drain_at_teardown, checker._process_descriptor_usage,\n"
+        "          entry._zombie_reaper, checker._process_descriptor_usage,\n"
         "          resource_cleanup.current_boot_id, commands._anchored_database_path,\n"
         "          ssh_sockets.check_socket_path, ssh_sockets.socket_directory,\n"
-        "          ssh_sockets.prepare_socket_directory]\n"
+        "          ssh_sockets.prepare_socket_directory, paths.private_directory,\n"
+        "          ipc_auth.private_parent, ipc_auth.load_token]\n"
         "assert not any(hasattr(f, 'darwin_target') for f in routed), routed\n"
         "assert commands._anchored_database_path(7, 'x.sqlite') == '/proc/self/fd/7/x.sqlite'\n"
         "loaded = [m for m in sys.modules if m.startswith('src.desktop.platform.')\n"
         "          and m.rsplit('.', 1)[1].startswith(('darwin', 'macos'))]\n"
         "assert not loaded, loaded\n"
     )
-    if sys.platform != "linux":
-        pytest.skip("Linux's own originals")
+    if sys.platform not in ("linux", "win32"):
+        pytest.skip("Linux's and Windows' own objects")
     result = subprocess.run([sys.executable, "-c", program], cwd=ROOT, capture_output=True,
                             text=True, timeout=120)
     assert result.returncode == 0, result.stderr[-3000:]

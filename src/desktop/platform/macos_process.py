@@ -20,6 +20,8 @@ import os
 import select
 import sys
 
+from src.tools.process_manager import AdoptedZombieReaper
+
 _FINALIZE_WATCHDOG_PROGRAM = r"""
 import ctypes
 import errno
@@ -162,22 +164,30 @@ def arm_finalize_watchdog(exit_code: int):
         raise AssertionError("os._exit returned")  # test doubles only
 
 
-def drain_at_teardown(self) -> tuple[int, bool]:
-    """Reap this process's own exited children; nothing is adopted on macOS.
+class MacOSZombieReaper(AdoptedZombieReaper):
+    """Odin's reaper, unchanged but for its final drain: nothing is adopted on macOS."""
 
-    It runs after every subprocess owner has stopped, so an exited child left now is ours to
-    reap. Verified means waitpid reported no further exited child (none left, or only live ones);
-    any other failure is unverified.
-    """
-    reaped = 0
-    while True:
-        try:
-            pid, _ = os.waitpid(-1, os.WNOHANG)
-        except ChildProcessError:
-            return reaped, True
-        except OSError:
-            return reaped, False
-        if pid == 0:
-            return reaped, True
-        reaped += 1
-        self.reaped_total += 1
+    def drain_at_teardown(self) -> tuple[int, bool]:
+        """Reap this process's own exited children.
+
+        It runs after every subprocess owner has stopped, so an exited child left now is ours
+        to reap. Verified means waitpid reported no further exited child (none left, or only
+        live ones); any other failure is unverified.
+        """
+        reaped = 0
+        while True:
+            try:
+                pid, _ = os.waitpid(-1, os.WNOHANG)
+            except ChildProcessError:
+                return reaped, True
+            except OSError:
+                return reaped, False
+            if pid == 0:
+                return reaped, True
+            reaped += 1
+            self.reaped_total += 1
+
+
+def zombie_reaper() -> MacOSZombieReaper:
+    """src.__main__._zombie_reaper on macOS."""
+    return MacOSZombieReaper()

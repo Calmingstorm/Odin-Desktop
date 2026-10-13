@@ -16,6 +16,7 @@ import pytest
 from src.desktop.platform import darwin, macos_process
 
 ROOT = Path(__file__).resolve().parents[2]
+_drain = macos_process.MacOSZombieReaper.drain_at_teardown  # callable with any reaper-like self
 _P_PID, _WNOHANG, _WEXITED, _WNOWAIT = 1, 1, 4, 0x20  # libSystem waitid
 
 
@@ -55,12 +56,12 @@ def test_containment_stamps_provenance_and_states_the_missing_subreaper(monkeypa
 
 def test_the_entry_points_route_to_the_macos_variants():
     import src.__main__ as entry
-    from src.tools.process_manager import AdoptedZombieReaper
 
     target = "src.desktop.platform.macos_process:"
     assert entry._enable_process_containment.darwin_target == target + "enable_process_containment"
     assert entry._arm_finalize_watchdog.darwin_target == target + "arm_finalize_watchdog"
-    assert AdoptedZombieReaper.drain_at_teardown.darwin_target == target + "drain_at_teardown"
+    assert entry._zombie_reaper.darwin_target == target + "zombie_reaper"
+    assert type(entry._zombie_reaper()) is macos_process.MacOSZombieReaper
 
 
 def _engine(body: str, timeout: float) -> subprocess.Popen:
@@ -132,14 +133,14 @@ def _spawn(*argv: str) -> int:
 
 
 def test_the_drain_reaps_every_exited_child_and_verifies():
-    macos_process.drain_at_teardown(SimpleNamespace(reaped_total=0))  # another test's leftovers
+    _drain(SimpleNamespace(reaped_total=0))  # another test's leftovers
     pids = [_spawn("/usr/bin/true") for _ in range(3)]
     for pid in pids:  # exited, not reaped: waitid with WNOWAIT leaves them zombies
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline and not _exited(pid):
             time.sleep(0.02)
     reaper = SimpleNamespace(reaped_total=4)
-    reaped, verified = macos_process.drain_at_teardown(reaper)
+    reaped, verified = _drain(reaper)
     assert (reaped, verified, reaper.reaped_total) == (3, True, 7)
     for pid in pids:
         with pytest.raises(ChildProcessError):
@@ -149,7 +150,7 @@ def test_the_drain_reaps_every_exited_child_and_verifies():
 def test_the_drain_leaves_a_live_child_alone():
     pid = _spawn("/bin/sleep", "30")
     try:
-        assert macos_process.drain_at_teardown(SimpleNamespace(reaped_total=0)) == (0, True)
+        assert _drain(SimpleNamespace(reaped_total=0)) == (0, True)
         assert os.waitpid(pid, os.WNOHANG) == (0, 0)
     finally:
         os.kill(pid, signal.SIGKILL)
@@ -161,7 +162,7 @@ def test_the_drain_reports_unverified_on_an_unexpected_failure(monkeypatch):
         raise OSError(errno.EINVAL, "invalid")
 
     monkeypatch.setattr(os, "waitpid", broken)
-    assert macos_process.drain_at_teardown(SimpleNamespace(reaped_total=0)) == (0, False)
+    assert _drain(SimpleNamespace(reaped_total=0)) == (0, False)
 
 
 def _exited(pid: int) -> bool:
@@ -206,12 +207,11 @@ def _record_exits(monkeypatch):
 
 def test_an_armed_helper_survives_the_drain_and_disarms_cleanly(monkeypatch):
     import src.__main__ as entry
-    from src.tools.process_manager import AdoptedZombieReaper
 
     monkeypatch.setattr(entry, "_FINALIZE_WATCHDOG_TIMEOUT", 30.0)
     watchdog = entry._arm_finalize_watchdog(0)
     try:
-        assert AdoptedZombieReaper().drain_at_teardown() == (0, True)
+        assert entry._zombie_reaper().drain_at_teardown() == (0, True)
         waited, _ = watchdog.waitpid(watchdog.pid, os.WNOHANG)
         assert waited == 0  # the drain neither consumed nor killed the live helper
     finally:
@@ -223,7 +223,6 @@ def test_a_clean_finalize_disarms_the_watchdog(monkeypatch):
     import logging
 
     import src.__main__ as entry
-    from src.tools.process_manager import AdoptedZombieReaper
 
     monkeypatch.setattr(entry, "_FINALIZE_WATCHDOG_TIMEOUT", 30.0)
     calls = []
@@ -237,7 +236,7 @@ def test_a_clean_finalize_disarms_the_watchdog(monkeypatch):
 
     monkeypatch.setattr(entry, "_disarm_finalize_watchdog", capture)
     loop = asyncio.new_event_loop()
-    entry._finalize_and_exit(loop, AdoptedZombieReaper(), logging.getLogger("test"), 0)
+    entry._finalize_and_exit(loop, entry._zombie_reaper(), logging.getLogger("test"), 0)
     assert len(disarmed) == 1 and calls == [] and loop.is_closed()
 
 

@@ -20,6 +20,10 @@ short window, to the next ordinary read of that item that is refused again, unle
 written or deleted since: "Allow Once" authorizes that one retrieval, so the recovery read after
 Retry uses it instead of failing. Nothing else is kept.
 
+Locked: every ordinary call first checks the named keychain's lock state and is refused while it is
+locked, without an item call. On a locked keychain a write or delete can report success or "not
+found" without happening (hosted macOS 26), so such an answer would prove nothing.
+
 Failures: a missing item reads as None. Every other failure is a SecretStoreError, which the store
 reports as it does on Linux, without native diagnostics. There is no file fallback.
 """
@@ -289,6 +293,18 @@ class KeychainBackend:
             elif status in (ERR_SUCCESS, ERR_NOT_FOUND):
                 self._refused.discard(key)
 
+    def _refuse_if_locked(self, key: tuple[str, str] | None, action: str) -> None:
+        """Ordinary calls never touch a locked keychain: there, a write or delete can report
+        success or "not found" without happening (hosted macOS 26), so its answer proves nothing.
+        A refused read is remembered for Retry."""
+        state = ctypes.c_uint32()
+        if _sec.SecKeychainGetStatus(self._keychain, ctypes.byref(state)) != ERR_SUCCESS:
+            raise SecretStoreError("Profile keyring is unavailable")
+        if not state.value & UNLOCKED:
+            if key is not None:
+                self._note(key, ERR_INTERACTION_NOT_ALLOWED)
+            raise _failure(ERR_INTERACTION_NOT_ALLOWED, action)
+
     def _take_handoff(self, key: tuple[str, str]) -> str | None:
         with self._lock:
             entry = self._handoff.pop(key, None)
@@ -302,6 +318,13 @@ class KeychainBackend:
     def get_password(self, service: str, name: str) -> str | None:
         key = (service, name)
         with _gate.ordinary():
+            try:
+                self._refuse_if_locked(key, "read")
+            except SecretStoreError:
+                handed = self._take_handoff(key)
+                if handed is not None:
+                    return handed
+                raise
             status, value = self._copy(service, name, interactive=False)
         self._note(key, status)
         if status in _REFUSED_WITHOUT_UI:
@@ -319,6 +342,7 @@ class KeychainBackend:
 
     def set_password(self, service: str, name: str, value: str) -> None:
         with _gate.ordinary():
+            self._refuse_if_locked(None, "write")
             status = self._store(service, name, value)
         self._note((service, name), status, changed=True)
         if status != ERR_SUCCESS:
@@ -351,6 +375,7 @@ class KeychainBackend:
 
     def delete_password(self, service: str, name: str) -> None:
         with _gate.ordinary(), _Owned() as owned:
+            self._refuse_if_locked(None, "deletion")
             status = _sec.SecItemDelete(self._query(owned, service, name))
         self._note((service, name), status, changed=True)
         if status not in (ERR_SUCCESS, ERR_NOT_FOUND):

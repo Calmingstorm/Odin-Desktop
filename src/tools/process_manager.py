@@ -26,7 +26,6 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO
 
-from ..desktop.platform.variants import darwin_variant
 from ..llm.secret_scrubber import embedded_process_scrubber_source
 from ..llm.secret_scrubber import scrub_process_secrets as _scrub_process_bytes
 from ..observability.diagnostics import command_display, safe_error, safe_text
@@ -782,7 +781,6 @@ class AdoptedZombieReaper:
                 _reap_registry.pop(identity, None)
         return reaped
 
-    @darwin_variant("src.desktop.platform.macos_process:drain_at_teardown")
     def drain_at_teardown(self) -> tuple[int, bool]:
         """Final no-grace drain (design §3.3 step 5).
 

@@ -107,6 +107,12 @@ def _safe_repr(exc: BaseException) -> str:
         return "unrepresentable exception"
 
 
+@darwin_variant("src.desktop.platform.macos_process:zombie_reaper")
+def _zombie_reaper() -> AdoptedZombieReaper:
+    """The reaper whose final drain closes this process's teardown."""
+    return AdoptedZombieReaper()
+
+
 def _finalize_loop(loop, zombie_reaper: AdoptedZombieReaper, log) -> str | None:
     """Teardown tail in the exact round-15 §3.3 order.
 
@@ -550,7 +556,7 @@ def main() -> None:
             raise SystemExit(1)
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        reaper = AdoptedZombieReaper()
+        reaper = _zombie_reaper()
         exit_code = 0
         service = CoreService(
             options.paths, options.socket, options.token_file, release_runtime_on_close=False

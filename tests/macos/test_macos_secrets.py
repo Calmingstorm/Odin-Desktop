@@ -159,15 +159,27 @@ def test_ordinary_reads_never_ask_and_refusals_are_remembered(fake):
 def test_retry_repeats_only_the_refused_reads_with_interaction_then_switches_it_off(fake):
     backend, security, reads, calls, _ = fake
     security.locked = True
-    reads.append((REFUSED, None))
-    with pytest.raises(SecretStoreError):
-        backend.get_password("s", "a")
+    with pytest.raises(SecretStoreError, match="requires owner interaction or is locked"):
+        backend.get_password("s", "a")  # refused before any item call
+    assert calls == [] and backend._refused == {("s", "a")}
     reads.append((0, "granted"))
     assert backend.unlock() is True
     assert security.native == [("unlock", True)]
     assert calls[-1] == (("s", "a"), True, True)  # the remembered read, interactive
     assert security.interaction is False
     assert backend._refused == set()
+
+
+@pytest.mark.parametrize("call", ["write", "delete"])
+def test_a_locked_keychain_refuses_writes_and_deletes_before_any_item_call(fake, call):
+    backend, security, reads, calls, stores = fake
+    security.locked = True
+    with pytest.raises(SecretStoreError, match="requires owner interaction or is locked"):
+        if call == "write":
+            backend.set_password("s", "a", "v")
+        else:
+            backend.delete_password("s", "a")
+    assert security.native == [] and stores == []  # no item call: its answer would prove nothing
 
 
 def test_allow_once_hands_the_value_to_the_recovery_read_exactly_once(fake):
@@ -308,6 +320,7 @@ def test_every_way_out_of_retry_switches_interaction_off(fake, failure):
     with pytest.raises(expected):
         backend.unlock()
     assert security.interaction is False
+    security.locked = False  # the owner unlocks it some other way
     stores.append(0)
     backend.set_password("s", "x", "v")  # the gate reopened
 
