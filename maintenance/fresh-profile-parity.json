@@ -366,7 +366,7 @@
     "src/desktop/platform/windows_workspace.py": "25493a9f6480133c058613532b78dbee39d77dce336544184b5c8192baf2a737",
     "src/desktop/provisioning.py": "38124d109c09d23272eeba1ad96f9cf497f0e57aaa1ec8a9d0180a5117f251a2",
     "src/desktop/secrets.py": "d57759526f05fa7134537ca40d28bb65604364b479b3557055968ba116a9fb7d",
-    "src/desktop/settings.py": "3dffdb7c587c53d83377cb57444672f3c8a5772f256d62a20ead2990ca4d4adf",
+    "src/desktop/settings.py": "6bd3e929f64c2d8bb6f86f40a24bed59d55cf134d3daea6847b43c78353fd4c3",
     "src/desktop/ssh_pool.py": "372886abaaa40248574754a3b2046f50b5d35846c56451311403c0334f10edd0",
     "src/desktop/ssh_sockets.py": "7da7aa869fb64c29532df9e33e84ac831341858135f5bab389e514bab32a86a9",
     "src/json_store.py": "a3bdffaa80560a58a39c5683005da37c37de3ef2edb7ef81fcb8d7bfb8b63ad0",

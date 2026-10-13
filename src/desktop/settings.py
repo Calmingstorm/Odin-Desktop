@@ -95,7 +95,9 @@ def _handler(path):
         "agents.auto_model_allowlist",
         "agents.thinking_mode",
         "agents.model_selection_hints",
-    }:
+    } or path.startswith(("agents.auto_model_allowlist.", "agents.model_selection_hints.")):
+        # A candidate with its own effort or thinking mode, and one model's description, are
+        # leaves inside these two settings and change with them.
         return "models.agents.set"
     if path == "tools.disabled_tools":
         return "tools.set_enabled"

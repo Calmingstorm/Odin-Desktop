@@ -37,12 +37,20 @@ test('saves automatic agent candidates chosen on the Models page through the rea
     expect(status.ok).toBe(true)
     expect(status.result?.agent_default_candidates).toEqual(defaults)
     await expect(page.getByTestId(`candidate-description-${defaults[0]}`)).not.toContainText('Odin has no description')
-    // Untick one, move the last up, and save: the edited list crosses the bridge.
+    // Untick one, move the last up, give the first its own effort and description, and save: the edited list
+    // crosses the bridge, and the engine must accept a candidate's own effort and a model's description.
     await list.locator(`li[data-model="${defaults[1]}"] input[type=checkbox]`).uncheck()
     await page.getByRole('button', { name: `Move ${defaults.at(-1)} up`, exact: true }).click()
+    await page.getByLabel(`Reasoning effort for ${defaults[0]}`, { exact: true }).selectOption('high')
+    await page.getByRole('button', { name: `Details for ${defaults[0]}`, exact: true }).click()
+    await page.getByRole('button', { name: `Edit the description of ${defaults[0]}`, exact: true }).click()
+    await page.getByLabel(`Description for ${defaults[0]}`, { exact: true }).fill('Release check description')
+    // A picture of the list for review; not an assertion.
+    await page.getByTestId('agent-candidates').screenshot({ path: test.info().outputPath('agent-candidates.png') })
     await page.getByTestId('agent-model-actions').getByRole('button', { name: 'Save', exact: true }).click()
     await expect(page.getByText('Saved.', { exact: true })).toBeVisible()
     await expect(page.getByText('could not be confirmed')).toHaveCount(0)
+    await expect(page.getByText('changed through')).toHaveCount(0)
     const expected = defaults.filter((model) => model !== defaults[1])
     ;[expected[expected.length - 2], expected[expected.length - 1]] = [expected.at(-1)!, expected.at(-2)!]
     // Read back as the app does: the core's saved settings.
@@ -50,7 +58,10 @@ test('saves automatic agent candidates chosen on the Models page through the rea
     expect(schema.ok).toBe(true)
     const saved = (path: string) => schema.result?.fields.find((field) => field.path === path)?.desired
     expect(saved('agents.model')).toBe('auto')
-    expect(saved('agents.auto_model_allowlist')).toEqual(expected)
+    const savedList = saved('agents.auto_model_allowlist') as Array<string | { model: string; reasoning_effort?: string }>
+    expect(savedList.map((entry) => typeof entry === 'string' ? entry : entry.model)).toEqual(expected)
+    expect(savedList[0]).toMatchObject({ model: defaults[0], reasoning_effort: 'high' })
+    expect(saved('agents.model_selection_hints')).toEqual({ [defaults[0]!]: 'Release check description' })
   } finally {
     await exitApp(application)
   }

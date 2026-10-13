@@ -166,6 +166,28 @@ describe('Automatic agent candidates', () => {
     expect(box(root, 'compat:vendor/new').props.checked).toBe(false)
   })
 
+  it('keeps each model to one line, with its details on demand', async () => {
+    const { root } = await models()
+    const panel = () => control(root, 'agents.auto_model_allowlist.gpt-6-astra.details')
+    expect(root.named('Details for gpt-6-astra').props['aria-expanded']).toBe(false)
+    expect(panel().style.display).toBe('none')
+    // The row shows the description on one line, whole on hover, and the effort for a ticked model.
+    const summary = root.findAll((node) => node.props.class === 'candidate-summary')[0]!
+    expect(summary.props.title).toBe(ASTRA)
+    expect(control(root, 'agents.auto_model_allowlist.gpt-6-astra.reasoning_effort').props['aria-label']).toBe('Reasoning effort for gpt-6-astra')
+    root.named('Details for gpt-6-astra').fire('click'); await flush()
+    expect(root.named('Details for gpt-6-astra').props['aria-expanded']).toBe(true)
+    expect(panel().style.display).not.toBe('none')
+    // Editing the description keeps its details open, even if the toggle is pressed.
+    root.named('Edit the description of gpt-6-astra').fire('click'); await flush()
+    root.named('Details for gpt-6-astra').fire('click'); await flush()
+    expect(panel().style.display).not.toBe('none')
+    // An unticked model has no effort or order controls.
+    box(root, 'gpt-6-luna').fire('change', { target: { checked: false } }); await flush()
+    expect(root.findAll((node) => node.props.id === id('agents.auto_model_allowlist.gpt-6-luna.reasoning_effort'))).toHaveLength(0)
+    expect(root.findAll((node) => node.props['aria-label'] === 'Move gpt-6-luna up')).toHaveLength(0)
+  })
+
   it("falls back to the Codex catalogue when the core doesn't report its default", async () => {
     const status = (await bridge.modelsStatus()).result
     delete status.agent_default_candidates
