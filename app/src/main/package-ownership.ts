@@ -12,7 +12,8 @@ export function hasLine(output: string, word: string): boolean {
 export const PENDING_EXIT = 75
 export const INSTALL_UNFINISHED = 'An Odin installation didn\'t finish. Run the Odin installer again.'
 
-/** Independent guardian even when a user invokes the raw Electron executable. Windows' per-user installation is
+/** Independent guardian even when a user invokes the raw Electron executable. macOS' per-user installation is `macos`,
+ * whose lease lives under ~/Library/odin-desktop. Windows' per-user installation is
  * `nsis`, whose lease lives in local AppData; its guardian runs without a console window, detached: on Windows
  * Node puts every other child in a job that ends it when the app exits, and the guardian outlives the app to
  * record its clean Exit after the app's real exit. */
@@ -21,7 +22,8 @@ export function acquirePackagedApp(paths: ProfilePaths, resources: string, env: 
   const windows = system === 'win32'
   const path = windows ? win32 : posix
   const launch = packagedCoreCommand(resources, [], env, { system })
-  const kind = windows ? 'nsis' : dirname(resolve(resources)) === '/opt/odin-desktop' ? 'deb' : 'appimage'
+  const kind = windows ? 'nsis' : system === 'darwin' ? 'macos'
+    : dirname(resolve(resources)) === '/opt/odin-desktop' ? 'deb' : 'appimage'
   const child = spawn(launch.command, ['-I', '-B', path.join(resources, 'ownership.py'),
     '--kind', kind, '--role', 'app',
     '--app-cleanup', path.join(paths.configDir, '..', `${paths.profileId}-cleanup-state.json`),

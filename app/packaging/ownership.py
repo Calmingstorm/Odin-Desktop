@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Install lifetime leases. Filesystem barrier only, never process control.
 
+On macOS (the per-user ``macos`` installation, a .dmg) the lease is the AppImage kind's flock on
+``~/Library/odin-desktop/.install-ownership/macos``, inside the engine's private namespace (the dot
+keeps it apart from every profile). A .dmg has no installer hook, so nothing replaces the app
+under a held lease: upgrading is Quit, check the cleanup result, then replace.
+
 On Windows (the per-user ``nsis`` installation) the lease is a ``LockFileEx`` lock on one fixed
 byte of ``lease``, a private file outside the install tree, in
 ``%LOCALAPPDATA%/odin-desktop/install-ownership/nsis``: shared for the app and the core, exclusive
@@ -26,6 +31,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 WINDOWS = sys.platform == 'win32'
+DARWIN = sys.platform == 'darwin'
 if not WINDOWS:
     import fcntl
 
@@ -77,6 +83,9 @@ def ownership_paths(kind='appimage', env=None):
         if not re.fullmatch(r'[A-Za-z]:[\\/].*', local) or '..' in re.split(r'[\\/]', local):
             raise OwnershipError('LOCALAPPDATA must be an absolute local folder')
         return OwnershipPaths(Path(local) / 'odin-desktop' / 'install-ownership' / 'nsis')
+    if kind == 'macos':
+        home = Path(env.get('HOME') or Path.home())
+        return OwnershipPaths(home / 'Library' / 'odin-desktop' / '.install-ownership' / 'macos')
     if kind != 'appimage':
         raise OwnershipError('Unsupported installation kind')
     home = Path(env.get('HOME') or Path.home())
@@ -88,6 +97,8 @@ def _open(paths):
     if WINDOWS:
         return _open_windows(paths)
     if paths.directory != DEB_ROOT:
+        if DARWIN:
+            _private_folders(paths.directory)
         paths.directory.mkdir(parents=True, mode=0o700, exist_ok=True)
         paths.receipts.mkdir(mode=0o700, exist_ok=True)
         fd = os.open(paths.lease, os.O_RDONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
@@ -103,6 +114,17 @@ def _open(paths):
         os.close(fd)
         raise OwnershipError('Install lease ownership is not trusted')
     return fd
+
+
+def _private_folders(path):
+    """macOS: each missing folder 0700, ancestors included (mkdir gives parents the default mode);
+    the lease sits in the engine's private namespace."""
+    missing = []
+    while not path.exists():
+        missing.append(path)
+        path = path.parent
+    for folder in reversed(missing):
+        folder.mkdir(mode=0o700, exist_ok=True)
 
 
 def _open_windows(paths):
@@ -188,6 +210,15 @@ def _boot_id():
         from src.desktop.platform import win32
 
         value = win32.boot_identifier()
+        return value if value and _BOOT_ID_SHAPE.fullmatch(value) else None
+    if DARWIN:
+        # kern.bootsessionuuid, lowercased: the same source and shape the core records.
+        from src.desktop.platform import darwin
+
+        try:
+            value = darwin.current_boot_id()
+        except OSError:
+            return None
         return value if value and _BOOT_ID_SHAPE.fullmatch(value) else None
     try:
         value = BOOT_ID.read_text().strip()
@@ -423,6 +454,9 @@ def _profile(env):
         root = Path(env.get('LOCALAPPDATA') or '') / 'odin-desktop' / 'default'
         return root / 'default-cleanup-state.json', root / 'data' / 'resource-cleanup.json'
     home = Path(env.get('HOME') or Path.home())
+    if DARWIN:
+        root = home / 'Library' / 'odin-desktop' / 'default'
+        return root / 'default-cleanup-state.json', root / 'data' / 'resource-cleanup.json'
     config = Path(env.get('XDG_CONFIG_HOME') or home / '.config') / 'odin-desktop/default'
     data = Path(env.get('XDG_DATA_HOME') or home / '.local/share') / 'odin-desktop/default'
     return config.parent / 'default-cleanup-state.json', data / 'resource-cleanup.json'
@@ -494,7 +528,7 @@ def _acknowledge(word):
 def main(argv=None, *, sysctl_root=Path('/proc/sys')):
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['exec', 'hold', 'token', 'receipts'])
-    parser.add_argument('--kind', choices=['deb', 'appimage', 'nsis'])
+    parser.add_argument('--kind', choices=['deb', 'appimage', 'nsis', 'macos'])
     parser.add_argument('--role', choices=['app', 'core'], default='app')
     parser.add_argument('--app-cleanup', type=Path)
     parser.add_argument('--core-cleanup', type=Path)
@@ -530,6 +564,8 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
                 raise OwnershipError('No executable was specified')
             if args.kind == 'nsis':
                 raise OwnershipError('The Windows app holds its own lease; there is no launcher')
+            if args.kind == 'macos':
+                raise OwnershipError('The Mac app holds its own lease; there is no launcher')
             if args.kind == 'appimage':
                 reason = _appimage_sandbox_refusal(sysctl_root)
                 if reason is not None:

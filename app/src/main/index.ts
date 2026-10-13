@@ -26,6 +26,7 @@ import { onboardingSmoke } from './onboarding-smoke'
 import { windowsRealCoreSmoke, windowsSmokeRoot } from './windows-smoke'
 import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppScheme } from './security'
 import { APP_ORIGIN } from './security-policy'
+import { applicationMenu, isExitShortcut } from './app-menu'
 import { OdinTray, detectTray } from './tray'
 import { boundedShutdown, CleanupJournal, resourceCleanupSource } from './shutdown'
 import { showNativeNotification } from './native-notifications'
@@ -109,7 +110,7 @@ function run(): void {
 
   const resources = join(app.getAppPath(), 'resources')
   const iconPath = join(resources, 'icon.png')
-  const trayIconPath = join(resources, 'tray.png')
+  const trayIconPath = join(resources, platform.trayIcon ?? 'tray.png')
   const preloadPath = join(__dirname, '../preload/index.js')
   const rendererDir = join(__dirname, '../renderer')
 
@@ -394,6 +395,8 @@ function run(): void {
     if (decideSecondInstance(argv) === 'exit') void exitOdin()
     else showWindow()
   })
+  // macOS: clicking the Dock icon, or opening the running app again, brings the window back.
+  app.on('activate', () => showWindow())
 
   // Closing every window must never stop Odin (D3); only Exit does.
   app.on('window-all-closed', () => undefined)
@@ -411,6 +414,8 @@ function run(): void {
 
   void app.whenReady().then(async () => {
     if (lifecycle.quitting) return
+    // A login item's start stays hidden, as --hidden does (macOS: the app itself is the login item).
+    if (platform.openedAtLogin?.()) pendingOpen = false
     resolvedOzonePlatform = app.commandLine.getSwitchValue('ozone-platform')
     backend = windowBackend(process.platform, resolvedOzonePlatform)
     const theme = new AppearanceController(nativeTheme, savedAppearance, () => { if (!savePersisted()) throw new Error('App preferences could not be persisted') })
@@ -521,20 +526,10 @@ function run(): void {
       refreshTray()
     }
 
-    Menu.setApplicationMenu(
-      Menu.buildFromTemplate([
-        {
-          label: 'Odin',
-          submenu: [
-            { label: 'Close Window', accelerator: 'Ctrl+W', click: () => win?.close() },
-            { type: 'separator' },
-            { label: 'Exit Odin', accelerator: 'Ctrl+Q', click: () => void exitOdin() }
-          ]
-        },
-        { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
-        { label: 'View', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }] }
-      ])
-    )
+    Menu.setApplicationMenu(Menu.buildFromTemplate(applicationMenu(process.platform, {
+      closeWindow: () => win?.close(),
+      exit: () => void exitOdin()
+    })))
 
     const restored = restoreWindowState(savedWindowState, screen.getAllDisplays(), screen.getPrimaryDisplay().id, backend)
     savedWindowState = restored.state
@@ -572,7 +567,7 @@ function run(): void {
     win.webContents.on('did-finish-load', publishAppState)
     // Keep the no-tray Exit accelerator available even while the renderer is loading or unresponsive.
     win.webContents.on('before-input-event', (event, input) => {
-      if (input.type === 'keyDown' && input.control && !input.alt && !input.meta && input.key.toLowerCase() === 'q') {
+      if (isExitShortcut(input, process.platform)) {
         event.preventDefault()
         void exitOdin()
       }

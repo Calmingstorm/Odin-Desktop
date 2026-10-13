@@ -469,6 +469,9 @@ def test_macos_job_uses_exact_pinned_python_and_uv():
         keychain = next(step for step in job["steps"]
                         if "security create-keychain" in step.get("run", ""))["run"]
         assert "$RUNNER_TEMP/" in keychain and "::add-mask::" in keychain
+        # The installed app's install lease runs on the Mac itself, not only modelled on Linux.
+        lease = next(step for step in job["steps"] if "app/packaging/tests" in step.get("run", ""))
+        assert '-p "test_ownership.py"' in lease["run"]
 
 
 def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():

@@ -24,6 +24,11 @@ spec.loader.exec_module(own)
 
 class OwnershipTests(unittest.TestCase):
     def setUp(self):
+        # These cases model the Linux boot identity file (BOOT_ID), on any system; the Mac kind's
+        # own cases turn DARWIN on.
+        darwin = mock.patch.object(own, 'DARWIN', False)
+        darwin.start()
+        self.addCleanup(darwin.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         self.paths = own.OwnershipPaths(self.root / 'install')
@@ -131,6 +136,64 @@ class OwnershipTests(unittest.TestCase):
             lease.finish()
         with own.replacement_guard(self.paths):
             pass
+
+    def test_the_mac_lease_is_per_user_inside_the_profile_namespace(self):
+        home = self.root / 'home'
+        paths = own.ownership_paths('macos', {'HOME': str(home)})
+        self.assertEqual(paths.directory, home / 'Library/odin-desktop/.install-ownership/macos')
+        with mock.patch.object(own, 'DARWIN', True):
+            fd = own._open(paths)
+        try:
+            for folder in (home / 'Library', home / 'Library/odin-desktop',
+                           home / 'Library/odin-desktop/.install-ownership', paths.directory,
+                           paths.receipts):
+                self.assertEqual(folder.stat().st_mode & 0o777, 0o700, folder)
+            self.assertEqual(paths.lease.stat().st_mode & 0o777, 0o600)
+        finally:
+            os.close(fd)
+
+    def test_the_mac_lease_holds_and_cleans_like_the_appimage_one(self):
+        self.paths = own.ownership_paths('macos', {'HOME': str(self.root / 'home')})
+        self.clean()
+        with mock.patch.object(own, 'DARWIN', True), mock.patch.object(own, '_boot_id', lambda: BOOT_A):
+            with self.lease('core') as core:
+                with self.assertRaises(own.OwnershipError):
+                    with own.replacement_guard(self.paths, check_receipts=False):
+                        pass  # a held lease fences an exclusive taker
+                self.clean()
+                core.finish()
+            own.verify_receipts(self.paths)
+
+    def test_the_mac_app_has_no_launcher_and_its_defaults_are_the_mac_profile(self):
+        error = io.StringIO()
+        with mock.patch.object(sys, 'stderr', error):
+            self.assertEqual(own.main(['exec', '--kind', 'macos', '--', 'true']), 1)
+        self.assertIn('The Mac app holds its own lease; there is no launcher', error.getvalue())
+        home = self.root / 'home'
+        with mock.patch.object(own, 'DARWIN', True), mock.patch.object(own, 'WINDOWS', False):
+            app, core = own._profile({'HOME': str(home)})
+        root = home / 'Library/odin-desktop/default'
+        self.assertEqual((app, core), (root / 'default-cleanup-state.json',
+                                       root / 'data/resource-cleanup.json'))
+
+    def test_the_mac_boot_identity_is_the_cores(self):
+        darwin = SimpleNamespace(current_boot_id=lambda: BOOT_C)
+        platform = SimpleNamespace(darwin=darwin)
+        with mock.patch.object(own, 'DARWIN', True), mock.patch.object(own, 'WINDOWS', False), \
+                mock.patch.dict(sys.modules, {'src.desktop.platform': platform,
+                                              'src.desktop.platform.darwin': darwin}):
+            self.assertEqual(own._boot_id(), BOOT_C)
+            darwin.current_boot_id = lambda: 'not-a-boot'
+            self.assertIsNone(own._boot_id())
+            darwin.current_boot_id = lambda: None
+            self.assertIsNone(own._boot_id())
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'reads this Mac\'s kernel')
+    def test_the_mac_boot_identity_reads_this_macs_kernel(self):
+        with mock.patch.object(own, 'DARWIN', True):
+            first, second = own._boot_id(), own._boot_id()
+        self.assertRegex(first, own._BOOT_ID_SHAPE)
+        self.assertEqual(first, second)
 
     def test_appimage_recovery_guard_allowed_but_launcher_denied(self):
         with own.replacement_guard(self.paths):
@@ -247,6 +310,7 @@ class OwnershipTests(unittest.TestCase):
                   'own = sys.modules[spec.name] = importlib.util.module_from_spec(spec)\n'
                   'spec.loader.exec_module(own)\n'
                   'own.BOOT_ID = Path(sys.argv[2])\n'
+                  'own.DARWIN = False\n'
                   'root = own.OwnershipPaths(Path(sys.argv[3]))\n'
                   'own.ownership_paths = lambda kind, env=None: root\n'
                   'sys.exit(own.main(["receipts", "--kind", "appimage"]))\n')

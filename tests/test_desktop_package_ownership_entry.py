@@ -61,6 +61,24 @@ def acquire_lifetime(paths, role, app_cleanup, core_cleanup, *, provisional=Fals
         sys.modules.pop("odin_package_ownership", None)
 
 
+def test_the_mac_core_holds_the_per_user_macos_lease(tmp_path, monkeypatch):
+    resources = tmp_path / "Odin.app/Contents/Resources"
+    source = resources / "runtime/python/lib/python3.12/site-packages/src/desktop/module.py"
+    source.parent.mkdir(parents=True)
+    (resources / "ownership.py").write_text('''
+def ownership_paths(kind):
+    return kind
+def acquire_lifetime(paths, role, app_cleanup, core_cleanup, *, provisional=False):
+    return paths, role
+''')
+    paths = ProfilePaths.from_xdg("test", environ={}, home=tmp_path)
+    monkeypatch.setattr(sys, "platform", "darwin")
+    try:
+        assert acquire_core_lease(paths, source_file=source) == ("macos", "core")
+    finally:
+        sys.modules.pop("odin_package_ownership", None)
+
+
 def test_module_symlink_cannot_select_other_installation(tmp_path):
     resources = tmp_path / "resources"
     source = resources / "runtime/engine/src/module.py"

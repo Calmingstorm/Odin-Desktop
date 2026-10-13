@@ -2831,6 +2831,7 @@
   "schema_version": 1,
   "target_files": [
     "app/src/main/advanced-capture-contract.ts",
+    "app/src/main/app-menu.ts",
     "app/src/main/appearance.ts",
     "app/src/main/artifacts.ts",
     "app/src/main/attachments.ts",
@@ -2857,6 +2858,10 @@
     "app/src/main/platform/contracts.ts",
     "app/src/main/platform/index.ts",
     "app/src/main/platform/linux.ts",
+    "app/src/main/platform/macos-autostart.ts",
+    "app/src/main/platform/macos-launch.ts",
+    "app/src/main/platform/macos-paths.ts",
+    "app/src/main/platform/macos.ts",
     "app/src/main/platform/windows-autostart.ts",
     "app/src/main/platform/windows-elevation.ts",
     "app/src/main/platform/windows-paths.ts",

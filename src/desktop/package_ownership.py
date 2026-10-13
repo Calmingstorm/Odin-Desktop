@@ -22,6 +22,7 @@ def acquire_core_lease(paths, *, source_file=None):
     module_path = resources / "ownership.py"
     try:
         kind = ("nsis" if sys.platform == "win32"  # the per-user Windows installation
+                else "macos" if sys.platform == "darwin"  # the per-user Mac app (a .dmg)
                 else "deb" if resources.parent == Path("/opt/odin-desktop") else "appimage")
         if module_path.is_symlink():
             raise ValueError("Invalid shipped package ownership")

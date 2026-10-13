@@ -59,6 +59,8 @@ jobs:
           .venv/bin/python -m pytest tests/macos tests/test_desktop_platform_variants.py \
             -q -p no:cacheprovider -rfEs --cov=src/desktop/platform \
             --cov-report=json:coverage-macos.json --cov-report=term-missing
+      - name: The installed app's lease on macOS (ownership.py, natively)
+        run: .venv/bin/python -m unittest discover -s app/packaging/tests -p "test_ownership.py"
       - name: Record the revision and the measured sources
         env:
           REVISION: ${{ github.sha }}

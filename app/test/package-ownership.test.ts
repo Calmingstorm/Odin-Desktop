@@ -39,6 +39,26 @@ describe('independent packaged app lifetime', () => {
     process.stdin.end()
   })
 
+  it('holds the per-user macos lease through the Mac runtime, as a plain child', async () => {
+    const process = child()
+    mocked.spawn.mockReturnValue(process)
+    const macPaths = { profileId: 'default', configDir: '/Users/ada/Library/odin-desktop/default/config',
+      dataDir: '/Users/ada/Library/odin-desktop/default/data' } as Parameters<typeof acquirePackagedApp>[0]
+    const resources = '/Applications/Odin.app/Contents/Resources'
+    const pending = acquirePackagedApp(macPaths, resources, {}, 'darwin')
+    process.stdout.write('READY\n')
+    expect(await pending).toBe(process)
+    const [command, args, options] = mocked.spawn.mock.calls[0]!
+    expect(command).toBe(`${resources}/runtime/python/bin/python3`)
+    expect(args).toEqual([
+      '-I', '-B', `${resources}/ownership.py`, '--kind', 'macos', '--role', 'app',
+      '--app-cleanup', '/Users/ada/Library/odin-desktop/default/default-cleanup-state.json',
+      '--core-cleanup', '/Users/ada/Library/odin-desktop/default/data/resource-cleanup.json', 'hold'
+    ])
+    expect(options).not.toHaveProperty('detached')
+    process.stdin.end()
+  })
+
   it('keeps the Linux guardian a plain child, as before', async () => {
     const process = child()
     mocked.spawn.mockReturnValue(process)
