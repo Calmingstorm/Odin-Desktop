@@ -63,6 +63,27 @@ class _BsdInfo(ctypes.Structure):
 if ctypes.sizeof(_BsdInfo) != 136:
     raise ImportError(f"unexpected proc_bsdinfo layout: {ctypes.sizeof(_BsdInfo)} bytes")
 
+
+class _SigInfo(ctypes.Structure):
+    _fields_ = [
+        ("si_signo", ctypes.c_int),
+        ("si_errno", ctypes.c_int),
+        ("si_code", ctypes.c_int),
+        ("si_pid", ctypes.c_int),
+        ("si_uid", ctypes.c_uint32),
+        ("si_status", ctypes.c_int),
+        ("si_addr", ctypes.c_void_p),
+        ("si_value", ctypes.c_void_p),
+        ("si_band", ctypes.c_long),
+        ("pad", ctypes.c_ulong * 7),
+    ]
+
+
+if ctypes.sizeof(_SigInfo) != 104:
+    raise ImportError(f"unexpected siginfo_t layout: {ctypes.sizeof(_SigInfo)} bytes")
+
+P_PID, WNOHANG, WEXITED, WNOWAIT = 1, 0x1, 0x4, 0x20
+
 _libc.proc_listallpids.argtypes = [ctypes.c_void_p, ctypes.c_int]
 _libc.proc_listallpids.restype = ctypes.c_int
 _libc.proc_pidinfo.argtypes = [
@@ -82,6 +103,8 @@ _libc.sysctl.argtypes = [
     ctypes.c_size_t,
 ]
 _libc.sysctl.restype = ctypes.c_int
+_libc.waitid.argtypes = [ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(_SigInfo), ctypes.c_int]
+_libc.waitid.restype = ctypes.c_int
 
 
 class ObservationError(RuntimeError):
@@ -198,6 +221,19 @@ def sysctl_group_pids(pgid: int) -> set[int]:
             for offset in range(0, len(raw), KINFO_PROC_SIZE)
         }
     raise ObservationError("the group table kept growing")
+
+
+def exited_unreaped(pid: int) -> bool:
+    """Whether our child pid exited, seen through waitid(WNOWAIT) so it stays unreaped.
+
+    Called through libSystem because Python 3.12, the bundled runtime, has no os.waitid on macOS.
+    """
+    info = _SigInfo()
+    ctypes.set_errno(0)
+    if _libc.waitid(P_PID, pid, ctypes.byref(info), WEXITED | WNOHANG | WNOWAIT) != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error))
+    return info.si_pid == pid
 
 
 def watch_exit(pid: int) -> select.kqueue:

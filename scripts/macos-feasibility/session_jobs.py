@@ -20,7 +20,15 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from darwin_proc import Identity, ObservationError, ProcessFact, process_fact, scan, session_members
+from darwin_proc import (
+    Identity,
+    ObservationError,
+    ProcessFact,
+    exited_unreaped,
+    process_fact,
+    scan,
+    session_members,
+)
 
 CAVEAT = "escaped descendants are unverified"
 
@@ -46,7 +54,7 @@ class SessionJob:
 
     def leader_exited(self) -> bool:
         """Whether the leader exited, observed without reaping it (WNOWAIT keeps the IDs pinned)."""
-        return os.waitid(os.P_PID, self.sid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None
+        return exited_unreaped(self.sid)
 
     def members(
         self, scanner: Callable[[], dict[int, ProcessFact]] = scan
