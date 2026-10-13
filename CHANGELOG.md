@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.9]
+
+**Agent models save, and the list is compact.** Linux and Windows.
+
+- **Fixed: agent candidates with their own reasoning effort didn't save.** Saving showed
+  "agents.auto_model_allowlist.0.model: changed through settings.set", kept "Unsaved changes", and the choice was gone
+  on return. Editing a model's description failed the same way. Both now save.
+- **A compact model list:** each model is one line, with its description, its reasoning effort and its order. The full
+  description, editing it, a thinking mode where the model has one, and any notes open with the row's details toggle.
+- See [Settings](docs/user/settings.md).
+
 ## [1.0.8]
 
 **Sign in from chat, and an agent model list that saves.** On first open, signing in happens right in
