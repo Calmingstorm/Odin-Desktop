@@ -47,7 +47,14 @@ jobs:
             echo "ODIN_MACOS_DISPOSABLE_KEYCHAIN_PATH=$keychain"
             echo "ODIN_MACOS_DISPOSABLE_KEYCHAIN_PASSWORD=$password"
           } >> "$GITHUB_ENV"
+      - name: Build odin-guardian (the app's engine supervisor)
+        run: |
+          app/packaging/macos/guardian/build.sh "$RUNNER_TEMP/odin-guardian"
+          echo "ODIN_GUARDIAN=$RUNNER_TEMP/odin-guardian" >> "$GITHUB_ENV"
       - name: Native macOS engine tests
+        env:
+          # This disposable runner may serve the SSH test's own sshd on its address.
+          ODIN_MACOS_SSH_TEST: '1'
         run: |
           .venv/bin/python -m pytest tests/macos tests/test_desktop_platform_variants.py \
             -q -p no:cacheprovider -rfEs --cov=src/desktop/platform \

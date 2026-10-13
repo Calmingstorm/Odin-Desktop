@@ -478,3 +478,91 @@ async def test_an_mcp_server_serves_the_model_and_its_tree_ends_at_stop(tmp_path
     finally:
         end(core)
         model.close()
+
+
+# The SSH path needs a host that is not this computer by address (127.0.0.1 runs locally), so the
+# test serves one itself: an unprivileged sshd on this machine's own network address, with its own
+# host key and only this profile's key authorized. CI's disposable runner sets the variable; it
+# never runs by default, so no listener opens on a person's network.
+ssh_target = pytest.mark.skipif(os.environ.get("ODIN_MACOS_SSH_TEST") != "1",
+                                reason="opens an sshd on this machine's network address (CI only)")
+
+
+def _own_address() -> str:
+    import socket
+
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect(("192.0.2.1", 9))  # no packet is sent; it picks the outbound address
+        return probe.getsockname()[0]
+    finally:
+        probe.close()
+
+
+@ssh_target
+async def test_a_remote_host_serves_the_model_over_ssh(tmp_path):
+    import shutil
+    import socket
+    import subprocess
+
+    from src.tools.hosts.trust import fingerprint_public_key
+
+    address = _own_address()
+    assert not address.startswith("127.")
+    serve = Path(os.path.realpath(tmp_path)) / "sshd"
+    serve.mkdir(mode=0o700)
+    subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(serve / "host_key")],
+                   check=True)
+    with socket.socket() as free:
+        free.bind((address, 0))
+        port = free.getsockname()[1]
+    model = ScriptedModel()
+    model.scripts["ssh"] = sequence(
+        ("run_command", {"host": "box", "command": "uname -s; echo e2e-$((6 * 7))"}),
+        ("run_command", {"host": "box", "command": "exit 7"}),
+        ("read_file", {"host": "box", "path": "/etc/hosts"}))
+    core = launch(tmp_path)
+    sshd = None
+    try:
+        client = await connect(core)
+        try:
+            await use(client, model)
+            public = await call(client, "hosts.public_key")
+            (serve / "authorized_keys").write_text(public["public_key"].strip() + "\n")
+            (serve / "authorized_keys").chmod(0o600)
+            (serve / "sshd_config").write_text(
+                f"Port {port}\nListenAddress {address}\nHostKey {serve / 'host_key'}\n"
+                f"AuthorizedKeysFile {serve / 'authorized_keys'}\nPasswordAuthentication no\n"
+                "KbdInteractiveAuthentication no\nUsePAM no\nStrictModes no\n"
+                f"PidFile {serve / 'sshd.pid'}\n")
+            sshd = subprocess.Popen(["/usr/sbin/sshd", "-D", "-f", str(serve / "sshd_config"),
+                                     "-E", str(serve / "sshd.log")])
+            fingerprint = fingerprint_public_key(
+                " ".join((serve / "host_key.pub").read_text().split()[:2]))
+            candidate = await call(client, "hosts.prepare", {
+                "alias": "box", "address": address, "port": port,
+                "ssh_user": os.environ.get("USER") or os.getlogin(), "trust_mode": "pinned",
+                "expected_fingerprints": [fingerprint]})
+            tested = await call(client, "hosts.test", {"token": candidate["candidate_token"]})
+            assert tested["tested"], (tested, (serve / "sshd.log").read_text()[-2000:])
+            await call(client, "hosts.commit", {"token": candidate["candidate_token"]})
+
+            done, tools = await run(client, await chat(client), "ssh")
+            settled(done, core, model, "ssh")
+            expected = [("run_command", "success"), ("run_command", "failure"),
+                        ("read_file", "success")]
+            assert calls(tools) == expected, model.results
+            results = model.results["ssh"]
+            assert "Darwin" in results[0] and "e2e-42" in results[0], results
+            assert results[1].startswith("Command failed (exit 7)"), results
+            assert "localhost" in results[2], results
+            assert model.errors == []
+        finally:
+            await client.close()
+    finally:
+        end(core)
+        model.close()
+        if sshd is not None:
+            sshd.terminate()
+            sshd.wait(10)
+        shutil.rmtree(serve, ignore_errors=True)
