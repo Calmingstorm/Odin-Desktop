@@ -1,8 +1,8 @@
 """The installed Mac app, started as a user starts it (phase 4): Odin.app from the .dmg build.
 
 Runs on a disposable Mac only: CI sets ODIN_MACOS_PACKAGED_APP to the built Odin.app. The app gets
-an isolated home with its own disposable login keychain (made and unlocked by path; the user's
-keychain search list is restored exactly), starts hidden, and its engine is driven over the app's
+an isolated home with its own disposable login keychain (made by path, which leaves it unlocked;
+the user's keychain search list is restored exactly), starts hidden, and its engine is driven over the app's
 own socket and token with a scripted model, as the app's window would: a reply, a command, a
 failing command, patches and a raw read, and a background job stopped from Work (best effort on
 macOS). Exit is the user's own (a second start with --exit). Afterwards the app, the guardian and
@@ -78,6 +78,7 @@ class PackagedApp:
                             "LOGNAME": os.environ.get("USER", "")}
         self.process: subprocess.Popen | None = None
         self.token = ""
+        self.keychain: Path | None = None
 
     def start(self) -> None:
         with open(self.log, "ab") as output:
@@ -123,9 +124,11 @@ def packaged(tmp_path):
     try:
         security("list-keychains", "-d", "user", "-s", *before)  # the user's list, exactly
         assert search_list() == before
-        security("unlock-keychain", "-p", password, str(keychain), secret=password)
-        security("set-keychain-settings", str(keychain))  # no timeout lock during the test
+        # create-keychain leaves it unlocked (unlock-keychain refuses a keychain named "login"
+        # outside the real home); only its five-minute lock is turned off.
+        security("set-keychain-settings", str(keychain))
         app = PackagedApp(home)
+        app.keychain = keychain
         yield app
         if app.process is not None and app.process.poll() is None:
             app.process.kill()
@@ -169,6 +172,10 @@ async def test_the_installed_app_runs_odin_and_exits_clean(packaged):
             assert guardian and engine, (guardian, engine, packaged.stderr())
             checks["engine under the guardian"] = {"guardian": guardian, "engine": engine}
             await use(client, model)
+            # The key is in this home's login keychain, not the account's own.
+            own = security("default-keychain", "-d", "user").strip().strip('"')
+            assert "odin-desktop:default:" in security("dump-keychain", str(packaged.keychain))
+            assert "odin-desktop:default:" not in security("dump-keychain", own)
             checks["a provider and its key in the login keychain"] = True
             conversation = await chat(client)
 
