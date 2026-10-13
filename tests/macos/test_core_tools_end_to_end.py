@@ -540,7 +540,7 @@ async def test_a_remote_host_serves_the_model_over_ssh(tmp_path):
             fingerprint = fingerprint_public_key(
                 " ".join((serve / "host_key.pub").read_text().split()[:2]))
             candidate = await call(client, "hosts.prepare", {
-                "alias": "box", "address": address, "port": port,
+                "alias": "box", "address": address, "port": port, "os": "macos",
                 "ssh_user": os.environ.get("USER") or os.getlogin(), "trust_mode": "pinned",
                 "expected_fingerprints": [fingerprint]})
             tested = await call(client, "hosts.test", {"token": candidate["candidate_token"]})
