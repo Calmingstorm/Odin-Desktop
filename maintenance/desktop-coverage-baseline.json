@@ -3202,5 +3202,54 @@
       "missing": 350,
       "total": 3852
     }
+  },
+  "macos": {
+    "files": {
+      "src/desktop/platform/darwin.py": {
+        "covered": 135,
+        "missing": 15,
+        "total": 150
+      },
+      "src/desktop/platform/macos.py": {
+        "covered": 41,
+        "missing": 3,
+        "total": 44
+      },
+      "src/desktop/platform/macos_desktop.py": {
+        "covered": 46,
+        "missing": 0,
+        "total": 46
+      },
+      "src/desktop/platform/macos_files.py": {
+        "covered": 46,
+        "missing": 4,
+        "total": 50
+      },
+      "src/desktop/platform/macos_ipc.py": {
+        "covered": 94,
+        "missing": 13,
+        "total": 107
+      },
+      "src/desktop/platform/macos_process.py": {
+        "covered": 71,
+        "missing": 4,
+        "total": 75
+      },
+      "src/desktop/platform/macos_secrets.py": {
+        "covered": 264,
+        "missing": 11,
+        "total": 275
+      },
+      "src/desktop/platform/macos_storage.py": {
+        "covered": 16,
+        "missing": 2,
+        "total": 18
+      }
+    },
+    "total": {
+      "covered": 713,
+      "missing": 52,
+      "total": 765
+    }
   }
 }
