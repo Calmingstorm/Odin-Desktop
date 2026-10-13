@@ -12,8 +12,8 @@ also asks for no authentication UI. Only unlock(), the owner's Retry, allows int
 window no ordinary call overlaps: one that arrives meanwhile fails at once as pending, unlock()
 waits for running ones first, and every path out of the window switches interaction off again.
 
-Retry: a read refused for interaction (a locked keychain, or an item whose access list does not
-name this binary) is remembered. unlock() unlocks the keychain when it is locked, then repeats
+Retry: a read refused without UI (a locked keychain, or an item whose access list does not name
+this binary) is remembered. unlock() unlocks the keychain when it is locked, then repeats
 exactly the remembered reads with interaction allowed, until the store's unlock deadline; after it,
 no further prompt starts and nothing is published. A value read there is handed, once and for a
 short window, to the next ordinary read of that item that is refused again, unless the item was
@@ -124,7 +124,10 @@ _K = {
         "kSecUseAuthenticationUIFail",
     )
 }
-_INTERACTION_STATUSES = (ERR_INTERACTION_NOT_ALLOWED, ERR_INTERACTION_REQUIRED)
+# What an ordinary (no-UI) call gets from a locked keychain or an item that would need the owner:
+# macOS 26 answers a locked keychain with errSecAuthFailed. No dialog was shown, so it is never a
+# Deny here; only an answer during Retry's interactive reads can be the owner's denial.
+_REFUSED_WITHOUT_UI = (ERR_INTERACTION_NOT_ALLOWED, ERR_INTERACTION_REQUIRED, ERR_AUTH_FAILED)
 
 
 class _InteractionGate:
@@ -199,11 +202,11 @@ class _Owned:
             _cf.CFRelease(value)
 
 
-def _failure(status: int, action: str) -> SecretStoreError:
-    if status in _INTERACTION_STATUSES:
-        return SecretStoreError(f"Profile keyring {action} requires owner interaction or is locked")
-    if status in (ERR_AUTH_FAILED, ERR_USER_CANCELED):
+def _failure(status: int, action: str, *, interactive: bool = False) -> SecretStoreError:
+    if interactive and status in (ERR_AUTH_FAILED, ERR_USER_CANCELED):
         return SecretStoreError(f"Profile keyring {action} was denied")
+    if status in _REFUSED_WITHOUT_UI:
+        return SecretStoreError(f"Profile keyring {action} requires owner interaction or is locked")
     return SecretStoreError(f"Profile keyring {action} failed (OSStatus {status})")
 
 
@@ -281,7 +284,7 @@ class KeychainBackend:
             if changed:
                 self._generation[key] = self._generation.get(key, 0) + 1
                 self._handoff.pop(key, None)
-            if status in _INTERACTION_STATUSES:
+            if status in _REFUSED_WITHOUT_UI:
                 self._refused.add(key)
             elif status in (ERR_SUCCESS, ERR_NOT_FOUND):
                 self._refused.discard(key)
@@ -301,7 +304,7 @@ class KeychainBackend:
         with _gate.ordinary():
             status, value = self._copy(service, name, interactive=False)
         self._note(key, status)
-        if status in _INTERACTION_STATUSES:
+        if status in _REFUSED_WITHOUT_UI:
             handed = self._take_handoff(key)
             if handed is not None:
                 return handed
@@ -398,5 +401,5 @@ class KeychainBackend:
             if status == ERR_SUCCESS:
                 read[key] = (value, generations[key])
             elif status != ERR_NOT_FOUND:
-                raise _failure(status, "access")
+                raise _failure(status, "access", interactive=True)
         return read

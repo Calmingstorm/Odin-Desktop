@@ -64,15 +64,18 @@ def test_unlock_waits_for_running_ordinary_calls():
     assert order == ["ordinary done", "unlock began"]
 
 
-@pytest.mark.parametrize("status,text", [
-    (macos_secrets.ERR_INTERACTION_NOT_ALLOWED, "requires owner interaction or is locked"),
-    (macos_secrets.ERR_INTERACTION_REQUIRED, "requires owner interaction or is locked"),
-    (macos_secrets.ERR_AUTH_FAILED, "was denied"),
-    (macos_secrets.ERR_USER_CANCELED, "was denied"),
-    (-34018, "failed (OSStatus -34018)"),
+@pytest.mark.parametrize("status,interactive,text", [
+    (macos_secrets.ERR_INTERACTION_NOT_ALLOWED, False, "requires owner interaction or is locked"),
+    (macos_secrets.ERR_INTERACTION_REQUIRED, False, "requires owner interaction or is locked"),
+    # A locked keychain answers a no-UI call this way (hosted macOS 26): not a Deny.
+    (macos_secrets.ERR_AUTH_FAILED, False, "requires owner interaction or is locked"),
+    (macos_secrets.ERR_AUTH_FAILED, True, "was denied"),
+    (macos_secrets.ERR_USER_CANCELED, True, "was denied"),
+    (macos_secrets.ERR_USER_CANCELED, False, "failed (OSStatus -128)"),
+    (-34018, False, "failed (OSStatus -34018)"),
 ])
-def test_keychain_statuses_stay_distinct_in_the_backend(status, text):
-    assert text in str(macos_secrets._failure(status, "read"))
+def test_keychain_statuses_stay_distinct_in_the_backend(status, interactive, text):
+    assert text in str(macos_secrets._failure(status, "read", interactive=interactive))
 
 
 # --- The backend's logic, over recording fakes -----------------------------------------------
@@ -141,14 +144,16 @@ def fake(monkeypatch):
 
 def test_ordinary_reads_never_ask_and_refusals_are_remembered(fake):
     backend, security, reads, calls, _ = fake
-    reads.extend([(REFUSED, None), (macos_secrets.ERR_NOT_FOUND, None), (0, "kept")])
-    with pytest.raises(SecretStoreError, match="requires owner interaction or is locked"):
-        backend.get_password("s", "a")
+    reads.extend([(REFUSED, None), (macos_secrets.ERR_AUTH_FAILED, None),
+                  (macos_secrets.ERR_NOT_FOUND, None), (0, "kept")])
+    for name in ("a", "locked"):
+        with pytest.raises(SecretStoreError, match="requires owner interaction or is locked"):
+            backend.get_password("s", name)
     assert backend.get_password("s", "b") is None
     assert backend.get_password("s", "c") == "kept"
-    assert [interactive for _, interactive, _ in calls] == [False, False, False]
+    assert [interactive for _, interactive, _ in calls] == [False] * 4
     assert not any(allowed for _, _, allowed in calls)
-    assert backend._refused == {("s", "a")}
+    assert backend._refused == {("s", "a"), ("s", "locked")}
 
 
 def test_retry_repeats_only_the_refused_reads_with_interaction_then_switches_it_off(fake):
