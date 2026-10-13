@@ -244,6 +244,13 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/macos-engine.yml
+  macos-app:
+    # The Mac candidate built from this revision (unsigned) on GitHub's macOS 26, and the installed
+    # app driven end to end there. Nothing is published.
+    if: github.repository == 'Calmingstorm/Odin-Desktop' && ((github.event_name == 'push' && github.ref == 'refs/heads/master') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == 'Calmingstorm/Odin-Desktop'))
+    permissions:
+      contents: read
+    uses: ./.github/workflows/macos-app.yml
   coverage:
     name: coverage no-drop ratchet
     needs: [full-suites, qualification, windows-engine, macos-engine]

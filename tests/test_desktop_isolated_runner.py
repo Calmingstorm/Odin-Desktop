@@ -474,6 +474,27 @@ def test_macos_job_uses_exact_pinned_python_and_uv():
         assert '-p "test_ownership.py"' in lease["run"]
 
 
+def test_macos_app_job_builds_the_candidate_and_drives_the_installed_app():
+    """The Mac candidate from this revision (unsigned) and its installed app driven end to end."""
+    workflow = yaml.safe_load((ROOT / ".github/workflows/phase1-engine.yml").read_text())
+    caller = workflow["jobs"]["macos-app"]
+    assert caller["uses"] == "./.github/workflows/macos-app.yml"
+    assert caller["if"] == workflow["jobs"]["macos-engine"]["if"]
+    app = yaml.safe_load((ROOT / ".github/workflows/macos-app.yml").read_text())
+    assert set(app["jobs"]) == {"macos-app"}
+    job = app["jobs"]["macos-app"]
+    assert job["runs-on"] == "macos-26"
+    for step in job["steps"]:
+        if "uses" in step:
+            assert re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
+    environment = next(step for step in job["steps"] if "uv sync" in step.get("run", ""))["run"]
+    assert "uv python install 3.12.15" in environment and "--locked" in environment
+    commands = "\n".join(step.get("run", "") for step in job["steps"])
+    assert "node packaging/build-macos.mjs" in commands
+    assert "ODIN_MACOS_PACKAGED_APP=" in commands
+    assert "tests/macos/test_packaged_app.py" in commands
+
+
 def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():
     workflow = yaml.safe_load((ROOT / ".github/workflows/phase1-engine.yml").read_text())
     light = workflow["jobs"]["short-gates"]

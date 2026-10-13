@@ -2,12 +2,12 @@
 
 Runs on a disposable Mac only: CI sets ODIN_MACOS_PACKAGED_APP to the built Odin.app. The app gets
 an isolated home with its own disposable login keychain (made by path, which leaves it unlocked;
-the user's keychain search list is restored exactly), starts hidden, and its engine is driven over the app's
-own socket and token with a scripted model, as the app's window would: a reply, a command, a
-failing command, patches and a raw read, and a background job stopped from Work (best effort on
-macOS). Exit is the user's own (a second start with --exit). Afterwards the app, the guardian and
-the engine are gone, and the app's, the engine's and the install lease's records say the Exit was
-clean.
+the user's keychain search list is restored exactly), starts hidden, and its engine is driven
+over the app's own socket and token with a scripted model, as the app's window would: a reply, a
+command, a failing command, patches and a raw read, and a background job stopped from Work (best
+effort on macOS). Exit is the user's own (a second start with --exit). Afterwards the app, the
+guardian and the engine are gone, and the app's, the engine's and the install lease's records say
+the Exit was clean.
 """
 from __future__ import annotations
 
