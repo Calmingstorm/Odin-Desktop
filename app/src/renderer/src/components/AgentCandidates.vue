@@ -49,6 +49,8 @@ const blocked = (row: ModelRow | undefined): string => {
   return reason && reason !== 'not configured' && reason !== 'disabled' ? reason : ''
 }
 const label = (model: string, row: ModelRow | undefined): string => row ? catalogueModelLabel(row) : model
+// The row shows the model's own name; the provider tag says where it runs, and the full reference is on hover.
+const shortName = (model: string, row: ModelRow | undefined): string => row?.name?.trim() || model.replace(/^(compat|ollama):/, '')
 const note = (model: string): string => {
   if (!rowFor(model)) return 'Not in the current model choices. It stays chosen until you untick it.'
   return modelSelectionNote(model, props.rows, props.fields)
@@ -137,7 +139,7 @@ const id = (model: string, part: string): string => settingsControlId('curated-r
           <input :id="id(item.model, 'chosen')" type="checkbox" :checked="item.ticked"
             :disabled="item.ticked ? chosen.length === 1 : Boolean(blocked(item.row))"
             @change="toggle(item.model, ($event.target as HTMLInputElement).checked)" />
-          <label :for="id(item.model, 'chosen')" class="candidate-name"><span v-if="item.ticked" class="candidate-rank">{{ index + 1 }}.</span> {{ label(item.model, item.row) }}</label>
+          <label :for="id(item.model, 'chosen')" class="candidate-name" :title="label(item.model, item.row)"><span v-if="item.ticked" class="candidate-rank">{{ index + 1 }}.</span> {{ shortName(item.model, item.row) }}</label>
           <span class="candidate-provider">{{ providerNames[modelProvider(item.model)] }}</span>
           <span v-if="blocked(item.row) || (item.ticked && note(item.model))" class="candidate-flag" :title="blocked(item.row) ? `Can't run agents: ${blocked(item.row)}` : note(item.model)">{{ blocked(item.row) ? 'Unavailable' : 'Note' }}</span>
           <span class="candidate-summary" :title="summary(item.model)">{{ summary(item.model) }}</span>
@@ -189,13 +191,14 @@ const id = (model: string, part: string): string => settingsControlId('curated-r
 .candidates-state { font-weight: 600; margin: .25rem 0 .5rem; }
 .candidate-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
 .candidate { border-bottom: 1px solid var(--border); }
-.candidate-row { display: flex; align-items: center; gap: .5rem; min-height: 2.25rem; padding: .25rem 0; }
+/* A row wraps when its column runs out of room, so no control is ever pushed out of view. */
+.candidate-row { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .5rem; min-height: 2.25rem; padding: .25rem 0; }
 .candidate:not(.ticked) .candidate-row { opacity: .75; }
-.candidate-name { font-weight: 600; white-space: nowrap; }
+.candidate-name { flex: 0 1 auto; min-width: 0; max-width: 100%; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .candidate-rank { font-variant-numeric: tabular-nums; }
 .candidate-provider, .candidate-flag { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 .45rem; white-space: nowrap; }
 .candidate-flag { cursor: help; }
-.candidate-summary { flex: 1 1 auto; min-width: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.candidate-summary { flex: 1 1 8rem; min-width: 0; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .candidate-effort { flex: 0 0 auto; max-width: 9.5rem; font-size: 12px; }
 .candidate-order { display: flex; gap: .1rem; }
 .candidate-order button, .candidate-toggle { padding: 0 .4rem; min-width: 1.75rem; line-height: 1.6; }
@@ -205,5 +208,5 @@ const id = (model: string, part: string): string => settingsControlId('curated-r
 .candidate-options { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; }
 .candidate-options > span { display: flex; gap: .4rem; align-items: center; }
 .candidate textarea { width: 100%; min-width: 0; }
-@media (max-width: 760px) { .candidate-row { flex-wrap: wrap; } .candidate-summary { flex-basis: 100%; order: 9; } }
+@media (max-width: 760px) { .candidate-summary { flex-basis: 100%; order: 9; } }
 </style>
