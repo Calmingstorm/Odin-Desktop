@@ -17,6 +17,9 @@ BASELINE = ROOT / "maintenance/desktop-coverage-baseline.json"
 WINDOWS_INVENTORY = "maintenance/windows-only-files.json"
 # Windows-only engine files are named so; the explicit inventory must match exactly.
 WINDOWS_NAME = re.compile(r"src/desktop/platform/(win32|windows(_[a-z]+)*)\.py")
+MACOS_INVENTORY = "maintenance/macos-only-files.json"
+# macOS-only engine files likewise.
+MACOS_NAME = re.compile(r"src/desktop/platform/(darwin|macos(_[a-z]+)*)\.py")
 
 
 def row(total, covered):
@@ -76,19 +79,28 @@ def executable_inventory(root=ROOT):
     }
 
 
-def windows_inventory(root=ROOT) -> set[str]:
-    """The explicit Windows-only files; the naming invariant keeps the list complete."""
-    listed = json.loads((root / WINDOWS_INVENTORY).read_text())
+def _platform_inventory(root, listing, pattern, label) -> set[str]:
+    listed = json.loads((root / listing).read_text())
     if (not isinstance(listed, list) or any(type(path) is not str for path in listed)
             or len(set(listed)) != len(listed)):
-        raise ValueError("Windows-only inventory must be a list of unique paths")
+        raise ValueError(f"{label}-only inventory must be a list of unique paths")
     named = {path.relative_to(root).as_posix()
              for path in (root / "src/desktop/platform").glob("*.py")
-             if WINDOWS_NAME.fullmatch(path.relative_to(root).as_posix())}
+             if pattern.fullmatch(path.relative_to(root).as_posix())}
     if set(listed) != named:
         difference = sorted(set(listed) ^ named)
-        raise ValueError(f"Windows-only inventory differs from its files: {difference}")
+        raise ValueError(f"{label}-only inventory differs from its files: {difference}")
     return set(listed)
+
+
+def windows_inventory(root=ROOT) -> set[str]:
+    """The explicit Windows-only files; the naming invariant keeps the list complete."""
+    return _platform_inventory(root, WINDOWS_INVENTORY, WINDOWS_NAME, "Windows")
+
+
+def macos_inventory(root=ROOT) -> set[str]:
+    """The explicit macOS-only files; the naming invariant keeps the list complete."""
+    return _platform_inventory(root, MACOS_INVENTORY, MACOS_NAME, "macOS")
 
 
 def source_digest(path: Path) -> str:
@@ -96,43 +108,62 @@ def source_digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
-def windows_path(key: str) -> str:
-    """A Windows report key as a repository-relative POSIX path."""
-    text = key.replace("\\", "/")
+def _platform_path(key: str, label: str) -> str:
+    text = key.replace("\\", "/") if label == "Windows" else key
     if re.match(r"[A-Za-z]:/", text) or text.startswith("/"):
         index = text.find("/src/")
         if index < 0:
-            raise ValueError(f"Unexpected Windows coverage path: {key}")
+            raise ValueError(f"Unexpected {label} coverage path: {key}")
         text = text[index + 1:]
     if not text.startswith("src/") or ".." in text.split("/"):
-        raise ValueError(f"Unexpected Windows coverage path: {key}")
+        raise ValueError(f"Unexpected {label} coverage path: {key}")
     return text
+
+
+def windows_path(key: str) -> str:
+    """A Windows report key as a repository-relative POSIX path."""
+    return _platform_path(key, "Windows")
+
+
+def macos_path(key: str) -> str:
+    """A macOS report key (absolute on the runner, or relative) as a repository path."""
+    return _platform_path(key, "macOS")
+
+
+def _platform_rows(report, provenance, inventory, *, sha, root, label):
+    if provenance.get("sha") != sha:
+        raise ValueError(f"{label} coverage was measured at another revision")
+    sources = provenance.get("sources")
+    if not isinstance(sources, dict) or set(sources) != inventory:
+        raise ValueError(f"{label} coverage provenance does not name the inventory exactly")
+    for path in sorted(inventory):
+        if sources[path] != source_digest(root / path):
+            raise ValueError(f"{path}: {label} coverage measured other source bytes")
+    rows = {}
+    for key, data in report["files"].items():
+        path = _platform_path(key, label)
+        if path in inventory:
+            rows[path] = row(data["summary"]["num_statements"], data["summary"]["covered_lines"])
+    if set(rows) != inventory:
+        raise ValueError(f"{label} coverage lacks rows: {sorted(inventory - set(rows))}")
+    return rows
 
 
 def windows_rows(report, provenance, inventory, *, sha, root=ROOT):
     """Native rows for the Windows-only files, from this exact revision's sources."""
-    if provenance.get("sha") != sha:
-        raise ValueError("Windows coverage was measured at another revision")
-    sources = provenance.get("sources")
-    if not isinstance(sources, dict) or set(sources) != inventory:
-        raise ValueError("Windows coverage provenance does not name the inventory exactly")
-    for path in sorted(inventory):
-        if sources[path] != source_digest(root / path):
-            raise ValueError(f"{path}: Windows coverage measured other source bytes")
-    rows = {}
-    for key, data in report["files"].items():
-        path = windows_path(key)
-        if path in inventory:
-            rows[path] = row(data["summary"]["num_statements"], data["summary"]["covered_lines"])
-    if set(rows) != inventory:
-        raise ValueError(f"Windows coverage lacks rows: {sorted(inventory - set(rows))}")
-    return rows
+    return _platform_rows(report, provenance, inventory, sha=sha, root=root, label="Windows")
+
+
+def macos_rows(report, provenance, inventory, *, sha, root=ROOT):
+    """Native rows for the macOS-only files, from this exact revision's sources."""
+    return _platform_rows(report, provenance, inventory, sha=sha, root=root, label="macOS")
 
 
 def evaluate(baseline, current):
     findings = []
     windows = set(baseline.get("windows", {}).get("files", {})) | set(current.get("windows", {}))
-    for runtime in ("python", "app", "windows"):
+    macos = set(baseline.get("macos", {}).get("files", {})) | set(current.get("macos", {}))
+    for runtime in ("python", "app", "windows", "macos"):
         if runtime not in baseline and runtime not in current:
             continue
         actual = current[runtime]
@@ -150,8 +181,8 @@ def evaluate(baseline, current):
             if ratio(value) < ratio(previous) or value["missing"] > previous["missing"]:
                 findings.append(f"{path}: coverage regressed")
         for path in baseline["target_files"]:
-            owner = ("windows" if path in windows else "python" if path.startswith("src/")
-                     else "app")
+            owner = ("windows" if path in windows else "macos" if path in macos
+                     else "python" if path.startswith("src/") else "app")
             if owner != runtime:
                 continue
             value = actual.get(path)
@@ -205,6 +236,10 @@ def main(argv=None):
                         help="The Windows job's coverage report for the Windows-only files")
     parser.add_argument("--windows-provenance", type=Path,
                         help="The Windows job's revision and source digests")
+    parser.add_argument("--macos-json", type=Path,
+                        help="The macOS job's coverage report for the macOS-only files")
+    parser.add_argument("--macos-provenance", type=Path,
+                        help="The macOS job's revision and source digests")
     parser.add_argument("--revision", default=os.environ.get("GITHUB_SHA"),
                         help="The commit both measurements must come from")
     args = parser.parse_args(argv)
@@ -212,10 +247,12 @@ def main(argv=None):
         args.output.mkdir(parents=True, exist_ok=True)
         python_report = combine(args.combine, args.output) if args.combine else args.python_json
         inventory = windows_inventory()
+        mac_inventory = macos_inventory()
         linux = python_rows(json.loads(python_report.read_text()))
         current = {
-            # Linux rows come from Linux data only; Windows hits can't hide a Linux miss.
-            "python": {path: value for path, value in linux.items() if path not in inventory},
+            # Linux rows come from Linux data only; Windows or macOS hits can't hide a Linux miss.
+            "python": {path: value for path, value in linux.items()
+                       if path not in inventory and path not in mac_inventory},
             "app": app_rows(json.loads(args.app_json.read_text())),
         }
         if inventory:
@@ -224,6 +261,12 @@ def main(argv=None):
             current["windows"] = windows_rows(
                 json.loads(args.windows_json.read_text()),
                 json.loads(args.windows_provenance.read_text()), inventory, sha=args.revision)
+        if mac_inventory:
+            if not args.macos_json or not args.macos_provenance or not args.revision:
+                raise ValueError("macOS coverage evidence or its revision is missing")
+            current["macos"] = macos_rows(
+                json.loads(args.macos_json.read_text()),
+                json.loads(args.macos_provenance.read_text()), mac_inventory, sha=args.revision)
         if args.update_baseline:
             changed = subprocess.check_output([
                 "git", "log", "--since=2026-10-04T00:00:00-04:00", "--format=", "--name-only",
@@ -257,7 +300,8 @@ def main(argv=None):
         else:
             baseline = json.loads(args.baseline.read_text())
         findings = evaluate(baseline, current)
-        measured = {**current, "python": {**current["python"], **current.get("windows", {})}}
+        measured = {**current, "python": {**current["python"], **current.get("windows", {}),
+                                          **current.get("macos", {})}}
         for runtime, paths in executable_inventory().items():
             findings.extend(f"{path}: executable source absent from measurement"
                             for path in sorted(paths - set(measured[runtime])))

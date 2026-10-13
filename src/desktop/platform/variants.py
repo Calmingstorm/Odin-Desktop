@@ -1,11 +1,12 @@
-"""Per-function Windows variants.
+"""Per-function Windows and macOS variants.
 
 ``@windows_variant("module:function")`` marks a function whose Windows
-behaviour lives in a Windows-only module. On every other system the decorator
-returns the function itself: Linux runs the original object, with no wrapper
-and nothing imported. On Windows the function is replaced by a router that
-imports the variant when first called and passes it the same arguments, so a
-method's variant receives ``self`` like the original.
+behaviour lives in a Windows-only module, and ``@darwin_variant`` one whose
+macOS behaviour lives in a macOS-only module. On every other system each
+decorator returns the function itself: Linux runs the original object, with no
+wrapper and nothing imported. On its own system the function is replaced by a
+router that imports the variant when first called and passes it the same
+arguments, so a method's variant receives ``self`` like the original.
 """
 from __future__ import annotations
 
@@ -16,13 +17,21 @@ import sys
 
 
 def windows_variant(target: str, *, system: str | None = None):
+    return _variant(target, "win32", "windows_target", system)
+
+
+def darwin_variant(target: str, *, system: str | None = None):
+    return _variant(target, "darwin", "darwin_target", system)
+
+
+def _variant(target: str, platform: str, label: str, system: str | None):
     selected = sys.platform if system is None else system
     module_name, _, attribute = target.partition(":")
     if not module_name or not attribute or ":" in attribute:
         raise ValueError("a variant target is 'module:function'")
 
     def decorate(func):
-        if selected != "win32":
+        if selected != platform:
             return func
 
         def resolve():
@@ -39,7 +48,7 @@ def windows_variant(target: str, *, system: str | None = None):
             def routed(*args, **kwargs):
                 return resolve()(*args, **kwargs)
         routed.linux_original = func
-        routed.windows_target = target
+        setattr(routed, label, target)
         return routed
 
     return decorate

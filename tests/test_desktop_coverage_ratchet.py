@@ -129,6 +129,7 @@ def test_explicit_update_cannot_lower_existing_ceiling(tmp_path, monkeypatch):
     monkeypatch.setattr(gate, "executable_inventory", lambda: {
         runtime: set(rows) for runtime, rows in current.items()})
     monkeypatch.setattr(gate, "windows_inventory", lambda: set())
+    monkeypatch.setattr(gate, "macos_inventory", lambda: set())
     monkeypatch.setattr(gate.subprocess, "check_output", lambda *args, **kwargs:
                         "src/desktop/a.py\napp/src/a.ts\n")
     assert gate.main(["--python-json", str(python), "--app-json", str(app),
@@ -155,13 +156,18 @@ def test_ci_measurements_use_all_classified_shards_and_upload_even_on_failure():
         assert upload["with"]["if-no-files-found"] == "error"
         assert any("rm -f .test-state/.coverage" in step.get("run", "")
                    for step in job["steps"])
-    assert jobs["coverage"]["needs"] == ["full-suites", "qualification", "windows-engine"]
+    assert jobs["coverage"]["needs"] == ["full-suites", "qualification", "windows-engine",
+                                         "macos-engine"]
     windows = jobs["windows-engine"]
     assert windows["uses"] == "./.github/workflows/windows-engine.yml"
     assert windows["if"] == jobs["coverage"]["if"]
+    macos = jobs["macos-engine"]
+    assert macos["uses"] == "./.github/workflows/macos-engine.yml"
+    assert macos["if"] == jobs["coverage"]["if"]
     gate_step = next(step for step in jobs["coverage"]["steps"]
                      if "desktop_coverage_gate.py" in step.get("run", ""))
     assert "--windows-json" in gate_step["run"] and "--windows-provenance" in gate_step["run"]
+    assert "--macos-json" in gate_step["run"] and "--macos-provenance" in gate_step["run"]
 
 
 # --- Windows-only files: native rows, exact provenance, Linux evaluated on its own ---------
@@ -291,6 +297,7 @@ def test_an_explicit_update_initializes_the_windows_section(tmp_path, monkeypatc
     monkeypatch.setattr(gate, "windows_rows", lambda *args, **kwargs: rows(
         *args, **{**kwargs, "root": tmp_path}))
     monkeypatch.setattr(gate, "windows_inventory", lambda: {WIN})
+    monkeypatch.setattr(gate, "macos_inventory", lambda: set())
     monkeypatch.setattr(gate, "executable_inventory", lambda: {
         "python": {"src/desktop/a.py"}, "app": {"app/src/a.ts"}, "windows": {WIN}})
     monkeypatch.setattr(gate.subprocess, "check_output", lambda *args, **kwargs: "")
@@ -302,3 +309,150 @@ def test_an_explicit_update_initializes_the_windows_section(tmp_path, monkeypatc
     updated = gate.json.loads(baseline_path.read_text())
     assert updated["windows"]["files"] == {WIN: gate.row(10, 9)}
     assert updated["python"]["files"]["src/desktop/a.py"] == gate.row(10, 9)  # an improvement
+
+
+# --- macOS-only files: the same contract, measured by the macOS job ----------------------------
+
+
+MAC = "src/desktop/platform/macos.py"
+
+
+def macos_fixture():
+    baseline, current = fixture()
+    current["macos"] = {MAC: gate.row(10, 9)}
+    baseline["macos"] = {"total": gate.total(current["macos"]),
+                         "files": deepcopy(current["macos"])}
+    baseline["target_files"].append(MAC)
+    return baseline, current
+
+
+def test_macos_rows_never_hide_a_linux_regression():
+    baseline, current = macos_fixture()
+    assert gate.evaluate(baseline, current) == []
+    current["python"]["src/desktop/a.py"] = gate.row(10, 7)
+    current["macos"][MAC] = gate.row(10, 10)
+    findings = gate.evaluate(baseline, current)
+    assert "src/desktop/a.py: coverage regressed" in findings
+    assert "python: total missed lines grew" in findings
+
+
+def test_macos_files_keep_their_own_ratchet_and_floor():
+    baseline, current = macos_fixture()
+    current["macos"][MAC] = gate.row(10, 8)
+    assert f"{MAC}: coverage regressed" in gate.evaluate(baseline, current)
+    current["macos"][MAC] = gate.row(10, 9)
+    current["macos"]["src/desktop/platform/macos_new.py"] = gate.row(10, 7)
+    assert ("src/desktop/platform/macos_new.py: new executable file below 80%"
+            in gate.evaluate(baseline, current))
+    # A targeted macOS file is judged once, against macOS rows, never as a missing Linux file.
+    baseline["target_files"].append("src/desktop/platform/macos_new.py")
+    findings = gate.evaluate(baseline, current)
+    assert findings.count("src/desktop/platform/macos_new.py: below 80% without explained "
+                          "exception") == 1
+    assert "src/desktop/platform/macos_new.py: targeted executable file missing" not in findings
+
+
+@pytest.mark.parametrize("key", [
+    "/Users/runner/work/Odin-Desktop/Odin-Desktop/src/desktop/platform/macos.py",
+    "src/desktop/platform/macos.py",
+])
+def test_macos_report_paths_normalize(key):
+    assert gate.macos_path(key) == MAC
+
+
+@pytest.mark.parametrize("key", ["src\\desktop\\platform\\macos.py", "/Users/runner/other.py",
+                                 "src/../etc/x.py", "app/src/a.ts"])
+def test_unexpected_macos_paths_fail_closed(key):
+    with pytest.raises(ValueError, match="Unexpected macOS coverage path"):
+        gate.macos_path(key)
+
+
+def _macos_evidence(tmp_path):
+    source = tmp_path / MAC
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"line\nline\n")
+    report = {"files": {"/Users/runner/work/x/x/" + MAC: {
+        "summary": {"num_statements": 10, "covered_lines": 9}}}}
+    provenance = {"sha": "abc", "sources": {
+        MAC: gate.hashlib.sha256(b"line\nline\n").hexdigest()}}
+    return report, provenance
+
+
+def test_macos_rows_need_this_revision_and_these_sources(tmp_path):
+    report, provenance = _macos_evidence(tmp_path)
+    rows = gate.macos_rows(report, provenance, {MAC}, sha="abc", root=tmp_path)
+    assert rows == {MAC: gate.row(10, 9)}
+    with pytest.raises(ValueError, match="macOS coverage was measured at another revision"):
+        gate.macos_rows(report, provenance, {MAC}, sha="def", root=tmp_path)
+    with pytest.raises(ValueError, match="name the inventory exactly"):
+        gate.macos_rows(report, {**provenance, "sources": {}}, {MAC}, sha="abc", root=tmp_path)
+    with pytest.raises(ValueError, match="lacks rows"):
+        gate.macos_rows({"files": {}}, provenance, {MAC}, sha="abc", root=tmp_path)
+    (tmp_path / MAC).write_bytes(b"changed\n")
+    with pytest.raises(ValueError, match="macOS coverage measured other source bytes"):
+        gate.macos_rows(report, provenance, {MAC}, sha="abc", root=tmp_path)
+
+
+def test_the_macos_inventory_matches_its_naming_invariant(tmp_path):
+    platform = tmp_path / "src/desktop/platform"
+    platform.mkdir(parents=True)
+    for name in ("darwin.py", "macos_ipc.py", "linux.py", "windows.py"):
+        (platform / name).write_text("")
+    (tmp_path / "maintenance").mkdir()
+    inventory = tmp_path / gate.MACOS_INVENTORY
+    inventory.write_text('["src/desktop/platform/darwin.py"]')
+    with pytest.raises(ValueError, match="macOS-only inventory differs from its files"):
+        gate.macos_inventory(tmp_path)
+    inventory.write_text(gate.json.dumps(
+        ["src/desktop/platform/darwin.py", "src/desktop/platform/macos_ipc.py"]))
+    assert gate.macos_inventory(tmp_path) == {
+        "src/desktop/platform/darwin.py", "src/desktop/platform/macos_ipc.py"}
+    assert gate.macos_inventory() == set(gate.json.loads(
+        (gate.ROOT / gate.MACOS_INVENTORY).read_text()))
+    # The two platform inventories never share a file.
+    assert not gate.macos_inventory() & gate.windows_inventory()
+
+
+def test_cli_without_macos_evidence_fails_closed(tmp_path, monkeypatch):
+    python = tmp_path / "python.json"
+    python.write_text(gate.json.dumps({"files": {}}))
+    app = tmp_path / "app.json"
+    app.write_text("{}")
+    monkeypatch.setattr(gate, "windows_inventory", lambda: set())
+    assert gate.main(["--python-json", str(python), "--app-json", str(app),
+                      "--output", str(tmp_path / "out"), "--revision", "abc"]) == 2
+
+
+def test_linux_rows_exclude_macos_files_and_the_update_initializes_the_section(
+        tmp_path, monkeypatch):
+    baseline, current = fixture()
+    baseline_path = tmp_path / "baseline.json"
+    baseline_path.write_text(gate.json.dumps(baseline))
+    python = tmp_path / "python.json"
+    # Linux reports the macOS file unexecuted; that row must not reach the Linux section.
+    python.write_text(gate.json.dumps({"files": {
+        "src/desktop/a.py": {"summary": {"num_statements": 10, "covered_lines": 8}},
+        MAC: {"summary": {"num_statements": 10, "covered_lines": 0}}}}))
+    app = tmp_path / "app.json"
+    app.write_text(gate.json.dumps({"app/src/a.ts": {
+        "statementMap": {str(index): {"start": {"line": index + 1}} for index in range(10)},
+        "s": {str(index): int(index < 8) for index in range(10)}}}))
+    report, provenance = _macos_evidence(tmp_path)
+    (tmp_path / "macos.json").write_text(gate.json.dumps(report))
+    (tmp_path / "provenance.json").write_text(gate.json.dumps(provenance))
+    rows = gate.macos_rows
+    monkeypatch.setattr(gate, "macos_rows", lambda *args, **kwargs: rows(
+        *args, **{**kwargs, "root": tmp_path}))
+    monkeypatch.setattr(gate, "windows_inventory", lambda: set())
+    monkeypatch.setattr(gate, "macos_inventory", lambda: {MAC})
+    monkeypatch.setattr(gate, "executable_inventory", lambda: {
+        "python": {"src/desktop/a.py", MAC}, "app": {"app/src/a.ts"}})
+    monkeypatch.setattr(gate.subprocess, "check_output", lambda *args, **kwargs: "")
+    assert gate.main(["--python-json", str(python), "--app-json", str(app),
+                      "--baseline", str(baseline_path), "--output", str(tmp_path / "out"),
+                      "--macos-json", str(tmp_path / "macos.json"),
+                      "--macos-provenance", str(tmp_path / "provenance.json"),
+                      "--revision", "abc", "--update-baseline"]) == 0
+    updated = gate.json.loads(baseline_path.read_text())
+    assert updated["macos"]["files"] == {MAC: gate.row(10, 9)}
+    assert MAC not in updated["python"]["files"]

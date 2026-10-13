@@ -41,7 +41,19 @@ def test_windows_is_selected_on_win32(fresh_platform, monkeypatch):
         platform.secret_backend()
 
 
-@pytest.mark.parametrize("system", ["darwin", "freebsd14"])
+def test_darwin_selects_the_macos_platform(fresh_platform, monkeypatch, tmp_path):
+    from src.desktop.platform.macos import MacOSPlatform
+
+    monkeypatch.setattr(desktop_platform.sys, "platform", "darwin")
+    platform = current_platform()
+    assert isinstance(platform, MacOSPlatform) and platform.name == "macos"
+    assert platform.computer_supported is False
+    paths = ProfilePaths.from_app("default", token_file=tmp_path / "config/ipc.token",
+                                  data_dir=tmp_path / "data", home=tmp_path)
+    assert paths.cache_dir == tmp_path / "Library/Caches/odin-desktop/default"
+
+
+@pytest.mark.parametrize("system", ["freebsd14", "cygwin"])
 def test_other_systems_are_refused_as_before(fresh_platform, monkeypatch, tmp_path, system):
     monkeypatch.setattr(desktop_platform.sys, "platform", system)
     with pytest.raises(NotImplementedError, match="desktop provisioning is Linux-only"):

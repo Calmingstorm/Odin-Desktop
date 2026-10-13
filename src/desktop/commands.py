@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .paths import private_directory
-from .platform.variants import windows_variant
+from .platform.variants import darwin_variant, windows_variant
 from .schema import validate_domains
 
 
@@ -73,6 +73,12 @@ def _invalid_binding(value: Any) -> str:
     return json.dumps(tagged(value), ensure_ascii=True, separators=(",", ":"))
 
 
+@darwin_variant("src.desktop.platform.macos_storage:anchored_database_path")
+def _anchored_database_path(directory_fd: int, name: str) -> str:
+    """The journal's path through the held directory: a swapped parent link cannot redirect it."""
+    return f"/proc/self/fd/{directory_fd}/{name}"
+
+
 class JournalStore:
     """Private FULL-synchronous storage; thread-confined, never across an await.
 
@@ -113,7 +119,7 @@ class JournalStore:
                 existing = info.st_size > 0
             finally:
                 os.close(fd)
-            anchored = f"/proc/self/fd/{self._directory_fd}/{path.name}"
+            anchored = _anchored_database_path(self._directory_fd, path.name)
             self._connection = sqlite3.connect(anchored, isolation_level=None, timeout=5)
             self._connection.row_factory = sqlite3.Row
             if existing:

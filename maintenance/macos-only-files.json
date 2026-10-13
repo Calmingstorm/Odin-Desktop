@@ -1,0 +1,10 @@
+[
+  "src/desktop/platform/darwin.py",
+  "src/desktop/platform/macos.py",
+  "src/desktop/platform/macos_desktop.py",
+  "src/desktop/platform/macos_files.py",
+  "src/desktop/platform/macos_ipc.py",
+  "src/desktop/platform/macos_process.py",
+  "src/desktop/platform/macos_secrets.py",
+  "src/desktop/platform/macos_storage.py"
+]

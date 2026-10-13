@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import UTC
 from typing import TYPE_CHECKING, Any
 
-from ..desktop.platform.variants import windows_variant
+from ..desktop.platform.variants import darwin_variant, windows_variant
 from ..odin_log import get_logger
 
 if TYPE_CHECKING:
@@ -72,6 +72,7 @@ class ComponentStatus:
         return d
 
 
+@darwin_variant("src.desktop.platform.darwin:process_descriptor_usage")
 def _process_descriptor_usage() -> tuple[int, int | float]:
     """Return this process's open descriptor count and RLIMIT_NOFILE soft limit.
 

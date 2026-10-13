@@ -448,6 +448,29 @@ def test_windows_job_uses_exact_pinned_python_and_uv():
                 assert re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
 
 
+def test_macos_job_uses_exact_pinned_python_and_uv():
+    """GitHub-hosted macOS has no cached runner Python; it pins the bundle's build exactly."""
+    workflow = yaml.safe_load((ROOT / ".github/workflows/phase1-engine.yml").read_text())
+    assert workflow["jobs"]["macos-engine"]["uses"] == "./.github/workflows/macos-engine.yml"
+    macos = yaml.safe_load((ROOT / ".github/workflows/macos-engine.yml").read_text())
+    assert set(macos["jobs"]) == {"macos-engine"}
+    for job in macos["jobs"].values():
+        assert job["runs-on"] == "macos-26"
+        setup = next(step for step in job["steps"]
+                     if step.get("uses", "").startswith("actions/setup-python@"))
+        assert re.fullmatch(r"actions/setup-python@[0-9a-f]{40}", setup["uses"])
+        environment = next(step for step in job["steps"] if "uv sync" in step.get("run", ""))["run"]
+        assert "uv==0.12.23" in environment and "uv python install 3.12.15" in environment
+        assert "uv venv --python 3.12.15" in environment and "--locked" in environment
+        for step in job["steps"]:
+            if "uses" in step:
+                assert re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
+        # The item tests' keychain is made on this runner; nothing reads a person's keychain.
+        keychain = next(step for step in job["steps"]
+                        if "security create-keychain" in step.get("run", ""))["run"]
+        assert "$RUNNER_TEMP/" in keychain and "::add-mask::" in keychain
+
+
 def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():
     workflow = yaml.safe_load((ROOT / ".github/workflows/phase1-engine.yml").read_text())
     light = workflow["jobs"]["short-gates"]

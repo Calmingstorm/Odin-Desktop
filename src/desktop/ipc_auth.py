@@ -11,9 +11,10 @@ import struct
 from pathlib import Path
 
 from .paths import _namespace_directories, _repair_namespace_directory, private_directory
-from .platform.variants import windows_variant
+from .platform.variants import darwin_variant, windows_variant
 
 
+@darwin_variant("src.desktop.platform.macos_files:private_parent")
 def private_parent(path: Path | str, *, create: bool = False) -> tuple[Path, int]:
     """Resolve folder links, then hold the real parent without following leaf links."""
     path = Path(path)
@@ -46,6 +47,7 @@ def private_parent(path: Path | str, *, create: bool = False) -> tuple[Path, int
 
 
 @windows_variant("src.desktop.platform.windows_desktop:load_token")
+@darwin_variant("src.desktop.platform.macos_files:load_token")
 def load_token(token_file: Path | str) -> str:
     path, parent = private_parent(token_file)
     try:

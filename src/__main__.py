@@ -11,12 +11,13 @@ from dataclasses import dataclass
 from typing import NoReturn
 
 from src import restart
-from src.desktop.platform.variants import windows_variant
+from src.desktop.platform.variants import darwin_variant, windows_variant
 from src.runtime_paths import runtime_install_root
 from src.tools.process_manager import AdoptedZombieReaper
 
 
 @windows_variant("src.desktop.platform.windows_process:enable_process_containment")
+@darwin_variant("src.desktop.platform.macos_process:enable_process_containment")
 def _enable_process_containment(log) -> bool:
     """Become a child subreaper so escaped descendants stay ours.
 
@@ -247,6 +248,7 @@ class _FinalizeWatchdog:
 
 
 @windows_variant("src.desktop.platform.windows_process:arm_finalize_watchdog")
+@darwin_variant("src.desktop.platform.macos_process:arm_finalize_watchdog")
 def _arm_finalize_watchdog(exit_code: int) -> _FinalizeWatchdog:
     """Arm an out-of-process, GIL-independent finalization deadline.
 

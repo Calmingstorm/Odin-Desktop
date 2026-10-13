@@ -1,9 +1,9 @@
 """The Desktop engine's operating-system seams.
 
 Each OS-specific piece is chosen here once per process. Linux returns the
-existing implementations unchanged. Windows has its own members (its transport
-and core lifetime arrive with phase 2b). Any other system is refused exactly as
-the Linux-only profile code refused it before this seam existed.
+existing implementations unchanged. Windows and macOS have their own members.
+Any other system is refused exactly as the Linux-only profile code refused it
+before this seam existed.
 """
 from __future__ import annotations
 
@@ -25,4 +25,8 @@ def current_platform() -> Platform:
         from .windows import WindowsPlatform
 
         return WindowsPlatform()
+    if sys.platform == "darwin":
+        from .macos import MacOSPlatform
+
+        return MacOSPlatform()
     raise NotImplementedError("desktop provisioning is Linux-only")

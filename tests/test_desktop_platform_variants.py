@@ -1,4 +1,5 @@
-"""``@windows_variant``: Linux keeps the original object; Windows routes to the variant."""
+"""``@windows_variant`` and ``@darwin_variant``: Linux keeps the original object; Windows and
+macOS route to their variants."""
 from __future__ import annotations
 
 import ast
@@ -8,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from src.desktop.platform.variants import windows_variant
+from src.desktop.platform.variants import darwin_variant, windows_variant
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -67,8 +68,8 @@ def test_a_target_names_one_function_in_one_module(target):
         windows_variant(target, system="linux")
 
 
-def _decorated():
-    """Every ``@windows_variant("module:function")`` in the engine, with its parameters."""
+def _decorated(kind="windows_variant"):
+    """Every ``@windows_variant("module:function")`` (or ``kind``) in the engine."""
     found = []
     for path in sorted((ROOT / "src").rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -77,7 +78,7 @@ def _decorated():
                 continue
             for decorator in node.decorator_list:
                 if (isinstance(decorator, ast.Call) and getattr(decorator.func, "id", "")
-                        == "windows_variant" and decorator.args
+                        == kind and decorator.args
                         and isinstance(decorator.args[0], ast.Constant)):
                     found.append((path.relative_to(ROOT).as_posix(), node, decorator.args[0].value))
     return found
@@ -109,12 +110,12 @@ def test_every_variant_exists_with_the_original_parameters():
 PINS = ROOT / "maintenance/windows-variant-sources.json"
 
 
-def _original_sources():
+def _original_sources(kind="windows_variant"):
     """SHA-256 of each routed Linux function's own source, from its def line to its end."""
     import hashlib
 
     sources = {}
-    for source, node, target in _decorated():
+    for source, node, target in _decorated(kind):
         lines = (ROOT / source).read_text(encoding="utf-8").splitlines()
         text = "\n".join(lines[node.lineno - 1:node.end_lineno]) + "\n"
         sources[f"{source}:{node.name} -> {target}"] = hashlib.sha256(text.encode()).hexdigest()
@@ -186,3 +187,105 @@ def test_windows_subclasses_were_reviewed_against_what_they_override():
     changed = [key for key, digest in OVERRIDE_SOURCES.items()
                if hashlib.sha256(_member_source(*key.split(":")).encode()).hexdigest() != digest]
     assert not changed, f"review the Windows overrides of: {changed}"
+
+
+# --- macOS: the same contract through @darwin_variant -----------------------------------------
+
+
+@pytest.mark.parametrize("system", ["linux", "win32"])
+def test_darwin_variants_leave_other_systems_the_original_object(system):
+    def original(value, *, scale=2):
+        return -value
+
+    assert darwin_variant("tests.test_desktop_platform_variants:doubled",
+                          system=system)(original) is original
+    # And a Windows variant leaves macOS the original too.
+    assert windows_variant("tests.test_desktop_platform_variants:doubled",
+                           system="darwin")(original) is original
+
+
+def test_darwin_routes_calls_coroutines_and_generators():
+    def original(value, *, scale=2):
+        return -value
+
+    async def original_async(value, *, scale=2):
+        return -value
+
+    def original_generator(limit):
+        yield -1
+
+    routed = darwin_variant("tests.test_desktop_platform_variants:doubled",
+                            system="darwin")(original)
+    assert routed is not original and routed.linux_original is original
+    assert routed(3, scale=5) == 15 and routed.__name__ == "original"
+    assert routed.darwin_target == "tests.test_desktop_platform_variants:doubled"
+    assert not hasattr(routed, "windows_target")
+    routed_async = darwin_variant("tests.test_desktop_platform_variants:doubled_async",
+                                  system="darwin")(original_async)
+    assert asyncio.run(routed_async(4, scale=3)) == 12
+    routed_generator = darwin_variant("tests.test_desktop_platform_variants:counted",
+                                      system="darwin")(original_generator)
+    assert list(routed_generator(3)) == [0, 1, 2]
+
+
+def test_every_darwin_variant_exists_with_the_original_parameters():
+    """Checked statically, so Linux needs no macOS import to prove the routes."""
+    decorated = _decorated("darwin_variant")
+    assert decorated, "no macOS variants found"
+    for source, node, target in decorated:
+        module, _, name = target.partition(":")
+        assert module.startswith("src.desktop.platform."), f"{source}:{node.name} -> {target}"
+        module_path = ROOT / (module.replace(".", "/") + ".py")
+        assert module_path.is_file(), f"{source}:{node.name} -> missing module {module}"
+        tree = ast.parse(module_path.read_text(encoding="utf-8"))
+        definitions = {item.name: item for item in tree.body
+                       if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))}
+        assert name in definitions, f"{source}:{node.name} -> {target} is not defined"
+        variant = definitions[name]
+        assert _parameters(variant) == _parameters(node), f"{source}:{node.name} -> {target}"
+        assert isinstance(variant, ast.AsyncFunctionDef) == isinstance(node, ast.AsyncFunctionDef)
+
+
+MACOS_PINS = ROOT / "maintenance/macos-variant-sources.json"
+
+
+def test_each_darwin_variant_was_reviewed_against_its_linux_original():
+    """A routed Linux function that changes needs its macOS variant reviewed.
+
+    Update maintenance/macos-variant-sources.json only after that review.
+    """
+    import json
+
+    recorded = json.loads(MACOS_PINS.read_text(encoding="utf-8"))
+    current = _original_sources("darwin_variant")
+    assert set(current) == set(recorded), "routed functions and pins differ"
+    changed = sorted(key for key in current if current[key] != recorded[key])
+    assert not changed, f"review these macOS variants against their changed originals: {changed}"
+
+
+def test_linux_runs_the_originals_and_imports_no_macos_module():
+    import subprocess
+    import sys
+
+    program = (
+        "import sys\n"
+        "import src.__main__ as entry\n"
+        "from src.desktop import commands, resource_cleanup, ssh_sockets\n"
+        "from src.health import checker\n"
+        "from src.tools.process_manager import AdoptedZombieReaper\n"
+        "routed = [entry._enable_process_containment, entry._arm_finalize_watchdog,\n"
+        "          AdoptedZombieReaper.drain_at_teardown, checker._process_descriptor_usage,\n"
+        "          resource_cleanup.current_boot_id, commands._anchored_database_path,\n"
+        "          ssh_sockets.check_socket_path, ssh_sockets.socket_directory,\n"
+        "          ssh_sockets.prepare_socket_directory]\n"
+        "assert not any(hasattr(f, 'darwin_target') for f in routed), routed\n"
+        "assert commands._anchored_database_path(7, 'x.sqlite') == '/proc/self/fd/7/x.sqlite'\n"
+        "loaded = [m for m in sys.modules if m.startswith('src.desktop.platform.')\n"
+        "          and m.rsplit('.', 1)[1].startswith(('darwin', 'macos'))]\n"
+        "assert not loaded, loaded\n"
+    )
+    if sys.platform != "linux":
+        pytest.skip("Linux's own originals")
+    result = subprocess.run([sys.executable, "-c", program], cwd=ROOT, capture_output=True,
+                            text=True, timeout=120)
+    assert result.returncode == 0, result.stderr[-3000:]

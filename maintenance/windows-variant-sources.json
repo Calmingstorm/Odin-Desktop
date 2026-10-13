@@ -26,7 +26,7 @@
   "src/desktop/authority.py:_validate -> src.desktop.platform.windows_authority:_validate": "4d546462d94591bbdc111125eb55d3929acef4b4726ee511c63e6600033d9afa",
   "src/desktop/authority.py:acquire_runtime -> src.desktop.platform.windows_authority:acquire_runtime": "712ae83762d0647bdbad9d3dccf48d7a9af1ac3daa6cf59c1dc07e08af7a2db2",
   "src/desktop/authority.py:authenticate_local -> src.desktop.platform.windows_authority:authenticate_local": "2f7f9f8cf2804f40ab0a018b9b03a13efaab485aed3762ff0388c9c8c98ebac1",
-  "src/desktop/commands.py:__init__ -> src.desktop.platform.windows_desktop:journal_store_init": "0c70a3e9acee169b778619a87a68883c1a126a2d80da63d6cae7b8071a02d44e",
+  "src/desktop/commands.py:__init__ -> src.desktop.platform.windows_desktop:journal_store_init": "f816e45602cfaec388ee03afd4e3eec6e6b52e856801ee139755c9a0a205e785",
   "src/desktop/commands.py:close -> src.desktop.platform.windows_desktop:journal_store_close": "b563486d485c1d638498379d33ab36e03f2edb1eb3fb8bb3bf707cf901814df0",
   "src/desktop/computer_binding.py:start -> src.desktop.platform.windows_desktop:computer_binding_start": "752504afeb8237912b63439864a2125719006c89d149f50d59570c1aaa164c21",
   "src/desktop/ipc.py:start -> src.desktop.platform.windows_ipc:ipc_server_start": "9f40948c3f3b0c168a1ba8d6b971e74445e5a06dd4f28d627b359b8bc71b8a73",
