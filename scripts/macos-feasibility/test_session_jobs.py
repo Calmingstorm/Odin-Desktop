@@ -355,3 +355,97 @@ def test_the_kernel_group_filter_agrees_with_the_getsid_scan(harness):
     assert kernel == set(members)  # both groups, every member, and nothing outside the session
     assert job.stop().outcome == "settled"
     job.release()
+
+
+def test_a_pid_whose_identity_keeps_changing_is_never_attributed(harness, monkeypatch):
+    job = harness.start(["/bin/sleep", "30"])
+    wait_for(lambda: job.sid in live(job))
+    real = darwin_proc._identity_read
+    calls = {"n": 0}
+
+    def changing(pid):
+        error, identity = real(pid)
+        if pid != job.sid or identity is None:
+            return error, identity
+        calls["n"] += 1
+        return 0, dataclasses.replace(identity, uniqueid=identity.uniqueid + calls["n"])
+
+    monkeypatch.setattr(darwin_proc, "_identity_read", changing)
+    with pytest.raises(darwin_proc.ObservationError, match="kept changing"):
+        darwin_proc.observe_session(job.sid)
+    monkeypatch.setattr(darwin_proc, "_identity_read", real)
+    assert job.stop().outcome == "settled"
+    job.release()
+
+
+def test_a_pid_that_changes_once_is_read_again_as_one_incarnation(harness, monkeypatch):
+    job = harness.start(["/bin/sleep", "30"])
+    wait_for(lambda: job.sid in live(job))
+    real = darwin_proc._identity_read
+    first = {"pending": True}
+
+    def changes_once(pid):
+        error, identity = real(pid)
+        if pid == job.sid and identity is not None and first["pending"]:
+            first["pending"] = False
+            return 0, dataclasses.replace(identity, idversion=identity.idversion + 1)
+        return error, identity
+
+    monkeypatch.setattr(darwin_proc, "_identity_read", changes_once)
+    members = darwin_proc.observe_session(job.sid)
+    assert members[job.sid].identity == real(job.sid)[1]
+    monkeypatch.setattr(darwin_proc, "_identity_read", real)
+    assert job.stop().outcome == "settled"
+    job.release()
+
+
+def test_a_final_quiet_round_that_ends_after_the_deadline_is_unknown(harness):
+    slow = {"on": True}
+
+    def observer(sid):
+        if slow["on"]:
+            time.sleep(0.4)
+        return darwin_proc.observe_session(sid)
+
+    job = harness.start(["/bin/sh", "-c", "exit 0"], observer=observer)
+    wait_for(job.leader_exited)
+    result = job.stop(deadline=0.7)
+    assert (result.outcome, result.caveat) == ("unknown", None)
+    assert "final quiet round" in result.detail
+    slow["on"] = False
+    assert job.stop().outcome == "settled"
+    job.release()
+
+
+def test_failing_fork_watches_and_group_checks_are_unknown_not_raised(harness):
+    class FailingWatch:
+        failing = True
+
+        def add(self, pid):
+            pass
+
+        def drain_forks(self):
+            if FailingWatch.failing:
+                raise OSError(errno.EIO, "injected watch failure")
+            return 0
+
+        def close(self):
+            pass
+
+    probing = {"fail": False}
+
+    def prober(pgid):
+        if probing["fail"]:
+            raise OSError(errno.EIO, "injected probe failure")
+        return darwin_proc.group_probe(pgid)
+
+    job = harness.start(["/bin/sleep", "30"], watch_factory=FailingWatch, prober=prober)
+    result = job.stop()
+    assert result.outcome == "unknown" and "injected watch failure" in result.detail
+    FailingWatch.failing, probing["fail"] = False, True
+    result = job.stop()
+    assert result.outcome == "unknown" and "injected probe failure" in result.detail
+    assert job.sid in live(job)  # nothing was signalled on a failed check
+    probing["fail"] = False
+    assert job.stop().outcome == "settled"
+    job.release()

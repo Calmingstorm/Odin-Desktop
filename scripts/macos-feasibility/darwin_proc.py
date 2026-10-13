@@ -8,14 +8,20 @@ come from PROC_PIDT_SHORTBSDINFO, which also works for other users' processes. A
 is its 64-bit unique ID plus its PID version (PROC_PIDUNIQIDENTIFIERINFO); the version changes on
 exec. A member whose identity cannot be read stays a member with no identity, never a missing one.
 
-Signals use the identity, not the number: proc_signal_with_audittoken signals only the process whose
-PID version still matches, and returns ESRCH otherwise (qualified on macOS 27). group_probe sends
-signal 0 to a group, which harms no one even if the number is now someone else's, and reports
-"live" (signallable members), "no-signallable" (only exited unreaped members or other users'
-processes; EPERM) or "empty" (ESRCH).
+Each member record is bracketed by the identity: read before and after the session and group, and
+kept only when both reads name the same incarnation, so a reused PID cannot inherit an earlier
+member's session.
 
-Enumeration is not atomic: a process can fork and exit between the PID list and its inspection, so
-a scan alone never proves a session empty. Callers combine scans with group probes and fork events.
+Signals use the identity, not the number: proc_signal_with_audittoken signals only the process whose
+PID version still matches, and returns ESRCH otherwise (qualified on macOS 26 and 27; a private
+libproc interface, like proc_pidinfo, so its absence fails closed). group_probe sends signal 0 to a
+group, which harms no one even if the number is now someone else's: "live" (a signallable member
+was found), "no-signallable" (EPERM: members existed but none could be signalled, including an
+exited unreaped one, another user's, or ones that exited during the probe) or "empty" (ESRCH).
+
+Nothing here is atomic. The PID list is a snapshot inspected later, and XNU's group signal also
+snapshots member PIDs and looks each up afterwards, so a process that forks and exits faster than
+both can stay unobserved. Callers must not treat a quiet scan or probe as proof of emptiness.
 """
 
 from __future__ import annotations
@@ -184,23 +190,50 @@ def _pidinfo(pid: int, flavor: int, info: ctypes.Structure) -> int:
     return ctypes.get_errno() or errno.EIO
 
 
+def _identity_read(pid: int) -> tuple[int, Identity | None]:
+    """(0, identity), or (errno, None): ESRCH means gone, EPERM unreadable."""
+    uniq = _UniqInfo()
+    error = _pidinfo(pid, PROC_PIDUNIQIDENTIFIERINFO, uniq)
+    if error:
+        return error, None
+    return 0, Identity(pid, int(uniq.uniqueid), int(uniq.idversion))
+
+
+def _bracketed(pid: int):
+    """(session, short info, identity) read as one incarnation, None when gone, or raise."""
+    for _ in range(3):
+        before_error, before = _identity_read(pid)
+        session = session_of(pid)
+        short = _ShortInfo()
+        short_error = _pidinfo(pid, PROC_PIDT_SHORTBSDINFO, short)
+        after_error, after = _identity_read(pid)
+        if errno.ESRCH in (before_error, short_error, after_error) or session is None:
+            return None
+        if short_error:
+            raise ObservationError(f"short info for {pid} failed: {os.strerror(short_error)}")
+        for error in (before_error, after_error):
+            if error and error != errno.EPERM:
+                raise ObservationError(f"identity of {pid} failed: {os.strerror(error)}")
+        if before is None and after is None:
+            return session, short, None  # unreadable both times: kept, never signalled
+        if before is not None and before == after:
+            return session, short, after
+        # Exec or a new process at this PID changed the identity between the reads: read again.
+    raise ObservationError(f"process {pid} kept changing while it was read")
+
+
 def observe_session(sid: int) -> dict[int, Member]:
-    """One pass over the PID list: every process whose session is sid."""
+    """One pass over the PID list: every member of session sid, each read as one incarnation."""
     members = {}
     for pid in list_pids():
         if session_of(pid) != sid:
+            continue  # a cheap filter; membership is decided by the bracketed read
+        record = _bracketed(pid)
+        if record is None:
             continue
-        short = _ShortInfo()
-        error = _pidinfo(pid, PROC_PIDT_SHORTBSDINFO, short)
-        if error == errno.ESRCH:
-            continue  # exited between the two calls
-        if error:
-            raise ObservationError(f"short info for {pid} failed: {os.strerror(error)}")
-        uniq = _UniqInfo()
-        error = _pidinfo(pid, PROC_PIDUNIQIDENTIFIERINFO, uniq)
-        if error == errno.ESRCH:
+        session, short, identity = record
+        if session != sid:
             continue
-        identity = None if error else Identity(pid, int(uniq.uniqueid), int(uniq.idversion))
         members[pid] = Member(
             pid=pid,
             pgid=int(short.pgid),
@@ -231,7 +264,7 @@ def signal_identity(identity: Identity, signal_number: int) -> int:
 
 
 def group_probe(pgid: int) -> str:
-    """Signal 0 to the group: "live", "no-signallable" (EPERM) or "empty" (ESRCH)."""
+    """Signal 0 to the group: "live", "no-signallable" (EPERM) or "empty" (ESRCH); not atomic."""
     try:
         os.killpg(pgid, 0)
     except ProcessLookupError:

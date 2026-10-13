@@ -7,10 +7,12 @@
 #
 # Every Mach-O is signed inside-out with the hardened runtime and a secure timestamp. The interpreter gets the one
 # exception (entitlements-python.plist); a copy signed without it, python3.12-strict, is the control for the
-# library-validation check. The identity lives in a disposable keychain that is put in the user search list for
-# the run (codesign needs that to build the chain to Apple Root CA). On exit the keychain is deleted, which also
-# takes it off the list; the list is then compared with the one read at the start, path for path, and a difference
-# is reported, never overwritten. The login keychain is never used.
+# library-validation check. The identity lives in a disposable keychain that must be in the user search list for
+# the run: codesign builds the chain to Apple Root CA only from listed keychains (checked: a keychain off the list
+# fails with errSecInternalComponent, even holding the root). Setting the list replaces it, so a change someone
+# else makes between the script's read and its set can be lost. Use this only in an isolated signing environment
+# (a hosted runner or a dedicated account), never in an owner's everyday session. On exit the keychain is deleted,
+# the list is compared with the one read at the start, path for path, and every cleanup failure is reported.
 set -euo pipefail
 
 # Physical paths: on macOS /var is a link to /private/var, and the Mach-O list holds resolved paths.
@@ -34,16 +36,31 @@ while IFS= read -r keychain; do
 done <<< "$BEFORE_TEXT"
 
 cleanup() {
-  security delete-keychain "$KEYCHAIN" 2>/dev/null || true
-  local after
-  after=$(search_list)
-  if [ "$after" = "$BEFORE_TEXT" ]; then
-    echo "keychain search list: restored exactly"
-  else
-    echo "WARNING: the keychain search list differs from the start of the run; it was left as it is." >&2
-    printf 'before:\n%s\nnow:\n%s\n' "$BEFORE_TEXT" "$after" >&2
+  local status=$? problems=0 after
+  if ! security delete-keychain "$KEYCHAIN" 2>/dev/null && [ -e "$KEYCHAIN" ]; then
+    echo "cleanup: the temporary keychain could not be deleted: $KEYCHAIN" >&2
+    problems=1
   fi
-  rm -rf "$WORK"
+  if after=$(search_list 2>/dev/null); then
+    if [ "$after" = "$BEFORE_TEXT" ]; then
+      echo "keychain search list: the same paths as at the start"
+    else
+      echo "WARNING: the keychain search list differs from the start of the run; it was left as it is." >&2
+      printf 'before:\n%s\nnow:\n%s\n' "$BEFORE_TEXT" "$after" >&2
+      problems=1
+    fi
+  else
+    echo "cleanup: the keychain search list could not be read" >&2
+    problems=1
+  fi
+  if ! rm -rf "$WORK"; then
+    echo "cleanup: the work folder could not be removed: $WORK" >&2
+    problems=1
+  fi
+  if [ "$status" -eq 0 ] && [ "$problems" -ne 0 ]; then
+    status=1
+  fi
+  exit "$status"
 }
 trap cleanup EXIT
 
@@ -91,28 +108,42 @@ codesign -dvv "$PYTHON" 2>&1 | grep -E '^(Authority|TeamIdentifier|Timestamp)=' 
 
 if [ $# -ge 6 ]; then
   ditto -c -k --keepParent "$RUNTIME/python" "$WORK/runtime.zip"
-  echo "notarization probe: $(du -h "$WORK/runtime.zip" | cut -f1) submitted"
-  xcrun notarytool submit "$WORK/runtime.zip" --key "$4" --key-id "$5" --issuer "$6" --wait --timeout "${NOTARY_WAIT:-15m}" \
-    --output-format json > "$WORK/notary.json" 2> "$WORK/notary.err" || true
-  # A zero exit here is never acceptance: report what Apple said, or that it has not said yet.
-  "$PYTHON" - "$WORK/notary.json" "$WORK/notary.err" <<'REPORT'
+  echo "notarization probe: submitting $(du -h "$WORK/runtime.zip" | cut -f1)"
+  set +e
+  xcrun notarytool submit "$WORK/runtime.zip" --key "$4" --key-id "$5" --issuer "$6" --wait \
+    --timeout "${NOTARY_WAIT:-15m}" --output-format json > "$WORK/notary.json" 2> "$WORK/notary.err"
+  notary_status=$?
+  set -e
+  # Report only what Apple said; a zero exit or a submission ID alone is never a verdict.
+  "$PYTHON" - "$WORK/notary.json" "$WORK/notary.err" "$notary_status" <<'REPORT'
 import json, re, sys
 text, errors = (open(path).read().strip() for path in sys.argv[1:3])
+code = int(sys.argv[3])
 try:
-    reply = json.loads(text) if text else {}
+    reply = json.loads(text) if text else None
 except json.JSONDecodeError:
-    reply = {}
-found = re.search(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", text + errors)
-submission = reply.get("id") or (found.group(0) if found else None)
-status = reply.get("status")
-if status == "Accepted":
-    verdict = "accepted"
-elif status == "Invalid":
-    verdict = "rejected (Invalid): fetch the log with notarytool log"
+    reply = None
+reply = reply if isinstance(reply, dict) else {}
+status = reply.get("status") if isinstance(reply.get("status"), str) else None
+submission = reply.get("id") if isinstance(reply.get("id"), str) else None
+if submission is None:
+    uuid = r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b"
+    found = re.search(uuid, text + "\n" + errors)
+    submission = found.group(0) if found else None
+known = {
+    "Accepted": "accepted",
+    "Invalid": "rejected (Invalid): fetch the log with notarytool log",
+    "In Progress": "pending: In Progress when the wait ended",
+}
+if status in known:
+    verdict = known[status]
+elif status is not None:
+    verdict = f"unknown status {status!r}"
 elif submission:
-    verdict = f"pending: {status or 'In Progress'} when the wait ended"
+    verdict = "submission recorded; status unknown (it could not be read)"
 else:
-    verdict = "submission failed: " + (errors or text)[-300:]
-print(f"notarization: {verdict}" + (f" (submission {submission})" if submission else ""))
+    verdict = "submission failed"
+detail = "" if status in known else f" [notarytool exit {code}: {(errors or text)[-200:]!r}]"
+print(f"notarization: {verdict}" + (f" (submission {submission})" if submission else "") + detail)
 REPORT
 fi

@@ -12,11 +12,14 @@ Evidence harness for the macOS feasibility spike (phase 1); phase 4 builds the r
       the Mach-O audit alone, as JSON
 
 The audit finds Mach-O files by content, not by name. For every arm64 slice it requires the macOS
-platform and a known minimum macOS no newer than the support floor, and it resolves every library
-load outside /usr/lib and /System/Library (following @rpath through the binary's own run paths and
-the interpreter's, @loader_path and @executable_path) to an existing file inside the staged bundle,
-symlinks resolved. An unresolved weak load is a warning; anything else unresolved is a problem.
-Run paths inherited from a chain of loaders are approximated by the binary's and the interpreter's.
+platform and a known minimum macOS no newer than the support floor. Each library load outside
+/usr/lib and /System/Library (spelled without "..") is followed in search order: @rpath through the
+binary's own run paths, then the interpreter's, each expanded against the image that declared it,
+plus @loader_path and @executable_path. The first candidate that exists must be a file inside the
+staged bundle, symlinks resolved; a first match outside the bundle is a problem even when a later
+one is inside. A missing weak load is a warning. This approximates dyld's loader chain: it shows
+that the first existing candidate is in the bundle, not full dependency closure, which is a
+packaged-app check (phase 4).
 """
 
 from __future__ import annotations
@@ -206,28 +209,30 @@ def list_macho(root: Path) -> list[Path]:
     return sorted(files, key=lambda path: (-len(path.parts), str(path)))
 
 
-def _resolve(load: str, binary: Path, rpaths: list[str], executable_dir: Path, root: Path):
-    """The file a load resolves to inside root, or None."""
+def _system_load(load: str) -> bool:
+    return load.startswith(SYSTEM_LOADS) and os.path.normpath(load) == load and ".." not in load
 
-    def expand(path: str) -> str:
-        path = path.replace("@loader_path", str(binary.parent))
-        return path.replace("@executable_path", str(executable_dir))
 
-    if load.startswith("@rpath/"):
-        candidates = [Path(expand(rpath)) / load[len("@rpath/") :] for rpath in rpaths]
-    else:
-        candidates = [Path(expand(load))]
+def _expand(path: str, image: Path, executable_dir: Path) -> Path:
+    path = path.replace("@loader_path", str(image.parent))
+    return Path(path.replace("@executable_path", str(executable_dir)))
+
+
+def _first_candidate(load: str, candidates: list[Path], root: Path) -> tuple[str, str]:
+    """("inside" | "outside" | "missing", detail): the first candidate that exists decides."""
     for candidate in candidates:
         resolved = Path(os.path.realpath(candidate))
-        if resolved.is_file() and resolved.is_relative_to(root):
-            return resolved
-    return None
+        if resolved.is_file():
+            if resolved.is_relative_to(root):
+                return "inside", str(resolved.relative_to(root))
+            return "outside", str(resolved)
+    return "missing", load
 
 
 def audit(root: Path) -> dict:
     root = Path(os.path.realpath(root))
     interpreter = root / "python" / "bin" / "python3.12"
-    interpreter_rpaths = []
+    interpreter_rpaths: list[str] = []
     if interpreter.is_file():
         interpreter_rpaths = next(
             (item["rpaths"] for item in slices(interpreter) if item["arch"] == "arm64"), []
@@ -248,13 +253,27 @@ def audit(root: Path) -> dict:
             elif item["minos"] > FLOOR:
                 problems.append(f"{relative}: needs macOS {'.'.join(map(str, item['minos']))}")
             executable_dir = path.parent if item["filetype"] == MH_EXECUTE else interpreter.parent
-            rpaths = item["rpaths"] + interpreter_rpaths
-            for load, weak in [(load, False) for load in item["loads"]] + [
+            loads = [(load, False) for load in item["loads"]] + [
                 (load, True) for load in item["weak"]
-            ]:
-                if load.startswith(SYSTEM_LOADS):
+            ]
+            for load, weak in loads:
+                if _system_load(load):
                     continue
-                if _resolve(load, path, rpaths, executable_dir, root) is None:
+                if load.startswith("@rpath/"):
+                    tail = load[len("@rpath/") :]
+                    candidates = [_expand(r, path, executable_dir) / tail for r in item["rpaths"]]
+                    candidates += [
+                        _expand(r, interpreter, interpreter.parent) / tail
+                        for r in interpreter_rpaths
+                    ]
+                else:
+                    candidates = [_expand(load, path, executable_dir)]
+                where, detail = _first_candidate(load, candidates, root)
+                if where == "outside":
+                    problems.append(
+                        f"{relative}: {load} resolves outside the bundle first: {detail}"
+                    )
+                elif where == "missing":
                     (warnings if weak else problems).append(f"{relative}: unresolved load {load}")
     return {
         "macho_files": len(files),
