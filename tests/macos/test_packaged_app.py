@@ -44,9 +44,14 @@ STARTUP_SECONDS = 240
 pytestmark = pytest.mark.skipif(not APP, reason="needs a built Odin.app (CI's macOS app job)")
 
 
-def security(*args: str) -> str:
-    return subprocess.run(["/usr/bin/security", *args], check=True, capture_output=True,
-                          text=True).stdout
+def security(*args: str, secret: str = "") -> str:
+    """The security tool's output; a failure says why, never the keychain's password."""
+    result = subprocess.run(["/usr/bin/security", *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        shown = " ".join("<password>" if secret and arg == secret else arg for arg in args)
+        raise AssertionError(f"security {shown} exited {result.returncode}: "
+                             f"{result.stderr.strip()} {result.stdout.strip()}")
+    return result.stdout
 
 
 def search_list() -> list[str]:
@@ -114,11 +119,11 @@ def packaged(tmp_path):
     keychain = keychains / "login.keychain-db"
     password = secrets.token_hex(16)
     before = search_list()
-    security("create-keychain", "-p", password, str(keychain))
+    security("create-keychain", "-p", password, str(keychain), secret=password)
     try:
         security("list-keychains", "-d", "user", "-s", *before)  # the user's list, exactly
         assert search_list() == before
-        security("unlock-keychain", "-p", password, str(keychain))
+        security("unlock-keychain", "-p", password, str(keychain), secret=password)
         security("set-keychain-settings", str(keychain))  # no timeout lock during the test
         app = PackagedApp(home)
         yield app
