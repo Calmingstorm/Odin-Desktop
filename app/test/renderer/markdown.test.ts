@@ -24,6 +24,13 @@ describe('rendering committed replies', () => {
     expect(html).toContain('&lt;script&gt;')
   })
 
+  it('opens links in the browser: every link gets a new-window target and no opener', () => {
+    for (const text of ['[the docs](https://example.com/docs)', 'see https://example.com/plain']) {
+      const html = renderHtml(text)
+      expect(html).toMatch(/<a href="https:\/\/example\.com\/[a-z]+" target="_blank" rel="noopener noreferrer">/)
+    }
+  })
+
   it('renders Markdown images as links, so the window loads nothing remote', () => {
     const html = renderHtml('![a chart](https://example.com/chart.png)')
     expect(html).toContain('<a href="https://example.com/chart.png" target="_blank" rel="noopener noreferrer">a chart</a>')

@@ -215,6 +215,41 @@ async def test_a_discarded_candidate_takes_its_own_trust_file_and_nothing_else(m
     assert set(tmp_path.glob("*.known_hosts")) == committed  # the active host's trust stays
 
 
+async def test_retesting_an_active_host_never_hands_its_trust_to_cleanup(monkeypatch, tmp_path):
+    # Odin 4.15 (#658): a candidate whose trust file a committed host already uses never owns
+    # it, so discarding the candidate leaves the host's trust in place.
+    import base64
+
+    import src.tools.hosts.control as control
+    from src.config.schema import ToolHost
+    from src.tools.hosts import HostEnrollmentManager, HostRegistry
+    from src.tools.hosts.trust import fingerprint_public_key
+
+    key = "ssh-ed25519 " + base64.b64encode(b"windows-active").decode("ascii")
+    active = ToolHost(address="example.invalid", ssh_user="deploy", os="linux",
+                      trust_mode="pinned", host_keys=[key])
+    registry = HostRegistry({"build": active}, trust_dir=tmp_path)
+    committed = set(tmp_path.glob("*.known_hosts"))
+    manager = HostEnrollmentManager(registry)
+
+    async def run_argv(argv, timeout, **kwargs):
+        return 0, b"odin-host-test linux\n"
+
+    async def scan(address, port):
+        return (key,)
+
+    monkeypatch.setattr(control, "_run_argv", run_argv)
+    monkeypatch.setattr(manager, "scan", scan)
+    candidate = await manager.prepare(
+        "build", {"address": "example.invalid", "ssh_user": "deploy", "os": "linux",
+                  "trust_mode": "pinned", "expected_fingerprints": [fingerprint_public_key(key)]},
+        allow_tofu=False, existing=active)
+    assert (await manager.test(candidate.token)).tested is True
+    manager.discard(candidate.token)
+    assert len(committed) == 1 and set(tmp_path.glob("*.known_hosts")) == committed
+    assert all(path.exists() for path in committed)
+
+
 # --- run_script --------------------------------------------------------------------------------
 
 

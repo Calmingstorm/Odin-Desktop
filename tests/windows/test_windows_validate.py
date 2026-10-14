@@ -169,6 +169,26 @@ async def test_a_host_declared_macos_gets_odins_macos_probe():
     assert results["com.example.fixture"]["status"] == "fail"  # the fake answers "200"
 
 
+async def test_the_callback_refuses_a_check_that_was_not_bound(monkeypatch):
+    # Odin 4.15.1 (#660): a probe runs only on the target its check bound.
+    import src.tools.post_validation as post_validation
+
+    bound = []
+
+    async def run_bundle(_checks, *, bind_host, exec_command, **_kwargs):
+        with pytest.raises(PermissionError, match="unbound validation host alias: absent"):
+            await exec_command("absent", "true", "", timeout=3)
+        with bind_host("absent") as resolved:
+            bound.append(resolved)
+        return "report"
+
+    monkeypatch.setattr(post_validation, "run_bundle", run_bundle)
+    monkeypatch.setattr(post_validation, "format_report_summary", lambda report: report)
+    checks = {"checks": [{"type": "command"}]}
+    assert await handle_validate_action(validator([]), checks) == "report"
+    assert bound == [None]
+
+
 async def test_the_handlers_own_refusals_and_governor_answers():
     fake = validator([])
     assert (await handle_validate_action(fake, {"checks": []})).startswith(
