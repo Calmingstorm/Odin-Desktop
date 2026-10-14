@@ -13,7 +13,7 @@ import re
 import subprocess
 import sys
 
-# The port's branch, and the scratch branch its signed probes run from; both go when the port merges.
+# The port's branch, and the scratch branch its signed probes run from; both go when it merges.
 CANDIDATES = ('macos/port', 'macos/probe')
 RELEASE = re.compile(r'v(\d+\.\d+\.\d+)')
 
