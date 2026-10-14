@@ -585,6 +585,24 @@ async def test_a_worker_that_never_starts_is_cleaned_up_and_reported(monkeypatch
         await asyncio.sleep(0.2)
 
 
+async def test_the_worker_runs_isolated_and_writes_no_bytecode(monkeypatch):
+    """The installed app ships no bytecode and is its user's to write: -B keeps the worker's
+    standard library imports from writing any into it."""
+    launched = []
+
+    async def record(program, *args, **kwargs):
+        launched.append((program, args))
+        raise OSError("recorded")
+
+    monkeypatch.setattr(macos_jobs.asyncio, "create_subprocess_exec", record)
+    with pytest.raises(OSError):
+        await macos_jobs.create_supervised_shell("true", stdout=PIPE)
+    (program, args), = launched
+    assert program == sys.executable
+    assert args[:3] == ("-I", "-B", str(Path(macos_jobs.__file__).with_name(
+        "macos_supervisor_worker.py")))
+
+
 async def test_a_failed_worker_spawn_is_reported(monkeypatch):
     async def refuse(*args, **kwargs):
         raise OSError("no processes")

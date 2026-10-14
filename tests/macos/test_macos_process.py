@@ -218,6 +218,26 @@ def test_an_armed_helper_survives_the_drain_and_disarms_cleanly(monkeypatch):
         entry._disarm_finalize_watchdog(watchdog, 0)  # waits for the helper's clean exit
 
 
+def test_the_watchdog_helper_writes_no_bytecode(monkeypatch):
+    """Its interpreter is the installed app's, which ships no bytecode: -B keeps its imports
+    (ctypes among them) from writing any into the app."""
+    import src.__main__ as entry
+
+    spawned = []
+    real = os.posix_spawn
+
+    def record(path, argv, env, **kwargs):
+        spawned.append(tuple(argv))
+        return real(path, argv, env, **kwargs)
+
+    monkeypatch.setattr(os, "posix_spawn", record)
+    monkeypatch.setattr(entry, "_FINALIZE_WATCHDOG_TIMEOUT", 30.0)
+    watchdog = entry._arm_finalize_watchdog(0)
+    entry._disarm_finalize_watchdog(watchdog, 0)
+    (argv,) = spawned
+    assert argv[:5] == (sys.executable, "-I", "-S", "-B", "-c")
+
+
 def test_a_clean_finalize_disarms_the_watchdog(monkeypatch):
     import asyncio
     import logging

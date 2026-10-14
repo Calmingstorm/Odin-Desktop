@@ -202,8 +202,10 @@ async def create_supervised_shell(command, *, stdin=None, stdout=None, stderr=No
         raise ValueError('supervised shells require a private session')
     parent, child = socket.socketpair()
     parent.setblocking(False)
+    # -B as well as Linux's -I: the installed Mac app ships no bytecode and is its user's to write,
+    # so the worker would write the standard library's into it (Linux's packages aren't writable).
     spawn_task = asyncio.create_task(asyncio.create_subprocess_exec(
-        sys.executable, '-I', str(Path(__file__).with_name('macos_supervisor_worker.py')),
+        sys.executable, '-I', '-B', str(Path(__file__).with_name('macos_supervisor_worker.py')),
         '--control-fd', str(child.fileno()), '--command', command,
         '--shell', choice.name, '--shell-executable', choice.executable,
         pass_fds=(child.fileno(),), start_new_session=True,

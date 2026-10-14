@@ -123,10 +123,12 @@ def arm_finalize_watchdog(exit_code: int):
         ready_r, ready_w = pipe()
         for fd in (control_r, ready_w):
             set_inheritable(fd, True)
+        # -B too: the installed app ships no bytecode and is its user's to write.
         argv = (
             sys.executable,
             "-I",
             "-S",
+            "-B",
             "-c",
             _FINALIZE_WATCHDOG_PROGRAM,
             str(control_r),
