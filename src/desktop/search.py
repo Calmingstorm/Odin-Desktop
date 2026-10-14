@@ -174,7 +174,10 @@ class TranscriptSearch:
 
         Odin searches every channel's current and archived sessions; the durable
         transcript keeps visible history until deletion. The admitted request
-        authenticates the search and never selects or narrows it.
+        authenticates the search and never selects or narrows it. As in Odin 4.14
+        (#639), the invoking request's own messages are left out, so the prompt that
+        asked never answers itself, and each hit names its conversation: its title
+        and id, in the channel_name and channel_id fields Odin's formatter reads.
         """
         from ..search.hybrid import reciprocal_rank_fusion
 
@@ -184,9 +187,16 @@ class TranscriptSearch:
         except ConversationError:
             raise InvalidSearchQuery("Invalid history query or limit") from None
         cid = self._current(request)
+        own_message, own_request = (_request_field(request, "message_id"),
+                                    _request_field(request, "request_id"))
+
+        def invoking(item):
+            return ((own_message is not None and item["id"] == own_message)
+                    or (own_request is not None and item.get("request_id") == own_request))
+
         with domain_transaction(self.transcript.store):
             self.transcript.conversations.get(cid)
-            messages = self.transcript.all_messages()
+            messages = [item for item in self.transcript.all_messages() if not invoking(item)]
         visible = {item["id"]: item for item in messages}
         try:
             # Scrubbing and indexing a whole profile is CPU work: keep it off the core loop.
@@ -218,16 +228,19 @@ class TranscriptSearch:
         if self._current(request) != cid:
             raise PermissionError("Authenticated conversation context changed")
         wanted = {item["doc_id"] for item in ranked}
-        fresh = {}
+        fresh, titles = {}, {}
         with domain_transaction(self.transcript.store):
             self.transcript.conversations.get(cid)  # The requester must still exist.
             for conversation_id in {visible[mid]["conversation_id"] for mid in wanted
                                     if mid in visible}:
                 try:
                     rows = self.transcript.all_messages(conversation_id)
+                    titles[conversation_id] = self.transcript.conversations.get(
+                        conversation_id)["title"]
                 except ConversationError:
                     continue  # Deleted while searching: its hits are stale.
-                fresh.update({row["id"]: row for row in rows if row["id"] in wanted})
+                fresh.update({row["id"]: row for row in rows
+                              if row["id"] in wanted and not invoking(row)})
         result = []
         for item in ranked:
             message = fresh.get(item["doc_id"])
@@ -235,11 +248,20 @@ class TranscriptSearch:
                 continue
             message = _scrub(message)
             result.append({"conversation_id": message["conversation_id"],
+                           "channel_id": message["conversation_id"],
+                           "channel_name": titles[message["conversation_id"]],
+                           "is_dm": False,
                            "message_id": message["id"],
                            "content": _searchable_text(message),
                            "timestamp": _timestamp(message["created_at"]),
                            "type": message["role"], "rrf_score": item["rrf_score"]})
         return result
+
+
+def _request_field(request, name: str):
+    """The invoking request's own identity, from an admitted request or a test's mapping."""
+    value = request.get(name) if isinstance(request, dict) else getattr(request, name, None)
+    return value if isinstance(value, str) and value else None
 
 
 def _lexical_ranking(messages: list[dict], query: str, limit: int) -> list[dict]:

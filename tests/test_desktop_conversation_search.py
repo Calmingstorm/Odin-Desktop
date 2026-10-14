@@ -428,3 +428,25 @@ def test_restart_context_reset_and_compaction_preserve_searchable_transcript(gra
             "original durable needle", "original durable answer"}
     finally:
         reopened.close()
+
+
+def test_history_hits_name_their_conversation_and_never_the_invoking_request(graph):
+    """Odin 4.14 (#639) on Desktop: each hit carries its conversation's title and id, and the
+    request that asked (its prompt and anything it already wrote) never answers itself."""
+    from src.discord.native_tools.knowledge import KnowledgeTools
+
+    a, b = create(graph, "Asking"), create(graph, "Bird notes")
+    graph[3].commit(b, "assistant", "the heron count is 42")
+    asking = graph[3].commit(a, "user", "what was the heron count?", request_id="r_asking")
+    graph[3].commit(a, "assistant", "heron search started", request_id="r_asking")
+    title = graph[2].get(b)["title"]
+    request = {"bound": a, "message_id": asking["id"], "request_id": "r_asking"}
+    results = asyncio.run(graph[4].for_request(request).search_history("heron"))
+    assert [(item["conversation_id"], item["content"]) for item in results] == [
+        (b, "the heron count is 42")]
+    assert results[0]["channel_id"] == b and results[0]["channel_name"] == title
+    tools = KnowledgeTools(sessions=graph[4].for_request(request),
+                           get_knowledge_store=lambda: None, embedder=None, audit=None)
+    text = str(asyncio.run(tools._handle_search_history({"query": "heron"})))
+    assert f"[{title} (id: {b})] (assistant): the heron count is 42" in text
+    assert "what was the heron count" not in text and "search started" not in text
