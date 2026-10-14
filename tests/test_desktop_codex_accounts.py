@@ -502,3 +502,67 @@ async def test_concurrent_polls_do_not_exchange_or_persist_twice(make_service):
     ))
     assert all(result == results[0] for result in results)
     assert device.calls == 1 and secrets.writes == 1
+
+
+@pytest.mark.asyncio
+async def test_remove_and_readd_reset_that_accounts_quota_state_only(make_service, tmp_path,
+                                                                      monkeypatch):
+    """Odin 4.14 (#652) through the app's own account methods: removing an account drops its
+    quota snapshot and its check failure, re-adding it starts clean, and the other account keeps
+    its state by account, not by slot."""
+    from src.llm.account_key import opaque_account_key
+
+    monkeypatch.setattr("src.llm.account_key.DEFAULT_KEY_PATH", tmp_path / "key.secret")
+    service, _, clock = make_service([credential("a"), credential("b")],
+                                     Device([credential("a", access_token="readded")]))
+    pool = service.pool
+    headers = {"x-codex-primary-used-percent": "25", "x-codex-primary-window-minutes": "10080",
+               "x-codex-plan-type": "pro"}
+    for index in (0, 1):
+        pool.set_quota_check_failure(index, "HTTP 401")
+        pool.quota.record_headers(pool._quota_key(index), headers)
+    assert await service.handle("codex.accounts.remove", {"index": 0}) == {
+        "status": "deleted", "email": "a@example.test"}
+    assert opaque_account_key("a") not in pool._quota_check_failures
+    assert pool.quota.snapshot_for(opaque_account_key("a")) is None
+    begin = await service.handle("codex.login.begin", {})
+    clock[0] += 5
+    assert (await service.handle("codex.login.poll", begin))["status"] == "authenticated"
+    assert pool.account_count == 2
+    assert await pool.token_for(1) == ("readded", "a")
+    assert pool.quota_check_failure(1) is None
+    assert pool.quota.snapshot_for(opaque_account_key("a")) is None
+    assert pool.quota_check_failure(0) == "HTTP 401"  # b moved to slot 0 with its own state
+    assert pool.quota.snapshot_for(opaque_account_key("b")) is not None
+
+
+@pytest.mark.asyncio
+async def test_a_reorder_keeps_each_accounts_auth_state_and_saves_at_its_new_slot(
+        make_service, tmp_path, monkeypatch):
+    """Odin 4.14 (#652) on Desktop's keyring pool: an authorization follows its refresh chain
+    across a reorder, with its quota state, and a later rotation is saved at its new slot."""
+    from src.llm.account_key import opaque_account_key
+
+    monkeypatch.setattr("src.llm.account_key.DEFAULT_KEY_PATH", tmp_path / "key.secret")
+    service, secrets, _ = make_service([credential("a"), credential("b")])
+    pool = service.pool
+    auth_a, auth_b = pool._loaded_auths[0], pool._loaded_auths[1]
+    for index in (0, 1):
+        pool.set_quota_check_failure(index, "HTTP 401")
+    rows = json.loads(secrets.values["codex_accounts"])
+    secrets.values["codex_accounts"] = json.dumps([rows[1], rows[0]])
+    await pool.reload_async()
+    assert pool._loaded_auths[0] is auth_b and auth_b.slot == 0
+    assert pool._loaded_auths[1] is auth_a and auth_a.slot == 1
+    assert pool.quota_check_failure(0) == pool.quota_check_failure(1) == "HTTP 401"
+    auth_a._save(credential("a", access_token="rotated-a", refresh_token="rotated-a-r"))
+    saved = json.loads(secrets.values["codex_accounts"])
+    assert [row["account_id"] for row in saved] == ["b", "a"]
+    assert saved[1]["refresh_token"] == "rotated-a-r" and saved[0] == rows[1]
+    # A replaced credential (a new refresh chain) is a new authorization with a clean state.
+    saved[0] = credential("b", access_token="replaced-b", refresh_token="replaced-b-r")
+    secrets.values["codex_accounts"] = json.dumps(saved)
+    await pool.reload_async()
+    assert pool._loaded_auths[0] is not auth_b and pool._loaded_auths[1] is auth_a
+    assert opaque_account_key("b") not in pool._quota_check_failures
+    assert pool.quota_check_failure(1) == "HTTP 401"
