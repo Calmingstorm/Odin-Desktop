@@ -265,8 +265,14 @@ async def test_the_installed_app_runs_odin_and_exits_clean(packaged):
         "shipped_ownership", Path(APP) / "Contents/Resources/ownership.py")
     ownership = importlib.util.module_from_spec(shipped)
     sys.modules[shipped.name] = ownership  # its dataclass looks its module up there
-    shipped.loader.exec_module(ownership)
+    writes, sys.dont_write_bytecode = sys.dont_write_bytecode, True
+    try:  # loading it must not write its bytecode into the app, which the start check refuses
+        shipped.loader.exec_module(ownership)
+    finally:
+        sys.dont_write_bytecode = writes
     resources = Path(APP) / "Contents/Resources"
+    # The app passes its start check as installed; a refusal would wait at a dialog no one sees.
+    ownership._verify_bundle(resources, resources / "bundle-manifest.json")
     before = entries(ownership, resources)
     packaged.start()
     try:
