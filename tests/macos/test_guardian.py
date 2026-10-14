@@ -169,13 +169,16 @@ def test_a_dead_apps_link_still_ends_a_hung_engine_and_reaps_it(guardian):
     assert gone(engine)  # reaped before the guardian exited
 
 
-def test_a_signal_racing_the_grace_expiry_still_ends_and_reaps_the_engine(guardian):
-    process = start(guardian, HUNG_PID, "--grace", "1", "--term", "30")
+@pytest.mark.parametrize("delay", [0.2, 1.0, 2.0])  # before, about at, and after the grace expiry
+def test_a_signal_racing_the_grace_expiry_still_ends_and_reaps_the_engine(guardian, delay):
+    process = start(guardian, HUNG_PID, "--grace", "1", "--term", "3")
     engine = int(process.stdout.readline())
     process.stdin.close()
-    time.sleep(1.0)  # the grace expires about now
+    time.sleep(delay)
     process.send_signal(signal.SIGTERM)
-    assert process.wait(30) == -signal.SIGKILL  # either order ends in a KILL the guardian sends
+    # Either order ends in a KILL the guardian sends: before the expiry the signal starts the
+    # term window (3 s), after it the signal is a second request and kills at once.
+    assert process.wait(30) == -signal.SIGKILL
     assert gone(engine)
 
 
