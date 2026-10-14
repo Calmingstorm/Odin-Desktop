@@ -406,7 +406,11 @@ class Worker:
         """TERM the pinned leader group once, then KILL it each round from the kill deadline.
 
         The leader is never reaped before settlement, so its group can't be reused: a probe that
-        fails to answer counts as live, and the group is signalled anyway."""
+        fails to answer counts as live, and the group is signalled anyway. Neither ESRCH nor EPERM
+        is an error here. EPERM, no member this worker may signal, is also macOS's answer for a
+        group left with only zombies, as when its last live members end between the probe and the
+        signal. A live member it truly can't signal is still observed, keeps the session from
+        settling, and the ten-second limit reports it."""
         kill = time.monotonic() >= self.kill_at
         if not (kill or not self.leader_group_termed):
             return
@@ -417,10 +421,8 @@ class Worker:
             pass
         try:
             os.killpg(self.sid, signal.SIGKILL if kill else signal.SIGTERM)  # pinned, unreaped
-        except ProcessLookupError:
+        except (ProcessLookupError, PermissionError):
             pass
-        except PermissionError as exc:
-            self.error("leader group signal refused", exc)
         self.leader_group_termed = True
 
     def signal(self, live: dict[int, Member], groups: dict[int, str]) -> None:

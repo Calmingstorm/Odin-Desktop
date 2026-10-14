@@ -351,7 +351,7 @@
     "src/desktop/platform/macos_secrets.py": "c526c396c4a3c668c2dd01a2a2c0cfa27a76a464e28f5f4960d7cb7a25a89e48",
     "src/desktop/platform/macos_shell.py": "29be8e0b7603a26d1e85d968c19f30aac1d626997eba1891f960c0a562a7a368",
     "src/desktop/platform/macos_storage.py": "5b0f3d637f7fb145012ef7dbb5122a6d2c40c163ad288ad9cbe63836949a6029",
-    "src/desktop/platform/macos_supervisor_worker.py": "2a3bfb54f8e2d29405cabc1a7fbafd1234dcabed5857ac5f8fb279e73d1a5504",
+    "src/desktop/platform/macos_supervisor_worker.py": "db8ca47c74790a6083c5b77662eab833c53c21f00623d109ffa440e0f78e4136",
     "src/desktop/platform/macos_validate.py": "98a37d8bd4bac846f9ddc7bc287314af96b47a3c6ae03fd8ce3c3024af5fe1a6",
     "src/desktop/platform/variants.py": "74ee2d28741461819d0137b8530a0684bd2da98d7c260b2f2fc7d2548024e0c5",
     "src/desktop/platform/win32.py": "4ec82dd8b1e7ff83cd5b6ddfda677d37dda0f1608a6c74e45e5491da1e3ee7f6",

@@ -313,6 +313,67 @@ def test_a_group_probe_that_fails_still_lets_the_pinned_group_be_signalled(monke
         right.close()
 
 
+_KILLPG = os.killpg
+
+
+def _refused(pgid, number):
+    """EPERM for every real signal to a group; the probe's signal 0 still answers truthfully."""
+    if number == 0:
+        return _KILLPG(pgid, 0)
+    raise PermissionError(1, "Operation not permitted")
+
+
+def test_a_group_that_empties_between_the_probe_and_the_signal_is_no_error(monkeypatch):
+    """macOS answers EPERM for a group left with only zombies: its last live members ended after
+    the probe said live. That isn't a refusal (CI saw it as a spurious error, 1 stop in 160 under
+    load), so the stop goes on to settle."""
+    from src.desktop.platform import macos_supervisor_worker as worker
+
+    left, right = socket.socketpair()
+    supervisor = worker.Worker(left)
+    leader = subprocess.Popen(["/bin/sleep", "60"], start_new_session=True)
+    try:
+        supervisor.leader, supervisor.sid = leader, leader.pid
+        monkeypatch.setattr(worker.os, "killpg", _refused)
+        supervisor.terminate(0.0)
+        supervisor.signal_leader_group()
+        assert supervisor.leader_group_termed and not supervisor.failed
+        assert not supervisor.reported_errors and not supervisor.outgoing
+    finally:
+        leader.kill()
+        leader.wait(10)
+        supervisor.selector.close()
+        supervisor.queue.close()
+        left.close()
+        right.close()
+
+
+def test_a_live_member_the_group_signal_cannot_reach_still_ends_unknown(monkeypatch):
+    """A refused group signal with a member still alive keeps the session from settling, and the
+    ten-second limit reports it: the stop ends unknown, never settled."""
+    from src.desktop.platform import macos_supervisor_worker as worker
+
+    left, right = socket.socketpair()
+    supervisor = worker.Worker(left)
+    leader = subprocess.Popen(["/bin/sleep", "60"], start_new_session=True)
+    try:
+        supervisor.leader, supervisor.sid = leader, leader.pid
+        monkeypatch.setattr(worker.os, "killpg", _refused)  # nothing reaches the live leader
+        supervisor.terminate(0.0)
+        supervisor.stop_at = time.monotonic() - 11
+        assert supervisor.round() is False  # the live leader is observed
+        assert "cleanup exceeded ten seconds; retaining descendant ownership" in \
+            supervisor.reported_errors
+        assert leader.poll() is None
+    finally:
+        leader.kill()
+        leader.wait(10)
+        supervisor.selector.close()
+        supervisor.queue.close()
+        left.close()
+        right.close()
+
+
 @pytest.mark.parametrize("failing", ["observation", "event drain", "secondary group probe"])
 @pytest.mark.parametrize("deadline", ["TERM", "KILL"])
 def test_stop_reaches_the_pinned_group_whatever_observation_does(failing, deadline, monkeypatch):
