@@ -17,6 +17,8 @@ import { FieldDrafts, editableHere } from '../../settings-form'
 import { saveField, resetField } from '../../stores/settings'
 
 const desktop = ref<DesktopInfo | null>(null)
+// Where Odin stays when its window closes: the Mac's menu bar, the tray elsewhere.
+const keptIn = computed(() => desktop.value?.platform === 'darwin' ? 'the menu bar' : 'the tray')
 const support = reactive({ info: '', folder: '', diagnostics: '' })
 const timezone = computed(() => settings.meta?.fields.find((field) => field.path === 'timezone'))
 const zoneSearch = ref('')
@@ -190,7 +192,7 @@ async function quiet(key: 'start' | 'end'): Promise<void> {
     </SettingsRow>
   </SettingsSection>
   <SettingsSection title="Startup and notifications">
-    <SettingsRow label="Start Odin when you log in" description="Closing the window keeps Odin running in the tray. Exit stops it." control-id="start-at-login">
+    <SettingsRow label="Start Odin when you log in" :description="`Closing the window keeps Odin running in ${keptIn}. Exit stops it.`" control-id="start-at-login">
       <SettingsSwitch id="start-at-login" label="Start Odin when you log in" data-testid="start-at-login" :checked="state.autostart" :disabled="Boolean(state.autostartUnavailable)" @change="autostart" />
       <template v-if="state.autostartUnavailable" #note><p class="panel-hint" data-testid="start-at-login-unavailable">{{ state.autostartUnavailable }}</p></template>
     </SettingsRow>

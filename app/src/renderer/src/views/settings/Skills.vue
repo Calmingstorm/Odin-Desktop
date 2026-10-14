@@ -102,7 +102,7 @@ function setConfig(key: string, spec: Record<string, unknown>, raw: string | boo
       <span class="panel-hint">Validation compiles the code without running it. Saving loads it into Odin.</span>
       <button class="ghost" aria-label="Cancel skill changes" @click="closeSkill">Cancel</button>
     </header>
-    <SettingsRow v-if="management.skill" label="Execution" :description="management.skill.handoff_to_codex ? 'This skill hands work to a coding session; its access rules still apply.' : 'This skill runs Python code; tool access and approvals still apply.'">
+    <SettingsRow v-if="management.skill" label="Execution" :description="management.skill.handoff_to_codex ? 'This skill hands work to a coding session; its access rules still apply.' : 'This skill runs Python code; its tool calls follow the same rules as Odin\'s own.'">
       <span>{{ management.skill.handoff_to_codex ? 'Coding session' : 'Python' }}</span>
     </SettingsRow>
     <SettingsRow v-if="management.skill?.metadata.dependencies?.length" label="Dependencies">
