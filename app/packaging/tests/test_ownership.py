@@ -404,7 +404,40 @@ class OwnershipTests(unittest.TestCase):
                     near.unlink()
                 leftover.write_text('{"version": 1, "ro')
             with mock.patch.object(own, 'WINDOWS', False), self.assertRaises(ValueError):
-                own.verify_receipts(self.paths)  # Linux reads every file, as before
+                own.verify_receipts(self.paths)  # Linux and the Mac skip only their own shape
+
+    def test_an_interrupted_posix_receipt_write_is_not_a_receipt(self):
+        with self.boot(BOOT_A):
+            self.lease('core').close()  # an earlier boot's lifetime, below
+        # _write's temporary on Linux and the Mac, cut off mid-write (a kill or a power cut lands
+        # before its rename and its cleanup), beside a real receipt from the same writer.
+        receipt = next(self.paths.receipts.iterdir()).name
+        leftover = self.paths.receipts / f'{receipt}.{os.urandom(16).hex()}.pending'
+        leftover.write_text('{"version": 1, "ro')
+        with mock.patch.object(own, 'WINDOWS', False), \
+                mock.patch.object(own, '_boot_id', lambda: BOOT_B):
+            own.verify_receipts(self.paths)
+            self.assertEqual(own.receipts_verdict(self.paths), (0, []))
+            with own.replacement_guard(self.paths):
+                pass
+            # Only that exact shape is skipped: anything else is still read, and refused.
+            leftover.unlink()
+            uid, hexpart, role = receipt.removesuffix('.json').split('-')
+            tail = os.urandom(16).hex()
+            for name in (f'{receipt}.{tail[:31]}.pending', f'{receipt}.{tail.upper()}.pending',
+                         f'{receipt}.{tail}.pending.old', f'{receipt}.pending',
+                         f'{uid}-{hexpart}-other.json.{tail}.pending',
+                         f'{hexpart}-{role}.json.{tail}.pending', 'stray.json'):
+                near = self.paths.receipts / name
+                near.write_text('{"version": 1, "ro')
+                with self.assertRaises(ValueError, msg=name):
+                    own.verify_receipts(self.paths)
+                near.unlink()
+            leftover.write_text('{"version": 1, "ro')
+        with mock.patch.object(own, 'WINDOWS', True), \
+                mock.patch.object(own, '_read', lambda path: json.loads(Path(path).read_text())), \
+                mock.patch.object(own, '_boot_id', lambda: BOOT_B), self.assertRaises(ValueError):
+            own.verify_receipts(self.paths)  # Windows skips only its own shape
 
     def test_earlier_unknown_fences_its_boot_not_the_next(self):
         with self.boot(BOOT_A):

@@ -61,6 +61,8 @@ PENDING_EXIT = 75
 # Windows' publish primitive writes ".<name>.<32 hex>.tmp" beside its target and renames it into
 # place; one that is still there is an interrupted write's leftover, never a published file.
 _PUBLISH_LEFTOVER = re.compile(r'\..+\.[0-9a-f]{32}\.tmp')
+# _write's own on Linux and the Mac: "<receipt>.<32 hex>.pending", for a receipt's exact name.
+_POSIX_PUBLISH_LEFTOVER = re.compile(r'[0-9]+-[0-9a-f]{32}-(?:app|core)\.json\.[0-9a-f]{32}\.pending')
 
 # The Mac start check's refusals. Each has its own exit, which the app words with the remedy.
 MAC_FILES_CHANGED = 80  # the app's files differ from its manifest: reinstall it
@@ -602,11 +604,13 @@ def acquire_lifetime(paths, role, app_cleanup, core_cleanup, *, provisional=Fals
 
 
 def _receipt_files(paths):
+    leftover = _PUBLISH_LEFTOVER if WINDOWS else _POSIX_PUBLISH_LEFTOVER
     for path in paths.receipts.iterdir():
-        if WINDOWS and _PUBLISH_LEFTOVER.fullmatch(path.name):
-            # Never renamed into place, so never a receipt: an interrupted begin admitted nothing
-            # (the app and core wait for it before any work), and an interrupted finish left the
-            # receipt it was replacing, which fences on its own. Read, it would fence forever.
+        if leftover.fullmatch(path.name):
+            # A write cut off by a kill or a power cut: never renamed into place, so never a
+            # receipt. An interrupted begin admitted nothing (the app and core wait for it before
+            # any work), and an interrupted finish left the receipt it was replacing, which fences
+            # on its own. Read, it would fence every later replacement until removed by hand.
             continue
         yield path
 
