@@ -521,51 +521,28 @@ def runner_of(command: str) -> str:
 
 
 @pytest.mark.parametrize("text", ["small", LARGE], ids=["plain", "compressed"])
-async def test_odins_patch_command_gets_bsd_chmod_and_the_hosts_rename(tmp_path, text):
+async def test_odins_patch_command_is_recognized_and_portable_as_written(tmp_path, text):
     command = await built("apply_patch", {"root": str(tmp_path), "patch_text": add_file(text)})
     assert ("python3 -c" in command) == (text is LARGE)
     assert macos_jobs.engine_command(command) == "apply_patch"
-    portable = macos_jobs.portable_command(command)
-    opening = macos_jobs._APPLY_PATCH
-    assert portable.startswith(opening.replace('chmod 600 -- "$runner"', 'chmod -- 600 "$runner"'))
-    assert "chmod 600 --" not in portable
-    runner = runner_of(portable)
-    assert "renameatx_np" in runner and "rename_noreplace=_rename)" in runner
-    assert runner_of(command) not in runner and "renameatx_np" not in runner_of(command)
-    compile(runner, "runner", "exec")  # still a valid program
-    after = '> "$runner" || exit 1; '  # the plan and the call are Odin's, unchanged
-    assert portable.split(after, 1)[1] == command.split(after, 1)[1]
+    assert command.startswith(macos_jobs._APPLY_PATCH)
+    assert 'chmod -- 600 "$runner" "$plan"' in command and "chmod 600 --" not in command
+    runner = runner_of(command)
+    assert "renameatx_np" in runner and "0x4" in runner  # Odin's own macOS rename, RENAME_EXCL
 
 
-async def test_odins_raw_read_command_gets_bsd_chmod_and_nothing_else():
-    path = "/tmp/a chmod 600 -- b"  # Odin's text inside a path is the path's: never rewritten
-    command = await built("read_file", {"path": path, "raw": True})
-    assert macos_jobs.engine_command(command) == "read_file"
-    portable = macos_jobs.portable_command(command)
-    opening = macos_jobs._READ_FILE_RAW
-    assert portable[:len(opening)] == opening.replace("chmod 600 --", "chmod -- 600")
-    assert portable[len(opening):] == command[len(opening):]
-    assert "'/tmp/a chmod 600 -- b'" in portable
-
-
-async def test_every_other_command_runs_exactly_as_written():
-    numbered = await built("read_file", {"path": "/etc/hosts"})  # numbered reads need nothing
+async def test_every_other_command_is_not_odins_patch():
+    numbered = await built("read_file", {"path": "/etc/hosts"})
+    raw = await built("read_file", {"path": "/tmp/a chmod 600 -- b", "raw": True})
+    assert 'chmod -- 600 "$metadata"' in raw  # Odin's raw read is portable as written
     not_a_runner = (macos_jobs._APPLY_PATCH
                     + 'printf %s aGVsbG8= | base64 -c > "$runner" || exit 1; true')
-    for command in (numbered, "echo hello", 'chmod 600 -- "$runner" "$plan"', not_a_runner,
-                    "x" + macos_jobs._READ_FILE_RAW):
+    for command in (numbered, raw, "echo hello", 'chmod -- 600 "$runner" "$plan"', not_a_runner,
+                    "x" + macos_jobs._APPLY_PATCH):
         assert macos_jobs.engine_command(command) is None
-        assert macos_jobs.portable_command(command) == command
 
 
-def test_a_runner_that_is_not_odins_keeps_its_payload():
-    tail = 'printf %s aGVsbG8= | base64 -d > "$runner" || exit 1; python3 "$runner" / < "$plan"'
-    command = macos_jobs._APPLY_PATCH + tail
-    assert macos_jobs.engine_command(command) == "apply_patch"
-    assert macos_jobs.portable_command(command).endswith(tail)  # it fails honestly as written
-
-
-async def test_exec_command_rewrites_odins_commands_and_only_patches_get_its_python(
+async def test_exec_command_runs_commands_as_written_and_only_patches_get_its_python(
         monkeypatch, tmp_path):
     from src.tools.executor import ToolExecutor
 
@@ -592,10 +569,8 @@ async def test_exec_command_rewrites_odins_commands_and_only_patches_get_its_pyt
     await macos_jobs.exec_command(fake, "127.0.0.1", script, use_workspace=True)
     await macos_jobs.exec_command(fake, "127.0.0.1", patch, use_command_shell=True)  # raw route
     await macos_jobs.exec_command(fake, "192.0.2.5", patch)
-    portable = macos_jobs.portable_command
-    assert seen == [("local", portable(patch), True), ("local", portable(read), False),
-                    ("local", script, False), ("local", patch, False),
-                    ("remote", portable(patch), None)]
+    assert seen == [("local", patch, True), ("local", read, False), ("local", script, False),
+                    ("local", patch, False), ("remote", patch, None)]
 
 
 def test_a_privacy_refusal_names_the_setting_once():

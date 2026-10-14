@@ -108,7 +108,7 @@ def test_a_new_profile_names_this_mac_macos_and_puts_the_workspace_beside_the_pr
 
     target = "src.desktop.platform.macos_desktop:"
     assert provisioning.fresh_config_document.darwin_target == target + "fresh_config_document"
-    assert HostEnrollmentManager.test.darwin_target == target + "host_test"
+    assert HostEnrollmentManager._test.darwin_target == target + "host_test"
     config = provisioning.ensure_profile(profile)
     assert config.tools.hosts["localhost"].os == "macos"
     workspace = profile.data_dir.parents[1] / ".odin-desktop-workspaces" / profile.profile_id
@@ -191,6 +191,12 @@ async def test_a_remote_check_is_odins_ssh_probe(tmp_path, monkeypatch):
     refused = await manager.test(candidate.token)
     assert refused.tested is False
     assert refused.test_result["detail"] == "deploy@example.invalid: Permission denied (publickey)."
+    assert refused.test_result["platform"] == ""  # the probe never ran
     late = await manager.test(candidate.token)
     assert late.test_result == {"ok": False, "checked_at": late.test_result["checked_at"],
-                                "detail": "connection test timed out"}
+                                "platform": "", "detail": "connection test timed out"}
+    # The candidate's own trust file goes when it is discarded (Odin 4.15, #658).
+    trust = list(tmp_path.glob("*.known_hosts"))
+    assert len(trust) == 1 and f"UserKnownHostsFile={trust[0]}" in ssh
+    manager.discard(candidate.token)
+    assert not trust[0].exists()

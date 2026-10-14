@@ -1421,7 +1421,8 @@
         "tests/test_strict_tool_adapter.py::test_external_nullable_omission_distinguishes_meaningful_null",
         "tests/test_strict_tool_adapter.py::test_external_unsupported_subschemas_never_break_catalog"
       ],
-      "reason": "Exact historical passed row selectors across all49mixed files. Failed rows accounted separately, actual endpoint tests excluded."
+      "reason": "Exact historical passed row selectors across all49mixed files. Failed rows accounted separately, actual endpoint tests excluded. Odin 4.15 (#655) superseded exactly two cases here (the raw read_file and apply_patch transports now write chmod -- 600); their 4.15 versions run in tests/test_desktop_portable_file_transports.py.",
+      "exclude_expression": "(TestReadFile and test_defaults_and_requested_range_reach_source_bounded_command) or (TestApplyPatchHandlerTransport and test_patch_payload_is_base64_transport_and_private)"
     },
     {
       "name": "desktop-boundary-tests",

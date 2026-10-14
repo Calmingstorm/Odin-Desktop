@@ -27,6 +27,9 @@ process of its own, where :class:`WindowsOs` stands in for the ``os`` module of
 * A look at a name is always fresh. One Windows refuses (not "absent") reports the name as
   taken by something unknown: the transaction's bookkeeping keeps an entry it just moved,
   and an identity check raises the refusal instead of matching.
+* Names are looked up without case, as on APFS: a move that only changes a name's case is
+  the source's own alias, which Odin's transaction accepts when exactly one entry holds the
+  source (a hard link under another spelling is still a collision).
 """
 from __future__ import annotations
 
@@ -327,6 +330,12 @@ class WindowsOs:
                         info.st_nlink, 0, 0, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
     fstat = staticmethod(os.fstat)
+
+    def listdir(self, fd) -> list[str]:
+        """The names in a held folder, spelled as they are stored: apply_patch reads them to
+        tell a case-only move (NTFS looks names up without case) from another entry. A held
+        folder can't be renamed or replaced, so its path names it throughout."""
+        return os.listdir(self.folder(fd))
 
     # --- Changing entries --------------------------------------------------------------------
 

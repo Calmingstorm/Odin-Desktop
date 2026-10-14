@@ -231,7 +231,7 @@ for (i = 1; i <= returned; i++) {
             'body=$(mktemp) || { rm -f -- "$metadata"; exit 1; }; '
             'encoded=$(mktemp) || { rm -f -- "$metadata" "$body"; exit 1; }; '
             'trap \'rm -f -- "$metadata" "$body" "$encoded"\' EXIT; '
-            'chmod 600 -- "$metadata" "$body" "$encoded" || exit 1; '
+            'chmod -- 600 "$metadata" "$body" "$encoded" || exit 1; '
             f"final_newline=$(tail -c 1 < {safe_path} 2>/dev/null | wc -l); "
             f"LC_ALL=C awk -v start={start_line} "
             f"-v start_label={shlex.quote(start_label)} "
@@ -442,10 +442,10 @@ def validate_host_details(alias: Any, body: Mapping[str, Any]) -> dict[str, Any]
     }
 
 
-# Lifted from the Linux original.
-async def host_test(self, token: str) -> HostCandidate:
+# Lifted from the Linux original (HostEnrollmentManager._test).
+async def host_test(self, candidate: HostCandidate) -> HostCandidate:
     from src.tools.hosts.control import _TEST_TIMEOUT, _is_host_key_mismatch, _run_argv, is_local_address, replace, sanitized_diagnostic, time  # noqa: E501, I001
-    candidate = self.get(token)
+    token = candidate.token
     if is_local_address(candidate.address):
         argv = None  # Windows: this computer is checked through its command runner
     else:
@@ -464,6 +464,13 @@ async def host_test(self, token: str) -> HostCandidate:
                 candidate.host_keys,
             )
         )
+        if not legacy:
+            if known_hosts in self._registry_trust_paths():
+                # It was already committed, even if that generation gets
+                # replaced during the SSH await below.
+                self._candidate_trust.pop(known_hosts, None)
+            else:
+                self._candidate_trust[known_hosts] = self._trust_identity(candidate)
         remote = (
             "printf 'odin-host-test '; "
             "case \"$(uname -s)\" in Linux) echo linux;; "
@@ -506,14 +513,20 @@ async def host_test(self, token: str) -> HostCandidate:
         code, output = await (local_host_test(_TEST_TIMEOUT) if argv is None
                               else _run_argv(argv, _TEST_TIMEOUT))
     except TimeoutError:
-        result = {"ok": False, "checked_at": time.time(), "detail": "connection test timed out"}
+        result = {
+            "ok": False, "checked_at": time.time(), "platform": "",
+            "detail": "connection test timed out",
+        }
     else:
         text = sanitized_diagnostic(output)
-        observed = text.rsplit(" ", 1)[-1].strip() if text else ""
-        ok = code == 0 and text.startswith("odin-host-test ") and observed == candidate.os
+        # Windows: this computer's check returns text, a remote one bytes.
+        probe_ran = output.startswith(
+            b"odin-host-test " if isinstance(output, bytes) else "odin-host-test ")
+        observed = text.rsplit(" ", 1)[-1].strip() if probe_ran else ""
+        ok = code == 0 and probe_ran and observed == candidate.os
         if ok:
             detail = "authentication and platform verified"
-        elif code == 0 and text.startswith("odin-host-test "):
+        elif code == 0 and probe_ran:
             detail = sanitized_diagnostic(
                 f"platform mismatch: observed {observed}; selected {candidate.os}"
             )
@@ -546,7 +559,9 @@ async def host_test(self, token: str) -> HostCandidate:
                 candidate.alias, result, host_key_mismatch=mismatch
             )
     candidate = replace(candidate, tested=bool(result["ok"]), test_result=result)
-    self._candidates[token] = candidate
+    # Discard/expiry may occur while SSH is running; do not resurrect it.
+    if token in self._candidates:
+        self._candidates[token] = candidate
     return candidate
 
 
@@ -857,7 +872,7 @@ async def handle_apply_patch(self, inp: dict) -> str | tuple[str, int]:
         "runner=$(mktemp) || exit 1; "
         'plan=$(mktemp) || { rm -f -- "$runner"; exit 1; }; '
         'trap \'rm -f -- "$runner" "$plan"\' EXIT; '
-        'chmod 600 -- "$runner" "$plan" || exit 1; '
+        'chmod -- 600 "$runner" "$plan" || exit 1; '
         f'printf %s {shlex.quote(runner_b64)} | base64 -d > "$runner" || exit 1; '
         f'printf %s {shlex.quote(plan_b64)} | base64 -d > "$plan" || exit 1; '
         f'python3 "$runner" {safe_root} < "$plan"'
@@ -873,7 +888,7 @@ async def handle_apply_patch(self, inp: dict) -> str | tuple[str, int]:
             "runner=$(mktemp) || exit 1; "
             'plan=$(mktemp) || { rm -f -- "$runner"; exit 1; }; '
             'trap \'rm -f -- "$runner" "$plan"\' EXIT; '
-            'chmod 600 -- "$runner" "$plan" || exit 1; '
+            'chmod -- 600 "$runner" "$plan" || exit 1; '
             f'printf %s {shlex.quote(runner_z)} | python3 -c {decoder} > "$runner" || exit 1; '
             f'printf %s {shlex.quote(plan_z)} | python3 -c {decoder} > "$plan" || exit 1; '
             f'python3 "$runner" {safe_root} < "$plan"'

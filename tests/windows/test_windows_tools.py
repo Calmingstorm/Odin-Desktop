@@ -143,12 +143,14 @@ def test_host_details_keep_odins_checks(alias, body, refusal):
         tools.validate_host_details(alias, body)
 
 
-@pytest.mark.parametrize("reply, ok, detail", [
-    ((0, b"odin-host-test linux\n"), True, "authentication and platform verified"),
-    ((255, b""), False, "ssh exit 255"),
-    (TimeoutError(), False, "connection test timed out"),
+@pytest.mark.parametrize("reply, ok, detail, platform", [
+    ((0, b"odin-host-test linux\n"), True, "authentication and platform verified", "linux"),
+    ((255, b""), False, "ssh exit 255", ""),
+    ((0, b"linux\n"), False, "linux", ""),  # no probe output: no platform observed
+    (TimeoutError(), False, "connection test timed out", ""),
 ])
-async def test_a_remote_host_is_checked_over_ssh(monkeypatch, tmp_path, reply, ok, detail):
+async def test_a_remote_host_is_checked_over_ssh(monkeypatch, tmp_path, reply, ok, detail,
+                                                 platform):
     import src.tools.hosts.control as control
     from src.config.schema import ToolHost
     from src.tools.hosts import HostEnrollmentManager, HostRegistry
@@ -168,9 +170,49 @@ async def test_a_remote_host_is_checked_over_ssh(monkeypatch, tmp_path, reply, o
         return reply
 
     monkeypatch.setattr(control, "_run_argv", run_argv)
-    tested = await tools.host_test(manager, candidate.token)
+    tested = await manager.test(candidate.token)
     assert (tested.tested, tested.test_result["detail"]) == (ok, detail)
+    assert tested.test_result["platform"] == platform
     assert sent[0][0] == "ssh" and sent[0][-2] == "deploy@example.invalid"
+
+
+async def test_a_discarded_candidate_takes_its_own_trust_file_and_nothing_else(monkeypatch,
+                                                                               tmp_path):
+    import base64
+
+    import src.tools.hosts.control as control
+    from src.config.schema import ToolHost
+    from src.tools.hosts import HostEnrollmentManager, HostRegistry
+    from src.tools.hosts.trust import fingerprint_public_key
+
+    key = "ssh-ed25519 " + base64.b64encode(b"windows-remote").decode("ascii")
+    active_key = "ssh-ed25519 " + base64.b64encode(b"windows-active").decode("ascii")
+    active = ToolHost(address="192.0.2.8", ssh_user="deploy", os="linux", trust_mode="pinned",
+                      host_keys=[active_key])
+    registry = HostRegistry({"active": active}, trust_dir=tmp_path)
+    committed = set(tmp_path.glob("*.known_hosts"))
+    manager = HostEnrollmentManager(registry)
+    sent = []
+
+    async def run_argv(argv, timeout, **kwargs):
+        sent.append(argv)
+        return 0, b"odin-host-test linux\n"
+
+    async def scan(address, port):
+        return (key,)
+
+    monkeypatch.setattr(control, "_run_argv", run_argv)
+    monkeypatch.setattr(manager, "scan", scan)
+    candidate = await manager.prepare(
+        "build", {"address": "example.invalid", "ssh_user": "deploy", "os": "linux",
+                  "trust_mode": "pinned", "expected_fingerprints": [fingerprint_public_key(key)]},
+        allow_tofu=False)
+    assert (await manager.test(candidate.token)).tested is True
+    own = set(tmp_path.glob("*.known_hosts")) - committed
+    assert len(committed) == 1 and len(own) == 1
+    assert any(arg.startswith("UserKnownHostsFile=") for arg in sent[-1])
+    manager.discard(candidate.token)
+    assert set(tmp_path.glob("*.known_hosts")) == committed  # the active host's trust stays
 
 
 # --- run_script --------------------------------------------------------------------------------

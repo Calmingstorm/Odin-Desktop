@@ -11,25 +11,22 @@ The worker's cleanup is best effort (session observation, see its notes). The re
 labels its local jobs' scope ``session_best_effort``: Work reports a converged stop as best effort,
 and the tool text and poll metadata carry the caveat, as Odin does for a remote process group.
 
-Two commands Odin builds for itself, read_file's raw transport and apply_patch, are written for GNU
-hosts. They are recognized by their exact opening text (any host) and made portable before they
-run: their ``chmod 600 -- FILES`` becomes ``chmod -- 600 FILES`` (BSD chmod reads ``--`` after the
-mode as a file; both mean the same on GNU), and apply_patch's host runner is given a rename that is
-renameatx_np(RENAME_EXCL) on a macOS host and Linux's own renameat2 elsewhere. Only that opening is
-rewritten, never text after it (paths, scripts); every other command runs exactly as written, and
-a raw command route (run_command) is never rewritten.
+Every command runs exactly as written. Odin's own file transports are portable since Odin 4.15
+(``chmod -- 600 FILES``, and apply_patch's runner renames with renameatx_np(RENAME_EXCL) on a macOS
+host), so nothing is rewritten. Odin's apply_patch command is recognized by its exact opening text
+only so that a local patch runs its runner with the engine's own python3 (a Mac's
+/usr/bin/python3 may be the developer-tools installer); a raw command route (run_command) is never
+recognized, whatever its text.
 """
 # ruff: noqa: E501
 from __future__ import annotations
 
 import asyncio
-import base64
 import json
 import re
 import shlex
 import socket
 import sys
-import zlib
 from pathlib import Path
 
 from src.tools import local_supervisor as _ls
@@ -40,88 +37,25 @@ CAVEAT = "detached or raced descendants are unverified"
 _CAVEAT_TEXT = f" containment={SCOPE}; {CAVEAT}."
 _META_RESERVE = 160  # room for the two metadata fields within the page budget
 
-# The host runner's rename: renameatx_np(RENAME_EXCL) on a macOS host, Linux's own elsewhere.
-RENAME_ON_THE_HOST = (
-    "_rename = _rename_noreplace\n"
-    "if _sys.platform == 'darwin':\n"
-    "    def _rename(source, destination, *, src_dir_fd, dst_dir_fd):\n"
-    "        import ctypes, errno\n"
-    "        _libc = ctypes.CDLL('/usr/lib/libSystem.B.dylib', use_errno=True)\n"
-    "        _call = _libc.renameatx_np\n"
-    "        _call.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p,\n"
-    "                          ctypes.c_uint]\n"
-    "        _call.restype = ctypes.c_int\n"
-    "        if _call(src_dir_fd, os.fsencode(source), dst_dir_fd, os.fsencode(destination),\n"
-    "                 0x4) != 0:  # RENAME_EXCL\n"
-    "            code = ctypes.get_errno()\n"
-    "            if code in {errno.ENOSYS, errno.EINVAL, errno.ENOTSUP}:\n"
-    "                raise PatchError('target filesystem lacks the atomic no-replace rename '\n"
-    "                                 'required by apply_patch')\n"
-    "            raise OSError(code, os.strerror(code), destination)\n"
-)
-# The opening text of Odin's own commands (src/tools/handlers/files_docs.py), exactly.
-_READ_FILE_RAW = (
-    "metadata=$(mktemp) || exit 1; "
-    'body=$(mktemp) || { rm -f -- "$metadata"; exit 1; }; '
-    'encoded=$(mktemp) || { rm -f -- "$metadata" "$body"; exit 1; }; '
-    'trap \'rm -f -- "$metadata" "$body" "$encoded"\' EXIT; '
-    'chmod 600 -- "$metadata" "$body" "$encoded" || exit 1; ')
+# The opening text of Odin's apply_patch command (src/tools/handlers/files_docs.py), exactly.
 _APPLY_PATCH = (
     "runner=$(mktemp) || exit 1; "
     'plan=$(mktemp) || { rm -f -- "$runner"; exit 1; }; '
     'trap \'rm -f -- "$runner" "$plan"\' EXIT; '
-    'chmod 600 -- "$runner" "$plan" || exit 1; ')
+    'chmod -- 600 "$runner" "$plan" || exit 1; ')
 _DECODER = shlex.quote(
     "import base64,sys,zlib; "
     "sys.stdout.buffer.write(zlib.decompress(base64.b64decode(sys.stdin.buffer.read())))")
 # apply_patch's next step, right after its opening: the runner, plain or compressed.
 _RUNNER = re.compile(r'printf %s ([A-Za-z0-9+/=]+) \| (base64 -d|'
                      + re.escape(f"python3 -c {_DECODER}") + r') > "\$runner" \|\| exit 1; ')
-_WRAPPER = "\nimport json\nimport sys as _sys\n"
-_APPLY_CALL = "    _changed = apply_plan(_sys.argv[1], _plan)\n"
-_APPLY_WITH_RENAME = "    _changed = apply_plan(_sys.argv[1], _plan, rename_noreplace=_rename)\n"
-
-
-def _with_rename(payload: str, *, compressed: bool) -> str:
-    """apply_patch's runner payload, given the host's rename; unchanged if it isn't Odin's."""
-    try:
-        raw = base64.b64decode(payload, validate=True)
-        text = (zlib.decompress(raw) if compressed else raw).decode("utf-8")
-    except (ValueError, zlib.error):
-        return payload
-    anchor = text.rfind(_WRAPPER)
-    tail = text[anchor + len(_WRAPPER):] if anchor >= 0 else ""
-    if anchor < 0 or tail.count(_APPLY_CALL) != 1:
-        return payload
-    patched = (text[:anchor + len(_WRAPPER)] + RENAME_ON_THE_HOST
-               + tail.replace(_APPLY_CALL, _APPLY_WITH_RENAME, 1)).encode("utf-8")
-    return base64.b64encode(zlib.compress(patched) if compressed else patched).decode("ascii")
 
 
 def engine_command(command: str) -> str | None:
-    """Which of Odin's own GNU-written commands this is, by its exact opening; else None."""
-    if command.startswith(_READ_FILE_RAW):
-        return "read_file"
+    """``"apply_patch"`` for Odin's own apply_patch command, by its exact opening; else None."""
     if command.startswith(_APPLY_PATCH) and _RUNNER.match(command, len(_APPLY_PATCH)):
         return "apply_patch"
     return None
-
-
-def _bsd_order(opening: str) -> str:
-    return opening.replace("chmod 600 -- ", "chmod -- 600 ", 1)
-
-
-def portable_command(command: str) -> str:
-    """One of Odin's own commands, written to run on GNU and BSD hosts alike (see the notes)."""
-    kind = engine_command(command)
-    if kind == "read_file":
-        return _bsd_order(_READ_FILE_RAW) + command[len(_READ_FILE_RAW):]
-    if kind == "apply_patch":
-        match = _RUNNER.match(command, len(_APPLY_PATCH))
-        payload = _with_rename(match.group(1), compressed=match.group(2) != "base64 -d")
-        return (_bsd_order(_APPLY_PATCH) + command[len(_APPLY_PATCH):match.start(1)] + payload
-                + command[match.end(1):])
-    return command
 
 
 PRIVACY_HINT = (
@@ -395,11 +329,9 @@ async def exec_command(
         is_local_address,
     )
 
-    # Odin's own GNU-written commands, made portable for whichever host runs them. A raw
-    # command route (run_command) is never rewritten, whatever its text.
+    # Which of Odin's own commands this is: a local apply_patch runs its runner with the
+    # engine's python3. A raw command route (run_command) is never one, whatever its text.
     kind = None if use_command_shell else engine_command(command)
-    if kind is not None:
-        command = portable_command(command)
     if not is_local_address(address):
         return await ToolExecutor._exec_command.linux_original(
             self, address, command, ssh_user, timeout, on_output, use_workspace, target,

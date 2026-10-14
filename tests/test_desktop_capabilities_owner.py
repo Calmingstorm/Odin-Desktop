@@ -1,5 +1,6 @@
 """Desktop authority adaptation; no host/process/graphical effects."""
 import ast
+import hashlib
 import os
 from dataclasses import replace
 from pathlib import Path
@@ -168,23 +169,15 @@ async def test_native_browser_requires_explicit_bundled_binary():
     assert manager._playwright is None
 
 
+# Desktop 1.1 carries Odin 4.14's governor fix (#638): the classifier is Odin v4.14.0's file byte
+# for byte (sha256 of `git show v4.14.0:src/tools/risk_classifier.py` in Odin's repository).
+ODIN_V4_14_0_GOVERNOR_SHA256 = "6d38578f2bde09a3715e2c9d78e420aeacb11e3ecd88ff2818d73eaef8830249"
+
+
 def test_common_classifier_functions_remain_byte_identical():
     root = Path(__file__).resolve().parents[1]
-    from scripts.maintenance.inventory import baseline_blobs
-
-    baseline = baseline_blobs(root)["src/tools/risk_classifier.py"].decode()
-    current = (root / "src/tools/risk_classifier.py").read_text()
-    def functions(source):
-        lines = source.splitlines(keepends=True)
-        return {node.name: "".join(lines[node.lineno-1:node.end_lineno])
-                for node in ast.parse(source).body if isinstance(node, ast.FunctionDef)}
-    assert functions(current) == functions(baseline)
-    def governor(source):
-        lines = source.splitlines(keepends=True)
-        node = next(node for node in ast.parse(source).body
-                    if isinstance(node, ast.ClassDef) and node.name == "CommandGovernor")
-        return "".join(lines[node.lineno-1:node.end_lineno])
-    assert governor(current) == governor(baseline)
+    current = (root / "src/tools/risk_classifier.py").read_bytes()
+    assert hashlib.sha256(current).hexdigest() == ODIN_V4_14_0_GOVERNOR_SHA256
 
 
 def test_common_safety_primitives_byte_identical():
@@ -196,6 +189,17 @@ def test_common_safety_primitives_byte_identical():
                  "local_supervisor.py", "local_supervisor_worker.py", "execution_outcome.py",
                  "workspace.py", "ssh.py", "ssh_pool.py", "process_manager.py"):
         baseline = blobs[f"src/tools/{name}"]
+        if name in ("ssh.py", "ssh_pool.py"):
+            # Odin 4.15 (#655), carried byte for byte: trust paths pass through
+            # known_hosts_option, so OpenSSH's own tokenizer keeps them one file.
+            anchor = (b"from .result_capture import capture_active\n" if name == "ssh.py"
+                      else b"from ..odin_log import get_logger\n")
+            option = b'f"UserKnownHostsFile={known_hosts_path}",\n'
+            assert baseline.count(anchor) == 1
+            assert baseline.count(option) == (2 if name == "ssh.py" else 1)
+            baseline = baseline.replace(
+                anchor, anchor + b"from .ssh_options import known_hosts_option\n", 1)
+            baseline = baseline.replace(option, b"known_hosts_option(known_hosts_path),\n")
         if name == "ssh_pool.py":
             # PR #14 requires no-follow, foreign-owner guards without a D17
             # permission-mode gate. Fence the exact provisioning adaptation;

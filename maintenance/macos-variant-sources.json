@@ -18,6 +18,5 @@
   "src/tools/executor.py:_ensure_process_registry -> src.desktop.platform.macos_jobs:ensure_process_registry": "6ef30bb5c1d3351abe23f9cdb1b73d15ddcfa549d8ec46d98564d4f5a80e132d",
   "src/tools/executor.py:_exec_command -> src.desktop.platform.macos_jobs:exec_command": "a7e1260e5e4f30bef8719d0fc04437eaadaf5063a381296b52cbcf5bfdca7fc4",
   "src/tools/executor.py:_govern_command -> src.desktop.platform.macos_safety:govern_command": "11d43248aa6e5172019f872db9b9acdd90de50a155708188d887d96cf8f1155c",
-  "src/tools/hosts/control.py:test -> src.desktop.platform.macos_desktop:host_test": "09a1460368b45922db5350f67e0bffac2b9d9ce9ab63cfa906a0d53765fd0446",
-  "src/tools/post_validation.py:_build_command -> src.desktop.platform.macos_validate:build_command": "84979ebd3d179874bf2e982428b14ef5fa25cdf70ff0c7031eaad98bcedb6304"
+  "src/tools/hosts/control.py:_test -> src.desktop.platform.macos_desktop:host_test": "a94f7335ac60b14f02b7834b5fccc6a04816bd9a24ea0a22e92bf5fb639b8ac2"
 }

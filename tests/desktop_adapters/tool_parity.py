@@ -36,12 +36,14 @@ REPINNED_TOOL_HASHES = {
     "get_tool_output": "6455b67d729056d9",  # C: get_tool_output row
     "read_conversation": "8b9fa51606740965",  # C: read_channel rename + interface
     "manage_list": "2142fd3e97fa29c0",  # Odin 4.14 #641: delete removes a list; clear only empties it
+    "apply_patch": "ef2d5df0f3e3b668",  # Odin 4.15 #655/#657: Linux/macOS no-replace, case-only moves
+    "validate_action": "30730425312ab5f3",  # Odin 4.15 #655: launchd targets and states
 }
 assert set(REPINNED_TOOL_HASHES) == {
     "post_file", "generate_file", "schedule_task", "update_schedule", "search_history",
     "delegate_task", "browser_screenshot", "spawn_agent", "generate_image",
-    "get_tool_output", "read_conversation", "manage_list",
-}, "Only the reviewed twelve definitions may be re-pinned"
+    "get_tool_output", "read_conversation", "manage_list", "apply_patch", "validate_action",
+}, "Only the reviewed fourteen definitions may be re-pinned"
 DESKTOP_TOOL_HASHES = {
     RENAMED.get(n, n): h for n, h in EXPECTED_TOOL_HASHES.items() if n not in REMOVED
 }

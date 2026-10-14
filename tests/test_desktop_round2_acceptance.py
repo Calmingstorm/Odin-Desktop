@@ -130,6 +130,15 @@ def test_every_changed_catalog_name_description_and_schema_is_exact_c1_c3():
                         old, old + " 'clear' empties a list; 'delete' removes it.", 1)
                     actions = tool["input_schema"]["properties"]["action"]["enum"]
                     actions.insert(actions.index("clear") + 1, "delete")
+                if name == "validate_action":  # Odin 4.15 (#655), carried: launchd targets
+                    old = ("  service         target=systemd unit name, "
+                           "expected='active' or list of states\n")
+                    assert tool["description"].count(old) == 1
+                    tool["description"] = tool["description"].replace(old, (
+                        "  service         target=systemd unit name on Linux; on macOS use a "
+                        "launchd label (defaults to system/label), system/label, or "
+                        "gui/UID/label. expected='active' or list of states; 'active' maps to "
+                        "'running' on macOS\n"), 1)
                 if name == "read_channel":
                     tool["name"] = "read_conversation"
                     tool["description"] = (

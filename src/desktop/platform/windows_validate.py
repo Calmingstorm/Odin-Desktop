@@ -45,15 +45,16 @@ def local_alias(executor) -> Callable[[str], bool]:
     return local
 
 
-def build_command(check) -> str | None:
-    """``_build_command`` on Windows: this computer's probes, Odin's for other hosts."""
+def build_command(check, host_os: str = "linux") -> str | None:
+    """``_build_command`` on Windows: this computer's probes, Odin's for other hosts (by the
+    platform each declares)."""
     from ...tools.post_validation import _build_command
 
     hosts = VALIDATION_HOSTS.get()
     if (hosts is not None and check.type != "command"
             and hosts[0](check.host or hosts[1] or "localhost")):
         return windows_probe(check)
-    return _build_command.linux_original(check)
+    return _build_command.linux_original(check, host_os)
 
 
 def windows_probe(check) -> str | None:

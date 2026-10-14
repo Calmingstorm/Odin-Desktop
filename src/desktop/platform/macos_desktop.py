@@ -100,11 +100,12 @@ def fresh_config_document(paths) -> dict:
     return document
 
 
-# Lifted from Odin's HostEnrollmentManager.test (src/tools/hosts/control.py), with this Mac as
-# the local host: a local candidate's check reports macos (Odin's names its own system, Linux).
-async def host_test(self, token: str):
-    from src.tools.hosts.control import _TEST_TIMEOUT, _is_host_key_mismatch, _run_argv, is_local_address, replace, sanitized_diagnostic, time  # noqa: E501, I001
-    candidate = self.get(token)
+# Lifted from Odin's HostEnrollmentManager._test (src/tools/hosts/control.py), with this Mac
+# as the local host: a local candidate's check reports macos (Odin's names its own system,
+# Linux).
+async def host_test(self, candidate):
+    from src.tools.hosts.control import _TEST_TIMEOUT, _is_host_key_mismatch, _run_argv, is_local_address, known_hosts_option, replace, sanitized_diagnostic, time  # noqa: E501, I001
+    token = candidate.token
     if is_local_address(candidate.address):
         argv = ["sh", "-c", "printf 'odin-host-test macos\\n'"]
     else:
@@ -123,6 +124,13 @@ async def host_test(self, token: str):
                 candidate.host_keys,
             )
         )
+        if not legacy:
+            if known_hosts in self._registry_trust_paths():
+                # It was already committed, even if that generation gets
+                # replaced during the SSH await below.
+                self._candidate_trust.pop(known_hosts, None)
+            else:
+                self._candidate_trust[known_hosts] = self._trust_identity(candidate)
         remote = (
             "printf 'odin-host-test '; "
             "case \"$(uname -s)\" in Linux) echo linux;; "
@@ -133,7 +141,7 @@ async def host_test(self, token: str):
             "-i",
             self.registry.effective_key_path,
             "-o",
-            f"UserKnownHostsFile={known_hosts}",
+            known_hosts_option(known_hosts),
             "-o",
             "StrictHostKeyChecking=yes",
             "-o",
@@ -164,14 +172,18 @@ async def host_test(self, token: str):
     try:
         code, output = await _run_argv(argv, _TEST_TIMEOUT)
     except TimeoutError:
-        result = {"ok": False, "checked_at": time.time(), "detail": "connection test timed out"}
+        result = {
+            "ok": False, "checked_at": time.time(), "platform": "",
+            "detail": "connection test timed out",
+        }
     else:
         text = sanitized_diagnostic(output)
-        observed = text.rsplit(" ", 1)[-1].strip() if text else ""
-        ok = code == 0 and text.startswith("odin-host-test ") and observed == candidate.os
+        probe_ran = output.startswith(b"odin-host-test ")
+        observed = text.rsplit(" ", 1)[-1].strip() if probe_ran else ""
+        ok = code == 0 and probe_ran and observed == candidate.os
         if ok:
             detail = "authentication and platform verified"
-        elif code == 0 and text.startswith("odin-host-test "):
+        elif code == 0 and probe_ran:
             detail = sanitized_diagnostic(
                 f"platform mismatch: observed {observed}; selected {candidate.os}"
             )
@@ -204,5 +216,7 @@ async def host_test(self, token: str):
                 candidate.alias, result, host_key_mismatch=mismatch
             )
     candidate = replace(candidate, tested=bool(result["ok"]), test_result=result)
-    self._candidates[token] = candidate
+    # Discard/expiry may occur while SSH is running; do not resurrect it.
+    if token in self._candidates:
+        self._candidates[token] = candidate
     return candidate

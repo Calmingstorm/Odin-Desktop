@@ -8,7 +8,7 @@
       "declaration_path": "tests/desktop_adapters/tools_cases.py",
       "full_class_name": false,
       "adapter_sha256": "28c8ef6b77b250750297bc920ce100cb0804b69831d4600d1f2553202417dfa8",
-      "declaration_sha256": "6c3ba2b5dbf6b14781d5305da6a5c035bcae62a18dbb09f1b041b03dfe7949e7",
+      "declaration_sha256": "34ae24cf10411a61fb9bcca4bda4271891605de0c0a058907a902212c1c3f6bf",
       "case_count": 203,
       "mapping_sha256": "344ecf42f89bcb52327e5aef9029e093855f07123689c72610df74f408df6685"
     },
@@ -53,6 +53,15 @@
           "line": 14,
           "before_sha256": "48f7980224a8d0229e2354231c784e02b2c76847eb26eedfe01be6db2c9594dc",
           "operation": "fixture_import"
+        },
+        {
+          "symbol": "master_command",
+          "line": 51,
+          "before_sha256": "bd656d80bc9b2d2634bad0bbbf9ab4b4bf83dc56333de4906be126cde134ed70",
+          "operation": "odin_4_15_setup",
+          "kind": "statement",
+          "after_source": "return f'''runner=$(mktemp) || exit 1; plan=$(mktemp) || {{ rm -f -- \"$runner\"; exit 1; }}; trap 'rm -f -- \"$runner\" \"$plan\"' EXIT; chmod -- 600 \"$runner\" \"$plan\" || exit 1; printf %s {shlex.quote(runner_b64)} | base64 -d > \"$runner\" || exit 1; printf %s {shlex.quote(plan_b64)} | base64 -d > \"$plan\" || exit 1; python3 \"$runner\" {shlex.quote(root)} < \"$plan\"'''",
+          "after_sha256": "c0b75014ed6acd1e59452a8644ada3f0d0810bda9e43785d238ea0f7e7c1ba30"
         }
       ]
     },

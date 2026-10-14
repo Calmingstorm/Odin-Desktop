@@ -3057,7 +3057,6 @@
     "src/desktop/platform/macos_shell.py",
     "src/desktop/platform/macos_storage.py",
     "src/desktop/platform/macos_supervisor_worker.py",
-    "src/desktop/platform/macos_validate.py",
     "src/desktop/platform/variants.py",
     "src/desktop/platform/win32.py",
     "src/desktop/platform/windows.py",
@@ -3305,17 +3304,12 @@
         "covered": 349,
         "missing": 50,
         "total": 399
-      },
-      "src/desktop/platform/macos_validate.py": {
-        "covered": 21,
-        "missing": 2,
-        "total": 23
       }
     },
     "total": {
-      "covered": 1520,
-      "missing": 134,
-      "total": 1654
+      "covered": 1499,
+      "missing": 132,
+      "total": 1631
     }
   }
 }
