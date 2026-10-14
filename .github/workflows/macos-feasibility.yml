@@ -1,13 +1,8 @@
 name: macOS feasibility
 
-# Phase 1 evidence for the macOS port, on the macos/port branch only. No secrets here: signing and the notarization
-# probe run on a real Mac. The Linux and Windows workflows are unchanged.
+# The macOS port's phase 1 evidence (scripts/macos-feasibility), rerun by hand only. No secrets here: signing and
+# the notarization probe ran on a real Mac. The Linux and Windows workflows are unchanged.
 on:
-  push:
-    branches: [macos/port]
-    paths:
-      - "scripts/macos-feasibility/**"
-      - ".github/workflows/macos-feasibility.yml"
   workflow_dispatch:
 
 permissions:

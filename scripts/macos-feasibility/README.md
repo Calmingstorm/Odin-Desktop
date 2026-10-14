@@ -1,8 +1,9 @@
 # macOS feasibility (phase 1)
 
-Evidence harnesses for the macOS port, on the `macos/port` branch. They answer two questions before any port code
-is written. Nothing here ships: phase 2 re-implements what they prove under `src/`, with the full test, coverage and
-ledger gates. The Linux and Windows builds do not use these files.
+Evidence harnesses from the macOS port's first phase, kept as the evidence behind its cleanup contract and its
+signing exception. They answered two questions before any port code was written. Nothing here ships: the port
+re-implements what they prove under `src/` and `app/packaging/`, with the full test, coverage and ledger gates. The
+Linux, Windows and Mac builds do not use these files. `.github/workflows/macos-feasibility.yml` reruns them by hand.
 
 ## Question 1: background-job cleanup
 Can a supervisor that starts each job in its own session stop it and say truthfully what is left?
