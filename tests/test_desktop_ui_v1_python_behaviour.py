@@ -30,10 +30,8 @@ wheel_fixture = pdf_fixtures.wheel_fixture
 
 @pytest.mark.parametrize("value", [True, False, 29, 101])
 def test_context_utilization_validator_rejects_boolean_and_out_of_bounds(value):
-    # Pydantic's ge/le constraint runs before the custom validator. Exercise
-    # both contracts so callers of the validator cannot bypass its own bounds.
-    with pytest.raises(ValueError, match="integer percent between 30 and 100"):
-        OpenAICodexConfig._validate_context_utilization(value)
+    # Odin 4.14 (#640) declares these bounds in the schema as a strict integer from 30 to 100;
+    # its separate validator is gone. A save still refuses booleans and out-of-range values.
     with pytest.raises(ValidationError):
         OpenAICodexConfig(context_utilization=value)
     assert OpenAICodexConfig(context_utilization=30).context_utilization == 30

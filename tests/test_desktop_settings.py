@@ -491,6 +491,25 @@ async def test_numeric_save_outside_its_bounds_is_refused_without_a_write(servic
 
 
 @pytest.mark.asyncio
+async def test_codex_timeouts_parse_like_odins_api_before_the_strict_save(service):
+    """Odin's API parses the two Codex timeouts with pydantic's lax integer rule before its
+    strict save (Odin 4.14, #640): "600.0" and "90" save as integers; a boolean or a word is
+    refused before anything is written."""
+    service.owners["providers.codex.set"] = lambda *args: True
+    await save(service, "providers.codex.set", [
+        {"path": "openai_codex.request_timeout_seconds", "value": "600.0"},
+        {"path": "openai_codex.stream_stall_timeout_seconds", "value": "90"}])
+    assert service.config.openai_codex.request_timeout_seconds == 600
+    assert service.config.openai_codex.stream_stall_timeout_seconds == 90
+    before = service.paths.config_file.read_bytes()
+    for value in (True, "soon"):
+        with pytest.raises(MethodError, match="request_timeout_seconds: must be an integer"):
+            await save(service, "providers.codex.set", [
+                {"path": "openai_codex.request_timeout_seconds", "value": value}])
+    assert service.paths.config_file.read_bytes() == before
+
+
+@pytest.mark.asyncio
 async def test_a_legacy_out_of_range_value_loads_reloads_and_can_be_corrected(tmp_path, caplog):
     """Odin 4.14 (#640): a profile saved before the bounds keeps loading and reloading with
     its value and a warning, without a rewrite. A save names the value to correct, as Odin's
