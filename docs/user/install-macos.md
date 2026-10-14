@@ -73,11 +73,13 @@ hosts are unaffected: Odin still sends Linux commands to Linux machines.
 | Settings, chats and records | `~/Library/odin-desktop/default`, readable only by your account |
 | Odin's working folder for tools | `~/Library/odin-desktop/.odin-desktop-workspaces/default` |
 | Caches and attachments | `~/Library/Caches/odin-desktop/default` |
-| Keys and credentials | Your login Keychain, as items named `odin-desktop:default:…` |
+| Provider and API credentials (your ChatGPT sign-in, API keys, MCP server secrets) | Your login Keychain |
+| Odin's SSH key for your hosts | `~/Library/odin-desktop/default/data/secrets/id_ed25519`, a file readable only by your account, as on Linux |
 | The window's own state | `~/Library/Application Support/odin-desktop` |
 
-There is no plain-text fallback for keys: if the login Keychain is locked or refuses, Odin says so and offers to
-try again.
+In Keychain Access, Odin's credentials are the items whose name reads `Password for '<setting>' on
+'odin-desktop:default:…'`; searching for `odin-desktop` finds them. Credentials have no plain-text fallback: if the
+login Keychain is locked or refuses, Odin says so and offers to try again.
 
 ## Update
 
@@ -98,7 +100,8 @@ Settings → General → **Check for updates** offers a Mac update only when the
 
 Turn off **Start Odin when you log in** first, then quit Odin and drag it from Applications to the Trash. This keeps
 your profile. To remove it as well, delete `~/Library/odin-desktop`, `~/Library/Caches/odin-desktop` and
-`~/Library/Application Support/odin-desktop`, and remove the `odin-desktop:` items in Keychain Access.
+`~/Library/Application Support/odin-desktop`, and in Keychain Access delete the items a search for `odin-desktop`
+finds.
 
 ## Known limits
 

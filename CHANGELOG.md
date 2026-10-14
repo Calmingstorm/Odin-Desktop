@@ -15,8 +15,8 @@ on macOS 26 or later. The Linux packages and the Windows installer are rebuilt a
   as a best effort and say so: a program that detaches into a session of its own can outlive them.
 - **Your tools:** commands run in bash, with Homebrew's folders and those in `/etc/paths` and `/etc/paths.d` on
   the PATH. Shell startup files such as `~/.zshrc` aren't run.
-- **Your profile** lives in `~/Library/odin-desktop/default`, private to your account, and your keys in your login
-  Keychain. Dragging Odin to the Trash keeps both.
+- **Your profile** lives in `~/Library/odin-desktop/default`, private to your account, and your provider and API
+  credentials in your login Keychain. Dragging Odin to the Trash keeps both.
 - **Quit and start at login:** closing the window keeps Odin running in the menu bar, and **⌘Q** quits. **Start
   Odin when you log in** is in Settings → General.
 - **Updates:** quit Odin, then drag the new version over the old one. If Odin ended without confirmed cleanup since

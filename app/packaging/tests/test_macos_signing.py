@@ -255,14 +255,18 @@ class CandidateTests(unittest.TestCase):
             "app_notarization": {"notarization": app},
             "disk_image_notarization": {"notarization": dmg},
         }
-        # Each check as a passed acceptance records it.
+        # Each check as a passed acceptance records it (tests/macos/test_packaged_app.py).
         evidence = {
-            "engine under the guardian": {"guardian": [41], "engine": [42]},
-            "a command, with the Mac's PATH": ["/opt/homebrew/bin", "/usr/bin"],
-            "a background job stopped from Work": {"resource_release": "best_effort"},
-            "the bundled browser read a page": {"browser": [43]},
+            "engine under the guardian": {"guardian": [41], "engine": [40, 41, 42]},
+            "a command, with the Mac's PATH": ["/opt/homebrew/bin", "/opt/homebrew/sbin",
+                                               "/usr/bin", "/bin"],
+            "a background job stopped from Work": {"resource_release": "best_effort",
+                                                   "scope": "session_best_effort",
+                                                   "state": "settled"},
+            "the bundled browser read a page": {"browser": [43, 44]},
             "the app exited": 0,
-            "what the session changed in the app": {"added": [], "removed": [], "changed": []},
+            "what the session changed in the app": {"changed": {}, "changed_count": 0,
+                                                    "added": [], "removed": []},
             "the start check passed, and nothing wrote into the app": "c" * 64,
         }
         self.report = {
@@ -316,6 +320,21 @@ class CandidateTests(unittest.TestCase):
                 {"what the session changed in the app": {"added": ["x.pyc"]}}),
             "no evidence": lambda: self.report["checks"].update(
                 {"engine under the guardian": {}}),
+            # Containers that aren't empty, but don't hold what the acceptance records.
+            "no guardian or engine processes": lambda: self.report["checks"].update(
+                {"engine under the guardian": {"guardian": [], "engine": []}}),
+            "no browser processes": lambda: self.report["checks"].update(
+                {"the bundled browser read a page": {"browser": []}}),
+            "no PATH": lambda: self.report["checks"].update(
+                {"a command, with the Mac's PATH": {"not-path": False}}),
+            "a failed stop": lambda: self.report["checks"].update(
+                {"a background job stopped from Work": {"resource_release": "failed",
+                                                        "state": "failed"}}),
+            "a partial change record": lambda: self.report["checks"].update(
+                {"what the session changed in the app": {"changed_count": 0}}),
+            "a change count that is a boolean": lambda: self.report["checks"].update(
+                {"what the session changed in the app": {"changed": {}, "changed_count": False,
+                                                        "added": [], "removed": []}}),
             "no manifest digest": lambda: self.report["checks"].update(
                 {"the start check passed, and nothing wrote into the app": True}),
         }

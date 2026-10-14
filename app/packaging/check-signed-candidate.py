@@ -18,34 +18,72 @@ from pathlib import Path
 
 SUBMISSION = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 HEX64 = re.compile(r'[0-9a-f]{64}')
+HOMEBREW = ['/opt/homebrew/bin', '/opt/homebrew/sbin']
 
 
-def _evidence(value) -> bool:
-    return isinstance(value, (dict, list)) and bool(value)
+def _passed(value) -> bool:
+    return value is True
+
+
+def _pids(value) -> bool:
+    return (isinstance(value, list) and bool(value)
+            and all(type(pid) is int and pid > 0 for pid in value))
+
+
+def _guardian(value) -> bool:
+    return isinstance(value, dict) and set(value) == {'guardian', 'engine'} and all(
+        _pids(pids) for pids in value.values())
+
+
+def _path(value) -> bool:
+    return (isinstance(value, list) and value[:2] == HOMEBREW and len(value) == len(set(value))
+            and all(isinstance(folder, str) and folder.startswith('/') for folder in value))
+
+
+def _stopped(value) -> bool:
+    return (isinstance(value, dict) and value.get('state') == 'settled'
+            and value.get('resource_release') == 'best_effort')
+
+
+def _browser(value) -> bool:
+    return isinstance(value, dict) and set(value) == {'browser'} and _pids(value['browser'])
+
+
+def _unchanged(value) -> bool:
+    return (value == {'changed': {}, 'changed_count': 0, 'added': [], 'removed': []}
+            and type(value['changed_count']) is int)
+
+
+def _digest(value) -> bool:
+    return isinstance(value, str) and bool(HEX64.fullmatch(value))
+
+
+def _exited(value) -> bool:
+    return type(value) is int and value == 0
 
 
 # The installed-app acceptance's checks (tests/macos/test_packaged_app.py), each with what a passed
-# one records: True, its evidence, the app's exit status 0, no change in the app, or the manifest's
-# digest. The report is written even when the acceptance fails, holding the checks passed so far.
+# one records there: True; the guardian's and the engine's processes; the PATH, Homebrew's folders
+# first; the stopped job's settled, best-effort settlement; the browser's processes; the app's exit
+# status 0; no change in the app; the manifest's digest. The report is written even when the
+# acceptance fails, holding the checks passed so far.
 CHECKS = {
-    'engine under the guardian': _evidence,
-    'a provider and its key in the login keychain': lambda value: value is True,
-    "a command, with the Mac's PATH": _evidence,
-    'a failing command': lambda value: value is True,
-    'patches and a raw read': lambda value: value is True,
-    'a background job stopped from Work': _evidence,
-    'search by meaning, offline, with the bundled model': lambda value: value is True,
-    'the PDF reader installed on first use, into the profile': lambda value: value is True,
-    'the bundled browser read a page': _evidence,
-    "a skill's dependency installed into the profile": lambda value: value is True,
-    'an MCP server child, stopped with its tree': lambda value: value is True,
-    'the app exited': lambda value: type(value) is int and value == 0,
-    'the guardian, the engine and the browser are gone': lambda value: value is True,
-    'clean Exit records (app, engine, lease)': lambda value: value is True,
-    'what the session changed in the app':
-        lambda value: isinstance(value, dict) and bool(value) and not any(value.values()),
-    'the start check passed, and nothing wrote into the app':
-        lambda value: isinstance(value, str) and bool(HEX64.fullmatch(value)),
+    'engine under the guardian': _guardian,
+    'a provider and its key in the login keychain': _passed,
+    "a command, with the Mac's PATH": _path,
+    'a failing command': _passed,
+    'patches and a raw read': _passed,
+    'a background job stopped from Work': _stopped,
+    'search by meaning, offline, with the bundled model': _passed,
+    'the PDF reader installed on first use, into the profile': _passed,
+    'the bundled browser read a page': _browser,
+    "a skill's dependency installed into the profile": _passed,
+    'an MCP server child, stopped with its tree': _passed,
+    'the app exited': _exited,
+    'the guardian, the engine and the browser are gone': _passed,
+    'clean Exit records (app, engine, lease)': _passed,
+    'what the session changed in the app': _unchanged,
+    'the start check passed, and nothing wrote into the app': _digest,
 }
 
 
