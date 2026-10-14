@@ -58,6 +58,15 @@ describe('whether to show a notification', () => {
     expect(decide(intent(), settings(), context({ title: null }))).toMatchObject({ title: 'Odin' })
   })
 
+  it('shows message text as the chat does, without its Markdown markers', () => {
+    const preview = '## Done\n**Backups** finished: `nightly` ran, see [the log](https://example.invalid/log).\n\n- one\n- two'
+    expect(decide(intent({ preview }), settings(), context())).toMatchObject({
+      body: 'Done Backups finished: nightly ran, see the log. - one - two' })
+    expect(decide(intent({ preview: 'Loop `a1b2c3` completed after 3 iterations.' }), settings(), context()))
+      .toMatchObject({ body: 'Loop a1b2c3 completed after 3 iterations.' })
+    // An unpaired marker (a cut preview) stays as written rather than eating text.
+    expect(decide(intent({ preview: 'Status: **partial' }), settings(), context())).toMatchObject({ body: 'Status: **partial' })
+  })
   it('collapses whitespace and cuts a long preview, and hides it when previews are off', () => {
     const long = decide(intent({ preview: `line one\n\n${'x'.repeat(300)}` }), settings(), context())
     expect(long.show && long.body.startsWith('line one xxx')).toBe(true)
