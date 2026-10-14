@@ -1,4 +1,8 @@
-"""Request ownership survives reorder, never slot replacement. Synthetic only."""
+"""Request ownership survives reorder, never slot replacement. Synthetic only.
+
+Odin 4.14 (#652), carried: the pool setup comes from tests/desktop_adapters/codex_setup.py, which
+leaves out Odin's web API routes; nothing else changes.
+"""
 import asyncio
 import json
 import time
@@ -6,9 +10,9 @@ import time
 import pytest
 
 from src.llm import codex_auth as ca
-from tests.desktop_codex_setup import creds, setup
-from tests.test_codex_refresh_chain_reload import SingleUseOAuth
+from tests.desktop_adapters.codex_setup import creds, setup
 from tests.test_codex_reliability import TEXT_OK_SSE, FakeResp, _client
+from tests.test_desktop_codex_refresh_chain_reload import SingleUseOAuth
 
 
 @pytest.fixture(autouse=True)

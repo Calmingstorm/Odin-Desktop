@@ -782,7 +782,11 @@ class SettingsService:
                                 _put(values, tuple(path.split(".")), "")
                     from .ssh_sockets import normalize_config_sockets
 
-                    desired = normalize_config_sockets(Config.model_validate(values), self.paths)
+                    # The saved values passed above with startup compatibility; adding the
+                    # keyring's values must not refuse a legacy numeric value that loads.
+                    desired = normalize_config_sockets(
+                        Config.model_validate(values, context={"startup": True}), self.paths
+                    )
                     values = desired.model_dump(mode="json")
                 except Exception:
                     raise _error(

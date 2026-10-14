@@ -184,6 +184,37 @@ def test_schema_retained_container_ancestry_and_secret_facts():
     assert "outbound_webhooks.targets.secret" in schema_facts()
 
 
+def test_viewport_declared_bounds_are_published_not_historical_guesses():
+    """Odin 4.14 (#640) replacement for the retired validator-only bounds case."""
+    from src.config.apply_registry import build_field_record
+
+    record = build_field_record("browser.viewport_width", 1920)
+    assert record["constraints"] == {"minimum": 1, "maximum": 16384}
+
+
+@pytest.mark.parametrize(
+    ("value", "error_type"),
+    [(0, "greater_than_equal"), (16385, "less_than_equal"),
+     (True, "int_type"), (1920.5, "int_type")],
+)
+def test_viewport_metadata_matches_strict_validation(value, error_type):
+    """The advertised range is a save constraint, not merely UI guidance (Odin 4.14)."""
+    from pydantic import ValidationError
+
+    from src.config.apply_registry import build_field_record
+    from src.config.schema import BrowserConfig
+
+    with pytest.raises(ValidationError) as exc:
+        BrowserConfig.model_validate({"viewport_width": value})
+    assert exc.value.errors()[0]["loc"] == ("viewport_width",)
+    assert exc.value.errors()[0]["type"] == error_type
+    constraints = build_field_record("browser.viewport_width", 1920)["constraints"]
+    for boundary in (constraints["minimum"], constraints["maximum"]):
+        assert BrowserConfig.model_validate(
+            {"viewport_width": boundary}
+        ).viewport_width == boundary
+
+
 def test_retained_list_record_redaction_preserves_public_siblings():
     from src.config.apply_registry import REDACTED, build_meta_payload
 

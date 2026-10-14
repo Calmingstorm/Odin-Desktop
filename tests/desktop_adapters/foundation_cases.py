@@ -64,6 +64,8 @@ CORPUS_EXCLUSIONS = {
         "TestSchemaDerivedFacts.test_populated_container_children_get_the_read_only_marker",
         "TestSchemaDerivedFacts.test_list_entry_paths_resolve_to_their_record_field",
         "TestSchemaDerivedFacts.test_credentials_in_list_entries_are_known_to_the_schema_walk",
+        # Odin 4.14 (#640) declares these bounds in the schema and replaced this case.
+        "TestSchemaDerivedFacts.test_bounds_that_live_only_in_a_validator_are_not_invented",
         "TestEffectiveIsNeverGuessed.test_a_re_read_field_is_effective_immediately",
         "TestRevisionIsNotAnOracle.test_effective_revision_is_not_published_as_a_raw_boot_diff",
         "TestContainerSensitivity.test_empty_secret_containers_are_not_public_json_controls",

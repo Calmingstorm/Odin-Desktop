@@ -309,6 +309,18 @@ STEP6A_REASON = (
     "worker-only resolver adapter without assertion edits. All engine suites remain isolated "
     "PID namespace with throwaway HOME."
 )
+# Odin 4.14 (#640) rewrote exactly these two retained cases of this direct group for bounded
+# numeric saves: a zero token budget and a string profile size now load only at startup.
+# Their 4.14 forms run in tests/test_desktop_numeric_bounds.py. Only this exact expression is
+# admitted beside the group's reviewed adapter; any other deselection still fails closed.
+REVIEWED_DIRECT_EXCLUSIONS = {
+    "direct-shared-stores-providers-tools": (
+        "(TestSessionsConfigTokenBudget and test_zero_budget) or "
+        "(TestCompatibleProfiles and "
+        "test_compatible_profile_legacy_shape_and_openrouter_catalogue_fallback)"
+    ),
+}
+
 MERGED_SELECTOR_ADAPTERS = {
     "direct-shared-stores-providers-tools": (
         "tests/test_gi_support_loading.py", "tests/test_desktop_gi_loading_adaptation.py",
@@ -1016,10 +1028,11 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
         if not selected_by:
             continue
         group = named.get(name, {})
+        exclusion = group.get("exclude_expression")
         if (selected_by != {name} or original in group.get("files", [])
+                or (exclusion and exclusion != REVIEWED_DIRECT_EXCLUSIONS.get(name))
                 or any(group.get(key) for key in (
-                    "exclude_expression", "include_expression", "args", "pytest_args",
-                    "exclusions"))):
+                    "include_expression", "args", "pytest_args", "exclusions"))):
             errors.append(
                 f"qualification: exact full-suite adapter association required for {adapter}")
             continue

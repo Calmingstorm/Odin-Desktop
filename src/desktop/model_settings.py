@@ -359,9 +359,11 @@ class ModelSettingsService:
             base_url = _validate_ollama_url(base_url)
             endpoint = f"{base_url}/api/tags"
         else:
+            # Only base_url is checked here (strictly). The saved section may hold a
+            # legacy numeric value that loads with startup compatibility.
             base_url = OpenAICompatibleConfig.model_validate({
                 **cfg.model_dump(), "base_url": base_url,
-            }).base_url
+            }, context={"startup": True}).base_url
             # Credential owner is injected. A vault failure never falls back to
             # an on-disk secret or an enabled client's stale credential.
             key = await secret_call(self.settings.secrets.get, "openai_compatible.api_key")

@@ -1,4 +1,8 @@
-"""Event-controlled single-use rotation across disposable pool reloads."""
+"""Event-controlled single-use rotation across disposable pool reloads.
+
+Odin 4.14 (#652), carried: the pool setup comes from tests/desktop_adapters/codex_setup.py, which
+leaves out Odin's web API routes; nothing else changes.
+"""
 import asyncio
 import json
 import time
@@ -6,7 +10,7 @@ import time
 import pytest
 
 from src.llm import codex_auth as ca
-from tests.desktop_codex_setup import creds, setup
+from tests.desktop_adapters.codex_setup import creds, setup
 
 
 class SingleUseOAuth:

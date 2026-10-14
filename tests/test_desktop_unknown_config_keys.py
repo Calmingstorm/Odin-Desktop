@@ -53,7 +53,7 @@ def test_profile_unknown_key_warns_and_starts(profile, caplog, unknown):
     assert unknown not in service.config.model_dump()
 
 
-@pytest.mark.parametrize("bad", ["-1", "[1, 2]"])
+@pytest.mark.parametrize("bad", ["invalid", "[1, 2]"])
 def test_known_invalid_value_still_refuses(profile, bad):
     profile.config_file.write_text(
         f"sesions: {{}}\ntools: {{command_timeout_seconds: {bad}}}\n"
@@ -62,6 +62,18 @@ def test_known_invalid_value_still_refuses(profile, bad):
         load_config()
     with pytest.raises(ValueError):
         SettingsService(profile, None)
+
+
+def test_known_out_of_range_number_loads_with_startup_compatibility(profile, caplog):
+    """Odin 4.14 (#640): an out-of-range number in an existing file loads with a warning,
+    beside a dropped unknown key, and the file is never rewritten."""
+    raw = "sesions: {}\ntools: {command_timeout_seconds: -1}\n"
+    profile.config_file.write_text(raw)
+    with caplog.at_level("WARNING"):
+        assert load_config().tools.command_timeout_seconds == -1
+        assert SettingsService(profile, None).config.tools.command_timeout_seconds == -1
+    assert "Startup compatibility" in caplog.text
+    assert profile.config_file.read_text() == raw
 
 
 @pytest.mark.parametrize("removed", sorted(_KNOWN_REMOVED_TOP_LEVEL_CONFIG_KEYS))

@@ -1,8 +1,8 @@
 """Account lifecycle and reply recovery, using disposable credentials only.
 
-Odin 4.14 (#652), carried to Desktop with tests/desktop_codex_setup.py. Odin's delete-and-re-add
-case drives his web API; Desktop's is in tests/test_desktop_codex_accounts.py, through the
-app's own account methods."""
+Odin 4.14 (#652), carried to Desktop with tests/desktop_adapters/codex_setup.py. Odin's
+delete-and-re-add case drives his web API; Desktop's is in tests/test_desktop_codex_accounts.py,
+through the app's own account methods."""
 import asyncio
 import json
 from types import SimpleNamespace
@@ -14,7 +14,7 @@ from src.llm import codex_auth as ca
 from src.llm.account_key import opaque_account_key
 from src.llm.errors import LLMRateLimitError
 from src.llm.openai_codex import CodexChatClient, CodexStreamError
-from tests.desktop_codex_setup import creds, setup
+from tests.desktop_adapters.codex_setup import creds, setup
 
 OLD_HEADERS = {
     "x-codex-primary-used-percent": "25",

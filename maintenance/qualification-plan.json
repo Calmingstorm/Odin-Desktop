@@ -107,7 +107,7 @@
   "groups": [
     {
       "name": "direct-shared-stores-providers-tools",
-      "reason": "Explicit remaining unchanged shared suites in parent309suite9053pass replay; no hidden disposition of259historical failures.",
+      "reason": "Explicit remaining unchanged shared suites in parent309suite9053pass replay; no hidden disposition of259historical failures. Odin 4.14 (#640) superseded exactly two cases here (a zero token budget and a string profile size are now startup-only); their 4.14 versions run in tests/test_desktop_numeric_bounds.py.",
       "files": [
         "tests/test_context_budget.py",
         "tests/test_context_budget_legacy_profile_conversion.py",
@@ -226,7 +226,8 @@
         "tests/test_web_tools.py",
         "tests/test_webhook_persistence.py",
         "tests/test_webhook_text.py"
-      ]
+      ],
+      "exclude_expression": "(TestSessionsConfigTokenBudget and test_zero_budget) or (TestCompatibleProfiles and test_compatible_profile_legacy_shape_and_openrouter_catalogue_fallback)"
     },
     {
       "name": "direct-shared-computer",
@@ -1972,8 +1973,8 @@
       "phase2-admission-wiring": 8
     },
     "foundation_definitions": {
-      "executable": 730,
-      "removed-surface-replacement": 124,
+      "executable": 729,
+      "removed-surface-replacement": 125,
       "unmapped-neutral-blocker": 0,
       "phase2-admission-wiring": 7,
       "native-prohibited-scope": 15

@@ -471,3 +471,45 @@ async def test_owner_cancellation_rolls_back_saved_values(service):
         )
     assert service.paths.config_file.read_text() == before
     assert not service._transaction_active
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", [-1, 0, 10**12, True, 2000.0, "2000"])
+async def test_numeric_save_outside_its_bounds_is_refused_without_a_write(service, value):
+    """Odin 4.14 (#640) through the app's settings methods: a numeric setting saves only as
+    a strict, in-range number, and a refused save writes nothing."""
+    before = service.paths.config_file.read_bytes()
+    original = service.config.model_dump()
+    with pytest.raises(MethodError, match="max_tool_result_chars"):
+        await save(service, "settings.set", [
+            {"path": "observability.max_tool_result_chars", "value": value}])
+    assert service.paths.config_file.read_bytes() == before
+    assert service.config.model_dump() == original
+    await save(service, "settings.set", [
+        {"path": "observability.max_tool_result_chars", "value": 2000}])
+    assert service.config.observability.max_tool_result_chars == 2000
+
+
+@pytest.mark.asyncio
+async def test_a_legacy_out_of_range_value_loads_reloads_and_can_be_corrected(tmp_path, caplog):
+    """Odin 4.14 (#640): a profile saved before the bounds keeps loading and reloading with
+    its value and a warning, without a rewrite. A save names the value to correct, as Odin's
+    does, and correcting it saves."""
+    paths = ProfilePaths.from_xdg(home=tmp_path, environ={})
+    paths.create_private()
+    text = "# preserved\nobservability:\n  max_tool_result_chars: -1\n"
+    paths.config_file.write_text(text)
+    with caplog.at_level("WARNING"):
+        service = SettingsService(paths, ProfileSecretStore(paths, backend=MemoryKeyring()))
+    assert service.config.observability.max_tool_result_chars == -1
+    assert "Startup compatibility" in caplog.text
+    await service.reload()
+    assert service.config.observability.max_tool_result_chars == -1
+    assert paths.config_file.read_text() == text
+    with pytest.raises(MethodError, match="max_tool_result_chars"):
+        await save(service, "settings.set", [{"path": "browser.enabled", "value": False}])
+    assert paths.config_file.read_text() == text
+    await save(service, "settings.set", [
+        {"path": "observability.max_tool_result_chars", "value": 2000}])
+    assert service.config.observability.max_tool_result_chars == 2000
+    assert "# preserved" in paths.config_file.read_text()
