@@ -2,8 +2,9 @@
 """Check a kept signed Mac candidate (macos-release.yml's retained job).
 
 The folder holds exactly the disk image, its receipt and the acceptance report; the image is the
-receipt's; both notarizations are Apple's Accepted answers with their own submission IDs; and the
-acceptance report is this image's, at the receipt's revision, with the full set of checks.
+receipt's; both notarizations are Apple's Accepted answers, from a command that exited 0, with their
+own submission IDs; and the acceptance report is this image's, at the receipt's revision, with
+exactly the acceptance's checks, each passed.
 
     check-signed-candidate.py FOLDER SOURCE_COMMIT
 """
@@ -16,7 +17,36 @@ import sys
 from pathlib import Path
 
 SUBMISSION = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
-CHECKS = 16  # the installed-app acceptance's checks (tests/macos/test_packaged_app.py)
+HEX64 = re.compile(r'[0-9a-f]{64}')
+
+
+def _evidence(value) -> bool:
+    return isinstance(value, (dict, list)) and bool(value)
+
+
+# The installed-app acceptance's checks (tests/macos/test_packaged_app.py), each with what a passed
+# one records: True, its evidence, the app's exit status 0, no change in the app, or the manifest's
+# digest. The report is written even when the acceptance fails, holding the checks passed so far.
+CHECKS = {
+    'engine under the guardian': _evidence,
+    'a provider and its key in the login keychain': lambda value: value is True,
+    "a command, with the Mac's PATH": _evidence,
+    'a failing command': lambda value: value is True,
+    'patches and a raw read': lambda value: value is True,
+    'a background job stopped from Work': _evidence,
+    'search by meaning, offline, with the bundled model': lambda value: value is True,
+    'the PDF reader installed on first use, into the profile': lambda value: value is True,
+    'the bundled browser read a page': _evidence,
+    "a skill's dependency installed into the profile": lambda value: value is True,
+    'an MCP server child, stopped with its tree': lambda value: value is True,
+    'the app exited': lambda value: type(value) is int and value == 0,
+    'the guardian, the engine and the browser are gone': lambda value: value is True,
+    'clean Exit records (app, engine, lease)': lambda value: value is True,
+    'what the session changed in the app':
+        lambda value: isinstance(value, dict) and bool(value) and not any(value.values()),
+    'the start check passed, and nothing wrote into the app':
+        lambda value: isinstance(value, str) and bool(HEX64.fullmatch(value)),
+}
 
 
 class CandidateError(RuntimeError):
@@ -36,7 +66,8 @@ def check(kept: Path, source: str) -> str:
     submissions = set()
     for record in ('app_notarization', 'disk_image_notarization'):
         answer = receipt[record]['notarization']
-        if (answer.get('status') != 'Accepted' or answer.get('exit') != 0
+        if (answer.get('status') != 'Accepted' or type(answer.get('exit')) is not int
+                or answer['exit'] != 0
                 or not isinstance(answer.get('id'), str)
                 or not SUBMISSION.fullmatch(answer['id'])):
             raise CandidateError(f'{record} is not an Accepted submission: {answer}')
@@ -47,9 +78,12 @@ def check(kept: Path, source: str) -> str:
     if report.get('disk_image_sha256') != digest or report.get('revision') != receipt['revision']:
         raise CandidateError('the acceptance report is for another candidate')
     checks = report.get('checks')
-    if not isinstance(checks, dict) or len(checks) < CHECKS:
-        held = len(checks) if isinstance(checks, dict) else 0
-        raise CandidateError(f'the acceptance report holds {held} checks, not {CHECKS}')
+    if not isinstance(checks, dict) or set(checks) != set(CHECKS):
+        held = sorted(checks) if isinstance(checks, dict) else checks
+        raise CandidateError(f'the acceptance report holds {held}, not the {len(CHECKS)} checks')
+    failed = sorted(name for name, passed in CHECKS.items() if not passed(checks[name]))
+    if failed:
+        raise CandidateError(f'the acceptance report does not show these checks passed: {failed}')
     return f"{receipt['disk_image']} {digest} at {receipt['revision']}"
 
 

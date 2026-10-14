@@ -1,26 +1,19 @@
 name: macOS signed build
 
-# The signed, notarized Mac app (phase 5), run by hand like windows-release.yml. It can also be
-# called (workflow_call) by a workflow on another branch: GitHub dispatches only workflows that are
-# on the default branch. Nothing is published.
+# The signed, notarized Mac app for a release, run by hand like windows-release.yml. Nothing is
+# published.
 #
 # The source is settled before any secret is near it: the target job, which has no secrets,
 # resolves the requested ref to one commit and accepts only a release tag vX.Y.Z on master's
-# history whose app version is X.Y.Z, or the head of one of the port's candidate branches (until
-# the port merges). The signed job, in the protected macos-signing environment, builds exactly that
-# commit (release provenance for a release tag), signs on a disposable keychain, has Apple notarize
-# the app and the .dmg, verifies both, runs the installed-app acceptance on the signed app, and
-# keeps the .dmg with its evidence. The last job takes the kept artifact back and checks it.
+# history whose app version is X.Y.Z. The signed job, in the protected macos-signing environment,
+# builds exactly that commit with release provenance, signs on a disposable keychain, has Apple
+# notarize the app and the .dmg, verifies both, runs the installed-app acceptance on the signed
+# app, and keeps the .dmg with its evidence. The last job takes the kept artifact back and checks it.
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: A release tag on master (vX.Y.Z), or a candidate branch of the port
-        required: true
-        type: string
-  workflow_call:
-    inputs:
-      ref:
+        description: A release tag on master (vX.Y.Z)
         required: true
         type: string
 
@@ -46,8 +39,7 @@ jobs:
           REF: ${{ inputs.ref }}
         run: |
           set -euo pipefail
-          git fetch --force --tags origin '+refs/heads/master:refs/remotes/origin/master' \
-            '+refs/heads/macos/*:refs/remotes/origin/macos/*'
+          git fetch --force --tags origin '+refs/heads/master:refs/remotes/origin/master'
           resolved="$(python3 -I app/packaging/resolve-signing-source.py "$REF")"
           read -r sha mode <<< "$resolved"
           echo "$REF -> $sha ($mode)"

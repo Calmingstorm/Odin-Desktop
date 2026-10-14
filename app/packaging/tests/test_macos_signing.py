@@ -255,10 +255,20 @@ class CandidateTests(unittest.TestCase):
             "app_notarization": {"notarization": app},
             "disk_image_notarization": {"notarization": dmg},
         }
+        # Each check as a passed acceptance records it.
+        evidence = {
+            "engine under the guardian": {"guardian": [41], "engine": [42]},
+            "a command, with the Mac's PATH": ["/opt/homebrew/bin", "/usr/bin"],
+            "a background job stopped from Work": {"resource_release": "best_effort"},
+            "the bundled browser read a page": {"browser": [43]},
+            "the app exited": 0,
+            "what the session changed in the app": {"added": [], "removed": [], "changed": []},
+            "the start check passed, and nothing wrote into the app": "c" * 64,
+        }
         self.report = {
             "disk_image_sha256": digest,
             "revision": "a" * 40,
-            "checks": {f"check {n}": True for n in range(16)},
+            "checks": {name: evidence.get(name, True) for name in candidate.CHECKS},
         }
         self.write()
 
@@ -271,6 +281,11 @@ class CandidateTests(unittest.TestCase):
 
     def test_a_whole_candidate_passes(self):
         self.assertIn("odin.dmg", candidate.check(self.kept, "a" * 40))
+
+    def test_the_checks_are_the_acceptances_own(self):
+        acceptance = (ROOT / "tests/macos/test_packaged_app.py").read_text()
+        recorded = set(re.findall(r'checks\["([^"]+)"\] = ', acceptance))
+        self.assertEqual(recorded, set(candidate.CHECKS))
 
     def test_every_gap_is_refused(self):
         def notary(record, **change):
@@ -288,6 +303,21 @@ class CandidateTests(unittest.TestCase):
             "one submission twice": notary("disk_image_notarization", id=app_id),
             "another image's report": lambda: self.report.update(disk_image_sha256="0" * 64),
             "a short report": lambda: self.report.update(checks={"one": True}),
+            "an exit that is a boolean": notary("app_notarization", exit=False),
+            "an exit that is a float": notary("disk_image_notarization", exit=0.0),
+            "a check missing": lambda: self.report["checks"].pop("a failing command"),
+            "a check added": lambda: self.report["checks"].update({"another check": True}),
+            "a check recorded as failed": lambda: self.report["checks"].update(
+                {"a failing command": False}),
+            "the app's exit status": lambda: self.report["checks"].update({"the app exited": 1}),
+            "an exit status that is a boolean":
+                lambda: self.report["checks"].update({"the app exited": False}),
+            "a change in the app": lambda: self.report["checks"].update(
+                {"what the session changed in the app": {"added": ["x.pyc"]}}),
+            "no evidence": lambda: self.report["checks"].update(
+                {"engine under the guardian": {}}),
+            "no manifest digest": lambda: self.report["checks"].update(
+                {"the start check passed, and nothing wrote into the app": True}),
         }
         for gap, change in gaps.items():
             with self.subTest(gap):
@@ -355,8 +385,8 @@ class SignedBuildTests(unittest.TestCase):
 
     def test_the_signed_workflow_settles_its_source_before_any_secret(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/macos-release.yml").read_text())
-        # Never pull requests or pushes: by hand, or called from a scratch branch.
-        self.assertEqual(set(workflow[True]), {"workflow_dispatch", "workflow_call"})
+        # Never pull requests, pushes or other workflows: by hand only.
+        self.assertEqual(set(workflow[True]), {"workflow_dispatch"})
         jobs = workflow["jobs"]
         target, signed, retained = jobs["target"], jobs["signed"], jobs["retained"]
         self.assertIn("github.actor == 'Calmingstorm'", target["if"])
@@ -390,7 +420,7 @@ class SignedBuildTests(unittest.TestCase):
 
 
 class SourceTests(unittest.TestCase):
-    """The signed build's source: a release tag on master with its version, or a candidate head."""
+    """The signed build's source: a release tag on master with its version, and nothing else."""
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -425,13 +455,10 @@ class SourceTests(unittest.TestCase):
     def test_a_release_tag_on_master_with_its_version(self):
         self.assertEqual(resolver.resolve("v1.2.3", cwd=self.repo), (self.master, "release"))
 
-    def test_a_candidate_branch_by_name_or_by_exactly_its_head(self):
-        for ref in ("macos/port", self.side):
-            self.assertEqual(resolver.resolve(ref, cwd=self.repo), (self.side, "candidate"))
-
     def test_everything_else_is_refused(self):
-        for ref in ("v1.2.4", "v9.9.9", "v0.0.1", self.master, "side", "master", "macos/other",
-                    "1.2.3", "v1.2.3-rc1"):
+        # The port's branch too, by name or by its head: its candidates ended with the port.
+        for ref in ("v1.2.4", "v9.9.9", "v0.0.1", self.master, "side", "master", "macos/port",
+                    self.side, "macos/probe", "1.2.3", "v1.2.3-rc1"):
             with self.subTest(ref), self.assertRaises(resolver.SourceRefusedError):
                 resolver.resolve(ref, cwd=self.repo)
 
