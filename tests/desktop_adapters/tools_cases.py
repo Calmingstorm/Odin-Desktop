@@ -176,7 +176,8 @@ CORPUS_SELECTIONS = {
         "test_execute_force_revoke_returns_structured_uncertain_outcome",
         "test_remote_transport_and_retirement_use_the_exact_target",
         "test_handler_failures_are_hermetic_and_classify_as_nonzero",
-        "test_validation_exec_acquires_a_lease_and_reports_unknown_alias",
+        # Odin 4.15.1 (#660) rewrote the validation lease case; its 4.15.1 form runs in
+        # tests/test_desktop_validation_lease_binding.py.
         "test_tool_result_as_dict_emits_all_optional_serializable_fields",
     },
     "test_browser_automation": {

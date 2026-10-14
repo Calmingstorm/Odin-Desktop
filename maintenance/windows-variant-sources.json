@@ -80,7 +80,7 @@
   "src/tools/handlers/files_docs.py:_handle_apply_patch -> src.desktop.platform.windows_tools:handle_apply_patch": "caaa9d85787b51b7ebaa98d5e4e1d614300d11c0f33ed211b0c613956dfe6f9a",
   "src/tools/handlers/files_docs.py:_handle_read_file -> src.desktop.platform.windows_tools:handle_read_file": "42b70510ff8cae552264cc0a9c2e1bb39cf3be2333c54bafb654192cfef9179a",
   "src/tools/handlers/system.py:_handle_run_script -> src.desktop.platform.windows_tools:handle_run_script": "1411ec7e51170535218c8635629f5157e76223706eb7f058d0bf73a4d6e9641e",
-  "src/tools/handlers/validation.py:_handle_validate_action -> src.desktop.platform.windows_tools:handle_validate_action": "60d888eba2d54fbbc3a7ef259676a89f88468f693fe95ca370cac4aa26f9f2a9",
+  "src/tools/handlers/validation.py:_handle_validate_action -> src.desktop.platform.windows_tools:handle_validate_action": "68a5a07746abc9507e75f1209b3817c6c25caf7a7ec16e38bfa71296763a34ab",
   "src/tools/hosts/control.py:_run_argv -> src.desktop.platform.windows_remote:run_argv": "e70a33054eef89316e6b80d201cd62f84d7927f606ad34496bb353c2d5b10234",
   "src/tools/hosts/control.py:_test -> src.desktop.platform.windows_tools:host_test": "a94f7335ac60b14f02b7834b5fccc6a04816bd9a24ea0a22e92bf5fb639b8ac2",
   "src/tools/hosts/control.py:scan -> src.desktop.platform.windows_remote:scan": "d8cbd6f500435cdd128aa73041a06bf84c8cc63231130e20b81108f5a0ede3cb",

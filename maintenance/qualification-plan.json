@@ -1968,9 +1968,9 @@
   "case_accounting": "maintenance/case-accounting.json",
   "accounting_summary": {
     "historical_failures": {
-      "executable": 185,
+      "executable": 184,
       "unmapped-neutral-blocker": 0,
-      "removed-surface-replacement": 66,
+      "removed-surface-replacement": 67,
       "phase2-admission-wiring": 8
     },
     "foundation_definitions": {
