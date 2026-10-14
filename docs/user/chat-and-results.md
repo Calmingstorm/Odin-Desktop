@@ -64,7 +64,7 @@ While a conversation runs:
 
 - **Steer the current task** sends text guidance to its next safe boundary.
 - **Queue a follow-up** submits a later request without rewriting the current one.
-- **Stop**, or **Ctrl+.** in Message, asks the current request to stop. Completed
+- **Stop**, or **Ctrl+.** (**⌘.** on macOS) in Message, asks the current request to stop. Completed
   effects remain completed; stopping does not undo a file write or remote action.
 
 | Receipt or state | What it means |
@@ -120,7 +120,7 @@ the underlying report or full evidence is still available.
 
 ## Find earlier messages
 
-Choose **Search** or press **Ctrl+Shift+F**. Open a hit to view its surrounding
+Choose **Search** or press **Ctrl+Shift+F** (**⇧⌘F** on macOS). Open a hit to view its surrounding
 history. **Back to latest** returns to current messages. Loading history and
 reading retained output are read operations, not a rerun.
 

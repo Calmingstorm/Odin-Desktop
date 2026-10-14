@@ -14,9 +14,9 @@ destructive action. View shortcuts do not act behind an open confirmation.
 |---|---|
 | Enter in Message | Send or run the selected slash command; not during IME composition. |
 | Shift+Enter | Insert a newline. |
-| Ctrl+. in Message | Ask the current request to stop; completed effects remain. |
-| Ctrl+Shift+F | Show/hide conversation search. |
-| Ctrl+, | Open Settings, or return to chat. |
+| Ctrl+. (⌘. on macOS) in Message | Ask the current request to stop; completed effects remain. |
+| Ctrl+Shift+F (⇧⌘F on macOS) | Show/hide conversation search. |
+| Ctrl+, (⌘, on macOS) | Open Settings, or return to chat. |
 | Ctrl+W (⌘W on macOS) | Close/hide the window, not stop Odin. |
 | Ctrl+Q (⌘Q on macOS) | Exit Odin, including without a tray. |
 
@@ -43,7 +43,7 @@ The next Tab can leave Message.
    cancel. Check its named upload state and Remove control.
 4. On a reply, activate **Copy**, choose Markdown or plain text, and return to its
    opener. On a file card, **Save as…** opens the native destination dialog.
-5. Use Ctrl+Shift+F, enter search terms and open a hit. **Back to latest** returns
+5. Use Ctrl+Shift+F (⇧⌘F on macOS), enter search terms and open a hit. **Back to latest** returns
    to current messages. Tab to **Conversation history** to scroll by keyboard.
 6. Open the conversation's named **Actions** menu. Use arrows and Escape. In
    Rename or another dialog, Tab in either direction stays inside until dismissed.

@@ -15,6 +15,7 @@ import WorkPanel from './components/WorkPanel.vue'
 import SettingsView from './views/Settings.vue'
 import { work } from './stores/work'
 import { dialog } from './dialog'
+import { commandKey } from './shortcuts'
 
 let settingsOpener: HTMLElement | null = null
 watch(() => state.view, async (view) => {
@@ -42,10 +43,10 @@ watch(() => state.view, async (view) => {
 function onKey(event: KeyboardEvent): void {
   // Background view shortcuts are not part of a modal's keyboard context.
   if (dialog.current) return
-  if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'f') {
+  if (commandKey(event) && event.shiftKey && event.key.toLowerCase() === 'f') {
     event.preventDefault()
     state.search.open = !state.search.open
-  } else if (event.ctrlKey && event.key === ',') {
+  } else if (commandKey(event) && event.key === ',') {
     event.preventDefault()
     if (state.view === 'settings') state.view = 'chat'
     else openSettings()

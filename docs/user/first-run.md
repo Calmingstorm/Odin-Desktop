@@ -26,7 +26,7 @@ as **Add account** under **Accounts and quota**.
 
 ## Open Settings
 
-1. Choose **Settings** in the navigation rail or press **Ctrl+,**, then open
+1. Choose **Settings** in the navigation rail or press **Ctrl+,** (**⌘,** on macOS), then open
    **Models and providers**. A setup invitation in chat can also offer **Open
    Models and providers** or **Use another provider**.
 2. If you are not ready, choose **Set up later** when offered. A successful save

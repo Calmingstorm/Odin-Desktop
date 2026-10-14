@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// The left rail: chats, work, the theme and settings. Keyboard shortcuts stay: Ctrl+, for settings.
+// The left rail: chats, work, the theme and settings. Keyboard shortcuts stay: Ctrl+, (⌘, on a Mac) for settings.
 import { computed } from 'vue'
 import Icon from './Icon.vue'
 import appIcon from '../../../../resources/icon.svg'
 import { openSettings, setAppearance, state } from '../store'
 import { linkLabel } from '../stores/status'
 import { activeCount, work } from '../stores/work'
+import { shortcutLabel } from '../shortcuts'
 
 const active = computed(() => activeCount())
 const workLabel = computed(() => (active.value ? `Work, ${active.value} active` : 'Work'))
@@ -65,7 +66,7 @@ function toggleTheme(): void {
       type="button"
       class="rail-button settings-toggle"
       aria-label="Settings"
-      title="Settings (Ctrl+,)"
+      :title="`Settings (${shortcutLabel(',')})`"
       :aria-current="state.view === 'settings' ? 'page' : undefined"
       @click="openSettings()"
     >

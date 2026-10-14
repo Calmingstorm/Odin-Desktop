@@ -27,6 +27,7 @@ import {
 import AttachmentTray from './AttachmentTray.vue'
 import CommandPalette from './CommandPalette.vue'
 import Icon from './Icon.vue'
+import { commandKey, shortcutLabel } from '../shortcuts'
 
 // The box's text is its conversation's draft (stores/composer.ts); typing saves it.
 const text = computed({ get: () => box.text, set: (value: string) => edit(value) })
@@ -181,7 +182,7 @@ function onKey(event: KeyboardEvent): void {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
     void submit()
-  } else if (event.key === '.' && event.ctrlKey) {
+  } else if (event.key === '.' && commandKey(event)) {
     event.preventDefault()
     void stop()
   }
@@ -287,7 +288,7 @@ async function closeReport(): Promise<void> {
         @paste="onPaste"
       />
       <div class="buttons">
-        <button v-if="running" ref="stopButton" type="button" class="danger composer-stop" :aria-label="stopping ? stoppingLabel : 'Stop the current task'" :title="stopping ? stoppingLabel : 'Stop the current task (Ctrl+.)'" :aria-disabled="stopping" @click="stopTask">
+        <button v-if="running" ref="stopButton" type="button" class="danger composer-stop" :aria-label="stopping ? stoppingLabel : 'Stop the current task'" :title="stopping ? stoppingLabel : `Stop the current task (${shortcutLabel('.')})`" :aria-disabled="stopping" @click="stopTask">
           <Icon name="stop" :size="14" :stroke="2.4" />{{ stopping ? stoppingLabel : 'Stop' }}
         </button>
         <button type="submit" :class="['primary', 'composer-send', { labelled: running }]" :aria-label="buttonLabel" :title="buttonLabel" :disabled="!busy && !canSend && !matches.length" :aria-disabled="busy">

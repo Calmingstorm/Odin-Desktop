@@ -60,7 +60,7 @@ if it remains unresolved.
 
 ## Manage a schedule
 
-1. Open **Settings → Scheduled and running work → New schedule**. **Ctrl+,** opens
+1. Open **Settings → Scheduled and running work → New schedule**. **Ctrl+,** (**⌘,** on macOS) opens
    Settings.
 2. Enter a description, select an existing destination under **Reports in**, and
    choose the action and timing. **Once** uses this computer's local clock and
