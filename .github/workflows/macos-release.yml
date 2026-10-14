@@ -5,6 +5,8 @@ name: macOS signed build
 # the protected macos-signing environment, whose secrets only this job sees. It signs on a
 # disposable keychain, has Apple notarize the app and the .dmg, verifies both, runs the installed-
 # app acceptance on the signed app, and keeps the .dmg with its receipt. Nothing is published.
+# It can also be called (workflow_call) by a workflow on another branch: GitHub dispatches only
+# workflows that are on the default branch. The environment's branches still decide where it runs.
 on:
   workflow_dispatch:
     inputs:
@@ -12,13 +14,14 @@ on:
         description: Branch or tag to build (macos/port, or a release tag on master)
         required: true
         type: string
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
 
 permissions:
   contents: read
-
-concurrency:
-  group: macos-signed-${{ inputs.ref }}
-  cancel-in-progress: false
 
 jobs:
   signed:
@@ -27,6 +30,9 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 150
     environment: macos-signing
+    concurrency:
+      group: macos-signed-${{ inputs.ref }}
+      cancel-in-progress: false
     env:
       IDENTITY: 'Developer ID Application: Aaron Charpentier (3HSA4RMW29)'
       TEAM: 3HSA4RMW29

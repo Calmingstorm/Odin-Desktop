@@ -233,7 +233,8 @@ class SignedBuildTests(unittest.TestCase):
 
     def test_the_signed_workflow_runs_only_by_hand_in_its_environment_and_cleans_up(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/macos-release.yml").read_text())
-        self.assertEqual(list(workflow[True]), ["workflow_dispatch"])  # never pull requests
+        # Never pull requests or pushes: by hand, or called from a scratch branch.
+        self.assertEqual(set(workflow[True]), {"workflow_dispatch", "workflow_call"})
         (job,) = workflow["jobs"].values()
         self.assertEqual(job["environment"], "macos-signing")
         self.assertIn("github.actor == 'Calmingstorm'", job["if"])
