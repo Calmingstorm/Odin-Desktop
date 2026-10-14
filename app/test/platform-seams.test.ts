@@ -21,6 +21,8 @@ describe('app platform seam', () => {
     expect(linuxPlatform.admitPackagedApp).toBe(ownership.admitPackagedApp)
     expect(linuxPlatform.startSessionMonitor).toBe(session.startSessionMonitor)
     expect(linuxPlatform.installLogoutHook).toBe(session.installKdeLogoutHook)
+    // A hidden start keeps a saved maximized window for its first show: maximize() would show it.
+    expect(linuxPlatform.maximizeOnFirstShow).toBe(true)
   })
 
   it('keeps the Linux profile paths and engine endpoint', () => {

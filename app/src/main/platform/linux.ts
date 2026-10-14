@@ -17,5 +17,8 @@ export const linuxPlatform: AppPlatform = {
   acquirePackagedApp,
   admitPackagedApp,
   startSessionMonitor,
-  installLogoutHook: installKdeLogoutHook
+  installLogoutHook: installKdeLogoutHook,
+  // maximize() shows a hidden window here too (Electron 44, X11 and Wayland share the views window), so a start at
+  // login keeps a saved maximized window for its first show.
+  maximizeOnFirstShow: true
 }

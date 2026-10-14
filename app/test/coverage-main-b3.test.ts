@@ -305,11 +305,20 @@ describe('inert main-process lifecycle wiring', () => {
       vi.doUnmock('../src/main/platform')
     }
   })
-  it('Linux still maximizes a saved maximized window when it is created, hidden start or not', async () => {
+  it('Linux keeps a hidden start\'s saved maximized window hidden, and maximizes it at its first show', async () => {
     savedMaximized()
     const { win } = await boot(['--hidden'])
-    expect(win.maximize).toHaveBeenCalledOnce()
+    win.emit('ready-to-show')
+    expect(win.maximize).not.toHaveBeenCalled()
     expect(win.show).not.toHaveBeenCalled()
+    m.app.emit('second-instance', {}, [])
+    expect(win.maximize).toHaveBeenCalledOnce()
+    expect(win.show).toHaveBeenCalledOnce()
+  })
+  it('Linux maximizes a saved maximized window at once on an ordinary start', async () => {
+    savedMaximized()
+    const { win } = await boot()
+    expect(win.maximize).toHaveBeenCalledOnce()
   })
   it('quits duplicate/exit-only launches before constructing the profile or core', async () => {
     m.lock = false; await boot(); expect(m.app.quit).toHaveBeenCalledOnce(); expect(m.brokers).toHaveLength(0);
@@ -590,7 +599,8 @@ describe('inert main-process lifecycle wiring', () => {
     const normalBounds = { x: 80, y: 40, width: 900, height: 600 };
     m.read.mockReturnValue(JSON.stringify({ windowState: { version: 1, normalBounds, maximized: true } }));
     const { win, deps } = await boot(['--hidden']);
-    expect(win.options).toMatchObject(normalBounds); expect(win.maximize).toHaveBeenCalledOnce();
+    // A hidden start defers maximize() to the first show (it would show the window); the saved state stays maximized.
+    expect(win.options).toMatchObject(normalBounds); expect(win.maximize).not.toHaveBeenCalled();
     expect(win.show).not.toHaveBeenCalled();
     deps.setSetupReminderHidden(true);
     expect(JSON.parse(m.write.mock.calls.at(-1)![1])).toMatchObject({ setupReminderHidden: true,
