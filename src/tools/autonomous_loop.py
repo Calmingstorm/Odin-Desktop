@@ -543,6 +543,17 @@ class LoopManager:
                 if stop_requested:
                     info.status = "completed"
                     log.info("Loop %s stopped by LLM (LOOP_STOP)", info.id)
+                    # Published like a loop that ran out of iterations, after its status is
+                    # set: Desktop notifies on a loop's end. A loop the user asked to stop gets
+                    # no extra notice.
+                    if not info._stop_requested:
+                        try:
+                            await self._publish(info,
+                                f"Loop `{info.id}` completed after "
+                                f"{info.iteration_count} iterations."
+                            )
+                        except Exception:
+                            pass
                     break
                 if info.iteration_count >= info.max_iterations:
                     break

@@ -119,6 +119,63 @@ async def test_loop_executes_in_context_and_settles_after_task_done():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["notify", "silent"])
+async def test_a_loop_that_stops_itself_publishes_its_end(mode):
+    """LOOP_STOP ends a loop like running out of iterations does: the closing notice goes out
+    after the status is set, which Desktop's wiring publishes as the loop's end and notifies on.
+    Before 1.1 a self-stopped loop ended without one, so it never notified."""
+    manager = LoopManager()
+    published = []
+
+    @asynccontextmanager
+    async def execution(info):
+        yield
+
+    async def iterate(*args):
+        return "Goal reached\nLOOP_STOP"
+
+    async def publish(info, text):
+        published.append((info.status, text))
+
+    loop_id = manager.start_admitted_loop(
+        "goal", Destination(), "owner", "Owner", iterate,
+        before_start=lambda info: None, execution=execution, publish=publish,
+        on_settled=lambda info: None, max_iterations=5, mode=mode,
+    )
+    info = manager._loops[loop_id]
+    await info._task
+    assert info.status == "completed" and info.iteration_count == 1
+    assert published[-1] == ("completed", f"Loop `{loop_id}` completed after 1 iterations.")
+    # Silent mode suppresses the iteration's own post (no [NOTIFY]); the end still publishes.
+    assert published[:-1] == ([("running", "Goal reached")] if mode == "notify" else [])
+
+
+@pytest.mark.asyncio
+async def test_a_loop_stopped_by_its_owner_gets_no_closing_notice():
+    manager = LoopManager()
+    published = []
+
+    @asynccontextmanager
+    async def execution(info):
+        yield
+
+    async def iterate(*args):
+        manager._loops[loop_id]._stop_requested = True  # the owner's Stop lands mid-iteration
+        return "LOOP_STOP"
+
+    async def publish(info, text):
+        published.append(text)
+
+    loop_id = manager.start_admitted_loop(
+        "goal", Destination(), "owner", "Owner", iterate,
+        before_start=lambda info: None, execution=execution, publish=publish,
+        on_settled=lambda info: None, max_iterations=5,
+    )
+    await manager._loops[loop_id]._task
+    assert published == []
+
+
+@pytest.mark.asyncio
 async def test_background_rendering_and_injected_publication():
     task = BackgroundTask("task", "description", [], "conversation", "owner")
     assert await _send_progress(task, None) == task.progress_text
