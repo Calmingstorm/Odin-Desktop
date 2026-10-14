@@ -14,7 +14,7 @@ from ..config.schema import Config, load_config
 from ..permissions.persistence import write_private_atomic
 from .authority import OwnerAuthority
 from .paths import ProfilePaths
-from .platform.variants import windows_variant
+from .platform.variants import darwin_variant, windows_variant
 from .ssh_sockets import normalize_config_sockets, socket_directory
 
 # A new Desktop profile runs background work (compaction, reflection, the completion
@@ -47,6 +47,7 @@ def system_timezone() -> str:
 
 
 @windows_variant("src.desktop.platform.windows_desktop:fresh_config_document")
+@darwin_variant("src.desktop.platform.macos_desktop:fresh_config_document")
 def fresh_config_document(paths: ProfilePaths) -> dict:
     """Bind every path default to the explicit profile, not the process HOME.
 

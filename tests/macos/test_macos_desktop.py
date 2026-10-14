@@ -1,6 +1,8 @@
-"""SSH control-socket paths on macOS: the 103-byte bound and the /private/tmp fallback."""
+"""macOS Desktop helpers: SSH control-socket paths (the 103-byte bound and the /private/tmp
+fallback), and this Mac as a new profile's local host, which the Hosts panel checks as macos."""
 from __future__ import annotations
 
+import base64
 import os
 import shutil
 import stat
@@ -98,3 +100,97 @@ def test_no_bounded_directory_is_an_error(profile, monkeypatch):
     monkeypatch.setattr(ssh_sockets, "_fits", lambda candidate: False)
     with pytest.raises(ValueError, match="No bounded Desktop SSH runtime directory"):
         macos_desktop.socket_directory(profile)
+
+
+def test_a_new_profile_names_this_mac_macos_and_puts_the_workspace_beside_the_profiles(profile):
+    from src.desktop import provisioning
+    from src.tools.hosts.control import HostEnrollmentManager
+
+    target = "src.desktop.platform.macos_desktop:"
+    assert provisioning.fresh_config_document.darwin_target == target + "fresh_config_document"
+    assert HostEnrollmentManager.test.darwin_target == target + "host_test"
+    config = provisioning.ensure_profile(profile)
+    assert config.tools.hosts["localhost"].os == "macos"
+    workspace = profile.data_dir.parents[1] / ".odin-desktop-workspaces" / profile.profile_id
+    assert workspace.parent.parent.name == "odin-desktop"  # beside the profiles, not inside one
+    assert config.tools.local_working_dir == str(workspace)
+    assert stat.S_IMODE(os.lstat(workspace).st_mode) == 0o700
+    # Everything else is Linux's provisioned document.
+    expected = provisioning.fresh_config_document.linux_original(profile)
+    expected["tools"]["hosts"]["localhost"]["os"] = "macos"
+    expected["tools"]["local_working_dir"] = str(workspace)
+    assert provisioning.fresh_config_document(profile) == expected
+
+
+def _manager(tmp_path, hosts=None):
+    from src.tools.hosts.control import HostEnrollmentManager
+    from src.tools.hosts.registry import HostRegistry
+
+    registry = HostRegistry(hosts or {}, key_path="/nonexistent/id_ed25519", trust_dir=tmp_path)
+    return registry, HostEnrollmentManager(registry)
+
+
+@pytest.mark.parametrize("selected, ok, detail", [
+    ("macos", True, "authentication and platform verified"),
+    ("linux", False, "platform mismatch: observed macos; selected linux"),
+])
+async def test_the_hosts_panel_checks_this_mac_as_a_macos_host(tmp_path, selected, ok, detail):
+    _registry, manager = _manager(tmp_path)
+    candidate = await manager.prepare(
+        "localhost", {"address": "127.0.0.1", "os": selected, "confirm_local": True},
+        allow_tofu=False)
+    tested = await manager.test(candidate.token)
+    assert tested.tested is ok
+    assert tested.test_result["platform"] == "macos"
+    assert tested.test_result["detail"] == detail
+
+
+async def test_a_passing_check_of_the_active_local_host_is_recorded_on_it(tmp_path):
+    from src.config.schema import ToolHost
+
+    active = ToolHost(address="127.0.0.1", ssh_user="root", os="macos", trust_mode="legacy")
+    registry, manager = _manager(tmp_path, {"localhost": active})
+    candidate = await manager.prepare(
+        "localhost", {"address": "127.0.0.1", "os": "macos", "confirm_local": True},
+        allow_tofu=False, existing=active)
+    assert (await manager.test(candidate.token)).tested is True
+    assert registry.get("localhost").last_test["ok"] is True
+
+
+async def test_a_remote_check_is_odins_ssh_probe(tmp_path, monkeypatch):
+    from src.tools.hosts import control
+    from src.tools.hosts.trust import fingerprint_public_key
+
+    key = "ssh-ed25519 " + base64.b64encode(b"mac-remote").decode("ascii")
+    calls = []
+    answers = iter([(0, b"odin-host-test linux\n"),
+                    (255, b"deploy@example.invalid: Permission denied (publickey)."),
+                    TimeoutError()])
+
+    async def fake(argv, timeout, **_kwargs):
+        calls.append(argv)
+        if argv[0] == "ssh-keyscan":
+            return 0, f"example.invalid {key}\n".encode()
+        answer = next(answers)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(control, "_run_argv", fake)
+    _registry, manager = _manager(tmp_path)
+    candidate = await manager.prepare(
+        "build", {"address": "example.invalid", "ssh_user": "deploy", "os": "linux",
+                  "trust_mode": "pinned", "expected_fingerprints": [fingerprint_public_key(key)]},
+        allow_tofu=False)
+    tested = await manager.test(candidate.token)
+    assert tested.tested is True and tested.test_result["platform"] == "linux"
+    ssh = calls[-1]
+    assert ssh[0] == "ssh" and ssh[-2:-1] == ["deploy@example.invalid"]
+    assert f"HostKeyAlias=odin-{candidate.host_id}" in ssh and "BatchMode=yes" in ssh
+    assert "uname -s" in ssh[-1]  # the remote system is asked, as Odin asks it
+    refused = await manager.test(candidate.token)
+    assert refused.tested is False
+    assert refused.test_result["detail"] == "deploy@example.invalid: Permission denied (publickey)."
+    late = await manager.test(candidate.token)
+    assert late.test_result == {"ok": False, "checked_at": late.test_result["checked_at"],
+                                "detail": "connection test timed out"}
