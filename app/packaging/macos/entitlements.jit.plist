@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- V8's JIT under the hardened runtime: the app (Electron) and its helpers, the bundled browser and
+	     Playwright's driver. Nothing else is allowed by it. -->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+</dict>
+</plist>

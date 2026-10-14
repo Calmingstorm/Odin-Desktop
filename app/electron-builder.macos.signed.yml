@@ -1,0 +1,18 @@
+# The signed Mac app (phase 5): electron-builder.macos.yml, signed with the Developer ID under the
+# hardened runtime, then notarized and stapled. Only .github/workflows/macos-release.yml builds it
+# (packaging/build-macos.mjs --signed, which names the identity), on a disposable keychain.
+#
+# after-pack-macos.cjs has already signed every Mach-O under Contents/Resources and sealed them in
+# the manifest the app's start check verifies. signIgnore keeps osx-sign from signing them again,
+# which would change sealed bytes; the app's own signature still covers Resources as resources.
+# Electron and its helpers get allow-jit only (Electron's documented set). Notarization uses the
+# App Store Connect key named by APPLE_API_KEY, APPLE_API_KEY_ID and APPLE_API_ISSUER; the ticket
+# is stapled into Contents/CodeResources, outside Resources.
+extends: electron-builder.macos.yml
+mac:
+  hardenedRuntime: true
+  entitlements: packaging/macos/entitlements.jit.plist
+  entitlementsInherit: packaging/macos/entitlements.jit.plist
+  signIgnore:
+    - /Contents/Resources/
+  notarize: true

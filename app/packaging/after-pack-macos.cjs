@@ -3,7 +3,9 @@
 // ownership.py copied here, and runs the engine under the guardian that the runtime stage built.
 // The menu bar's template images must be in the app archive. The resources are then sealed by the
 // same finalizer as Linux, run by the build's locked Python, which packaging/build-macos.mjs names.
-// This hook neither signs nor publishes.
+// A signed build (ODIN_MACOS_SIGN_IDENTITY, from packaging/build-macos.mjs --signed) first signs every
+// Mach-O under Resources (sign-macos-resources.py), so the seal records the signed bytes;
+// electron-builder signs the rest of the app and leaves Resources alone. This hook never publishes.
 const { spawnSync } = require('node:child_process')
 const { join } = require('node:path')
 const { chmodSync, copyFileSync, lstatSync } = require('node:fs')
@@ -36,6 +38,13 @@ module.exports = async (context) => {
   }
   copyFileSync(join(__dirname, 'ownership.py'), join(resources, 'ownership.py'))
   chmodSync(join(resources, 'ownership.py'), 0o644)
+  const identity = process.env.ODIN_MACOS_SIGN_IDENTITY
+  if (identity) {
+    const keychain = process.env.ODIN_MACOS_KEYCHAIN
+    const signed = spawnSync(python, ['-I', '-B', join(__dirname, 'sign-macos-resources.py'), resources,
+      '--identity', identity, ...(keychain ? ['--keychain', keychain] : [])], { stdio: 'inherit', env: process.env })
+    if (signed.status !== 0) throw new Error('Signing the packaged resources failed')
+  }
   const result = spawnSync(python, ['-I', '-B', join(__dirname, 'finalize-manifest.py'), resources], {
     stdio: 'inherit', env: process.env
   })
