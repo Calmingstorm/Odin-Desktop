@@ -123,11 +123,14 @@ App version, protocol, storage, checkpoints and computer quarantine have separat
 compatibility requirements. Newer, foreign, corrupt or incompatible existing
 state can refuse startup; it is not silently treated as an empty profile.
 
-Before migrations, the app creates a private backup under
+The first start of a new version (or of a new storage format) creates a private
+backup before any migration, under
 `~/.local/share/odin-desktop/default/package-backups/<backup-id>/`, or the custom
 profile data root. It covers configuration/data with exclusions such as locks,
-IPC tokens, logs and previous backups. It does **not** back up the system keyring
-or external files or undo real-world effects. It is not an automatic restore point.
+IPC tokens, logs and previous backups, so a large profile makes that first start
+take longer. Once the new version has started cleanly, only its backup is kept.
+It does **not** back up the system keyring or external files or undo real-world
+effects. It is not an automatic restore point.
 
 If startup or migration fails:
 
