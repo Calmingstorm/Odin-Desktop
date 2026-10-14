@@ -730,6 +730,31 @@
         "covered": 17,
         "missing": 0,
         "total": 17
+      },
+      "app/src/main/app-menu.ts": {
+        "covered": 8,
+        "missing": 0,
+        "total": 8
+      },
+      "app/src/main/platform/macos-autostart.ts": {
+        "covered": 10,
+        "missing": 0,
+        "total": 10
+      },
+      "app/src/main/platform/macos-launch.ts": {
+        "covered": 21,
+        "missing": 0,
+        "total": 21
+      },
+      "app/src/main/platform/macos-paths.ts": {
+        "covered": 24,
+        "missing": 3,
+        "total": 27
+      },
+      "app/src/main/platform/macos.ts": {
+        "covered": 7,
+        "missing": 0,
+        "total": 7
       }
     },
     "total": {
@@ -3242,24 +3267,29 @@
         "total": 107
       },
       "src/desktop/platform/macos_jobs.py": {
-        "covered": 243,
+        "covered": 257,
         "missing": 33,
-        "total": 276
+        "total": 290
       },
       "src/desktop/platform/macos_process.py": {
         "covered": 71,
         "missing": 4,
         "total": 75
       },
-      "src/desktop/platform/macos_safety.py": {
-        "covered": 93,
+      "src/desktop/platform/macos_resources.py": {
+        "covered": 25,
         "missing": 0,
-        "total": 93
+        "total": 25
+      },
+      "src/desktop/platform/macos_safety.py": {
+        "covered": 110,
+        "missing": 0,
+        "total": 110
       },
       "src/desktop/platform/macos_secrets.py": {
-        "covered": 264,
-        "missing": 11,
-        "total": 275
+        "covered": 278,
+        "missing": 9,
+        "total": 287
       },
       "src/desktop/platform/macos_shell.py": {
         "covered": 28,
@@ -3272,9 +3302,9 @@
         "total": 18
       },
       "src/desktop/platform/macos_supervisor_worker.py": {
-        "covered": 344,
+        "covered": 349,
         "missing": 50,
-        "total": 394
+        "total": 399
       },
       "src/desktop/platform/macos_validate.py": {
         "covered": 21,
@@ -3283,9 +3313,9 @@
       }
     },
     "total": {
-      "covered": 1445,
-      "missing": 136,
-      "total": 1581
+      "covered": 1520,
+      "missing": 134,
+      "total": 1654
     }
   }
 }

@@ -372,6 +372,7 @@ async def test_the_installed_app_runs_odin_and_exits_clean(packaged):
         shipped = importlib.util.spec_from_file_location(
             "shipped_ownership", Path(APP) / "Contents/Resources/ownership.py")
         ownership = importlib.util.module_from_spec(shipped)
+        sys.modules[shipped.name] = ownership  # its dataclass looks its module up there
         shipped.loader.exec_module(ownership)
         resources = Path(APP) / "Contents/Resources"
         record = json.loads((packaged.home / "Library/odin-desktop/.install-ownership/macos"
