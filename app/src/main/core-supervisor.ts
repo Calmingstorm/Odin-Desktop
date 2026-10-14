@@ -20,6 +20,9 @@ export interface SupervisorOptions {
   backoffMs?: number[]
   maxLogBytes?: number
   killWaitMs?: number
+  /** The child is a guardian that owns the engine's escalation (the installed Mac app): Stop closes its stdin and
+   * waits this long, never signalling it; past that the outcome is unknown. */
+  guardianWaitMs?: number
   restartAllowed?: (code: number | null, signal: NodeJS.Signals | null) => boolean
 }
 
@@ -134,15 +137,18 @@ export class CoreSupervisor extends EventEmitter {
           this.writeLog(Buffer.from(`[supervisor] ${value} failed: ${String(error)}\n`))
         }
       }
-      const termTimer = setTimeout(() => {
+      // A guardian is never signalled: killed before it has reaped, it would leave the engine unsupervised.
+      const guardian = this.options.guardianWaitMs
+      const termTimer = guardian === undefined ? setTimeout(() => {
         outcome = 'terminated'
         signal('SIGTERM')
-      }, graceMs)
-      const killTimer = setTimeout(() => {
+      }, graceMs) : undefined
+      const killTimer = guardian === undefined ? setTimeout(() => {
         outcome = 'killed'
         signal('SIGKILL')
-      }, graceMs + termMs)
-      const deadline = setTimeout(() => finish('unknown'), graceMs + termMs + (this.options.killWaitMs ?? 2_000))
+      }, graceMs + termMs) : undefined
+      const deadline = setTimeout(() => finish('unknown'),
+        guardian ?? graceMs + termMs + (this.options.killWaitMs ?? 2_000))
       child.once('exit', onExit)
       child.stdin?.on('error', () => undefined)
       try { child.stdin?.end() } catch { /* escalation retains its bounded deadline */ }

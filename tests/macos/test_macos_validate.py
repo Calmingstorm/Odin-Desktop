@@ -62,6 +62,55 @@ def test_a_log_probe_reads_the_unified_log():
     assert "journalctl" in bad  # a Linux host still runs Odin's probe
 
 
+def stub_log(tmp_path, body: str) -> str:
+    """A ``log`` on PATH that writes what the test says, then the real tools."""
+    folder = tmp_path / "bin"
+    folder.mkdir()
+    (folder / "log").write_text("#!/bin/sh\n" + body)
+    (folder / "log").chmod(0o755)
+    return f"{folder}:/usr/bin:/bin"
+
+
+def run_log(tmp_path, body: str, pattern: str = "error") -> tuple[str, list[str]]:
+    scratch = tmp_path / "tmp"
+    scratch.mkdir(exist_ok=True)
+    probe = macos_validate.build_command(check("log_present", f"unit=sshd:{pattern}",
+                                               window_seconds=5))
+    environment = {**os.environ, "PATH": stub_log(tmp_path, body), "TMPDIR": str(scratch)}
+    out = subprocess.run(["/bin/sh", "-c", probe], capture_output=True, text=True, timeout=60,
+                         env=environment).stdout
+    return out, sorted(path.name for path in scratch.iterdir())
+
+
+def test_the_log_query_that_supplies_the_lines_is_the_one_that_decides(tmp_path):
+    out, left = run_log(tmp_path, 'echo "an error here"; echo "fine"; exit 0\n')
+    assert out == "an error here\nLOG_READ_OK\n" and left == []
+
+
+def test_a_failed_log_query_is_an_error_with_its_reason_never_a_read(tmp_path):
+    """Odin's case: the data query fails (exit 65); nothing may say the log was read."""
+    out, left = run_log(tmp_path, 'echo "an error here"; echo "log: access denied" >&2; exit 65\n')
+    assert out == "LOG_CHECK_ERROR log exit 65\nlog: access denied\n" and left == []
+
+
+def test_many_matches_are_bounded_and_still_a_read(tmp_path):
+    out, left = run_log(tmp_path, 'i=0; while [ $i -lt 500 ]; do echo "error $i"; '
+                                  'i=$((i + 1)); done\n')
+    lines = out.splitlines()
+    assert lines[:2] == ["error 0", "error 1"] and len(lines) == 21
+    assert lines[-1] == "LOG_READ_OK" and left == []
+
+
+def test_the_log_and_service_probes_pass_the_governor_as_low_risk():
+    from src.desktop.platform import macos_safety
+    from src.tools.risk_classifier import RiskLevel
+
+    for item in (check("log_absent", "unit=sshd:error", window_seconds=5),
+                 check("service", "com.example.job")):
+        probe = macos_validate.build_command(item)
+        assert macos_safety.assess_command(probe).assessment.level == RiskLevel.LOW, probe
+
+
 @pytest.mark.parametrize("kind,target", [("http", "http://127.0.0.1:9/"),
                                          ("process", "--token-file"),
                                          ("command", "echo ready")])

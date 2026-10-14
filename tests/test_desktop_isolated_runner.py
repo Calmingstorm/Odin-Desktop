@@ -493,6 +493,11 @@ def test_macos_app_job_builds_the_candidate_and_drives_the_installed_app():
     assert "node packaging/build-macos.mjs" in commands
     assert "ODIN_MACOS_PACKAGED_APP=" in commands
     assert "tests/macos/test_packaged_app.py" in commands
+    # The app under test is the disk image's own, copied to a path with spaces; its evidence
+    # names the revision and the disk image.
+    assert "hdiutil attach" in commands and 'target="$RUNNER_TEMP/Odin Acceptance/' in commands
+    assert "ODIN_MACOS_PACKAGED_DMG_SHA256=" in commands
+    assert "ODIN_MACOS_PACKAGED_REVISION=" in commands
 
 
 def test_ci_labels_keep_broad_suites_on_desktop_and_light_fixtures_bounded():

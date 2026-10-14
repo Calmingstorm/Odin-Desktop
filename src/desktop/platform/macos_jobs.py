@@ -125,18 +125,26 @@ def portable_command(command: str) -> str:
 
 
 PRIVACY_HINT = (
-    "\n[macOS privacy] macOS refused access (Operation not permitted). If this is a protected place "
-    "(Desktop, Documents, Downloads, iCloud Drive, or an external or network drive), allow Odin in "
-    "System Settings > Privacy & Security > Files and Folders (Full Disk Access for other "
-    "protected data), then retry.")
+    "\n[macOS privacy] macOS may have refused this for privacy (Operation not permitted). If so, "
+    "allow Odin in System Settings > Privacy & Security > Files and Folders (or Full Disk Access "
+    "for other protected data), then try again.")
+# Places macOS protects by privacy setting: Files and Folders (Desktop, Documents, Downloads,
+# iCloud Drive, external and network volumes), and data behind Full Disk Access.
+PROTECTED_PLACES = ("/Desktop", "/Documents", "/Downloads", "/Library/Mobile Documents",
+                    "/Volumes/", "/Library/Mail", "/Library/Messages", "/Library/Safari",
+                    "/Library/Containers/", "/Library/Group Containers/")
 
 
 def with_privacy_hint(code: int, output):
-    """A local failure that macOS refused for privacy names the setting that allows it, once."""
+    """A local failure that macOS refused (Operation not permitted) at a place it protects for
+    privacy says which setting may allow it, once. EPERM has other causes too (an immutable
+    flag, for one), so the hint is offered only where a protected place is named, and never
+    retries anything itself."""
     from src.tools.command_shell import CommandOutput
 
     text = str(output)
-    if code == 0 or "Operation not permitted" not in text or PRIVACY_HINT in text:
+    if (code == 0 or "Operation not permitted" not in text or PRIVACY_HINT in text
+            or not any(place in text for place in PROTECTED_PLACES)):
         return output
     if isinstance(output, CommandOutput):
         return CommandOutput(text + PRIVACY_HINT, shell=output.effective_shell,
@@ -538,7 +546,8 @@ async def start_local_reserved(
 
 
 def _with_caveat_fields(page: str) -> str:
-    """The page with the scope and caveat added to its metadata; unchanged if it has none."""
+    """The page with the scope, the caveat and Work's release verdict in its metadata; unchanged
+    if it has none."""
     def extend(text: str) -> str | None:
         try:
             meta = json.loads(text)
@@ -548,6 +557,11 @@ def _with_caveat_fields(page: str) -> str:
             return None
         meta["containment"] = SCOPE
         meta["cleanup_caveat"] = CAVEAT
+        if "cleanup_verified" in meta:
+            # A settled stop converged on the session; it never proves it empty, so the public
+            # verdict is Work's: best effort once settled, unproven otherwise, never verified.
+            meta["resource_release"] = "best_effort" if meta["cleanup_verified"] else "unproven"
+            meta["cleanup_verified"] = False
         return json.dumps(meta, ensure_ascii=False, separators=(",", ":"))
 
     marker = "\n[output retention] "

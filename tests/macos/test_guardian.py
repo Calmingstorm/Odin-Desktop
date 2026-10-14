@@ -134,6 +134,51 @@ def test_a_second_signal_kills_at_once(guardian):
     assert "stop requested again; sent SIGKILL" in err
 
 
+def gone(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    return False
+
+
+# A stand-in that exits slowly but on its own after SIGTERM, announcing its process ID first.
+SLOW = r"""
+import os, signal, sys, time
+signal.signal(signal.SIGTERM, lambda *a: (time.sleep(2), sys.exit(0)))
+print(os.getpid(), flush=True)
+while True:
+    time.sleep(1)
+"""
+HUNG_PID = HUNG.replace('print("ready", flush=True)', "import os; print(os.getpid(), flush=True)")
+
+
+def test_a_slow_exit_within_the_term_is_waited_for_not_killed(guardian):
+    process = start(guardian, SLOW, "--grace", "1", "--term", "6")
+    engine = int(process.stdout.readline())
+    _, err = process.communicate(timeout=30)  # EOF: grace, then TERM; the engine needs 2 s
+    assert process.returncode == 0, err  # its own exit status, not a KILL
+    assert "sent SIGKILL" not in err and gone(engine)
+
+
+def test_a_dead_apps_link_still_ends_a_hung_engine_and_reaps_it(guardian):
+    process = start(guardian, HUNG_PID, "--grace", "1", "--term", "1")
+    engine = int(process.stdout.readline())
+    process.stdin.close()  # the app is gone: nobody else will signal anything
+    assert process.wait(30) == -signal.SIGKILL
+    assert gone(engine)  # reaped before the guardian exited
+
+
+def test_a_signal_racing_the_grace_expiry_still_ends_and_reaps_the_engine(guardian):
+    process = start(guardian, HUNG_PID, "--grace", "1", "--term", "30")
+    engine = int(process.stdout.readline())
+    process.stdin.close()
+    time.sleep(1.0)  # the grace expires about now
+    process.send_signal(signal.SIGTERM)
+    assert process.wait(30) == -signal.SIGKILL  # either order ends in a KILL the guardian sends
+    assert gone(engine)
+
+
 def test_an_engine_that_cannot_start_and_bad_usage(guardian):
     missing = subprocess.run([guardian, "--", "/nonexistent/engine"], capture_output=True,
                              text=True, timeout=20)

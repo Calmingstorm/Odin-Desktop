@@ -37,11 +37,22 @@ jobs:
       - name: Build the Mac candidate with packaging/build-macos.mjs (unsigned)
         working-directory: app
         run: node packaging/build-macos.mjs
-      - name: The installed app, started as a user starts it and driven end to end
+      - name: The app from the disk image, copied to a path with spaces and driven end to end
+        env:
+          REVISION: ${{ github.sha }}
         run: |
-          app="$PWD/.packaging-candidates/mac-arm64/Odin.app"
-          ls -d "$app"
-          ODIN_MACOS_PACKAGED_APP="$app" ODIN_MACOS_PACKAGED_REPORT="$RUNNER_TEMP/macos-app-acceptance.json" \
+          dmg="$(ls .packaging-candidates/odin-desktop-*-candidate-arm64.dmg)"
+          digest="$(shasum -a 256 "$dmg" | cut -d' ' -f1)"
+          echo "$digest  $dmg"
+          mount="$RUNNER_TEMP/odin disk image"
+          target="$RUNNER_TEMP/Odin Acceptance/Applications"
+          mkdir -p "$mount" "$target"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$dmg"
+          ditto "$mount/Odin.app" "$target/Odin.app"
+          hdiutil detach "$mount"
+          ODIN_MACOS_PACKAGED_APP="$target/Odin.app" ODIN_MACOS_PACKAGED_REVISION="$REVISION" \
+          ODIN_MACOS_PACKAGED_DMG_SHA256="$digest" \
+          ODIN_MACOS_PACKAGED_REPORT="$RUNNER_TEMP/macos-app-acceptance.json" \
             .venv/bin/python -m pytest tests/macos/test_packaged_app.py -q -p no:cacheprovider -rfEs
       - name: Upload the acceptance report and the bundle's records (not a candidate)
         if: always()

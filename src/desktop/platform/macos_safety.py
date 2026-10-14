@@ -11,6 +11,14 @@ deletion as data deletion. Reading a credential is not raised, as on Linux. The 
 for commands run on this computer; remote hosts keep Odin's own governor. The signed audit label
 stays Odin's pinned POSIX classification, which can be lower than these facts; the governor's
 override notes still reach the outcome summaries (as on Windows).
+
+The families are matched in every text Odin's own classifier reads (the command, its bounded brace
+expansions and its decoded ANSI-C words) and in each of those texts' literal words, as Odin's
+segment scanner reads them: quotes removed and concatenated pieces joined, as the shell passes
+them. So `diskutil 'eraseDisk'` and `diskutil er''aseDisk` are the command they spell. Aliases,
+variables and eval stay unresolved, as in Odin. A raise never relaxes a decision: Odin's own
+governor decides first, and a command it refuses is refused here with its answer; Odin's floor is
+kept as Odin recorded it, so a strict host still refuses what it refused before.
 """
 # ruff: noqa: E501
 from __future__ import annotations
@@ -22,8 +30,12 @@ from ...tools.risk_classifier import (
     CommandFacts,
     CommandGovernor,
     CommandGovernorResult,
+    GovernorStats,
     RiskAssessment,
     RiskLevel,
+    _brace_candidates,
+    _decode_ansi_c_quotes,
+    _shell_segments,
     detect_unconditional_git_force_push,
     log,
 )
@@ -56,29 +68,61 @@ _HIGH = [
 ]
 
 
+def candidate_texts(command: str) -> list[str]:
+    """The texts the families are matched in: Odin's own candidates (the command, its bounded
+    brace expansions, their decoded ANSI-C words) and each one's literal words, joined."""
+    texts = dict.fromkeys([command, *(_brace_candidates(command) or [])])
+    for text in list(texts):
+        texts[_decode_ansi_c_quotes(text)] = None
+    for text in list(texts):
+        for segment in _shell_segments(text):
+            texts[" ".join(word.value for word in segment)] = None
+    return list(texts)
+
+
 def _macos_family(command: str) -> RiskAssessment | None:
+    """The highest macOS family any candidate text names (the first listed at that level)."""
+    texts = candidate_texts(command)
     for level, patterns in ((RiskLevel.CRITICAL, _CRITICAL), (RiskLevel.HIGH, _HIGH)):
         for pattern, reason in patterns:
-            if pattern.search(command):
+            if any(pattern.search(text) for text in texts):
                 return RiskAssessment(level, reason)
     return None
 
 
 def assess_command(command: str) -> CommandFacts:
-    """Odin's facts, raised (never lowered) by a macOS family match."""
+    """Odin's facts, the assessment raised (never lowered) by a macOS family; Odin's floor kept."""
     facts = posix_facts(command)
     family = _macos_family(command) if command else None
     if family is None or _RANK[family.level] <= _RANK[facts.assessment.level]:
         return facts
     category = "destructive" if family.level == RiskLevel.CRITICAL else facts.category
-    floor = family.level if _RANK[family.level] > _RANK[facts.floor_level] else facts.floor_level
-    return facts._replace(assessment=family, category=category, floor_level=floor)
+    return facts._replace(assessment=family, category=category)
 
 
 class MacOSCommandGovernor(CommandGovernor):
-    """Odin's governor policy, unchanged, over the macOS assessment (check lifted verbatim)."""
+    """Odin's governor policy, unchanged, over the macOS assessment (its check lifted verbatim),
+    and never more permissive than Odin's own decision."""
 
     def check(
+        self,
+        command: str,
+        *,
+        user_tier: str | None = None,
+        host: str | None = None,
+    ) -> CommandGovernorResult:
+        """Odin's own decision first: what it refuses is refused, with its answer. Its stats are
+        counted once, by whichever check answers."""
+        odin = CommandGovernor.__new__(CommandGovernor)
+        odin.__dict__.update(self.__dict__)
+        odin._stats = GovernorStats()  # the decision only
+        decided = CommandGovernor.check(odin, command, user_tier=user_tier, host=host)
+        if not decided.allowed:
+            self._stats.record_block(command, decided)
+            return decided
+        return self._check_macos(command, user_tier=user_tier, host=host)
+
+    def _check_macos(
         self,
         command: str,
         *,

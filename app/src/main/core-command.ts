@@ -10,6 +10,9 @@ export interface CoreLaunch {
   command: string
   args: string[]
   env: NodeJS.ProcessEnv
+  /** Set when the engine runs under a guardian that owns its escalation (the installed Mac app): Stop then
+   * only closes the guardian's stdin and waits this long for it, never signalling it. */
+  guardianWaitMs?: number
 }
 
 export interface CoreCommandContext {

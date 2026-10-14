@@ -7,10 +7,14 @@ Mac prints exactly what Odin's evaluation expects.
 
 * ``port``: GNU timeout when the host has it, otherwise the same bash /dev/tcp probe under a
   perl alarm (perl ships with macOS); ``OPEN`` or ``CLOSED``.
-* ``service``: the launchd job named (the user's domain, then the system's); a running job is
-  ``active`` and anything else, a missing job included, ``inactive``, in systemctl's words.
+* ``service``: the launchd job named, in the user's GUI domain, then the user domain, then the
+  system's; a running job is ``active`` and anything else, a missing job included, ``inactive``,
+  in systemctl's words.
 * ``log_absent``/``log_present``: the unified log (``log show``) over the window, ``unit=``
-  naming a process or subsystem; matched lines, then ``LOG_READ_OK``, or ``LOG_CHECK_ERROR``.
+  naming a process or subsystem. One query is made and its own exit status decides: its matched
+  lines, then ``LOG_READ_OK``; or ``LOG_CHECK_ERROR`` with the last line it wrote to stderr. Its
+  two temporary files are removed with unlink, which the governor reads as the plain removal it
+  is (``rm -f`` would read as a forced delete, refused on a strict host).
 
 Every other check is Odin's own probe.
 """
@@ -21,6 +25,7 @@ import shlex
 _PORT = 'cat < /dev/null > "/dev/tcp/$1/$2"'
 _SERVICE = (
     'case "$(launchctl print "gui/$(id -u)/$1" 2>/dev/null || '
+    'launchctl print "user/$(id -u)/$1" 2>/dev/null || '
     'launchctl print "system/$1" 2>/dev/null)" in '
     '*"state = running"*) echo active;; *) echo inactive;; esac'
 )
@@ -33,10 +38,12 @@ _LOG = (
     'set -- --last "${2}s" --style compact '
     '--predicate "process == \\"$1\\" OR subsystem == \\"$1\\""; '
     'else set -- --last "${2}s" --style compact; fi; '
-    'e=$(log show "$@" 2>&1 >/dev/null); r=$?; '
-    'if [ "$r" -ne 0 ]; then echo "LOG_CHECK_ERROR log exit $r"; '
-    'printf "%s\\n" "$e" | tail -n 1; exit 0; fi; '
-    'log show "$@" 2>/dev/null | grep -E -e "$p" | head -n 20; echo LOG_READ_OK'
+    'out=$(mktemp) || { echo "LOG_CHECK_ERROR no temporary file"; exit 0; }; '
+    'err=$(mktemp) || { unlink "$out"; echo "LOG_CHECK_ERROR no temporary file"; exit 0; }; '
+    'trap \'unlink "$out"; unlink "$err"\' EXIT; '
+    'log show "$@" >"$out" 2>"$err"; r=$?; '
+    'if [ "$r" -ne 0 ]; then echo "LOG_CHECK_ERROR log exit $r"; tail -n 1 "$err"; exit 0; fi; '
+    'grep -E -e "$p" "$out" | head -n 20; echo LOG_READ_OK'
 )
 
 

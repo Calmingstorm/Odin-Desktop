@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EventEmitter } from 'node:events'
-import { decideSecondInstance, decideWindowClose, parseLaunchFlags, showWhenReady } from '../src/main/lifecycle'
+import { decideSecondInstance, decideWindowClose, parseLaunchFlags, showWhenReady, StartVisibility } from '../src/main/lifecycle'
 
 describe('lifecycle (D3)', () => {
   it('closing the window hides it and keeps Odin running', () => {
@@ -43,6 +43,37 @@ class HiddenWindow extends EventEmitter {
   show(): void { this.shows += 1; this.visible = true; this.emit('show') }
 }
 const hiddenWindow = (): HiddenWindow => new HiddenWindow()
+
+describe('first-show visibility', () => {
+  it('reads the login flag at readiness, not before: one reported as launching finishes still hides', () => {
+    let reported = false // macOS reports a login item's start only as launching finishes
+    const reads: boolean[] = []
+    const visibility = new StartVisibility(false)
+    reported = true
+    expect(reads).toEqual([]) // nothing is read while the app starts
+    visibility.ready(() => { reads.push(reported); return reported })
+    expect(reads).toEqual([true])
+    expect(visibility.wanted).toBe(false)
+  })
+
+  it('keeps --hidden hidden, shows an ordinary start, and lets an explicit open win in any order', () => {
+    const ordinary = new StartVisibility(false)
+    ordinary.ready(() => false)
+    expect(ordinary.wanted).toBe(true)
+    const hidden = new StartVisibility(true)
+    hidden.ready(() => false)
+    expect(hidden.wanted).toBe(false)
+    hidden.request() // the tray or a second instance
+    expect(hidden.wanted).toBe(true)
+    const early = new StartVisibility(false)
+    early.request() // an open before readiness still wins over a login start
+    early.ready(() => true)
+    expect(early.wanted).toBe(true)
+    const linux = new StartVisibility(false)
+    linux.ready(undefined) // no login flag on Linux or Windows: --hidden is their login start
+    expect(linux.wanted).toBe(true)
+  })
+})
 
 describe('first window show', () => {
   it('shows a window whose page loaded but never painted (Wayland)', () => {

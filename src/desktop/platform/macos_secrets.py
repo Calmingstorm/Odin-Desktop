@@ -132,6 +132,8 @@ _K = {
 # macOS 26 answers a locked keychain with errSecAuthFailed. No dialog was shown, so it is never a
 # Deny here; only an answer during Retry's interactive reads can be the owner's denial.
 _REFUSED_WITHOUT_UI = (ERR_INTERACTION_NOT_ALLOWED, ERR_INTERACTION_REQUIRED, ERR_AUTH_FAILED)
+# Not an OSStatus: the keychain answered success, but the item read back does not show the change.
+UNCONFIRMED = -1
 
 
 class _InteractionGate:
@@ -207,6 +209,9 @@ class _Owned:
 
 
 def _failure(status: int, action: str, *, interactive: bool = False) -> SecretStoreError:
+    if status == UNCONFIRMED:
+        return SecretStoreError(f"Profile keyring {action} could not be confirmed; the keychain "
+                                "may have locked. Unlock it and try again")
     if interactive and status in (ERR_AUTH_FAILED, ERR_USER_CANCELED):
         return SecretStoreError(f"Profile keyring {action} was denied")
     if status in _REFUSED_WITHOUT_UI:
@@ -344,9 +349,21 @@ class KeychainBackend:
         with _gate.ordinary():
             self._refuse_if_locked(None, "write")
             status = self._store(service, name, value)
+            if status == ERR_SUCCESS:
+                status = self._receipt(service, name, value)
         self._note((service, name), status, changed=True)
         if status != ERR_SUCCESS:
             raise _failure(status, "write")
+
+    def _receipt(self, service: str, name: str, expected: str | None) -> int:
+        """A mutation's own receipt: the item read back without UI shows the value (or, after a
+        deletion, its absence). The keychain can lock between the lock check and the change, and
+        a locked keychain can answer success without changing anything, so its answer alone
+        proves nothing; anything short of the receipt is UNCONFIRMED."""
+        status, value = self._copy(service, name, interactive=False)
+        if expected is None:
+            return ERR_SUCCESS if status == ERR_NOT_FOUND else UNCONFIRMED
+        return ERR_SUCCESS if status == ERR_SUCCESS and value == expected else UNCONFIRMED
 
     def _store(self, service: str, name: str, value: str) -> int:
         with _Owned() as owned:
@@ -377,6 +394,8 @@ class KeychainBackend:
         with _gate.ordinary(), _Owned() as owned:
             self._refuse_if_locked(None, "deletion")
             status = _sec.SecItemDelete(self._query(owned, service, name))
+            if status in (ERR_SUCCESS, ERR_NOT_FOUND):
+                status = self._receipt(service, name, None)
         self._note((service, name), status, changed=True)
         if status not in (ERR_SUCCESS, ERR_NOT_FOUND):
             raise _failure(status, "deletion")

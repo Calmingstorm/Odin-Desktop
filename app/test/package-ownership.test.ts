@@ -1,7 +1,8 @@
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { acquirePackagedApp, admitPackagedApp, hasLine, INSTALL_UNFINISHED, PENDING_EXIT } from '../src/main/package-ownership'
+import { acquirePackagedApp, admitPackagedApp, hasLine, INSTALL_UNFINISHED, MAC_START_REFUSALS, PENDING_EXIT,
+  StartRefused } from '../src/main/package-ownership'
 
 const mocked = vi.hoisted(() => ({ spawn: vi.fn(), read: vi.fn(), exists: vi.fn(() => true) }))
 vi.mock('node:child_process', () => ({ spawn: mocked.spawn }))
@@ -144,6 +145,53 @@ describe('independent packaged app lifetime', () => {
         system === 'win32' ? 'C:\\Programs\\Odin\\resources' : '/candidate/resources', {}, system)
       process.emit('exit', code)
       await expect(pending).rejects.toThrow(message)
+    }
+  })
+
+  it('words each refusal of the Mac start check with its remedy, and nothing else as one', async () => {
+    const macPaths = { profileId: 'default', configDir: '/Users/ada/Library/odin-desktop/default/config',
+      dataDir: '/Users/ada/Library/odin-desktop/default/data' } as Parameters<typeof acquirePackagedApp>[0]
+    const resources = '/Applications/Odin.app/Contents/Resources'
+    const remedies = { 80: 'Reinstall Odin from its disk image', 81: 'Wait a minute, then open Odin again',
+      82: 'Restart the Mac, then open Odin', 83: 'remove the folder ~/Library/odin-desktop/.install-ownership' }
+    expect(Object.keys(MAC_START_REFUSALS).map(Number)).toEqual([80, 81, 82, 83])
+    for (const [code, remedy] of Object.entries(remedies)) {
+      const process = child()
+      mocked.spawn.mockReturnValue(process)
+      const pending = acquirePackagedApp(macPaths, resources, {}, 'darwin')
+      process.emit('exit', Number(code))
+      const error = await pending.catch((caught: unknown) => caught)
+      expect(error).toBeInstanceOf(StartRefused)
+      expect((error as Error).message).toContain(remedy)
+      expect((error as Error).message).toMatch(/Nothing was changed\.$/)
+    }
+    for (const [system, code] of [['darwin', 1], ['darwin', PENDING_EXIT], ['linux', 80], ['win32', 82]] as const) {
+      const process = child()
+      mocked.spawn.mockReturnValue(process)
+      const pending = acquirePackagedApp(system === 'darwin' ? macPaths : paths, resources, {}, system)
+      process.emit('exit', code)
+      const error = await pending.catch((caught: unknown) => caught)
+      expect(error).not.toBeInstanceOf(StartRefused)
+      expect((error as Error).message).toContain('ownership is unavailable')
+    }
+  })
+
+  it('gives the Mac\'s first full check a minute before READY, and others 15 seconds', async () => {
+    vi.useFakeTimers()
+    try {
+      for (const [system, wait] of [['darwin', 60_000], ['linux', 15_000]] as const) {
+        const process = child()
+        mocked.spawn.mockReturnValue(process)
+        const pending = acquirePackagedApp(paths, '/candidate/resources', {}, system)
+        const settled = vi.fn()
+        pending.then(settled, settled)
+        await vi.advanceTimersByTimeAsync(wait - 1)
+        expect(settled).not.toHaveBeenCalled()
+        await vi.advanceTimersByTimeAsync(1)
+        expect(settled).toHaveBeenCalledOnce()
+      }
+    } finally {
+      vi.useRealTimers()
     }
   })
 

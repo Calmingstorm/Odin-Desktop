@@ -16,7 +16,8 @@ import { currentPlatform } from '../src/main/platform'
 import { AUTOSTART_UNAVAILABLE, macosPlatform } from '../src/main/platform/macos'
 import { LOGIN_ITEMS_SETTINGS, macosAutostartEnabled, macosOpenedAtLogin, setMacosAutostart, type LoginItems }
   from '../src/main/platform/macos-autostart'
-import { GUARDIAN_GRACE_SECONDS, GUARDIAN_TERM_SECONDS, macosPath, systemPaths, underGuardian, type PathFiles }
+import { GUARDIAN_GRACE_SECONDS, GUARDIAN_REAP_MARGIN_MS, GUARDIAN_TERM_SECONDS, macosPath, systemPaths,
+  underGuardian, type PathFiles }
   from '../src/main/platform/macos-launch'
 import { HOME_WITH_WHITESPACE, macosProfilePaths, SOCKET_PATH_LIMIT, userTempRoot, type TempRootSystem }
   from '../src/main/platform/macos-paths'
@@ -196,7 +197,28 @@ describe('the engine launch on an installed Mac', () => {
     expect(macosPath(undefined, files({}))).toBe('/opt/homebrew/bin:/opt/homebrew/sbin')
   })
 
-  it('runs the bundled engine under the guardian, whose grace ends before the supervisor\'s TERM', () => {
+  it('gives a Finder start Homebrew, the system path files and an administrator\'s custom folders', () => {
+    // A Finder or login start inherits launchd's minimal PATH; Terminal's exports never reach it.
+    const read = files({ '/etc/paths': '/usr/local/bin\n/usr/bin\n/bin\n/usr/sbin\n/sbin\n',
+      '/etc/paths.d/50-tools': '/Users/ada/.local/bin\n', '/etc/paths.d/10-cryptex': '/System/Cryptexes/App/usr/bin\n' },
+    ['50-tools', '10-cryptex'])
+    expect(macosPath('/usr/bin:/bin:/usr/sbin:/sbin', read)).toBe('/opt/homebrew/bin:/opt/homebrew/sbin:'
+      + '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/System/Cryptexes/App/usr/bin:/Users/ada/.local/bin')
+  })
+
+  it('keeps folders macOS genuinely gave the app, after the path files, and reads no shell startup file', () => {
+    const reads: string[] = []
+    const read: PathFiles = {
+      read: (path) => { reads.push(path); return path === '/etc/paths' ? '/usr/bin\n/bin\n' : '/opt/admin\n' },
+      list: (folder) => { reads.push(folder); return ['tools'] }
+    }
+    // A folder set for every app (launchctl config user path) arrives in the inherited PATH.
+    expect(macosPath('/Users/ada/.cargo/bin:/usr/bin', read))
+      .toBe('/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/opt/admin:/Users/ada/.cargo/bin')
+    expect(reads).toEqual(['/etc/paths.d', '/etc/paths', '/etc/paths.d/tools'])
+  })
+
+  it('runs the bundled engine under the guardian, the engine\'s only escalation authority', () => {
     const resources = '/Applications/Odin.app/Contents/Resources'
     const launch = { command: `${resources}/runtime/python/bin/python3`, args: ['-I', '-B', '-m', 'src', '--socket', 's'],
       env: { HOME: '/Users/ada', PATH: '/usr/bin:/bin', ODIN_DESKTOP_BUNDLE_ROOT: `${resources}/runtime` } }
@@ -204,11 +226,12 @@ describe('the engine launch on an installed Mac', () => {
     expect(guarded).toEqual({
       command: `${resources}/runtime/odin-guardian`,
       args: ['--grace', '14', '--term', '4', '--', launch.command, ...launch.args],
-      env: { ...launch.env, PATH: '/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin' }
+      env: { ...launch.env, PATH: '/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin' },
+      // The app waits the guardian's own deadlines plus a reaping margin, and never signals it.
+      guardianWaitMs: 24_000
     })
-    // The supervisor sends TERM at 15 s and KILL at 20 s: the guardian is always terminating by then.
-    expect(GUARDIAN_GRACE_SECONDS).toBeLessThan(15)
-    expect(GUARDIAN_GRACE_SECONDS + GUARDIAN_TERM_SECONDS).toBeLessThan(20)
+    expect(guarded.guardianWaitMs).toBe(
+      (GUARDIAN_GRACE_SECONDS + GUARDIAN_TERM_SECONDS) * 1000 + GUARDIAN_REAP_MARGIN_MS)
   })
 
   it('wraps only an installed Mac app\'s core launch', () => {

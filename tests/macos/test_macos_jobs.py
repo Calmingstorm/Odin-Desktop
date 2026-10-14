@@ -239,6 +239,47 @@ def test_a_member_that_exits_while_it_is_read_is_left_out(monkeypatch):
     assert worker.observe_session(4242) == {}
 
 
+@pytest.mark.parametrize("failing", ["observation", "event drain", "secondary group probe"])
+@pytest.mark.parametrize("deadline", ["TERM", "KILL"])
+def test_stop_reaches_the_pinned_group_whatever_observation_does(failing, deadline, monkeypatch):
+    """The leader's own group needs no discovery: a failing observation never holds it back."""
+    from src.desktop.platform import macos_supervisor_worker as worker
+
+    def broken(*args, **kwargs):
+        raise worker.ObservationError(f"injected {failing} failure")
+
+    command = ["/bin/sleep", "60"] if deadline == "TERM" else [
+        "/bin/sh", "-c", "trap '' TERM; exec /bin/sleep 60"]  # only KILL ends this one
+    left, right = socket.socketpair()
+    supervisor = worker.Worker(left)
+    leader = subprocess.Popen(command, start_new_session=True)
+    try:
+        supervisor.leader, supervisor.sid = leader, leader.pid
+        if failing == "observation":
+            monkeypatch.setattr(worker, "observe_session", broken)
+        elif failing == "event drain":
+            monkeypatch.setattr(supervisor, "drain_events", broken)
+        else:
+            real = worker.group_probe
+            monkeypatch.setattr(worker, "group_probe",
+                                lambda pgid: real(pgid) if pgid == leader.pid else broken())
+            supervisor.groups.add(leader.pid + 100000)  # a recorded group whose probe fails
+        supervisor.terminate(5.0 if deadline == "TERM" else 0.0)
+        with pytest.raises(worker.ObservationError):
+            supervisor.round()
+        expected = signal.SIGTERM if deadline == "TERM" else signal.SIGKILL
+        assert leader.wait(10) == -expected
+        assert supervisor.leader_group_termed
+    finally:
+        if leader.poll() is None:
+            leader.kill()
+            leader.wait(10)
+        supervisor.selector.close()
+        supervisor.queue.close()
+        left.close()
+        right.close()
+
+
 def test_internal_commands_get_the_engines_python3_and_raw_ones_keep_path(monkeypatch):
     monkeypatch.setattr(macos_jobs, "_internal_bin", None)
     environment = macos_jobs._internal_environment({"PATH": "/usr/bin:/bin", "KEEP": "1"})
@@ -252,15 +293,21 @@ def test_internal_commands_get_the_engines_python3_and_raw_ones_keep_path(monkey
     assert again["PATH"].split(os.pathsep)[0] == str(folder)
 
 
-def test_the_poll_metadata_carries_the_scope_and_caveat():
-    meta = {"kind": "process_output", "pid": 7, "cleanup_verified": True}
+@pytest.mark.parametrize("settled,release", [(True, "best_effort"), (False, "unproven")])
+def test_the_poll_metadata_carries_the_scope_caveat_and_works_verdict(settled, release):
+    meta = {"kind": "process_output", "pid": 7, "cleanup_verified": settled}
     plain = json.dumps(meta, separators=(",", ":"))
     extended = json.loads(macos_jobs._with_caveat_fields(plain))
     assert extended["containment"] == "session_best_effort"
     assert extended["cleanup_caveat"] == "detached or raced descendants are unverified"
+    # Convergence is never a verified cleanup; the verdict is Work's own word.
+    assert (extended["cleanup_verified"], extended["resource_release"]) == (False, release)
     preview = "[PID 7] status=killed\nout\n[output retention] " + plain
     head, _, tail = macos_jobs._with_caveat_fields(preview).rpartition("\n[output retention] ")
-    assert head == "[PID 7] status=killed\nout" and json.loads(tail)["containment"]
+    assert head == "[PID 7] status=killed\nout"
+    assert json.loads(tail) == extended
+    running = json.loads(macos_jobs._with_caveat_fields(json.dumps({"kind": "process_output"})))
+    assert "resource_release" not in running and "cleanup_verified" not in running
     for unchanged in ("Error: offset is not a UTF-8 code point boundary.",
                       json.dumps({"kind": "other"})):
         assert macos_jobs._with_caveat_fields(unchanged) == unchanged
@@ -407,9 +454,11 @@ def test_a_privacy_refusal_names_the_setting_once():
     assert (hinted.effective_shell, hinted.termination_reason, hinted.raw_returncode) == (
         "bash", "exited", 1)
     assert macos_jobs.with_privacy_hint(1, hinted) == hinted  # once
-    assert macos_jobs.with_privacy_hint(1, "rm: x: Operation not permitted").endswith(
-        "then retry.")
-    for code, text in ((0, "Operation not permitted, then it worked"), (1, "No such file")):
+    assert macos_jobs.with_privacy_hint(
+        1, "ls: /Volumes/Backup: Operation not permitted").endswith("then try again.")
+    for code, text in ((0, "cat: /Users/ada/Desktop/x: Operation not permitted, then it worked"),
+                       (1, "cat: /Users/ada/Desktop/x: No such file or directory"),
+                       (1, "chflags: /tmp/locked: Operation not permitted")):  # not a privacy place
         assert macos_jobs.with_privacy_hint(code, text) == text
 
 
@@ -417,10 +466,10 @@ async def test_exec_command_adds_the_privacy_hint_to_local_failures_only(monkeyp
     from src.tools.executor import ToolExecutor
 
     async def local(command, **kwargs):
-        return 1, "ls: Documents: Operation not permitted"
+        return 1, "ls: /Users/ada/Documents: Operation not permitted"
 
     async def remote(self, address, command, *rest):
-        return 1, "ls: Documents: Operation not permitted"
+        return 1, "ls: /Users/ada/Documents: Operation not permitted"
 
     monkeypatch.setattr(macos_jobs, "run_local_command", local)
     monkeypatch.setattr(ToolExecutor._exec_command, "linux_original", remote)
@@ -430,7 +479,7 @@ async def test_exec_command_adds_the_privacy_hint_to_local_failures_only(monkeyp
     code, text = await macos_jobs.exec_command(fake, "127.0.0.1", "ls ~", use_command_shell=True)
     assert code == 1 and text.endswith(macos_jobs.PRIVACY_HINT)
     code, text = await macos_jobs.exec_command(fake, "192.0.2.5", "ls ~", use_command_shell=True)
-    assert text == "ls: Documents: Operation not permitted"  # another computer's privacy
+    assert text == "ls: /Users/ada/Documents: Operation not permitted"  # another computer's
 
 
 async def test_a_full_bulkhead_refuses_a_local_command(monkeypatch):

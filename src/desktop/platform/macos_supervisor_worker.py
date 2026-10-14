@@ -378,7 +378,15 @@ class Worker:
         return SETTLING_SCAN_SECONDS if self.exit_reported else IDLE_SCAN_SECONDS
 
     def round(self) -> bool:
-        """One observation of the session; True when it was quiet."""
+        """One observation of the session; True when it was quiet.
+
+        On Stop the pinned leader group is signalled first, before anything that can fail to
+        observe: it is the unreaped leader's own group, so reaching it needs no discovery, and an
+        observation failure must not hold back the cleanup the worker can still do. Members found
+        by observation are signalled after it, by identity; settling still needs quiet rounds.
+        """
+        if self.stop_at is not None:
+            self.signal_leader_group()
         forks = self.drain_events()
         members = observe_session(self.sid)
         live = {pid: member for pid, member in members.items() if not member.zombie}
@@ -394,17 +402,22 @@ class Worker:
         return (not live and not forks and groups.get(self.sid) != "live"
                 and all(state == "empty" for pgid, state in groups.items() if pgid != self.sid))
 
+    def signal_leader_group(self) -> None:
+        """TERM the pinned leader group once, then KILL it each round from the kill deadline."""
+        kill = time.monotonic() >= self.kill_at
+        if group_probe(self.sid) != "live" or not (kill or not self.leader_group_termed):
+            return
+        try:
+            os.killpg(self.sid, signal.SIGKILL if kill else signal.SIGTERM)  # pinned, unreaped
+        except ProcessLookupError:
+            pass
+        except PermissionError as exc:
+            self.error("leader group signal refused", exc)
+        self.leader_group_termed = True
+
     def signal(self, live: dict[int, Member], groups: dict[int, str]) -> None:
         kill = time.monotonic() >= self.kill_at
         number = signal.SIGKILL if kill else signal.SIGTERM
-        if groups.get(self.sid) == "live" and (kill or not self.leader_group_termed):
-            try:
-                os.killpg(self.sid, number)  # pinned: the leader is still our unreaped child
-            except ProcessLookupError:
-                pass
-            except PermissionError as exc:
-                self.error("leader group signal refused", exc)
-            self.leader_group_termed = True
         for member in live.values():
             if member.pgid == self.sid:
                 continue  # reached through the pinned group

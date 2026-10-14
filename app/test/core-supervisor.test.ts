@@ -79,6 +79,26 @@ describe('core supervisor', () => {
     expect(await s.stop(150, 150)).toBe('killed')
   })
 
+  it('never signals a guardian: it waits, and past the wait the outcome is unknown', async () => {
+    const s = supervisor(STUBBORN, { guardianWaitMs: 300 })
+    s.start()
+    await waitFor(() => s.current === 'running')
+    const pid = s.pid!
+    await new Promise((r) => setTimeout(r, 100))
+    const started = Date.now()
+    expect(await s.stop(10, 10)).toBe('unknown')  // the stop's own TERM and KILL times are not used
+    expect(Date.now() - started).toBeGreaterThanOrEqual(280)
+    expect(() => process.kill(pid, 0)).not.toThrow()  // still alive: nothing signalled it
+    process.kill(pid, 'SIGKILL')
+  })
+
+  it('lets an obedient guardian exit on its own within the wait', async () => {
+    const s = supervisor(OBEDIENT, { guardianWaitMs: 5_000 })
+    s.start()
+    await waitFor(() => s.current === 'running')
+    expect(await s.stop()).toBe('exited')
+  })
+
   it('does not restart a core that was stopped on purpose', async () => {
     const s = supervisor(OBEDIENT)
     let restarted = false

@@ -225,6 +225,7 @@ def test_a_write_or_delete_after_retry_voids_its_value(fake):
             backend.get_password("s", name)
     backend.unlock()
     stores.append(0)
+    reads.extend([(0, "a2"), (macos_secrets.ERR_NOT_FOUND, None)])  # each change's receipt
     backend.set_password("s", "a", "a2")
     backend.delete_password("s", "b")
     reads.extend([(REFUSED, None), (REFUSED, None)])
@@ -299,6 +300,7 @@ def test_ordinary_calls_fail_fast_while_a_retry_prompt_is_pending(fake):
         retry.join(10)
     assert security.interaction is False
     stores.append(0)
+    reads.append((0, "after"))
     backend.set_password("s", "x", "after")  # ordinary calls work again
 
 
@@ -322,7 +324,44 @@ def test_every_way_out_of_retry_switches_interaction_off(fake, failure):
     assert security.interaction is False
     security.locked = False  # the owner unlocks it some other way
     stores.append(0)
+    reads.append((0, "v"))
     backend.set_password("s", "x", "v")  # the gate reopened
+
+
+def test_a_change_counts_only_when_reading_it_back_shows_it(fake):
+    """The keychain can lock between the lock check and the change, and a locked keychain can
+    answer success without changing anything: success alone proves nothing."""
+    backend, security, reads, calls, stores = fake
+    stores.append(0)
+    reads.append((0, "new"))
+    backend.set_password("s", "a", "new")
+    for after in [(REFUSED, None), (0, "old"), (macos_secrets.ERR_NOT_FOUND, None)]:
+        stores.append(0)  # the update answers success
+        reads.append(after)  # but the item read back shows no change
+        with pytest.raises(SecretStoreError, match="could not be confirmed"):
+            backend.set_password("s", "a", "new")
+    security.delete_status = 0
+    reads.append((0, "still here"))  # a deletion that answered success left the item
+    with pytest.raises(SecretStoreError, match="could not be confirmed"):
+        backend.delete_password("s", "a")
+    reads.append((REFUSED, None))  # or it cannot be read back at all
+    with pytest.raises(SecretStoreError, match="could not be confirmed"):
+        backend.delete_password("s", "a")
+    security.delete_status = macos_secrets.ERR_NOT_FOUND
+    reads.append((macos_secrets.ERR_NOT_FOUND, None))
+    backend.delete_password("s", "a")  # already gone, and confirmed gone
+    assert all(interactive is False for _, interactive, _ in calls)
+
+
+def test_a_failed_change_is_not_read_back(fake):
+    backend, security, reads, calls, stores = fake
+    stores.append(macos_secrets.ERR_INTERACTION_NOT_ALLOWED)
+    with pytest.raises(SecretStoreError, match="requires owner interaction or is locked"):
+        backend.set_password("s", "a", "v")
+    security.delete_status = macos_secrets.ERR_AUTH_FAILED
+    with pytest.raises(SecretStoreError, match="requires owner interaction or is locked"):
+        backend.delete_password("s", "a")
+    assert calls == []
 
 
 def test_queries_name_the_keychain_and_ask_for_no_ui(fake):

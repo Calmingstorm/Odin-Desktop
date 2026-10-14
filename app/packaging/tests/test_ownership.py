@@ -1,7 +1,10 @@
+import contextlib
+import hashlib
 import importlib.util
 import io
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -20,6 +23,33 @@ spec = importlib.util.spec_from_file_location('ownership_fixture', MODULE)
 own = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = own
 spec.loader.exec_module(own)
+# The resource manifest as finalize-manifest writes it.
+spec = importlib.util.spec_from_file_location('manifest_fixture',
+                                              MODULE.parent / 'python' / 'manifest.py')
+manifest = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(manifest)
+
+
+def acl_grants(*paths):
+    """Off macOS, the lease's ACL reading: one allow entry on exactly these folders or files."""
+    granted = {Path(path) for path in paths}
+
+    def entries(fd):
+        return int(Path(os.readlink(f'/proc/self/fd/{fd}')) in granted)
+    return entries
+
+
+@contextlib.contextmanager
+def mac(*granted):
+    """The Mac kind. Off macOS its ACL reading is acl_grants'; on a Mac, the kernel's own."""
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(mock.patch.object(own, 'DARWIN', True))
+        stack.enter_context(mock.patch.object(own, 'WINDOWS', False))
+        if sys.platform != 'darwin':
+            stack.enter_context(mock.patch.object(own, '_allow_entries', acl_grants(*granted)))
+        elif granted:
+            raise unittest.SkipTest('a Mac reads real ACLs: the native cases set them')
+        yield
 
 
 class OwnershipTests(unittest.TestCase):
@@ -141,7 +171,7 @@ class OwnershipTests(unittest.TestCase):
         home = self.root / 'home'
         paths = own.ownership_paths('macos', {'HOME': str(home)})
         self.assertEqual(paths.directory, home / 'Library/odin-desktop/.install-ownership/macos')
-        with mock.patch.object(own, 'DARWIN', True):
+        with mac():
             fd = own._open(paths)
         try:
             for folder in (home / 'Library', home / 'Library/odin-desktop',
@@ -155,7 +185,7 @@ class OwnershipTests(unittest.TestCase):
     def test_the_mac_lease_holds_and_cleans_like_the_appimage_one(self):
         self.paths = own.ownership_paths('macos', {'HOME': str(self.root / 'home')})
         self.clean()
-        with mock.patch.object(own, 'DARWIN', True), mock.patch.object(own, '_boot_id', lambda: BOOT_A):
+        with mac(), mock.patch.object(own, '_boot_id', lambda: BOOT_A):
             with self.lease('core') as core:
                 with self.assertRaises(own.OwnershipError):
                     with own.replacement_guard(self.paths, check_receipts=False):
@@ -557,6 +587,345 @@ class OwnershipTests(unittest.TestCase):
                 finally:
                     lease.close()
 
+
+
+class MacStartCheckTests(unittest.TestCase):
+    """The Mac app's start check: a replacement guard, run at the next start."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(os.path.realpath(self.temp.name))
+        self.home = self.root / 'home'
+        self.paths = own.ownership_paths('macos', {'HOME': str(self.home)})
+        profile = self.home / 'Library/odin-desktop/default'
+        self.app = profile / 'default-cleanup-state.json'
+        self.core = profile / 'data/resource-cleanup.json'
+        self.core.parent.mkdir(parents=True)
+        os.chmod(self.home / 'Library/odin-desktop', 0o700)
+        self.boot = BOOT_A
+        boot = mock.patch.object(own, '_boot_id', lambda: self.boot)
+        boot.start()
+        self.addCleanup(boot.stop)
+        self.resources = self.bundle('Odin.app', version='1.0.0')
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def bundle(self, name, *, version):
+        """An app's resources folder and its manifest, as finalize-manifest makes them."""
+        resources = self.root / name / 'Contents/Resources'
+        python = resources / 'runtime/python/lib/python3.12'
+        python.mkdir(parents=True)
+        (python / 'odin.py').write_text(f'VERSION = {version!r}\n')
+        (resources / 'runtime/odin-guardian').write_bytes(b'\xcf\xfa\xed\xfe guardian')
+        os.chmod(resources / 'runtime/odin-guardian', 0o755)
+        (resources / 'ownership.py').write_text('# ownership\n')
+        os.symlink('lib/python3.12', resources / 'runtime/python/current')
+        os.symlink('odin.py', python / 'entry.py')
+        self.write_manifest(resources)
+        return resources
+
+    @staticmethod
+    def write_manifest(resources):
+        files = manifest.inventory(resources, prefix='', exclude=('bundle-manifest.json',))
+        (resources / 'bundle-manifest.json').write_text(
+            json.dumps({'schema': 1, 'platform': 'darwin', 'files': files}))
+
+    def record(self):
+        return (self.paths.directory / own.BUNDLE_RECORD).read_bytes()
+
+    def start(self, resources=None):
+        """The app's lease holder up to READY: its start check, then the provisional lease."""
+        return own.acquire_lifetime(self.paths, 'app', self.app, self.core, provisional=True,
+                                    resources=resources or self.resources)
+
+    def refused(self, code, resources=None):
+        with self.assertRaises(own.StartRefusal) as caught:
+            with self.start(resources):
+                pass
+        self.assertEqual(caught.exception.code, code, caught.exception)
+        return str(caught.exception)
+
+    def clean_evidence(self, core_state='complete'):
+        self.app.write_text(json.dumps({'journalVersion': 2, 'warning': None, 'current': {
+            'state': 'process-exited', 'shutdownAccepted': True, 'processOutcome': 'exited',
+            'unsaved': False, 'unreceipted': 0, 'eventId': os.urandom(8).hex()}}))
+        self.core.write_text(json.dumps({'version': 1, 'state': core_state,
+            'previous_unknown': None, 'resources': {'processes': {'state': 'released'},
+                                                  'computer': {'state': 'not_started'}},
+            'at': os.urandom(8).hex()}))
+
+    def lifetime(self, *, app_clean=True, core_state='complete'):
+        """One app lifetime with its core, ended as described."""
+        with self.start() as app:
+            app.begin()
+            with own.acquire_lifetime(self.paths, 'core', self.app, self.core) as core:
+                self.clean_evidence(core_state)
+                with contextlib.suppress(own.OwnershipError):
+                    core.finish()
+            if app_clean:
+                with contextlib.suppress(own.OwnershipError):
+                    app.finish()  # as the holder does: an unclean core keeps it unclean too
+
+    def replace(self, version='2.0.0'):
+        """Finder's replacement: a different app at the same path."""
+        shutil.rmtree(self.root / 'Odin.app')
+        self.resources = self.bundle('Odin.app', version=version)
+
+    def test_a_first_start_checks_every_file_and_an_unchanged_one_only_its_metadata(self):
+        with mac():
+            with self.start():
+                pass
+            record = json.loads(self.record())
+            digest = hashlib.sha256((self.resources / 'bundle-manifest.json').read_bytes())
+            self.assertEqual(record['manifest'], digest.hexdigest())
+            self.assertEqual((self.paths.directory / 'bundle.json').stat().st_mode & 0o777, 0o600)
+            with mock.patch.object(own, '_verify_bundle', side_effect=AssertionError('again')):
+                with self.start():
+                    pass
+
+    def test_changed_missing_or_extra_files_refuse_and_nothing_is_recorded(self):
+        python = 'runtime/python/lib/python3.12'
+
+        def same_size(resources):
+            (resources / python / 'odin.py').write_text("VERSION = '9.9.9'\n")
+
+        def executable(resources):
+            os.chmod(resources / 'ownership.py', 0o755)
+
+        def missing(resources):
+            (resources / 'ownership.py').unlink()
+
+        def extra(resources):
+            (resources / 'runtime/extra.py').write_text('extra = 1\n')
+
+        def retargeted(resources):
+            (resources / python / 'entry.py').unlink()
+            os.symlink('../python3.12/odin.py', resources / python / 'entry.py')
+
+        def manifest_gone(resources):
+            (resources / 'bundle-manifest.json').unlink()
+
+        def manifest_garbage(resources):
+            (resources / 'bundle-manifest.json').write_text('{"schema": 1, "files": 7}')
+
+        for change in (same_size, executable, missing, extra, retargeted, manifest_gone,
+                       manifest_garbage):
+            with self.subTest(change.__name__), mac():
+                resources = self.bundle(f'{change.__name__}.app', version='1.0.0')
+                with self.start(resources):
+                    pass
+                before = self.record()
+                change(resources)
+                self.refused(own.MAC_FILES_CHANGED, resources)
+                self.assertEqual(self.record(), before)
+
+    def test_finders_settings_and_pythons_caches_are_accepted(self):
+        with mac():
+            with self.start():
+                pass
+            (self.resources / '.DS_Store').write_bytes(b'Bud1')
+            (self.resources / 'runtime/.DS_Store').write_bytes(b'Bud1')
+            cache = self.resources / 'runtime/python/lib/python3.12/__pycache__'
+            cache.mkdir()
+            (cache / 'odin.cpython-312.pyc').write_bytes(b'\x00' * 16)
+            with self.start():
+                pass
+
+    def test_the_check_reads_the_manifest_as_finalize_writes_it(self):
+        walked = sorted(relative for relative, info in own._bundle_walk(self.resources)
+                        if not own.stat.S_ISDIR(info.st_mode)
+                        and relative != 'bundle-manifest.json')
+        listed = json.loads((self.resources / 'bundle-manifest.json').read_text())['files']
+        self.assertEqual(walked, sorted(item['path'] for item in listed))
+        self.assertIn('runtime/python/current', walked)  # a link to a folder, never descended
+        own._verify_bundle(self.resources, self.resources / 'bundle-manifest.json')
+
+    def test_a_clean_replacement_starts_and_records_the_new_app(self):
+        with mac():
+            self.lifetime()
+            self.replace()
+            with self.start():
+                pass
+            digest = hashlib.sha256((self.resources / 'bundle-manifest.json').read_bytes())
+            self.assertEqual(json.loads(self.record())['manifest'], digest.hexdigest())
+
+    def test_a_replacement_after_an_unclean_lifetime_this_boot_waits_for_a_restart(self):
+        for version, unclean in (('2.0.0', {'app_clean': False}),
+                                 ('3.0.0', {'core_state': 'unknown'})):
+            with self.subTest(**unclean), mac():
+                self.boot = BOOT_A
+                shutil.rmtree(self.paths.directory, ignore_errors=True)
+                self.lifetime(**unclean)
+                self.replace(version)
+                before = self.record()
+                reason = self.refused(own.MAC_RESTART)
+                self.assertRegex(reason, r'-(app|core)\.json: ')  # names the lifetime's receipt
+                self.assertEqual(self.record(), before)
+                self.boot = BOOT_B  # the restart ended every process of that lifetime
+                with self.start():
+                    pass
+
+    def test_reinstalling_the_same_app_is_not_a_replacement(self):
+        with mac():
+            self.lifetime(app_clean=False)
+            self.replace('1.0.0')  # the same bytes again: new files, the same manifest
+            with self.start():
+                pass
+
+    def test_unreadable_lifetime_evidence_after_a_replacement_is_a_lasting_refusal(self):
+        with mac():
+            self.lifetime()
+            (self.paths.receipts / f'{os.getuid()}-{"0" * 32}-app.json').write_text('{not json')
+            self.replace()
+            self.refused(own.MAC_LASTING)
+            self.boot = BOOT_B  # a restart doesn't change an unreadable record
+            self.refused(own.MAC_LASTING)
+
+    def test_an_unclean_lifetime_without_a_replacement_starts_as_on_linux_and_windows(self):
+        with mac():
+            self.lifetime(app_clean=False)
+            with self.start():
+                pass  # the app's own cleanup notice reports the earlier lifetime
+
+    def test_a_lifetime_still_running_is_never_judged_as_an_old_one(self):
+        with mac():
+            self.lifetime()
+            with own.acquire_lifetime(self.paths, 'core', self.app, self.core) as core:
+                self.replace()
+                self.refused(own.MAC_STILL_STOPPING)  # not judged unclean while it runs
+                self.clean_evidence()
+                core.finish()
+            with self.start():
+                pass
+
+    def test_an_unreadable_record_checks_everything_again(self):
+        with mac():
+            self.lifetime(app_clean=False)
+            (self.paths.directory / own.BUNDLE_RECORD).write_text('{torn')
+            self.refused(own.MAC_RESTART)  # no record: as if replaced, so the lifetime is judged
+
+    def test_only_the_app_checks_its_files_at_start(self):
+        with mac(), self.assertRaisesRegex(own.OwnershipError, 'Only the app'):
+            own.acquire_lifetime(self.paths, 'core', self.app, self.core,
+                                 resources=self.resources)
+
+    def test_the_holder_exits_with_each_refusals_own_code(self):
+        def hold():
+            stdout, stderr = io.TextIOWrapper(io.BytesIO()), io.StringIO()
+            with mock.patch.dict(os.environ, {'HOME': str(self.home)}), \
+                    mock.patch.object(sys, 'stdin', io.StringIO('')), \
+                    mock.patch.object(sys, 'stdout', stdout), \
+                    mock.patch.object(sys, 'stderr', stderr):
+                code = own.main(['hold', '--kind', 'macos', '--role', 'app',
+                                 '--resources', str(self.resources)])
+            stdout.flush()
+            return code, stdout.buffer.getvalue(), stderr.getvalue()
+
+        with mac():
+            self.assertEqual(hold()[:2], (0, b'READY\n'))  # EOF before ADMIT: a refused start
+            (self.resources / 'ownership.py').write_text('# changed\n')
+            code, out, err = hold()
+            self.assertEqual((code, out), (own.MAC_FILES_CHANGED, b''))
+            self.assertIn('App files differ from its manifest', err)
+
+    def test_receipts_and_the_record_are_private(self):
+        with mac():
+            self.lifetime()
+            published = [*self.paths.receipts.iterdir(), self.paths.directory / 'bundle.json']
+            self.assertEqual(len(published), 3)
+            for path in published:
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600, path)
+
+
+class MacLeaseFolderTests(unittest.TestCase):
+    """The Mac lease's folders: unsafe existing state is refused, never repaired."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(os.path.realpath(self.temp.name))
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def fresh(self, name):
+        home = self.root / name
+        paths = own.ownership_paths('macos', {'HOME': str(home)})
+        with mac():
+            os.close(own._open(paths))
+        return home, paths
+
+    def refused(self, paths, *granted):
+        with mac(*granted), self.assertRaises(own.OwnershipError):
+            os.close(own._open(paths))
+
+    def test_links_owners_and_open_modes_are_refused_and_left_as_they_are(self):
+        namespace = 'Library/odin-desktop'
+        for folder, mode in ((namespace, 0o775), (f'{namespace}/.install-ownership', 0o750),
+                             (f'{namespace}/.install-ownership/macos', 0o701),
+                             (f'{namespace}/.install-ownership/macos/receipts', 0o744)):
+            with self.subTest(folder=folder, mode=oct(mode)):
+                home, paths = self.fresh(f'mode-{len(folder)}')
+                os.chmod(home / folder, mode)
+                self.refused(paths)
+                self.assertEqual((home / folder).stat().st_mode & 0o777, mode)  # not repaired
+        home, paths = self.fresh('readable-root')
+        os.chmod(home / namespace, 0o755)  # the profiles' shared root: no write for others
+        with mac():
+            os.close(own._open(paths))
+        home, paths = self.fresh('link')
+        elsewhere = self.root / 'elsewhere'
+        shutil.move(home / namespace / '.install-ownership', elsewhere)
+        os.symlink(elsewhere, home / namespace / '.install-ownership')
+        self.refused(paths)
+        self.assertTrue((home / namespace / '.install-ownership').is_symlink())
+
+    def test_an_unsafe_lease_file_is_refused(self):
+        for case in ('open mode', 'second link', 'link'):
+            with self.subTest(case):
+                home, paths = self.fresh(case.replace(' ', '-'))
+                if case == 'open mode':
+                    os.chmod(paths.lease, 0o644)
+                elif case == 'second link':
+                    os.link(paths.lease, self.root / f'{case}-copy')
+                else:
+                    paths.lease.unlink()
+                    os.symlink(self.root / 'target', paths.lease)
+                self.refused(paths)
+
+    @unittest.skipIf(sys.platform == 'darwin', 'a Mac reads real ACLs: see the native case')
+    def test_an_allow_entry_anywhere_in_the_namespace_is_refused(self):
+        home, paths = self.fresh('acl')
+        namespace = home / 'Library/odin-desktop'
+        for path in (namespace, namespace / '.install-ownership', paths.directory,
+                     paths.receipts, paths.lease):
+            with self.subTest(path=path.relative_to(home)):
+                self.refused(paths, path)
+        with mac(home / 'Library'):
+            os.close(own._open(paths))  # the Library folders above aren't inspected
+
+    def test_the_library_folders_above_are_never_changed(self):
+        home = self.root / 'library'
+        (home / 'Library').mkdir(parents=True)
+        os.chmod(home / 'Library', 0o755)
+        with mac():
+            os.close(own._open(own.ownership_paths('macos', {'HOME': str(home)})))
+        self.assertEqual((home / 'Library').stat().st_mode & 0o777, 0o755)
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'sets real ACLs on this Mac')
+    def test_a_real_inherited_allow_entry_is_refused(self):
+        home = self.root / 'inherited'
+        (home / 'Library').mkdir(parents=True)
+        # The Library folder above isn't inspected, but the namespace created below inherits it.
+        subprocess.run(['/bin/chmod', '+a', 'everyone allow list,search,add_file,file_inherit,'
+                        'directory_inherit', str(home / 'Library')], check=True)
+        paths = own.ownership_paths('macos', {'HOME': str(home)})
+        with mac(), self.assertRaisesRegex(own.OwnershipError, 'odin-desktop'):
+            os.close(own._open(paths))
+        home, paths = self.fresh('direct')
+        subprocess.run(['/bin/chmod', '+a', 'everyone allow list,search', str(paths.receipts)],
+                       check=True)
+        self.refused(paths)
 
 if __name__ == '__main__':
     unittest.main()

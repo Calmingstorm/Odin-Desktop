@@ -6,6 +6,7 @@
   "src/desktop/platform/macos_ipc.py",
   "src/desktop/platform/macos_jobs.py",
   "src/desktop/platform/macos_process.py",
+  "src/desktop/platform/macos_resources.py",
   "src/desktop/platform/macos_safety.py",
   "src/desktop/platform/macos_secrets.py",
   "src/desktop/platform/macos_shell.py",

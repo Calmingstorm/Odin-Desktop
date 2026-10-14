@@ -17,9 +17,10 @@ import { DisplayProfileStore } from './display-profile'
 import { DraftStore } from './drafts'
 import { registerIpc } from './ipc'
 import { DeviceLoginBoundary } from './device-login'
-import { decideSecondInstance, decideWindowClose, parseLaunchFlags, showWhenReady, type LifecycleState } from './lifecycle'
+import { decideSecondInstance, decideWindowClose, parseLaunchFlags, showWhenReady, StartVisibility, type LifecycleState } from './lifecycle'
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { currentPlatform } from './platform'
+import { StartRefused } from './package-ownership'
 import { realCoreSmoke } from './real-core-smoke'
 import { ReleaseNoticeService } from './release-notice'
 import { onboardingSmoke } from './onboarding-smoke'
@@ -69,7 +70,8 @@ if (startRefusal) {
       } catch (error) {
         guardian?.stdin.end()
         await app.whenReady()
-        dialog.showErrorBox('Odin ownership unavailable', (error as Error).message)
+        dialog.showErrorBox(error instanceof StartRefused ? 'Odin didn\'t start' : 'Odin ownership unavailable',
+          (error as Error).message)
         app.exit(1)
       }
     })()
@@ -117,7 +119,7 @@ function run(): void {
   let win: BrowserWindow | null = null
   let tray: OdinTray | null = null
   let supervisorLink: LinkState | null = null
-  let pendingOpen = !flags.hidden
+  const visibility = new StartVisibility(flags.hidden)
   let maximizeOnFirstShow = false
   let notificationRouteReady = false
   let pendingNotificationTarget: { conversationId: string; messageId: string } | null = null
@@ -314,7 +316,7 @@ function run(): void {
 
   const showWindow = (): void => {
     if (lifecycle.quitting) return
-    pendingOpen = true
+    visibility.request()
     if (!win) return
     if (win.webContents.isCrashed()) void win.loadURL(`${APP_ORIGIN}/index.html`)
     if (win.isMinimized()) win.restore()
@@ -415,7 +417,7 @@ function run(): void {
   void app.whenReady().then(async () => {
     if (lifecycle.quitting) return
     // A login item's start stays hidden, as --hidden does (macOS: the app itself is the login item).
-    if (platform.openedAtLogin?.()) pendingOpen = false
+    visibility.ready(platform.openedAtLogin)
     resolvedOzonePlatform = app.commandLine.getSwitchValue('ozone-platform')
     backend = windowBackend(process.platform, resolvedOzonePlatform)
     const theme = new AppearanceController(nativeTheme, savedAppearance, () => { if (!savePersisted()) throw new Error('App preferences could not be persisted') })
@@ -544,7 +546,7 @@ function run(): void {
     })
     windowState = new WindowStateController(win, restored.state, savePersisted, backend)
     // maximize() also shows a hidden window, so where the platform asks, a hidden start keeps it for the first show.
-    if (restored.state.maximized && !pendingOpen && platform.maximizeOnFirstShow) maximizeOnFirstShow = true
+    if (restored.state.maximized && !visibility.wanted && platform.maximizeOnFirstShow) maximizeOnFirstShow = true
     else if (restored.state.maximized) win.maximize()
     screen.on('display-removed', repairWindow)
     screen.on('display-metrics-changed', displayMetricsChanged)
@@ -584,7 +586,7 @@ function run(): void {
     })
     // The window background already matches the theme, so showing it before the first paint
     // is safe.
-    showWhenReady(win, () => pendingOpen && !lifecycle.quitting)
+    showWhenReady(win, () => visibility.wanted && !lifecycle.quitting)
     win.webContents.on('render-process-gone', (_event, details) => {
       notificationRouteReady = false
       process.stderr.write(`renderer ended reason=${details.reason}; core remains supervised\n`)
