@@ -160,19 +160,26 @@ def _internal_environment(env):
 
     The runner is engine code and needs a current python3. On macOS, /usr/bin/python3 is Apple's
     older interpreter, or a stub that offers to install developer tools; neither is the engine's.
-    A private folder in the verified per-user temporary folder holds a python3 link to the
-    engine's interpreter, ahead of the rest of PATH. Every other command keeps the user's own
-    PATH, run_script included: its script is the model's, run by the user's interpreter.
+    A private folder in the verified per-user temporary folder holds a python3 that runs the
+    engine's interpreter isolated and without writing bytecode (-I -B): the runner's command
+    passes neither, and the app ships no bytecode, so the interpreter would otherwise write it
+    into the app (which the app's start check then finds changed), and read the user's Python
+    settings. It goes ahead of the rest of PATH. Every other command keeps the user's own PATH,
+    run_script included: its script is the model's, run by the user's interpreter.
     """
     import os
+    import shlex
     import tempfile
 
     from .darwin import user_temp_root
 
     global _internal_bin
-    if _internal_bin is None or not (_internal_bin / "python3").is_symlink():
+    if _internal_bin is None or not (_internal_bin / "python3").is_file():
         folder = Path(tempfile.mkdtemp(prefix="odin-desktop-bin-", dir=user_temp_root()))
-        os.symlink(sys.executable, folder / "python3")
+        script = f"#!/bin/sh\nexec {shlex.quote(sys.executable)} -I -B \"$@\"\n"
+        fd = os.open(folder / "python3", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o700)
+        with os.fdopen(fd, "w") as stream:
+            stream.write(script)
         _internal_bin = folder
     environment = dict(os.environ if env is None else env)
     environment["PATH"] = os.pathsep.join(

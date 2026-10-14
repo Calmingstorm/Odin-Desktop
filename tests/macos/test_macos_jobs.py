@@ -286,11 +286,30 @@ def test_internal_commands_get_the_engines_python3_and_raw_ones_keep_path(monkey
     folder = Path(environment["PATH"].split(os.pathsep)[0])
     assert environment["PATH"].split(os.pathsep)[1:] == ["/usr/bin", "/bin"]
     assert environment["KEEP"] == "1"
-    assert os.readlink(folder / "python3") == sys.executable
     info = os.lstat(folder)
     assert stat.S_IMODE(info.st_mode) == 0o700 and info.st_uid == os.geteuid()
+    # The engine's interpreter, isolated and writing no bytecode, whatever the user's settings.
+    probe = ("import sys; print(sys.executable, sys.flags.isolated, "
+             "sys.flags.dont_write_bytecode, sys.argv[1:])")
+    ran = subprocess.run(["python3", "-c", probe, "a b"], capture_output=True, text=True,
+                         check=True, env={**environment, "PYTHONPATH": "/nowhere"})
+    executable, isolated, no_bytecode, args = ran.stdout.split(" ", 3)
+    assert os.path.realpath(executable) == os.path.realpath(sys.executable)
+    assert (isolated, no_bytecode, args.strip()) == ("1", "1", "['a b']")
     again = macos_jobs._internal_environment(None)  # reused, and the engine's own PATH
     assert again["PATH"].split(os.pathsep)[0] == str(folder)
+
+
+def test_the_engines_python3_survives_a_path_with_spaces_and_quotes(monkeypatch, tmp_path):
+    odd = tmp_path / "Odin Acceptance's" / "python3.12"
+    odd.parent.mkdir()
+    odd.symlink_to(sys.executable)
+    monkeypatch.setattr(macos_jobs.sys, "executable", str(odd))
+    monkeypatch.setattr(macos_jobs, "_internal_bin", None)
+    environment = macos_jobs._internal_environment({"PATH": "/usr/bin:/bin"})
+    ran = subprocess.run(["python3", "-c", "print('ok')"], capture_output=True, text=True,
+                         check=True, env=environment)
+    assert ran.stdout == "ok\n"
 
 
 @pytest.mark.parametrize("settled,release", [(True, "best_effort"), (False, "unproven")])

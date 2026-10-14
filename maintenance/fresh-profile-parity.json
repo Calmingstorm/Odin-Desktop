@@ -344,7 +344,7 @@
     "src/desktop/platform/macos_desktop.py": "1e3e34d1b2de3ec88105286116b1df55bf553b9036fb61f2d2ccccdda9d27ab3",
     "src/desktop/platform/macos_files.py": "9ec6004b3712217d88588ac9caf2e00296f85b4cb5a6840f94582ffb6f843e4f",
     "src/desktop/platform/macos_ipc.py": "c4b291b70eab2c78beb504a930da1aa3aef972ae6848a5564f5a029618fab1e6",
-    "src/desktop/platform/macos_jobs.py": "5f5480d41fbc0e12a20bc174ebffd1c7e767afc79f6426b781ec6aa4713b1243",
+    "src/desktop/platform/macos_jobs.py": "66813672938fb473eff8e964d6b0d4cbdaf3530383fd0bb9155d4f6c056b3df2",
     "src/desktop/platform/macos_process.py": "d3d0621873965ae35d8465e56ec37fcc16618731c930563b77ebcf5f258d01d5",
     "src/desktop/platform/macos_resources.py": "d608583afaedf8736347cf03cba75b20373af114b1d0f17ea0498cd98b7540cf",
     "src/desktop/platform/macos_safety.py": "37987a81036e6b7ebdb54d452e0a852ee6b58a4a876b45519258f85f724915b5",

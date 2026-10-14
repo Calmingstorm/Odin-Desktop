@@ -202,6 +202,24 @@ def serve_page() -> ThreadingHTTPServer:
     return server
 
 
+FIELDS = ("mode", "size", "mtime", "ctime", "inode")
+
+
+def entries(ownership, resources: Path) -> dict[str, tuple]:
+    """Every entry's metadata, as the shipped start check walks it."""
+    return {relative: (info.st_mode, info.st_size, info.st_mtime_ns, info.st_ctime_ns,
+                       info.st_ino) for relative, info in ownership._bundle_walk(resources)}
+
+
+def differences(before: dict, after: dict) -> dict:
+    changed = {path: [field for field, old, new in zip(FIELDS, before[path], after[path])
+                      if old != new]
+               for path in sorted(before.keys() & after.keys()) if before[path] != after[path]}
+    return {"changed": dict(list(changed.items())[:40]), "changed_count": len(changed),
+            "added": sorted(after.keys() - before.keys())[:40],
+            "removed": sorted(before.keys() - after.keys())[:40]}
+
+
 def processes(pattern: str) -> list[int]:
     found = subprocess.run(["/usr/bin/pgrep", "-f", pattern], capture_output=True, text=True)
     return [int(pid) for pid in found.stdout.split()]
@@ -242,6 +260,14 @@ async def test_the_installed_app_runs_odin_and_exits_clean(packaged):
                         ("mcp_acceptance_child_pid", {})),
     })
     page = serve_page()
+    # The shipped start check's own walk, to name anything the session changes in the app.
+    shipped = importlib.util.spec_from_file_location(
+        "shipped_ownership", Path(APP) / "Contents/Resources/ownership.py")
+    ownership = importlib.util.module_from_spec(shipped)
+    sys.modules[shipped.name] = ownership  # its dataclass looks its module up there
+    shipped.loader.exec_module(ownership)
+    resources = Path(APP) / "Contents/Resources"
+    before = entries(ownership, resources)
     packaged.start()
     try:
         client = await packaged.connect()
@@ -369,16 +395,13 @@ async def test_the_installed_app_runs_odin_and_exits_clean(packaged):
 
         # The start check ran on this app before READY, and nothing has written into the app
         # since: the metadata it recorded then is still every entry's now.
-        shipped = importlib.util.spec_from_file_location(
-            "shipped_ownership", Path(APP) / "Contents/Resources/ownership.py")
-        ownership = importlib.util.module_from_spec(shipped)
-        sys.modules[shipped.name] = ownership  # its dataclass looks its module up there
-        shipped.loader.exec_module(ownership)
-        resources = Path(APP) / "Contents/Resources"
         record = json.loads((packaged.home / "Library/odin-desktop/.install-ownership/macos"
                              / "bundle.json").read_text())
         manifest = hashlib.sha256((resources / "bundle-manifest.json").read_bytes()).hexdigest()
         assert record["manifest"] == manifest, record
+        changes = differences(before, entries(ownership, resources))
+        checks["what the session changed in the app"] = changes
+        assert not any(changes.values()), json.dumps(changes, indent=1)[:6000]
         assert record["files"] == ownership._bundle_metadata(resources), "the app was written to"
         checks["the start check passed, and nothing wrote into the app"] = manifest
     finally:
