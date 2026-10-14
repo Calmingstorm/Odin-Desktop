@@ -403,10 +403,18 @@ class Worker:
                 and all(state == "empty" for pgid, state in groups.items() if pgid != self.sid))
 
     def signal_leader_group(self) -> None:
-        """TERM the pinned leader group once, then KILL it each round from the kill deadline."""
+        """TERM the pinned leader group once, then KILL it each round from the kill deadline.
+
+        The leader is never reaped before settlement, so its group can't be reused: a probe that
+        fails to answer counts as live, and the group is signalled anyway."""
         kill = time.monotonic() >= self.kill_at
-        if group_probe(self.sid) != "live" or not (kill or not self.leader_group_termed):
+        if not (kill or not self.leader_group_termed):
             return
+        try:
+            if group_probe(self.sid) != "live":
+                return
+        except (ObservationError, OSError):
+            pass
         try:
             os.killpg(self.sid, signal.SIGKILL if kill else signal.SIGTERM)  # pinned, unreaped
         except ProcessLookupError:
@@ -463,6 +471,10 @@ class Worker:
             try:
                 if self.signal_requested:
                     self.terminate(0.5)
+                # Stop's escalation of the pinned leader group needs no observation, so it comes
+                # first: an exit observation that keeps failing must not hold it back.
+                if self.stop_at is not None:
+                    self.signal_leader_group()
                 self.poll_leader()
                 if time.monotonic() >= self.next_scan:
                     try:

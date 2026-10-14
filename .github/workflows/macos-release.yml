@@ -1,17 +1,21 @@
 name: macOS signed build
 
-# The signed, notarized Mac app (phase 5), dispatched by hand like windows-release.yml: from a
-# release tag on master, or from macos/port until the port merges. It runs on GitHub's macOS 26 in
-# the protected macos-signing environment, whose secrets only this job sees. It signs on a
-# disposable keychain, has Apple notarize the app and the .dmg, verifies both, runs the installed-
-# app acceptance on the signed app, and keeps the .dmg with its receipt. Nothing is published.
-# It can also be called (workflow_call) by a workflow on another branch: GitHub dispatches only
-# workflows that are on the default branch. The environment's branches still decide where it runs.
+# The signed, notarized Mac app (phase 5), run by hand like windows-release.yml. It can also be
+# called (workflow_call) by a workflow on another branch: GitHub dispatches only workflows that are
+# on the default branch. Nothing is published.
+#
+# The source is settled before any secret is near it: the target job, which has no secrets,
+# resolves the requested ref to one commit and accepts only a release tag vX.Y.Z on master's
+# history whose app version is X.Y.Z, or the head of one of the port's candidate branches (until
+# the port merges). The signed job, in the protected macos-signing environment, builds exactly that
+# commit (release provenance for a release tag), signs on a disposable keychain, has Apple notarize
+# the app and the .dmg, verifies both, runs the installed-app acceptance on the signed app, and
+# keeps the .dmg with its evidence. The last job takes the kept artifact back and checks it.
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Branch or tag to build (macos/port, or a release tag on master)
+        description: A release tag on master (vX.Y.Z), or a candidate branch of the port
         required: true
         type: string
   workflow_call:
@@ -24,22 +28,52 @@ permissions:
   contents: read
 
 jobs:
-  signed:
+  target:
     if: github.repository == 'Calmingstorm/Odin-Desktop' && github.actor == 'Calmingstorm'
+    name: the source to sign
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      mode: ${{ steps.resolve.outputs.mode }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - id: resolve
+        name: Resolve and check the requested source
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin '+refs/heads/master:refs/remotes/origin/master' \
+            '+refs/heads/macos/*:refs/remotes/origin/macos/*'
+          resolved="$(python3 -I app/packaging/resolve-signing-source.py "$REF")"
+          read -r sha mode <<< "$resolved"
+          echo "$REF -> $sha ($mode)"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+
+  signed:
+    needs: target
     name: signed Mac app (macOS 26, Apple silicon)
     runs-on: macos-26
     timeout-minutes: 150
     environment: macos-signing
     concurrency:
-      group: macos-signed-${{ inputs.ref }}
+      group: macos-signed-${{ needs.target.outputs.sha }}
       cancel-in-progress: false
     env:
       IDENTITY: 'Developer ID Application: Aaron Charpentier (3HSA4RMW29)'
       TEAM: 3HSA4RMW29
+      SOURCE: ${{ needs.target.outputs.sha }}
+      MODE: ${{ needs.target.outputs.mode }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ needs.target.outputs.sha }}
+      - name: The checkout is the resolved source
+        run: test "$(git rev-parse HEAD)" = "$SOURCE"
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
@@ -66,15 +100,19 @@ jobs:
           work="$RUNNER_TEMP/signing"
           mkdir -p "$work"
           keychain="$work/signing.keychain-db"
+          # Named for the cleanup step before anything changes, with the list to restore.
+          {
+            echo "ODIN_MACOS_KEYCHAIN=$keychain"
+            echo "ODIN_SIGNING_WORK=$work"
+          } >> "$GITHUB_ENV"
+          security list-keychains -d user | sed -e 's/^[[:space:]]*"//' -e 's/"[[:space:]]*$//' > "$work/search-list.txt"
           password="$(openssl rand -hex 24)"
           security create-keychain -p "$password" "$keychain"
           security set-keychain-settings -lut 9000 "$keychain"
           security unlock-keychain -p "$password" "$keychain"
           # codesign builds the chain to Apple's root only from keychains on the search list.
           listed=()
-          while IFS= read -r line; do
-            listed+=("$(printf '%s' "$line" | sed -e 's/^[[:space:]]*"//' -e 's/"[[:space:]]*$//')")
-          done < <(security list-keychains -d user)
+          while IFS= read -r line; do listed+=("$line"); done < "$work/search-list.txt"
           security list-keychains -d user -s "$keychain" "${listed[@]}"
           printf '%s' "$P12" | base64 --decode > "$work/identity.p12"
           security import "$work/identity.p12" -k "$keychain" -P "$P12_PASSWORD" -T /usr/bin/codesign > /dev/null
@@ -82,17 +120,17 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" > /dev/null
           security find-identity -v -p codesigning "$keychain" | grep -F "\"$IDENTITY\"" > /dev/null
           printf '%s\n' "$NOTARY_KEY" > "$work/notary.p8"
-          {
-            echo "ODIN_MACOS_KEYCHAIN=$keychain"
-            echo "APPLE_API_KEY=$work/notary.p8"
-          } >> "$GITHUB_ENV"
+          echo "APPLE_API_KEY=$work/notary.p8" >> "$GITHUB_ENV"
       - name: Build, sign and notarize the app and the disk image
         working-directory: app
         env:
           ODIN_MACOS_SIGN_IDENTITY: ${{ env.IDENTITY }}
           APPLE_API_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.MACOS_NOTARY_ISSUER }}
-        run: node packaging/build-macos.mjs --signed
+        run: |
+          set -euo pipefail
+          if [ "$MODE" = release ]; then export ODIN_PACKAGING_RELEASE=1; fi
+          node packaging/build-macos.mjs --signed
       - name: Verify the signed app and disk image
         run: |
           set -euo pipefail
@@ -108,8 +146,6 @@ jobs:
           xcrun stapler validate "$dmg"
           .venv/bin/python -I -B app/packaging/verify-macos-signatures.py "$mount/Odin.app" --team "$TEAM"
       - name: The signed app from the disk image, copied to a path with spaces and driven end to end
-        env:
-          REVISION: ${{ github.sha }}
         run: |
           set -euo pipefail
           dmg="$(ls .packaging-candidates/odin-desktop-*-arm64.dmg)"
@@ -121,46 +157,111 @@ jobs:
           hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$dmg"
           ditto "$mount/Odin.app" "$target/Odin.app"
           hdiutil detach "$mount"
-          ODIN_MACOS_PACKAGED_APP="$target/Odin.app" ODIN_MACOS_PACKAGED_REVISION="$REVISION" \
+          ODIN_MACOS_PACKAGED_APP="$target/Odin.app" ODIN_MACOS_PACKAGED_REVISION="$SOURCE" \
           ODIN_MACOS_PACKAGED_DMG_SHA256="$digest" \
           ODIN_MACOS_PACKAGED_REPORT="$RUNNER_TEMP/macos-signed-acceptance.json" \
             .venv/bin/python -m pytest tests/macos/test_packaged_app.py -q -p no:cacheprovider -rfEs
-      - name: The receipt
+      - name: The receipt, bound to the source it was built from
         env:
           REF: ${{ inputs.ref }}
-          REVISION: ${{ github.sha }}
+          WORKFLOW_REVISION: ${{ github.sha }}
         run: |
           set -euo pipefail
           dmg="$(ls .packaging-candidates/odin-desktop-*-arm64.dmg)"
+          mkdir -p signed-candidate
           .venv/bin/python -I - "$dmg" <<'PY'
-          import json, os, sys
+          import json, os, shutil, sys
           from pathlib import Path
           dmg = Path(sys.argv[1])
+          source = os.environ["SOURCE"]
+          resources = Path(".packaging-candidates/mac-arm64/Odin.app/Contents/Resources")
+          manifest = json.loads((resources / "bundle-manifest.json").read_text())
+          report = json.loads(Path(os.environ["RUNNER_TEMP"], "macos-signed-acceptance.json").read_text())
+          for name, revision in (("manifest", manifest["source"]["commit"]),
+                                 ("acceptance report", report["revision"])):
+              if revision != source:
+                  sys.exit(f"the {name} names {revision}, not the resolved source {source}")
+          if report["disk_image_sha256"] != os.environ["DMG_SHA256"]:
+              sys.exit("the acceptance report names another disk image")
           receipt = {
-              "ref": os.environ["REF"], "revision": os.environ["REVISION"],
+              "ref": os.environ["REF"], "mode": os.environ["MODE"], "revision": source,
+              "workflow_revision": os.environ["WORKFLOW_REVISION"],
               "disk_image": dmg.name, "sha256": os.environ["DMG_SHA256"],
               "identity": os.environ["IDENTITY"], "team": os.environ["TEAM"],
+              "app_notarization": json.loads(Path(".packaging-candidates/app.notary.json").read_text()),
               "disk_image_notarization": json.loads(Path(f"{dmg}.notary.json").read_text()),
               "app_assessment": Path(os.environ["RUNNER_TEMP"], "spctl-app.txt").read_text().strip(),
           }
-          Path(f"{dmg}.receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
+          out = Path("signed-candidate")
+          shutil.copy2(dmg, out / dmg.name)
+          (out / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
+          shutil.copy2(Path(os.environ["RUNNER_TEMP"], "macos-signed-acceptance.json"), out / "acceptance.json")
           print(json.dumps(receipt, indent=2))
           PY
+          ls -la signed-candidate
+          test -s "signed-candidate/$(basename "$dmg")"
+          test -s signed-candidate/receipt.json
+          test -s signed-candidate/acceptance.json
       - name: Keep the signed disk image, its receipt and the acceptance report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: macos-signed-candidate
-          path: |
-            .packaging-candidates/odin-desktop-*-arm64.dmg
-            .packaging-candidates/odin-desktop-*-arm64.dmg.receipt.json
-            .packaging-candidates/odin-desktop-*-arm64.dmg.notary.json
-            ${{ runner.temp }}/macos-signed-acceptance.json
+          path: signed-candidate/
           if-no-files-found: error
-          # The image is under .packaging-candidates, which upload-artifact skips by default.
-          include-hidden-files: true
           retention-days: 30
-      - name: Remove the signing keychain and the notary key
+      - name: Remove the signing keychain and the notary key, and restore the search list
         if: always()
         run: |
-          if [ -n "${ODIN_MACOS_KEYCHAIN:-}" ]; then security delete-keychain "$ODIN_MACOS_KEYCHAIN" || true; fi
-          rm -rf "$RUNNER_TEMP/signing"
+          problems=0
+          if [ -n "${ODIN_MACOS_KEYCHAIN:-}" ] && [ -e "$ODIN_MACOS_KEYCHAIN" ]; then
+            security delete-keychain "$ODIN_MACOS_KEYCHAIN" || { echo "::warning::the signing keychain could not be deleted"; problems=1; }
+          fi
+          saved="${ODIN_SIGNING_WORK:-}/search-list.txt"
+          if [ -s "$saved" ]; then
+            listed=()
+            while IFS= read -r line; do listed+=("$line"); done < "$saved"
+            security list-keychains -d user -s "${listed[@]}" || problems=1
+            now="$(security list-keychains -d user | sed -e 's/^[[:space:]]*"//' -e 's/"[[:space:]]*$//')"
+            if [ "$now" != "$(cat "$saved")" ]; then
+              echo "::warning::the keychain search list differs from the one saved before signing"
+              problems=1
+            fi
+          fi
+          rm -rf "${ODIN_SIGNING_WORK:-$RUNNER_TEMP/signing}"
+          echo "cleanup problems: $problems"
+
+  retained:
+    needs: [target, signed]
+    name: the kept candidate is whole
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: macos-signed-candidate
+          path: kept
+      - name: The disk image, its receipt and the acceptance report, as the receipt says
+        env:
+          SOURCE: ${{ needs.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, sys
+          from pathlib import Path
+          kept = Path("kept")
+          receipt = json.loads((kept / "receipt.json").read_text())
+          names = sorted(path.name for path in kept.iterdir())
+          expected = sorted([receipt["disk_image"], "receipt.json", "acceptance.json"])
+          if names != expected:
+              sys.exit(f"the artifact holds {names}, not {expected}")
+          digest = hashlib.sha256((kept / receipt["disk_image"]).read_bytes()).hexdigest()
+          if digest != receipt["sha256"] or receipt["revision"] != os.environ["SOURCE"]:
+              sys.exit("the disk image or the revision differs from the receipt")
+          for record in ("app_notarization", "disk_image_notarization"):
+              if receipt[record]["notarization"]["status"] != "Accepted":
+                  sys.exit(f"{record} is not Accepted")
+          report = json.loads((kept / "acceptance.json").read_text())
+          if report["disk_image_sha256"] != digest or report["revision"] != receipt["revision"]:
+              sys.exit("the acceptance report is for another candidate")
+          print(f"kept: {receipt['disk_image']} {digest} at {receipt['revision']}")
+          PY

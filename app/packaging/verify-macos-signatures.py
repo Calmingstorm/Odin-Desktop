@@ -21,7 +21,7 @@ def main(argv=None) -> int:
         print(error, file=sys.stderr)
         return 1
     print(f'{count} Mach-O files under Resources: team {args.team}, hardened runtime, timestamp, '
-          'role entitlements only')
+          'exactly their role entitlements (Resources only; codesign verifies the rest)')
     return 0
 
 

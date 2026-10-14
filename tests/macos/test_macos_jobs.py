@@ -239,6 +239,80 @@ def test_a_member_that_exits_while_it_is_read_is_left_out(monkeypatch):
     assert worker.observe_session(4242) == {}
 
 
+# A worker process whose leader's exit observation always fails: run() itself (it closes the
+# process's own standard descriptors, so it runs in a child of the test). The first failure
+# reports an error, which requests Stop with an immediate kill deadline.
+_FAILING_POLL = r"""
+import json, os, signal, socket, sys, time
+from src.desktop.platform import macos_supervisor_worker as worker
+
+def broken(sid):
+    raise OSError("injected exit observation failure")
+
+worker.exit_status = broken
+left, right = socket.socketpair()
+supervisor = worker.Worker(left)
+real_io, deadline = supervisor.io, time.monotonic() + 4.0
+
+def io(timeout):
+    if time.monotonic() > deadline:
+        raise SystemExit(0)
+    return real_io(timeout)
+
+supervisor.io = io
+try:
+    supervisor.run("trap '' TERM; exec /bin/sleep 60")
+except SystemExit:
+    pass
+pid, status, waited = 0, 0, time.monotonic() + 5.0
+while pid == 0 and time.monotonic() < waited:
+    pid, status = os.waitpid(supervisor.sid, os.WNOHANG)
+    time.sleep(0.05)
+if pid == 0:
+    os.kill(supervisor.sid, signal.SIGKILL)  # never left running by the test
+    os.waitpid(supervisor.sid, 0)
+with open(sys.argv[1], "w") as out:
+    json.dump({"ended": pid != 0, "signal": os.WTERMSIG(status) if pid and os.WIFSIGNALED(status)
+               else None, "errors": sorted(supervisor.reported_errors)}, out)
+"""
+
+
+def test_stop_escalates_through_run_while_the_exit_observation_keeps_failing(tmp_path):
+    """run() reaches the pinned group before any observation: a leader that ignores TERM is
+    killed even though its exit is never observed, and nothing is reported settled."""
+    result = tmp_path / "result.json"
+    subprocess.run([sys.executable, "-c", _FAILING_POLL, str(result)], cwd=ROOT, timeout=60,
+                   check=True)
+    outcome = json.loads(result.read_text())
+    assert outcome["ended"] and outcome["signal"] == signal.SIGKILL, outcome
+    assert any("worker iteration failed" in error for error in outcome["errors"]), outcome
+
+
+def test_a_group_probe_that_fails_still_lets_the_pinned_group_be_signalled(monkeypatch):
+    from src.desktop.platform import macos_supervisor_worker as worker
+
+    def broken(pgid):
+        raise worker.ObservationError("injected probe failure")
+
+    left, right = socket.socketpair()
+    supervisor = worker.Worker(left)
+    leader = subprocess.Popen(["/bin/sleep", "60"], start_new_session=True)
+    try:
+        supervisor.leader, supervisor.sid = leader, leader.pid
+        monkeypatch.setattr(worker, "group_probe", broken)
+        supervisor.terminate(5.0)
+        supervisor.signal_leader_group()
+        assert leader.wait(10) == -signal.SIGTERM and supervisor.leader_group_termed
+    finally:
+        if leader.poll() is None:
+            leader.kill()
+            leader.wait(10)
+        supervisor.selector.close()
+        supervisor.queue.close()
+        left.close()
+        right.close()
+
+
 @pytest.mark.parametrize("failing", ["observation", "event drain", "secondary group probe"])
 @pytest.mark.parametrize("deadline", ["TERM", "KILL"])
 def test_stop_reaches_the_pinned_group_whatever_observation_does(failing, deadline, monkeypatch):

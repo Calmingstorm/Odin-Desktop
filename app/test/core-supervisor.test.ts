@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CoreSupervisor } from '../src/main/core-supervisor'
+import { boundedShutdown } from '../src/main/shutdown'
 import { waitFor } from './fixture-harness'
 
 const cleanups: Array<() => Promise<unknown> | void> = []
@@ -90,6 +91,38 @@ describe('core supervisor', () => {
     expect(Date.now() - started).toBeGreaterThanOrEqual(280)
     expect(() => process.kill(pid, 0)).not.toThrow()  // still alive: nothing signalled it
     process.kill(pid, 'SIGKILL')
+  })
+
+  it('takes no exit but a guardian\'s clean one as an orderly stop', async () => {
+    // The guardian's status is the engine's when it reaped it: forced (a signal), failed (a code), or the
+    // guardian killed before reaping (also a signal). None of them proves the engine stopped cleanly.
+    for (const ending of ['process.exit(3)', "process.kill(process.pid, 'SIGKILL')",
+      "process.kill(process.pid, 'SIGTERM')"]) {
+      const s = supervisor(`process.stdin.on('end', () => ${ending}); process.stdin.resume(); setInterval(() => {}, 1000)`,
+        { guardianWaitMs: 5_000 })
+      s.start()
+      await waitFor(() => s.current === 'running')
+      expect(await s.stop()).toBe('unknown')
+    }
+    const plain = supervisor("process.stdin.on('end', () => process.exit(3)); process.stdin.resume(); setInterval(() => {}, 1000)")
+    plain.start()
+    await waitFor(() => plain.current === 'running')
+    expect(await plain.stop()).toBe('exited') // without a guardian the app's own escalation decides, as before
+  })
+
+  it('records a forced or failed guardian stop as unknown cleanup, even after an accepted shutdown', async () => {
+    for (const [ending, state, processOutcome] of [
+      ["process.kill(process.pid, 'SIGKILL')", 'unknown', 'unknown'], ['process.exit(3)', 'unknown', 'unknown'],
+      ['process.exit(0)', 'process-exited', 'exited']] as const) {
+      const s = supervisor(`process.stdin.on('end', () => ${ending}); process.stdin.resume(); setInterval(() => {}, 1000)`,
+        { guardianWaitMs: 5_000 })
+      s.start()
+      await waitFor(() => s.current === 'running')
+      const record = await boundedShutdown({ stopAdmission: () => undefined, persist: () => undefined,
+        requestShutdown: async () => true, stopCore: () => s.stop(), unreceipted: () => 0,
+        finish: () => undefined, release: () => undefined, exit: () => undefined })()
+      expect(record).toMatchObject({ state, processOutcome, shutdownAccepted: true })
+    }
   })
 
   it('lets an obedient guardian exit on its own within the wait', async () => {

@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 ACCEPTED = "Accepted"
@@ -59,3 +61,18 @@ def seal(dmg: Path, identity: str, key: Path, key_id: str, issuer: str, *,
                     "context:primary-signature", "-vv", str(dmg)],
                    capture_output=True, text=True, check=True)
     return {"notarization": answer, "assessment": (assessed.stderr or assessed.stdout).strip()}
+
+
+def seal_app(app: Path, key: Path, key_id: str, issuer: str, *, run=subprocess.run) -> dict:
+    """Have Apple notarize the signed app, then staple its ticket into the app; returns the
+    evidence. The zip ditto makes keeps the signature intact and goes once submitted."""
+    folder = Path(tempfile.mkdtemp(prefix="odin-notary-"))
+    try:
+        archive = folder / f"{app.stem}.zip"
+        run(["/usr/bin/ditto", "-c", "-k", "--keepParent", str(app), str(archive)], check=True)
+        answer = notarize(archive, key, key_id, issuer, run=run)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+    run(["/usr/bin/xcrun", "stapler", "staple", str(app)], check=True)
+    run(["/usr/bin/xcrun", "stapler", "validate", str(app)], check=True)
+    return {"notarization": answer}

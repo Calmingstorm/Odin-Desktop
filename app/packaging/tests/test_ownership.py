@@ -720,17 +720,72 @@ class MacStartCheckTests(unittest.TestCase):
                 self.refused(own.MAC_FILES_CHANGED, resources)
                 self.assertEqual(self.record(), before)
 
-    def test_finders_settings_and_pythons_caches_are_accepted(self):
+    def test_finders_settings_are_accepted_and_bytecode_is_refused(self):
         with mac():
             with self.start():
                 pass
             (self.resources / '.DS_Store').write_bytes(b'Bud1')
             (self.resources / 'runtime/.DS_Store').write_bytes(b'Bud1')
+            with self.start():
+                pass
+            # Python runs a valid cache in place of its unchanged source: never accepted.
             cache = self.resources / 'runtime/python/lib/python3.12/__pycache__'
             cache.mkdir()
             (cache / 'odin.cpython-312.pyc').write_bytes(b'\x00' * 16)
+            self.assertIn('odin.cpython-312.pyc', self.refused(own.MAC_FILES_CHANGED))
+
+    def test_a_record_that_isnt_whole_counts_as_none(self):
+        with mac():
+            self.lifetime(app_clean=False)
+            identity = hashlib.sha256((self.resources / 'bundle-manifest.json').read_bytes())
+            observed = own._bundle_metadata(self.resources)
+            for record in ({'manifest': identity.hexdigest()},
+                           {'version': 99, 'manifest': identity.hexdigest(), 'files': observed},
+                           {'version': 1, 'manifest': identity.hexdigest(), 'files': 'short'},
+                           [identity.hexdigest()]):
+                with self.subTest(record=record):
+                    (self.paths.directory / own.BUNDLE_RECORD).write_text(json.dumps(record))
+                    self.refused(own.MAC_RESTART)  # no trusted record: the lifetimes are judged
+
+    def test_a_read_that_fails_counts_as_changed_and_names_the_reinstall_remedy(self):
+        manifest = self.resources / 'bundle-manifest.json'
+        real = own._listed
+
+        def unreadable(path, info, item):
+            if path.name == 'ownership.py':
+                raise PermissionError(13, 'Permission denied')  # an ACL deny entry, say
+            return real(path, info, item)
+
+        with mock.patch.object(own, '_listed', unreadable), \
+                self.assertRaisesRegex(own.StartRefusal, 'ownership.py') as caught:
+            own._verify_bundle(self.resources, manifest)
+        self.assertEqual(caught.exception.code, own.MAC_FILES_CHANGED)
+
+        def no_walk(root):
+            raise PermissionError(13, 'Permission denied')
+
+        with mock.patch.object(own, '_bundle_walk', no_walk), \
+                self.assertRaisesRegex(own.StartRefusal, "can't be read") as caught:
+            own._verify_bundle(self.resources, manifest)
+        self.assertEqual(caught.exception.code, own.MAC_FILES_CHANGED)
+
+    @unittest.skipIf(os.geteuid() == 0, 'root reads every file')
+    def test_unreadable_resources_name_the_reinstall_remedy(self):
+        with mac():
             with self.start():
                 pass
+            target = self.resources / 'ownership.py'
+            os.chmod(target, 0)
+            try:
+                self.assertIn('ownership.py', self.refused(own.MAC_FILES_CHANGED))
+            finally:
+                os.chmod(target, 0o644)
+            manifest = self.resources / 'bundle-manifest.json'
+            os.chmod(manifest, 0)
+            try:
+                self.assertIn("can't be read", self.refused(own.MAC_FILES_CHANGED))
+            finally:
+                os.chmod(manifest, 0o644)
 
     def test_the_check_reads_the_manifest_as_finalize_writes_it(self):
         walked = sorted(relative for relative, info in own._bundle_walk(self.resources)

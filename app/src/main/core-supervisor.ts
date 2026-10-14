@@ -131,14 +131,18 @@ export class CoreSupervisor extends EventEmitter {
         if (result === 'unknown') this.closeLog()
         resolve(result)
       }
-      const onExit = (): void => finish(outcome)
+      // A guardian is never signalled: killed before it has reaped, it would leave the engine unsupervised.
+      const guardian = this.options.guardianWaitMs
+      // Under a guardian only its clean exit, which passes the engine's through, is an orderly stop. Any other
+      // status is the guardian forcing the engine, the engine failing, or the guardian dying before it reaped
+      // (the engine may still run): none of them shows that the engine stopped cleanly.
+      const onExit = (code: number | null, exitSignal: NodeJS.Signals | null): void =>
+        finish(guardian !== undefined && (code !== 0 || exitSignal !== null) ? 'unknown' : outcome)
       const signal = (value: NodeJS.Signals): void => {
         try { child.kill(value) } catch (error) {
           this.writeLog(Buffer.from(`[supervisor] ${value} failed: ${String(error)}\n`))
         }
       }
-      // A guardian is never signalled: killed before it has reaped, it would leave the engine unsupervised.
-      const guardian = this.options.guardianWaitMs
       const termTimer = guardian === undefined ? setTimeout(() => {
         outcome = 'terminated'
         signal('SIGTERM')

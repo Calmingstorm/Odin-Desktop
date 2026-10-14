@@ -6,8 +6,11 @@ On macOS (the per-user ``macos`` installation, a .dmg) the lease is the AppImage
 keeps it apart from every profile); its folders are checked, never repaired (``_open_darwin``). A
 .dmg has no installer hook, so nothing replaces the app under a held lease: upgrading is Quit,
 check the cleanup result, then replace. The app's start does the rest (``_darwin_start_check``):
-it refuses files that differ from the app's manifest, and after a replacement it judges the
-earlier lifetimes as Linux's and Windows' replacement guards do, before the profile opens.
+it refuses resources that differ from the app's manifest, and after a replacement it judges the
+earlier lifetimes as Linux's and Windows' replacement guards do, before the profile opens. The
+resources (Contents/Resources) are everything Odin ships in the app; the rest of the bundle,
+Electron's executable and frameworks and Info.plist, isn't checked here. In the signed app, that
+code is covered by the Developer ID signature, which macOS checks as the code loads.
 
 On Windows (the per-user ``nsis`` installation) the lease is a ``LockFileEx`` lock on one fixed
 byte of ``lease``, a private file outside the install tree, in
@@ -65,9 +68,11 @@ MAC_STILL_STOPPING = 81  # an earlier lifetime still holds the lease: wait, then
 MAC_RESTART = 82  # replaced after a lifetime this boot that didn't end clean: restart the Mac
 MAC_LASTING = 83  # replaced, and an earlier lifetime can't be judged: a restart won't change it
 BUNDLE_RECORD = 'bundle.json'
-# Beside the manifest's files, the check accepts Finder's folder settings and Python's bytecode
-# caches: neither changes what the app runs.
-_TOLERATED_EXTRA = re.compile(r'(?:.+/)?(?:\.DS_Store|__pycache__/.+)')
+# Beside the manifest's files, the check accepts only Finder's folder settings, which nothing runs.
+# Bytecode caches are refused: Python runs a valid cache in place of its unchanged source, and the
+# app writes none (every interpreter it starts runs -B).
+_TOLERATED_EXTRA = re.compile(r'(?:.+/)?\.DS_Store')
+_DIGEST = re.compile(r'[0-9a-f]{64}')
 
 
 class StartRefusal(OwnershipError):  # noqa: N818 - PendingReplacement's naming
@@ -423,7 +428,8 @@ def _listed(path, info, item):
 
 def _verify_bundle(resources, manifest):
     """Every file and link the manifest lists, as it lists them, and nothing else beside them but
-    the tolerated extras. Raises a StartRefusal naming the first differences."""
+    the tolerated extras. Raises a StartRefusal naming the first differences; a file that can't be
+    read counts as changed."""
     try:
         listed = json.loads(manifest.read_bytes())
         files = listed['files']
@@ -434,14 +440,24 @@ def _verify_bundle(resources, manifest):
         raise StartRefusal(MAC_FILES_CHANGED,
                            'The app\'s resource manifest is unreadable') from None
     changed, extra = [], []
-    for relative, info in _bundle_walk(resources):
+    try:
+        entries = list(_bundle_walk(resources))
+    except OSError as error:
+        raise StartRefusal(MAC_FILES_CHANGED,
+                           f'The app\'s resources can\'t be read: {error.strerror}') from None
+    for relative, info in entries:
         if relative == 'bundle-manifest.json' or stat.S_ISDIR(info.st_mode):
             continue
         item = expected.pop(relative, None)
         if item is None:
             if not _TOLERATED_EXTRA.fullmatch(relative):
                 extra.append(relative)
-        elif not _listed(resources / relative, info, item):
+            continue
+        try:
+            unchanged = _listed(resources / relative, info, item)
+        except OSError:
+            unchanged = False
+        if not unchanged:
             changed.append(relative)
     if expected or changed or extra:
         details = {'missing': sorted(expected)[:5], 'changed': changed[:5], 'extra': extra[:5]}
@@ -449,8 +465,25 @@ def _verify_bundle(resources, manifest):
         raise StartRefusal(MAC_FILES_CHANGED, f'App files differ from its manifest: {difference}')
 
 
+def _bundle_record(paths):
+    """The last app that passed, from a whole version-1 record. Anything else (none, unreadable,
+    another version, a missing or malformed digest) is None: everything is checked again and the
+    earlier lifetimes are judged, as at a first start."""
+    try:
+        record = _read(paths.directory / BUNDLE_RECORD)
+    except (OSError, ValueError, OwnershipError):
+        return None
+    if (set(record) != {'version', 'manifest', 'files'} or record['version'] != 1
+            or not all(isinstance(record[key], str) and _DIGEST.fullmatch(record[key])
+                       for key in ('manifest', 'files'))):
+        return None
+    return record
+
+
 def _darwin_start_check(paths, fd, resources):
-    """macOS: the app's files, and after they change, the earlier lifetimes. Raises StartRefusal.
+    """macOS: the app's resources, and after they change, the earlier lifetimes.
+
+    Raises StartRefusal.
 
     A .dmg has no replacement transaction, so this is where Linux's and Windows' replacement
     guards run on the Mac: at the first start after a replacement, before the profile opens.
@@ -463,18 +496,19 @@ def _darwin_start_check(paths, fd, resources):
     the start goes ahead, as on Linux and Windows: the cleanup notice reports it. The record is
     written only once every check has passed."""
     manifest = resources / 'bundle-manifest.json'
-    identity = _fingerprint(manifest)
+    try:
+        identity = _fingerprint(manifest)
+        observed = _bundle_metadata(resources)
+    except OSError as error:
+        raise StartRefusal(MAC_FILES_CHANGED,
+                           f'The app\'s resources can\'t be read: {error.strerror}') from None
     if identity is None:
         raise StartRefusal(MAC_FILES_CHANGED, 'The app has no resource manifest')
-    observed = _bundle_metadata(resources)
-    try:
-        record = _read(paths.directory / BUNDLE_RECORD)
-    except (OSError, ValueError, OwnershipError):
-        record = None  # never verified here, or unreadable: check everything
+    record = _bundle_record(paths)
     if record == {'version': 1, 'manifest': identity, 'files': observed}:
         return
     _verify_bundle(resources, manifest)
-    if record is None or record.get('manifest') != identity:
+    if record is None or record['manifest'] != identity:
         try:
             _lock(fd, exclusive=True)
         except BlockingIOError:

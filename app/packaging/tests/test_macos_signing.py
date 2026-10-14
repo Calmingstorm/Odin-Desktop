@@ -4,11 +4,13 @@ macos-release.yml signs for real."""
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import plistlib
 import re
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -22,6 +24,11 @@ ROOT = PACKAGING.parents[1]
 sys.path.insert(0, str(PACKAGING / "python"))
 import macos_notary  # noqa: E402
 import macos_sign  # noqa: E402
+
+_spec = importlib.util.spec_from_file_location("resolve_signing_source",
+                                               PACKAGING / "resolve-signing-source.py")
+resolver = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(resolver)
 
 MACHO = struct.pack("<I", 0xFEEDFACF) + b"\0" * 28
 IDENTITY = "Developer ID Application: Fixture Person (TEAM123456)"
@@ -51,8 +58,10 @@ class Recorder:
             facts += "Timestamp=Oct 13, 2026\n" if self.timestamp else ""
             return SimpleNamespace(returncode=0, stdout="", stderr=facts)
         if argv[:3] == ["/usr/bin/codesign", "-d", "--entitlements"]:
-            keys = self.entitlements.get(Path(argv[-1]).name, [])
-            body = plistlib.dumps({key: True for key in keys}) if keys else b""
+            granted = self.entitlements.get(Path(argv[-1]).name, {})
+            if isinstance(granted, list):
+                granted = {key: True for key in granted}
+            body = plistlib.dumps(granted) if granted else b""
             return SimpleNamespace(returncode=0, stdout=body, stderr=b"")
         if argv[:2] == ["/usr/bin/xcrun", "notarytool"]:
             reply = {"id": "a4c08b5a-3a30-4cfb-b2d8-dd30114e27ac", "status": self.notary}
@@ -154,6 +163,13 @@ class SigningTests(unittest.TestCase):
                 entitlements={**roles, "odin-guardian": ["com.apple.security.get-task-allow"]}
             ),
             "a lost entitlement": Recorder(entitlements={**roles, "node": []}),
+            "an exception set to false": Recorder(entitlements={**roles, "python3.12": {
+                "com.apple.security.cs.disable-library-validation": False}}),
+            "an exception of the wrong type": Recorder(entitlements={**roles, "node": {
+                "com.apple.security.cs.allow-jit": 1}}),
+            "an extra exception": Recorder(entitlements={**roles, "chrome-headless-shell": {
+                "com.apple.security.cs.allow-jit": True,
+                "com.apple.security.cs.allow-unsigned-executable-memory": True}}),
         }
         for gap, run in gaps.items():
             with self.subTest(gap), self.assertRaises(macos_sign.SigningError):
@@ -201,6 +217,28 @@ class NotaryTests(unittest.TestCase):
             self.assertFalse(any(argv[:2] == ["/usr/bin/xcrun", "stapler"] for argv in run.calls))
 
 
+class AppNotaryTests(unittest.TestCase):
+    def test_the_app_is_zipped_notarized_then_stapled_and_its_zip_removed(self):
+        run = Recorder()
+        app = Path("/build/mac-arm64/Odin.app")
+        evidence = macos_notary.seal_app(app, Path("/tmp/key.p8"), "KEY", "ISSUER", run=run)
+        self.assertEqual([argv[:3] for argv in run.calls], [
+            ["/usr/bin/ditto", "-c", "-k"], ["/usr/bin/xcrun", "notarytool", "submit"],
+            ["/usr/bin/xcrun", "stapler", "staple"], ["/usr/bin/xcrun", "stapler", "validate"]])
+        archive = Path(run.calls[0][-1])
+        self.assertEqual(run.calls[1][3], str(archive))
+        self.assertFalse(archive.parent.exists())  # the zip went once submitted
+        self.assertEqual(evidence["notarization"]["status"], "Accepted")
+        self.assertEqual(evidence["notarization"]["id"], "a4c08b5a-3a30-4cfb-b2d8-dd30114e27ac")
+
+    def test_an_app_apple_didnt_accept_is_never_stapled(self):
+        run = Recorder(notary="Invalid")
+        with self.assertRaisesRegex(macos_notary.NotaryError, "Invalid"):
+            macos_notary.seal_app(Path("/build/Odin.app"), Path("/tmp/key.p8"), "KEY", "ISSUER",
+                                  run=run)
+        self.assertFalse(any(argv[:2] == ["/usr/bin/xcrun", "stapler"] for argv in run.calls))
+
+
 class SignedBuildTests(unittest.TestCase):
     def test_osx_sign_leaves_every_sealed_resource_alone_and_signs_the_rest(self):
         config = yaml.safe_load(
@@ -221,7 +259,9 @@ class SignedBuildTests(unittest.TestCase):
             "Frameworks/Odin Helper (Renderer).app/Contents/MacOS/Odin Helper (Renderer)",
         ):
             self.assertFalse(any(pattern.search(f"{app}/{path}") for pattern in ignore), path)
-        self.assertIs(config["mac"]["notarize"], True)
+        # The app's notarization is after-sign-macos.cjs's, which keeps Apple's record.
+        self.assertIs(config["mac"]["notarize"], False)
+        self.assertEqual(config["afterSign"], "packaging/after-sign-macos.cjs")
         for key in ("entitlements", "entitlementsInherit"):
             self.assertEqual(config["mac"][key], "packaging/macos/entitlements.jit.plist")
 
@@ -231,35 +271,85 @@ class SignedBuildTests(unittest.TestCase):
         self.assertEqual(jit, {"com.apple.security.cs.allow-jit": True})
         self.assertEqual(python, {"com.apple.security.cs.disable-library-validation": True})
 
-    def test_the_signed_workflow_runs_only_by_hand_in_its_environment_and_cleans_up(self):
+    def test_the_signed_workflow_settles_its_source_before_any_secret(self):
         workflow = yaml.safe_load((ROOT / ".github/workflows/macos-release.yml").read_text())
         # Never pull requests or pushes: by hand, or called from a scratch branch.
         self.assertEqual(set(workflow[True]), {"workflow_dispatch", "workflow_call"})
-        (job,) = workflow["jobs"].values()
-        self.assertEqual(job["environment"], "macos-signing")
-        self.assertIn("github.actor == 'Calmingstorm'", job["if"])
-        steps = job["steps"]
-        runs = [step.get("run", "") for step in steps]
-        self.assertTrue(any("build-macos.mjs --signed" in run for run in runs))
-        self.assertTrue(any("verify-macos-signatures.py" in run for run in runs))
-        self.assertTrue(any("tests/macos/test_packaged_app.py" in run for run in runs))
+        jobs = workflow["jobs"]
+        target, signed, retained = jobs["target"], jobs["signed"], jobs["retained"]
+        self.assertIn("github.actor == 'Calmingstorm'", target["if"])
+        for job in (target, retained):  # no secrets and no signing environment
+            self.assertNotIn("environment", job)
+            self.assertNotIn("secrets.", json.dumps(job))
+        self.assertIn("resolve-signing-source.py", json.dumps(target["steps"]))
+        self.assertEqual(signed["needs"], "target")
+        self.assertEqual(signed["environment"], "macos-signing")
+        self.assertEqual(signed["steps"][0]["with"]["ref"], "${{ needs.target.outputs.sha }}")
+        runs = [step.get("run", "") for job in (target, signed, retained) for step in job["steps"]]
         self.assertFalse(any("${{" in run for run in runs))
-        uploads = [step for step in steps if "upload-artifact" in step.get("uses", "")]
-        (kept,) = uploads
-        self.assertIs(kept["with"]["include-hidden-files"], True)  # .packaging-candidates is hidden
-        self.assertIn("-arm64.dmg", kept["with"]["path"])
+        steps = signed["steps"]
+        signed_runs = [step.get("run", "") for step in steps]
+        for needed in ("build-macos.mjs --signed", "verify-macos-signatures.py",
+                       "tests/macos/test_packaged_app.py", "ODIN_PACKAGING_RELEASE=1"):
+            self.assertTrue(any(needed in run for run in signed_runs), needed)
+        secrets = {step["name"] for step in steps if "secrets." in json.dumps(step)}
+        self.assertEqual(secrets, {"A disposable signing keychain, and the notary key",
+                                   "Build, sign and notarize the app and the disk image"})
+        (kept,) = [step for step in steps if "upload-artifact" in step.get("uses", "")]
+        self.assertEqual(kept["with"]["path"], "signed-candidate/")  # a plain folder, not hidden
         last = steps[-1]
         self.assertEqual(last["if"], "always()")
         self.assertIn("security delete-keychain", last["run"])
-        secrets = {step["name"] for step in steps if "secrets." in json.dumps(step)}
-        self.assertEqual(
-            secrets,
-            {
-                "A disposable signing keychain, and the notary key",
-                "Build, sign and notarize the app and the disk image",
-            },
-        )
+        self.assertIn("search-list.txt", last["run"])
+        self.assertEqual(retained["needs"], ["target", "signed"])
+        self.assertIn("download-artifact", json.dumps(retained["steps"]))
 
+
+class SourceTests(unittest.TestCase):
+    """The signed build's source: a release tag on master with its version, or a candidate head."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.repo = Path(self.temp.name)
+        self.git("init", "-q", "-b", "master")
+        self.git("config", "user.email", "fixture@example.invalid")
+        self.git("config", "user.name", "Fixture")
+        self.master = self.commit("1.2.3")
+        self.git("tag", "v1.2.3")
+        self.git("tag", "v9.9.9")  # a tag whose app version isn't its own
+        self.git("checkout", "-q", "-b", "side")
+        self.side = self.commit("1.2.4")
+        self.git("tag", "v1.2.4")  # not on master's history
+        self.git("update-ref", "refs/remotes/origin/master", self.master)
+        self.git("update-ref", "refs/remotes/origin/macos/port", self.side)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def git(self, *args):
+        result = subprocess.run(["git", *args], cwd=self.repo, capture_output=True, text=True,
+                                check=True)
+        return result.stdout.strip()
+
+    def commit(self, version):
+        (self.repo / "app").mkdir(exist_ok=True)
+        (self.repo / "app/package.json").write_text(json.dumps({"version": version}))
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", version)
+        return self.git("rev-parse", "HEAD")
+
+    def test_a_release_tag_on_master_with_its_version(self):
+        self.assertEqual(resolver.resolve("v1.2.3", cwd=self.repo), (self.master, "release"))
+
+    def test_a_candidate_branch_by_name_or_by_exactly_its_head(self):
+        for ref in ("macos/port", self.side):
+            self.assertEqual(resolver.resolve(ref, cwd=self.repo), (self.side, "candidate"))
+
+    def test_everything_else_is_refused(self):
+        for ref in ("v1.2.4", "v9.9.9", "v0.0.1", self.master, "side", "master", "macos/other",
+                    "1.2.3", "v1.2.3-rc1"):
+            with self.subTest(ref), self.assertRaises(resolver.SourceRefusedError):
+                resolver.resolve(ref, cwd=self.repo)
 
 if __name__ == "__main__":
     unittest.main()

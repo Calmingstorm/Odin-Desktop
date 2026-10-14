@@ -57,14 +57,16 @@ def sign(resources: Path, identity: str, keychain: Path | None = None, run=subpr
     return len(steps)
 
 
-def _entitlement_keys(plist: Path | None) -> set[str]:
-    return set(plistlib.loads(plist.read_bytes())) if plist else set()
+def _entitlements(plist: Path | None) -> dict:
+    return plistlib.loads(plist.read_bytes()) if plist else {}
 
 
 def verify_signed(resources: Path, team: str, run=subprocess.run) -> int:
     """Every Mach-O under resources, as the signed build must leave it: this team's Developer ID
     signature with the hardened runtime and a secure timestamp, and exactly its role's
-    entitlements (never get-task-allow). Raises SigningError naming the first that isn't."""
+    entitlements, values and types included (so never get-task-allow, and never an exception
+    set to false). Raises SigningError naming the first that isn't. It audits Resources only:
+    Electron's executable, helpers and frameworks are left to codesign's own verification."""
     steps = plan(resources)
     for path, entitlements in steps:
         shown = run(["/usr/bin/codesign", "-d", "--verbose=4", str(path)],
@@ -77,7 +79,10 @@ def verify_signed(resources: Path, team: str, run=subprocess.run) -> int:
                                "timestamped signature")
         held = run(["/usr/bin/codesign", "-d", "--entitlements", "-", "--xml", str(path)],
                    capture_output=True, check=True).stdout
-        keys = set(plistlib.loads(held)) if held.strip() else set()
-        if keys != _entitlement_keys(entitlements):
-            raise SigningError(f"{path.relative_to(resources)}: entitlements {sorted(keys)}")
+        granted = plistlib.loads(held) if held.strip() else {}
+        expected = _entitlements(entitlements)
+        # bool is an int in Python: compare the types too, so 1 never passes for true.
+        if (granted != expected
+                or any(type(granted[key]) is not type(value) for key, value in expected.items())):
+            raise SigningError(f"{path.relative_to(resources)}: entitlements {granted!r}")
     return len(steps)
