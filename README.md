@@ -2,12 +2,12 @@
 
 <p>
   <a href="https://github.com/Calmingstorm/Odin-Desktop/releases/latest"><img src="https://img.shields.io/github/v/release/Calmingstorm/Odin-Desktop?label=release&color=c39448" alt="Latest release"></a>
-  <img src="https://img.shields.io/badge/platforms-Linux%20%7C%20Windows%2011-c39448" alt="Linux and Windows 11">
+  <img src="https://img.shields.io/badge/platforms-Linux%20%7C%20Windows%2011%20%7C%20macOS-c39448" alt="Linux, Windows 11 and macOS">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
-**[Odin](https://github.com/Calmingstorm/Odin), the self-hosted AI execution agent, as a desktop app for Linux
-and Windows.**
+**[Odin](https://github.com/Calmingstorm/Odin), the self-hosted AI execution agent, as a desktop app for Linux,
+Windows and macOS.**
 
 Ask Odin to do something and it does the work on your own computer: shell commands locally or on your hosts
 over SSH, file changes, browsing, schedules and sub-agents. Then it shows you exactly what ran. There's no
@@ -15,7 +15,7 @@ server to host and no Discord account to set up, and the app needs no network li
 (inbound webhooks are optional).
 
 **[Download the latest release](https://github.com/Calmingstorm/Odin-Desktop/releases/latest)** for Linux
-(`.deb` or AppImage) or Windows 11 (a signed installer).
+(`.deb` or AppImage), Windows 11 (a signed installer) or a Mac with Apple silicon (a signed, notarized disk image).
 
 ## What you get
 
@@ -36,9 +36,10 @@ server to host and no Discord account to set up, and the app needs no network li
 |---|---|---|
 | **Linux** x86-64 | `.deb` or AppImage | Cinnamon/X11, GNOME/Wayland, KDE/Wayland and Hyprland. Computer use works on X11. [Install on Linux](docs/user/install.md) |
 | **Windows 11** 64-bit | `odin-desktop-<version>-x64-setup.exe` | Installs for your account only, without administrator rights, and is signed by Aaron Charpentier. Computer use isn't available on Windows yet. [Install on Windows](docs/user/install-windows.md) |
+| **macOS** 26 or later, Apple silicon | `odin-desktop-<version>-arm64.dmg` | Drag Odin to Applications. Signed by Aaron Charpentier and notarized by Apple. Computer use isn't available on macOS yet. [Install on macOS](docs/user/install-macos.md) |
 
-Check each file's SHA-256 against `SHA256SUMS` on the release page before installing. macOS and ARM builds
-aren't available.
+Check each file's SHA-256 against `SHA256SUMS` on the release page before installing. Intel Mac and ARM Linux
+builds aren't available.
 
 ## Odin or Odin Desktop?
 

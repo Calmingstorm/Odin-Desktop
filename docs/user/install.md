@@ -10,8 +10,9 @@ notes list them.
 
 ## Choose a format
 
-The available formats target **x86-64** computers. macOS and ARM builds are not
-supported; Windows has its own guide, [Install on Windows](install-windows.md). Mint 22 and Ubuntu 24.04-based desktops are the initial Linux
+The Linux formats target **x86-64** computers; ARM Linux builds are not available.
+Windows and macOS have their own guides, [Install on Windows](install-windows.md) and
+[Install on macOS](install-macos.md). Mint 22 and Ubuntu 24.04-based desktops are the initial Linux
 targets, not a promise that every distribution or graphics driver works.
 
 For **1.0.0**, the app is supported on **Cinnamon/X11, GNOME/Wayland, KDE/Wayland
