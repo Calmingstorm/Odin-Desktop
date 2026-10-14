@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "platform": "macos-arm64",
+  "playwright": {
+    "version": "1.63.0",
+    "url": "https://files.pythonhosted.org/packages/f5/9a/948b930b1a8c4ee869e5a139a2b7747caa06aab56a3f09a2f0abdcbda221/playwright-1.63.0-py3-none-macosx_11_0_arm64.whl",
+    "sha256": "fd1aa00631d44d55e56e0975bf3f3f285fac4a9fd2813183f0c12a488f1a1b24",
+    "size": 42944679,
+    "license": "Apache-2.0",
+    "provenance": "https://pypi.org/pypi/playwright/1.63.0/json; the arm64 wheel pip installs on Apple silicon (not universal2)"
+  },
+  "chromium": {
+    "name": "chromium-headless-shell",
+    "revision": "1243",
+    "version": "153.0.8010.12",
+    "url": "https://cdn.playwright.dev/builds/cft/153.0.8010.12/mac-arm64/chrome-headless-shell-mac-arm64.zip",
+    "sha256": "89d80a6d26ccd0ccfd51e22d9e1297283862af2b0cd91dce07459b35ca0059f2",
+    "size": 98831293,
+    "archive_root": "chrome-headless-shell-mac-arm64",
+    "executable": "chrome-headless-shell-mac-arm64/chrome-headless-shell",
+    "license": "BSD-3-Clause AND bundled third-party notices",
+    "license_file": "chrome-headless-shell-mac-arm64/LICENSE.headless_shell",
+    "license_sha256": "14561bfc58f207af7ade768e8b95e99f9cf8af6d9aa46b4c0d9ae0b3a97585cc"
+  }
+}

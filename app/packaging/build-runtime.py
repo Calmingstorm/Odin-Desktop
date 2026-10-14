@@ -44,6 +44,26 @@ WINDOWS_ELECTRON = {
 }
 
 
+# The macOS app's Electron (phase 4): the archive checked against upstream v44.5.1 SHASUMS256.txt;
+# the executable and notice hashes measured from that archive, never from a developer install.
+MACOS_ELECTRON = {
+    'version': '44.5.1', 'platform': 'darwin-arm64',
+    'url': 'https://github.com/electron/electron/releases/download/v44.5.1/electron-v44.5.1-darwin-arm64.zip',
+    'sha256': '1d75703019bb16461ae65f3081d7e6f5c0b11e901d0ccb5c343bcf7bcdd6435c',
+    'size': 130259261,
+    'executable': 'Electron.app/Contents/MacOS/Electron',
+    'executable_sha256': 'ca7e3290800255f5018160cff99cf6ecc58eae299c66148de1374a70e2715c83',
+    'license': 'MIT with bundled third-party notices',
+    'license_files': ['LICENSE', 'LICENSES.chromium.html'],
+    'provenance': 'https://github.com/electron/electron/releases/download/v44.5.1/SHASUMS256.txt',
+    'notice_sha256': {
+        'LICENSE': '5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d',
+        'LICENSES.chromium.html':
+            'a62dabd1c6ef1327365b2a3fdffb806222684a746dcb8f4afd1c1f690eba5535',
+    },
+}
+
+
 def stage_font_notices(legal: Path) -> list[str]:
     """Bundle renderer OFL font licenses as readable legal/fonts resources."""
     target = legal / 'fonts'
@@ -160,19 +180,34 @@ def stage_build(stage: Path, cache: Path, platform: str, source: dict,
     runtime.mkdir(exist_ok=True)
     inputs = []
     lanes = ['runtime', 'chromium', 'models', 'pdf']
-    lanes.append('tools' if platform == 'win32' else 'helpers')
+    # The Mac's own lane is the guardian that runs the engine; it has no Linux helpers or
+    # Windows tools.
+    lanes.append({'win32': 'tools', 'darwin': 'guardian'}.get(platform, 'helpers'))
     for lane in lanes:
         metadata = stage / f'{lane}-metadata.json'
         if not inventory_only:
-            module_name = 'windows_runtime' if lane == 'runtime' and platform == 'win32' else lane
+            module_name = {('runtime', 'win32'): 'windows_runtime',
+                           ('runtime', 'darwin'): 'macos_runtime',
+                           ('guardian', 'darwin'): 'macos_guardian'}.get((lane, platform), lane)
             module = importlib.import_module(module_name)
             if lane == 'runtime' and platform == 'win32':
                 result = module.stage_windows_runtime(REPO, runtime, cache)
+            elif lane == 'runtime' and platform == 'darwin':
+                result = module.stage_macos_runtime(REPO, runtime, cache)
             else:
                 function = getattr(module, f'stage_{lane}')
                 result = function(stage if lane == 'tools' else runtime, cache)
             metadata.write_text(json.dumps(result, indent=2, sort_keys=True) + '\n')
         inputs.append(json.loads(metadata.read_text()))
+    if platform == 'darwin':
+        # Every Mach-O file in the runtime, the browser and the guardian included: built for
+        # macOS, no newer than the floor, and each load found inside the bundle first.
+        from macos_macho import audit
+        from macos_runtime import lock
+        result = audit(runtime, lock()['minimum_macos'])
+        if result['problems']:
+            raise ValueError('Mach-O audit failed: ' + '; '.join(result['problems'][:8]))
+        inputs.append({'macho_audit': result})
     if platform == 'win32':
         from windows_dll import audit_dll_dependencies
         audits = []
@@ -194,7 +229,11 @@ def stage_build(stage: Path, cache: Path, platform: str, source: dict,
     if platform == 'win32':
         app_inputs['electron'] = WINDOWS_ELECTRON
         app_inputs['builder_binaries'] = []
-    executable = electron / ('electron.exe' if platform == 'win32' else 'electron')
+    elif platform == 'darwin':
+        app_inputs['electron'] = MACOS_ELECTRON
+        app_inputs['builder_binaries'] = []
+    executable = electron / {'win32': 'electron.exe',
+                             'darwin': MACOS_ELECTRON['executable']}.get(platform, 'electron')
     if digest(executable) != app_inputs['electron']['executable_sha256']:
         raise ValueError('Pinned Electron executable digest mismatch; '
                          'provision the reviewed version')
@@ -202,9 +241,13 @@ def stage_build(stage: Path, cache: Path, platform: str, source: dict,
         if (platform == 'win32'
                 and digest(electron / name) != WINDOWS_ELECTRON['notice_sha256'][name]):
             raise ValueError(f'Pinned Windows Electron notice digest mismatch: {name}')
+        if (platform == 'darwin'
+                and digest(electron / name) != MACOS_ELECTRON['notice_sha256'][name]):
+            raise ValueError(f'Pinned macOS Electron notice digest mismatch: {name}')
         shutil.copyfile(electron / name, legal / ('Electron-' + name))
-    if platform == 'linux':
-        # Preserve the Linux payload normalization and symlink contract exactly.
+    if platform in ('linux', 'darwin'):
+        # Preserve the Linux payload normalization and symlink contract exactly; the Mac's
+        # payload follows the same one.
         for directory in [runtime, legal]:
             for path in [directory, *directory.rglob('*')]:
                 if path.is_symlink():
@@ -241,7 +284,7 @@ def main() -> None:
     parser.add_argument('--cache', type=Path, default=Path(os.environ.get(
         'ODIN_PACKAGING_CACHE', Path.home() / '.cache/odin-desktop-packaging')))
     parser.add_argument('--inventory-only', action='store_true')
-    parser.add_argument('--platform', choices=['linux', 'win32'], default=sys.platform)
+    parser.add_argument('--platform', choices=['linux', 'win32', 'darwin'], default=sys.platform)
     parser.add_argument('--provenance', choices=['worktree', 'release'], default='worktree')
     options = parser.parse_args()
     stage, cache = options.stage.resolve(), options.cache.resolve()
@@ -257,9 +300,9 @@ def main() -> None:
         REPO, HERE = repo, repo / 'app/packaging'
         FONTS = repo / 'app/src/renderer/src/assets/fonts'
         sys.path.insert(0, str(HERE / 'python'))
-        if options.platform == 'win32' and not options.inventory_only:
+        if options.platform in ('win32', 'darwin') and not options.inventory_only:
             if stage.exists():
-                raise ValueError('Windows stage target already exists; refusing stage mixing')
+                raise ValueError('Stage target already exists; refusing stage mixing')
             stage.parent.mkdir(parents=True, exist_ok=True)
             with tempfile.TemporaryDirectory(
                     prefix=STAGE_SCRATCH, dir=stage.parent) as temporary:

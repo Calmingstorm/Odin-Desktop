@@ -1,0 +1,68 @@
+{
+ "source": "macOS profile layout and socket paths, read by the engine (pytest on macOS, through src/desktop/platform/macos.py) and the app (vitest, through app/src/main/platform/macos-paths.ts). The third layout's socket is exactly 103 bytes.",
+ "layouts": [
+  {
+   "home": "/Users/ada",
+   "profile": "default",
+   "temp_root": "/private/var/folders/ab/cdefghij0123456789klmnop0000gn/T",
+   "config": "/Users/ada/Library/odin-desktop/default/config",
+   "data": "/Users/ada/Library/odin-desktop/default/data",
+   "cache": "/Users/ada/Library/Caches/odin-desktop/default",
+   "token": "/Users/ada/Library/odin-desktop/default/config/ipc.token",
+   "app_state": "/Users/ada/Library/odin-desktop/default/config/app-state.json",
+   "logs": "/Users/ada/Library/odin-desktop/default/data/logs",
+   "socket": "/private/var/folders/ab/cdefghij0123456789klmnop0000gn/T/odin-desktop/default/core.sock"
+  },
+  {
+   "home": "/Users/grace.hopper",
+   "profile": "work_2",
+   "temp_root": "/private/var/folders/zz/yyyyyyyyyyyyyyyyyyyyyyyyyyyy0000gp/T",
+   "config": "/Users/grace.hopper/Library/odin-desktop/work_2/config",
+   "data": "/Users/grace.hopper/Library/odin-desktop/work_2/data",
+   "cache": "/Users/grace.hopper/Library/Caches/odin-desktop/work_2",
+   "token": "/Users/grace.hopper/Library/odin-desktop/work_2/config/ipc.token",
+   "app_state": "/Users/grace.hopper/Library/odin-desktop/work_2/config/app-state.json",
+   "logs": "/Users/grace.hopper/Library/odin-desktop/work_2/data/logs",
+   "socket": "/private/var/folders/zz/yyyyyyyyyyyyyyyyyyyyyyyyyyyy0000gp/T/odin-desktop/work_2/core.sock"
+  },
+  {
+   "home": "/Users/ada",
+   "profile": "default",
+   "temp_root": "/private/var/folders/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/T",
+   "config": "/Users/ada/Library/odin-desktop/default/config",
+   "data": "/Users/ada/Library/odin-desktop/default/data",
+   "cache": "/Users/ada/Library/Caches/odin-desktop/default",
+   "token": "/Users/ada/Library/odin-desktop/default/config/ipc.token",
+   "app_state": "/Users/ada/Library/odin-desktop/default/config/app-state.json",
+   "logs": "/Users/ada/Library/odin-desktop/default/data/logs",
+   "socket": "/private/var/folders/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/T/odin-desktop/default/core.sock"
+  }
+ ],
+ "refused_by_both": {
+  "home": [
+   "/Users/Ada Lovelace",
+   "/Users/ada\tb",
+   "Users/ada",
+   "/Users/../ada",
+   "/Users/a\nb"
+  ],
+  "profile": [
+   "-bad",
+   "a/b",
+   "",
+   "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  ],
+  "socket": [
+   {
+    "temp_root": "/private/var/folders/cccccccccccccccccccccccccccccccccccccccccccccccccc/T",
+    "profile": "default"
+   }
+  ]
+ },
+ "refused_by_the_app_only": {
+  "profile": [
+   "Default"
+  ],
+  "why": "Profile IDs are lowercase in the app; the engine also takes uppercase."
+ }
+}

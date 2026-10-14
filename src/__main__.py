@@ -11,12 +11,13 @@ from dataclasses import dataclass
 from typing import NoReturn
 
 from src import restart
-from src.desktop.platform.variants import windows_variant
+from src.desktop.platform.variants import darwin_variant, windows_variant
 from src.runtime_paths import runtime_install_root
 from src.tools.process_manager import AdoptedZombieReaper
 
 
 @windows_variant("src.desktop.platform.windows_process:enable_process_containment")
+@darwin_variant("src.desktop.platform.macos_process:enable_process_containment")
 def _enable_process_containment(log) -> bool:
     """Become a child subreaper so escaped descendants stay ours.
 
@@ -104,6 +105,12 @@ def _safe_repr(exc: BaseException) -> str:
         return object.__repr__(exc)
     except BaseException:
         return "unrepresentable exception"
+
+
+@darwin_variant("src.desktop.platform.macos_process:zombie_reaper")
+def _zombie_reaper() -> AdoptedZombieReaper:
+    """The reaper whose final drain closes this process's teardown."""
+    return AdoptedZombieReaper()
 
 
 def _finalize_loop(loop, zombie_reaper: AdoptedZombieReaper, log) -> str | None:
@@ -247,6 +254,7 @@ class _FinalizeWatchdog:
 
 
 @windows_variant("src.desktop.platform.windows_process:arm_finalize_watchdog")
+@darwin_variant("src.desktop.platform.macos_process:arm_finalize_watchdog")
 def _arm_finalize_watchdog(exit_code: int) -> _FinalizeWatchdog:
     """Arm an out-of-process, GIL-independent finalization deadline.
 
@@ -548,7 +556,7 @@ def main() -> None:
             raise SystemExit(1)
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        reaper = AdoptedZombieReaper()
+        reaper = _zombie_reaper()
         exit_code = 0
         service = CoreService(
             options.paths, options.socket, options.token_file, release_runtime_on_close=False

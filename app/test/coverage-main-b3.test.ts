@@ -10,6 +10,7 @@ const m = vi.hoisted(() => ({
   packaged: false, lock: true, trayAvailable: true, trayDetection: null as Promise<boolean> | null,
   initialLink: 'ready', read: vi.fn(), write: vi.fn(),
   coreCommand: vi.fn(), guardian: null as any, acquire: vi.fn(), admit: vi.fn(), inspect: vi.fn(),
+  StartRefused: class extends Error {},
   security: { registerAppScheme: vi.fn(), installGuards: vi.fn(), serveAppScheme: vi.fn(), hardenedWebPreferences: vi.fn(() => ({ sandbox: true })) },
   native: vi.fn(), onboarding: vi.fn(), realSmoke: vi.fn(), register: vi.fn(),
   windowsRoot: vi.fn(), windowsSmoke: vi.fn(),
@@ -64,7 +65,8 @@ vi.mock('../src/main/paths', () => ({
     cacheDir: '/mock/cache', logDir: '/mock/log', appStatePath: '/mock/app.json', socketPath: '/mock/socket', tokenPath: '/mock/token' }),
   ensureProfileDirs: vi.fn(), ensureToken: vi.fn()
 }))
-vi.mock('../src/main/package-ownership', () => ({ acquirePackagedApp: m.acquire, admitPackagedApp: m.admit }))
+vi.mock('../src/main/package-ownership', () => ({ acquirePackagedApp: m.acquire, admitPackagedApp: m.admit,
+  StartRefused: m.StartRefused }))
 vi.mock('../src/main/package-state', () => ({ inspectPackagedState: m.inspect }))
 vi.mock('../src/main/broker', () => ({ Broker: class extends EventEmitter {
   linkState = m.initialLink; coreInstanceId: string | null = 'core1'; unreceiptedCount = 0; cursor = 2;
@@ -324,6 +326,9 @@ describe('inert main-process lifecycle wiring', () => {
     m.guardian.emit('exit'); expect(m.app.exit).toHaveBeenCalledWith(1);
     vi.resetModules(); m.admit.mockRejectedValueOnce(new Error('lease denied')); await boot();
     expect(m.guardian.stdin.end).toHaveBeenCalledOnce(); expect(m.errorBox).toHaveBeenCalledWith('Odin ownership unavailable', 'lease denied');
+    // The Mac start check's refusal says what to do: it gets the plain title.
+    vi.resetModules(); m.acquire.mockRejectedValueOnce(new m.StartRefused('Restart the Mac, then open Odin.')); await boot();
+    expect(m.errorBox).toHaveBeenLastCalledWith('Odin didn\'t start', 'Restart the Mac, then open Odin.')
   })
   it('boots hardened hidden window and maps core events, settings and native adapters correctly', async () => {
     const { win, broker, supervisor, tray, deps } = await boot(['--hidden']);

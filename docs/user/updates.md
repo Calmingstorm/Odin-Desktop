@@ -9,7 +9,8 @@ installation. If the page has no published files, there is no release to downloa
 Read release notes and check the file's SHA-256 as described in
 [Install](install.md#download-and-check-the-file). The `.deb` and AppImage files are **unsigned**:
 a matching hash identifies bytes, not an independent signature. The Windows installer is signed; see
-[Install on Windows](install-windows.md).
+[Install on Windows](install-windows.md). The Mac disk image is signed and notarized, and a Mac update is a
+replacement after Quit; see [Install on macOS](install-macos.md#update).
 
 There is **no in-app update download or apply operation**. Use the package manager
 for `.deb` upgrades and manual replacement for AppImage. Updating standalone Odin

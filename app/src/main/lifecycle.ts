@@ -41,6 +41,20 @@ export function decideSecondInstance(argv: readonly string[]): 'exit' | 'focus' 
   return parseLaunchFlags(argv).exit ? 'exit' : 'focus'
 }
 
+/** Whether the first window shows. --hidden and a login item's start stay hidden; an open asked for at any time
+ * (a second instance, the Dock, the tray) shows it, whichever comes first. The login flag is read once the app is
+ * ready, never before: macOS reports it as launching finishes (Electron 44 fills wasOpenedAtLogin in
+ * applicationDidFinishLaunching, just before ready), so an earlier read says false and a login start would show. */
+export class StartVisibility {
+  private login = false
+  private requested = false
+  constructor(private readonly hidden: boolean) {}
+  /** At readiness, before the window is created. */
+  ready(openedAtLogin?: () => boolean): void { this.login = openedAtLogin?.() === true }
+  request(): void { this.requested = true }
+  get wanted(): boolean { return this.requested || (!this.hidden && !this.login) }
+}
+
 /** The part of a BrowserWindow the first-show rule uses. */
 export interface FirstShowWindow {
   once(event: 'ready-to-show', listener: () => void): unknown

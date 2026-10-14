@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.0.10]
+
+**Odin Desktop for macOS.** The first macOS release: a signed, notarized disk image for Macs with Apple silicon
+on macOS 26 or later. The Linux packages and the Windows installer are rebuilt at 1.0.10 and behave as 1.0.9 did.
+
+- **Install:** open `odin-desktop-1.0.10-arm64.dmg` and drag Odin to Applications. The app and the disk image
+  are signed by Aaron Charpentier with his Apple Developer ID and notarized by Apple, so macOS opens them without a
+  warning. Each start checks the files Odin ships inside the app, and refuses a damaged or changed copy.
+- **The same Odin:** the same engine, tools and settings as on Linux and Windows, run locally: chats, tools,
+  memory, knowledge search by meaning, schedules, agents and background work, hosts over SSH, MCP servers and
+  skills, including skills with compiled Python packages. Computer use isn't available on macOS yet.
+- **Background work:** each background command runs in its own session. Stop, Quit and cleanup stop that session
+  as a best effort and say so: a program that detaches into a session of its own can outlive them.
+- **Your tools:** commands run in bash, with Homebrew's folders and those in `/etc/paths` and `/etc/paths.d` on
+  the PATH. Shell startup files such as `~/.zshrc` aren't run.
+- **Your profile** lives in `~/Library/odin-desktop/default`, private to your account, and your provider and API
+  credentials in your login Keychain. Dragging Odin to the Trash keeps both.
+- **Quit and start at login:** closing the window keeps Odin running in the menu bar, and **⌘Q** quits. **Start
+  Odin when you log in** is in Settings → General.
+- **Updates:** quit Odin, then drag the new version over the old one. If Odin ended without confirmed cleanup since
+  the Mac started, the new version asks you to restart the Mac first.
+- See [Install on macOS](docs/user/install-macos.md).
+
 ## [1.0.9]
 
 **Agent models save, and the list is compact.** Linux and Windows.

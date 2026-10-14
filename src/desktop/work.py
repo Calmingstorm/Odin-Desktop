@@ -264,8 +264,12 @@ class WorkService:
             if not _get(item, "restored", False) and (
                     state == "running" or not item.session_confirmed_empty):
                 actions = ["stop"]
+            # macOS converges on its session, never proving it empty: a settled stop there
+            # is best effort (the scope says so), not a confirmed release.
+            released = ("best_effort" if item.containment == "session_best_effort"
+                        else "confirmed")
             settlement = {"state": "settled" if item.session_confirmed_empty else "unknown",
-                          "resource_release": "confirmed" if item.session_confirmed_empty else
+                          "resource_release": released if item.session_confirmed_empty else
                           "unproven", "scope": item.containment}
         elif kind == "schedule":
             state = "paused" if item.get("paused") else "scheduled"

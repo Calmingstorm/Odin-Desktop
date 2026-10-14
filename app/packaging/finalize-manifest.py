@@ -14,8 +14,8 @@ from manifest import digest, inventory, verify
 SELF_METADATA = ('bundle-manifest.json',)
 REPARSE_POINT = getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0x400)
 
-# pip 26.2.1 inert upstream wheel-data launchers: named P1 Linux exception,
-# not permission for arbitrary Windows runtime executables.
+# pip 26.2.1 inert upstream wheel-data launchers: named P1 Linux exception (the Mac ships the
+# same pip wheel), not permission for arbitrary Windows runtime executables.
 PIP_LINUX_LAUNCHER_DATA = {
     't32.exe': ('6b4195e640a85ac32eb6f9628822a622057df1e459df7c17a12f97aeabc9415b', 97792),
     't64-arm.exe': ('ebc4c06b7d95e74e315419ee7e88e1d0f71e9e9477538c00a93a9ff8c66a6cfc', 182784),
@@ -90,6 +90,11 @@ def assert_platform_resources(files: list[dict], platform: str) -> None:
         else:
             bad = (name.startswith('tools/') or name.endswith(('.exe', '.dll', '.msi'))
                    or '/chrome-headless-shell-win64/' in name)
+            if platform == 'darwin':
+                # The Mac carries no Linux payloads either.
+                bad = bad or (name == 'apparmor-profile' or name.startswith('runtime/helpers/')
+                              or name.endswith('.appimage')
+                              or '/chrome-headless-shell-linux64/' in name)
             prefix = 'runtime/python/lib/python3.12/site-packages/pip/_vendor/distlib/'
             if name.startswith(prefix):
                 pin = PIP_LINUX_LAUNCHER_DATA.get(name[len(prefix):])
@@ -100,7 +105,7 @@ def assert_platform_resources(files: list[dict], platform: str) -> None:
 
 
 def resource_inventory(resources: Path, platform: str) -> list[dict]:
-    if platform not in {'win32', 'linux'}:
+    if platform not in {'win32', 'linux', 'darwin'}:
         raise ValueError(f'Unsupported bundle platform: {platform}')
     function = windows_inventory if platform == 'win32' else inventory
     files = function(resources, prefix='', exclude=SELF_METADATA)
@@ -118,7 +123,7 @@ def verify_resources(resources: Path, *, release: bool = False) -> dict:
     if release and (source.get('mode') != 'release' or source.get('immutable') is not True):
         raise ValueError('Release verification refuses worktree/unbound source provenance')
     platform = manifest.get('platform', 'linux')
-    if platform == 'linux':
+    if platform in ('linux', 'darwin'):
         result = verify(resources)
         assert_platform_resources(manifest['files'], platform)
         return result

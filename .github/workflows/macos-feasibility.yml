@@ -1,0 +1,62 @@
+name: macOS feasibility
+
+# The macOS port's phase 1 evidence (scripts/macos-feasibility), rerun by hand only. No secrets here: signing and
+# the notarization probe ran on a real Mac. The Linux and Windows workflows are unchanged.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-feasibility-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  session-cleanup:
+    name: Session cleanup (question 1)
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: python -m pip install --disable-pip-version-check pytest==9.1.1
+      - name: Session cleanup tests
+        run: python -m pytest -q -rs -p no:cacheprovider scripts/macos-feasibility/test_session_jobs.py
+
+  runtime-unsigned:
+    name: Bundled runtime, unsigned (question 2)
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: python -m pip install --disable-pip-version-check uv==0.12.23
+      - name: Stage the runtime
+        run: python scripts/macos-feasibility/stage_runtime.py --out "$RUNNER_TEMP/runtime" --cache "$RUNNER_TEMP/cache"
+      - name: Native checks, unsigned
+        run: >-
+          "$RUNNER_TEMP/runtime/python/bin/python3.12" scripts/macos-feasibility/native_checks.py
+          --runtime "$RUNNER_TEMP/runtime" --work "$RUNNER_TEMP/work"
+          --report "$RUNNER_TEMP/runtime/native-checks-unsigned.json"
+      - name: Pack the runtime with its permissions and links
+        if: always()
+        run: tar -C "$RUNNER_TEMP" -czf "$RUNNER_TEMP/macos-runtime-unsigned.tgz" runtime
+      - name: Keep it for the signed run on the real Mac
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: macos-runtime-unsigned
+          path: ${{ runner.temp }}/macos-runtime-unsigned.tgz
+          retention-days: 3
+          if-no-files-found: error

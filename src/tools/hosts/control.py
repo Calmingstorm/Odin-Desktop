@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from ...config.schema import ToolHost
-from ...desktop.platform.variants import windows_variant
+from ...desktop.platform.variants import darwin_variant, windows_variant
 from ...error_presentation import sanitize_error_text
 from ...llm.secret_scrubber import scrub_output_secrets
 from ..ssh import is_local_address
@@ -316,6 +316,7 @@ class HostEnrollmentManager:
         return candidate
 
     @windows_variant("src.desktop.platform.windows_tools:host_test")
+    @darwin_variant("src.desktop.platform.macos_desktop:host_test")
     async def test(self, token: str) -> HostCandidate:
         candidate = self.get(token)
         if is_local_address(candidate.address):

@@ -17,15 +17,17 @@ import { DisplayProfileStore } from './display-profile'
 import { DraftStore } from './drafts'
 import { registerIpc } from './ipc'
 import { DeviceLoginBoundary } from './device-login'
-import { decideSecondInstance, decideWindowClose, parseLaunchFlags, showWhenReady, type LifecycleState } from './lifecycle'
+import { decideSecondInstance, decideWindowClose, parseLaunchFlags, showWhenReady, StartVisibility, type LifecycleState } from './lifecycle'
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { currentPlatform } from './platform'
+import { StartRefused } from './package-ownership'
 import { realCoreSmoke } from './real-core-smoke'
 import { ReleaseNoticeService } from './release-notice'
 import { onboardingSmoke } from './onboarding-smoke'
 import { windowsRealCoreSmoke, windowsSmokeRoot } from './windows-smoke'
 import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppScheme } from './security'
 import { APP_ORIGIN } from './security-policy'
+import { applicationMenu, isExitShortcut } from './app-menu'
 import { OdinTray, detectTray } from './tray'
 import { boundedShutdown, CleanupJournal, resourceCleanupSource } from './shutdown'
 import { showNativeNotification } from './native-notifications'
@@ -68,7 +70,8 @@ if (startRefusal) {
       } catch (error) {
         guardian?.stdin.end()
         await app.whenReady()
-        dialog.showErrorBox('Odin ownership unavailable', (error as Error).message)
+        dialog.showErrorBox(error instanceof StartRefused ? 'Odin didn\'t start' : 'Odin ownership unavailable',
+          (error as Error).message)
         app.exit(1)
       }
     })()
@@ -109,14 +112,14 @@ function run(): void {
 
   const resources = join(app.getAppPath(), 'resources')
   const iconPath = join(resources, 'icon.png')
-  const trayIconPath = join(resources, 'tray.png')
+  const trayIconPath = join(resources, platform.trayIcon ?? 'tray.png')
   const preloadPath = join(__dirname, '../preload/index.js')
   const rendererDir = join(__dirname, '../renderer')
 
   let win: BrowserWindow | null = null
   let tray: OdinTray | null = null
   let supervisorLink: LinkState | null = null
-  let pendingOpen = !flags.hidden
+  const visibility = new StartVisibility(flags.hidden)
   let maximizeOnFirstShow = false
   let notificationRouteReady = false
   let pendingNotificationTarget: { conversationId: string; messageId: string } | null = null
@@ -313,7 +316,7 @@ function run(): void {
 
   const showWindow = (): void => {
     if (lifecycle.quitting) return
-    pendingOpen = true
+    visibility.request()
     if (!win) return
     if (win.webContents.isCrashed()) void win.loadURL(`${APP_ORIGIN}/index.html`)
     if (win.isMinimized()) win.restore()
@@ -394,6 +397,8 @@ function run(): void {
     if (decideSecondInstance(argv) === 'exit') void exitOdin()
     else showWindow()
   })
+  // macOS: clicking the Dock icon, or opening the running app again, brings the window back.
+  app.on('activate', () => showWindow())
 
   // Closing every window must never stop Odin (D3); only Exit does.
   app.on('window-all-closed', () => undefined)
@@ -411,6 +416,8 @@ function run(): void {
 
   void app.whenReady().then(async () => {
     if (lifecycle.quitting) return
+    // A login item's start stays hidden, as --hidden does (macOS: the app itself is the login item).
+    visibility.ready(platform.openedAtLogin)
     resolvedOzonePlatform = app.commandLine.getSwitchValue('ozone-platform')
     backend = windowBackend(process.platform, resolvedOzonePlatform)
     const theme = new AppearanceController(nativeTheme, savedAppearance, () => { if (!savePersisted()) throw new Error('App preferences could not be persisted') })
@@ -521,20 +528,10 @@ function run(): void {
       refreshTray()
     }
 
-    Menu.setApplicationMenu(
-      Menu.buildFromTemplate([
-        {
-          label: 'Odin',
-          submenu: [
-            { label: 'Close Window', accelerator: 'Ctrl+W', click: () => win?.close() },
-            { type: 'separator' },
-            { label: 'Exit Odin', accelerator: 'Ctrl+Q', click: () => void exitOdin() }
-          ]
-        },
-        { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
-        { label: 'View', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }] }
-      ])
-    )
+    Menu.setApplicationMenu(Menu.buildFromTemplate(applicationMenu(process.platform, {
+      closeWindow: () => win?.close(),
+      exit: () => void exitOdin()
+    })))
 
     const restored = restoreWindowState(savedWindowState, screen.getAllDisplays(), screen.getPrimaryDisplay().id, backend)
     savedWindowState = restored.state
@@ -549,7 +546,7 @@ function run(): void {
     })
     windowState = new WindowStateController(win, restored.state, savePersisted, backend)
     // maximize() also shows a hidden window, so where the platform asks, a hidden start keeps it for the first show.
-    if (restored.state.maximized && !pendingOpen && platform.maximizeOnFirstShow) maximizeOnFirstShow = true
+    if (restored.state.maximized && !visibility.wanted && platform.maximizeOnFirstShow) maximizeOnFirstShow = true
     else if (restored.state.maximized) win.maximize()
     screen.on('display-removed', repairWindow)
     screen.on('display-metrics-changed', displayMetricsChanged)
@@ -572,7 +569,7 @@ function run(): void {
     win.webContents.on('did-finish-load', publishAppState)
     // Keep the no-tray Exit accelerator available even while the renderer is loading or unresponsive.
     win.webContents.on('before-input-event', (event, input) => {
-      if (input.type === 'keyDown' && input.control && !input.alt && !input.meta && input.key.toLowerCase() === 'q') {
+      if (isExitShortcut(input, process.platform)) {
         event.preventDefault()
         void exitOdin()
       }
@@ -589,7 +586,7 @@ function run(): void {
     })
     // The window background already matches the theme, so showing it before the first paint
     // is safe.
-    showWhenReady(win, () => pendingOpen && !lifecycle.quitting)
+    showWhenReady(win, () => visibility.wanted && !lifecycle.quitting)
     win.webContents.on('render-process-gone', (_event, details) => {
       notificationRouteReady = false
       process.stderr.write(`renderer ended reason=${details.reason}; core remains supervised\n`)

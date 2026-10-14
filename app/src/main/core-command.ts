@@ -4,11 +4,15 @@
 import { basename, join, posix, win32 } from 'node:path'
 import { existsSync } from 'node:fs'
 import type { ProfilePaths } from './paths'
+import { guardianPath, underGuardian } from './platform/macos-launch'
 
 export interface CoreLaunch {
   command: string
   args: string[]
   env: NodeJS.ProcessEnv
+  /** Set when the engine runs under a guardian that owns its escalation (the installed Mac app): Stop then
+   * only closes the guardian's stdin and waits this long for it, never signalling it. */
+  guardianWaitMs?: number
 }
 
 export interface CoreCommandContext {
@@ -61,7 +65,9 @@ export function coreCommand(paths: ProfilePaths, context: CoreCommandContext): C
   if (context.packaged) {
     const env = { ...context.env }
     delete env.ODIN_DESKTOP_CORE_CMD
-    return (context.resolvePackaged ?? packagedCoreCommand)(context.resourcesPath, coreArgs, env)
+    const launch = (context.resolvePackaged ?? packagedCoreCommand)(context.resourcesPath, coreArgs, env)
+    // macOS: the engine runs under the bundled guardian (platform/macos-launch.ts).
+    return (context.system ?? process.platform) === 'darwin' ? underGuardian(context.resourcesPath, launch) : launch
   }
   const override = context.env.ODIN_DESKTOP_CORE_CMD
   if (override !== undefined) {
@@ -92,7 +98,8 @@ export function packagedCoreCommand(resourcesPath: string, coreArgs: string[], a
   const path = windows ? win32 : posix
   const root = path.join(resourcesPath, 'runtime')
   const python = windows ? path.join(root, 'python', 'python.exe') : path.join(root, 'python', 'bin', 'python3')
-  if (!exists(python) || !exists(path.join(resourcesPath, 'bundle-manifest.json'))) {
+  if (!exists(python) || !exists(path.join(resourcesPath, 'bundle-manifest.json'))
+    || (system === 'darwin' && !exists(guardianPath(resourcesPath)))) {
     throw new Error('Odin bundled runtime is missing. Reinstall the candidate package.')
   }
   const env = { ...ambient }

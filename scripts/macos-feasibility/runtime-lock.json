@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "purpose": "macOS feasibility spike (phase 1) only; phase 4 adds the real app/packaging runtime lock",
+  "platform": "macos-arm64",
+  "minimum_macos": "26.0",
+  "python": {
+    "version": "3.12.15",
+    "release": "20261003",
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.12.15%2B20261003-aarch64-apple-darwin-install_only.tar.gz",
+    "sha256": "316a463172740e71d8dca1f2730784e325f3f720941137b5d674d5801a632213",
+    "license": "PSF-2.0 AND bundled component licenses",
+    "provenance": "https://github.com/astral-sh/python-build-standalone/releases/tag/20261003"
+  },
+  "dependency_source": "uv.lock",
+  "native_checks": {
+    "skill_wheel": {
+      "requirement": "ujson==6.0.0",
+      "sha256": "b305657e2ddc29a50b333053e7c7f431a8c24c92b7dcbbf7a420f2330152b486",
+      "why": "a small compiled package that is not an engine dependency, installed after signing like a skill's"
+    },
+    "pdf_wheel": {
+      "requirement": "pymupdf==1.28.2",
+      "sha256": "7113846b35dbf0a033f088e4f4fb543dabeb4b0b12c112966a1ca1ee2d5eacae",
+      "why": "the first-use PDF reader; the same version and macOS arm64 wheel hash as uv.lock"
+    }
+  }
+}

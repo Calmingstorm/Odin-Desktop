@@ -29,7 +29,7 @@ from types import ModuleType
 
 from ..desktop.paths import private_directory
 from ..desktop.platform import locks
-from ..desktop.platform.variants import windows_variant
+from ..desktop.platform.variants import darwin_variant, windows_variant
 from ..runtime_paths import runtime_install_root, runtime_profile_paths
 
 _MAX_WHEEL_BYTES = 100 * 1024 * 1024
@@ -47,6 +47,7 @@ PdfUnavailable = PdfUnavailableError
 
 
 @windows_variant("src.desktop.platform.windows_tools:pdf_lock_path")
+@darwin_variant("src.desktop.platform.macos_resources:pdf_lock_path")
 def _lock_path() -> Path:
     prefix = Path(sys.prefix).resolve()
     if prefix.name == "python" and prefix.parent.name == "runtime":
@@ -55,6 +56,7 @@ def _lock_path() -> Path:
 
 
 @windows_variant("src.desktop.platform.windows_tools:read_pdf_lock")
+@darwin_variant("src.desktop.platform.macos_resources:read_pdf_lock")
 def _read_lock() -> dict:
     try:
         lock = json.loads(_lock_path().read_text(encoding="utf-8"))

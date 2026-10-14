@@ -11,8 +11,8 @@ const XEMBED_OR_SNI_DESKTOPS = /cinnamon|mate|xfce|lxqt|lxde|budgie|kde|plasma/i
  * known to provide a tray mean yes. Otherwise no, and closing the window shows the one-time "still running" notice.
  */
 export function detectTray(env: Env = process.env, system: NodeJS.Platform = process.platform): Promise<boolean> {
-  // Windows always has a notification area; creating the tray is still checked where it's made.
-  if (system === 'win32') return Promise.resolve(true)
+  // Windows always has a notification area and macOS a menu bar; creating the tray is still checked where it's made.
+  if (system === 'win32' || system === 'darwin') return Promise.resolve(true)
   return new Promise((resolve) => {
     execFile(
       'gdbus',

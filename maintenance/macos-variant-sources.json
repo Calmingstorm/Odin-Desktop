@@ -1,0 +1,23 @@
+{
+  "src/__main__.py:_arm_finalize_watchdog -> src.desktop.platform.macos_process:arm_finalize_watchdog": "4594a072e1712110087d0a189cf41ce0f1cb7710aa625cf7cd4b552661e0e358",
+  "src/__main__.py:_enable_process_containment -> src.desktop.platform.macos_process:enable_process_containment": "06d3be4b7c8efd611c0040ccf72d73b711123f74e31f71e48af449132d7a4e44",
+  "src/__main__.py:_zombie_reaper -> src.desktop.platform.macos_process:zombie_reaper": "2e30b1272d9910990e487654437fda34b6e069a8a14c0cf6af3e81ba757b5584",
+  "src/desktop/commands.py:_anchored_database_path -> src.desktop.platform.macos_storage:anchored_database_path": "5564e662153b134a4a84ca70898343afb76544eed9a47f7ac8015a26d1f0b3f1",
+  "src/desktop/ipc_auth.py:load_token -> src.desktop.platform.macos_files:load_token": "b899ea8714957febe12b97bf60ce0abd9bf5b6df07465f7778e415e76ed4745f",
+  "src/desktop/ipc_auth.py:private_parent -> src.desktop.platform.macos_files:private_parent": "cfd7e25a55ffe3d666356cd30127071c87b5f44dd218925f92b104ddb3207737",
+  "src/desktop/paths.py:private_directory -> src.desktop.platform.macos_files:private_directory": "2856c8d8a9fe42226b2580f4e50714ade8f95a90d292646eb53444aaaaef9f92",
+  "src/desktop/provisioning.py:fresh_config_document -> src.desktop.platform.macos_desktop:fresh_config_document": "df5bb1e829877b01175e1435b976011a3015cf59d216309dcd46a9e9b835eb7a",
+  "src/desktop/resource_cleanup.py:current_boot_id -> src.desktop.platform.darwin:current_boot_id": "cdd27755fd9275684612491402031f071a0c6e4ed170e83550bcc78804cf51b6",
+  "src/desktop/ssh_sockets.py:check_socket_path -> src.desktop.platform.macos_desktop:check_socket_path": "06d37edf671d82a83a44658c69d90eb66d7fc66cb9f87bc2bcd90f81935c7b62",
+  "src/desktop/ssh_sockets.py:prepare_socket_directory -> src.desktop.platform.macos_desktop:prepare_socket_directory": "a2e7fc59f450468b2582deff341a934e496177c24f83824e5ccf22a2c9bd8a63",
+  "src/desktop/ssh_sockets.py:socket_directory -> src.desktop.platform.macos_desktop:socket_directory": "232b35281218156e0893ff448d12769c24e8ab79d128a6671f829518d8acb6c9",
+  "src/health/checker.py:_process_descriptor_usage -> src.desktop.platform.darwin:process_descriptor_usage": "cefbe4c25a0b426fab05f06307f8f2c92227a329d01eea5a15ffb99f7f44c3cf",
+  "src/runtime/pdf_resources.py:_lock_path -> src.desktop.platform.macos_resources:pdf_lock_path": "496843fc98e2b89c59d71158b54c33e539f987fb435e56256a494e8bd3f9479f",
+  "src/runtime/pdf_resources.py:_read_lock -> src.desktop.platform.macos_resources:read_pdf_lock": "6312a7fae081e8da81d0924a252cd2f3551940cc6735acd99cff3c1fae070a97",
+  "src/tools/command_shell.py:apply_shell_contracts -> src.desktop.platform.macos_shell:apply_shell_contracts": "0166e13812315068f84c0769f8d6aaa820c0bbd63919955f4fe2ee2e6b3648d2",
+  "src/tools/executor.py:_ensure_process_registry -> src.desktop.platform.macos_jobs:ensure_process_registry": "6ef30bb5c1d3351abe23f9cdb1b73d15ddcfa549d8ec46d98564d4f5a80e132d",
+  "src/tools/executor.py:_exec_command -> src.desktop.platform.macos_jobs:exec_command": "a7e1260e5e4f30bef8719d0fc04437eaadaf5063a381296b52cbcf5bfdca7fc4",
+  "src/tools/executor.py:_govern_command -> src.desktop.platform.macos_safety:govern_command": "11d43248aa6e5172019f872db9b9acdd90de50a155708188d887d96cf8f1155c",
+  "src/tools/hosts/control.py:test -> src.desktop.platform.macos_desktop:host_test": "09a1460368b45922db5350f67e0bffac2b9d9ce9ab63cfa906a0d53765fd0446",
+  "src/tools/post_validation.py:_build_command -> src.desktop.platform.macos_validate:build_command": "84979ebd3d179874bf2e982428b14ef5fa25cdf70ff0c7031eaad98bcedb6304"
+}

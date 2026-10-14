@@ -20,6 +20,9 @@ export interface SupervisorOptions {
   backoffMs?: number[]
   maxLogBytes?: number
   killWaitMs?: number
+  /** The child is a guardian that owns the engine's escalation (the installed Mac app): Stop closes its stdin and
+   * waits this long, never signalling it; past that the outcome is unknown. */
+  guardianWaitMs?: number
   restartAllowed?: (code: number | null, signal: NodeJS.Signals | null) => boolean
 }
 
@@ -29,6 +32,9 @@ export type SupervisorState = 'idle' | 'starting' | 'running' | 'restarting' | '
 
 export class CoreSupervisor extends EventEmitter {
   private child: ChildProcess | null = null
+  /** Under a guardian: how the last one ended, for a Stop that finds it already gone (its status is the engine's
+   * when it reaped it). Cleared when a child starts. */
+  private guardianEnd: { code: number | null; signal: NodeJS.Signals | null } | null = null
   private state: SupervisorState = 'idle'
   private crashTimes: number[] = []
   private restartTimer: NodeJS.Timeout | null = null
@@ -60,6 +66,7 @@ export class CoreSupervisor extends EventEmitter {
     if (this.stopRequested || this.state === 'failed' || this.restartTimer || this.state === 'starting' || this.state === 'running') return
     this.openLog()
     this.setState('starting')
+    this.guardianEnd = null
     let child: ChildProcess
     try {
       child = spawn(this.options.command, this.options.args, {
@@ -108,10 +115,16 @@ export class CoreSupervisor extends EventEmitter {
     }
     const child = this.child
     if (!child || child.pid === undefined || child.exitCode !== null || child.signalCode !== null) {
+      // A guardian that already ended abnormally leaves the stop unknown, as one ending during Stop does: it may
+      // have died before reaping the engine. A child that never started, or ended cleanly, is not running.
+      const ended = child && child.pid !== undefined ? { code: child.exitCode, signal: child.signalCode }
+        : this.guardianEnd
+      const abnormal = this.options.guardianWaitMs !== undefined && ended !== null
+        && (ended.code !== 0 || ended.signal !== null)
       this.setState('stopped')
       this.closeLog()
       this.child = null
-      this.stopping = Promise.resolve('not-running')
+      this.stopping = Promise.resolve(abnormal ? 'unknown' : 'not-running')
       return this.stopping
     }
     this.setState('stopping')
@@ -128,21 +141,28 @@ export class CoreSupervisor extends EventEmitter {
         if (result === 'unknown') this.closeLog()
         resolve(result)
       }
-      const onExit = (): void => finish(outcome)
+      // A guardian is never signalled: killed before it has reaped, it would leave the engine unsupervised.
+      const guardian = this.options.guardianWaitMs
+      // Under a guardian only its clean exit, which passes the engine's through, is an orderly stop. Any other
+      // status is the guardian forcing the engine, the engine failing, or the guardian dying before it reaped
+      // (the engine may still run): none of them shows that the engine stopped cleanly.
+      const onExit = (code: number | null, exitSignal: NodeJS.Signals | null): void =>
+        finish(guardian !== undefined && (code !== 0 || exitSignal !== null) ? 'unknown' : outcome)
       const signal = (value: NodeJS.Signals): void => {
         try { child.kill(value) } catch (error) {
           this.writeLog(Buffer.from(`[supervisor] ${value} failed: ${String(error)}\n`))
         }
       }
-      const termTimer = setTimeout(() => {
+      const termTimer = guardian === undefined ? setTimeout(() => {
         outcome = 'terminated'
         signal('SIGTERM')
-      }, graceMs)
-      const killTimer = setTimeout(() => {
+      }, graceMs) : undefined
+      const killTimer = guardian === undefined ? setTimeout(() => {
         outcome = 'killed'
         signal('SIGKILL')
-      }, graceMs + termMs)
-      const deadline = setTimeout(() => finish('unknown'), graceMs + termMs + (this.options.killWaitMs ?? 2_000))
+      }, graceMs + termMs) : undefined
+      const deadline = setTimeout(() => finish('unknown'),
+        guardian ?? graceMs + termMs + (this.options.killWaitMs ?? 2_000))
       child.once('exit', onExit)
       child.stdin?.on('error', () => undefined)
       try { child.stdin?.end() } catch { /* escalation retains its bounded deadline */ }
@@ -153,6 +173,7 @@ export class CoreSupervisor extends EventEmitter {
   private onEnded(child: ChildProcess | null, code: number | null, signal: NodeJS.Signals | null): void {
     if (child !== this.child) return
     this.child = null
+    if (this.options.guardianWaitMs !== undefined && child?.pid !== undefined) this.guardianEnd = { code, signal }
     this.writeLog(Buffer.from(`[supervisor] core ended code=${code} signal=${signal}\n`))
     this.emit('exited', { code, signal })
     if (this.stopRequested) {

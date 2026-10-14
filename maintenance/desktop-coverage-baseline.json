@@ -730,6 +730,31 @@
         "covered": 17,
         "missing": 0,
         "total": 17
+      },
+      "app/src/main/app-menu.ts": {
+        "covered": 8,
+        "missing": 0,
+        "total": 8
+      },
+      "app/src/main/platform/macos-autostart.ts": {
+        "covered": 10,
+        "missing": 0,
+        "total": 10
+      },
+      "app/src/main/platform/macos-launch.ts": {
+        "covered": 21,
+        "missing": 0,
+        "total": 21
+      },
+      "app/src/main/platform/macos-paths.ts": {
+        "covered": 24,
+        "missing": 3,
+        "total": 27
+      },
+      "app/src/main/platform/macos.ts": {
+        "covered": 7,
+        "missing": 0,
+        "total": 7
       }
     },
     "total": {
@@ -2831,6 +2856,7 @@
   "schema_version": 1,
   "target_files": [
     "app/src/main/advanced-capture-contract.ts",
+    "app/src/main/app-menu.ts",
     "app/src/main/appearance.ts",
     "app/src/main/artifacts.ts",
     "app/src/main/attachments.ts",
@@ -2857,6 +2883,10 @@
     "app/src/main/platform/contracts.ts",
     "app/src/main/platform/index.ts",
     "app/src/main/platform/linux.ts",
+    "app/src/main/platform/macos-autostart.ts",
+    "app/src/main/platform/macos-launch.ts",
+    "app/src/main/platform/macos-paths.ts",
+    "app/src/main/platform/macos.ts",
     "app/src/main/platform/windows-autostart.ts",
     "app/src/main/platform/windows-elevation.ts",
     "app/src/main/platform/windows-paths.ts",
@@ -3011,9 +3041,23 @@
     "src/desktop/paths.py",
     "src/desktop/platform/__init__.py",
     "src/desktop/platform/contracts.py",
+    "src/desktop/platform/darwin.py",
     "src/desktop/platform/linux.py",
     "src/desktop/platform/linux_ipc.py",
     "src/desktop/platform/locks.py",
+    "src/desktop/platform/macos.py",
+    "src/desktop/platform/macos_desktop.py",
+    "src/desktop/platform/macos_files.py",
+    "src/desktop/platform/macos_ipc.py",
+    "src/desktop/platform/macos_jobs.py",
+    "src/desktop/platform/macos_process.py",
+    "src/desktop/platform/macos_resources.py",
+    "src/desktop/platform/macos_safety.py",
+    "src/desktop/platform/macos_secrets.py",
+    "src/desktop/platform/macos_shell.py",
+    "src/desktop/platform/macos_storage.py",
+    "src/desktop/platform/macos_supervisor_worker.py",
+    "src/desktop/platform/macos_validate.py",
     "src/desktop/platform/variants.py",
     "src/desktop/platform/win32.py",
     "src/desktop/platform/windows.py",
@@ -3193,6 +3237,85 @@
       "covered": 3502,
       "missing": 350,
       "total": 3852
+    }
+  },
+  "macos": {
+    "files": {
+      "src/desktop/platform/darwin.py": {
+        "covered": 135,
+        "missing": 15,
+        "total": 150
+      },
+      "src/desktop/platform/macos.py": {
+        "covered": 43,
+        "missing": 3,
+        "total": 46
+      },
+      "src/desktop/platform/macos_desktop.py": {
+        "covered": 46,
+        "missing": 0,
+        "total": 46
+      },
+      "src/desktop/platform/macos_files.py": {
+        "covered": 46,
+        "missing": 4,
+        "total": 50
+      },
+      "src/desktop/platform/macos_ipc.py": {
+        "covered": 95,
+        "missing": 12,
+        "total": 107
+      },
+      "src/desktop/platform/macos_jobs.py": {
+        "covered": 257,
+        "missing": 33,
+        "total": 290
+      },
+      "src/desktop/platform/macos_process.py": {
+        "covered": 71,
+        "missing": 4,
+        "total": 75
+      },
+      "src/desktop/platform/macos_resources.py": {
+        "covered": 25,
+        "missing": 0,
+        "total": 25
+      },
+      "src/desktop/platform/macos_safety.py": {
+        "covered": 110,
+        "missing": 0,
+        "total": 110
+      },
+      "src/desktop/platform/macos_secrets.py": {
+        "covered": 278,
+        "missing": 9,
+        "total": 287
+      },
+      "src/desktop/platform/macos_shell.py": {
+        "covered": 28,
+        "missing": 0,
+        "total": 28
+      },
+      "src/desktop/platform/macos_storage.py": {
+        "covered": 16,
+        "missing": 2,
+        "total": 18
+      },
+      "src/desktop/platform/macos_supervisor_worker.py": {
+        "covered": 349,
+        "missing": 50,
+        "total": 399
+      },
+      "src/desktop/platform/macos_validate.py": {
+        "covered": 21,
+        "missing": 2,
+        "total": 23
+      }
+    },
+    "total": {
+      "covered": 1520,
+      "missing": 134,
+      "total": 1654
     }
   }
 }

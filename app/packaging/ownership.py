@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 """Install lifetime leases. Filesystem barrier only, never process control.
 
+On macOS (the per-user ``macos`` installation, a .dmg) the lease is the AppImage kind's flock on
+``~/Library/odin-desktop/.install-ownership/macos``, inside the engine's private namespace (the dot
+keeps it apart from every profile); its folders are checked, never repaired (``_open_darwin``). A
+.dmg has no installer hook, so nothing replaces the app under a held lease: upgrading is Quit,
+check the cleanup result, then replace. The app's start does the rest (``_darwin_start_check``):
+it refuses resources that differ from the app's manifest, and after a replacement it judges the
+earlier lifetimes as Linux's and Windows' replacement guards do, before the profile opens. The
+resources (Contents/Resources) are everything Odin ships in the app; the rest of the bundle,
+Electron's executable and frameworks and Info.plist, isn't checked here. In the signed app, that
+code is covered by the Developer ID signature, which macOS checks as the code loads.
+
 On Windows (the per-user ``nsis`` installation) the lease is a ``LockFileEx`` lock on one fixed
 byte of ``lease``, a private file outside the install tree, in
 ``%LOCALAPPDATA%/odin-desktop/install-ownership/nsis``: shared for the app and the core, exclusive
@@ -26,6 +37,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 WINDOWS = sys.platform == 'win32'
+DARWIN = sys.platform == 'darwin'
 if not WINDOWS:
     import fcntl
 
@@ -49,6 +61,26 @@ PENDING_EXIT = 75
 # Windows' publish primitive writes ".<name>.<32 hex>.tmp" beside its target and renames it into
 # place; one that is still there is an interrupted write's leftover, never a published file.
 _PUBLISH_LEFTOVER = re.compile(r'\..+\.[0-9a-f]{32}\.tmp')
+
+# The Mac start check's refusals. Each has its own exit, which the app words with the remedy.
+MAC_FILES_CHANGED = 80  # the app's files differ from its manifest: reinstall it
+MAC_STILL_STOPPING = 81  # an earlier lifetime still holds the lease: wait, then open it again
+MAC_RESTART = 82  # replaced after a lifetime this boot that didn't end clean: restart the Mac
+MAC_LASTING = 83  # replaced, and an earlier lifetime can't be judged: a restart won't change it
+BUNDLE_RECORD = 'bundle.json'
+# Beside the manifest's files, the check accepts only Finder's folder settings, which nothing runs.
+# Bytecode caches are refused: Python runs a valid cache in place of its unchanged source, and the
+# app writes none (every interpreter it starts runs -B).
+_TOLERATED_EXTRA = re.compile(r'(?:.+/)?\.DS_Store')
+_DIGEST = re.compile(r'[0-9a-f]{64}')
+
+
+class StartRefusal(OwnershipError):  # noqa: N818 - PendingReplacement's naming
+    """macOS: the start check refused; ``code`` is its exit."""
+
+    def __init__(self, code, reason):
+        super().__init__(reason)
+        self.code = code
 
 
 @dataclass(frozen=True)
@@ -77,6 +109,9 @@ def ownership_paths(kind='appimage', env=None):
         if not re.fullmatch(r'[A-Za-z]:[\\/].*', local) or '..' in re.split(r'[\\/]', local):
             raise OwnershipError('LOCALAPPDATA must be an absolute local folder')
         return OwnershipPaths(Path(local) / 'odin-desktop' / 'install-ownership' / 'nsis')
+    if kind == 'macos':
+        home = Path(env.get('HOME') or Path.home())
+        return OwnershipPaths(home / 'Library' / 'odin-desktop' / '.install-ownership' / 'macos')
     if kind != 'appimage':
         raise OwnershipError('Unsupported installation kind')
     home = Path(env.get('HOME') or Path.home())
@@ -87,6 +122,8 @@ def ownership_paths(kind='appimage', env=None):
 def _open(paths):
     if WINDOWS:
         return _open_windows(paths)
+    if DARWIN and paths.directory != DEB_ROOT:
+        return _open_darwin(paths)
     if paths.directory != DEB_ROOT:
         paths.directory.mkdir(parents=True, mode=0o700, exist_ok=True)
         paths.receipts.mkdir(mode=0o700, exist_ok=True)
@@ -103,6 +140,85 @@ def _open(paths):
         os.close(fd)
         raise OwnershipError('Install lease ownership is not trusted')
     return fd
+
+
+def _allow_entries(fd):
+    """macOS: the extended ACL's allow entries on fd's file, as the engine reads them."""
+    from src.desktop.platform import darwin
+
+    return darwin.allow_entries(fd)
+
+
+def _darwin_folder(parent, name, path, *, owned, root=False):
+    """One folder of the Mac lease's chain, opened below ``parent``, which this closes."""
+    try:
+        try:
+            os.mkdir(name, mode=0o700, dir_fd=parent)
+        except FileExistsError:
+            pass
+        try:
+            fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+        except OSError as error:
+            raise OwnershipError(
+                f'Unsafe install ownership folder {path}: {error.strerror}') from None
+    finally:
+        os.close(parent)
+    try:
+        info = os.fstat(fd)
+        if owned:
+            safe = (info.st_uid == os.geteuid() and not info.st_mode & (0o022 if root else 0o077)
+                    and not _allow_entries(fd))
+        else:
+            safe = info.st_uid in {0, os.geteuid()}
+        if not safe:
+            raise OwnershipError(f'Unsafe install ownership folder: {path}')
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd
+
+
+def _open_darwin(paths):
+    """macOS: the lease, and every folder above it, checked through held no-follow descriptors.
+
+    The folders above ``odin-desktop`` aren't ours: a missing one is created 0700, and an existing
+    one need only be root's or this user's; none is changed or inspected further. ``odin-desktop``
+    (the engine's namespace root, which the profiles share) and the lease's own folders below it
+    are created 0700 when missing. An existing one must be a real folder (never a link), this
+    user's, carry no ACL allow entry (an inheritable one would reach every file created below it)
+    and give group and other no write on ``odin-desktop`` and no access at all below it. The
+    lease file must be a private regular file of this user's, with one link and no allow entry.
+    Unsafe existing state is refused, never repaired."""
+    parts = paths.directory.parts
+    if 'odin-desktop' not in parts[:-1]:
+        raise OwnershipError('The Mac lease must be inside the odin-desktop namespace')
+    split = parts.index('odin-desktop')
+    outside = Path(os.path.realpath(Path(*parts[:split])))
+    fd = os.open('/', os.O_RDONLY | os.O_DIRECTORY)
+    current = Path('/')
+    for name in outside.parts[1:]:
+        current /= name
+        fd = _darwin_folder(fd, name, current, owned=False)
+    for depth, name in enumerate(parts[split:]):
+        current /= name
+        fd = _darwin_folder(fd, name, current, owned=True, root=depth == 0)
+    try:
+        os.close(_darwin_folder(os.dup(fd), 'receipts', current / 'receipts', owned=True))
+        try:
+            lease = os.open('lease', os.O_RDONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600, dir_fd=fd)
+        except OSError as error:
+            raise OwnershipError(f'Install lease is not trusted: {error.strerror}') from None
+    finally:
+        os.close(fd)
+    try:
+        info = os.fstat(lease)
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid() or info.st_nlink != 1
+                or info.st_mode & 0o077 or _allow_entries(lease)):
+            raise OwnershipError('Install lease ownership is not trusted')
+    except BaseException:
+        os.close(lease)
+        raise
+    return lease
 
 
 def _open_windows(paths):
@@ -189,6 +305,15 @@ def _boot_id():
 
         value = win32.boot_identifier()
         return value if value and _BOOT_ID_SHAPE.fullmatch(value) else None
+    if DARWIN:
+        # kern.bootsessionuuid, lowercased: the same source and shape the core records.
+        from src.desktop.platform import darwin
+
+        try:
+            value = darwin.current_boot_id()
+        except OSError:
+            return None
+        return value if value and _BOOT_ID_SHAPE.fullmatch(value) else None
     try:
         value = BOOT_ID.read_text().strip()
     except OSError:
@@ -248,7 +373,9 @@ def _write(path, value):
             raise OwnershipError('Lifetime receipt is not durable')
         return
     temp = path.with_name(path.name + '.' + uuid.uuid4().hex + '.pending')
-    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+    # The Mac's are private to this user, as everything in its namespace is.
+    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                 0o600 if DARWIN else 0o644)
     try:
         with os.fdopen(fd, 'w') as stream:
             json.dump(value, stream, sort_keys=True)
@@ -265,12 +392,154 @@ def _write(path, value):
             temp.unlink()
 
 
+def _raise(error):
+    raise error
+
+
+def _bundle_walk(root):
+    """Every entry below ``root`` in a fixed order, never following a link: (relative, lstat).
+    A folder that can't be read raises: an inventory with a gap in it never passes."""
+    for directory, folders, files in os.walk(root, onerror=_raise):
+        folders.sort()
+        base = Path(directory)
+        for name in sorted(folders + files):
+            path = base / name
+            yield path.relative_to(root).as_posix(), path.lstat()
+
+
+def _bundle_metadata(root):
+    """One digest of every entry's metadata. A copy, a replacement or a write changes it; reading
+    doesn't. An attribute change (ctime) does too, which costs one full check, never a refusal."""
+    value = hashlib.sha256()
+    for relative, info in _bundle_walk(root):
+        value.update(f'{relative}\0{info.st_mode}\0{info.st_size}\0{info.st_mtime_ns}\0'
+                     f'{info.st_ctime_ns}\0{info.st_ino}\n'.encode('utf-8', 'surrogateescape'))
+    return value.hexdigest()
+
+
+def _listed(path, info, item):
+    """Whether one entry is as the manifest lists it (``manifest.inventory``'s fields). A link's
+    own mode isn't compared: macOS doesn't use it, and a copy takes it from the umask."""
+    if stat.S_ISLNK(info.st_mode):
+        return item.get('type') == 'symlink' and os.readlink(path) == item.get('target')
+    if not stat.S_ISREG(info.st_mode):
+        return False
+    if (item.get('type') != 'file' or item.get('size') != info.st_size
+            or item.get('mode') != stat.S_IMODE(info.st_mode)):
+        return False
+    with open(path, 'rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest() == item.get('sha256')
+
+
+def _verify_bundle(resources, manifest):
+    """Every file and link the manifest lists, as it lists them, and nothing else beside them but
+    the tolerated extras. Raises a StartRefusal naming the first differences; a file that can't be
+    read counts as changed."""
+    try:
+        listed = json.loads(manifest.read_bytes())
+        files = listed['files']
+        expected = {item['path']: item for item in files}
+        if listed.get('schema') != 1 or not files or len(expected) != len(files):
+            raise ValueError('unsupported manifest')
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        raise StartRefusal(MAC_FILES_CHANGED,
+                           'The app\'s resource manifest is unreadable') from None
+    changed, extra = [], []
+    try:
+        entries = list(_bundle_walk(resources))
+    except OSError as error:
+        raise StartRefusal(MAC_FILES_CHANGED,
+                           f'The app\'s resources can\'t be read: {error.strerror}') from None
+    for relative, info in entries:
+        if relative == 'bundle-manifest.json' or stat.S_ISDIR(info.st_mode):
+            continue
+        item = expected.pop(relative, None)
+        if item is None:
+            if not _TOLERATED_EXTRA.fullmatch(relative):
+                extra.append(relative)
+            continue
+        try:
+            unchanged = _listed(resources / relative, info, item)
+        except OSError:
+            unchanged = False
+        if not unchanged:
+            changed.append(relative)
+    if expected or changed or extra:
+        details = {'missing': sorted(expected)[:5], 'changed': changed[:5], 'extra': extra[:5]}
+        difference = json.dumps(details, sort_keys=True)
+        raise StartRefusal(MAC_FILES_CHANGED, f'App files differ from its manifest: {difference}')
+
+
+def _bundle_record(paths):
+    """The last app that passed, from a whole version-1 record. Anything else (none, unreadable,
+    another version, a missing or malformed digest) is None: everything is checked again and the
+    earlier lifetimes are judged, as at a first start."""
+    try:
+        record = _read(paths.directory / BUNDLE_RECORD)
+    except (OSError, ValueError, OwnershipError):
+        return None
+    if (set(record) != {'version', 'manifest', 'files'} or type(record['version']) is not int
+            or record['version'] != 1
+            or not all(isinstance(record[key], str) and _DIGEST.fullmatch(record[key])
+                       for key in ('manifest', 'files'))):
+        return None
+    return record
+
+
+def _darwin_start_check(paths, fd, resources):
+    """macOS: the app's resources, and after they change, the earlier lifetimes.
+
+    Raises StartRefusal.
+
+    A .dmg has no replacement transaction, so this is where Linux's and Windows' replacement
+    guards run on the Mac: at the first start after a replacement, before the profile opens.
+    ``bundle.json`` records the last app that passed (its manifest's digest and one digest of every
+    entry's metadata), so an unchanged start is a metadata walk. Otherwise every file is checked
+    against the app's manifest. When the manifest itself changed, as a replacement changes it, the
+    earlier lifetimes are judged as the replacement guards judge them: one that ran in this boot
+    must have ended clean. Every other holder must have released the lease first, so a lifetime
+    still running is never judged as an old one. After an unclean lifetime with no replacement,
+    the start goes ahead, as on Linux and Windows: the cleanup notice reports it. The record is
+    written only once every check has passed."""
+    manifest = resources / 'bundle-manifest.json'
+    try:
+        identity = _fingerprint(manifest)
+        observed = _bundle_metadata(resources)
+    except OSError as error:
+        raise StartRefusal(MAC_FILES_CHANGED,
+                           f'The app\'s resources can\'t be read: {error.strerror}') from None
+    if identity is None:
+        raise StartRefusal(MAC_FILES_CHANGED, 'The app has no resource manifest')
+    record = _bundle_record(paths)
+    if record == {'version': 1, 'manifest': identity, 'files': observed}:
+        return
+    _verify_bundle(resources, manifest)
+    if record is None or record['manifest'] != identity:
+        try:
+            _lock(fd, exclusive=True)
+        except BlockingIOError:
+            raise StartRefusal(MAC_STILL_STOPPING,
+                               'An earlier Odin lifetime still holds the install lease') from None
+        try:
+            code, refusals = receipts_verdict(paths)
+        except Exception as error:  # noqa: BLE001 - however it fails, it can't be judged
+            code, refusals = RECEIPTS_LASTING, [f'{type(error).__name__}: {error}']
+        if code:
+            raise StartRefusal(MAC_RESTART if code == RECEIPTS_RESTART else MAC_LASTING,
+                               '; '.join(refusals))
+    _write(paths.directory / BUNDLE_RECORD,
+           {'version': 1, 'manifest': identity, 'files': observed})
+
+
 class Lease:
-    def __init__(self, paths, role, app_cleanup, core_cleanup, *, provisional=False):
+    def __init__(self, paths, role, app_cleanup, core_cleanup, *, provisional=False,
+                 resources=None):
         self.paths, self.role = paths, role
         self.app_cleanup, self.core_cleanup = Path(app_cleanup), Path(core_cleanup)
         self.fd = _open(paths)
         try:
+            if DARWIN and resources is not None:
+                _darwin_start_check(paths, self.fd, Path(resources))
             _lock(self.fd, exclusive=False)
             _pending(paths)
             self.initial_core = _fingerprint(self.core_cleanup)
@@ -322,10 +591,14 @@ class Lease:
         self.close()
 
 
-def acquire_lifetime(paths, role, app_cleanup, core_cleanup, *, provisional=False):
+def acquire_lifetime(paths, role, app_cleanup, core_cleanup, *, provisional=False, resources=None):
+    """``resources``: the Mac app's own folder, whose start check runs first (the app role only)."""
     if role not in {'app', 'core'}:
         raise OwnershipError('Unsupported lifetime role')
-    return Lease(paths, role, app_cleanup, core_cleanup, provisional=provisional)
+    if resources is not None and role != 'app':
+        raise OwnershipError('Only the app checks its files at start')
+    return Lease(paths, role, app_cleanup, core_cleanup, provisional=provisional,
+                 resources=resources)
 
 
 def _receipt_files(paths):
@@ -423,6 +696,9 @@ def _profile(env):
         root = Path(env.get('LOCALAPPDATA') or '') / 'odin-desktop' / 'default'
         return root / 'default-cleanup-state.json', root / 'data' / 'resource-cleanup.json'
     home = Path(env.get('HOME') or Path.home())
+    if DARWIN:
+        root = home / 'Library' / 'odin-desktop' / 'default'
+        return root / 'default-cleanup-state.json', root / 'data' / 'resource-cleanup.json'
     config = Path(env.get('XDG_CONFIG_HOME') or home / '.config') / 'odin-desktop/default'
     data = Path(env.get('XDG_DATA_HOME') or home / '.local/share') / 'odin-desktop/default'
     return config.parent / 'default-cleanup-state.json', data / 'resource-cleanup.json'
@@ -494,10 +770,12 @@ def _acknowledge(word):
 def main(argv=None, *, sysctl_root=Path('/proc/sys')):
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['exec', 'hold', 'token', 'receipts'])
-    parser.add_argument('--kind', choices=['deb', 'appimage', 'nsis'])
+    parser.add_argument('--kind', choices=['deb', 'appimage', 'nsis', 'macos'])
     parser.add_argument('--role', choices=['app', 'core'], default='app')
     parser.add_argument('--app-cleanup', type=Path)
     parser.add_argument('--core-cleanup', type=Path)
+    # The Mac app's folder for its start check: by default the folder this file ships in.
+    parser.add_argument('--resources', type=Path)
     argv = list(sys.argv[1:] if argv is None else argv)
     command = []
     if '--' in argv:
@@ -530,6 +808,8 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
                 raise OwnershipError('No executable was specified')
             if args.kind == 'nsis':
                 raise OwnershipError('The Windows app holds its own lease; there is no launcher')
+            if args.kind == 'macos':
+                raise OwnershipError('The Mac app holds its own lease; there is no launcher')
             if args.kind == 'appimage':
                 reason = _appimage_sandbox_refusal(sysctl_root)
                 if reason is not None:
@@ -551,9 +831,13 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
         for name in ('SIGTERM', 'SIGINT', 'SIGHUP'):
             if hasattr(signal, name):  # Windows has no SIGHUP
                 signal.signal(getattr(signal, name), signal.SIG_IGN)
+        resources = None
+        if args.kind == 'macos' and args.role == 'app':
+            resources = args.resources or Path(__file__).resolve().parent
         with acquire_lifetime(ownership_paths(args.kind), args.role,
                               args.app_cleanup or app_cleanup,
-                              args.core_cleanup or core_cleanup, provisional=True) as lease:
+                              args.core_cleanup or core_cleanup, provisional=True,
+                              resources=resources) as lease:
             if args.action == 'hold':
                 _acknowledge('READY')
                 # The app commits admission after its read-only state check.
@@ -572,6 +856,9 @@ def main(argv=None, *, sysctl_root=Path('/proc/sys')):
     except PendingReplacement as error:
         print(f'Odin install ownership refusal: {error}', file=sys.stderr)
         return PENDING_EXIT if args.kind == 'nsis' else 1
+    except StartRefusal as error:
+        print(f'Odin install ownership refusal: {error}', file=sys.stderr)
+        return error.code
     except (OwnershipError, OSError, ValueError) as error:
         print(f'Odin install ownership refusal: {error}', file=sys.stderr)
         return 1

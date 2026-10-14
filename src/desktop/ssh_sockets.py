@@ -7,7 +7,7 @@ import stat
 from pathlib import Path
 
 from .paths import ProfilePaths
-from .platform.variants import windows_variant
+from .platform.variants import darwin_variant, windows_variant
 
 # Supported Desktop platform is Linux (108 bytes including NUL). OpenSSH
 # reserves '.' plus sixteen random characters while publishing ControlPath.
@@ -17,6 +17,7 @@ REGISTRY_SOCKET_NAME = "host-" + "0" * 32
 
 
 @windows_variant("src.desktop.platform.windows_desktop:check_socket_path")
+@darwin_variant("src.desktop.platform.macos_desktop:check_socket_path")
 def check_socket_path(path: str) -> None:
     required = max(len(os.fsencode(path)), len(os.fsencode(os.path.abspath(path))))
     required += OPENSSH_TEMP_SUFFIX_BYTES
@@ -37,11 +38,13 @@ def _fits(directory: str) -> bool:
     return True
 
 
-def _open_directory(path: Path, *, create_from: Path | None = None) -> int:
+def _open_directory(path: Path, *, create_from: Path | None = None,
+                    sticky_tmp: Path = Path("/tmp")) -> int:
     """No-follow, held descriptor walk. Never chmod an existing directory.
 
     Root/current-UID ancestors must not be writable by others, except root's
-    sticky /tmp. Managed namespace components must be this UID's exact 0700.
+    sticky /tmp (``sticky_tmp``; macOS passes /private/tmp). Managed namespace
+    components must be this UID's exact 0700.
     """
     if not path.is_absolute() or ".." in path.parts:
         raise ValueError("SSH runtime root must be an absolute local path")
@@ -68,7 +71,7 @@ def _open_directory(path: Path, *, create_from: Path | None = None) -> int:
             else:
                 trusted = info.st_uid in {0, os.geteuid()} and (
                     not mode & 0o022 or (
-                        current == Path("/tmp") and info.st_uid == 0 and mode & stat.S_ISVTX
+                        current == sticky_tmp and info.st_uid == 0 and mode & stat.S_ISVTX
                     )
                 )
             if not trusted:
@@ -79,7 +82,7 @@ def _open_directory(path: Path, *, create_from: Path | None = None) -> int:
         raise
 
 
-def _runtime_root() -> Path | None:
+def _runtime_root(*, sticky_tmp: Path = Path("/tmp")) -> Path | None:
     value = os.environ.get("XDG_RUNTIME_DIR")
     if not value:
         return None
@@ -87,7 +90,7 @@ def _runtime_root() -> Path | None:
     if not path.is_absolute() or ".." in path.parts:
         return None
     try:
-        fd = _open_directory(path)
+        fd = _open_directory(path, sticky_tmp=sticky_tmp)
         try:
             info = os.fstat(fd)
             if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) != 0o700:
@@ -100,6 +103,7 @@ def _runtime_root() -> Path | None:
 
 
 @windows_variant("src.desktop.platform.windows_desktop:socket_directory")
+@darwin_variant("src.desktop.platform.macos_desktop:socket_directory")
 def socket_directory(paths: ProfilePaths) -> str:
     """Select without creating anything, independently of HOME length."""
     profile = paths.profile_id
@@ -123,6 +127,7 @@ def effective_socket_directory(value: str, paths: ProfilePaths) -> str:
 
 
 @windows_variant("src.desktop.platform.windows_desktop:prepare_socket_directory")
+@darwin_variant("src.desktop.platform.macos_desktop:prepare_socket_directory")
 def prepare_socket_directory(value: str) -> None:
     """Reject planted managed namespaces; custom paths keep pool policy."""
     path = Path(value)

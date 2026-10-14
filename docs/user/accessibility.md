@@ -17,8 +17,10 @@ destructive action. View shortcuts do not act behind an open confirmation.
 | Ctrl+. in Message | Ask the current request to stop; completed effects remain. |
 | Ctrl+Shift+F | Show/hide conversation search. |
 | Ctrl+, | Open Settings, or return to chat. |
-| Ctrl+W | Close/hide the window, not stop Odin. |
-| Ctrl+Q | Exit Odin, including without a tray. |
+| Ctrl+W (⌘W on macOS) | Close/hide the window, not stop Odin. |
+| Ctrl+Q (⌘Q on macOS) | Exit Odin, including without a tray. |
+
+On macOS the other shortcuts in this table use Control (⌃) as listed, not ⌘.
 
 With slash suggestions open, Up/Down selects, Home/End moves to an endpoint, Tab
 completes once, and Escape dismisses suggestions without discarding the draft.

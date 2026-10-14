@@ -17,6 +17,12 @@ export interface AppPlatform {
   setAutostart: typeof setAutostart
   /** Why start at login isn't offered, where it isn't (Settings shows it and disables the switch). */
   autostartUnavailable?: string
+  /** Whether this start is a login item's, which keeps the window hidden as --hidden does (macOS: the app itself is the
+   * login item, so its start carries no switch). Read once the app is ready. */
+  openedAtLogin?: () => boolean
+  /** The tray image's file name in the app's resources, where it isn't tray.png (macOS: a template image, which the
+   * menu bar tints for light and dark). */
+  trayIcon?: string
   /** A hidden start (start at login) maximizes a saved maximized window at its first show, not when it's created:
    * maximize() also shows a hidden window (Windows). */
   maximizeOnFirstShow?: boolean
