@@ -3266,9 +3266,9 @@
         "total": 107
       },
       "src/desktop/platform/macos_jobs.py": {
-        "covered": 257,
-        "missing": 33,
-        "total": 290
+        "covered": 229,
+        "missing": 31,
+        "total": 260
       },
       "src/desktop/platform/macos_process.py": {
         "covered": 71,

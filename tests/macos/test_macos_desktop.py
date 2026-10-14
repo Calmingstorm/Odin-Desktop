@@ -157,6 +157,35 @@ async def test_a_passing_check_of_the_active_local_host_is_recorded_on_it(tmp_pa
     assert registry.get("localhost").last_test["ok"] is True
 
 
+async def test_retesting_an_active_host_never_hands_its_trust_to_cleanup(tmp_path, monkeypatch):
+    """Odin 4.15 (#658) on the Mac's lift: a candidate whose trust file a committed host already
+    uses never owns it, so discarding the candidate leaves the host's trust in place."""
+    from src.config.schema import ToolHost
+    from src.tools.hosts import control
+    from src.tools.hosts.trust import fingerprint_public_key
+
+    key = "ssh-ed25519 " + base64.b64encode(b"mac-active").decode("ascii")
+
+    async def fake(argv, timeout, **_kwargs):
+        if argv[0] == "ssh-keyscan":
+            return 0, f"example.invalid {key}\n".encode()
+        return 0, b"odin-host-test linux\n"
+
+    monkeypatch.setattr(control, "_run_argv", fake)
+    active = ToolHost(address="example.invalid", ssh_user="deploy", os="linux",
+                      trust_mode="pinned", host_keys=[key])
+    _registry, manager = _manager(tmp_path, {"build": active})
+    committed = set(tmp_path.glob("*.known_hosts"))
+    assert len(committed) == 1
+    candidate = await manager.prepare(
+        "build", {"address": "example.invalid", "ssh_user": "deploy", "os": "linux",
+                  "trust_mode": "pinned", "expected_fingerprints": [fingerprint_public_key(key)]},
+        allow_tofu=False, existing=active)
+    assert (await manager.test(candidate.token)).tested is True
+    manager.discard(candidate.token)
+    assert set(tmp_path.glob("*.known_hosts")) == committed and all(p.exists() for p in committed)
+
+
 async def test_a_remote_check_is_odins_ssh_probe(tmp_path, monkeypatch):
     from src.tools.hosts import control
     from src.tools.hosts.trust import fingerprint_public_key
