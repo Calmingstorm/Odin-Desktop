@@ -49,7 +49,8 @@ const ACTION_LABELS: Record<WorkAction, string> = {
   pause: 'Pause',
   resume: 'Resume',
   run_now: 'Run now',
-  steer: 'Steer'
+  steer: 'Steer',
+  dismiss: 'Dismiss'
 }
 
 const DISPOSITIONS: Record<string, string> = {

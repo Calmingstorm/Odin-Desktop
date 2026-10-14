@@ -110,7 +110,8 @@ def test_only_admitted_manager_work_has_durable_destination(work):
     assert record["conversation_id"] == message.conversation_id
     item.channel_id = "foreign"
     assert service.list()["items"][0]["state"] == "interrupted"
-    assert service.list()["items"][0]["actions"] == []
+    # No control reaches the item; the owner may only clear the card.
+    assert service.list()["items"][0]["actions"] == ["dismiss"]
 
 
 @pytest.mark.asyncio
@@ -292,7 +293,8 @@ def test_reopen_without_manager_retains_binding_unknown_no_replay(work):
     assert saved["run_id"] == original["run_id"]
     assert saved["manager_generation"] == original["manager_generation"]
     assert saved["settlement"]["state"] == "unknown"
-    assert saved["actions"] == []
+    # Nothing that could replay: the only offer is clearing the card.
+    assert saved["actions"] == ["dismiss"]
 
 
 @pytest.mark.asyncio
@@ -442,7 +444,8 @@ def test_schedule_the_scheduler_dropped_ends_with_its_latest_run(work, tmp_path,
     item = service.list({"kind": "schedule"})["items"][0]
     assert item["state"] == expected
     assert item["settlement"]["state"] == ("unknown" if expected == "unknown" else "settled")
-    assert item["actions"] == []
+    # A settled card needs nothing; one whose ending can't be known can only be cleared.
+    assert item["actions"] == (["dismiss"] if expected == "unknown" else [])
 
 
 @pytest.mark.parametrize(("history", "expected"), [
@@ -457,6 +460,61 @@ def test_removed_schedule_settles_from_the_scheduler_record_not_works_older_bind
     item = service.list({"kind": "schedule"})["items"][0]
     assert item["state"] == expected
     assert item["detail"]["last_run_binding"]["run_id"] == "r2"
+
+
+def _controls(service):
+    controls = ControlService(service.store, service.events, service.requests,
+        ChannelStateRegistry(), authority=service.authority, permissions=service.permissions)
+    controls.work = service
+    return controls
+
+
+@pytest.mark.asyncio
+async def test_an_ended_unknown_card_is_dismissed_once_through_the_control_journal(work, tmp_path):
+    """A one-time schedule removed by an older version can never settle, and Work kept its card
+    with no control at all (Aaron's from 2026-10-08). Dismiss clears only the card, once; a
+    replay returns the journal's first receipt, and the run's history is untouched."""
+    service = _ended_schedule(work, tmp_path, [_run("success")], "r1", removal=False)
+    item = service.list({"kind": "schedule"})["items"][0]
+    assert item["state"] == "unknown" and item["actions"] == ["dismiss"]
+    controls = _controls(service)
+    params = {"control_command_id": "clear-once", "kind": "schedule", "id": item["id"],
+              "action": "dismiss"}
+    first = await controls.dispatch("work.control", params)
+    assert first["ok"] and first["result"]["disposition"] == "done"
+    assert service.list({"kind": "schedule"}) == {"items": []}
+    assert await controls.dispatch("work.control", params) == first
+    again = await controls.dispatch("work.control", dict(params, control_command_id="clear-twice"))
+    assert again == {"ok": True, "result": {"disposition": "not_available"}}
+    assert (tmp_path / "schedule_history.jsonl").read_text() == _run("success") + "\n"
+
+
+@pytest.mark.asyncio
+async def test_dismiss_clears_an_interrupted_card_without_touching_its_item(work):
+    service, message, _context = work
+    item = agent(service, message)
+    service.register("agent", "a", message)
+    item.channel_id = "foreign"
+    record = service.list()["items"][0]
+    assert record["state"] == "interrupted" and record["actions"] == ["dismiss"]
+    answer = await _controls(service).dispatch("work.control", {
+        "control_command_id": "clear-agent", "kind": "agent", "id": record["id"],
+        "action": "dismiss"})
+    assert answer["result"]["disposition"] == "done"
+    assert service.list() == {"items": []}
+    assert service.agents._agents["a"] is item and item.state == AgentState.READY
+
+
+@pytest.mark.asyncio
+async def test_a_live_or_settled_card_cannot_be_dismissed(work, tmp_path):
+    service = _ended_schedule(work, tmp_path, [_run("success")], "r1")
+    settled = service.list({"kind": "schedule"})["items"][0]
+    assert settled["state"] == "completed" and settled["actions"] == []
+    answer = await _controls(service).dispatch("work.control", {
+        "control_command_id": "clear-settled", "kind": "schedule", "id": settled["id"],
+        "action": "dismiss"})
+    assert answer["result"]["disposition"] == "not_available"
+    assert service.list({"kind": "schedule"})["items"][0]["id"] == settled["id"]
 
 
 @pytest.mark.parametrize("missing", ["no_record", "other_generation"])
@@ -951,8 +1009,26 @@ def test_protocol_work_id_does_not_retarget_reused_manager_id(work):
     new = service.register("agent", successor.id, new_message)
     assert old["id"] != new["id"]
     assert old["manager_id"] == new["manager_id"]
-    assert service.resolve("agent", old["id"])["actions"] == []
+    assert service.resolve("agent", old["id"])["actions"] == ["dismiss"]
     assert service.resolve("agent", new["id"])["actions"] == ["cancel", "steer"]
+
+
+@pytest.mark.asyncio
+async def test_dismissing_a_reused_manager_ids_old_card_leaves_its_successor(work):
+    service, message, context = work
+    first = agent(service, message)
+    old = service.register("agent", first.id, message)
+    service.agents._agents.clear()
+    successor = agent(service, message)
+    successor.created_at += 1
+    new_message = service.requests.issue(message.owner_id, message.conversation_id, "new-run")
+    new = service.register("agent", successor.id, new_message)
+    receipt = await service.apply(bound(service.resolve("agent", old["id"]), "dismiss"),
+                                  owner_context=context)
+    assert receipt["disposition"] == "done"
+    assert [item["id"] for item in service.list()["items"]] == [new["id"]]
+    assert service.resolve("agent", new["id"])["actions"] == ["cancel", "steer"]
+    assert successor._cancel_event.is_set() is False
 
 
 @pytest.mark.asyncio

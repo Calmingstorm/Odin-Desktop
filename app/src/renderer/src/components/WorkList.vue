@@ -151,11 +151,22 @@ async function control(item: WorkItem, action: WorkAction, event: MouseEvent): P
   if (work.busy[workKey(item)]) return // existing store lock; keep the button focusable while awaiting its receipt
   const initiating = event.currentTarget as HTMLElement
   const ownedFocus = document.activeElement === initiating
-  await controlWork(item, action)
+  // Dismiss removes the card itself: then the next card, else the previous one, takes focus.
+  const rows = groups.value.flatMap((group) => group.items)
+  const at = rows.findIndex((row) => row.kind === item.kind && row.id === item.id)
+  const neighbours = [rows[at + 1], rows[at - 1]].filter((row): row is WorkItem => Boolean(row) && at >= 0)
+  const accepted = await controlWork(item, action)
   await nextTick()
   if (ownedFocus && !initiating.isConnected && document.activeElement === document.body) {
-    document.getElementById(itemId(item, 'item'))?.focus()
+    for (const row of [item, ...neighbours]) {
+      const target = document.getElementById(itemId(row, 'item'))
+      if (target) {
+        target.focus()
+        break
+      }
+    }
   }
+  if (accepted && action === 'dismiss') announcement.value = `${workName(item)} dismissed.`
 }
 
 async function showSteer(item: WorkItem): Promise<void> {

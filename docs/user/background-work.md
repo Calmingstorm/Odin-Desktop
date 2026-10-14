@@ -104,6 +104,11 @@ Stopping loops, cancelling workflows or terminating processes does not undo
 completed steps. Do not delete locks, receipts, journals or cleanup records to
 make an error disappear. Follow [Recovery](recovery.md) for unresolved effects.
 
+A card that ended **Unknown** or **Interrupted**, with nothing left that could
+settle it, offers **Dismiss** once you have reconciled it. Dismiss only removes
+the card from Work: the run's history, the audit log and its conversation keep
+what happened, and nothing is retried.
+
 ## Close, sleep and Exit
 
 **Closing the window is not Exit.** It hides the window while the app and owned

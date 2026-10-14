@@ -27,6 +27,12 @@ TERMINAL = frozenset({"completed", "failed", "timeout", "killed", "cancelled",
 KEEP_FINISHED = 50
 
 
+def _ended_unknown(record) -> bool:
+    """Ended, with no live manager item, and an outcome nothing can establish any more."""
+    return (record["state"] in {"unknown", "interrupted"}
+            and record["settlement"].get("state") == "unknown")
+
+
 def _get(item, key, default=None):
     return item.get(key, default) if isinstance(item, Mapping) else getattr(item, key, default)
 
@@ -320,6 +326,9 @@ class WorkService:
             elif record["settlement"]["state"] not in {"settled", "definition"}:
                 result.update(state="interrupted", settlement={"state": "unknown",
                               "resource_release": "unproven"})
+            if _ended_unknown(result):
+                # Nothing more can be learned about it; the owner may clear the card.
+                result["actions"] = ["dismiss"]
         if result != record:
             with self.store.transaction() as connection:
                 connection.execute("UPDATE desktop_work SET record=? WHERE kind=? AND id=? "
@@ -398,6 +407,25 @@ class WorkService:
                 return {"success": "completed", "failure": "failed"}.get(entry.get("status"),
                                                                          "unknown")
         return "unknown"
+
+    def _dismiss(self, record):
+        """The owner clears a card that ended with an outcome nothing can establish any more.
+
+        Presentation only, like a chat's acknowledged unknown effects: the run's history entry,
+        the audit log and the conversation keep what happened, so nothing is resolved or
+        replayed by removing the card from Work.
+        """
+        with self.store.transaction() as connection:
+            connection.execute("DELETE FROM desktop_work WHERE kind=? AND id=? "
+                               "AND manager_generation=?",
+                               (record["kind"], record["manager_id"],
+                                record["manager_generation"]))
+            # The list reloads on this event; the card is gone from it.
+            self.events.append("work.updated", {"kind": record["kind"], "id": record["id"]},
+                               dict(record, actions=[]))
+        return {"disposition": "done", "settlement": record["settlement"],
+                "run_id": record["run_id"], "generation": record["generation"],
+                "manager_generation": record["manager_generation"]}
 
     def refresh_all(self):
         with self.store.transaction() as connection:
@@ -521,6 +549,8 @@ class WorkService:
             action = params.get("action")
             if action not in current["actions"]:
                 return {"disposition": "not_available", "reason": "action_unavailable"}
+            if action == "dismiss":
+                return self._dismiss(current)
             item = self._items(record["kind"]).get(record["manager_id"])
             if not self._same(record, item):
                 return {"disposition": "not_available", "reason": "stale_target"}
