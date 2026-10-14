@@ -41,6 +41,40 @@ export function decideSecondInstance(argv: readonly string[]): 'exit' | 'focus' 
   return parseLaunchFlags(argv).exit ? 'exit' : 'focus'
 }
 
+/** The part of Electron's app the early listeners use. */
+export interface EarlyRequestSource {
+  on(event: 'second-instance', listener: (event: unknown, argv: string[]) => void): unknown
+  on(event: 'activate', listener: () => void): unknown
+  removeListener(event: 'second-instance', listener: (event: unknown, argv: string[]) => void): unknown
+  removeListener(event: 'activate', listener: () => void): unknown
+}
+
+/** Opens and Exits asked for before the app's own handlers exist. A packaged start checks ownership
+ * first, asynchronously; another launch (its argv) or a Dock click arriving meanwhile had no listener
+ * and was lost. These record it until the handlers are attached, which then replay it. */
+export class EarlyRequests {
+  private exit = false
+  private open = false
+  private readonly onSecondInstance = (_event: unknown, argv: string[]): void => {
+    if (decideSecondInstance(argv) === 'exit') this.exit = true
+    else this.open = true
+  }
+
+  private readonly onActivate = (): void => { this.open = true }
+
+  constructor(private readonly source: EarlyRequestSource) {
+    source.on('second-instance', this.onSecondInstance)
+    source.on('activate', this.onActivate)
+  }
+
+  /** Stop recording and say what was asked: an Exit wins over an open. */
+  release(): 'exit' | 'open' | null {
+    this.source.removeListener('second-instance', this.onSecondInstance)
+    this.source.removeListener('activate', this.onActivate)
+    return this.exit ? 'exit' : this.open ? 'open' : null
+  }
+}
+
 /** Whether the first window shows. --hidden and a login item's start stay hidden; an open asked for at any time
  * (a second instance, the Dock, the tray) shows it, whichever comes first. The login flag is read once the app is
  * ready, never before: macOS reports it as launching finishes (Electron 44 fills wasOpenedAtLogin in

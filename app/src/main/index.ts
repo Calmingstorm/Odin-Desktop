@@ -17,7 +17,7 @@ import { DisplayProfileStore } from './display-profile'
 import { DraftStore } from './drafts'
 import { registerIpc } from './ipc'
 import { DeviceLoginBoundary } from './device-login'
-import { decideSecondInstance, decideWindowClose, parseLaunchFlags, showWhenReady, StartVisibility, type LifecycleState } from './lifecycle'
+import { decideSecondInstance, decideWindowClose, EarlyRequests, parseLaunchFlags, showWhenReady, StartVisibility, type LifecycleState } from './lifecycle'
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { currentPlatform } from './platform'
 import { StartRefused } from './package-ownership'
@@ -56,6 +56,8 @@ if (startRefusal) {
   // No running app: Exit is a no-op, before profile/core construction.
   app.quit()
 } else {
+  // Opens and Exits asked for while a packaged start still checks ownership; run() replays them.
+  const early = new EarlyRequests(app)
   if (app.isPackaged) {
     void (async () => {
       let guardian: Awaited<ReturnType<typeof platform.acquirePackagedApp>> | undefined
@@ -66,7 +68,7 @@ if (startRefusal) {
         // Keep stdin open through real process exit. EOF plus fresh cleanup
         // receipts releases the guardian, not a pre-exit event or bare PID.
         guardian.once('exit', () => app.exit(1))
-        run()
+        run(early)
       } catch (error) {
         guardian?.stdin.end()
         await app.whenReady()
@@ -76,11 +78,11 @@ if (startRefusal) {
       }
     })()
   } else {
-    run()
+    run(early)
   }
 }
 
-function run(): void {
+function run(early: EarlyRequests): void {
   const paths = platform.profilePaths()
   platform.ensureProfileDirs(paths)
   platform.ensureToken(paths)
@@ -399,6 +401,9 @@ function run(): void {
   })
   // macOS: clicking the Dock icon, or opening the running app again, brings the window back.
   app.on('activate', () => showWindow())
+  const asked = early.release()
+  if (asked === 'exit') void exitOdin()
+  else if (asked === 'open') showWindow()
 
   // Closing every window must never stop Odin (D3); only Exit does.
   app.on('window-all-closed', () => undefined)

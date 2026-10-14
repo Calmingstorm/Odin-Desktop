@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EventEmitter } from 'node:events'
-import { decideSecondInstance, decideWindowClose, parseLaunchFlags, showWhenReady, StartVisibility } from '../src/main/lifecycle'
+import { decideSecondInstance, decideWindowClose, EarlyRequests, parseLaunchFlags, showWhenReady, StartVisibility } from '../src/main/lifecycle'
 
 describe('lifecycle (D3)', () => {
   it('closing the window hides it and keeps Odin running', () => {
@@ -29,6 +29,37 @@ describe('lifecycle (D3)', () => {
 
   it('parses launch flags', () => {
     expect(parseLaunchFlags(['x', '--hidden'])).toEqual({ exit: false, hidden: true, smokeTest: false })
+  })
+})
+
+describe('early open and Exit requests', () => {
+  it('records what arrives before the handlers exist, and an Exit wins over an open', () => {
+    const app = new EventEmitter()
+    const nothing = new EarlyRequests(app)
+    expect(nothing.release()).toBeNull()
+    const open = new EarlyRequests(app)
+    app.emit('activate')
+    expect(open.release()).toBe('open')
+    const launch = new EarlyRequests(app)
+    app.emit('second-instance', {}, ['/opt/odin-desktop/odin'])
+    expect(launch.release()).toBe('open')
+    const exit = new EarlyRequests(app)
+    app.emit('second-instance', {}, ['/opt/odin-desktop/odin'])
+    app.emit('second-instance', {}, ['/opt/odin-desktop/odin', '--exit'])
+    app.emit('activate')
+    expect(exit.release()).toBe('exit')
+  })
+
+  it('stops listening once released', () => {
+    const app = new EventEmitter()
+    const early = new EarlyRequests(app)
+    expect(app.listenerCount('second-instance')).toBe(1)
+    expect(app.listenerCount('activate')).toBe(1)
+    expect(early.release()).toBeNull()
+    expect(app.listenerCount('second-instance')).toBe(0)
+    expect(app.listenerCount('activate')).toBe(0)
+    app.emit('second-instance', {}, ['x', '--exit'])
+    expect(early.release()).toBeNull()
   })
 })
 

@@ -320,6 +320,25 @@ describe('inert main-process lifecycle wiring', () => {
     await boot(); expect(m.errorBox).toHaveBeenCalledWith('Odin core unavailable', 'runtime absent');
     expect(m.app.exit).toHaveBeenCalledWith(1); expect(m.windows).toHaveLength(0);
   })
+  it('replays an open asked for while the packaged start check runs', async () => {
+    let admitted!: () => void
+    m.app.isPackaged = true; m.admit.mockImplementationOnce(() => new Promise<void>(resolve => { admitted = resolve }))
+    await boot(['--hidden'])
+    m.app.emit('second-instance', {}, []); m.app.emit('activate')
+    expect(m.supervisors).toHaveLength(0)
+    admitted(); await flush()
+    const win = m.windows[0]; win.emit('ready-to-show')
+    expect(win.show).toHaveBeenCalled()
+  })
+  it('replays an Exit asked for while the packaged start check runs', async () => {
+    let admitted!: () => void
+    m.app.isPackaged = true; m.admit.mockImplementationOnce(() => new Promise<void>(resolve => { admitted = resolve }))
+    await boot()
+    m.app.emit('activate'); m.app.emit('second-instance', {}, ['--exit'])
+    admitted(); await flush()
+    expect(m.windows).toHaveLength(0); expect(m.supervisors[0].start).not.toHaveBeenCalled()
+    expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0)
+  })
   it('admits packaged ownership before startup and fails closed on admission errors', async () => {
     m.app.isPackaged = true; const { supervisor } = await boot();
     expect(m.admit).toHaveBeenCalledWith(m.guardian); expect(supervisor.start).toHaveBeenCalledOnce();
