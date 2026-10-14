@@ -244,6 +244,10 @@ class SignedBuildTests(unittest.TestCase):
         self.assertTrue(any("verify-macos-signatures.py" in run for run in runs))
         self.assertTrue(any("tests/macos/test_packaged_app.py" in run for run in runs))
         self.assertFalse(any("${{" in run for run in runs))
+        uploads = [step for step in steps if "upload-artifact" in step.get("uses", "")]
+        (kept,) = uploads
+        self.assertIs(kept["with"]["include-hidden-files"], True)  # .packaging-candidates is hidden
+        self.assertIn("-arm64.dmg", kept["with"]["path"])
         last = steps[-1]
         self.assertEqual(last["if"], "always()")
         self.assertIn("security delete-keychain", last["run"])

@@ -156,6 +156,8 @@ jobs:
             .packaging-candidates/odin-desktop-*-arm64.dmg.notary.json
             ${{ runner.temp }}/macos-signed-acceptance.json
           if-no-files-found: error
+          # The image is under .packaging-candidates, which upload-artifact skips by default.
+          include-hidden-files: true
           retention-days: 30
       - name: Remove the signing keychain and the notary key
         if: always()
