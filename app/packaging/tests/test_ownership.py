@@ -742,6 +742,8 @@ class MacStartCheckTests(unittest.TestCase):
             for record in ({'manifest': identity.hexdigest()},
                            {'version': 99, 'manifest': identity.hexdigest(), 'files': observed},
                            {'version': 1, 'manifest': identity.hexdigest(), 'files': 'short'},
+                           {'version': True, 'manifest': identity.hexdigest(), 'files': observed},
+                           {'version': 1.0, 'manifest': identity.hexdigest(), 'files': observed},
                            [identity.hexdigest()]):
                 with self.subTest(record=record):
                     (self.paths.directory / own.BUNDLE_RECORD).write_text(json.dumps(record))
@@ -768,6 +770,20 @@ class MacStartCheckTests(unittest.TestCase):
                 self.assertRaisesRegex(own.StartRefusal, "can't be read") as caught:
             own._verify_bundle(self.resources, manifest)
         self.assertEqual(caught.exception.code, own.MAC_FILES_CHANGED)
+
+    @unittest.skipIf(os.geteuid() == 0, 'root reads every folder')
+    def test_a_folder_that_cant_be_read_refuses_with_the_reinstall_remedy(self):
+        with mac():
+            with self.start():
+                pass
+            locked = self.resources / 'runtime/locked'
+            locked.mkdir()
+            (locked / 'hidden.pyc').write_bytes(b'\x00' * 16)
+            os.chmod(locked, 0)
+            try:
+                self.assertIn("can't be read", self.refused(own.MAC_FILES_CHANGED))
+            finally:
+                os.chmod(locked, 0o755)
 
     @unittest.skipIf(os.geteuid() == 0, 'root reads every file')
     def test_unreadable_resources_name_the_reinstall_remedy(self):

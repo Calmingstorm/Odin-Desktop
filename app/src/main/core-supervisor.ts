@@ -32,6 +32,9 @@ export type SupervisorState = 'idle' | 'starting' | 'running' | 'restarting' | '
 
 export class CoreSupervisor extends EventEmitter {
   private child: ChildProcess | null = null
+  /** Under a guardian: how the last one ended, for a Stop that finds it already gone (its status is the engine's
+   * when it reaped it). Cleared when a child starts. */
+  private guardianEnd: { code: number | null; signal: NodeJS.Signals | null } | null = null
   private state: SupervisorState = 'idle'
   private crashTimes: number[] = []
   private restartTimer: NodeJS.Timeout | null = null
@@ -63,6 +66,7 @@ export class CoreSupervisor extends EventEmitter {
     if (this.stopRequested || this.state === 'failed' || this.restartTimer || this.state === 'starting' || this.state === 'running') return
     this.openLog()
     this.setState('starting')
+    this.guardianEnd = null
     let child: ChildProcess
     try {
       child = spawn(this.options.command, this.options.args, {
@@ -111,10 +115,16 @@ export class CoreSupervisor extends EventEmitter {
     }
     const child = this.child
     if (!child || child.pid === undefined || child.exitCode !== null || child.signalCode !== null) {
+      // A guardian that already ended abnormally leaves the stop unknown, as one ending during Stop does: it may
+      // have died before reaping the engine. A child that never started, or ended cleanly, is not running.
+      const ended = child && child.pid !== undefined ? { code: child.exitCode, signal: child.signalCode }
+        : this.guardianEnd
+      const abnormal = this.options.guardianWaitMs !== undefined && ended !== null
+        && (ended.code !== 0 || ended.signal !== null)
       this.setState('stopped')
       this.closeLog()
       this.child = null
-      this.stopping = Promise.resolve('not-running')
+      this.stopping = Promise.resolve(abnormal ? 'unknown' : 'not-running')
       return this.stopping
     }
     this.setState('stopping')
@@ -163,6 +173,7 @@ export class CoreSupervisor extends EventEmitter {
   private onEnded(child: ChildProcess | null, code: number | null, signal: NodeJS.Signals | null): void {
     if (child !== this.child) return
     this.child = null
+    if (this.options.guardianWaitMs !== undefined && child?.pid !== undefined) this.guardianEnd = { code, signal }
     this.writeLog(Buffer.from(`[supervisor] core ended code=${code} signal=${signal}\n`))
     this.emit('exited', { code, signal })
     if (this.stopRequested) {

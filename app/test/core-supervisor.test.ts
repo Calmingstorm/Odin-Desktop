@@ -1,9 +1,9 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CoreSupervisor } from '../src/main/core-supervisor'
-import { boundedShutdown } from '../src/main/shutdown'
+import { boundedShutdown, CleanupJournal } from '../src/main/shutdown'
 import { waitFor } from './fixture-harness'
 
 const cleanups: Array<() => Promise<unknown> | void> = []
@@ -123,6 +123,40 @@ describe('core supervisor', () => {
         finish: () => undefined, release: () => undefined, exit: () => undefined })()
       expect(record).toMatchObject({ state, processOutcome, shutdownAccepted: true })
     }
+  })
+
+  it('keeps a guardian\'s abnormal end that comes before Stop, as one during Stop', async () => {
+    // Bounded shutdown's request is accepted, but the guardian already ended before stopCore: its status still
+    // decides. The current journal record is what the next start reads.
+    for (const [ending, outcome, state] of [['process.exit(3)', 'unknown', 'unknown'],
+      ["process.kill(process.pid, 'SIGKILL')", 'unknown', 'unknown'],
+      ['process.exit(0)', 'not-running', 'process-exited']] as const) {
+      const dir = mkdtempSync(join(tmpdir(), 'odin-guardian-end-'))
+      cleanups.push(() => rmSync(dir, { recursive: true, force: true }))
+      const journal = new CleanupJournal(join(dir, 'cleanup.json'))
+      const s = supervisor(`setTimeout(() => ${ending}, 50); setInterval(() => {}, 1000)`,
+        { guardianWaitMs: 5_000, restartAllowed: () => false })
+      s.start()
+      await waitFor(() => s.current === 'failed')
+      const record = await boundedShutdown({ stopAdmission: () => undefined, persist: () => undefined,
+        requestShutdown: async () => true, stopCore: () => s.stop(), unreceipted: () => 0,
+        finish: (value) => journal.finish(value), release: () => undefined, exit: () => undefined })()
+      expect(record).toMatchObject({ processOutcome: outcome, state, shutdownAccepted: true })
+      expect(JSON.parse(readFileSync(join(dir, 'cleanup.json'), 'utf8')).current.state).toBe(state)
+    }
+  })
+
+  it('still calls a guardian that never started, or a plain child\'s abnormal end, not running', async () => {
+    const never = new CoreSupervisor({ command: '/nonexistent/odin-guardian', args: [], guardianWaitMs: 5_000,
+      logFile: join(mkdtempSync(join(tmpdir(), 'odin-never-')), 'core.log') })
+    never.start()
+    await waitFor(() => never.current !== 'starting')
+    expect(await never.stop()).toBe('not-running')
+    const plain = supervisor('setTimeout(() => process.exit(3), 50); setInterval(() => {}, 1000)',
+      { restartAllowed: () => false })
+    plain.start()
+    await waitFor(() => plain.current === 'failed')
+    expect(await plain.stop()).toBe('not-running') // Linux and Windows: unchanged
   })
 
   it('lets an obedient guardian exit on its own within the wait', async () => {

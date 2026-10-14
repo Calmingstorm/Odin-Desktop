@@ -39,12 +39,13 @@ def verdict(text: str, errors: str, code: int) -> dict:
 
 def notarize(path: Path, key: Path, key_id: str, issuer: str, *, wait: str = "60m",
              run=subprocess.run) -> dict:
-    """Submit and wait; returns Apple's verdict, raising unless it is Accepted."""
+    """Submit and wait; returns Apple's verdict. Only an Accepted answer with its submission ID,
+    from a command that succeeded, passes: contradictory diagnostics fail closed, to run again."""
     result = run(["/usr/bin/xcrun", "notarytool", "submit", str(path), "--key", str(key),
                   "--key-id", key_id, "--issuer", issuer, "--wait", "--timeout", wait,
                   "--output-format", "json"], capture_output=True, text=True)
     answer = verdict(result.stdout, result.stderr, result.returncode)
-    if answer["status"] != ACCEPTED:
+    if answer["status"] != ACCEPTED or answer["exit"] != 0 or not answer["id"]:
         raise NotaryError(f"notarization of {path.name}: {answer}")
     return answer
 

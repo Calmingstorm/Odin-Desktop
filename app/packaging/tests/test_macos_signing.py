@@ -4,6 +4,7 @@ macos-release.yml signs for real."""
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -25,10 +26,16 @@ sys.path.insert(0, str(PACKAGING / "python"))
 import macos_notary  # noqa: E402
 import macos_sign  # noqa: E402
 
-_spec = importlib.util.spec_from_file_location("resolve_signing_source",
-                                               PACKAGING / "resolve-signing-source.py")
-resolver = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(resolver)
+
+def _script(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+resolver = _script("resolve_signing_source", PACKAGING / "resolve-signing-source.py")
+candidate = _script("check_signed_candidate", PACKAGING / "check-signed-candidate.py")
 
 MACHO = struct.pack("<I", 0xFEEDFACF) + b"\0" * 28
 IDENTITY = "Developer ID Application: Fixture Person (TEAM123456)"
@@ -45,11 +52,13 @@ class Recorder:
         timestamp=True,
         entitlements=None,
         notary="Accepted",
+        notary_exit=None,
+        notary_id=True,
     ):
         self.calls = []
         self.team, self.flags, self.timestamp = team, flags, timestamp
         self.entitlements = entitlements or {}
-        self.notary = notary
+        self.notary, self.notary_exit, self.notary_id = notary, notary_exit, notary_id
 
     def __call__(self, argv, **kwargs):
         self.calls.append(list(argv))
@@ -64,12 +73,13 @@ class Recorder:
             body = plistlib.dumps(granted) if granted else b""
             return SimpleNamespace(returncode=0, stdout=body, stderr=b"")
         if argv[:2] == ["/usr/bin/xcrun", "notarytool"]:
-            reply = {"id": "a4c08b5a-3a30-4cfb-b2d8-dd30114e27ac", "status": self.notary}
-            return SimpleNamespace(
-                returncode=0 if self.notary == "Accepted" else 1,
-                stdout=json.dumps(reply),
-                stderr="",
-            )
+            reply = {"status": self.notary}
+            if self.notary_id:
+                reply["id"] = "a4c08b5a-3a30-4cfb-b2d8-dd30114e27ac"
+            code = self.notary_exit
+            if code is None:
+                code = 0 if self.notary == "Accepted" else 1
+            return SimpleNamespace(returncode=code, stdout=json.dumps(reply), stderr="")
         return SimpleNamespace(
             returncode=0, stdout="accepted\n", stderr="source=Notarized Developer ID"
         )
@@ -217,6 +227,78 @@ class NotaryTests(unittest.TestCase):
             self.assertFalse(any(argv[:2] == ["/usr/bin/xcrun", "stapler"] for argv in run.calls))
 
 
+class StrictVerdictTests(unittest.TestCase):
+    def test_accepted_with_a_failed_command_or_no_submission_fails_closed(self):
+        for run in (Recorder(notary_exit=1), Recorder(notary_id=False)):
+            with self.subTest(exit=run.notary_exit, id=run.notary_id):
+                with self.assertRaises(macos_notary.NotaryError):
+                    macos_notary.notarize(
+                        Path("/tmp/odin.zip"), Path("/tmp/key.p8"), "KEY", "ISSUER", run=run
+                    )
+
+
+class CandidateTests(unittest.TestCase):
+    """The retained job's check of the kept artifact."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.kept = Path(self.temp.name)
+        image = b"signed disk image"
+        (self.kept / "odin.dmg").write_bytes(image)
+        digest = hashlib.sha256(image).hexdigest()
+        app = {"status": "Accepted", "exit": 0, "id": "a0a2d2e1-6ece-432f-96ef-12b63fe429c9"}
+        dmg = {"status": "Accepted", "exit": 0, "id": "f1838453-ab46-44af-aee0-8d5e04484d33"}
+        self.receipt = {
+            "disk_image": "odin.dmg",
+            "sha256": digest,
+            "revision": "a" * 40,
+            "app_notarization": {"notarization": app},
+            "disk_image_notarization": {"notarization": dmg},
+        }
+        self.report = {
+            "disk_image_sha256": digest,
+            "revision": "a" * 40,
+            "checks": {f"check {n}": True for n in range(16)},
+        }
+        self.write()
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def write(self):
+        (self.kept / "receipt.json").write_text(json.dumps(self.receipt))
+        (self.kept / "acceptance.json").write_text(json.dumps(self.report))
+
+    def test_a_whole_candidate_passes(self):
+        self.assertIn("odin.dmg", candidate.check(self.kept, "a" * 40))
+
+    def test_every_gap_is_refused(self):
+        def notary(record, **change):
+            return lambda: self.receipt[record]["notarization"].update(change)
+
+        app_id = "a0a2d2e1-6ece-432f-96ef-12b63fe429c9"
+        gaps = {
+            "an extra file": lambda: (self.kept / "extra.txt").write_text("x"),
+            "another image": lambda: (self.kept / "odin.dmg").write_bytes(b"changed"),
+            "another revision": lambda: self.receipt.update(revision="b" * 40),
+            "not accepted": notary("app_notarization", status="Invalid"),
+            "a failed command": notary("disk_image_notarization", exit=1),
+            "no submission": notary("app_notarization", id=None),
+            "a malformed submission": notary("app_notarization", id="not-a-uuid"),
+            "one submission twice": notary("disk_image_notarization", id=app_id),
+            "another image's report": lambda: self.report.update(disk_image_sha256="0" * 64),
+            "a short report": lambda: self.report.update(checks={"one": True}),
+        }
+        for gap, change in gaps.items():
+            with self.subTest(gap):
+                self.tearDown()
+                self.setUp()
+                change()
+                self.write()
+                with self.assertRaises(candidate.CandidateError):
+                    candidate.check(self.kept, "a" * 40)
+
+
 class AppNotaryTests(unittest.TestCase):
     def test_the_app_is_zipped_notarized_then_stapled_and_its_zip_removed(self):
         run = Recorder()
@@ -303,6 +385,8 @@ class SignedBuildTests(unittest.TestCase):
         self.assertIn("search-list.txt", last["run"])
         self.assertEqual(retained["needs"], ["target", "signed"])
         self.assertIn("download-artifact", json.dumps(retained["steps"]))
+        self.assertEqual(retained["steps"][0]["with"]["ref"], "${{ needs.target.outputs.sha }}")
+        self.assertIn("check-signed-candidate.py", retained["steps"][-1]["run"])
 
 
 class SourceTests(unittest.TestCase):

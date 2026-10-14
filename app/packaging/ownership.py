@@ -392,9 +392,14 @@ def _write(path, value):
             temp.unlink()
 
 
+def _raise(error):
+    raise error
+
+
 def _bundle_walk(root):
-    """Every entry below ``root`` in a fixed order, never following a link: (relative, lstat)."""
-    for directory, folders, files in os.walk(root):
+    """Every entry below ``root`` in a fixed order, never following a link: (relative, lstat).
+    A folder that can't be read raises: an inventory with a gap in it never passes."""
+    for directory, folders, files in os.walk(root, onerror=_raise):
         folders.sort()
         base = Path(directory)
         for name in sorted(folders + files):
@@ -473,7 +478,8 @@ def _bundle_record(paths):
         record = _read(paths.directory / BUNDLE_RECORD)
     except (OSError, ValueError, OwnershipError):
         return None
-    if (set(record) != {'version', 'manifest', 'files'} or record['version'] != 1
+    if (set(record) != {'version', 'manifest', 'files'} or type(record['version']) is not int
+            or record['version'] != 1
             or not all(isinstance(record[key], str) and _DIGEST.fullmatch(record[key])
                        for key in ('manifest', 'files'))):
         return None

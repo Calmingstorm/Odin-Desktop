@@ -236,6 +236,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.target.outputs.sha }}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: macos-signed-candidate
@@ -243,25 +246,4 @@ jobs:
       - name: The disk image, its receipt and the acceptance report, as the receipt says
         env:
           SOURCE: ${{ needs.target.outputs.sha }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import hashlib, json, os, sys
-          from pathlib import Path
-          kept = Path("kept")
-          receipt = json.loads((kept / "receipt.json").read_text())
-          names = sorted(path.name for path in kept.iterdir())
-          expected = sorted([receipt["disk_image"], "receipt.json", "acceptance.json"])
-          if names != expected:
-              sys.exit(f"the artifact holds {names}, not {expected}")
-          digest = hashlib.sha256((kept / receipt["disk_image"]).read_bytes()).hexdigest()
-          if digest != receipt["sha256"] or receipt["revision"] != os.environ["SOURCE"]:
-              sys.exit("the disk image or the revision differs from the receipt")
-          for record in ("app_notarization", "disk_image_notarization"):
-              if receipt[record]["notarization"]["status"] != "Accepted":
-                  sys.exit(f"{record} is not Accepted")
-          report = json.loads((kept / "acceptance.json").read_text())
-          if report["disk_image_sha256"] != digest or report["revision"] != receipt["revision"]:
-              sys.exit("the acceptance report is for another candidate")
-          print(f"kept: {receipt['disk_image']} {digest} at {receipt['revision']}")
-          PY
+        run: python3 -I app/packaging/check-signed-candidate.py kept "$SOURCE"
