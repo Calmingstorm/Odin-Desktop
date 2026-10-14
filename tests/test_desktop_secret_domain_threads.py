@@ -79,8 +79,15 @@ async def test_codex_explicit_unlock_refresh_is_lazy_and_generation_fenced():
     assert pool.current is auth and pool.current._refresh_lock is lock
     secrets.values["codex_accounts"] = json.dumps([credential(access_token="changed-access")])
     assert await service.refresh_pool_if_initialized() == 1
-    assert pool.current is not auth
+    # Odin 4.14 (#652): an authorization follows its refresh chain, so the same refresh token
+    # keeps its auth (and refresh lock) and the new access token applies in place.
+    assert pool.current is auth and pool.current._refresh_lock is lock
     assert await pool.get_access_token() == "changed-access"
+    secrets.values["codex_accounts"] = json.dumps(
+        [credential(access_token="other-access", refresh_token="other-refresh")])
+    assert await service.refresh_pool_if_initialized() == 1
+    assert pool.current is not auth  # another chain: a new authorization
+    assert await pool.get_access_token() == "other-access"
     await service.close()
 
 
