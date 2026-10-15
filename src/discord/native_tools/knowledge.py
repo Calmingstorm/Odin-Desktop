@@ -8,6 +8,7 @@ stale. Other deps are constructed once and captured directly.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 
 from ...llm.secret_scrubber import scrub_output_secrets
@@ -167,6 +168,15 @@ class KnowledgeTools:
             suffix = f" — {note}" if note else ""
             lines.append(f"  [{tag}] {r['source']}{detail}{suffix}")
         return "\n".join(lines)
+
+    async def _handle_list_knowledge_off_loop(self) -> str:
+        """list_knowledge for the async dispatcher, run in a worker thread.
+
+        A write may hold the knowledge store's connection lock, so the store must
+        not be read on the event loop. The listing itself stays the synchronous
+        upstream handler below.
+        """
+        return await asyncio.to_thread(self._handle_list_knowledge)
 
     def _handle_list_knowledge(self) -> str:
         """List all documents in the knowledge base."""

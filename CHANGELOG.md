@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.1.1]
+
+**Odin 4.16's reliability fixes on the desktop.** Linux, Windows and macOS.
+
+- **Background-process commands no longer pick up stray text.** Odin filled in `manage_process` with six empty
+  fields after a start's command. A model done with the command could not stop there, so a stray word, a period or
+  even a second command ended up inside it: 3 of this app's first 6 process starts in testing. Each action now ends
+  on its own fields. In Odin's live test this went from 14 of 60 to 0 of 60 starts (gpt-6-astra) and from 4 of 20
+  to 0 of 20 (gpt-6.1-sol).
+- **Knowledge and search reads are safe beside a write.** The knowledge store and the session archive store share
+  one database connection across worker threads, and only writes were serialized. A list read beside a save could
+  come back empty, and a saved archive could read back as missing. Every use of the connection now holds the store's
+  lock.
+- **The core stays responsive while knowledge is written.** Health, the `list_knowledge` tool, background tasks and
+  imports read the knowledge store through a worker thread, and shutdown closes it there too, so a long write never
+  stalls the core.
+
 ## [1.1.0]
 
 **Odin 4.14 and 4.15 on the desktop, and a round of fixes.** Linux, Windows and macOS.

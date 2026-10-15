@@ -128,7 +128,7 @@ class ManagementService:
         """Compose retained domain owners without starting HTTP or a desktop."""
         from ..config.apply_registry import spec_for
         from ..context.loader import ContextLoader
-        from ..health.checker import check_all
+        from ..health.checker import check_all_async
         from ..health.subsystem_guard import SubsystemGuard
         from ..llm.codex_quota_check import CodexQuotaCheckService
         from ..llm.system_prompt import register_user_presets
@@ -391,7 +391,7 @@ class ManagementService:
             observed.delivery_readiness = getattr(core, "delivery_readiness", False)
             observed.delivery_readiness_reason = getattr(
                 core, "delivery_readiness_reason", "delivery_not_composed")
-            result = check_all(observed)
+            result = await check_all_async(observed)
             result["workspace"] = await diagnostics.snapshot()
             result["browser"] = browser.status()
             result["computer"] = computer.readiness()

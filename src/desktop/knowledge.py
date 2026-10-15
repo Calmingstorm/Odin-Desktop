@@ -72,10 +72,12 @@ class KnowledgeService:
     def embedder(self):
         return getattr(self._importer, "_embedder", None)
 
-    def close(self):
+    async def close(self):
         """Release only the standalone store, never a graph-owned injected store."""
         if self._owns_store and self._store is not None:
-            self._store.close()
+            # A write may hold the store's connection lock: wait for it in a
+            # worker, settled through cancellation, never on the event loop.
+            await to_thread_settled(self._store.close)
 
     async def handle(self, method: str, params: dict):
         if method not in METHODS:

@@ -1,6 +1,9 @@
 """Frozen replay restoration approved by Claude, review of #35, round 2.
 
-Only the documentation import and five retired/one added builtin rows change.
+Only the documentation import and five retired/one added builtin rows change,
+plus (Desktop 1.1.1) Odin v4.16.0's own two edits to this file: _populate_wire
+selects a payload-union branch by an "action" const as well as "operation", and
+the manage_process row supplies {"payload": ...}, its per-action strict wire.
 The catalog equality assertion and every other assertion remain unchanged.
 No tool handler, live endpoint, desktop input or owner admission is involved.
 """
@@ -24,8 +27,26 @@ AFTER_SOURCE = (
     "from src.tools.registry import "
     "get_documentation_tool_definitions as get_tool_definitions"
 )
-SETUP_HUNKS = ((22, 0, BEFORE_SHA256, AFTER_SHA256, AFTER_SOURCE),)
+POPULATE_WIRE_BEFORE_SHA256 = "c128cc760bda4410dbe803da97425014ced5552290d4f9c01a7f459a88c876d2"
+POPULATE_WIRE_AFTER_SHA256 = "d723508da3b8eec4903a9e1e4624a3a1d50fa82abfd153814af3e48088f5edef"
+POPULATE_WIRE_SOURCE = 'def _populate_wire(schema, supplied):\n    """Populate wire-only optionals recursively, retaining false/zero/empty."""\n    if supplied is None or supplied == OMITTED:\n        return deepcopy(supplied)\n    if "anyOf" in schema:\n        branches = schema["anyOf"]\n        # Per-case payload unions select their branch by a const: computer_act\'s\n        # "operation", manage_process\'s "action".\n        selector = next((\n            key for key in ("operation", "action")\n            if isinstance(supplied, dict) and key in supplied and any(\n                b.get("properties", {}).get(key, {}).get("const") is not None for b in branches\n            )\n        ), None)\n        if selector is not None:\n            schema = next(\n                b for b in branches\n                if b.get("properties", {}).get(selector, {}).get("const") == supplied[selector]\n            )\n        else:\n            kinds = [(dict, "object"), (list, "array"), (bool, "boolean"),\n                     (int, "integer"), (float, "number"), (str, "string")]\n            kind = next(label for cls, label in kinds if isinstance(supplied, cls))\n            schema = next(\n                b for b in branches\n                if b.get("type") in (kind, "number" if kind == "integer" else kind) or "anyOf" in b\n            )\n        return _populate_wire(schema, supplied)\n    if isinstance(supplied, dict) and "properties" in schema:\n        return {\n            k: _populate_wire(child, supplied[k]) if k in supplied else (\n                deepcopy(OMITTED) if any(\n                    "__odin_omitted__" in branch.get("properties", {})\n                    for branch in child.get("anyOf", [])\n                ) else None\n            )\n            for k, child in schema["properties"].items()\n        }\n    if isinstance(supplied, list) and "items" in schema:\n        return [_populate_wire(schema["items"], item) for item in supplied]\n    return deepcopy(supplied)'
+CASES_BEFORE_SHA256 = "b22ea6fcd27874e3bd5e451a8011a1592ff75c51590aa356174d6ccfba3e197d"
+CASES_AFTER_SHA256 = "e151540d2c8add211332ae8dd78388c92d29ae1fed70091974959884fe7a6762"
+CASES_SOURCE = 'cases = [\n    _case("builtin-" + name, name, expected,\n          supplied={"payload": expected} if name == "manage_process" else None)\n    for name, expected in BUILTIN_INPUTS.items()\n]'
+SETUP_HUNKS = (
+    (22, 0, BEFORE_SHA256, AFTER_SHA256, AFTER_SOURCE),
+    (145, 0, POPULATE_WIRE_BEFORE_SHA256, POPULATE_WIRE_AFTER_SHA256, POPULATE_WIRE_SOURCE),
+    (248, 4, CASES_BEFORE_SHA256, CASES_AFTER_SHA256, CASES_SOURCE),
+)
+# (symbol, operation, kind) per hunk, for evidence only.
+HUNK_EVIDENCE = (
+    ("<module>", "documentation_catalog_import", "statement"),
+    ("_populate_wire", "odin_4_16_payload_union_branch_by_action_const", "function"),
+    ("_cases", "odin_4_16_manage_process_payload_case", "statement"),
+)
 REVIEW_AUTHORITY = "Claude, review of #35, round 2"
+# The two Odin v4.16.0 hunks above: Claude, Desktop 1.1.1, reviewed with the PR by Odin.
+HUNK_AUTHORITY = "Odin v4.16.0 test edits mirrored for Desktop 1.1.1"
 REMOVED = frozenset({"purge_messages", "set_permission", "read_channel", "add_reaction", "create_poll"})
 NEW_INPUT = {"limit": 10}
 MATRIX_BEFORE_SHA256 = "96af24f8e2b4f7d499fa0c8c7f0b8fa77600552871bc1109b85169e8ae736c43"
@@ -89,22 +110,23 @@ def _desktop_matrix(original):
 
 
 def verify(original, adapted):
-    """Reverse both exact approved deltas, protecting every other source node."""
+    """Reverse every exact approved delta, protecting every other source node."""
     if corpus(original) != corpus(adapted):
         raise ValueError("Codex assertion/signature/decorator/parameter corpus drift")
-    matches = [(p, n) for p, n in _paths(original)
-               if getattr(n, "lineno", None) == 22
-               and getattr(n, "col_offset", None) == 0
-               and digest(dump(n).encode()) == BEFORE_SHA256]
-    if len(matches) != 1:
-        raise ValueError("Codex original setup hunk must match exactly once")
-    path, before = matches[0]
-    matches = [(p, n) for p, n in _paths(adapted)
-               if p == path and digest(dump(n).encode()) == AFTER_SHA256]
-    if len(matches) != 1:
-        raise ValueError("Codex adapted setup hunk hash mismatch")
     restored = copy.deepcopy(adapted)
-    _put(restored, path, copy.deepcopy(before))
+    for line, column, before_hash, after_hash, _ in SETUP_HUNKS:
+        matches = [(p, n) for p, n in _paths(original)
+                   if getattr(n, "lineno", None) == line
+                   and getattr(n, "col_offset", None) == column
+                   and digest(dump(n).encode()) == before_hash]
+        if len(matches) != 1:
+            raise ValueError("Codex original setup hunk must match exactly once")
+        path, before = matches[0]
+        matches = [(p, n) for p, n in _paths(adapted)
+                   if p == path and digest(dump(n).encode()) == after_hash]
+        if len(matches) != 1:
+            raise ValueError("Codex adapted setup hunk hash mismatch")
+        _put(restored, path, copy.deepcopy(before))
     matrix_path, matrix_before = _matrix(original, MATRIX_BEFORE_SHA256)
     adapted_path, matrix_after = _matrix(adapted, MATRIX_AFTER_SHA256)
     if adapted_path != matrix_path or dump(matrix_after) != dump(_desktop_matrix(original)):
@@ -173,11 +195,17 @@ def evidence(module, original, tree):
     dispositions = []
     for case in original_cases:
         retired = case.name in REMOVED
+        # The Odin v4.16.0 _cases hunk supplies this row as its per-action payload union.
+        payload_row = case.name == "manage_process"
         dispositions.append({
             "label": case.label, "tool": case.name,
             "disposition": "retired" if retired else "retained",
-            "reason": "removed-by-design Desktop tool" if retired else "unchanged case and assertions",
-            "supplied": case.supplied, "expected": case.expected,
+            "reason": ("removed-by-design Desktop tool" if retired
+                       else "assertions unchanged; supplied as its per-action payload union "
+                            "(Odin v4.16.0 hunk)" if payload_row
+                       else "unchanged case and assertions"),
+            "supplied": {"payload": case.expected} if payload_row else case.supplied,
+            "expected": case.expected,
             "error": case.error, "literal": case.literal,
             "parameters": [{"path": path, "disposition": "retired" if retired else "retained"}
                            for path in ("chat", "agent")],
@@ -231,9 +259,9 @@ def evidence(module, original, tree):
         "corpus_equal": corpus(tree) == inherited,
         "complete_reverse_replay": verify(original, tree),
         "setup_hunks": [{
-            "symbol": "<module>", "line": rule[0], "column": rule[1],
-            "operation": "documentation_catalog_import",
+            "symbol": symbol, "line": rule[0], "column": rule[1],
+            "operation": operation,
             "before_sha256": rule[2], "after_sha256": rule[3],
-            "after_source": rule[4], "kind": "statement",
-        } for rule in SETUP_HUNKS],
+            "after_source": rule[4], "kind": kind,
+        } for rule, (symbol, operation, kind) in zip(SETUP_HUNKS, HUNK_EVIDENCE, strict=True)],
     }

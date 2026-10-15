@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import asyncio
 import difflib
+import functools
 import hashlib
 import re
 import sqlite3
+import threading
+from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Concatenate, Literal
 
 from ..async_utils import to_thread_settled
 from ..odin_log import get_logger
@@ -25,6 +28,32 @@ if TYPE_CHECKING:
     from ..search.fts import FullTextIndex
 
 log = get_logger("knowledge")
+
+def _serialized[S: KnowledgeStore, **P, R](
+    method: Callable[Concatenate[S, P], R],
+) -> Callable[Concatenate[S, P], R]:
+    """Hold the store's connection lock for the whole synchronous method.
+
+    Every ``asyncio.to_thread`` caller, and a few event-loop callers, share one
+    connection. WAL isolates separate connections, not callers sharing one: a
+    reader inside another thread's open write transaction fails with
+    ``InterfaceError`` or misses rows that are there, and concurrent reads of
+    one statement can corrupt CPython 3.12's statement cache
+    (python/cpython#118172). Unlocked, ``list_sources`` returned an empty
+    list beside a writer.
+
+    A write holds the lock through its FTS replacement and verification, which
+    can wait on the FTS lock and SQLite's busy timeout, so there is no small
+    bound on the wait: event-loop callers reach these methods through a worker
+    thread (``asyncio.to_thread``).
+    """
+
+    @functools.wraps(method)
+    def wrapper(self: S, /, *args: P.args, **kwargs: P.kwargs) -> R:
+        with self._conn_lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
 
 CHUNK_SIZE = 1500  # chars per chunk (~375 tokens)
 CHUNK_OVERLAP = 200  # overlap between chunks
@@ -88,8 +117,14 @@ class KnowledgeStore:
     invariant where mypy cannot see across the caller boundary.
     """
 
+    # Each instance replaces this in __init__. An object built without
+    # __init__ (upstream tests do) still serializes on a real lock.
+    _conn_lock = threading.RLock()
+
     def __init__(self, db_path: str, fts_index: FullTextIndex | None = None) -> None:
         self._conn: sqlite3.Connection | None = None
+        # Read by resource usage, which otherwise asks the shared connection.
+        self._db_path = db_path
         self._has_vec = False
         self._fts = fts_index
         # Odin's PR #18 self-audit finding #3: the shared SQLite
@@ -102,9 +137,11 @@ class KnowledgeStore:
         #     instead of failing immediately.
         #  2. ``_write_lock`` serializes async writers (ingest, delete)
         #     so only one to_thread-wrapped write runs at a time.
-        #     WAL mode still allows concurrent reads, so this doesn't
-        #     hurt read latency.
+        #  3. ``_conn_lock`` serializes every synchronous use of the
+        #     connection, reads included (see ``_serialized``): WAL does
+        #     not isolate callers sharing one connection.
         self._write_lock = asyncio.Lock()
+        self._conn_lock = threading.RLock()
         try:
             conn = sqlite3.connect(db_path, check_same_thread=False)
             conn.execute("PRAGMA journal_mode=WAL")
@@ -184,6 +221,7 @@ class KnowledgeStore:
     def available(self) -> bool:
         return self._conn is not None
 
+    @_serialized
     def close(self) -> None:
         """Close the underlying SQLite connection (idempotent)."""
         if self._conn is not None:
@@ -195,6 +233,7 @@ class KnowledgeStore:
             finally:
                 self._conn = None
 
+    @_serialized
     def count(self) -> int:
         if not self._conn:
             return 0
@@ -399,6 +438,7 @@ class KnowledgeStore:
                 )
         return None
 
+    @_serialized
     def _write_chunks_sync(
         self,
         chunks: list[str],
@@ -600,6 +640,7 @@ class KnowledgeStore:
 
         return out[:limit]
 
+    @_serialized
     def _search_literal_sync(self, query: str, limit: int) -> list[dict]:
         """Literal implicit-AND fallback over stored chunks when FTS is not injected."""
         terms = query.split()
@@ -622,6 +663,7 @@ class KnowledgeStore:
             for row in rows
         ]
 
+    @_serialized
     def _search_vec_sync(self, vec_bytes: bytes, limit: int) -> list:
         """Execute vector similarity search (sync, for use with asyncio.to_thread)."""
         return self._conn.execute(  # type: ignore[union-attr]
@@ -636,6 +678,7 @@ class KnowledgeStore:
             (vec_bytes, limit),
         ).fetchall()
 
+    @_serialized
     def list_sources(self) -> list[dict]:
         """List all ingested document sources with metadata."""
         if not self.available:
@@ -681,6 +724,7 @@ class KnowledgeStore:
             results.append(entry)
         return results
 
+    @_serialized
     def get_source_chunks(self, source: str) -> list[dict]:
         """Get all chunks for a source with metadata for the chunk browser."""
         if not self.available:
@@ -705,6 +749,7 @@ class KnowledgeStore:
         except Exception:
             return []
 
+    @_serialized
     def get_source_content(self, source: str) -> str | None:
         """Return a lossy chunk preview, never an authoritative re-ingest body."""
         if not self.available:
@@ -720,6 +765,7 @@ class KnowledgeStore:
         except Exception:
             return None
 
+    @_serialized
     def get_source_snapshot(self, source: str) -> str | None:
         """Read the current full snapshot, refusing absent/stale provenance.
 
@@ -742,6 +788,7 @@ class KnowledgeStore:
             return None
         return row[0]
 
+    @_serialized
     def source_is_durable(
         self,
         source: str,
@@ -795,6 +842,7 @@ class KnowledgeStore:
             expected_content_hash=expected_content_hash,
         )
 
+    @_serialized
     def delete_source(self, source: str, *, _record_version: bool = True) -> int:
         """Delete all chunks for a document source. Returns count deleted."""
         if not self.available:
@@ -859,6 +907,7 @@ class KnowledgeStore:
             log.error("Failed to delete source '%s': %s", source, e)
         return 0
 
+    @_serialized
     def delete_source_confirmed(
         self,
         source: str,
@@ -1127,9 +1176,10 @@ class KnowledgeStore:
         if not self._fts or not self.available:
             return 0
         try:
-            rows = self._conn.execute(  # type: ignore[union-attr]
-                "SELECT chunk_id, content, source, chunk_index FROM knowledge_chunks"
-            ).fetchall()
+            with self._conn_lock:
+                rows = self._conn.execute(  # type: ignore[union-attr]
+                    "SELECT chunk_id, content, source, chunk_index FROM knowledge_chunks"
+                ).fetchall()
         except Exception:
             return 0
 
@@ -1178,9 +1228,10 @@ class KnowledgeStore:
         if not self._fts or not self.available:
             return 0
         try:
-            rows = self._conn.execute(  # type: ignore[union-attr]
-                "SELECT chunk_id, content, source, chunk_index FROM knowledge_chunks"
-            ).fetchall()
+            with self._conn_lock:
+                rows = self._conn.execute(  # type: ignore[union-attr]
+                    "SELECT chunk_id, content, source, chunk_index FROM knowledge_chunks"
+                ).fetchall()
         except Exception:
             return 0
         inventory = self._fts.knowledge_chunk_sources()
@@ -1199,6 +1250,7 @@ class KnowledgeStore:
     # Deduplication helpers
     # ------------------------------------------------------------------
 
+    @_serialized
     def _find_by_doc_hash(self, doc_content_hash: str) -> tuple[str, int] | None:
         """Return (source, chunk_count) if *doc_content_hash* already stored."""
         if not self._conn:
@@ -1213,6 +1265,7 @@ class KnowledgeStore:
         except Exception:
             return None
 
+    @_serialized
     def _find_near_duplicate(
         self,
         chunk_hashes: list[str],
@@ -1239,6 +1292,7 @@ class KnowledgeStore:
             pass
         return None
 
+    @_serialized
     def find_duplicates(self) -> list[dict]:
         """Scan the store for groups of sources with identical doc_content_hash."""
         if not self.available:
@@ -1264,6 +1318,7 @@ class KnowledgeStore:
         except Exception:
             return []
 
+    @_serialized
     def find_near_duplicates(
         self,
         threshold: float = 0.5,
@@ -1328,6 +1383,7 @@ class KnowledgeStore:
                     )
         return results
 
+    @_serialized
     def merge_sources(self, keep_source: str, remove_source: str) -> int:
         """Merge *remove_source* into *keep_source*: delete remove_source chunks.
 
@@ -1356,6 +1412,7 @@ class KnowledgeStore:
     # Version history
     # ------------------------------------------------------------------
 
+    @_serialized
     def _next_version(self, source: str) -> int:
         """Return the next version number for *source*."""
         row = self._conn.execute(  # type: ignore[union-attr]
@@ -1364,6 +1421,7 @@ class KnowledgeStore:
         ).fetchone()
         return (row[0] or 0) + 1
 
+    @_serialized
     def _insert_version_row(
         self,
         source: str,
@@ -1388,6 +1446,7 @@ class KnowledgeStore:
         )
         return version
 
+    @_serialized
     def _record_version(
         self,
         source: str,
@@ -1435,6 +1494,7 @@ class KnowledgeStore:
             parts.append(f"-{removed} lines")
         return ", ".join(parts)
 
+    @_serialized
     def get_versions(self, source: str) -> list[dict]:
         """Return version history for *source* (without content)."""
         if not self.available:
@@ -1462,6 +1522,7 @@ class KnowledgeStore:
         except Exception:
             return []
 
+    @_serialized
     def get_version(self, source: str, version: int) -> dict | None:
         """Return a specific version including content snapshot."""
         if not self.available:

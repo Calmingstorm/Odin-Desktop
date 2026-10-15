@@ -17,7 +17,7 @@ from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 
-from ..async_utils import fire_and_forget
+from ..async_utils import fire_and_forget, to_thread_settled
 from ..discord.channel_state import ChannelStateRegistry
 from ..discord.completion import CompletionClassifier
 from ..discord.housekeeping import Housekeeping
@@ -227,12 +227,15 @@ class EngineServices:
             failures.append(error)
             failure_evidence.append({"stage": stage, "error_type": type(error).__name__})
 
-        async def release(owner, method):
+        async def release(owner, method, *, off_loop=False):
             if owner is None:
                 return
             try:
                 callback = getattr(owner, method)
-                result = callback()
+                # off_loop: the owner's close may wait for a lock a worker thread
+                # still holds (a cancelled reader's thread finishes on its own), so
+                # wait in a settled worker, never on the event loop.
+                result = await to_thread_settled(callback) if off_loop else callback()
                 if hasattr(result, "__await__"):
                     await result
             except Exception as error:
@@ -318,7 +321,7 @@ class EngineServices:
         knowledge = getattr(d, "knowledge_store", None)
         if knowledge is None:
             knowledge = getattr(d.runtime_context, "knowledge_store", None)
-        await release(knowledge, "close")
+        await release(knowledge, "close", off_loop=True)
         await release(getattr(d, "knowledge_fts", None), "close")
         await release(d.turn_store, "close")
         if failures:
