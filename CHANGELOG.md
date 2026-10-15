@@ -32,6 +32,8 @@
     or AppImage update, and the Mac's start check, until removed by hand. Now it doesn't;
   - opening Odin again, or asking it to exit, while a packaged start was still checking its files was lost. Odin
     now does what was asked once the check finishes;
+  - an Exit asked for while Odin was still starting ended it before its core had started, so the next install or
+    update asked for a restart first. Odin now finishes starting its core (at most a minute), then exits cleanly;
   - on Linux, starting at login showed the window if it was last maximized. It now stays in the tray;
   - a loop that stopped itself ended without a notification. It now notifies, as a loop that runs out of
     iterations does;

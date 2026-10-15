@@ -82,6 +82,9 @@ if (startRefusal) {
   }
 }
 
+/** How long an Exit asked for during a packaged start waits for the core it started to become ready. */
+const DEFERRED_EXIT_CORE_WAIT_MS = 60_000
+
 function run(early: EarlyRequests): void {
   const paths = platform.profilePaths()
   platform.ensureProfileDirs(paths)
@@ -316,8 +319,19 @@ function run(early: EarlyRequests): void {
     publishAppState()
   })
 
+  // A packaged app's lifetime is admitted before this runs. An Exit asked for while startup still runs waits, at most
+  // a minute from the request: startup starts the core, the core becomes ready (or fails), and the ordinary Exit then
+  // ends the lifetime with the core's cleanup evidence. Ended before the core starts, the admitted lifetime would stay
+  // unconfirmed and the next install would ask for a restart; a cold first start can also outlast Exit's own
+  // readiness wait. If startup settles without starting the core, the Exit runs at once. While an Exit waits, nothing
+  // shows the window. Unpackaged runs admit no lifetime and exit at once, as before.
+  let starting = app.isPackaged
+  let coreStarted = false
+  let deferredExit: number | null = null
+  let deferredExitTimer: ReturnType<typeof setTimeout> | undefined
+
   const showWindow = (): void => {
-    if (lifecycle.quitting) return
+    if (lifecycle.quitting || deferredExit !== null) return
     visibility.request()
     if (!win) return
     if (win.webContents.isCrashed()) void win.loadURL(`${APP_ORIGIN}/index.html`)
@@ -358,7 +372,25 @@ function run(early: EarlyRequests): void {
     },
     exit: (code) => app.exit(code)
   })
-  const exitOdin = async (code = 0): Promise<void> => { await shutdown(code) }
+  const exitOdin = async (code = 0): Promise<void> => {
+    if (starting) {
+      if (deferredExit === null) {
+        deferredExit = code
+        deferredExitTimer = setTimeout(runDeferredExit, DEFERRED_EXIT_CORE_WAIT_MS)
+      }
+      return
+    }
+    await shutdown(code)
+  }
+  const coreStateChanged = (state: string): void => { if (state === 'ready') runDeferredExit() }
+  function runDeferredExit(): void {
+    if (!starting || deferredExit === null) return
+    starting = false
+    clearTimeout(deferredExitTimer)
+    broker.off('state', coreStateChanged)
+    supervisor.off('failed', runDeferredExit)
+    void exitOdin(deferredExit)
+  }
   const sessionMonitor = platform.startSessionMonitor(launch, () => { void exitOdin() })
   const logoutHook = platform.installLogoutHook(launchCommand())
 
@@ -591,7 +623,7 @@ function run(early: EarlyRequests): void {
     })
     // The window background already matches the theme, so showing it before the first paint
     // is safe.
-    showWhenReady(win, () => visibility.wanted && !lifecycle.quitting)
+    showWhenReady(win, () => visibility.wanted && !lifecycle.quitting && deferredExit === null)
     win.webContents.on('render-process-gone', (_event, details) => {
       notificationRouteReady = false
       process.stderr.write(`renderer ended reason=${details.reason}; core remains supervised\n`)
@@ -599,6 +631,7 @@ function run(early: EarlyRequests): void {
     void win.loadURL(`${APP_ORIGIN}/index.html`)
 
     supervisor.start()
+    coreStarted = true
     broker.connect()
     broker.startEvents()
 
@@ -628,6 +661,14 @@ function run(early: EarlyRequests): void {
         }
       )
     } else if (flags.smokeTest) runSmokeTest(win, broker, exitOdin)
+  }).finally(() => {
+    if (!starting) return
+    if (deferredExit === null) starting = false
+    else if (!coreStarted || broker.linkState === 'ready') runDeferredExit()
+    else {
+      broker.on('state', coreStateChanged)
+      supervisor.on('failed', runDeferredExit)
+    }
   })
 }
 

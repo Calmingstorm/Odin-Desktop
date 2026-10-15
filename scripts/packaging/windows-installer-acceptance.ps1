@@ -384,6 +384,16 @@ if ($Mode -eq 'user') {
   Check 'an uninstall while Odin runs is refused, and Odin keeps running' ($code -eq 2 -and (& $serving) -and
     (Test-Path $exe)) "exit $code"
   ExitOdin
+  # The lifetime the refusals ran beside must end clean too. On failure, the app's cleanup journal says how its
+  # Exit went (a shutdown the core never accepted leaves the app's lifetime unconfirmed), and the installed
+  # guardian's verdict says what a replacement would meet.
+  $unresolved = @(UnresolvedLifetimes)
+  $exitDetail = $unresolved -join ', '
+  if ($unresolved.Count) {
+    $journal = Get-Content -LiteralPath (Join-Path $profileRoot 'default-cleanup-state.json') -Raw -ErrorAction SilentlyContinue
+    $exitDetail += " | cleanup journal: $journal | $(InstallFacts -Verdict)"
+  }
+  Check 'Exit after the refused install and uninstall leaves every lifetime clean' ($unresolved.Count -eq 0) $exitDetail
 
   # A process from this installation that holds no lease (an app started outside it): refused too, never ended.
   $stray = Start-Process -FilePath (Join-Path $inst 'resources\runtime\python\python.exe') -PassThru `
