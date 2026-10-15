@@ -152,3 +152,68 @@ async def test_knowledge_service_closes_its_store_off_the_loop(tmp_path):
     gap, _, waited = await _while_held(owned, service.close)
     _assert_responsive(gap, waited)
     assert not owned.available
+
+
+async def test_engine_shutdown_closes_the_graph_store_off_the_loop(tmp_path, monkeypatch):
+    """The composed core's own teardown, after a cancelled listing left its worker in the store.
+
+    Odin's review reproduction (desktop-1.1.1, F1): cancelling a listing coroutine
+    does not stop its worker thread, which still holds the connection lock while
+    shutdown closes the engine's knowledge store.
+    """
+    from tests.test_desktop_knowledge import _composed_core
+
+    core, _, cleanup = await _composed_core(tmp_path, monkeypatch)
+    store = core.engine.deps.knowledge_store
+    await store.ingest(DOCUMENT, "checklist.md", dedup=False)
+    entered, release = threading.Event(), threading.Event()
+    armed = True
+
+    def progress():
+        nonlocal armed
+        if armed:
+            armed = False
+            entered.set()
+            release.wait(5)
+        return 0
+
+    store._conn.set_progress_handler(progress, 1)
+    tools = KnowledgeTools(sessions=None, get_knowledge_store=lambda: store, embedder=None,
+                           audit=None)
+    reader = asyncio.create_task(tools._handle_list_knowledge_off_loop())
+    timer, beat, closed = None, None, False
+    gaps, stop = [], asyncio.Event()
+
+    async def heartbeat():
+        last = time.monotonic()
+        while not stop.is_set():
+            await asyncio.sleep(0.01)
+            now = time.monotonic()
+            gaps.append(now - last)
+            last = now
+
+    try:
+        assert await asyncio.to_thread(entered.wait, 5)
+        reader.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await reader
+        beat = asyncio.create_task(heartbeat())
+        await asyncio.sleep(0.02)
+        timer = threading.Timer(HOLD_SECONDS, release.set)  # an independent clock ends the hold
+        timer.start()
+        started = time.monotonic()
+        await cleanup()
+        closed = True
+        stop.set()
+        await beat
+        _assert_responsive(max(gaps), time.monotonic() - started)
+        assert not store.available
+    finally:
+        release.set()
+        stop.set()
+        if timer is not None:
+            timer.join(5)
+        if beat is not None and not beat.done():
+            await beat
+        if not closed:
+            await cleanup()

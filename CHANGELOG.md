@@ -13,8 +13,9 @@
   one database connection across worker threads, and only writes were serialized. A list read beside a save could
   come back empty, and a saved archive could read back as missing. Every use of the connection now holds the store's
   lock.
-- **The core stays responsive while knowledge is written.** Health, the `list_knowledge` tool, background tasks,
-  imports and closing the knowledge store read through a worker thread, so a long write never stalls the core.
+- **The core stays responsive while knowledge is written.** Health, the `list_knowledge` tool, background tasks and
+  imports read the knowledge store through a worker thread, and shutdown closes it there too, so a long write never
+  stalls the core.
 
 ## [1.1.0]
 

@@ -195,11 +195,17 @@ def evidence(module, original, tree):
     dispositions = []
     for case in original_cases:
         retired = case.name in REMOVED
+        # The Odin v4.16.0 _cases hunk supplies this row as its per-action payload union.
+        payload_row = case.name == "manage_process"
         dispositions.append({
             "label": case.label, "tool": case.name,
             "disposition": "retired" if retired else "retained",
-            "reason": "removed-by-design Desktop tool" if retired else "unchanged case and assertions",
-            "supplied": case.supplied, "expected": case.expected,
+            "reason": ("removed-by-design Desktop tool" if retired
+                       else "assertions unchanged; supplied as its per-action payload union "
+                            "(Odin v4.16.0 hunk)" if payload_row
+                       else "unchanged case and assertions"),
+            "supplied": {"payload": case.expected} if payload_row else case.supplied,
+            "expected": case.expected,
             "error": case.error, "literal": case.literal,
             "parameters": [{"path": path, "disposition": "retired" if retired else "retained"}
                            for path in ("chat", "agent")],

@@ -144,6 +144,9 @@ def test_manage_process_case_supplies_its_payload_union():
     case = next(c for c in FROZEN.CASES if c.label == "builtin-manage_process")
     assert case.supplied == {"payload": case.expected}
     assert case.expected == {"action": "poll", "pid": 123, "offset": 0, "wait_seconds": 0}
+    record = candidate.evidence(FROZEN, ORIGINAL, ADAPTED)
+    row = next(d for d in record["case_dispositions"] if d["label"] == "builtin-manage_process")
+    assert row["supplied"] == {"payload": case.expected} and "payload union" in row["reason"]
 
 
 @pytest.mark.parametrize("name", ["_populate_wire", "_cases"])
