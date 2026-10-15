@@ -583,8 +583,11 @@ function run(early: EarlyRequests): void {
     })
     windowState = new WindowStateController(win, restored.state, savePersisted, backend)
     // maximize() also shows a hidden window, so where the platform asks, a hidden start keeps it for the first show.
-    if (restored.state.maximized && !visibility.wanted && platform.maximizeOnFirstShow) maximizeOnFirstShow = true
-    else if (restored.state.maximized) win.maximize()
+    // While an Exit waits the window never shows, so it isn't maximized either; its saved state stays maximized.
+    if (restored.state.maximized && deferredExit === null) {
+      if (!visibility.wanted && platform.maximizeOnFirstShow) maximizeOnFirstShow = true
+      else win.maximize()
+    }
     screen.on('display-removed', repairWindow)
     screen.on('display-metrics-changed', displayMetricsChanged)
     win.on('close', (event) => {

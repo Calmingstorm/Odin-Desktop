@@ -315,6 +315,29 @@ describe('inert main-process lifecycle wiring', () => {
     expect(win.maximize).toHaveBeenCalledOnce()
     expect(win.show).toHaveBeenCalledOnce()
   })
+  it.each([true, false])('an Exit pending at startup neither maximizes nor shows a saved maximized window, which stays saved maximized (deferred first-show maximize: %s)', async (deferring) => {
+    vi.doMock('../src/main/platform', async (original) => {
+      const real = await original<typeof import('../src/main/platform')>()
+      return { currentPlatform: () => ({ ...real.currentPlatform(), maximizeOnFirstShow: deferring }) }
+    })
+    try {
+      savedMaximized()
+      let admitted!: () => void
+      m.app.isPackaged = true; m.admit.mockImplementationOnce(() => new Promise<void>(resolve => { admitted = resolve }))
+      await boot()  // an ordinary start: the window is wanted
+      m.app.emit('second-instance', {}, ['--exit'])
+      admitted()
+      await vi.waitFor(() => expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0))
+      const [win] = m.windows
+      win.emit('ready-to-show')
+      expect(win.maximize).not.toHaveBeenCalled(); expect(win.show).not.toHaveBeenCalled()
+      const saved = m.write.mock.calls.map(([, text]) => { try { return JSON.parse(String(text)) } catch { return null } })
+        .filter((value) => value?.windowState).at(-1)
+      expect(saved.windowState).toMatchObject({ maximized: true })
+    } finally {
+      vi.doUnmock('../src/main/platform')
+    }
+  })
   it('Linux maximizes a saved maximized window at once on an ordinary start', async () => {
     savedMaximized()
     const { win } = await boot()
