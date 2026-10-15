@@ -384,14 +384,23 @@ if ($Mode -eq 'user') {
   Check 'an uninstall while Odin runs is refused, and Odin keeps running' ($code -eq 2 -and (& $serving) -and
     (Test-Path $exe)) "exit $code"
   ExitOdin
-  # The lifetime the refusals ran beside must end clean too. On failure, the app's cleanup journal says how its
-  # Exit went (a shutdown the core never accepted leaves the app's lifetime unconfirmed), and the installed
-  # guardian's verdict says what a replacement would meet.
+  # The lifetime the refusals ran beside must end clean too. The guardian finishes a lifetime only when the app's and
+  # the core's cleanup journals were both written during it and both say clean, and it keeps no record of a refusal.
+  # So a failure carries both journals and their write times beside the receipts', which says which condition failed,
+  # and the installed guardian's verdict, which says what a replacement would meet.
   $unresolved = @(UnresolvedLifetimes)
   $exitDetail = $unresolved -join ', '
   if ($unresolved.Count) {
-    $journal = Get-Content -LiteralPath (Join-Path $profileRoot 'default-cleanup-state.json') -Raw -ErrorAction SilentlyContinue
-    $exitDetail += " | cleanup journal: $journal | $(InstallFacts -Verdict)"
+    $lifetimeFacts = @(Get-ChildItem -LiteralPath $receiptsDir -Force -ErrorAction SilentlyContinue | ForEach-Object {
+      "$($_.Name) written $($_.LastWriteTimeUtc.ToString('o'))" })
+    foreach ($journal in (Join-Path $profileRoot 'default-cleanup-state.json'),
+        (Join-Path $profileRoot 'data\resource-cleanup.json')) {
+      $item = Get-Item -LiteralPath $journal -Force -ErrorAction SilentlyContinue
+      $written = if ($item) { $item.LastWriteTimeUtc.ToString('o') } else { 'absent' }
+      $text = Get-Content -LiteralPath $journal -Raw -ErrorAction SilentlyContinue
+      $lifetimeFacts += "$(Split-Path $journal -Leaf) written ${written}: $text"
+    }
+    $exitDetail += " | $($lifetimeFacts -join ' | ') | $(InstallFacts -Verdict)"
   }
   Check 'Exit after the refused install and uninstall leaves every lifetime clean' ($unresolved.Count -eq 0) $exitDetail
 
