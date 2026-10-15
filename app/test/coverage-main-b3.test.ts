@@ -352,6 +352,8 @@ describe('inert main-process lifecycle wiring', () => {
     expect(supervisor.start).toHaveBeenCalledOnce()
     expect(supervisor.start.mock.invocationCallOrder[0])
       .toBeLessThan(broker.waitForShutdownReady.mock.invocationCallOrder[0])
+    expect(m.journal.finish).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ state: 'process-exited', shutdownAccepted: true }))
     m.windows[0]?.emit('ready-to-show'); expect(m.windows[0]?.show).not.toHaveBeenCalled()
   })
   it('waits for a packaged app\'s core to start before an Exit asked for while the app is not yet ready', async () => {
@@ -365,6 +367,8 @@ describe('inert main-process lifecycle wiring', () => {
     expect(supervisor.start).toHaveBeenCalledOnce()
     expect(supervisor.start.mock.invocationCallOrder[0])
       .toBeLessThan(m.brokers[0].waitForShutdownReady.mock.invocationCallOrder[0])
+    expect(m.journal.finish).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ state: 'process-exited', shutdownAccepted: true }))
   })
   it.each(['ready', 'failed', 'a minute'])('holds a deferred Exit until a slow packaged core is %s', async (event) => {
     if (event === 'a minute') vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
@@ -385,16 +389,21 @@ describe('inert main-process lifecycle wiring', () => {
     if (event === 'a minute') vi.useRealTimers()
     await vi.waitFor(() => expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0))
     expect(broker.waitForShutdownReady).toHaveBeenCalledOnce()
+    if (event === 'ready') expect(m.journal.finish).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ state: 'process-exited', shutdownAccepted: true }))
   })
   it('runs an Exit a minute after it was asked for even if the packaged app never becomes ready', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     m.ready = new Promise<void>(() => undefined); m.app.isPackaged = true
     await boot(['--hidden'])
     m.app.emit('second-instance', {}, ['--exit']); await flush()
+    m.brokers[0].waitForShutdownReady.mockResolvedValue(false)  // no core ever started to accept it
     await vi.advanceTimersByTimeAsync(59_999); expect(m.app.exit).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(1); vi.useRealTimers()
     await vi.waitFor(() => expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0))
     expect(m.supervisors[0].start).not.toHaveBeenCalled(); expect(m.windows).toHaveLength(0)
+    expect(m.journal.finish).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ state: 'unknown', shutdownAccepted: false }))
   })
   it('admits packaged ownership before startup and fails closed on admission errors', async () => {
     m.app.isPackaged = true; const { supervisor } = await boot();
