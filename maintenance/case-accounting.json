@@ -1607,14 +1607,14 @@
     {
       "original": "tests/test_hosts_executor_leases.py::test_validation_exec_acquires_a_lease_and_reports_unknown_alias",
       "source_sha256": "309939c21c3d35a6a3263cbde29c54b6ee85997c9c291559637ab0f42dc6a195",
-      "disposition": "executable",
-      "executable": [
-        "tests/test_desktop_shared_tools.py::test_test_hosts_executor_leases_validation_exec_acquires_a_lease_and_reports_unknown_alias"
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_validation_lease_binding.py::test_validation_exec_acquires_a_lease_and_reports_unknown_alias"
       ],
-      "replacement_cases": [],
       "collection_evidence": ".test-state/qualification-collected.json",
-      "triage_source": null,
-      "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
+      "triage_source": "maintenance/tool-suite-triage.json",
+      "reason": "Odin 4.15.1 (#660) binds each validation check to one host lease before its command is built, so this case's v4.13.0 seam (an alias-only resolver and a lease taken in the callback) is gone and Odin rewrote the case. Its 4.15.1 form runs in tests/test_desktop_validation_lease_binding.py; Odin's tool-path tests run in tests/test_desktop_validation_tool_host_os.py.",
       "blocks_phase1": false
     },
     {
@@ -5365,14 +5365,18 @@
         {
           "original": "tests/test_apply_registry.py::TestSchemaDerivedFacts::test_bounds_that_live_only_in_a_validator_are_not_invented",
           "source_sha256": "2c39694fd391625b8bc9942c2d504d1c862763d72106adc9977845e7022a8209",
-          "disposition": "executable",
-          "executable": [
-            "tests/test_desktop_shared_foundation.py::Test_test_apply_registry_TestSchemaDerivedFacts::test_bounds_that_live_only_in_a_validator_are_not_invented"
+          "disposition": "removed-surface-replacement",
+          "executable": [],
+          "replacement_cases": [
+            "tests/test_desktop_shared_foundation.py::test_viewport_declared_bounds_are_published_not_historical_guesses",
+            "tests/test_desktop_shared_foundation.py::test_viewport_metadata_matches_strict_validation[0-greater_than_equal]",
+            "tests/test_desktop_shared_foundation.py::test_viewport_metadata_matches_strict_validation[16385-less_than_equal]",
+            "tests/test_desktop_shared_foundation.py::test_viewport_metadata_matches_strict_validation[True-int_type]",
+            "tests/test_desktop_shared_foundation.py::test_viewport_metadata_matches_strict_validation[1920.5-int_type]"
           ],
-          "replacement_cases": [],
           "collection_evidence": ".test-state/qualification-collected.json",
-          "triage_source": null,
-          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
+          "triage_source": "maintenance/foundation-suite-triage.json",
+          "reason": "Odin 4.14 (#640) declares the viewport bounds in the schema, so this case's premise (bounds only in a validator) no longer holds; Odin replaced it upstream with the declared-bounds cases, whose Desktop copies run in the wrapper.",
           "blocks_phase1": false
         },
         {
@@ -55001,10 +55005,6 @@
       "executable": "tests/test_desktop_shared_tools.py::test_test_hosts_executor_leases_handler_failures_are_hermetic_and_classify_as_nonzero"
     },
     {
-      "original": "tests/test_hosts_executor_leases.py::test_validation_exec_acquires_a_lease_and_reports_unknown_alias",
-      "executable": "tests/test_desktop_shared_tools.py::test_test_hosts_executor_leases_validation_exec_acquires_a_lease_and_reports_unknown_alias"
-    },
-    {
       "original": "tests/test_hosts_executor_leases.py::test_tool_result_as_dict_emits_all_optional_serializable_fields",
       "executable": "tests/test_desktop_shared_tools.py::test_test_hosts_executor_leases_tool_result_as_dict_emits_all_optional_serializable_fields"
     },
@@ -60239,10 +60239,6 @@
     {
       "original": "tests/test_apply_registry.py::TestSchemaDerivedFacts::test_declared_bounds_are_published",
       "executable": "tests/test_desktop_shared_foundation.py::Test_test_apply_registry_TestSchemaDerivedFacts::test_declared_bounds_are_published"
-    },
-    {
-      "original": "tests/test_apply_registry.py::TestSchemaDerivedFacts::test_bounds_that_live_only_in_a_validator_are_not_invented",
-      "executable": "tests/test_desktop_shared_foundation.py::Test_test_apply_registry_TestSchemaDerivedFacts::test_bounds_that_live_only_in_a_validator_are_not_invented"
     },
     {
       "original": "tests/test_apply_registry.py::TestSchemaDerivedFacts::test_unknown_paths_fall_back_to_the_value_shape",
@@ -72975,6 +72971,30 @@
     {
       "original": "tests/test_desktop_d17_parity_visibility.py::test_image_auth_visibility_has_real_selector_and_durable_publication",
       "executable": "tests/test_desktop_d17_parity_visibility.py::test_image_auth_visibility_has_real_selector_and_durable_publication"
+    },
+    {
+      "original": "tests/test_desktop_shared_foundation.py::test_viewport_declared_bounds_are_published_not_historical_guesses",
+      "executable": "tests/test_desktop_shared_foundation.py::test_viewport_declared_bounds_are_published_not_historical_guesses"
+    },
+    {
+      "original": "tests/test_desktop_shared_foundation.py::test_viewport_metadata_matches_strict_validation[0-greater_than_equal]",
+      "executable": "tests/test_desktop_shared_foundation.py::test_viewport_metadata_matches_strict_validation[0-greater_than_equal]"
+    },
+    {
+      "original": "tests/test_desktop_shared_foundation.py::test_viewport_metadata_matches_strict_validation[16385-less_than_equal]",
+      "executable": "tests/test_desktop_shared_foundation.py::test_viewport_metadata_matches_strict_validation[16385-less_than_equal]"
+    },
+    {
+      "original": "tests/test_desktop_shared_foundation.py::test_viewport_metadata_matches_strict_validation[True-int_type]",
+      "executable": "tests/test_desktop_shared_foundation.py::test_viewport_metadata_matches_strict_validation[True-int_type]"
+    },
+    {
+      "original": "tests/test_desktop_shared_foundation.py::test_viewport_metadata_matches_strict_validation[1920.5-int_type]",
+      "executable": "tests/test_desktop_shared_foundation.py::test_viewport_metadata_matches_strict_validation[1920.5-int_type]"
+    },
+    {
+      "original": "tests/test_desktop_validation_lease_binding.py::test_validation_exec_acquires_a_lease_and_reports_unknown_alias",
+      "executable": "tests/test_desktop_validation_lease_binding.py::test_validation_exec_acquires_a_lease_and_reports_unknown_alias"
     }
   ],
   "historical_failure_blockers": [

@@ -159,7 +159,7 @@ def test_prepare_socket_directory_creates_it_privately(paths):
 # --- package state ----------------------------------------------------------------------------
 
 
-def test_package_upgrade_to_a_new_version_reuses_the_backup_folder(paths):
+def test_package_upgrade_to_a_new_version_keeps_only_its_own_backup(paths):
     from src.desktop.authority import OwnerAuthority
     from src.desktop.package_state import PackageStateError, PackageUpgrade, inspect_profile
     from src.desktop.provisioning import ensure_profile
@@ -173,10 +173,14 @@ def test_package_upgrade_to_a_new_version_reuses_the_backup_folder(paths):
     second = PackageUpgrade(paths, authority, "2.0.0")
     second.prepare()
     assert second.record["state"] == "pending"
+    kept = second.record["backup"]
+    assert len(list((paths.data_dir / "package-backups").iterdir())) == 2
     with pytest.raises(PackageStateError, match="compatible candidate"):
         inspect_profile(paths, package_version="1.0.0")
     second.commit()
-    assert len(list((paths.data_dir / "package-backups").iterdir())) == 2
+    # The committed upgrade keeps only its own backup: the older one, with the private ACLs
+    # its folder was made with, is removed.
+    assert [entry.name for entry in (paths.data_dir / "package-backups").iterdir()] == [kept]
     authority.release_runtime()
 
 

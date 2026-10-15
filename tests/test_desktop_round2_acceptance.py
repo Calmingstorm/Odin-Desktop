@@ -55,10 +55,16 @@ def test_governor_manual_gates_remain_explicit_in_the_machine_readable_plan():
         assert records[path]["classification"] == "safety_manual_gated"
 
 
+# Desktop 1.1 carries Odin 4.14's governor fix (#638): the classifier is Odin v4.14.0's file,
+# byte for byte (sha256 of `git show v4.14.0:src/tools/risk_classifier.py` in Odin's repository).
+ODIN_V4_14_0_GOVERNOR_SHA256 = "6d38578f2bde09a3715e2c9d78e420aeacb11e3ecd88ff2818d73eaef8830249"
+
+
 def test_governor_and_imports_keep_the_bytes_supported_by_upstream_ci():
+    governor = (ROOT / "src/tools/risk_classifier.py").read_bytes()
+    assert hashlib.sha256(governor).hexdigest() == ODIN_V4_14_0_GOVERNOR_SHA256
     with tarfile.open(ROOT / "maintenance/odin-v4.13.0.tar.gz") as archive:
         for path in (
-            "src/tools/risk_classifier.py",
             "src/tools/command_shapes.py",
             "src/tools/command_authority.py",
         ):
@@ -117,6 +123,22 @@ def test_every_changed_catalog_name_description_and_schema_is_exact_c1_c3():
                         "Results are NOT posted to Discord",
                         "Results are NOT posted to the conversation",
                     ).replace("Max 5/channel", "Max 5/conversation")
+                if name == "manage_list":  # Odin 4.14 (#641), carried: delete removes a list
+                    old = "Supports mark_done/mark_undone."
+                    assert tool["description"].count(old) == 1
+                    tool["description"] = tool["description"].replace(
+                        old, old + " 'clear' empties a list; 'delete' removes it.", 1)
+                    actions = tool["input_schema"]["properties"]["action"]["enum"]
+                    actions.insert(actions.index("clear") + 1, "delete")
+                if name == "validate_action":  # Odin 4.15 (#655), carried: launchd targets
+                    old = ("  service         target=systemd unit name, "
+                           "expected='active' or list of states\n")
+                    assert tool["description"].count(old) == 1
+                    tool["description"] = tool["description"].replace(old, (
+                        "  service         target=systemd unit name on Linux; on macOS use a "
+                        "launchd label (defaults to system/label), system/label, or "
+                        "gui/UID/label. expected='active' or list of states; 'active' maps to "
+                        "'running' on macOS\n"), 1)
                 if name == "read_channel":
                     tool["name"] = "read_conversation"
                     tool["description"] = (

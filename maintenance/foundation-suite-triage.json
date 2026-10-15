@@ -14,6 +14,7 @@
     "TestSecretsInsideListRecords.test_public_siblings_stay_readable": ["test_retained_list_record_redaction_preserves_public_siblings"],
     "TestSchemaDerivedFacts.test_populated_container_children_get_the_read_only_marker": ["test_schema_retained_container_ancestry_and_secret_facts"],
     "TestSchemaDerivedFacts.test_credentials_in_list_entries_are_known_to_the_schema_walk": ["test_schema_retained_container_ancestry_and_secret_facts"],
+    "TestSchemaDerivedFacts.test_bounds_that_live_only_in_a_validator_are_not_invented": ["test_viewport_declared_bounds_are_published_not_historical_guesses","test_viewport_metadata_matches_strict_validation"],
     "TestContainerSensitivity.test_empty_secret_containers_are_not_public_json_controls": ["test_retained_secret_containers_remain_nonpublic[outbound_webhooks.targets]","test_retained_secret_containers_remain_nonpublic[mcp.servers]"],
     "TestPlainLanguageEffects.test_every_workspace_protected_config_path_publishes_restart_truth": ["test_retained_workspace_fence_set_and_restart_truth"],
     "TestLocalFileIntegrity.test_single_file_missing_and_outside_safe_roots": ["test_knowledge_explicit_root_denies_sibling"],
@@ -45,7 +46,8 @@
     "TestStructuredReason.test_non_int_status_rendered_safely":"Removed Discord HTTP exception structured fields.",
     "TestSecretScrubbing.test_reason_phrase_is_scrubbed":"Removed Discord HTTP exception reason. ALL generic redaction/control/HTML/bound/Unicode neutral cases unchanged and passed.",
     "TestDelegations.test_execute_tool":"Original destructive literal forbidden even mocked; harmless safe-call limit/denial replacement passed.",
-    "TestEdgeCases.test_batch_result_dict_format":"Original hardcoded4keys stale against typed outcome/note canonical importer; neutral typed/batch outcomes remain original passed, not obsolete shape parity."
+    "TestEdgeCases.test_batch_result_dict_format":"Original hardcoded4keys stale against typed outcome/note canonical importer; neutral typed/batch outcomes remain original passed, not obsolete shape parity.",
+    "TestSchemaDerivedFacts.test_bounds_that_live_only_in_a_validator_are_not_invented":"Odin 4.14 (#640) declares the viewport bounds in the schema, so this case's premise (bounds only in a validator) no longer holds; Odin replaced it upstream with the declared-bounds cases, whose Desktop copies run in the wrapper."
   },
   "unselected_scopes": {
     "tests/test_builtin_tool_policy.py::TestToolsManagementRoutes":"Removed server API routes.",

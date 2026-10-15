@@ -305,11 +305,43 @@ describe('inert main-process lifecycle wiring', () => {
       vi.doUnmock('../src/main/platform')
     }
   })
-  it('Linux still maximizes a saved maximized window when it is created, hidden start or not', async () => {
+  it('Linux keeps a hidden start\'s saved maximized window hidden, and maximizes it at its first show', async () => {
     savedMaximized()
     const { win } = await boot(['--hidden'])
-    expect(win.maximize).toHaveBeenCalledOnce()
+    win.emit('ready-to-show')
+    expect(win.maximize).not.toHaveBeenCalled()
     expect(win.show).not.toHaveBeenCalled()
+    m.app.emit('second-instance', {}, [])
+    expect(win.maximize).toHaveBeenCalledOnce()
+    expect(win.show).toHaveBeenCalledOnce()
+  })
+  it.each([true, false])('an Exit pending at startup neither maximizes nor shows a saved maximized window, which stays saved maximized (deferred first-show maximize: %s)', async (deferring) => {
+    vi.doMock('../src/main/platform', async (original) => {
+      const real = await original<typeof import('../src/main/platform')>()
+      return { currentPlatform: () => ({ ...real.currentPlatform(), maximizeOnFirstShow: deferring }) }
+    })
+    try {
+      savedMaximized()
+      let admitted!: () => void
+      m.app.isPackaged = true; m.admit.mockImplementationOnce(() => new Promise<void>(resolve => { admitted = resolve }))
+      await boot()  // an ordinary start: the window is wanted
+      m.app.emit('second-instance', {}, ['--exit'])
+      admitted()
+      await vi.waitFor(() => expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0))
+      const [win] = m.windows
+      win.emit('ready-to-show')
+      expect(win.maximize).not.toHaveBeenCalled(); expect(win.show).not.toHaveBeenCalled()
+      const saved = m.write.mock.calls.map(([, text]) => { try { return JSON.parse(String(text)) } catch { return null } })
+        .filter((value) => value?.windowState).at(-1)
+      expect(saved.windowState).toMatchObject({ maximized: true })
+    } finally {
+      vi.doUnmock('../src/main/platform')
+    }
+  })
+  it('Linux maximizes a saved maximized window at once on an ordinary start', async () => {
+    savedMaximized()
+    const { win } = await boot()
+    expect(win.maximize).toHaveBeenCalledOnce()
   })
   it('quits duplicate/exit-only launches before constructing the profile or core', async () => {
     m.lock = false; await boot(); expect(m.app.quit).toHaveBeenCalledOnce(); expect(m.brokers).toHaveLength(0);
@@ -319,6 +351,82 @@ describe('inert main-process lifecycle wiring', () => {
     m.coreCommand.mockImplementation(() => { throw new Error('runtime absent') });
     await boot(); expect(m.errorBox).toHaveBeenCalledWith('Odin core unavailable', 'runtime absent');
     expect(m.app.exit).toHaveBeenCalledWith(1); expect(m.windows).toHaveLength(0);
+  })
+  it('replays an open asked for while the packaged start check runs', async () => {
+    let admitted!: () => void
+    m.app.isPackaged = true; m.admit.mockImplementationOnce(() => new Promise<void>(resolve => { admitted = resolve }))
+    await boot(['--hidden'])
+    m.app.emit('second-instance', {}, []); m.app.emit('activate')
+    expect(m.supervisors).toHaveLength(0)
+    admitted(); await flush()
+    const win = m.windows[0]; win.emit('ready-to-show')
+    expect(win.show).toHaveBeenCalled()
+  })
+  it('replays an Exit asked for while the packaged start check runs, once its core has started', async () => {
+    let admitted!: () => void
+    m.app.isPackaged = true; m.admit.mockImplementationOnce(() => new Promise<void>(resolve => { admitted = resolve }))
+    await boot()
+    m.app.emit('activate'); m.app.emit('second-instance', {}, ['--exit'])
+    admitted()
+    await vi.waitFor(() => expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0))
+    // The admitted lifetime's core starts before the ordinary Exit asks it to shut down, so the Exit ends the
+    // lifetime with the core's cleanup evidence (Odin's review of 1.1, F1). The window never shows meanwhile.
+    const [supervisor] = m.supervisors; const [broker] = m.brokers
+    expect(supervisor.start).toHaveBeenCalledOnce()
+    expect(supervisor.start.mock.invocationCallOrder[0])
+      .toBeLessThan(broker.waitForShutdownReady.mock.invocationCallOrder[0])
+    expect(m.journal.finish).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ state: 'process-exited', shutdownAccepted: true }))
+    m.windows[0]?.emit('ready-to-show'); expect(m.windows[0]?.show).not.toHaveBeenCalled()
+  })
+  it('waits for a packaged app\'s core to start before an Exit asked for while the app is not yet ready', async () => {
+    let ready!: () => void; m.ready = new Promise<void>(resolve => { ready = resolve })
+    m.app.isPackaged = true
+    const { supervisor } = await boot(['--hidden'])
+    m.app.emit('second-instance', {}, ['--exit']); await flush()
+    expect(supervisor.start).not.toHaveBeenCalled(); expect(m.app.exit).not.toHaveBeenCalled()
+    ready()
+    await vi.waitFor(() => expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0))
+    expect(supervisor.start).toHaveBeenCalledOnce()
+    expect(supervisor.start.mock.invocationCallOrder[0])
+      .toBeLessThan(m.brokers[0].waitForShutdownReady.mock.invocationCallOrder[0])
+    expect(m.journal.finish).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ state: 'process-exited', shutdownAccepted: true }))
+  })
+  it.each(['ready', 'failed', 'a minute'])('holds a deferred Exit until a slow packaged core is %s', async (event) => {
+    if (event === 'a minute') vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    let admitted!: () => void
+    m.initialLink = 'connecting'
+    m.app.isPackaged = true; m.admit.mockImplementationOnce(() => new Promise<void>(resolve => { admitted = resolve }))
+    await boot()
+    m.app.emit('second-instance', {}, ['--exit'])
+    admitted(); await flush()
+    const [broker] = m.brokers; const [supervisor] = m.supervisors
+    expect(supervisor.start).toHaveBeenCalledOnce(); expect(m.app.exit).not.toHaveBeenCalled()
+    m.app.emit('second-instance', {}, ['--exit']); await flush()  // a second Exit joins the first
+    m.app.emit('second-instance', {}, []); m.windows[0].emit('ready-to-show')  // an open waits behind the Exit
+    expect(m.windows[0].show).not.toHaveBeenCalled(); expect(m.app.exit).not.toHaveBeenCalled()
+    if (event === 'ready') { broker.linkState = 'ready'; broker.emit('state', 'ready') }
+    else if (event === 'failed') supervisor.emit('failed', { code: 1, signal: null })
+    else await vi.advanceTimersByTimeAsync(60_000)
+    if (event === 'a minute') vi.useRealTimers()
+    await vi.waitFor(() => expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0))
+    expect(broker.waitForShutdownReady).toHaveBeenCalledOnce()
+    if (event === 'ready') expect(m.journal.finish).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ state: 'process-exited', shutdownAccepted: true }))
+  })
+  it('runs an Exit a minute after it was asked for even if the packaged app never becomes ready', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    m.ready = new Promise<void>(() => undefined); m.app.isPackaged = true
+    await boot(['--hidden'])
+    m.app.emit('second-instance', {}, ['--exit']); await flush()
+    m.brokers[0].waitForShutdownReady.mockResolvedValue(false)  // no core ever started to accept it
+    await vi.advanceTimersByTimeAsync(59_999); expect(m.app.exit).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1); vi.useRealTimers()
+    await vi.waitFor(() => expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0))
+    expect(m.supervisors[0].start).not.toHaveBeenCalled(); expect(m.windows).toHaveLength(0)
+    expect(m.journal.finish).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ state: 'unknown', shutdownAccepted: false }))
   })
   it('admits packaged ownership before startup and fails closed on admission errors', async () => {
     m.app.isPackaged = true; const { supervisor } = await boot();
@@ -571,7 +679,8 @@ describe('inert main-process lifecycle wiring', () => {
     const normalBounds = { x: 80, y: 40, width: 900, height: 600 };
     m.read.mockReturnValue(JSON.stringify({ windowState: { version: 1, normalBounds, maximized: true } }));
     const { win, deps } = await boot(['--hidden']);
-    expect(win.options).toMatchObject(normalBounds); expect(win.maximize).toHaveBeenCalledOnce();
+    // A hidden start defers maximize() to the first show (it would show the window); the saved state stays maximized.
+    expect(win.options).toMatchObject(normalBounds); expect(win.maximize).not.toHaveBeenCalled();
     expect(win.show).not.toHaveBeenCalled();
     deps.setSetupReminderHidden(true);
     expect(JSON.parse(m.write.mock.calls.at(-1)![1])).toMatchObject({ setupReminderHidden: true,

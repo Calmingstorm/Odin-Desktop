@@ -144,17 +144,17 @@ def test_each_windows_variant_was_reviewed_against_its_linux_original():
 # handler (browser_web.py stays upstream's byte for byte; the executor routes to the copy).
 OVERRIDE_SOURCES = {
     "src/tools/apply_patch.py":
-        "0c98e655530fa8d5814b83058baf1bf44461d2deb0048d70566967ef53ca8636",
+        "4bc3a7fba574c4fbc6eb2adea41384f8bbdb2c87cbf4897de0e58a3369013160",
     "src/tools/process_manager.py:ProcessRegistry._start_local_reserved":
         "3d6acead94fd543dbc33dcafb0b8d96a06897857325103011e32b5d3e303ea55",
     "src/tools/ssh.py:_read_lines_with_callback":
         "9a33f75e18fb7d77f2c1ad10be1c88efbc0a51610fcdb4a42417a42de75472c9",
     "src/tools/ssh.py:run_ssh_command":
-        "56cd10225837ad2ddd8a4ffebd44adcec8cd558f972bf182d7d57a9e1647f03c",
+        "9e861c3d3b4b2353ecb6d9b89cf4d2f47c31e5ba844bb084b1055880793c0607",
     "src/tools/handlers/browser_web.py:BrowserWebTools._handle_http_probe":
         "b539e2e3a11d0e5a5c8ce29f9ae972b3dc465fe8f4d27f4e8658ca01e0970657",
     "src/tools/ssh.py:read_binary_file":
-        "66c0f2d2670cfde3732858530620a90c7ed1fc0059bb1ff1cc80cba3af1b6181",
+        "f5a4a4dd520f80bfa8159ad1a0b1491372ebcaa5e836ab55fe4f1bdd4de335cf",
     "src/tools/local_supervisor.py:SupervisedShell":
         "8fc07a2abfe4f015b1cee1118338d2b544ff6476ed059ae0351ebad3ffecb2e9",
     "src/tools/risk_classifier.py:CommandGovernor.check":
@@ -280,7 +280,7 @@ def test_linux_runs_the_originals_and_imports_no_macos_module():
         "          ssh_sockets.check_socket_path, ssh_sockets.socket_directory,\n"
         "          ssh_sockets.prepare_socket_directory, paths.private_directory,\n"
         "          ipc_auth.private_parent, ipc_auth.load_token,\n"
-        "          provisioning.fresh_config_document, HostEnrollmentManager.test]\n"
+        "          provisioning.fresh_config_document, HostEnrollmentManager._test]\n"
         "assert not any(hasattr(f, 'darwin_target') for f in routed), routed\n"
         "assert commands._anchored_database_path(7, 'x.sqlite') == '/proc/self/fd/7/x.sqlite'\n"
         "loaded = [m for m in sys.modules if m.startswith('src.desktop.platform.')\n"
@@ -297,8 +297,8 @@ def test_linux_runs_the_originals_and_imports_no_macos_module():
 # macOS stand-ins for Odin code, each reviewed against what it lifts or overrides: macos_jobs'
 # copies of create_supervised_shell, run_local_command and the registry's local start, and its
 # registry overrides; macos_process's reaper subclass; macos_safety's copy of the governor check;
-# the command text macos_jobs makes portable (read_file's and apply_patch's handlers, their runner's
-# apply_plan parameter and Linux's own rename); and the macOS worker, which speaks Linux's protocol.
+# the opening of apply_patch's command, which macos_jobs recognizes to give a local patch the
+# engine's python3; and the macOS worker, which speaks Linux's protocol.
 MACOS_OVERRIDE_SOURCES = {
     "src/tools/local_supervisor.py:create_supervised_shell":
         "912122289118a78f03b84fdd1ae86bddbd490285cf27db609055feb99aa3e8de",
@@ -318,16 +318,10 @@ MACOS_OVERRIDE_SOURCES = {
         "0505a0aff99cca0d7d5bb037bf85a42dc9f03920b51412c908290ca921cbcc6a",
     "src/tools/risk_classifier.py:CommandGovernor.check":
         "24740ff045379a0076cf71b7f2d7b39e130ca1b62958f2616d254f8aac5dc4d7",
-    "src/tools/apply_patch.py:apply_plan":
-        "7ba18a6286faf492e4f2ed4b4ce08d1ca7db0ec1e1b48b252a458808f04903af",
-    "src/tools/apply_patch.py:_rename_noreplace":
-        "f20c41915c73f4c87f239da01b722fadbe2ce4418d1d847d001e142089dfb402",
     "src/tools/local_supervisor_worker.py":
         "89cc24e74d3ef527e88a4d18b7f8898b11b03c8097630545e41b9e834ecd8865",
-    "src/tools/handlers/files_docs.py:FilesDocsTools._handle_read_file":
-        "99e6581a9c925c35c44ae88c410c9423f397dc5d840177673ba3b2d41fffdbce",
     "src/tools/handlers/files_docs.py:FilesDocsTools._handle_apply_patch":
-        "c03b44b877da6189ef0243bb6f79b4230b886e522f97b86e22cb391d817d59ba",
+        "caaa9d85787b51b7ebaa98d5e4e1d614300d11c0f33ed211b0c613956dfe6f9a",
 }
 
 

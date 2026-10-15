@@ -357,6 +357,9 @@ async def test_local_tools_run_through_the_engine(tmp_path):
               "+second line, patched\n*** End Patch")
     large_text = "large \u03bb payload " * 2800  # over Odin's plain command limit: compressed
     large = f"*** Begin Patch\n*** Add File: large.txt\n+{large_text}\n*** End Patch"
+    # Odin 4.15 (#657): a move that only changes the name's case, on this case-insensitive APFS.
+    case_only = ("*** Begin Patch\n*** Update File: notes.txt\n*** Move to: Notes.txt\n@@\n"
+                 " first line\n-second line, patched\n+second line, renamed\n*** End Patch")
     model.scripts.update({
         "command": sequence(("run_command", {
             "host": "localhost", "command": 'echo "e2e $((40 + 2))"'})),
@@ -372,12 +375,18 @@ async def test_local_tools_run_through_the_engine(tmp_path):
             ("read_file", {"host": "localhost", "path": str(notes)}),
             ("read_file", {"host": "localhost", "path": str(notes), "raw": True}),
             ("apply_patch", {"host": "localhost", "root": str(work), "patch_text": large})),
+        "case": sequence(
+            ("apply_patch", {"host": "localhost", "root": str(work), "patch_text": case_only})),
         "validate": sequence(("validate_action", {"bundle_name": "e2e", "checks": [
             {"type": "http", "target": f"{model.base_url}/models", "expected": [200],
              "host": "localhost"},
             {"type": "port", "target": f"127.0.0.1:{model.port}", "host": "localhost"},
             {"type": "process", "target": "--token-file", "host": "localhost"},
-            {"type": "command", "target": "echo ready", "host": "localhost"}]})),
+            {"type": "command", "target": "echo ready", "host": "localhost"},
+            # Odin 4.15's macOS probes, chosen because this Mac's local host says os: macos.
+            {"type": "service", "target": "com.apple.logd", "host": "localhost"},
+            {"type": "log_absent", "target": "unit=odin-desktop-e2e-absent:never logged here",
+             "window_seconds": 60, "host": "localhost"}]})),
         "probe": sequence(("http_probe", {"host": "localhost", "url": f"{model.base_url}/models"})),
     })
     core = launch(tmp_path)
@@ -438,11 +447,17 @@ async def test_local_tools_run_through_the_engine(tmp_path):
             assert sorted(path.name for path in work.iterdir()) == ["large.txt", "notes.txt"]
             assert notes.read_bytes() == b"first line\nsecond line, patched\n"
 
+            done, tools = await run(client, conversation, "case")
+            settled(done, core, model, "case")
+            assert calls(tools) == [("apply_patch", "success")], model.results
+            assert sorted(path.name for path in work.iterdir()) == ["Notes.txt", "large.txt"]
+            assert (work / "Notes.txt").read_bytes() == b"first line\nsecond line, renamed\n"
+
             done, tools = await run(client, conversation, "validate")
             settled(done, core, model, "validate")
             assert calls(tools) == [("validate_action", "success")], model.results
             report = model.results["validate"][0]
-            assert report.startswith("[PASS] bundle='e2e' passed=4/4"), report
+            assert report.startswith("[PASS] bundle='e2e' passed=6/6"), report
 
             done, tools = await run(client, conversation, "probe")
             settled(done, core, model, "probe")

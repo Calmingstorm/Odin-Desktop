@@ -47,9 +47,9 @@ jobs:
           mount="$RUNNER_TEMP/odin disk image"
           target="$RUNNER_TEMP/Odin Acceptance/Applications"
           mkdir -p "$mount" "$target"
-          hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$dmg"
+          app/packaging/macos/disk-image.sh attach "$dmg" "$mount"
           ditto "$mount/Odin.app" "$target/Odin.app"
-          hdiutil detach "$mount"
+          app/packaging/macos/disk-image.sh detach "$mount"
           ODIN_MACOS_PACKAGED_APP="$target/Odin.app" ODIN_MACOS_PACKAGED_REVISION="$REVISION" \
           ODIN_MACOS_PACKAGED_DMG_SHA256="$digest" \
           ODIN_MACOS_PACKAGED_REPORT="$RUNNER_TEMP/macos-app-acceptance.json" \

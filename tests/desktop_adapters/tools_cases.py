@@ -176,7 +176,8 @@ CORPUS_SELECTIONS = {
         "test_execute_force_revoke_returns_structured_uncertain_outcome",
         "test_remote_transport_and_retirement_use_the_exact_target",
         "test_handler_failures_are_hermetic_and_classify_as_nonzero",
-        "test_validation_exec_acquires_a_lease_and_reports_unknown_alias",
+        # Odin 4.15.1 (#660) rewrote the validation lease case; its 4.15.1 form runs in
+        # tests/test_desktop_validation_lease_binding.py.
         "test_tool_result_as_dict_emits_all_optional_serializable_fields",
     },
     "test_browser_automation": {
@@ -195,6 +196,15 @@ CORPUS_SELECTIONS = {
     },
 }
 SUITES = CORPUS_SELECTIONS
+# Odin 4.15 (#655) changed exactly one setup literal in its own copy of this suite: the frozen
+# master builder writes the portable chmod order (GNU and BSD). No assertion changed. The
+# matching exact replacement hunk is declared in maintenance/fixture-corpus.json.
+ODIN_4_15_SETUP_EDITS = {
+    ("test_apply_patch_payload", "master_command"): (
+        'chmod 600 -- "$runner" "$plan" || exit 1; ',
+        'chmod -- 600 "$runner" "$plan" || exit 1; ',
+    ),
+}
 CORPUS_EXCLUSIONS = {
     "test_affordances": ["TestGetAffordance.test_critical_risk_destructive_tools"],
     "test_browser_automation": ["TestEnsureConnected.test_native_launch_failure_raises"],
@@ -250,6 +260,15 @@ def adapted_suite_tree(name):
     source = frozen_source(path)
     original = ast.parse(source, filename=path)
     adapted = ImportSurfaces().visit(ast.parse(source, filename=path))
+    for node in adapted.body:
+        edit = ODIN_4_15_SETUP_EDITS.get((name, getattr(node, "name", None)))
+        if edit is None:
+            continue
+        pieces = [child for child in ast.walk(node) if isinstance(child, ast.Constant)
+                  and isinstance(child.value, str) and edit[0] in child.value]
+        if len(pieces) != 1 or pieces[0].value.count(edit[0]) != 1:
+            raise ValueError(f"Odin 4.15 setup literal must occur once in {name}.{node.name}")
+        pieces[0].value = pieces[0].value.replace(edit[0], edit[1])
     if name == "test_tool_listing_contracts":
         # Removed transport renderer imports are not recreated. The selected
         # documented SkillManager example has no dependency on those classes.

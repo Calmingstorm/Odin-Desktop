@@ -108,7 +108,7 @@ def test_a_new_profile_names_this_mac_macos_and_puts_the_workspace_beside_the_pr
 
     target = "src.desktop.platform.macos_desktop:"
     assert provisioning.fresh_config_document.darwin_target == target + "fresh_config_document"
-    assert HostEnrollmentManager.test.darwin_target == target + "host_test"
+    assert HostEnrollmentManager._test.darwin_target == target + "host_test"
     config = provisioning.ensure_profile(profile)
     assert config.tools.hosts["localhost"].os == "macos"
     workspace = profile.data_dir.parents[1] / ".odin-desktop-workspaces" / profile.profile_id
@@ -157,6 +157,35 @@ async def test_a_passing_check_of_the_active_local_host_is_recorded_on_it(tmp_pa
     assert registry.get("localhost").last_test["ok"] is True
 
 
+async def test_retesting_an_active_host_never_hands_its_trust_to_cleanup(tmp_path, monkeypatch):
+    """Odin 4.15 (#658) on the Mac's lift: a candidate whose trust file a committed host already
+    uses never owns it, so discarding the candidate leaves the host's trust in place."""
+    from src.config.schema import ToolHost
+    from src.tools.hosts import control
+    from src.tools.hosts.trust import fingerprint_public_key
+
+    key = "ssh-ed25519 " + base64.b64encode(b"mac-active").decode("ascii")
+
+    async def fake(argv, timeout, **_kwargs):
+        if argv[0] == "ssh-keyscan":
+            return 0, f"example.invalid {key}\n".encode()
+        return 0, b"odin-host-test linux\n"
+
+    monkeypatch.setattr(control, "_run_argv", fake)
+    active = ToolHost(address="example.invalid", ssh_user="deploy", os="linux",
+                      trust_mode="pinned", host_keys=[key])
+    _registry, manager = _manager(tmp_path, {"build": active})
+    committed = set(tmp_path.glob("*.known_hosts"))
+    assert len(committed) == 1
+    candidate = await manager.prepare(
+        "build", {"address": "example.invalid", "ssh_user": "deploy", "os": "linux",
+                  "trust_mode": "pinned", "expected_fingerprints": [fingerprint_public_key(key)]},
+        allow_tofu=False, existing=active)
+    assert (await manager.test(candidate.token)).tested is True
+    manager.discard(candidate.token)
+    assert set(tmp_path.glob("*.known_hosts")) == committed and all(p.exists() for p in committed)
+
+
 async def test_a_remote_check_is_odins_ssh_probe(tmp_path, monkeypatch):
     from src.tools.hosts import control
     from src.tools.hosts.trust import fingerprint_public_key
@@ -191,6 +220,12 @@ async def test_a_remote_check_is_odins_ssh_probe(tmp_path, monkeypatch):
     refused = await manager.test(candidate.token)
     assert refused.tested is False
     assert refused.test_result["detail"] == "deploy@example.invalid: Permission denied (publickey)."
+    assert refused.test_result["platform"] == ""  # the probe never ran
     late = await manager.test(candidate.token)
     assert late.test_result == {"ok": False, "checked_at": late.test_result["checked_at"],
-                                "detail": "connection test timed out"}
+                                "platform": "", "detail": "connection test timed out"}
+    # The candidate's own trust file goes when it is discarded (Odin 4.15, #658).
+    trust = list(tmp_path.glob("*.known_hosts"))
+    assert len(trust) == 1 and f"UserKnownHostsFile={trust[0]}" in ssh
+    manager.discard(candidate.token)
+    assert not trust[0].exists()

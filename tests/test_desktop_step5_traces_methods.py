@@ -170,7 +170,10 @@ async def test_keyring_named_admin_and_serving_share_single_use_refresh(tmp_path
     }
     assert transport.calls == 1
     assert json.loads(secrets.value)[0]["refresh_token"] == "synthetic-next-refresh"
-    assert list(tmp_path.iterdir()) == []
+    # No credential reaches a file. Odin 4.14 (#652) derives each account's opaque quota key
+    # when the pool loads, which establishes the installation's account key (conftest puts it
+    # in tmp_path); that key is not a credential.
+    assert [path.name for path in tmp_path.iterdir()] in ([], ["account_key.secret"])
     assert "codex.accounts.refresh" in service.METHODS
     assert "codex.accounts.refresh" not in service.READ_METHODS
 
@@ -201,8 +204,13 @@ async def test_keyring_retired_refresh_cannot_publish(monkeypatch, mutation):
     if mutation == "remove":
         await service.handle("codex.accounts.remove", {"index": 0})
     else:
-        rows = [_account("B"), _account()] if mutation == "reorder" else [
-            {**_account(), "access_token": "synthetic-new-auth"}, _account("B")]
+        # Odin 4.14 (#652): a reorder or a re-login retires the refresh only with a DIFFERENT
+        # authorization; a pure reorder of the same chain hands its rotation to the new slot
+        # (test_desktop_codex_refresh_chain_reload.py).
+        replacement = ca.mark_authorized_account(
+            {**_account(), "access_token": "synthetic-new-auth"})
+        rows = [_account("B"), replacement] if mutation == "reorder" else [
+            replacement, _account("B")]
         service.vault.write(rows)
         await service.pool.reload_async()
     before = secrets.value

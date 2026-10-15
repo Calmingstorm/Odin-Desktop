@@ -3,6 +3,7 @@
 // core's acknowledgements (protocol.md, Notifications). A notification the OS accepted is not proof anyone saw it.
 
 import type { NotificationChange, NotificationSettings, QuietHours } from '../shared/api'
+import { plainTextOf } from '../shared/plain-text'
 
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   enabled: true,
@@ -59,7 +60,8 @@ export function decide(intent: NotificationIntent, settings: NotificationSetting
   if (settings.muted.includes(intent.conversation_id)) return { show: false, reason: 'muted' }
   if (context.windowFocused) return { show: false, reason: 'window_focused' }
   if (inQuietHours(settings.quietHours, context.now)) return { show: false, reason: 'quiet_hours' }
-  const preview = intent.preview.replace(/\s+/g, ' ').trim()
+  // A preview is message text: show what the chat shows, not its Markdown markers.
+  const preview = plainTextOf(intent.preview).replace(/\s+/g, ' ').trim()
   const body = !settings.previews
     ? 'New message from Odin'
     : preview.length > PREVIEW_CHARS

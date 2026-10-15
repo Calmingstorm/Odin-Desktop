@@ -321,3 +321,29 @@ def test_product_version_last_resort_is_the_engine_version(tmp_path, monkeypatch
 def test_core_reports_the_product_version_not_the_engine_build():
     from src.desktop.core import VERSION
     assert VERSION == _app_version()
+
+
+def test_a_packaged_engine_reports_its_release_not_the_dev_fallback(tmp_path, monkeypatch):
+    """The packaged runtime has no pyproject.toml beside src: get_version() reads the bundle
+    manifest the app launched it from, so package state records the release (1.1 fix: it
+    asked for a distribution name that doesn't exist and always said 0.0.0-dev)."""
+    import json as _json
+
+    import src.version as version_mod
+
+    runtime = tmp_path / "resources" / "runtime"
+    runtime.mkdir(parents=True)
+    (tmp_path / "resources" / "bundle-manifest.json").write_text(_json.dumps(
+        {"product": {"name": "odin-desktop", "version": "1.1.0", "channel": "release"}}))
+    monkeypatch.setattr(version_mod, "_version_from_pyproject", lambda: None)
+    monkeypatch.setenv("ODIN_DESKTOP_BUNDLE_ROOT", str(runtime))
+    assert version_mod.get_version() == "1.1.0"
+    for damaged in ("not json", _json.dumps({"product": {"version": 7}}),
+                    _json.dumps({"product": {"version": "v1"}})):
+        (tmp_path / "resources" / "bundle-manifest.json").write_text(damaged)
+        assert version_mod.get_version() != "1.1.0"
+    monkeypatch.delenv("ODIN_DESKTOP_BUNDLE_ROOT")
+    # Without a manifest: the engine's real distribution, never a name that doesn't exist.
+    calls = []
+    monkeypatch.setattr("importlib.metadata.version", lambda name: calls.append(name) or "0.1.0")
+    assert version_mod.get_version() == "0.1.0" and calls == ["odin-desktop-engine"]

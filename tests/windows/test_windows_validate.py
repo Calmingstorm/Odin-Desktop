@@ -19,8 +19,10 @@ PYTHON = getattr(sys, "_base_executable", "") or sys.executable
 
 
 class Lease:
-    def __init__(self, address):
-        self.target = SimpleNamespace(address=address, ssh_user="u", alias="host")
+    def __init__(self, alias, address, os="linux"):
+        # A host lease's target, as the registry publishes it (Odin 4.15.1 binds each check to
+        # one lease and reads the target's declared OS).
+        self.target = SimpleNamespace(address=address, ssh_user="u", alias=alias, os=os)
 
     def __enter__(self):
         return self
@@ -33,7 +35,8 @@ class Lease:
 
 
 def validator(sent):
-    addresses = {"localhost": "127.0.0.1", "server": "192.0.2.10"}
+    addresses = {"localhost": "127.0.0.1", "server": "192.0.2.10", "mac": "192.0.2.11"}
+    systems = {"localhost": "windows", "mac": "macos"}
     fake = SimpleNamespace(
         bulkheads={}, ssh_pool=None, _ensure_local_workspace=lambda: None,
         _command_shell_mode=lambda: "auto",
@@ -41,7 +44,8 @@ def validator(sent):
         _current_user_id="owner", command_governor=None,
         _resolve_default_host=lambda user: "localhost",
         _resolve_host=lambda alias: (addresses[alias], "u", "x") if alias in addresses else None,
-        _acquire_host=lambda alias: Lease(addresses[alias]) if alias in addresses else None)
+        _acquire_host=lambda alias: (Lease(alias, addresses[alias], systems.get(alias, "linux"))
+                                     if alias in addresses else None))
     local = functools.partial(exec_command, fake)
 
     async def route(address, command, ssh_user, **kwargs):
@@ -155,6 +159,34 @@ async def test_commands_run_under_powershell_and_other_hosts_keep_posix_probes()
     assert results["Write-Output hi"]["status"] == "pass"
     assert results["http://192.0.2.10/"]["status"] == "pass"
     assert len(sent) == 1 and sent[0].startswith("curl -sS -o /dev/null ")
+
+
+async def test_a_host_declared_macos_gets_odins_macos_probe():
+    # Odin 4.15.1 (#660): another host's declared OS chooses its probe, from Windows too.
+    results, sent = await validate({"type": "service", "target": "com.example.fixture",
+                                    "host": "mac"})
+    assert len(sent) == 1 and "launchctl print" in sent[0] and "systemctl" not in sent[0]
+    assert results["com.example.fixture"]["status"] == "fail"  # the fake answers "200"
+
+
+async def test_the_callback_refuses_a_check_that_was_not_bound(monkeypatch):
+    # Odin 4.15.1 (#660): a probe runs only on the target its check bound.
+    import src.tools.post_validation as post_validation
+
+    bound = []
+
+    async def run_bundle(_checks, *, bind_host, exec_command, **_kwargs):
+        with pytest.raises(PermissionError, match="unbound validation host alias: absent"):
+            await exec_command("absent", "true", "", timeout=3)
+        with bind_host("absent") as resolved:
+            bound.append(resolved)
+        return "report"
+
+    monkeypatch.setattr(post_validation, "run_bundle", run_bundle)
+    monkeypatch.setattr(post_validation, "format_report_summary", lambda report: report)
+    checks = {"checks": [{"type": "command"}]}
+    assert await handle_validate_action(validator([]), checks) == "report"
+    assert bound == [None]
 
 
 async def test_the_handlers_own_refusals_and_governor_answers():

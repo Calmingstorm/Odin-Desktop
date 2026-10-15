@@ -161,6 +161,32 @@ describe('work names, associations and controls', () => {
     expect((await import('../../src/renderer/src/dialog')).dialog.current).toBeNull()
   })
 
+  it('offers Dismiss on an interrupted card, then focuses the next card and says it was dismissed', async () => {
+    vi.useFakeTimers()
+    listed = [{ ...agent(), state: 'interrupted', actions: ['dismiss'], settlement: { state: 'unknown' } },
+      { ...agent(), id: 'a2', title: 'Check memory' }]
+    await workStore.loadWork()
+    await mountList()
+    const button = namedButton('Dismiss agent: Check disks')
+    const nextRow = view!.root.findAll((node) => node.tag === 'article')[1]!.props.id
+    const focus = vi.fn()
+    Object.assign(document, { activeElement: button,
+      getElementById: vi.fn((id: string) => id === nextRow ? { focus } : null) })
+    const dismissing = button.fire('click', { currentTarget: button })
+    await flush()
+    expect(controls[0]).toMatchObject({ id: 'a1', kind: 'agent', action: 'dismiss' })
+    // The core removed the card; its row leaves the list and the focused button with it.
+    listed = [{ ...agent(), id: 'a2', title: 'Check memory' }]
+    Object.assign(document, { activeElement: document.body })
+    land!({ ok: true, result: { disposition: 'done', settlement: { state: 'unknown' } } })
+    await dismissing
+    await flush()
+    expect(view!.root.findAll((node) => node.tag === 'article')).toHaveLength(1)
+    expect(document.getElementById).toHaveBeenCalledWith(nextRow)
+    expect(focus).toHaveBeenCalledOnce()
+    expect(view!.root.findAll((node) => node.props.role === 'status')[0]!.textContent()).toBe('agent: Check disks dismissed.')
+  })
+
   it('repairs a focused action removed by a later core update to its own row', async () => {
     await mountList()
     const button = namedButton('Stop agent: Check disks')

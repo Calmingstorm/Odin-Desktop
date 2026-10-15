@@ -108,6 +108,28 @@ test('maximized restart retains normal bounds, minimize/fullscreen do not overwr
   } finally { await dispose(application) }
 })
 
+test('a hidden start keeps a saved maximized window hidden, and its first open maximizes it', async ({}, info) => {
+  test.setTimeout(150_000)
+  let application: ElectronApplication | null = await launchApp({ profile: 'window-hidden-maximized' })
+  try {
+    await waitForCore(application)
+    await hooks(application).mode('maximize')
+    await expect.poll(async () => (await hooks(application!).snapshot()).maximized).toBe(true)
+    await exitApp(application); application = null
+    // A start at login: maximize() would show the window, so it waits for the first open.
+    application = await launchApp({ profile: 'window-hidden-maximized', args: ['--hidden'] }); await waitForCore(application)
+    await new Promise(resolve => setTimeout(resolve, 2_000))
+    const hidden = await snapshot(application)
+    expect(hidden.visible).toBe(false)
+    expect((await hooks(application).snapshot()).persisted.maximized).toBe(true)
+    await hooks(application).show()
+    await expect.poll(async () => (await snapshot(application!)).visible).toBe(true)
+    await expect.poll(async () => (await hooks(application!).snapshot()).maximized).toBe(true)
+    await evidence(info, 'window-hidden-maximized', { hidden, shown: await hooks(application).snapshot() })
+    await exitApp(application); application = null
+  } finally { await dispose(application) }
+})
+
 test('damaged/null app-owned state cannot prevent real Electron startup', async ({}, info) => {
   test.setTimeout(240_000)
   let application: ElectronApplication | null = await launchApp({ profile: 'window-damaged' })

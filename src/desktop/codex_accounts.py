@@ -145,9 +145,23 @@ class KeyringCodexAuthPool(CodexAuthPool):
         super().__init__("desktop-keyring-unused")
 
     def _init_accounts(self, raw=None):
+        """Odin 4.14's reload rules (#652) on the keyring's records.
+
+        An authorization follows its refresh chain, not its slot: a reorder, or a bearer or
+        expiry edit, keeps the same auth (its single-use refresh lock and any in-flight rotation,
+        which then saves at its new slot), and the reloaded record is authoritative. Quota
+        snapshots and check failures survive only for accounts whose credentials are unchanged,
+        so a removed, replaced or re-added account starts clean at once.
+        """
+        from src.llm.account_key import opaque_account_key
+
         raw = self.vault.read() if raw is None else raw
         rows = raw if isinstance(raw, list) else [raw]
-        previous = dict(getattr(self, "_loaded_auths", {}))
+        previous_auths = dict(getattr(self, "_loaded_auths", {}))
+        # Each auth's own record, which its saved rotations keep current (Odin's live
+        # _loaded_records dicts), never the record as first loaded.
+        previous_records = {slot: dict(auth.expected) for slot, auth in previous_auths.items()}
+        retained = set()
         self._accounts = []
         self._generation += 1
         self._canonical_indices = []
@@ -156,19 +170,38 @@ class KeyringCodexAuthPool(CodexAuthPool):
         for slot, creds in enumerate(rows):
             if not isinstance(creds, dict) or not creds.get("access_token"):
                 continue
-            auth = previous.get(slot)
-            if auth is None or not self._same_credentials(creds, auth.expected):
-                auth = KeyringCodexAuth(self, slot, creds)
-            else:
-                # An unchanged reload retains the single-use refresh lock.
+            candidates = [
+                (old_slot, auth) for old_slot, auth in previous_auths.items()
+                if auth not in retained and old_slot in previous_records
+                and (self._same_refresh_chain(creds, previous_records[old_slot])
+                     or (old_slot == slot
+                         and self._same_credentials(creds, previous_records[old_slot])))
+            ]
+            if len(candidates) == 1:
+                old_slot, auth = candidates[0]
+                retained.add(auth)
+                if not self._same_credentials(creds, previous_records[old_slot]):
+                    auth.clear_rate_limit()  # a replacement's health starts fresh, as in Odin
+                auth.slot = slot
                 auth.epoch = self.generation
                 auth.expected = dict(creds)
-                if auth._credentials is not None:
-                    auth._credentials = {**auth._credentials, "label": creds.get("label", "")}
+                auth._credentials = dict(creds)
+            else:
+                auth = KeyringCodexAuth(self, slot, creds)
             self._accounts.append(auth)
             self._canonical_indices.append(slot)
             self._loaded_auths[slot] = auth
             self._loaded_records[slot] = dict(creds)
+        previous = {key: record for record in previous_records.values()
+                    if (key := opaque_account_key(record.get("account_id")))}
+        current = {key: record for record in self._loaded_records.values()
+                   if (key := opaque_account_key(record.get("account_id")))}
+        unchanged = {key for key, record in current.items()
+                     if key in previous and self._same_credentials(record, previous[key])}
+        self.quota.forget_missing(unchanged)
+        for key in list(self._quota_check_failures):
+            if key not in unchanged:
+                del self._quota_check_failures[key]
 
     async def reload_async(self):
         async with self._pool_lock:

@@ -33,14 +33,26 @@ RETIRED = ("add_reaction", "create_poll", "purge_messages", "set_permission")
 COMPUTER = ("computer_session", "computer_observe", "computer_act")
 
 
+# Desktop 1.1 carries Odin 4.14's governor fix (#638): the classifier is Odin v4.14.0's file byte
+# for byte (sha256 of `git show v4.14.0:src/tools/risk_classifier.py` in Odin's repository).
+CARRIED_UPSTREAM_SHA256 = {
+    "src/tools/risk_classifier.py":
+        "6d38578f2bde09a3715e2c9d78e420aeacb11e3ecd88ff2818d73eaef8830249",
+}
+
+
 @pytest.mark.parametrize("path", ["src/tools/risk_classifier.py", "src/tools/recovery.py"])
 def test_safety_policy_is_byte_identical_to_immutable_v413_archive(path):
     archive = ROOT / "maintenance/odin-v4.13.0.tar.gz"
     assert hashlib.sha256(archive.read_bytes()).hexdigest() == ARCHIVE_SHA256
+    current = (ROOT / path).read_bytes()
+    if path in CARRIED_UPSTREAM_SHA256:
+        assert hashlib.sha256(current).hexdigest() == CARRIED_UPSTREAM_SHA256[path]
+        return
     with tarfile.open(archive, "r:gz") as frozen:
         source = frozen.extractfile(path)
         assert source is not None
-        assert (ROOT / path).read_bytes() == source.read()
+        assert current == source.read()
 
 
 def _skill_code(name):

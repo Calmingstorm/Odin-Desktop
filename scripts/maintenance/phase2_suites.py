@@ -309,6 +309,18 @@ STEP6A_REASON = (
     "worker-only resolver adapter without assertion edits. All engine suites remain isolated "
     "PID namespace with throwaway HOME."
 )
+# Odin 4.14 (#640) rewrote exactly these two retained cases of this direct group for bounded
+# numeric saves: a zero token budget and a string profile size now load only at startup.
+# Their 4.14 forms run in tests/test_desktop_numeric_bounds.py. Only this exact expression is
+# admitted beside the group's reviewed adapter; any other deselection still fails closed.
+REVIEWED_DIRECT_EXCLUSIONS = {
+    "direct-shared-stores-providers-tools": (
+        "(TestSessionsConfigTokenBudget and test_zero_budget) or "
+        "(TestCompatibleProfiles and "
+        "test_compatible_profile_legacy_shape_and_openrouter_catalogue_fallback)"
+    ),
+}
+
 MERGED_SELECTOR_ADAPTERS = {
     "direct-shared-stores-providers-tools": (
         "tests/test_gi_support_loading.py", "tests/test_desktop_gi_loading_adaptation.py",
@@ -649,9 +661,9 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             "tests/test_tool_parity.py":
                 "e734b9f088569c37109de900f8bbecf48d6d76885d29c23def4fadd8bf4b3849",
             "tests/desktop_adapters/tool_parity.py":
-                "b1e165ceae0bf345a02da3a07c072104928deae29cac7761a909fce451dfcd53",
+                "90dbc7e6da4fff0235c18cda0949c1a7991ac27aa60732c7a0e008997cde8ae8",
             "tests/test_desktop_tool_parity_adaptation.py":
-                "16ada88f660e48689d27f8d558e87f835e87c1ff5e6005216738ee7c58da77d0",
+                "4f279a963916b967e801404da6bcedc9394c23f9827d2ca1566aeede6dbe2b43",
         }
         return (_digest(_regular(root, path).read_bytes()) == inherited_hash
                 and all(_digest(_regular(root, name).read_bytes()) == digest
@@ -1016,10 +1028,11 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
         if not selected_by:
             continue
         group = named.get(name, {})
+        exclusion = group.get("exclude_expression")
         if (selected_by != {name} or original in group.get("files", [])
+                or (exclusion and exclusion != REVIEWED_DIRECT_EXCLUSIONS.get(name))
                 or any(group.get(key) for key in (
-                    "exclude_expression", "include_expression", "args", "pytest_args",
-                    "exclusions"))):
+                    "include_expression", "args", "pytest_args", "exclusions"))):
             errors.append(
                 f"qualification: exact full-suite adapter association required for {adapter}")
             continue

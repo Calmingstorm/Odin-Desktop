@@ -73,7 +73,7 @@ export interface UsageResult {
 }
 
 export type WorkKind = 'agent' | 'task' | 'loop' | 'process' | 'schedule' | 'workflow'
-export type WorkAction = 'stop' | 'cancel' | 'restart' | 'pause' | 'resume' | 'run_now' | 'steer'
+export type WorkAction = 'stop' | 'cancel' | 'restart' | 'pause' | 'resume' | 'run_now' | 'steer' | 'dismiss'
 
 /** Core projections are structured; the older fixture also supplies a text detail. */
 export interface WorkSettlement {

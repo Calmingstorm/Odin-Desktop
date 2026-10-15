@@ -40,6 +40,20 @@ SUITES = {
         "3675f61a8df4d3f7824a0911f47a960302449d78a71a16801fb5a41198384132",
 }
 
+# test_codex_account_mutation_regressions' retired-refresh setup, as frozen at v4.13.0 and as
+# Odin v4.14.0 rewrote it (#652).
+ODIN_4_13_ROWS = """
+rows = [creds("B"), creds("A")] if mutation == "reorder" else [
+    {**creds("A"), "access_token": "synthetic-reauth"}, creds("B")]
+"""
+ODIN_4_14_ROWS = """
+replacement = ca.mark_authorized_account(
+    {**creds("A"), "access_token": "synthetic-reauth"},
+)
+rows = [creds("B"), replacement] if mutation == "reorder" else [
+    replacement, creds("B")]
+"""
+
 # Historical transport defaults are inert serialization fixture inputs. The
 # retained implementation and production Desktop defaults are not changed.
 DEFAULT_TRAJECTORY_DIR = "./data/trajectories"
@@ -289,6 +303,24 @@ def adapted_tree(stem):
         call.func = ast.copy_location(ast.Name(id="_FileFixturePool", ctx=ast.Load()), call.func)
         changes.append({"line": call.lineno,
                         "operation": "retained_file_pool_locked_reload_setup"})
+        # Odin 4.14 (#652) changed exactly this setup statement in its own copy: a reorder or
+        # a re-login retires an in-flight refresh only with a DIFFERENT authorization (a pure
+        # reorder of the same refresh chain hands its rotation to the new slot, as
+        # test_desktop_codex_refresh_chain_reload.py shows). No assertion changed.
+        class Odin414Rows(ast.NodeTransformer):
+            replaced = 0
+
+            def visit_Assign(self, node):
+                if ast.dump(node, include_attributes=False) != ast.dump(
+                        ast.parse(ODIN_4_13_ROWS).body[0], include_attributes=False):
+                    return node
+                Odin414Rows.replaced += 1
+                changes.append({"line": node.lineno, "operation": "odin_4_14_reauth_rows"})
+                return [ast.copy_location(statement, node)
+                        for statement in ast.parse(ODIN_4_14_ROWS).body]
+        adapted = Odin414Rows().visit(adapted)
+        if Odin414Rows.replaced != 1:
+            raise ValueError("expected exactly one frozen re-authorization setup statement")
     assert corpus(original) == corpus(adapted)
     EVIDENCE[path] = {
         "source_sha256": hashlib.sha256(source).hexdigest(),

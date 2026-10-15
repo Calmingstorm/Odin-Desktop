@@ -20,6 +20,16 @@ async function general() {
   return { root: mounted.root, state }
 }
 describe('UI v1 General and explicit Advanced presentation', () => {
+  it('says the tray, or the menu bar on a Mac, where Odin stays when its window closes', async () => {
+    let { root } = await general()
+    expect(root.textContent()).toContain('Closing the window keeps Odin running in the tray. Exit stops it.')
+    mounted!.unmount(); mounted = undefined
+    vi.resetModules()
+    odin.getDesktopInfo = vi.fn(async () => ok({ appVersion: '1.0.0', electronVersion: '44', chromiumVersion: '145', nodeVersion: '22', platform: 'darwin', architecture: 'arm64', license: 'MIT', packaged: true }))
+    ;({ root } = await general())
+    expect(root.textContent()).toContain('Closing the window keeps Odin running in the menu bar. Exit stops it.')
+    expect(root.textContent()).not.toContain('running in the tray')
+  })
   it('reports a thrown preference transport as unconfirmed and blocks queued intent without claiming Saved', async () => {
     odin.setAppearance = vi.fn(async () => { throw new Error('private transport detail') })
     odin.setNotifications = vi.fn(async () => ok({ notifications: { enabled: true, previews: true, muted: [], quietHours: { enabled: false, start: '22:00', end: '08:00' } } }))

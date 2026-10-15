@@ -178,7 +178,9 @@ def test_invalid_marker_failure_is_not_reported_as_success(profile):
 
 
 def test_timeout_persistence_only_after_schema_validation(profile):
-    text = "agents: {max_concurrent_agents: -1}\nopenai_compatible: {timeout: 120}\n"
+    # Odin 4.14 (#640): an out-of-range number loads at startup with a warning; a malformed
+    # value still fails validation, so nothing may be persisted.
+    text = "agents: {max_concurrent_agents: invalid}\nopenai_compatible: {timeout: 120}\n"
     profile.config_file.write_text(text)
     with pytest.raises(SystemExit, match="Config validation failed"):
         schema.load_config()

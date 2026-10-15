@@ -1,5 +1,51 @@
 # Changelog
 
+## [1.1.0]
+
+**Odin 4.14 and 4.15 on the desktop, and a round of fixes.** Linux, Windows and macOS.
+
+- **Hosts and checks (Odin 4.15 and 4.15.1):**
+  - a check that `validate_action` runs on a Mac now uses macOS's own tools: launchd for services, the unified log
+    for log checks (message text only), and a port check that needs no GNU tools. This covers the Mac Odin runs on
+    and any host whose platform is macOS. Linux hosts keep their exact checks;
+  - a log check reads the journal once. A read that fails is reported as an error, never as "not found";
+  - a move in `apply_patch` that only changes a name's case now works where names ignore case (APFS on a Mac,
+    NTFS on Windows). Another file, or a hard link under that name, still refuses before anything changes;
+  - known-hosts files whose paths contain spaces, quotes or backslashes reach SSH as one file (Linux and Mac;
+    Windows already did this);
+  - a failed host test no longer reports a platform it never saw, and leaving a host's setup unfinished removes the
+    trust file it made.
+- **Tools (Odin 4.14):**
+  - the command governor reads `rm`'s recursive and force options within their own command, so a path or a later
+    command's flags no longer label a delete as recursive;
+  - `fetch_url` retries once with a plain user agent after a 403 or 406;
+  - `manage_list` can delete a whole list;
+  - an aborted background task records every step it never ran as skipped;
+  - history search results name the conversation they came from, and never return the asking request itself;
+  - Codex account reloads follow each account, and its quota marks reset when its credentials change.
+- **Settings (Odin 4.14):** about a hundred numeric settings now refuse out-of-range values when saved. A value
+  already in your profile still loads, with a warning, and is never rewritten.
+- **Work:** a card whose outcome can never be known (it ended without a record of how) can now be dismissed. Its
+  history, audit entries and chat stay.
+- **Fixed:**
+  - after a crash or power cut during an install's bookkeeping, a leftover file blocked every later Linux package
+    or AppImage update, and the Mac's start check, until removed by hand. Now it doesn't;
+  - opening Odin again, or asking it to exit, while a packaged start was still checking its files was lost. Odin
+    now does what was asked once the check finishes;
+  - an Exit asked for while Odin was still starting ended it before its core had started, so the next install or
+    update asked for a restart first. Odin now finishes starting its core (at most a minute), then exits cleanly;
+  - on Linux, starting at login showed the window if it was last maximized. It now stays in the tray;
+  - a loop that stopped itself ended without a notification. It now notifies, as a loop that runs out of
+    iterations does;
+  - notifications showed Markdown marks (`**`, backticks, links) literally. They now show plain text, as the chat
+    does;
+  - the engine reported its version as 0.0.0-dev. It now reports its release. The first start of a new version
+    backs your profile up before any change, as the update guide always said, and keeps only the latest backup.
+- **Smaller changes:** on a Mac, the window's shortcuts use ⌘ (⇧⌘F search, ⌘, settings, ⌘. stop). The governor
+  setting now reads "Let your commands past the governor". Start at login on a Mac names the menu bar. Mac builds
+  attach disk images with `diskutil`.
+- See [Background work](docs/user/background-work.md) and [Updates](docs/user/updates.md).
+
 ## [1.0.10]
 
 **Odin Desktop for macOS.** The first macOS release: a signed, notarized disk image for Macs with Apple silicon

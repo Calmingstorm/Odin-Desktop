@@ -1,6 +1,6 @@
 # Settings
 
-Open **Settings** from the left icon rail or press **Ctrl+,**. Choose a section
+Open **Settings** from the left icon rail or press **Ctrl+,** (**⌘,** on macOS). Choose a section
 in the settings navigation, then **Back to chat** to leave. A chat setup invitation
 or provider-attention notice can open **Models and providers**; the invitation
 can also open **General** for startup and notifications.

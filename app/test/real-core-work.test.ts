@@ -84,7 +84,8 @@ describe('actual Broker ↔ real work/control/scheduler/report owners', () => {
     expect(await reopened.broker.request('work.control', params, randomUUID())).toEqual(receipt)
     expect(counts(core)).toEqual(before)
     expect(result<{ items: Work[] }>(await reopened.broker.request('work.list', { kind: 'agent' })).items[0])
-      .toMatchObject({ state: 'interrupted', actions: [], settlement: { state: 'unknown', resource_release: 'unproven' } })
+      // An interrupted record whose outcome can never be known offers dismiss, never a control.
+      .toMatchObject({ state: 'interrupted', actions: ['dismiss'], settlement: { state: 'unknown', resource_release: 'unproven' } })
   })
 
   test('real schedule CRUD, paused manual run, failure reset and history use journaled commands', async () => {
@@ -134,7 +135,8 @@ describe('actual Broker ↔ real work/control/scheduler/report owners', () => {
       error: { disposition: 'outcome_unknown' } })
     expect(counts(core)).toEqual(before)
     expect(result<{ items: Work[] }>(await reopened.broker.request('work.list')).items.find(i => i.id === task.id))
-      .toMatchObject({ state: 'interrupted', actions: [], settlement: { state: 'unknown', resource_release: 'unproven' } })
+      // An interrupted record whose outcome can never be known offers dismiss, never a control.
+      .toMatchObject({ state: 'interrupted', actions: ['dismiss'], settlement: { state: 'unknown', resource_release: 'unproven' } })
   })
 
   test('seeded workProof forwards ordinary tools and commands to the actual executor', async () => {

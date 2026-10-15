@@ -173,7 +173,7 @@ export const workControlSchema = z
     control_command_id: z.uuid(),
     kind: workKind,
     id: coreId,
-    action: z.enum(['stop', 'cancel', 'restart', 'pause', 'resume', 'run_now', 'steer']),
+    action: z.enum(['stop', 'cancel', 'restart', 'pause', 'resume', 'run_now', 'steer', 'dismiss']),
     manager_generation: z.string().min(1).max(512).optional(),
     run_id: coreId.optional(),
     generation: z.number().int().nonnegative().optional(),

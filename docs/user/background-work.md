@@ -60,7 +60,7 @@ if it remains unresolved.
 
 ## Manage a schedule
 
-1. Open **Settings → Scheduled and running work → New schedule**. **Ctrl+,** opens
+1. Open **Settings → Scheduled and running work → New schedule**. **Ctrl+,** (**⌘,** on macOS) opens
    Settings.
 2. Enter a description, select an existing destination under **Reports in**, and
    choose the action and timing. **Once** uses this computer's local clock and
@@ -103,6 +103,11 @@ it was not automatically replayed and waits for an explicit run.
 Stopping loops, cancelling workflows or terminating processes does not undo
 completed steps. Do not delete locks, receipts, journals or cleanup records to
 make an error disappear. Follow [Recovery](recovery.md) for unresolved effects.
+
+A card that ended **Unknown** or **Interrupted**, with nothing left that could
+settle it, offers **Dismiss** once you have reconciled it. Dismiss only removes
+the card from Work: the run's history, the audit log and its conversation keep
+what happened, and nothing is retried.
 
 ## Close, sleep and Exit
 

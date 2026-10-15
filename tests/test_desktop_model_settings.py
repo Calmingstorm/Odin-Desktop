@@ -494,6 +494,43 @@ async def test_discover_actual_endpoint_without_enabled_provider(service):
 
 
 @pytest.mark.asyncio
+async def test_discovery_works_while_a_legacy_numeric_value_is_saved(service):
+    """Odin 4.14 (#640): a compatible section saved before the bounds (a stall timeout below
+    the new minimum) still loads, so model discovery must not refuse it."""
+    from src.config.schema import OpenAICompatibleConfig
+
+    seen = []
+
+    async def models(request):
+        seen.append(request.path)
+        return web.json_response({"data": [{"id": "local-model"}]})
+
+    app = web.Application()
+    app.router.add_get("/v1/models", models)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    port = site._server.sockets[0].getsockname()[1]
+    try:
+        legacy = {**service.settings.config.openai_compatible.model_dump(),
+                  "stream_stall_timeout_seconds": 5,
+                  "base_url": f"http://127.0.0.1:{port}/v1"}
+        with pytest.raises(ValueError):
+            OpenAICompatibleConfig.model_validate(legacy)
+        service.settings.config.openai_compatible = OpenAICompatibleConfig.model_validate(
+            legacy, context={"startup": True})
+        result = await service.handle("models.discover", {"provider": "compat"})
+        assert result["models"] == ["local-model"] and seen == ["/v1/models"]
+        with pytest.raises(MethodError):
+            await service.handle("models.discover",
+                                 {"provider": "compat", "base_url": "file:///fixture"})
+        assert not service.settings.writes
+    finally:
+        await runner.cleanup()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("params", [
     {"provider": "codex"}, {"provider": "compat", "base_url": "file:///fixture"},
     {"provider": "ollama", "base_url": "http://169.254.169.254"},

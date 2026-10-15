@@ -54,9 +54,13 @@ class KnowledgeTools:
 
             ts = datetime.fromtimestamp(r["timestamp"]).strftime("%Y-%m-%d %H:%M")
             role = r["type"]
+            # Odin 4.14 (#639): every hit names where it was said. On Desktop that is the
+            # conversation's title and id (Desktop has no Discord channels or DMs).
+            cid = str(r.get("channel_id", "unknown"))
+            location = f"{r.get('channel_name') or 'Unknown channel'} (id: {cid})"
             content = r["content"].replace("\n", " ")[:300]
-            lines.append(f"[{ts}] ({role}): {content}")
-            matches.append(f"[{ts}] ({role}): {r['content']}")
+            lines.append(f"[{ts}] [{location}] ({role}): {content}")
+            matches.append(f"[{ts}] [{location}] ({role}): {r['content']}")
 
         formatted = f"**Found {len(results)} result(s) for '{query}':**\n" + "\n".join(lines)
         return RankedOutput(

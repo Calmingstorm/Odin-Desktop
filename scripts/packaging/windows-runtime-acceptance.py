@@ -489,7 +489,10 @@ async def pdf() -> dict:
 
 class Lease:
     def __init__(self):
-        self.target = SimpleNamespace(address="127.0.0.1", ssh_user="u", alias="localhost")
+        # As the registry publishes a target: validate_action binds each check to one lease and
+        # reads its declared OS (Odin 4.15.1, #660).
+        self.target = SimpleNamespace(address="127.0.0.1", ssh_user="u", alias="localhost",
+                                      os="windows")
 
     def __enter__(self):
         return self

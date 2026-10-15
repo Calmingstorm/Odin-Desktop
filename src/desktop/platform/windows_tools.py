@@ -231,7 +231,7 @@ for (i = 1; i <= returned; i++) {
             'body=$(mktemp) || { rm -f -- "$metadata"; exit 1; }; '
             'encoded=$(mktemp) || { rm -f -- "$metadata" "$body"; exit 1; }; '
             'trap \'rm -f -- "$metadata" "$body" "$encoded"\' EXIT; '
-            'chmod 600 -- "$metadata" "$body" "$encoded" || exit 1; '
+            'chmod -- 600 "$metadata" "$body" "$encoded" || exit 1; '
             f"final_newline=$(tail -c 1 < {safe_path} 2>/dev/null | wc -l); "
             f"LC_ALL=C awk -v start={start_line} "
             f"-v start_label={shlex.quote(start_label)} "
@@ -442,10 +442,10 @@ def validate_host_details(alias: Any, body: Mapping[str, Any]) -> dict[str, Any]
     }
 
 
-# Lifted from the Linux original.
-async def host_test(self, token: str) -> HostCandidate:
+# Lifted from the Linux original (HostEnrollmentManager._test).
+async def host_test(self, candidate: HostCandidate) -> HostCandidate:
     from src.tools.hosts.control import _TEST_TIMEOUT, _is_host_key_mismatch, _run_argv, is_local_address, replace, sanitized_diagnostic, time  # noqa: E501, I001
-    candidate = self.get(token)
+    token = candidate.token
     if is_local_address(candidate.address):
         argv = None  # Windows: this computer is checked through its command runner
     else:
@@ -464,6 +464,13 @@ async def host_test(self, token: str) -> HostCandidate:
                 candidate.host_keys,
             )
         )
+        if not legacy:
+            if known_hosts in self._registry_trust_paths():
+                # It was already committed, even if that generation gets
+                # replaced during the SSH await below.
+                self._candidate_trust.pop(known_hosts, None)
+            else:
+                self._candidate_trust[known_hosts] = self._trust_identity(candidate)
         remote = (
             "printf 'odin-host-test '; "
             "case \"$(uname -s)\" in Linux) echo linux;; "
@@ -506,14 +513,20 @@ async def host_test(self, token: str) -> HostCandidate:
         code, output = await (local_host_test(_TEST_TIMEOUT) if argv is None
                               else _run_argv(argv, _TEST_TIMEOUT))
     except TimeoutError:
-        result = {"ok": False, "checked_at": time.time(), "detail": "connection test timed out"}
+        result = {
+            "ok": False, "checked_at": time.time(), "platform": "",
+            "detail": "connection test timed out",
+        }
     else:
         text = sanitized_diagnostic(output)
-        observed = text.rsplit(" ", 1)[-1].strip() if text else ""
-        ok = code == 0 and text.startswith("odin-host-test ") and observed == candidate.os
+        # Windows: this computer's check returns text, a remote one bytes.
+        probe_ran = output.startswith(
+            b"odin-host-test " if isinstance(output, bytes) else "odin-host-test ")
+        observed = text.rsplit(" ", 1)[-1].strip() if probe_ran else ""
+        ok = code == 0 and probe_ran and observed == candidate.os
         if ok:
             detail = "authentication and platform verified"
-        elif code == 0 and text.startswith("odin-host-test "):
+        elif code == 0 and probe_ran:
             detail = sanitized_diagnostic(
                 f"platform mismatch: observed {observed}; selected {candidate.os}"
             )
@@ -546,7 +559,9 @@ async def host_test(self, token: str) -> HostCandidate:
                 candidate.alias, result, host_key_mismatch=mismatch
             )
     candidate = replace(candidate, tested=bool(result["ok"]), test_result=result)
-    self._candidates[token] = candidate
+    # Discard/expiry may occur while SSH is running; do not resurrect it.
+    if token in self._candidates:
+        self._candidates[token] = candidate
     return candidate
 
 
@@ -857,7 +872,7 @@ async def handle_apply_patch(self, inp: dict) -> str | tuple[str, int]:
         "runner=$(mktemp) || exit 1; "
         'plan=$(mktemp) || { rm -f -- "$runner"; exit 1; }; '
         'trap \'rm -f -- "$runner" "$plan"\' EXIT; '
-        'chmod 600 -- "$runner" "$plan" || exit 1; '
+        'chmod -- 600 "$runner" "$plan" || exit 1; '
         f'printf %s {shlex.quote(runner_b64)} | base64 -d > "$runner" || exit 1; '
         f'printf %s {shlex.quote(plan_b64)} | base64 -d > "$plan" || exit 1; '
         f'python3 "$runner" {safe_root} < "$plan"'
@@ -873,7 +888,7 @@ async def handle_apply_patch(self, inp: dict) -> str | tuple[str, int]:
             "runner=$(mktemp) || exit 1; "
             'plan=$(mktemp) || { rm -f -- "$runner"; exit 1; }; '
             'trap \'rm -f -- "$runner" "$plan"\' EXIT; '
-            'chmod 600 -- "$runner" "$plan" || exit 1; '
+            'chmod -- 600 "$runner" "$plan" || exit 1; '
             f'printf %s {shlex.quote(runner_z)} | python3 -c {decoder} > "$runner" || exit 1; '
             f'printf %s {shlex.quote(plan_z)} | python3 -c {decoder} > "$plan" || exit 1; '
             f'python3 "$runner" {safe_root} < "$plan"'
@@ -1111,7 +1126,7 @@ async def handle_http_probe(self, inp: dict) -> str | tuple[str, int]:
 
 # Lifted from the Linux original.
 async def handle_validate_action(self, inp: dict) -> str:
-    from src.tools.handlers.validation import log  # noqa: I001
+    from src.tools.handlers.validation import ContextVar, HostLease, Iterator, contextmanager, log  # noqa: E501, F401, I001
     from src.tools.post_validation import (
         format_report_summary,
         report_as_json,
@@ -1135,6 +1150,24 @@ async def handle_validate_action(self, inp: dict) -> str:
     fmt = str(inp.get("format") or "summary").strip().lower()
 
     governor = getattr(self, "command_governor", None)
+    active_lease: ContextVar[HostLease | None] = ContextVar(
+        "validation_host_lease", default=None,
+    )
+
+    @contextmanager
+    def _bind_host(alias: str) -> Iterator[tuple[str, str, str] | None]:
+        # Pin before building the OS-specific command. Acquiring after the
+        # governor could execute an old-OS probe on a newly published host.
+        lease = self._acquire_host(alias)
+        if lease is None:
+            yield None
+            return
+        with lease:
+            token = active_lease.set(lease)
+            try:
+                yield alias, "", lease.target.os
+            finally:
+                active_lease.reset(token)
 
     async def _exec(
         _address: str,
@@ -1145,6 +1178,9 @@ async def handle_validate_action(self, inp: dict) -> str:
         use_workspace: bool = False,
         use_command_shell: bool = False,
     ) -> tuple[int, str]:
+        lease = active_lease.get()
+        if lease is None or lease.target.alias != _address:
+            raise PermissionError(f"unbound validation host alias: {_address}")
         # Never mutate shared state here — concurrent checks would race.
         # _exec_command accepts a per-call timeout, which is honored
         # directly by the SSH/local primitives without touching self.
@@ -1171,27 +1207,22 @@ async def handle_validate_action(self, inp: dict) -> str:
         # round 10); fixed-shape probes must keep pre-PR cwd semantics so
         # an unusable workspace cannot disable service/process/http/port
         # validation (round 11).
-        # resolve_host returns the alias in its address slot deliberately,
-        # so the generation-bound target is acquired here after the
-        # per-check governor decision.
-        alias = _address
-        lease = self._acquire_host(alias)
-        if lease is None:
-            raise PermissionError(f"unknown host alias: {alias}")
-        with lease:
-            target = lease.target
-            return await lease.run(
-                lambda: self._exec_command(
-                    target.address,
-                    command,
-                    target.ssh_user,
-                    timeout=timeout,
-                    use_workspace=use_workspace,
-                    target=target,
-                    use_command_shell=(use_command_shell
-                                       or is_local_address(target.address)),
-                )
+        # _bind_host returns the alias for governor admission, while this
+        # task-local lease supplies BOTH metadata and exact transport target.
+        # wait_for's child task inherits the context, never a shared alias map.
+        target = lease.target
+        return await lease.run(
+            lambda: self._exec_command(
+                target.address,
+                command,
+                target.ssh_user,
+                timeout=timeout,
+                use_workspace=use_workspace,
+                target=target,
+                use_command_shell=(use_command_shell
+                                   or is_local_address(target.address)),
             )
+        )
 
     # Windows: checks aimed at this computer get Windows probes (windows_validate).
     hosts = VALIDATION_HOSTS.set((local_alias(self), default_host))
@@ -1200,9 +1231,8 @@ async def handle_validate_action(self, inp: dict) -> str:
             raw_checks,
             bundle_name=bundle_name,
             default_host=default_host,
-            resolve_host=lambda alias: (
-                (alias, "", "") if self._resolve_host(alias) is not None else None
-            ),
+            resolve_host=self._resolve_host,
+            bind_host=_bind_host,
             exec_command=_exec,
             grace_seconds=grace_seconds,
             max_parallel=max_parallel,

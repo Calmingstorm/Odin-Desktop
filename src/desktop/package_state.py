@@ -6,6 +6,7 @@ import contextlib
 import hashlib
 import json
 import os
+import shutil
 import sqlite3
 import stat
 import tempfile
@@ -414,6 +415,29 @@ class PackageUpgrade:
             self._verify_backup(current)
             _publish(self.paths.data_dir / STATE_NAME, {**current, "state": "committed"})
             self.record = None
+            _prune_backups(self.paths.data_dir / BACKUPS_NAME, keep=current["backup"])
+
+
+def _prune_backups(root: Path, *, keep: str) -> None:
+    """After a committed upgrade only that upgrade's own backup stays: an older one is a
+    profile from two upgrades back, and every release would otherwise add a full copy.
+
+    Best effort, after the commit: only this module's own backup folders (canonical UUID
+    names, real directories, never a link) go, and one that can't be removed stays for the
+    next commit to try.
+    """
+    try:
+        entries = list(os.scandir(root))
+    except OSError:
+        return
+    for entry in entries:
+        try:
+            canonical = str(uuid.UUID(entry.name)) == entry.name
+            folder = entry.is_dir(follow_symlinks=False) and not entry.is_symlink()
+        except (ValueError, OSError):
+            continue
+        if canonical and folder and entry.name != keep:
+            shutil.rmtree(entry.path, ignore_errors=True)
 
 
 def main(argv=None):

@@ -1306,6 +1306,32 @@ def test_reviewed_adapters_are_independently_permitted_without_new_group(repo, a
     assert checker.validate(repo) == []
 
 
+@pytest.mark.parametrize("expression,admitted", [
+    (checker.REVIEWED_DIRECT_EXCLUSIONS["direct-shared-stores-providers-tools"], True),
+    (checker.REVIEWED_DIRECT_EXCLUSIONS["direct-shared-stores-providers-tools"] + " or gi", False),
+    ("TestSessionsConfigTokenBudget and test_zero_budget", False),
+])
+def test_only_the_reviewed_odin_4_14_exclusion_is_admitted(repo, expression, admitted):
+    """Odin 4.14 (#640): the two rewritten retained cases may be deselected, exactly."""
+    _step6a_group(repo)
+    association = ADAPTER_ASSOCIATIONS[0]
+    _replace_gi_selector(repo, association)
+    assert checker.validate(repo) == []
+    qualification = _read(repo, checker.QUALIFICATION_PATH)
+    group = next(group for group in qualification["groups"] if group["name"] == association[0])
+    group["exclude_expression"] = expression
+    _write(repo, checker.QUALIFICATION_PATH, qualification)
+    assert (checker.validate(repo) == []) is admitted
+    _replace_gi_selector(repo, ADAPTER_ASSOCIATIONS[1])
+    qualification = _read(repo, checker.QUALIFICATION_PATH)
+    other = next(group for group in qualification["groups"]
+                 if group["name"] == ADAPTER_ASSOCIATIONS[1][0])
+    other["exclude_expression"] = (
+        checker.REVIEWED_DIRECT_EXCLUSIONS["direct-shared-stores-providers-tools"])
+    _write(repo, checker.QUALIFICATION_PATH, qualification)
+    assert checker.validate(repo), "the reviewed expression belongs to one group only"
+
+
 @pytest.mark.parametrize("association", ADAPTER_ASSOCIATIONS)
 @pytest.mark.parametrize("mutation", [
     "corrupt_adapter", "missing_adapter", "symlink_adapter", "corrupt_original",

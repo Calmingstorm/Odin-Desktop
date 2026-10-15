@@ -414,3 +414,37 @@ a.release_runtime()
         assert snapshot(paths) == before_rollback
     finally:
         authority.release_runtime()
+
+
+def test_a_committed_upgrade_keeps_only_its_own_backup(profile):
+    """Each release's upgrade backs the profile up before its migrations; a committed upgrade
+    keeps only that backup, so releases don't pile up full copies. Anything that isn't one of
+    this module's own backup folders is left alone."""
+    paths, authority = profile
+    first = PackageUpgrade(paths, authority, "1.0.10")
+    first.prepare()
+    first.commit()
+    older = inspect_profile(paths)["backup"]
+    root = paths.data_dir / BACKUPS_NAME
+    (root / "notes.txt").write_text("not a backup")
+    (root / "not-a-uuid").mkdir()
+    elsewhere = paths.data_dir / "keep-me"
+    elsewhere.mkdir()
+    linked = root / str(uuid.uuid4())
+    linked.symlink_to(elsewhere, target_is_directory=True)
+    second = PackageUpgrade(paths, authority, "1.1.0")
+    second.prepare()
+    record = inspect_profile(paths)
+    assert record["state"] == "pending" and record["package_version"] == "1.1.0"
+    assert (root / older).is_dir()  # the older backup stays until the new one commits
+    second.commit()
+    current = inspect_profile(paths)
+    assert current["state"] == "committed" and current["backup"] == record["backup"]
+    assert sorted(entry.name for entry in root.iterdir()) == sorted(
+        [current["backup"], "notes.txt", "not-a-uuid", linked.name])
+    assert elsewhere.is_dir() and linked.is_symlink()
+    # The same release starting again takes no new backup and keeps this one.
+    third = PackageUpgrade(paths, authority, "1.1.0")
+    third.prepare()
+    assert third.record is None
+    assert inspect_profile(paths)["backup"] == current["backup"]

@@ -4,6 +4,7 @@ import { isBusy, newConversation, select, state } from '../store'
 import ConversationMenu from './ConversationMenu.vue'
 import Icon from './Icon.vue'
 import { unavailableText } from '../capability'
+import { shortcutLabel } from '../shortcuts'
 
 // The menu floats above the page, anchored to its ⋯ button, so the scrolling list can't clip it.
 const menu = ref<{ id: string; top: number; left: number } | null>(null)
@@ -67,10 +68,10 @@ function when(iso: string): string {
         </button>
       </div>
     </div>
-    <button class="conv-search" title="Search all conversations (Ctrl+Shift+F)" :aria-expanded="state.search.open" :aria-controls="state.search.open ? 'conversation-search' : undefined" @click="state.search.open = !state.search.open">
+    <button class="conv-search" :title="`Search all conversations (${shortcutLabel('F', { shift: true })})`" :aria-expanded="state.search.open" :aria-controls="state.search.open ? 'conversation-search' : undefined" @click="state.search.open = !state.search.open">
       <Icon name="search" :size="15" />
       <span class="conv-search-label">Search</span>
-      <kbd aria-hidden="true">Ctrl+Shift+F</kbd>
+      <kbd aria-hidden="true">{{ shortcutLabel('F', { shift: true }) }}</kbd>
     </button>
     <p v-if="state.conversationsUnavailable" class="notice sidebar-notice" role="status">{{ unavailableText('Conversations') }}</p>
     <ul class="conversations">

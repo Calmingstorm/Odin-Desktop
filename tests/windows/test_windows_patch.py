@@ -102,6 +102,35 @@ async def test_a_commit_that_fails_midway_rolls_back(tmp_path):
     assert [p.name for p in tmp_path.iterdir()] == ["keep.txt", "locked.txt"]
 
 
+@pytest.mark.parametrize("source", ["notes.md", "NOTES.md"])
+async def test_a_move_that_only_changes_case_renames_the_entry(tmp_path, source):
+    # NTFS looks names up without case, as APFS does (Odin 4.15, #657).
+    (tmp_path / "notes.md").write_bytes(b"case ok\n")
+    (text, code), _ = await apply(tmp_path, patch(
+        f"*** Update File: {source}", "*** Move to: Notes.md", "@@", "-case ok",
+        "+case renamed"))
+    assert code == 0, text
+    assert [p.name for p in tmp_path.iterdir()] == ["Notes.md"]
+    assert (tmp_path / "Notes.md").read_bytes() == b"case renamed\n"
+
+
+@pytest.mark.parametrize("linked", [True, False], ids=["hard-link", "other-file"])
+@pytest.mark.parametrize("destination", ["b.txt", "B.txt"])
+async def test_another_entry_under_the_destination_name_is_a_collision(tmp_path, linked,
+                                                                       destination):
+    (tmp_path / "a.txt").write_bytes(b"one\n")
+    if linked:
+        os.link(tmp_path / "a.txt", tmp_path / "B.txt")
+    else:
+        (tmp_path / "B.txt").write_bytes(b"one\n")
+    (text, code), _ = await apply(tmp_path, patch(
+        "*** Update File: a.txt", f"*** Move to: {destination}", "@@", "-one", "+two"))
+    assert code == 1 and "Move to target already exists" in text, text
+    assert "rollback" not in text  # refused before any change
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["B.txt", "a.txt"]
+    assert (tmp_path / "a.txt").read_bytes() == b"one\n"
+
+
 def junction(link, target):
     subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True,
                    capture_output=True)

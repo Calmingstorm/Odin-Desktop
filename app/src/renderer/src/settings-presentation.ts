@@ -159,7 +159,7 @@ const PAGE_FIELDS: Record<string, { primary: PresentedField[]; 'more-options': P
   hosts: { primary: [], 'more-options': category('Hosts and access', [
     ['tools.governor.block_critical', 'Block critical commands', 'Block commands classified as critical.'],
     ['tools.governor.block_exfil', 'Block data-exfiltration commands', 'Block commands that could send private data away.'],
-    ['tools.governor.owner_can_override', 'Allow your overrides', 'Let you explicitly approve a blocked command.']
+    ['tools.governor.owner_can_override', 'Let your commands past the governor', 'On: a command the governor would refuse still runs for you, and the override is logged. Off: it is refused.']
   ]) },
   work: { primary: [], 'more-options': category('Work', [
     ['learning.loop_reflection_enabled', 'Learn from loops', 'Let loops save lessons from completed work.'],

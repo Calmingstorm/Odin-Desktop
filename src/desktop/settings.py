@@ -7,7 +7,7 @@ import copy
 import inspect
 import threading
 
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from ..config.apply_registry import (
     REDACTED,
@@ -36,6 +36,7 @@ from .provisioning import fresh_config
 from .secrets import SecretStoreError, secret_call
 
 _MISSING = object()
+_LAX_INTEGER = TypeAdapter(int)
 _PROVIDERS = frozenset(
     {
         "providers.codex.set",
@@ -457,10 +458,17 @@ class SettingsService:
                     }):
                 raise _error("openai_codex.reasoning_effort: invalid reasoning effort")
             for name in ("request_timeout_seconds", "stream_stall_timeout_seconds"):
-                if f"openai_codex.{name}" in paths and isinstance(
-                    candidate["openai_codex"][name], bool
-                ):
+                if f"openai_codex.{name}" not in paths:
+                    continue
+                value = candidate["openai_codex"][name]
+                if isinstance(value, bool):
                     raise _error(f"openai_codex.{name}: must be an integer")
+                # Odin's API parses these two with pydantic's lax integer rule before its
+                # strict save (Odin 4.14, #640): "600.0" or "90" saves as an integer.
+                try:
+                    candidate["openai_codex"][name] = _LAX_INTEGER.validate_python(value)
+                except ValidationError:
+                    raise _error(f"openai_codex.{name}: must be an integer") from None
             if (
                 "openai_codex.agent_reasoning_effort" in paths
                 and candidate["openai_codex"]["agent_reasoning_effort"] == ""
@@ -782,7 +790,11 @@ class SettingsService:
                                 _put(values, tuple(path.split(".")), "")
                     from .ssh_sockets import normalize_config_sockets
 
-                    desired = normalize_config_sockets(Config.model_validate(values), self.paths)
+                    # The saved values passed above with startup compatibility; adding the
+                    # keyring's values must not refuse a legacy numeric value that loads.
+                    desired = normalize_config_sockets(
+                        Config.model_validate(values, context={"startup": True}), self.paths
+                    )
                     values = desired.model_dump(mode="json")
                 except Exception:
                     raise _error(

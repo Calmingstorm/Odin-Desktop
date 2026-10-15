@@ -129,8 +129,8 @@ jobs:
           dmg="$(ls .packaging-candidates/odin-desktop-*-arm64.dmg)"
           mount="$RUNNER_TEMP/odin signed image"
           mkdir -p "$mount"
-          hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$dmg"
-          trap 'hdiutil detach "$mount"' EXIT
+          app/packaging/macos/disk-image.sh attach "$dmg" "$mount"
+          trap 'app/packaging/macos/disk-image.sh detach "$mount"' EXIT
           codesign --verify --deep --strict --verbose=2 "$mount/Odin.app"
           spctl --assess --type execute -vv "$mount/Odin.app" 2>&1 | tee "$RUNNER_TEMP/spctl-app.txt"
           grep -F "source=Notarized Developer ID" "$RUNNER_TEMP/spctl-app.txt"
@@ -146,9 +146,9 @@ jobs:
           mount="$RUNNER_TEMP/odin disk image"
           target="$RUNNER_TEMP/Odin Acceptance/Applications"
           mkdir -p "$mount" "$target"
-          hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$dmg"
+          app/packaging/macos/disk-image.sh attach "$dmg" "$mount"
           ditto "$mount/Odin.app" "$target/Odin.app"
-          hdiutil detach "$mount"
+          app/packaging/macos/disk-image.sh detach "$mount"
           ODIN_MACOS_PACKAGED_APP="$target/Odin.app" ODIN_MACOS_PACKAGED_REVISION="$SOURCE" \
           ODIN_MACOS_PACKAGED_DMG_SHA256="$digest" \
           ODIN_MACOS_PACKAGED_REPORT="$RUNNER_TEMP/macos-signed-acceptance.json" \

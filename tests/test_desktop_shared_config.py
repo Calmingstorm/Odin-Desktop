@@ -37,6 +37,19 @@ def _proof(tree, source):
     )
 
 
+# Odin 4.14 (#640) bounded numeric saves; legacy values load only at startup. Odin changed
+# exactly these setup literals in its own copies of two frozen cases (no assertion changed).
+ODIN_4_14_SETUP_EDITS = {
+    ("multi_provider_schema_boundaries",
+     "test_compatible_profile_legacy_input_and_aliases_have_truthful_totals"):
+        {"90000": 90000, "10000": 10000},
+    ("config_schema_validators", "test_validation_failure_is_systemexit"): {
+        "discord:\n  token: abc\ntools:\n  command_timeout_seconds: 0\n":
+            "discord:\n  token: abc\ntools:\n  command_timeout_seconds: invalid\n",
+    },
+}
+
+
 def _load_corpus(stem, selected=None, *, destination=None):
     path = f"tests/test_{stem}.py"
     archive = ROOT / "maintenance/odin-v4.13.0.tar.gz"
@@ -69,6 +82,15 @@ def _load_corpus(stem, selected=None, *, destination=None):
     class Setup(ast.NodeTransformer):
         def visit_FunctionDef(self, node):
             self.generic_visit(node)
+            odin_4_14 = ODIN_4_14_SETUP_EDITS.get((stem, node.name))
+            if odin_4_14 is not None:
+                replaced = 0
+                for child in ast.walk(node):
+                    if isinstance(child, ast.Constant) and child.value in odin_4_14:
+                        child.value = odin_4_14[child.value]
+                        replaced += 1
+                assert replaced == len(odin_4_14), (stem, node.name)
+                edits.append((node.lineno, "Odin 4.14 (#640) setup literal, as Odin's own copy"))
             profile_suites = {
                 "image_defaults_core", "config_ceiling_migration", "campaign_coverage_core_config"
             }

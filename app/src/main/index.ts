@@ -17,7 +17,7 @@ import { DisplayProfileStore } from './display-profile'
 import { DraftStore } from './drafts'
 import { registerIpc } from './ipc'
 import { DeviceLoginBoundary } from './device-login'
-import { decideSecondInstance, decideWindowClose, parseLaunchFlags, showWhenReady, StartVisibility, type LifecycleState } from './lifecycle'
+import { decideSecondInstance, decideWindowClose, EarlyRequests, parseLaunchFlags, showWhenReady, StartVisibility, type LifecycleState } from './lifecycle'
 import { ConversationIndex, Notifier, loadSettings, mergeSettings, setMuted, type NotificationIntent } from './notifications'
 import { currentPlatform } from './platform'
 import { StartRefused } from './package-ownership'
@@ -56,6 +56,8 @@ if (startRefusal) {
   // No running app: Exit is a no-op, before profile/core construction.
   app.quit()
 } else {
+  // Opens and Exits asked for while a packaged start still checks ownership; run() replays them.
+  const early = new EarlyRequests(app)
   if (app.isPackaged) {
     void (async () => {
       let guardian: Awaited<ReturnType<typeof platform.acquirePackagedApp>> | undefined
@@ -66,7 +68,7 @@ if (startRefusal) {
         // Keep stdin open through real process exit. EOF plus fresh cleanup
         // receipts releases the guardian, not a pre-exit event or bare PID.
         guardian.once('exit', () => app.exit(1))
-        run()
+        run(early)
       } catch (error) {
         guardian?.stdin.end()
         await app.whenReady()
@@ -76,11 +78,14 @@ if (startRefusal) {
       }
     })()
   } else {
-    run()
+    run(early)
   }
 }
 
-function run(): void {
+/** How long an Exit asked for during a packaged start waits for the core it started to become ready. */
+const DEFERRED_EXIT_CORE_WAIT_MS = 60_000
+
+function run(early: EarlyRequests): void {
   const paths = platform.profilePaths()
   platform.ensureProfileDirs(paths)
   platform.ensureToken(paths)
@@ -314,8 +319,19 @@ function run(): void {
     publishAppState()
   })
 
+  // A packaged app's lifetime is admitted before this runs. An Exit asked for while startup still runs waits, at most
+  // a minute from the request: startup starts the core, the core becomes ready (or fails), and the ordinary Exit then
+  // ends the lifetime with the core's cleanup evidence. Ended before the core starts, the admitted lifetime would stay
+  // unconfirmed and the next install would ask for a restart; a cold first start can also outlast Exit's own
+  // readiness wait. If startup settles without starting the core, the Exit runs at once. While an Exit waits, nothing
+  // shows the window. Unpackaged runs admit no lifetime and exit at once, as before.
+  let starting = app.isPackaged
+  let coreStarted = false
+  let deferredExit: number | null = null
+  let deferredExitTimer: ReturnType<typeof setTimeout> | undefined
+
   const showWindow = (): void => {
-    if (lifecycle.quitting) return
+    if (lifecycle.quitting || deferredExit !== null) return
     visibility.request()
     if (!win) return
     if (win.webContents.isCrashed()) void win.loadURL(`${APP_ORIGIN}/index.html`)
@@ -356,7 +372,25 @@ function run(): void {
     },
     exit: (code) => app.exit(code)
   })
-  const exitOdin = async (code = 0): Promise<void> => { await shutdown(code) }
+  const exitOdin = async (code = 0): Promise<void> => {
+    if (starting) {
+      if (deferredExit === null) {
+        deferredExit = code
+        deferredExitTimer = setTimeout(runDeferredExit, DEFERRED_EXIT_CORE_WAIT_MS)
+      }
+      return
+    }
+    await shutdown(code)
+  }
+  const coreStateChanged = (state: string): void => { if (state === 'ready') runDeferredExit() }
+  function runDeferredExit(): void {
+    if (!starting || deferredExit === null) return
+    starting = false
+    clearTimeout(deferredExitTimer)
+    broker.off('state', coreStateChanged)
+    supervisor.off('failed', runDeferredExit)
+    void exitOdin(deferredExit)
+  }
   const sessionMonitor = platform.startSessionMonitor(launch, () => { void exitOdin() })
   const logoutHook = platform.installLogoutHook(launchCommand())
 
@@ -399,6 +433,9 @@ function run(): void {
   })
   // macOS: clicking the Dock icon, or opening the running app again, brings the window back.
   app.on('activate', () => showWindow())
+  const asked = early.release()
+  if (asked === 'exit') void exitOdin()
+  else if (asked === 'open') showWindow()
 
   // Closing every window must never stop Odin (D3); only Exit does.
   app.on('window-all-closed', () => undefined)
@@ -546,8 +583,11 @@ function run(): void {
     })
     windowState = new WindowStateController(win, restored.state, savePersisted, backend)
     // maximize() also shows a hidden window, so where the platform asks, a hidden start keeps it for the first show.
-    if (restored.state.maximized && !visibility.wanted && platform.maximizeOnFirstShow) maximizeOnFirstShow = true
-    else if (restored.state.maximized) win.maximize()
+    // While an Exit waits the window never shows, so it isn't maximized either; its saved state stays maximized.
+    if (restored.state.maximized && deferredExit === null) {
+      if (!visibility.wanted && platform.maximizeOnFirstShow) maximizeOnFirstShow = true
+      else win.maximize()
+    }
     screen.on('display-removed', repairWindow)
     screen.on('display-metrics-changed', displayMetricsChanged)
     win.on('close', (event) => {
@@ -586,7 +626,7 @@ function run(): void {
     })
     // The window background already matches the theme, so showing it before the first paint
     // is safe.
-    showWhenReady(win, () => visibility.wanted && !lifecycle.quitting)
+    showWhenReady(win, () => visibility.wanted && !lifecycle.quitting && deferredExit === null)
     win.webContents.on('render-process-gone', (_event, details) => {
       notificationRouteReady = false
       process.stderr.write(`renderer ended reason=${details.reason}; core remains supervised\n`)
@@ -594,6 +634,7 @@ function run(): void {
     void win.loadURL(`${APP_ORIGIN}/index.html`)
 
     supervisor.start()
+    coreStarted = true
     broker.connect()
     broker.startEvents()
 
@@ -623,6 +664,14 @@ function run(): void {
         }
       )
     } else if (flags.smokeTest) runSmokeTest(win, broker, exitOdin)
+  }).finally(() => {
+    if (!starting) return
+    if (deferredExit === null) starting = false
+    else if (!coreStarted || broker.linkState === 'ready') runDeferredExit()
+    else {
+      broker.on('state', coreStateChanged)
+      supervisor.on('failed', runDeferredExit)
+    }
   })
 }
 
