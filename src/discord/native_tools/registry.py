@@ -231,7 +231,7 @@ def register_native_handlers(dispatcher: NativeToolDispatcher) -> None:
     # no-arg
     d.register("list_schedules", "scheduling", "_handle_list_schedules", "none")
     d.register("list_loops", "agents", "_handle_list_loops", "none")
-    d.register("list_knowledge", "knowledge", "_handle_list_knowledge", "none")
+    d.register("list_knowledge", "knowledge", "_handle_list_knowledge_off_loop", "none")
     # special shapes
     d.register("list_agents", "agents", "_handle_list_agents", "msg_only")
     d.register("ingest_document", "knowledge", "_handle_ingest_document", "author_input")

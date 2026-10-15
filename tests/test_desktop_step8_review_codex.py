@@ -2,6 +2,8 @@
 
 All retained assertions execute through real strict compilation, SSE and replay.
 Five removed-by-design builtin rows retire at case level; read_conversation joins.
+Desktop 1.1.1 mirrors Odin v4.16.0's two edits: the manage_process row supplies
+its per-action payload union, selected by its "action" const.
 """
 from __future__ import annotations
 
@@ -135,4 +137,22 @@ def test_unapproved_helper_change_is_rejected_by_complete_reverse_replay():
                   if isinstance(n, ast.FunctionDef) and n.name == "_encoded_inputs")
     helper.body[-1].value = ast.Dict(keys=[], values=[])
     with pytest.raises(ValueError, match="complete AST reverse replay failed"):
+        candidate.verify(ORIGINAL, tree)
+
+
+def test_manage_process_case_supplies_its_payload_union():
+    case = next(c for c in FROZEN.CASES if c.label == "builtin-manage_process")
+    assert case.supplied == {"payload": case.expected}
+    assert case.expected == {"action": "poll", "pid": 123, "offset": 0, "wait_seconds": 0}
+
+
+@pytest.mark.parametrize("name", ["_populate_wire", "_cases"])
+def test_changed_odin_4_16_hunk_is_rejected(name):
+    tree = copy.deepcopy(ADAPTED)
+    function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name)
+    if name == "_populate_wire":
+        function.body.insert(0, ast.Pass())
+    else:
+        function.body[0].value = ast.List(elts=[], ctx=ast.Load())
+    with pytest.raises(ValueError, match="adapted setup hunk hash mismatch"):
         candidate.verify(ORIGINAL, tree)

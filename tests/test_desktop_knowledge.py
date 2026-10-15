@@ -67,7 +67,7 @@ async def test_same_store_engine_and_persistence(knowledge):
         assert {row["source"] for row in await reopened.handle("knowledge.list", {})} == {
             "tool-source", "management"}
     finally:
-        reopened.close()
+        await reopened.close()
 
 
 @pytest.mark.asyncio
@@ -112,7 +112,7 @@ async def test_ingest_label_does_not_import_and_import_is_explicit(knowledge, tm
         "items": [{"type": "file", "path": str(document)}]})
     assert result["succeeded"] == 1 and result["failed"] == 0
     assert store.get_source_snapshot(document.as_uri()) == "explicit imported document"
-    service.close()  # injected engine remains graph-owned
+    await service.close()  # injected engine remains graph-owned
     assert store.available
 
 
