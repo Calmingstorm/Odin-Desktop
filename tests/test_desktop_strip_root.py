@@ -106,6 +106,44 @@ def test_retained_neutral_modules_byte_identical(path):
         for before, after in substitutions:
             assert expected.count(before) == 1
             expected = expected.replace(before, after, 1)
+    if path == "turn_recorder":
+        # Odin 4.18's own edit: loop reflection runs under its own prompt-cache
+        # ID. Exactly the import and the in_new_session wrapper change.
+        substitutions = (
+            ("from ..llm.secret_scrubber import scrub_output_secrets\n",
+             "from ..llm.cache_session import in_new_session\n"
+             "from ..llm.secret_scrubber import scrub_output_secrets\n"),
+            (
+                '            fire_and_forget(\n'
+                '                self._reflector.reflect_on_operation(\n'
+                '                    user_request=f"[autonomous loop {loop_id}] {prompt[:300]}",\n'
+                '                    tools_used=[d["tool"] for d in tool_details][:20],\n'
+                '                    tool_details=tool_details,\n'
+                '                    final_response=outcome,\n'
+                '                    is_error=is_error,\n'
+                '                    user_id=user_id,\n'
+                '                ),\n'
+                '                name="loop_reflection",\n'
+                '            )\n',
+                '            fire_and_forget(\n'
+                '                in_new_session(\n'
+                '                    self._reflector.reflect_on_operation(\n'
+                '                        user_request='
+                'f"[autonomous loop {loop_id}] {prompt[:300]}",\n'
+                '                        tools_used=[d["tool"] for d in tool_details][:20],\n'
+                '                        tool_details=tool_details,\n'
+                '                        final_response=outcome,\n'
+                '                        is_error=is_error,\n'
+                '                        user_id=user_id,\n'
+                '                    )\n'
+                '                ),\n'
+                '                name="loop_reflection",\n'
+                '            )\n',
+            ),
+        )
+        for before, after in substitutions:
+            assert expected.count(before) == 1
+            expected = expected.replace(before, after, 1)
     assert (ROOT / source).read_text() == expected
 
 
