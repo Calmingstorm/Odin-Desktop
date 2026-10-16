@@ -182,11 +182,19 @@ def test_provider_media_evidence_requires_executor_but_is_not_text_delivery(owne
         def deliver_output(self, text, **kwargs):
             pytest.fail("image must not be treated as text retention")
 
-    image = {"__image_block__": {"type": "image", "data": "evidence"}}
+    image = {"__image_block__": {"type": "image", "source": {
+        "type": "base64", "media_type": "image/png", "data": "evidence"}}}
     executor = Recorder()
     owner_id = configure_retention_recorder(executor, owner_context)
     assert deliver_runtime_result(executor, image, tool_name="read_file",
                                   tool_input={}, user_id=owner_id) is image
+    # Odin 4.17: a marker no provider can deliver is a bounded failure, and
+    # still never text retention.
+    malformed = deliver_runtime_result(
+        executor, {"__image_block__": {"type": "image", "data": "evidence"}},
+        tool_name="read_file", tool_input={}, user_id=owner_id)
+    assert malformed.ok is False and malformed.error == "malformed_image_result"
+    assert "evidence" not in malformed.output
     with pytest.raises(PermissionError, match="authenticated owner request"):
         deliver_runtime_result(executor, image, tool_name="read_file",
                                tool_input={}, user_id="untrusted")
