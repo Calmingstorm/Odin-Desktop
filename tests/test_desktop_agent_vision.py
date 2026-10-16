@@ -152,8 +152,13 @@ async def _closed_stores(tmp_path, core, writer, rfd, wfd) -> bytes:
     if _pending_observers:
         await asyncio.gather(*list(_pending_observers), return_exceptions=True)
     await cleanup(core, writer, rfd, wfd)
-    return b"\n".join(p.read_bytes() for p in sorted(tmp_path.rglob("*"))
-                      if p.is_file() and p.suffix != ".png")
+    return b"\n".join(_kept(tmp_path).values())
+
+
+def _kept(tmp_path) -> dict:
+    """{path: bytes} for every non-fixture file the profile kept."""
+    return {p: p.read_bytes() for p in sorted(tmp_path.rglob("*"))
+            if p.is_file() and p.suffix != ".png"}
 
 
 @pytest.mark.asyncio
@@ -175,28 +180,54 @@ async def test_spawned_agent_sees_analyze_image_as_a_native_image(tmp_path):
             assert all(pixels not in output for output in outputs)
     finally:
         stored = await _closed_stores(tmp_path, core, writer, rfd, wfd)
-    assert b"analyze_image" in stored
     assert pixels.encode() not in stored
+    # The scan above covers stores that really hold this call: the agent's
+    # trajectory and the audit log both name it.
+    kept = _kept(tmp_path)
+    assert any(b"analyze_image" in data for path, data in kept.items()
+               if "agent_trajectories" in path.parts)
+    assert any(b"analyze_image" in data for path, data in kept.items()
+               if path.name == "audit.jsonl")
 
 
 @pytest.mark.asyncio
-async def test_several_image_calls_keep_order_labels_and_pairing(tmp_path):
+async def test_several_image_calls_keep_order_labels_and_pairing(tmp_path, monkeypatch):
     first, first_pixels = fixture(tmp_path, "first.png", (10, 200, 10))
-    second, second_pixels = fixture(tmp_path, "second.png", (10, 10, 200))
+    panels = [fixture(tmp_path, name, rgb)[1]
+              for name, rgb in (("left.png", (10, 10, 200)), ("right.png", (200, 200, 10)))]
     missing = str(tmp_path / "missing.png")
-    provider, core, reader, writer, cid, rfd, wfd = await _agent_session(
-        tmp_path, [analyze(first), analyze(second), analyze(missing)])
+    everything = [first_pixels, *panels]
+    provider, core, reader, writer, cid, rfd, wfd = await _agent_session(tmp_path, [
+        analyze(first), ("analyze_image", {"url": "https://example.test/panels.png"}),
+        analyze(missing)])
+    media = core.engine.deps.native_tools.owners["media"]
+    real = media._handle_analyze_image
+
+    async def panels_or_real(message, inp):
+        if inp.get("url") == "https://example.test/panels.png":
+            # Odin's plural shape: one call, two images and its own text.
+            return {"__image_blocks__": [_block(data) for data in panels],
+                    "__text__": "two panels"}
+        return await real(message, inp)
+
+    monkeypatch.setattr(media, "_handle_analyze_image", panels_or_real)
     try:
         await _run_agent(core, reader, writer, cid)
         continuation = provider.work_requests[1]
-        assert_grouping(continuation, {"call-1": [first_pixels], "call-2": [second_pixels]})
+        assert_grouping(continuation, {"call-1": [first_pixels], "call-2": panels})
         records = _tool_results(continuation)
         assert [r["tool_use_id"] for r in records] == ["call-1", "call-2", "call-3"]
         assert [r["status"] for r in records] == ["succeeded", "succeeded", "failed"]
-        assert first_pixels not in str(records) and second_pixels not in str(records)
+        assert records[1]["content"] == "two panels"
+        assert "No such file or directory" in records[2]["content"]
+        assert not any(data in str(records) for data in everything)
+        for wire in ("codex", "compatible", "kimi", "ollama"):
+            outputs, images = _wire(wire, continuation)
+            assert images == everything
+            assert not any(data in output for output in outputs for data in everything)
     finally:
         stored = await _closed_stores(tmp_path, core, writer, rfd, wfd)
-    assert first_pixels.encode() not in stored and second_pixels.encode() not in stored
+    assert not any(data.encode() in stored for data in everything)
 
 
 @pytest.mark.asyncio

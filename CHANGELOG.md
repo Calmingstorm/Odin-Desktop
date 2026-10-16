@@ -9,8 +9,8 @@
   enters tool result text, saved trajectories, the audit log or the agent's stored result. An agent on a model
   without vision still sends the image; if the provider can't take it, the request fails with the provider's own
   error, and there is no text fallback.
-- **Agents drop images only where a request would otherwise fail.** Images the model has already seen are replaced,
-  oldest first, by a one-line note:
+- **Agents drop images to fit a request only when it would otherwise fail.** While a request is being fitted, images
+  the model has already seen are replaced, oldest first, by a one-line note:
   - when the context budget says the request won't fit and dropping seen images alone makes it fit;
   - when the provider reports a context overflow that no text compaction step can shrink;
   - when a Codex request would be over OpenAI's documented 512 MB limit. Such a request is never sent: it is fitted
@@ -18,6 +18,7 @@
     provider's size limit even without images".
 
   Images the model hasn't seen yet are left out, with a note saying so, only when nothing else makes the request fit.
+  Ordinary history compaction, as before, can also summarize older steps that held images.
 - **The repetition check counts pixels.** Looking at a file again after its picture changed is progress, not a
   repeated call.
 - **A broken image result is a short error.** In agents, loops and scheduled steps, an image result that can't be
