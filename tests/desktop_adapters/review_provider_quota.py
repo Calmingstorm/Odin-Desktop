@@ -1,4 +1,9 @@
-"""Whole frozen quota suite: real keyring/provider/composed-owner setup only."""
+"""Whole frozen quota suite: real keyring/provider/composed-owner setup only.
+
+Plus (Desktop 1.2.1) Odin v4.18's own edit to this file: the quota check names
+Odin, so its pinned header set gains ``originator`` and ``User-Agent``. That one
+assertion is the only inherited assertion allowed to differ.
+"""
 from __future__ import annotations
 
 import ast
@@ -24,7 +29,7 @@ from src.permissions.manager import PermissionManager
 SOURCE_PATH = "tests/test_codex_quota_check.py"
 SOURCE_SHA256 = "f478b1afe910589314a8ea4ffaae91f73edfe09a27debc4455a8252efe0cf462"
 TREE_SHA256 = "43d02810109cf433f71b522945d60b4e251571d48875c67c228012a3be8cc754"
-ADAPTED_TREE_SHA256 = "0f99bc0e40773334d2bee69c5b3a8a8095fc66c1f45b449b5cdb8b4a07cd2143"
+ADAPTED_TREE_SHA256 = "347ccca618dfa4b0e3f462977c3d2f35dc58550323accaf691499c46927a3e0f"
 CORPUS_SHA256 = "ae7381d9f07c8c09773df983b7c2c36c06b0f56e4bca268215f6e339cdfd9a79"
 INHERITED_COUNTS = {"assertions": 45, "cases": 10, "classes": 4}
 SUITES = {"test_codex_quota_check": SOURCE_SHA256}
@@ -49,6 +54,12 @@ HUNKS = (
     ("test_missing_identity_and_http_exception_are_display_safe", 322,
      "f01f5fae4a95c61b1439953b0675d16587956e972adc94ca29ea35e4c31a2629",
      "reset_identity_patch(monkeypatch)"),
+    # Odin v4.18's own assertion edit (the last hunk; see _with_odin_418).
+    ("test_checks_each_stale_account_pinned_shape_and_headers_only", 193,
+     "a1435b7583af7a580dfd446ad3466e6e52ff01e0f487cdc06f68c3d19851615e",
+     'assert set(session.calls[1][1]["headers"]) == {\n'
+     '    "Authorization",\n    "Content-Type",\n    "ChatGPT-Account-Id",\n'
+     '    "Accept-Encoding",\n    "originator",\n    "User-Agent",\n}'),
 )
 _resources = ContextVar("review_quota_resources", default=None)
 HUNK_AFTER_SHA256 = (
@@ -59,7 +70,9 @@ HUNK_AFTER_SHA256 = (
     "56c4879793baf437225d8788dcfdc04a731e345cf8024f8faeeead44b19d4997",
     "143f4390e716d7de2f2e680f83ab933cb13621df52635693c49821397dd1793d",
     "a6f0f5bc745d832f2319242427333d7919701a09956de4d4c471e251d49b7c1c",
+    "6c85e436b2b35aea833c6b448e76676dd761650a9dbdcb380bab1b6559e3397f",
 )
+ODIN_418_HUNKS = 1
 
 
 class TemporaryKeyring:
@@ -154,7 +167,9 @@ def verify_adaptation(original, adapted):
     ).encode()).hexdigest() == CORPUS_SHA256
     assert {key: len(value) for key, value in corpus(original).items()} == INHERITED_COUNTS
     expected = _transform(original)
-    assert corpus(original) == corpus(adapted)
+    # Every inherited assertion, case and class survives, except Odin 4.18's
+    # own one-assertion edit.
+    assert corpus(_with_odin_418(original)) == corpus(adapted)
     assert dump(expected) == dump(adapted)
     assert hashlib.sha256(dump(adapted).encode()).hexdigest() == ADAPTED_TREE_SHA256
     return True
@@ -173,10 +188,15 @@ def reverse_adaptation(tree):
     return copy.deepcopy(original)
 
 
-def _transform(original):
+def _with_odin_418(original):
+    """The inherited corpus with only Odin v4.18's own edit applied."""
+    return _transform(original, HUNKS[-ODIN_418_HUNKS:], HUNK_AFTER_SHA256[-ODIN_418_HUNKS:])
+
+
+def _transform(original, hunks=HUNKS, after_hashes=HUNK_AFTER_SHA256):
     tree = copy.deepcopy(original)
     for (symbol, line, before_hash, replacement), after_hash in zip(
-        HUNKS, HUNK_AFTER_SHA256, strict=True,
+        hunks, after_hashes, strict=True,
     ):
         targets = [node for owner, node in nodes(tree) if owner == symbol
                    and getattr(node, "lineno", None) == line
