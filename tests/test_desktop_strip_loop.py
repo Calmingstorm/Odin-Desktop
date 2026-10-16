@@ -43,8 +43,9 @@ ODIN_417_LOOP_AUDIT = (
 ODIN_418_RUN_WITH_GUARDS = (
     ("            result = await self._run_chat_iterations(st)\n",
      "            # One cache conversation per channel session: every request of\n"
-     "            # this turn (and the next turns) carries the same session ID.\n"
-     "            with bind_session(channel_session_id(str(st._ch_id))):\n"
+     "            # this turn (and the next turns) carries the same session ID. A\n"
+     "            # turn keeps the ID it started with, also when resumed.\n"
+     "            with bind_session(turn_session_id(str(st._ch_id), str(st._req_id))):\n"
      "                result = await self._run_chat_iterations(st)\n"),
 )
 

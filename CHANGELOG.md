@@ -8,12 +8,14 @@
   as the `session_id` header and as `prompt_cache_key`, so OpenAI's backend keeps that conversation's cached prompt
   on one machine. Before this, the app sent no such ID, and most follow-up requests inside a reply re-read the whole
   prompt: in a controlled test, no follow-up request reused any of the previous prompt, and with the ID every one
-  reused all of it (90% of follow-up input cached; 91% was the maximum possible). Cached input costs much less of
-  your plan's usage (OpenAI's rate card bills cached GPT-6.1 Sol input at a twentieth of the uncached rate) and is
-  read faster.
+  reused all of it (90% of follow-up input cached; 91% was the maximum possible). Cached input is read faster, and
+  OpenAI's Codex credit rate card bills it at a twentieth of the uncached rate (GPT-6.1 Sol); OpenAI doesn't publish
+  how included plan limits count it.
   - Each conversation keeps its ID across replies, from history compaction before a reply to the reply after a
     skill hands off. Resetting a conversation's context starts a new ID, and IDs are kept in memory, so restarting
     the app starts new ones too.
+  - A reply keeps the ID it started with, so a preserved request resumed after a context reset never joins the new
+    conversation's cache (Odin 4.18.1).
   - Each spawned agent, loop and background task has its own ID for its whole run, as does each background
     reflection.
   - Image generation and the quota check send no ID.

@@ -13,13 +13,16 @@ import uuid
 import pytest
 
 from src.config.schema import OpenAICompatibleModelProfile
+from src.llm import cache_session
 from src.llm.cache_session import current_session_id
 from src.llm.types import LLMResponse, ToolCall
 from tests.test_desktop_agent_vision import _first_text, _tool_results
 from tests.test_desktop_background_core import cleanup, session
 from tests.test_desktop_core_lifecycle import request
+from tests.test_desktop_engine_services import graph as engine_graph
 from tests.test_desktop_request_core import Provider, settled
 
+integrated_graph = engine_graph
 AGENT = "CACHE-AGENT"
 LOOP = "CACHE-LOOP"
 
@@ -230,3 +233,45 @@ async def test_a_delegated_task_follow_up_has_its_own_id(tmp_path):
     follow_ups = [sid for kind, sid in provider.seen if kind == "chat"]
     assert len(turn_ids) == 1 and None not in turn_ids, provider.seen
     assert len(follow_ups) == 1 and follow_ups[0] not in (None, *turn_ids), provider.seen
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["none", "reset", "reset-and-new-turn", "restart-after-new-turn"])
+async def test_preserved_request_does_not_borrow_new_lineage_cache(integrated_graph, monkeypatch,
+                                                                   mode):
+    """Odin's 1.2.1 review check, adopted: the real suspend/resume path keeps the turn's ID."""
+    from tests.test_desktop_resume import (
+        test_integrated_real_suspension_guarded_resume_and_committed_result,
+    )
+
+    requests, engine, provider, transcript, cid = integrated_graph
+    original = engine.runner._run_chat_iterations
+    seen = []
+
+    async def spy(st):
+        seen.append((st.message.content, st.message.generation,
+                     requests.context_is_current(st.message), current_session_id()))
+        if mode == "restart-after-new-turn" and st.message.content == "NEW LINEAGE INPUT":
+            # As after a restart: the preserved turn's original ID is gone.
+            monkeypatch.setattr(cache_session, "_turn_ids", {})
+        return await original(st)
+
+    monkeypatch.setattr(engine.runner, "_run_chat_iterations", spy)
+    # The existing case drives the real request service, suspend and checkpoint,
+    # resume control, runner and transcript accounting throughout.
+    flow = "reset-and-new-turn" if mode == "restart-after-new-turn" else mode
+    await test_integrated_real_suspension_guarded_resume_and_committed_result(
+        integrated_graph, False, flow)
+    original_turn = next(row for row in seen if row[1] == 1)
+    resumed = next(row for row in seen if row[1] == 2)
+    assert original_turn[3] is not None and resumed[3] is not None, seen
+    if mode == "restart-after-new-turn":
+        fresh = next(row for row in seen if row[0] == "NEW LINEAGE INPUT")
+        # Its original ID unknown, the resumed turn gets its own, never the new lineage's.
+        assert resumed[3] not in (original_turn[3], fresh[3]), seen
+        return
+    assert resumed[3] == original_turn[3], seen
+    if mode == "reset-and-new-turn":
+        fresh = next(row for row in seen if row[0] == "NEW LINEAGE INPUT")
+        assert resumed[2] is False and fresh[2] is True
+        assert fresh[3] not in (None, original_turn[3]), seen
