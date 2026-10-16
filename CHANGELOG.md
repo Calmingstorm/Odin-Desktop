@@ -11,9 +11,11 @@
   reused all of it (90% of follow-up input cached; 91% was the maximum possible). Cached input costs much less of
   your plan's usage (OpenAI's rate card bills cached GPT-6.1 Sol input at a twentieth of the uncached rate) and is
   read faster.
-  - Each conversation keeps its ID across replies. Resetting a conversation's context starts a new ID, and IDs are
-    kept in memory, so restarting the app starts new ones too.
-  - Each spawned agent and each loop has its own ID for its whole run.
+  - Each conversation keeps its ID across replies, from history compaction before a reply to the reply after a
+    skill hands off. Resetting a conversation's context starts a new ID, and IDs are kept in memory, so restarting
+    the app starts new ones too.
+  - Each spawned agent, loop and background task has its own ID for its whole run, as does each background
+    reflection.
   - Image generation and the quota check send no ID.
 - **The app names itself on ChatGPT requests.** Every request to OpenAI's ChatGPT backend now sends
   `originator: odin` and `User-Agent: odin (<os>; <arch>)` instead of no originator and the HTTP library's default

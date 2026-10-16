@@ -32,6 +32,7 @@ from ..discord.response_guards import StuckLoopTracker, scrub_response_secrets
 from ..discord.tool_catalog import ToolCatalog
 from ..discord.tool_loop import ToolLoopDeps, ToolLoopRunner
 from ..discord.turn_recorder import TurnRecorder
+from ..llm.cache_session import bind_session, channel_session_id, in_new_session
 from ..llm.system_prompt import register_user_presets
 from ..odin_log import get_logger
 from ..sessions.manager import CHAT_RESPONSE_MAX_CHARS, summarize_tool_response
@@ -349,33 +350,41 @@ class EngineServices:
         content = message.content if content is None else content
         d.sessions.add_message(cid, "user", f"[{message.owner_name or uid}]: {content}", user_id=uid)
         try:
-            trace = d.turn_recorder._new_context_trace()
-            if trace is None:
-                prompt = d.prompt_builder.build_full_prompt(
-                    conversation_id=cid, user_id=uid, query=content)
-                history = await d.sessions.get_task_history(cid, max_messages=160, current_query=content)
-            else:
-                with trace.phase("system_prompt"):
-                    prompt = d.prompt_builder.build_full_prompt(
-                        conversation_id=cid, user_id=uid, query=content, trace=trace)
-                with trace.phase("history"):
-                    history = await d.sessions.get_task_history(
-                        cid, max_messages=160, current_query=content, trace=trace)
-            if image_blocks and history and history[-1]["role"] == "user":
-                text = history[-1]["content"]
-                history[-1] = {"role": "user", "content": list(image_blocks) + [
-                    {"type": "text", "text": text if isinstance(text, str) else str(text)}]}
-            response, sent, error, tools, handoff = await self.runner.run(
-                message, history, system_prompt_override=prompt, trace=trace)
-            if handoff and not error and d.llm_gateway.active_client:
-                response, sent, error = await self._handoff(message, content, response)
-            return scrub_response_secrets(response), sent, error, tools, handoff
+            # One cache conversation per conversation, around the whole turn:
+            # history compaction, the tool loop and a skill hand-off reply.
+            with bind_session(channel_session_id(cid)):
+                return await self._run_turn(message, content, image_blocks)
         except BaseException:
             d.channel_state.pending_files.pop(cid, None)
             d.sessions.remove_last_message(cid, "user")
             raise
         finally:
             await d.delivery.set_status(None, task_end=True)
+
+    async def _run_turn(self, message, content, image_blocks):
+        d = self.deps
+        cid, uid = message.conversation_id, message.owner_id
+        trace = d.turn_recorder._new_context_trace()
+        if trace is None:
+            prompt = d.prompt_builder.build_full_prompt(
+                conversation_id=cid, user_id=uid, query=content)
+            history = await d.sessions.get_task_history(cid, max_messages=160, current_query=content)
+        else:
+            with trace.phase("system_prompt"):
+                prompt = d.prompt_builder.build_full_prompt(
+                    conversation_id=cid, user_id=uid, query=content, trace=trace)
+            with trace.phase("history"):
+                history = await d.sessions.get_task_history(
+                    cid, max_messages=160, current_query=content, trace=trace)
+        if image_blocks and history and history[-1]["role"] == "user":
+            text = history[-1]["content"]
+            history[-1] = {"role": "user", "content": list(image_blocks) + [
+                {"type": "text", "text": text if isinstance(text, str) else str(text)}]}
+        response, sent, error, tools, handoff = await self.runner.run(
+            message, history, system_prompt_override=prompt, trace=trace)
+        if handoff and not error and d.llm_gateway.active_client:
+            response, sent, error = await self._handoff(message, content, response)
+        return scrub_response_secrets(response), sent, error, tools, handoff
 
     async def _handoff(self, message, content, response):
         d, cid, uid = self.deps, message.conversation_id, message.owner_id
@@ -441,8 +450,8 @@ class EngineServices:
         d.housekeeping.maybe_cleanup()
         if tools:
             details = d.channel_state.last_op_details.pop(cid, None)
-            fire_and_forget(d.turn_recorder._operational_reflection(
-                message.content, tools, response, error, message.owner_id, tool_details=details),
+            fire_and_forget(in_new_session(d.turn_recorder._operational_reflection(
+                message.content, tools, response, error, message.owner_id, tool_details=details)),
                 name="operational_reflection")
 
 
