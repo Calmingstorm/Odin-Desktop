@@ -5079,16 +5079,16 @@
       ]
     },
     {
-      "after_sha256": "392b48057eb581d19a96b044c2d92833eb973d668ba0a0782d4edbe6e691d46b",
+      "after_sha256": "bd3e697756691f10488a0cbbf4fb2243625690dd20b35de9685f05b0f8a85d41",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "1e587ecfd40b4d7ada409c23fa118aa798b70275d7ba8a439f1e009a5c5ef76f",
-      "contract": "Persist agent tool inputs with neutral privacy scrubbing. | 1.2.0: Seen images are dropped oldest first only when a request would otherwise fail; useful text rungs run before images on a provider overflow; Codex size refusals are fitted (seen, rungs, unseen) or the iteration fails; omissions are counted.",
+      "contract": "Persist agent tool inputs with neutral privacy scrubbing. | 1.2.0: Seen images are dropped oldest first only when a request would otherwise fail; useful text rungs run before images on a provider overflow; Codex size refusals are fitted (seen, rungs, unseen) or the iteration fails; omissions are counted. | 1.2.1: Odin 4.18's decorator only.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Manager algorithms/budgets unchanged; computer/email/MCP redaction implementation retained. | 1.2.0: A request that fits is sent unchanged; a request recovered by dropping images publishes no character latch or window evidence.",
+      "invariant": "Manager algorithms/budgets unchanged; computer/email/MCP redaction implementation retained. | 1.2.0: A request that fits is sent unchanged; a request recovered by dropping images publishes no character latch or window evidence. | 1.2.1: An agent never sends the parent conversation's ID; all of one agent's requests share its ID.",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Odin to Desktop",
       "owner": "Odin",
@@ -5098,6 +5098,12 @@
           "new_base64": "",
           "old_base64": "ZnJvbSAuLmRpc2NvcmQudG9vbF9sb29wX2hlbHBlcnMgaW1wb3J0IF9zY3J1Yl90b29sX2lucHV0X2Zvcl9zdG9yYWdlCg==",
           "start": 564
+        },
+        {
+          "end": 692,
+          "new_base64": "ZnJvbSAuLmxsbS5jYWNoZV9zZXNzaW9uIGltcG9ydCB3aXRoX25ld19zZXNzaW9uCg==",
+          "old_base64": "",
+          "start": 692
         },
         {
           "end": 959,
@@ -5110,6 +5116,12 @@
           "new_base64": "ZnJvbSAuIGltcG9ydCBpbWFnZV9yZXRlbnRpb24K",
           "old_base64": "",
           "start": 1007
+        },
+        {
+          "end": 55318,
+          "new_base64": "QHdpdGhfbmV3X3Nlc3Npb24K",
+          "old_base64": "",
+          "start": 55318
         },
         {
           "end": 87756,
@@ -5191,7 +5203,7 @@
         }
       ],
       "path": "src/agents/manager.py",
-      "reason": "Imports _scrub_tool_input_for_storage from neutral storage_redaction instead of discord.tool_loop_helpers. | 1.2.0: Odin 4.17 failure-boundary image retention for spawned agents (src/agents/image_retention.py), byte-identical to Odin v4.17.0 apart from Desktop's existing storage_redaction import.",
+      "reason": "Imports _scrub_tool_input_for_storage from neutral storage_redaction instead of discord.tool_loop_helpers. | 1.2.0: Odin 4.17 failure-boundary image retention for spawned agents (src/agents/image_retention.py), byte-identical to Odin v4.17.0 apart from Desktop's existing storage_redaction import. | 1.2.1: Odin 4.18: each spawned agent run has its own cache ID (with_new_session on _run_agent).",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -5201,11 +5213,15 @@
       "test_sha256": {
         "tests/test_agent_native_vision.py": "79386a6e8efeab81cbb886701926a8c19806f6af68052d181f23539dbd2721bc",
         "tests/test_agent_transcript_contract.py": "2f0980cf7385abab6fdb4d35efaca2198c2bbe1d3e35b0c5a7bc7943067fc7d0",
+        "tests/test_codex_cache_session.py": "5f367ccbab33f5fad6569128d5ead04b515a7c2f09750817ed60e95f8bc2d8d8",
+        "tests/test_desktop_cache_session.py": "9f6c73f537bba613eb59cbda602f2c6e4fc6d477e523224bf3e70ecea0c1fcdf",
         "tests/test_desktop_core_privacy.py": "175e6089b1de8c13b4c8825a4b66cc3cc1c72be605fdebc83763aec55b035e0a"
       },
       "tests": [
         "tests/test_agent_native_vision.py",
         "tests/test_agent_transcript_contract.py",
+        "tests/test_codex_cache_session.py",
+        "tests/test_desktop_cache_session.py",
         "tests/test_desktop_core_privacy.py"
       ]
     },
@@ -19354,16 +19370,16 @@
       ]
     },
     {
-      "after_sha256": "8e3da29e2dc8c21a0616217a6f4cee997d6f6741bd471e057527335cf7e72fa4",
+      "after_sha256": "e7b7fd8ef01ac96c2626044f4b43476d3a00c16242331e3e4f04d71b0977dcfc",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "931d27a9f7eb57d9c59b978dc403d2764ecc3c608de659df5c552f526f721e11",
-      "contract": "PR42 provenance: D18 changes Channel: #<parent> to Conversation: <name>; retained autonomous budgets prompts completion and dispatch logic remain, and conversation prompt parameter replaces removed channel API. | Main lifecycle provenance: phase-2/requests-delivery provenance: Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does. Conversation: <name> replaces Channel: #<parent> exactly under D18.\n\nphase-2/conversations provenance: D18 prompt-changes part D changes Channel: #<name> and Channel: #<parent> \u2192 thread: <name> to Conversation: <name>; no other preamble clauses change. Existing durable admission and output wiring remain Phase 2 gates. This round refreshes evidence digests only. | D18 changes Channel: #<parent> to Conversation: <name>; retained autonomous budgets prompts completion and dispatch logic remain, and conversation prompt parameter replaces removed channel API. | phase-2/requests-delivery provenance: Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does. Conversation: <name> replaces Channel: #<parent> exactly under D18.\n\nphase-2/conversations provenance: D18 prompt-changes part D changes Channel: #<name> and Channel: #<parent> \u2192 thread: <name> to Conversation: <name>; no other preamble clauses change. Existing durable admission and output wiring remain Phase 2 gates. This round refreshes evidence digests only.; PR35 preserved contract lineage: Stack HEAD: HEAD: Existing phase orchestrators and guards remain; Conversation: <name> replaces Channel: #<parent> exactly under D18. Uncertain audit metadata and settled detail publication do not affect tool execution.; Reset accepted during work; old outputs visible but excluded from post-reset model context. origin/main: D18 prompt-changes part D changes Channel: #<name> and Channel: #<parent> \u2192 thread: <name> to Conversation: <name>; no other preamble clauses change. Existing durable admission and output wiring remain Phase 2 gates. This round refreshes evidence digests only. Controls-resume base: Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does. Conversation: <name> replaces Channel: #<parent> exactly under D18. Main integration: phase-2/requests-delivery provenance: Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does. Conversation: <name> replaces Channel: #<parent> exactly under D18.\n\nphase-2/conversations provenance: D18 prompt-changes part D changes Channel: #<name> and Channel: #<parent> \u2192 thread: <name> to Conversation: <name>; no other preamble clauses change. Existing durable admission and output wiring remain Phase 2 gates. This round refreshes evidence digests only. Main integration: phase-2/requests-delivery provenance: Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does. Conversation: <name> replaces Channel: #<parent> exactly under D18.\n\nphase-2/conversations provenance: D18 prompt-changes part D changes Channel: #<name> and Channel: #<parent> \u2192 thread: <name> to Conversation: <name>; no other preamble clauses change. Existing durable admission and output wiring remain Phase 2 gates. This round refreshes evidence digests only. | 1.2.0: Odin 4.17's _audit_loop_tool_outcome hunk, pinned exactly by tests/test_desktop_strip_loop.py.",
+      "contract": "PR42 provenance: D18 changes Channel: #<parent> to Conversation: <name>; retained autonomous budgets prompts completion and dispatch logic remain, and conversation prompt parameter replaces removed channel API. | Main lifecycle provenance: phase-2/requests-delivery provenance: Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does. Conversation: <name> replaces Channel: #<parent> exactly under D18.\n\nphase-2/conversations provenance: D18 prompt-changes part D changes Channel: #<name> and Channel: #<parent> \u2192 thread: <name> to Conversation: <name>; no other preamble clauses change. Existing durable admission and output wiring remain Phase 2 gates. This round refreshes evidence digests only. | D18 changes Channel: #<parent> to Conversation: <name>; retained autonomous budgets prompts completion and dispatch logic remain, and conversation prompt parameter replaces removed channel API. | phase-2/requests-delivery provenance: Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does. Conversation: <name> replaces Channel: #<parent> exactly under D18.\n\nphase-2/conversations provenance: D18 prompt-changes part D changes Channel: #<name> and Channel: #<parent> \u2192 thread: <name> to Conversation: <name>; no other preamble clauses change. Existing durable admission and output wiring remain Phase 2 gates. This round refreshes evidence digests only.; PR35 preserved contract lineage: Stack HEAD: HEAD: Existing phase orchestrators and guards remain; Conversation: <name> replaces Channel: #<parent> exactly under D18. Uncertain audit metadata and settled detail publication do not affect tool execution.; Reset accepted during work; old outputs visible but excluded from post-reset model context. origin/main: D18 prompt-changes part D changes Channel: #<name> and Channel: #<parent> \u2192 thread: <name> to Conversation: <name>; no other preamble clauses change. Existing durable admission and output wiring remain Phase 2 gates. This round refreshes evidence digests only. Controls-resume base: Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does. Conversation: <name> replaces Channel: #<parent> exactly under D18. Main integration: phase-2/requests-delivery provenance: Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does. Conversation: <name> replaces Channel: #<parent> exactly under D18.\n\nphase-2/conversations provenance: D18 prompt-changes part D changes Channel: #<name> and Channel: #<parent> \u2192 thread: <name> to Conversation: <name>; no other preamble clauses change. Existing durable admission and output wiring remain Phase 2 gates. This round refreshes evidence digests only. Main integration: phase-2/requests-delivery provenance: Trusted Desktop request admission may run the actual retained loop without optional checkpoints, as Odin does. Conversation: <name> replaces Channel: #<parent> exactly under D18.\n\nphase-2/conversations provenance: D18 prompt-changes part D changes Channel: #<name> and Channel: #<parent> \u2192 thread: <name> to Conversation: <name>; no other preamble clauses change. Existing durable admission and output wiring remain Phase 2 gates. This round refreshes evidence digests only. | 1.2.0: Odin 4.17's _audit_loop_tool_outcome hunk, pinned exactly by tests/test_desktop_strip_loop.py. | 1.2.1: Odin 4.18's _run_with_guards hunk: bind_session(channel_session_id(st._ch_id)) around _run_chat_iterations.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "PR42 provenance: No message proxy authority, unqualified computer capability or effect replay; foreground runner guards remain. | Main lifecycle provenance: phase-2/requests-delivery provenance: Request assertion, D18 preamble and all phase orchestration, guard/classifier/governor/budget bodies remain unchanged.\n\nphase-2/conversations provenance: Preserve chat/autonomous policy asymmetries, untouched phase bodies, scoped tools and cancellation/durability behavior; D18 approves only the context line, not inherited-context wrappers or novel diagnostics. Helper qualification does not enable requests or authorize computer input. | No message proxy authority, unqualified computer capability or effect replay; foreground runner guards remain. | phase-2/requests-delivery provenance: Request assertion, D18 preamble and all phase orchestration, guard/classifier/governor/budget bodies remain unchanged.\n\nphase-2/conversations provenance: Preserve chat/autonomous policy asymmetries, untouched phase bodies, scoped tools and cancellation/durability behavior; D18 approves only the context line, not inherited-context wrappers or novel diagnostics. Helper qualification does not enable requests or authorize computer input.; PR35 preserved contract lineage: Stack HEAD: HEAD: Uncomposed execution remains inert; no simplified runner, completion or budget path.; Delete remains busy; generation changes do not alter admitted context lineage. origin/main: Preserve chat/autonomous policy asymmetries, untouched phase bodies, scoped tools and cancellation/durability behavior; D18 approves only the context line, not inherited-context wrappers or novel diagnostics. Helper qualification does not enable requests or authorize computer input. Controls-resume base: Request assertion, D18 preamble and all phase orchestration, guard/classifier/governor/budget bodies remain unchanged. Main integration: phase-2/requests-delivery provenance: Request assertion, D18 preamble and all phase orchestration, guard/classifier/governor/budget bodies remain unchanged.\n\nphase-2/conversations provenance: Preserve chat/autonomous policy asymmetries, untouched phase bodies, scoped tools and cancellation/durability behavior; D18 approves only the context line, not inherited-context wrappers or novel diagnostics. Helper qualification does not enable requests or authorize computer input. Main integration: phase-2/requests-delivery provenance: Request assertion, D18 preamble and all phase orchestration, guard/classifier/governor/budget bodies remain unchanged.\n\nphase-2/conversations provenance: Preserve chat/autonomous policy asymmetries, untouched phase bodies, scoped tools and cancellation/durability behavior; D18 approves only the context line, not inherited-context wrappers or novel diagnostics. Helper qualification does not enable requests or authorize computer input. | 1.2.0: Loop audit details never carry image data.",
+      "invariant": "PR42 provenance: No message proxy authority, unqualified computer capability or effect replay; foreground runner guards remain. | Main lifecycle provenance: phase-2/requests-delivery provenance: Request assertion, D18 preamble and all phase orchestration, guard/classifier/governor/budget bodies remain unchanged.\n\nphase-2/conversations provenance: Preserve chat/autonomous policy asymmetries, untouched phase bodies, scoped tools and cancellation/durability behavior; D18 approves only the context line, not inherited-context wrappers or novel diagnostics. Helper qualification does not enable requests or authorize computer input. | No message proxy authority, unqualified computer capability or effect replay; foreground runner guards remain. | phase-2/requests-delivery provenance: Request assertion, D18 preamble and all phase orchestration, guard/classifier/governor/budget bodies remain unchanged.\n\nphase-2/conversations provenance: Preserve chat/autonomous policy asymmetries, untouched phase bodies, scoped tools and cancellation/durability behavior; D18 approves only the context line, not inherited-context wrappers or novel diagnostics. Helper qualification does not enable requests or authorize computer input.; PR35 preserved contract lineage: Stack HEAD: HEAD: Uncomposed execution remains inert; no simplified runner, completion or budget path.; Delete remains busy; generation changes do not alter admitted context lineage. origin/main: Preserve chat/autonomous policy asymmetries, untouched phase bodies, scoped tools and cancellation/durability behavior; D18 approves only the context line, not inherited-context wrappers or novel diagnostics. Helper qualification does not enable requests or authorize computer input. Controls-resume base: Request assertion, D18 preamble and all phase orchestration, guard/classifier/governor/budget bodies remain unchanged. Main integration: phase-2/requests-delivery provenance: Request assertion, D18 preamble and all phase orchestration, guard/classifier/governor/budget bodies remain unchanged.\n\nphase-2/conversations provenance: Preserve chat/autonomous policy asymmetries, untouched phase bodies, scoped tools and cancellation/durability behavior; D18 approves only the context line, not inherited-context wrappers or novel diagnostics. Helper qualification does not enable requests or authorize computer input. Main integration: phase-2/requests-delivery provenance: Request assertion, D18 preamble and all phase orchestration, guard/classifier/governor/budget bodies remain unchanged.\n\nphase-2/conversations provenance: Preserve chat/autonomous policy asymmetries, untouched phase bodies, scoped tools and cancellation/durability behavior; D18 approves only the context line, not inherited-context wrappers or novel diagnostics. Helper qualification does not enable requests or authorize computer input. | 1.2.0: Loop audit details never carry image data. | 1.2.1: Turns of one conversation share one ID until its context is reset; the binding ends with the turn.",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Odin to Desktop",
       "owner": "Odin",
@@ -19375,10 +19391,16 @@
           "start": 80
         },
         {
-          "end": 1688,
+          "end": 1689,
           "new_base64": "",
-          "old_base64": "CmltcG9ydCBkaXNjb3JkCg==",
-          "start": 1672
+          "old_base64": "aW1wb3J0IGRpc2NvcmQKCg==",
+          "start": 1673
+        },
+        {
+          "end": 1991,
+          "new_base64": "ZnJvbSAuLmxsbS5jYWNoZV9zZXNzaW9uIGltcG9ydCBiaW5kX3Nlc3Npb24sIGNoYW5uZWxfc2Vzc2lvbl9pZAo=",
+          "old_base64": "",
+          "start": 1991
         },
         {
           "end": 3460,
@@ -19535,6 +19557,12 @@
           "new_base64": "ICAgICAgICBpZiBub3QgY2FsbGFibGUoZ2V0YXR0cihzZWxmLCAiX2Fzc2VydF9yZXF1ZXN0IiwgTm9uZSkpOgogICAgICAgICAgICBfcmVxdWlyZV9waGFzZTJfd2lyaW5nKCkKICAgICAgICBzZWxmLl9hc3NlcnRfcmVxdWVzdChzdC5tZXNzYWdlKQo=",
           "old_base64": "",
           "start": 34975
+        },
+        {
+          "end": 36531,
+          "new_base64": "ICAgICAgICAgICAgIyBPbmUgY2FjaGUgY29udmVyc2F0aW9uIHBlciBjaGFubmVsIHNlc3Npb246IGV2ZXJ5IHJlcXVlc3Qgb2YKICAgICAgICAgICAgIyB0aGlzIHR1cm4gKGFuZCB0aGUgbmV4dCB0dXJucykgY2FycmllcyB0aGUgc2FtZSBzZXNzaW9uIElELgogICAgICAgICAgICB3aXRoIGJpbmRfc2Vzc2lvbihjaGFubmVsX3Nlc3Npb25faWQoc3RyKHN0Ll9jaF9pZCkpKToKICAgICAgICAgICAgICAgIHJlc3VsdCA9IGF3YWl0IHNlbGYuX3J1bl9jaGF0X2l0ZXJhdGlvbnMoc3QpCg==",
+          "old_base64": "ICAgICAgICAgICAgcmVzdWx0ID0gYXdhaXQgc2VsZi5fcnVuX2NoYXRfaXRlcmF0aW9ucyhzdCkK",
+          "start": 36474
         },
         {
           "end": 48554,
@@ -19700,7 +19728,7 @@
         }
       ],
       "path": "src/discord/tool_loop.py",
-      "reason": "PR48 + main (#62): Merge of #48 with main: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py | 6A provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. | Parent revalidates the named main/6A merge and refreshed evidence bytes; all records remain pending independent review. | PR48 review1 refreshes only evidence digest for the explicitly repaired native scheduling catalog expectation; production bytes unchanged. | PR48 round1 exact merged bytes and evidence revalidated; not independent approval. | Merge of #58 with main: Merge of #42 with step 6B and main #40: PR42 provenance: Restore autonomous iteration execution with sealed request envelopes and background dispatch authority checks while preserving approved D18 preamble provenance. | Main lifecycle provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Explicit PR42/main key-union merge; both sides contracts and named tests retained. Four composed source files are independently resolved, not wholesale side selection. | Merge of #37 with main after #40: Restore autonomous iteration execution with sealed request envelopes and background dispatch authority checks while preserving approved D18 preamble provenance. PR37 integration: capture actual merged main/PR37 bytes and current named evidence; no qualification or independent approval claim. | Merge of #40 with main after #35/#61/#71/#72/#73: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py | Merged origin/main contract: PR38 provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.\n\nCurrent-main provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. | Latest main contract: PR38 provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.\n\nCurrent-main provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. | Latest main contract: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention.\n\n[origin/main metadata preserved]\nPR38 provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.\n\nCurrent-main provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. | phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR35 preserved contract lineage: Stack HEAD: HEAD: Replace inert Phase-2 gates with trusted request assertion/admission callbacks and passive tool projection; retain approved D18 conversation-label adaptation.; PR18 P2 review: active resets pin execution lineage, preserve admitted running context, fence late outputs, seed queued work on current context and preserve newer cache during old checkpoint resume origin/main: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged. Controls-resume base: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble. Main integration: PR38 provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.\n\nCurrent-main provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. Main integration: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention.\n\n[origin/main metadata preserved]\nPR38 provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.\n\nCurrent-main provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. | Merge of #62 with main: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. Actual merged main6A/PR37 durable work admission bytes and skill delivery integration; both original owners preserved. | Round E named-evidence revalidation: inherited source bytes and semantic contract unchanged; shared Desktop tests add explicit trusted tool-publication author assertions and generic notice preservation. Records remain pending independent review. | 1.2.0: Odin 4.17: the loop audit detail renders an unreadable image marker with media_safe_text, never str().",
+      "reason": "PR48 + main (#62): Merge of #48 with main: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py | 6A provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. | Parent revalidates the named main/6A merge and refreshed evidence bytes; all records remain pending independent review. | PR48 review1 refreshes only evidence digest for the explicitly repaired native scheduling catalog expectation; production bytes unchanged. | PR48 round1 exact merged bytes and evidence revalidated; not independent approval. | Merge of #58 with main: Merge of #42 with step 6B and main #40: PR42 provenance: Restore autonomous iteration execution with sealed request envelopes and background dispatch authority checks while preserving approved D18 preamble provenance. | Main lifecycle provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Explicit PR42/main key-union merge; both sides contracts and named tests retained. Four composed source files are independently resolved, not wholesale side selection. | Merge of #37 with main after #40: Restore autonomous iteration execution with sealed request envelopes and background dispatch authority checks while preserving approved D18 preamble provenance. PR37 integration: capture actual merged main/PR37 bytes and current named evidence; no qualification or independent approval claim. | Merge of #40 with main after #35/#61/#71/#72/#73: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py | Merged origin/main contract: PR38 provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.\n\nCurrent-main provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. | Latest main contract: PR38 provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.\n\nCurrent-main provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. | Latest main contract: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention.\n\n[origin/main metadata preserved]\nPR38 provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.\n\nCurrent-main provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. | phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR35 preserved contract lineage: Stack HEAD: HEAD: Replace inert Phase-2 gates with trusted request assertion/admission callbacks and passive tool projection; retain approved D18 conversation-label adaptation.; PR18 P2 review: active resets pin execution lineage, preserve admitted running context, fence late outputs, seed queued work on current context and preserve newer cache during old checkpoint resume origin/main: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged. Controls-resume base: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble. Main integration: PR38 provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.\n\nCurrent-main provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. Main integration: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention.\n\n[origin/main metadata preserved]\nPR38 provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.\n\nCurrent-main provenance: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. | Merge of #62 with main: phase-2/requests-delivery provenance: Remove Desktop-only refusal of an admitted legacy disabled durability handle under D17 while preserving the approved D18 conversation preamble.\n\nphase-2/conversations provenance: Refresh exact evidence-test digests after the immutable historical membership assertion accounts for restored suites; retained loop source and all D18 wording bytes are unchanged.; PR32/main integration behavioral evidence expanded in tests/test_desktop_engine_services.py; unchanged source bytes recaptured only for those explicit evidence digests, no approval.; Integration correction: sorted test imports or bind exact native fixture owner into shared engine; refreshed only explicitly changed behavioral evidence tests/test_desktop_engine_services.py Main2 final adaptation/evidence: Tool-loop bytes unchanged; actual request-graph test now composes a shared MCP manager and proves its early producer barrier, including failure retention. Actual merged main6A/PR37 durable work admission bytes and skill delivery integration; both original owners preserved. | Round E named-evidence revalidation: inherited source bytes and semantic contract unchanged; shared Desktop tests add explicit trusted tool-publication author assertions and generic notice preservation. Records remain pending independent review. | 1.2.0: Odin 4.17: the loop audit detail renders an unreadable image marker with media_safe_text, never str(). | 1.2.1: Odin 4.18: every chat turn (fresh and resumed) runs under its conversation's cache ID; in Desktop the channel is the conversation.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -19709,8 +19737,10 @@
       "state": "pending",
       "test_sha256": {
         "tests/desktop_adapters/test_phase2_runner_characterization.py": "a048b1c644b83f769d7b60ab0f5a8baf01f02e44948398a90ceeabc06aae4f35",
+        "tests/test_codex_cache_session.py": "5f367ccbab33f5fad6569128d5ead04b515a7c2f09750817ed60e95f8bc2d8d8",
         "tests/test_desktop_agent_vision.py": "1ed206f968303c7fa092b732ed98020c573d926140aad07a0ee4df4e787a4ebe",
         "tests/test_desktop_background_core.py": "695146bb16e1ee12f5ca27620e18b30a2f5abf3e77ee8e889a4ba7365ce435b1",
+        "tests/test_desktop_cache_session.py": "9f6c73f537bba613eb59cbda602f2c6e4fc6d477e523224bf3e70ecea0c1fcdf",
         "tests/test_desktop_core_durability.py": "611d2a5a066707d6976fa046349ed2afbc5332534e8de6e9d6bcab007887bd69",
         "tests/test_desktop_engine_services.py": "b948ba998dc5d9856d5af47d3c7416d26c5edc49f4078d3c0c8d89df9fd5932d",
         "tests/test_desktop_request_core.py": "590e19f97501a9e550790a03bfc4c1d052a9afd6ec5f5a6f72fb5ec43908261c",
@@ -19719,8 +19749,10 @@
       },
       "tests": [
         "tests/desktop_adapters/test_phase2_runner_characterization.py",
+        "tests/test_codex_cache_session.py",
         "tests/test_desktop_agent_vision.py",
         "tests/test_desktop_background_core.py",
+        "tests/test_desktop_cache_session.py",
         "tests/test_desktop_core_durability.py",
         "tests/test_desktop_engine_services.py",
         "tests/test_desktop_request_core.py",
@@ -21383,20 +21415,65 @@
       ]
     },
     {
-      "after_sha256": "9267afde03ca238fbe3e3baeafa3d5e5fbc49f04b8340795cdffb50cabe821ee",
+      "after_sha256": "44a4f20cdf66fd299c329c1f948cc03071561ccbbf3b2f25492bda494bb51235",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
-      "before_sha256": "6df97311ff3cbb298a1e1c85a9475330d10580721470c90a92d91ed010e8067d",
-      "contract": "CodexAuthPool.clear_quota_check_failure accepts an already-derived opaque account key, removes only that key, and is idempotent for missing identity, missing state or an absent key. Existing index-based checker APIs retain their behavior. | 1.1.0: acquire returns an int-compatible lease that follows its auth across reloads and reorders and expires on removal or re-authorization; a same-chain reload keeps the auth and its in-flight rotation; quota snapshots and check failures survive only for unchanged credentials.",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Odin v4.18's module with with_new_session written in PEP 695 form (Desktop targets Python 3.12; Odin also supports 3.11).",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "No credential exposure, account selection change, quota snapshot mutation, index lookup during transport clear, or live state access. | 1.1.0: Literal int slots keep their operator meaning; sticky selection, failover and refresh-token single use unchanged.",
+      "invariant": "IDs are generated here, never derived from another client; the channel registry is bounded at 4096 entries.",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Claude",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiUGVyLWNvbnZlcnNhdGlvbiBwcm9tcHQtY2FjaGUgYWZmaW5pdHkgZm9yIENvZGV4IHJlcXVlc3RzLgoKVGhlIENoYXRHUFQgQ29kZXggYmFja2VuZCBrZWVwcyBhIGNvbnZlcnNhdGlvbidzIHByb21wdCBjYWNoZSBvbiBvbmUgbWFjaGluZQpvbmx5IHdoaWxlIGV2ZXJ5IHJlcXVlc3Qgb2YgdGhhdCBjb252ZXJzYXRpb24gY2FycmllcyB0aGUgc2FtZSBgYHNlc3Npb25faWRgYApoZWFkZXIgKG1lYXN1cmVkIDIwMjYtMTAtMTY6IHdpdGhvdXQgaXQsIGZvbGxvdy11cCByZXF1ZXN0cyByZXVzZWQgbm9uZSBvZiB0aGUKcHJldmlvdXMgcHJvbXB0OyB3aXRoIGl0LCBhbGwgb2YgaXQpLiBPZGluIG1ha2VzIGhpcyBvd24gcmFuZG9tIFVVSUQgcGVyCmNvbnZlcnNhdGlvbjsgbm90aGluZyBpcyBkZXJpdmVkIGZyb20gb3IgY29waWVkIGZyb20gYW5vdGhlciBjbGllbnQuCgotIENoYXQgdHVybnMgdXNlIG9uZSBJRCBwZXIgY2hhbm5lbCBzZXNzaW9uLiBBIHNlc3Npb24gcmVzZXQgZm9yZ2V0cyBpdCwgYW5kCiAgSURzIGxpdmUgaW4gbWVtb3J5LCBzbyBhIHJlc3RhcnQgc3RhcnRzIG5ldyBvbmVzLgotIFNwYXduZWQgYWdlbnRzIGFuZCBhdXRvbm9tb3VzIGxvb3BzIGdldCBhIG5ldyBJRCBlYWNoLCBmb3IgdGhlaXIgd2hvbGUgcnVuLgotIFJlcXVlc3RzIG1hZGUgaW5zaWRlIG9uZSBvZiB0aG9zZSAodGhlIGNvbXBsZXRpb24ganVkZ2UsIGNvbXBhY3Rpb24pCiAgaW5oZXJpdCB0aGUgc3Vycm91bmRpbmcgSUQgdGhyb3VnaCB0aGUgY29udGV4dCB2YXJpYWJsZS4KIiIiCgpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgY29udGV4dGxpYgppbXBvcnQgZnVuY3Rvb2xzCmltcG9ydCB0aHJlYWRpbmcKaW1wb3J0IHV1aWQKZnJvbSBjb2xsZWN0aW9ucy5hYmMgaW1wb3J0IEF3YWl0YWJsZSwgQ2FsbGFibGUsIENvcm91dGluZSwgSXRlcmF0b3IKZnJvbSBjb250ZXh0dmFycyBpbXBvcnQgQ29udGV4dFZhcgpmcm9tIHR5cGluZyBpbXBvcnQgQW55CgojIEJvdW5kZWQgc28gYSBsb25nLWxpdmVkIGluc3RhbGwgd2l0aCBtYW55IGNoYW5uZWxzIGNhbm5vdCBncm93IHdpdGhvdXQKIyBsaW1pdDsgYW4gZXZpY3RlZCBjaGFubmVsIHNpbXBseSBzdGFydHMgYSBuZXcgSUQgb24gaXRzIG5leHQgdHVybi4KX01BWF9DSEFOTkVMX0lEUyA9IDQwOTYKCl9jdXJyZW50OiBDb250ZXh0VmFyW3N0ciB8IE5vbmVdID0gQ29udGV4dFZhcigib2Rpbl9jb2RleF9jYWNoZV9zZXNzaW9uIiwgZGVmYXVsdD1Ob25lKQpfY2hhbm5lbF9pZHM6IGRpY3Rbc3RyLCBzdHJdID0ge30KX2xvY2sgPSB0aHJlYWRpbmcuTG9jaygpCgoKZGVmIG5ld19zZXNzaW9uX2lkKCkgLT4gc3RyOgogICAgIiIiQSBuZXcgcmFuZG9tIGNvbnZlcnNhdGlvbiBJRCAoVVVJRDQpLiIiIgogICAgcmV0dXJuIHN0cih1dWlkLnV1aWQ0KCkpCgoKZGVmIGN1cnJlbnRfc2Vzc2lvbl9pZCgpIC0+IHN0ciB8IE5vbmU6CiAgICAiIiJUaGUgY29udmVyc2F0aW9uIElEIGJvdW5kIHRvIHRoZSBydW5uaW5nIHJlcXVlc3QsIGlmIGFueS4iIiIKICAgIHJldHVybiBfY3VycmVudC5nZXQoKQoKCkBjb250ZXh0bGliLmNvbnRleHRtYW5hZ2VyCmRlZiBiaW5kX3Nlc3Npb24oc2Vzc2lvbl9pZDogc3RyIHwgTm9uZSkgLT4gSXRlcmF0b3JbTm9uZV06CiAgICAiIiJCaW5kIGBgc2Vzc2lvbl9pZGBgIGZvciB0aGUgQ29kZXggcmVxdWVzdHMgbWFkZSBpbnNpZGUgdGhlIGJsb2NrLiIiIgogICAgdG9rZW4gPSBfY3VycmVudC5zZXQoc2Vzc2lvbl9pZCkKICAgIHRyeToKICAgICAgICB5aWVsZAogICAgZmluYWxseToKICAgICAgICBfY3VycmVudC5yZXNldCh0b2tlbikKCgpkZWYgd2l0aF9uZXdfc2Vzc2lvblsqKlAsIFJdKAogICAgZm46IENhbGxhYmxlW1AsIEF3YWl0YWJsZVtSXV0sCikgLT4gQ2FsbGFibGVbUCwgQ29yb3V0aW5lW0FueSwgQW55LCBSXV06CiAgICAiIiJSdW4gYSBjb3JvdXRpbmUgZnVuY3Rpb24gKGFuIGFnZW50IG9yIGxvb3AgcnVuKSB1bmRlciBpdHMgb3duIG5ldyBJRC4iIiIKCiAgICBAZnVuY3Rvb2xzLndyYXBzKGZuKQogICAgYXN5bmMgZGVmIHdyYXBwZXIoKmFyZ3M6IFAuYXJncywgKiprd2FyZ3M6IFAua3dhcmdzKSAtPiBSOgogICAgICAgIHdpdGggYmluZF9zZXNzaW9uKG5ld19zZXNzaW9uX2lkKCkpOgogICAgICAgICAgICByZXR1cm4gYXdhaXQgZm4oKmFyZ3MsICoqa3dhcmdzKQoKICAgIHJldHVybiB3cmFwcGVyCgoKZGVmIGNoYW5uZWxfc2Vzc2lvbl9pZChjaGFubmVsX2lkOiBzdHIpIC0+IHN0cjoKICAgICIiIlRoZSBjaGFubmVsIHNlc3Npb24ncyBjb252ZXJzYXRpb24gSUQsIGNyZWF0ZWQgb24gZmlyc3QgdXNlLiIiIgogICAgd2l0aCBfbG9jazoKICAgICAgICBzZXNzaW9uX2lkID0gX2NoYW5uZWxfaWRzLmdldChjaGFubmVsX2lkKQogICAgICAgIGlmIHNlc3Npb25faWQgaXMgTm9uZToKICAgICAgICAgICAgaWYgbGVuKF9jaGFubmVsX2lkcykgPj0gX01BWF9DSEFOTkVMX0lEUzoKICAgICAgICAgICAgICAgIF9jaGFubmVsX2lkcy5wb3AobmV4dChpdGVyKF9jaGFubmVsX2lkcykpKQogICAgICAgICAgICBzZXNzaW9uX2lkID0gX2NoYW5uZWxfaWRzW2NoYW5uZWxfaWRdID0gbmV3X3Nlc3Npb25faWQoKQogICAgICAgIHJldHVybiBzZXNzaW9uX2lkCgoKZGVmIGZvcmdldF9jaGFubmVsKGNoYW5uZWxfaWQ6IHN0cikgLT4gTm9uZToKICAgICIiIkRyb3AgYSBjaGFubmVsJ3MgSUQgc28gaXRzIG5leHQgdHVybiBzdGFydHMgYSBuZXcgY29udmVyc2F0aW9uLiIiIgogICAgd2l0aCBfbG9jazoKICAgICAgICBfY2hhbm5lbF9pZHMucG9wKGNoYW5uZWxfaWQsIE5vbmUpCg==",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "src/llm/cache_session.py",
+      "reason": "Odin 4.18's per-conversation prompt-cache ID: a random UUID4 per conversation in a context variable, per channel (conversation) session, a new one per agent and loop run.",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/test_codex_cache_session.py": "5f367ccbab33f5fad6569128d5ead04b515a7c2f09750817ed60e95f8bc2d8d8",
+        "tests/test_desktop_cache_session.py": "9f6c73f537bba613eb59cbda602f2c6e4fc6d477e523224bf3e70ecea0c1fcdf"
+      },
+      "tests": [
+        "tests/test_codex_cache_session.py",
+        "tests/test_desktop_cache_session.py"
+      ]
+    },
+    {
+      "after_sha256": "1aa45ba1fce8698c4f139209cb8c8ee72f934eb6c0d2a513397b351b36dd3bf0",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "6df97311ff3cbb298a1e1c85a9475330d10580721470c90a92d91ed010e8067d",
+      "contract": "CodexAuthPool.clear_quota_check_failure accepts an already-derived opaque account key, removes only that key, and is idempotent for missing identity, missing state or an absent key. Existing index-based checker APIs retain their behavior. | 1.1.0: acquire returns an int-compatible lease that follows its auth across reloads and reorders and expires on removal or re-authorization; a same-chain reload keeps the auth and its in-flight rotation; quota snapshots and check failures survive only for unchanged credentials. | 1.2.1: Only build_auth_url's originator value changes; device-code sign-in is unchanged.",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "No credential exposure, account selection change, quota snapshot mutation, index lookup during transport clear, or live state access. | 1.1.0: Literal int slots keep their operator meaning; sticky selection, failover and refresh-token single use unchanged. | 1.2.1: Sign-in never names another client.",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Odin to Desktop",
       "owner": "Odin Desktop UI Round E quota correction",
       "patch": [
+        {
+          "end": 13684,
+          "new_base64": "ICAgICAgICAgICAgIm9yaWdpbmF0b3IiOiAib2RpbiIsCg==",
+          "old_base64": "ICAgICAgICAgICAgIm9yaWdpbmF0b3IiOiAicGkiLAo=",
+          "start": 13652
+        },
         {
           "end": 18324,
           "new_base64": "Y2xhc3MgX1Bpbm5lZEFjY291bnRJbmRleChpbnQpOgogICAgIiIiRGlzcGxheWVkIHNsb3QgcGx1cyByZXF1ZXN0IG93bmVyc2hpcCwgd2l0aG91dCBjaGFuZ2luZyB0aGUgdHVwbGUgQVBJLgoKICAgIE51bWVyaWMgc2xvdHMgYXJlIG9wZXJhdG9yIHNlbGVjdGlvbnMsIG5vdCBkdXJhYmxlIHJlcXVlc3QgaWRlbnRpdGllcy4gQQogICAgbGVhc2UgcmV0dXJuZWQgYnkgYWNxdWlyZSBmb2xsb3dzIHRoZSBzYW1lIGF1dGggYWNyb3NzIHJlb3JkZXJzIGFuZCBleHBpcmVzCiAgICBvbiByZW1vdmFsL3JlLWF1dGhvcml6YXRpb24sIGluY2x1ZGluZyByZW1vdmUvcmUtYWRkIG9mIHRoZSBzYW1lIGFjY291bnQgSUQuCiAgICBLZWVwIHRoZSBsZWFzZSBpbnRhY3QgZm9yIGRvd25zdHJlYW0gbWFya2luZywgcmVmcmVzaCBhbmQgcmV0cnkgbG9va3VwLgogICAgIiIiCgogICAgX3Bvb2w6IENvZGV4QXV0aFBvb2wKICAgIF9hdXRoOiBDb2RleEF1dGgKCiAgICBkZWYgX19uZXdfXyhjbHMsIGluZGV4OiBpbnQsIHBvb2w6IENvZGV4QXV0aFBvb2wsIGF1dGg6IENvZGV4QXV0aCkgLT4gX1Bpbm5lZEFjY291bnRJbmRleDoKICAgICAgICBsZWFzZSA9IHN1cGVyKCkuX19uZXdfXyhjbHMsIGluZGV4KQogICAgICAgIGxlYXNlLl9wb29sID0gcG9vbAogICAgICAgIGxlYXNlLl9hdXRoID0gYXV0aAogICAgICAgIHJldHVybiBsZWFzZQoKCg==",
@@ -21585,7 +21662,7 @@
         }
       ],
       "path": "src/llm/codex_auth.py",
-      "reason": "Round E item 3: stale in-memory quota-check failure survives successful account use; transport must clear by stable serving-account identity instead of a mutable slot. | 1.1.0: Odin 4.14 (#652): Codex pool reloads and quota marks.",
+      "reason": "Round E item 3: stale in-memory quota-check failure survives successful account use; transport must clear by stable serving-account identity instead of a mutable slot. | 1.1.0: Odin 4.14 (#652): Codex pool reloads and quota marks. | 1.2.1: Odin 4.18: the browser sign-in link says originator=odin instead of pi.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -21593,6 +21670,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
+        "tests/test_codex_cache_session.py": "5f367ccbab33f5fad6569128d5ead04b515a7c2f09750817ed60e95f8bc2d8d8",
         "tests/test_codex_limit_aware.py": "8c36d963bf41456c12bd79c4dcc78cae02d3223a4c7f1fb1bdeda21f0d0974f3",
         "tests/test_desktop_codex_acquire_reload_identity.py": "ecc3e5e3cd34b17cf6c22028930b8c6237d2aea20580aea6ea04d09c53db1eef",
         "tests/test_desktop_codex_quota_recovery.py": "f4381d28b79686447299e74424ac6b782cc4ea28239337e877cac719ccff7da8",
@@ -21600,6 +21678,7 @@
         "tests/test_desktop_codex_refresh_chain_reload.py": "ac8e5849b15745bd13a5157d9fa613e134029655eb69e30eaf03f85da5721bdf"
       },
       "tests": [
+        "tests/test_codex_cache_session.py",
         "tests/test_codex_limit_aware.py",
         "tests/test_desktop_codex_acquire_reload_identity.py",
         "tests/test_desktop_codex_quota_recovery.py",
@@ -21608,25 +21687,79 @@
       ]
     },
     {
-      "after_sha256": "3e0633c01e8005bdf85e87731fa871a742431f26fd8fa46392be79461a1847be",
+      "after_sha256": "6d0180a2697e478cd11ea7c5f28aeab8cc1c86f84fc38618b4c9e7be6fa72e8d",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "58b951717a0015a789f4a59f2b0323195248c5292aa273aa247dc9f656cb0e25",
-      "contract": "Shared retry transport derives the opaque key from the acquired per-attempt account_id and clears only after a fully read non-empty HTTP 200 response. Empty replies, 429 and other HTTP failures, failed/truncated/timed-out streams and tool responses marked incomplete retain the failure. Success provenance reuses that same acquired identity after rotations or pool reorders. | 1.1.0: Odin's second, unguarded success clear is not taken: Desktop's guarded clear already clears the serving account's mark by its key, only after a fully read, non-empty reply (an incomplete tool reply keeps it).",
+      "contract": "Shared retry transport derives the opaque key from the acquired per-attempt account_id and clears only after a fully read non-empty HTTP 200 response. Empty replies, 429 and other HTTP failures, failed/truncated/timed-out streams and tool responses marked incomplete retain the failure. Success provenance reuses that same acquired identity after rotations or pool reorders. | 1.1.0: Odin's second, unguarded success clear is not taken: Desktop's guarded clear already clears the serving account's mark by its key, only after a fully read, non-empty reply (an incomplete tool reply keeps it). | 1.2.1: Odin 4.18's hunks: ODIN_ORIGINATOR/ODIN_USER_AGENT, _auth_headers, _bind_cache_session in chat and chat_with_tools, the session_id header in _send_with_retries.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "No slot-based failure clear, retry/rotation/breaker semantic change, incomplete tool-response behavior change, credential readback, new network endpoint, or live service access. | 1.1.0: No retry, breaker or provenance change.",
+      "invariant": "No slot-based failure clear, retry/rotation/breaker semantic change, incomplete tool-response behavior change, credential readback, new network endpoint, or live service access. | 1.1.0: No retry, breaker or provenance change. | 1.2.1: A request outside a conversation carries no ID; the header and body key always hold the same value; no other client's identity is sent.",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Odin to Desktop",
       "owner": "Odin Desktop UI Round E quota correction",
       "patch": [
         {
+          "end": 63,
+          "new_base64": "aW1wb3J0IHBsYXRmb3JtCg==",
+          "old_base64": "",
+          "start": 63
+        },
+        {
+          "end": 358,
+          "new_base64": "ZnJvbSAuY2FjaGVfc2Vzc2lvbiBpbXBvcnQgY3VycmVudF9zZXNzaW9uX2lkCg==",
+          "old_base64": "",
+          "start": 358
+        },
+        {
+          "end": 1864,
+          "new_base64": "CiMgSG93IE9kaW4gbmFtZXMgaGltc2VsZiB0byB0aGUgQ29kZXggYmFja2VuZDogaGlzIG93biBuYW1lLCB0aGUgd2F5IE9wZW5DbGF3CiMgc2VuZHMgaXRzIG93biwgbmV2ZXIgYW5vdGhlciBjbGllbnQncyBpZGVudGl0eS4KT0RJTl9PUklHSU5BVE9SID0gIm9kaW4iCk9ESU5fVVNFUl9BR0VOVCA9IGYib2RpbiAoe3BsYXRmb3JtLnN5c3RlbSgpfTsge3BsYXRmb3JtLm1hY2hpbmUoKX0pIgo=",
+          "old_base64": "",
+          "start": 1864
+        },
+        {
+          "end": 20638,
+          "new_base64": "ICAgICAgICAgICAgIm9yaWdpbmF0b3IiOiBPRElOX09SSUdJTkFUT1IsCiAgICAgICAgICAgICJVc2VyLUFnZW50IjogT0RJTl9VU0VSX0FHRU5ULAo=",
+          "old_base64": "",
+          "start": 20638
+        },
+        {
+          "end": 20749,
+          "new_base64": "CiAgICBAc3RhdGljbWV0aG9kCiAgICBkZWYgX2JpbmRfY2FjaGVfc2Vzc2lvbihib2R5OiBkaWN0KSAtPiBOb25lOgogICAgICAgICIiIkNhcnJ5IHRoZSBjb252ZXJzYXRpb24ncyBvd24gSUQgc28gdGhlIGJhY2tlbmQga2VlcHMgaXRzIGNhY2hlLgoKICAgICAgICBgYF9zZW5kX3dpdGhfcmV0cmllc2BgIHNlbmRzIHRoZSBzYW1lIHZhbHVlIGFzIHRoZSBgYHNlc3Npb25faWRgYAogICAgICAgIGhlYWRlciwgd2hpY2ggaXMgd2hhdCBrZWVwcyBhIGNvbnZlcnNhdGlvbiBvbiBvbmUgY2FjaGUgbWFjaGluZS4KICAgICAgICBSZXF1ZXN0cyBvdXRzaWRlIGEgY29udmVyc2F0aW9uIGFyZSB1bmNoYW5nZWQuCiAgICAgICAgIiIiCiAgICAgICAgc2Vzc2lvbl9pZCA9IGN1cnJlbnRfc2Vzc2lvbl9pZCgpCiAgICAgICAgaWYgc2Vzc2lvbl9pZDoKICAgICAgICAgICAgYm9keVsicHJvbXB0X2NhY2hlX2tleSJdID0gc2Vzc2lvbl9pZAo=",
+          "old_base64": "",
+          "start": 20749
+        },
+        {
+          "end": 21600,
+          "new_base64": "ICAgICAgICBzZWxmLl9iaW5kX2NhY2hlX3Nlc3Npb24oYm9keSkK",
+          "old_base64": "",
+          "start": 21600
+        },
+        {
+          "end": 36559,
+          "new_base64": "ICAgICAgICBzZWxmLl9iaW5kX2NhY2hlX3Nlc3Npb24oYm9keSkK",
+          "old_base64": "",
+          "start": 36559
+        },
+        {
           "end": 40337,
           "new_base64": "ICAgICAgICBUaGUgYWNjb3VudCBzZXJ2aW5nIHRoZSByZXF1ZXN0IGlzIHBpbm5lZCBieSB0aGUgcG9vbCdzIGludC1jb21wYXRpYmxlCiAgICAgICAgb3duZXJzaGlwIGxlYXNlIGF0IGFjcXVpcmUgdGltZSAocHJlc2VydmVkIHRocm91Z2ggcmV0cmllcy9yZWxvYWRzKSwgc28K",
           "old_base64": "ICAgICAgICBUaGUgYWNjb3VudCBzZXJ2aW5nIHRoZSByZXF1ZXN0IGlzIHBpbm5lZCBieSBpbmRleCBhdCBhY3F1aXJlIHRpbWUgc28K",
           "start": 40259
+        },
+        {
+          "end": 41304,
+          "new_base64": "ICAgICAgICAgICAgICAgIGhlYWRlcnMgPSBzZWxmLl9hdXRoX2hlYWRlcnModG9rZW4sIGFjY291bnRfaWQpCiAgICAgICAgICAgICAgICBpZiBib2R5LmdldCgicHJvbXB0X2NhY2hlX2tleSIpOgogICAgICAgICAgICAgICAgICAgIGhlYWRlcnNbInNlc3Npb25faWQiXSA9IGJvZHlbInByb21wdF9jYWNoZV9rZXkiXQo=",
+          "old_base64": "",
+          "start": 41304
+        },
+        {
+          "end": 41447,
+          "new_base64": "ICAgICAgICAgICAgICAgICAgICBoZWFkZXJzPWhlYWRlcnMsCg==",
+          "old_base64": "ICAgICAgICAgICAgICAgICAgICBoZWFkZXJzPXNlbGYuX2F1dGhfaGVhZGVycyh0b2tlbiwgYWNjb3VudF9pZCksCg==",
+          "start": 41380
         },
         {
           "end": 46689,
@@ -21642,7 +21775,7 @@
         }
       ],
       "path": "src/llm/openai_codex.py",
-      "reason": "Round E item 3: fresh reply quota headers can prevent background checks from clearing a stale failure; successful serving-account replies must clear it directly. | 1.1.0: Odin 4.14 (#652): docstring names the acquired index as an ownership lease.",
+      "reason": "Round E item 3: fresh reply quota headers can prevent background checks from clearing a stale failure; successful serving-account replies must clear it directly. | 1.1.0: Odin 4.14 (#652): docstring names the acquired index as an ownership lease. | 1.2.1: Odin 4.18: Codex requests carry the conversation's own random ID (prompt_cache_key plus the session_id header) so the backend keeps its prompt cache; every request names Odin (originator odin, User-Agent odin (<os>; <arch>)).",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -21650,11 +21783,13 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
+        "tests/test_codex_cache_session.py": "5f367ccbab33f5fad6569128d5ead04b515a7c2f09750817ed60e95f8bc2d8d8",
         "tests/test_codex_limit_aware.py": "8c36d963bf41456c12bd79c4dcc78cae02d3223a4c7f1fb1bdeda21f0d0974f3",
         "tests/test_desktop_codex_quota_recovery.py": "f4381d28b79686447299e74424ac6b782cc4ea28239337e877cac719ccff7da8",
         "tests/test_desktop_codex_quota_success.py": "5fc34e4d51dc917c5e75cf1b8a70d0fdbd90eccadb119644a77a5e9955eb6f4c"
       },
       "tests": [
+        "tests/test_codex_cache_session.py",
         "tests/test_codex_limit_aware.py",
         "tests/test_desktop_codex_quota_recovery.py",
         "tests/test_desktop_codex_quota_success.py"
@@ -23607,23 +23742,23 @@
       ]
     },
     {
-      "after_sha256": "a2070893e0bed5b3988e79267b9e59184c6e708f772e07b7e855f4c40adbddea",
+      "after_sha256": "b44a1cd85f85179bc011ac902d33341302d014b828b02ccb2a81f1491dd11c2c",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "e9409e37787e6a10deb3348f429f6801dbc8817cf5eea0871de3dd590ab909ac",
-      "contract": "On Windows a failed final flush raises _PublishedButUnsyncedError, as a failed folder fsync does on Linux. | windows-3d: Pruning orders by mtime with the archive time as the tie-break and protects per channel the archive with the latest archive time.",
+      "contract": "On Windows a failed final flush raises _PublishedButUnsyncedError, as a failed folder fsync does on Linux. | windows-3d: Pruning orders by mtime with the archive time as the tie-break and protects per channel the archive with the latest archive time. | 1.2.1: Odin 4.18's reset_many hunk and its import, placed after Desktop's windows_variant import.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "Linux body unchanged; the decorator returns the original function. | windows-3d: Caps, per-channel protection and oldest-first eviction are otherwise unchanged.",
+      "invariant": "Linux body unchanged; the decorator returns the original function. | windows-3d: Caps, per-channel protection and oldest-first eviction are otherwise unchanged. | 1.2.1: A reset conversation's next turn starts a new cache ID.",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Odin to Desktop",
       "owner": "Odin",
       "patch": [
         {
           "end": 415,
-          "new_base64": "ZnJvbSAuLmRlc2t0b3AucGxhdGZvcm0udmFyaWFudHMgaW1wb3J0IHdpbmRvd3NfdmFyaWFudAo=",
+          "new_base64": "ZnJvbSAuLmRlc2t0b3AucGxhdGZvcm0udmFyaWFudHMgaW1wb3J0IHdpbmRvd3NfdmFyaWFudApmcm9tIC4ubGxtLmNhY2hlX3Nlc3Npb24gaW1wb3J0IGZvcmdldF9jaGFubmVsCg==",
           "old_base64": "",
           "start": 415
         },
@@ -23632,6 +23767,12 @@
           "new_base64": "QHdpbmRvd3NfdmFyaWFudCgic3JjLmRlc2t0b3AucGxhdGZvcm0ud2luZG93c19lbmdpbmU6YXRvbWljX2pzb24iKQo=",
           "old_base64": "",
           "start": 1757
+        },
+        {
+          "end": 53441,
+          "new_base64": "ICAgICAgICAgICAgIyBBIHJlc2V0IHN0YXJ0cyBhIG5ldyBwcm9tcHQtY2FjaGUgY29udmVyc2F0aW9uIGZvciBlYWNoIGNoYW5uZWwuCiAgICAgICAgICAgIGZvciBjaWQgaW4gcmVxdWVzdGVkOgogICAgICAgICAgICAgICAgZm9yZ2V0X2NoYW5uZWwoY2lkKQo=",
+          "old_base64": "",
+          "start": 53441
         },
         {
           "end": 59889,
@@ -23653,7 +23794,7 @@
         }
       ],
       "path": "src/sessions/manager.py",
-      "reason": "Windows port phase 2a: route _atomic_json to its Windows variant. | windows-3d: Carries master PR #137: archive pruning protects the archive restore would use.",
+      "reason": "Windows port phase 2a: route _atomic_json to its Windows variant. | windows-3d: Carries master PR #137: archive pruning protects the archive restore would use. | 1.2.1: Odin 4.18: reset_many (every reset, including reset_context) forgets the reset conversations' cache IDs.",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -23661,6 +23802,8 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
+        "tests/test_codex_cache_session.py": "5f367ccbab33f5fad6569128d5ead04b515a7c2f09750817ed60e95f8bc2d8d8",
+        "tests/test_desktop_cache_session.py": "9f6c73f537bba613eb59cbda602f2c6e4fc6d477e523224bf3e70ecea0c1fcdf",
         "tests/test_desktop_platform_variants.py": "9b191c57ca255e0c654c91046ed543f43507792a71b73d5c40f7ff5d4d41d258",
         "tests/test_desktop_session_archive_order.py": "f924de6e457ab520e2da5c73d2a75299ca8609d141adadff0d81b14bf61e4ed1",
         "tests/test_session_campaign.py": "8dbf2e88fdc72208b7b81a3f1ea9c4c82b491d953895d37c5080ab1ca883ac4f",
@@ -23670,6 +23813,8 @@
         "tests/windows/test_windows_sites_more.py": "62ede0691b453e57dd8c33a50528009579d6435b1a3a9b1b013f9678dee22863"
       },
       "tests": [
+        "tests/test_codex_cache_session.py",
+        "tests/test_desktop_cache_session.py",
         "tests/test_desktop_platform_variants.py",
         "tests/test_desktop_session_archive_order.py",
         "tests/test_session_campaign.py",
@@ -24183,20 +24328,26 @@
       ]
     },
     {
-      "after_sha256": "e0701be389a128ccdcd3c97f913f8dee520d3d12330f458ece1aa5e0058572f1",
+      "after_sha256": "0206196b742edc6ffac8bb21d8654d82cb4bbc71a887206cc71a1332075d87ae",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
       "before_sha256": "9820415811f17e9f6d60677a9802c6d2b8c82ef5abbbfc54b36c2d82073eeeab",
-      "contract": "Explicit no-loop-started until durable admission and authorized conversation delivery exist. | Actual loop manager owns cadence cancellation max iterations and results; durable request admission precedes task creation. | 1.1.0: The notice follows the status change in every mode; a loop its owner stopped gets none.",
+      "contract": "Explicit no-loop-started until durable admission and authorized conversation delivery exist. | Actual loop manager owns cadence cancellation max iterations and results; durable request admission precedes task creation. | 1.1.0: The notice follows the status change in every mode; a loop its owner stopped gets none. | 1.2.1: Odin 4.18's decorator only.",
       "date": "2026-10-04",
       "dependency_assets": "see manifest closure",
       "destination_commit": "pending parent commit/PR",
       "evidence": "Exact bytes only; not test execution, qualification or approval",
-      "invariant": "No autonomous effect or fake send success; retained iteration code unavailable, not parity-qualified. | Legacy message shapes cannot grant authority; no automatic restart after interruption. | 1.1.0: Iteration posts, silent mode and the owner's stop are unchanged.",
+      "invariant": "No autonomous effect or fake send success; retained iteration code unavailable, not parity-qualified. | Legacy message shapes cannot grant authority; no automatic restart after interruption. | 1.1.0: Iteration posts, silent mode and the owner's stop are unchanged. | 1.2.1: A loop never sends the conversation's ID that started it.",
       "next_revisit": "next upstream release or weekly review",
       "origin": "Odin to Desktop",
       "owner": "Odin",
       "patch": [
+        {
+          "end": 561,
+          "new_base64": "ZnJvbSAuLmxsbS5jYWNoZV9zZXNzaW9uIGltcG9ydCB3aXRoX25ld19zZXNzaW9uCg==",
+          "old_base64": "",
+          "start": 561
+        },
         {
           "end": 3372,
           "new_base64": "ICAgIF9wdWJsaXNoOiBDYWxsYWJsZSB8IE5vbmUgPSBmaWVsZChkZWZhdWx0PU5vbmUsIHJlcHI9RmFsc2UpCg==",
@@ -24232,6 +24383,12 @@
           "new_base64": "ICAgICAgICBhc3luYyBkZWYgX3J1bl9hZG1pdHRlZCgpOgogICAgICAgICAgICB0cnk6CiAgICAgICAgICAgICAgICBhc3luYyB3aXRoIGV4ZWN1dGlvbihpbmZvKToKICAgICAgICAgICAgICAgICAgICBhd2FpdCBzZWxmLl9ydW5fbG9vcChpbmZvLCBjaGFubmVsLCBpdGVyYXRpb25fY2FsbGJhY2spCiAgICAgICAgICAgIGV4Y2VwdCBhc3luY2lvLkNhbmNlbGxlZEVycm9yOgogICAgICAgICAgICAgICAgaW5mby5zdGF0dXMgPSAic3RvcHBlZCIKICAgICAgICAgICAgICAgIHJhaXNlCiAgICAgICAgICAgIGV4Y2VwdCBFeGNlcHRpb246CiAgICAgICAgICAgICAgICBpbmZvLnN0YXR1cyA9ICJlcnJvciIKICAgICAgICAgICAgICAgIHJhaXNlCgogICAgICAgIGluZm8uX3Rhc2sgPSBhc3luY2lvLmNyZWF0ZV90YXNrKF9ydW5fYWRtaXR0ZWQoKSkKCiAgICAgICAgZGVmIF9zZXR0bGVkKGZpbmlzaGVkKToKICAgICAgICAgICAgIyBQcmUtc3RhcnQgY2FuY2VsbGF0aW9uIG5ldmVyIGVudGVycyBfcnVuX2FkbWl0dGVkJ3MgZXhjZXB0aW9uCiAgICAgICAgICAgICMgaGFuZGxlci4gRGVyaXZlIHRlcm1pbmFsIHN0YXRlIGZyb20gdGhlIGFjdHVhbCBvd25lZCB0YXNrIHRvby4KICAgICAgICAgICAgaWYgZmluaXNoZWQuY2FuY2VsbGVkKCk6CiAgICAgICAgICAgICAgICBpbmZvLnN0YXR1cyA9ICJzdG9wcGVkIgogICAgICAgICAgICBlbGlmIGZpbmlzaGVkLmV4Y2VwdGlvbigpIGlzIG5vdCBOb25lOgogICAgICAgICAgICAgICAgaW5mby5zdGF0dXMgPSAiZXJyb3IiCiAgICAgICAgICAgIG9uX3NldHRsZWQoaW5mbykKCiAgICAgICAgaW5mby5fdGFzay5hZGRfZG9uZV9jYWxsYmFjayhfc2V0dGxlZCkK",
           "old_base64": "ICAgICAgICBpbmZvLl90YXNrID0gYXN5bmNpby5jcmVhdGVfdGFzayhzZWxmLl9ydW5fbG9vcChpbmZvLCBjaGFubmVsLCBpdGVyYXRpb25fY2FsbGJhY2spKQo=",
           "start": 6014
+        },
+        {
+          "end": 12055,
+          "new_base64": "ICAgIEB3aXRoX25ld19zZXNzaW9uCg==",
+          "old_base64": "",
+          "start": 12055
         },
         {
           "end": 12823,
@@ -24283,7 +24440,7 @@
         }
       ],
       "path": "src/tools/autonomous_loop.py",
-      "reason": "Merge of #62 with main: start_loop rejects before task creation; _post_response removes Discord send/truncation and raises unavailable/no-replay. Actual merged main6A/PR37 durable work admission bytes and skill delivery integration; both original owners preserved. | Merge of #58 with main: Merge of #42 with step 6B and main #40: Restore loop lifecycle through injected durable before-start execution publication and settlement owners. PR37 integration: capture actual merged main/PR37 bytes and current named evidence; no qualification or independent approval claim. | 1.1.0: 1.1: a loop that ends itself (LOOP_STOP) publishes the closing notice an iteration-capped loop does.",
+      "reason": "Merge of #62 with main: start_loop rejects before task creation; _post_response removes Discord send/truncation and raises unavailable/no-replay. Actual merged main6A/PR37 durable work admission bytes and skill delivery integration; both original owners preserved. | Merge of #58 with main: Merge of #42 with step 6B and main #40: Restore loop lifecycle through injected durable before-start execution publication and settlement owners. PR37 integration: capture actual merged main/PR37 bytes and current named evidence; no qualification or independent approval claim. | 1.1.0: 1.1: a loop that ends itself (LOOP_STOP) publishes the closing notice an iteration-capped loop does. | 1.2.1: Odin 4.18: each autonomous loop has its own cache ID for its whole run (with_new_session on _run_loop).",
       "release_status": "unreleased Phase 1",
       "review_deadline": "before Phase 1 merge",
       "reviewer": "pending Claude",
@@ -24292,11 +24449,13 @@
       "state": "pending",
       "test_sha256": {
         "tests/test_desktop_background_core.py": "695146bb16e1ee12f5ca27620e18b30a2f5abf3e77ee8e889a4ba7365ce435b1",
+        "tests/test_desktop_cache_session.py": "9f6c73f537bba613eb59cbda602f2c6e4fc6d477e523224bf3e70ecea0c1fcdf",
         "tests/test_desktop_capabilities_publication.py": "bea48ce7b54eac5c4fd7a594a060c4741f72af79e45ed7e7beaad7d45a2d5762",
         "tests/test_desktop_work_native.py": "ea31c4af156714aad0bfdee6edbd91fc5718262e8b3838a60006ac33adeedba9"
       },
       "tests": [
         "tests/test_desktop_background_core.py",
+        "tests/test_desktop_cache_session.py",
         "tests/test_desktop_capabilities_publication.py",
         "tests/test_desktop_work_native.py"
       ]
@@ -27322,6 +27481,49 @@
       },
       "tests": [
         "tests/test_desktop_capabilities_publication.py"
+      ]
+    },
+    {
+      "after_sha256": "7af5acda069800122a3274c3ff412acb1707ce23ac639d38b5a768d3a13830cb",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "7763fce752b3992bbd28d71b293fceccd6149025c0ba123d55d96630e2cb958d",
+      "contract": "Odin 4.18's _headers hunk and its import of the identity constants.",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Image requests carry no conversation ID.",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Odin to Desktop",
+      "owner": "Claude",
+      "patch": [
+        {
+          "end": 1098,
+          "new_base64": "ZnJvbSAuLi5sbG0ub3BlbmFpX2NvZGV4IGltcG9ydCBPRElOX09SSUdJTkFUT1IsIE9ESU5fVVNFUl9BR0VOVAo=",
+          "old_base64": "",
+          "start": 1098
+        },
+        {
+          "end": 2573,
+          "new_base64": "ICAgICAgICBoZWFkZXJzID0gewogICAgICAgICAgICAiQXV0aG9yaXphdGlvbiI6IGYiQmVhcmVyIHt0b2tlbn0iLAogICAgICAgICAgICAiQ29udGVudC1UeXBlIjogImFwcGxpY2F0aW9uL2pzb24iLAogICAgICAgICAgICAib3JpZ2luYXRvciI6IE9ESU5fT1JJR0lOQVRPUiwKICAgICAgICAgICAgIlVzZXItQWdlbnQiOiBPRElOX1VTRVJfQUdFTlQsCiAgICAgICAgfQo=",
+          "old_base64": "ICAgICAgICBoZWFkZXJzID0geyJBdXRob3JpemF0aW9uIjogZiJCZWFyZXIge3Rva2VufSIsICJDb250ZW50LVR5cGUiOiAiYXBwbGljYXRpb24vanNvbiJ9Cg==",
+          "start": 2482
+        }
+      ],
+      "path": "src/tools/image/openai_backend.py",
+      "reason": "Odin 4.18: image requests name Odin (originator odin, User-Agent odin (<os>; <arch>)).",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/test_codex_cache_session.py": "5f367ccbab33f5fad6569128d5ead04b515a7c2f09750817ed60e95f8bc2d8d8"
+      },
+      "tests": [
+        "tests/test_codex_cache_session.py"
       ]
     },
     {
@@ -38161,6 +38363,43 @@
       ]
     },
     {
+      "after_sha256": "5f367ccbab33f5fad6569128d5ead04b515a7c2f09750817ed60e95f8bc2d8d8",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Odin v4.18's file, unchanged.",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Its loop case needs Odin's loop admission; Desktop starts loops only through its real core, so tests/test_desktop_cache_session.py covers loops.",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Claude",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiUHJvbXB0LWNhY2hlIGFmZmluaXR5IGFuZCBjbGllbnQgaWRlbnRpdHkgb24gdGhlIENvZGV4IHdpcmUuCgpUaGUgQ2hhdEdQVCBDb2RleCBiYWNrZW5kIGtlZXBzIGEgY29udmVyc2F0aW9uJ3MgcHJvbXB0IGNhY2hlIG9ubHkgd2hpbGUgaXRzCnJlcXVlc3RzIGNhcnJ5IG9uZSBgYHNlc3Npb25faWRgYCBoZWFkZXIgKG1lYXN1cmVkIDIwMjYtMTAtMTY6IHdpdGhvdXQgaXQgbm8KZm9sbG93LXVwIHJlcXVlc3QgcmV1c2VkIGFueSBvZiB0aGUgcHJldmlvdXMgcHJvbXB0KS4gT2RpbiBzZW5kcyBoaXMgb3duCnJhbmRvbSBVVUlEIHBlciBjb252ZXJzYXRpb24sIGFuZCBuYW1lcyBoaW1zZWxmIGBgb2RpbmBgIG9uIGV2ZXJ5IHJlcXVlc3QuCiIiIgpmcm9tIF9fZnV0dXJlX18gaW1wb3J0IGFubm90YXRpb25zCgppbXBvcnQgYXN5bmNpbwppbXBvcnQganNvbgppbXBvcnQgcGxhdGZvcm0KaW1wb3J0IHV1aWQKZnJvbSB0eXBlcyBpbXBvcnQgU2ltcGxlTmFtZXNwYWNlCmZyb20gdW5pdHRlc3QubW9jayBpbXBvcnQgQXN5bmNNb2NrCmZyb20gdXJsbGliLnBhcnNlIGltcG9ydCBwYXJzZV9xcywgdXJsc3BsaXQKCmZyb20gc3JjLmFnZW50cy5tYW5hZ2VyIGltcG9ydCBfcnVuX2FnZW50CmZyb20gc3JjLmRpc2NvcmQudG9vbF9sb29wIGltcG9ydCBUb29sTG9vcFJ1bm5lcgpmcm9tIHNyYy5sbG0gaW1wb3J0IGNhY2hlX3Nlc3Npb24KZnJvbSBzcmMubGxtLmNhY2hlX3Nlc3Npb24gaW1wb3J0ICgKICAgIGJpbmRfc2Vzc2lvbiwKICAgIGNoYW5uZWxfc2Vzc2lvbl9pZCwKICAgIGN1cnJlbnRfc2Vzc2lvbl9pZCwKICAgIGZvcmdldF9jaGFubmVsLAogICAgbmV3X3Nlc3Npb25faWQsCikKZnJvbSBzcmMubGxtLmNvZGV4X2F1dGggaW1wb3J0IENvZGV4QXV0aApmcm9tIHNyYy5sbG0ub3BlbmFpX2NvZGV4IGltcG9ydCBPRElOX09SSUdJTkFUT1IsIE9ESU5fVVNFUl9BR0VOVCwgQ29kZXhDaGF0Q2xpZW50CmZyb20gc3JjLnNlc3Npb25zLm1hbmFnZXIgaW1wb3J0IFNlc3Npb25NYW5hZ2VyCmZyb20gc3JjLnRvb2xzLmltYWdlLm9wZW5haV9iYWNrZW5kIGltcG9ydCBPcGVuQUlJbWFnZUJhY2tlbmQKZnJvbSB0ZXN0cy50ZXN0X2FnZW50X3RyYW5zY3JpcHRfY29udHJhY3QgaW1wb3J0IGFnZW50CmZyb20gdGVzdHMudGVzdF9jb2RleF9yZWxpYWJpbGl0eSBpbXBvcnQgVEVYVF9PS19TU0UsIEZha2VSZXNwLCBfY2xpZW50CgpfRVhQRUNURURfVUEgPSBmIm9kaW4gKHtwbGF0Zm9ybS5zeXN0ZW0oKX07IHtwbGF0Zm9ybS5tYWNoaW5lKCl9KSIKCl9UT09MX1NTRSA9IFsKICAgICJkYXRhOiAiCiAgICArIGpzb24uZHVtcHMoeyJ0eXBlIjogInJlc3BvbnNlLm91dHB1dF90ZXh0LmRlbHRhIiwgImRlbHRhIjogImRvbmUifSkKICAgICsgIlxuIiwKICAgICJkYXRhOiAiICsganNvbi5kdW1wcyh7InR5cGUiOiAicmVzcG9uc2UuY29tcGxldGVkIiwgInJlc3BvbnNlIjoge319KSArICJcbiIsCiAgICAiZGF0YTogW0RPTkVdXG4iLApdCgoKY2xhc3MgX1JlY29yZGluZ1Nlc3Npb246CiAgICAiIiJSZWNvcmRzIGV2ZXJ5IHBvc3QncyBoZWFkZXJzIGFuZCBKU09OIGJvZHksIHJlcGx5aW5nIHdpdGggYGByZXBsaWVzYGAuIiIiCgogICAgZGVmIF9faW5pdF9fKHNlbGYsIHJlcGxpZXMpOgogICAgICAgIHNlbGYucmVwbGllcyA9IGxpc3QocmVwbGllcykKICAgICAgICBzZWxmLmNhbGxzOiBsaXN0W3R1cGxlW2RpY3QsIGRpY3RdXSA9IFtdCiAgICAgICAgc2VsZi5jbG9zZWQgPSBGYWxzZQoKICAgIGRlZiBwb3N0KHNlbGYsIHVybCwgKiwgaGVhZGVycywganNvbiwgdGltZW91dCk6ICAjIG5vcWE6IEEwMDIgLSBhaW9odHRwJ3MgbmFtZQogICAgICAgIHNlbGYuY2FsbHMuYXBwZW5kKChkaWN0KGhlYWRlcnMpLCBqc29uKSkKICAgICAgICByZXR1cm4gc2VsZi5yZXBsaWVzLnBvcCgwKQoKCmRlZiBfcmVjb3JkaW5nX2NsaWVudChyZXBsaWVzLCBtYXhfcmV0cmllczogaW50ID0gMSk6CiAgICBjbGllbnQgPSBfY2xpZW50KG1heF9yZXRyaWVzPW1heF9yZXRyaWVzKQogICAgc2Vzc2lvbiA9IF9SZWNvcmRpbmdTZXNzaW9uKHJlcGxpZXMpCgogICAgYXN5bmMgZGVmIGdldF9zZXNzaW9uKCk6CiAgICAgICAgcmV0dXJuIHNlc3Npb24KCiAgICBjbGllbnQuX2dldF9zZXNzaW9uID0gZ2V0X3Nlc3Npb24KICAgIHJldHVybiBjbGllbnQsIHNlc3Npb24KCgojIC0tLSB0aGUgY29udmVyc2F0aW9uIElEIHJlZ2lzdHJ5IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCgoKZGVmIHRlc3RfbmV3X2lkc19hcmVfcmFuZG9tX3V1aWQ0KCk6CiAgICBmaXJzdCwgc2Vjb25kID0gbmV3X3Nlc3Npb25faWQoKSwgbmV3X3Nlc3Npb25faWQoKQogICAgYXNzZXJ0IGZpcnN0ICE9IHNlY29uZAogICAgYXNzZXJ0IHV1aWQuVVVJRChmaXJzdCkudmVyc2lvbiA9PSA0IGFuZCB1dWlkLlVVSUQoc2Vjb25kKS52ZXJzaW9uID09IDQKCgpkZWYgdGVzdF9jaGFubmVsX2tlZXBzX2l0c19pZF91bnRpbF9mb3Jnb3R0ZW4oKToKICAgIGNoYW5uZWwgPSBmImNoYW4te25ld19zZXNzaW9uX2lkKCl9IgogICAgZmlyc3QgPSBjaGFubmVsX3Nlc3Npb25faWQoY2hhbm5lbCkKICAgIGFzc2VydCBjaGFubmVsX3Nlc3Npb25faWQoY2hhbm5lbCkgPT0gZmlyc3QKICAgIGFzc2VydCBjaGFubmVsX3Nlc3Npb25faWQoZiJvdGhlci17Y2hhbm5lbH0iKSAhPSBmaXJzdAogICAgZm9yZ2V0X2NoYW5uZWwoY2hhbm5lbCkKICAgIGFzc2VydCBjaGFubmVsX3Nlc3Npb25faWQoY2hhbm5lbCkgIT0gZmlyc3QKICAgIGZvcmdldF9jaGFubmVsKGYib3RoZXIte2NoYW5uZWx9IikKICAgIGZvcmdldF9jaGFubmVsKGNoYW5uZWwpCgoKZGVmIHRlc3RfcmVnaXN0cnlfaXNfYm91bmRlZChtb25rZXlwYXRjaCk6CiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKGNhY2hlX3Nlc3Npb24sICJfTUFYX0NIQU5ORUxfSURTIiwgMikKICAgIG1vbmtleXBhdGNoLnNldGF0dHIoY2FjaGVfc2Vzc2lvbiwgIl9jaGFubmVsX2lkcyIsIHt9KQogICAgb2xkZXN0ID0gY2hhbm5lbF9zZXNzaW9uX2lkKCJhIikKICAgIGNoYW5uZWxfc2Vzc2lvbl9pZCgiYiIpCiAgICBjaGFubmVsX3Nlc3Npb25faWQoImMiKQogICAgYXNzZXJ0IHNldChjYWNoZV9zZXNzaW9uLl9jaGFubmVsX2lkcykgPT0geyJiIiwgImMifQogICAgYXNzZXJ0IGNoYW5uZWxfc2Vzc2lvbl9pZCgiYSIpICE9IG9sZGVzdAoKCmFzeW5jIGRlZiB0ZXN0X2JpbmRpbmdfaXNfc2NvcGVkX2FuZF9yZXN0b3JlZCgpOgogICAgYXNzZXJ0IGN1cnJlbnRfc2Vzc2lvbl9pZCgpIGlzIE5vbmUKICAgIHdpdGggYmluZF9zZXNzaW9uKCJvdXRlciIpOgogICAgICAgIHdpdGggYmluZF9zZXNzaW9uKCJpbm5lciIpOgogICAgICAgICAgICBhc3NlcnQgY3VycmVudF9zZXNzaW9uX2lkKCkgPT0gImlubmVyIgogICAgICAgIGFzc2VydCBjdXJyZW50X3Nlc3Npb25faWQoKSA9PSAib3V0ZXIiCiAgICBhc3NlcnQgY3VycmVudF9zZXNzaW9uX2lkKCkgaXMgTm9uZQoKCmRlZiB0ZXN0X3Nlc3Npb25fcmVzZXRfc3RhcnRzX2FfbmV3X2NvbnZlcnNhdGlvbih0bXBfcGF0aCk6CiAgICBzZXNzaW9ucyA9IFNlc3Npb25NYW5hZ2VyKG1heF9oaXN0b3J5PTUwLCBtYXhfYWdlX2hvdXJzPTI0LCBwZXJzaXN0X2Rpcj1zdHIodG1wX3BhdGgpKQogICAgY2hhbm5lbCA9IGYiY2hhbi17bmV3X3Nlc3Npb25faWQoKX0iCiAgICBiZWZvcmUgPSBjaGFubmVsX3Nlc3Npb25faWQoY2hhbm5lbCkKICAgIHNlc3Npb25zLnJlc2V0KGNoYW5uZWwpCiAgICBhZnRlciA9IGNoYW5uZWxfc2Vzc2lvbl9pZChjaGFubmVsKQogICAgYXNzZXJ0IGFmdGVyICE9IGJlZm9yZQogICAgc2Vzc2lvbnMucmVzZXRfbWFueShbY2hhbm5lbF0pCiAgICBhc3NlcnQgY2hhbm5lbF9zZXNzaW9uX2lkKGNoYW5uZWwpICE9IGFmdGVyCiAgICBmb3JnZXRfY2hhbm5lbChjaGFubmVsKQoKCiMgLS0tIHRoZSB3aXJlIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQoKCmFzeW5jIGRlZiB0ZXN0X3Rvb2xfcmVxdWVzdF9jYXJyaWVzX3RoZV9jb252ZXJzYXRpb25faWRfYW5kX29kaW5faWRlbnRpdHkoKToKICAgIGNsaWVudCwgc2Vzc2lvbiA9IF9yZWNvcmRpbmdfY2xpZW50KFtGYWtlUmVzcCgyMDAsIHNzZV9saW5lcz1fVE9PTF9TU0UpXSkKICAgIHdpdGggYmluZF9zZXNzaW9uKCJjb252LTEiKToKICAgICAgICBhd2FpdCBjbGllbnQuY2hhdF93aXRoX3Rvb2xzKAogICAgICAgICAgICBtZXNzYWdlcz1beyJyb2xlIjogInVzZXIiLCAiY29udGVudCI6ICJoaSJ9XSwgc3lzdGVtPSJzeXMiLCB0b29scz1bXQogICAgICAgICkKICAgIGhlYWRlcnMsIGJvZHkgPSBzZXNzaW9uLmNhbGxzWzBdCiAgICBhc3NlcnQgaGVhZGVyc1sic2Vzc2lvbl9pZCJdID09ICJjb252LTEiCiAgICBhc3NlcnQgYm9keVsicHJvbXB0X2NhY2hlX2tleSJdID09ICJjb252LTEiCiAgICBhc3NlcnQgaGVhZGVyc1sib3JpZ2luYXRvciJdID09ICJvZGluIiA9PSBPRElOX09SSUdJTkFUT1IKICAgIGFzc2VydCBoZWFkZXJzWyJVc2VyLUFnZW50Il0gPT0gX0VYUEVDVEVEX1VBID09IE9ESU5fVVNFUl9BR0VOVAoKCmFzeW5jIGRlZiB0ZXN0X3RleHRfcmVxdWVzdF9jYXJyaWVzX3RoZV9jb252ZXJzYXRpb25faWQoKToKICAgIGNsaWVudCwgc2Vzc2lvbiA9IF9yZWNvcmRpbmdfY2xpZW50KFtGYWtlUmVzcCgyMDAsIHNzZV9saW5lcz1URVhUX09LX1NTRSldKQogICAgd2l0aCBiaW5kX3Nlc3Npb24oImNvbnYtMiIpOgogICAgICAgIGFzc2VydCBhd2FpdCBjbGllbnQuY2hhdChbeyJyb2xlIjogInVzZXIiLCAiY29udGVudCI6ICJoaSJ9XSwgc3lzdGVtPSJzeXMiKSA9PSAiaGVsbG8iCiAgICBoZWFkZXJzLCBib2R5ID0gc2Vzc2lvbi5jYWxsc1swXQogICAgYXNzZXJ0IGhlYWRlcnNbInNlc3Npb25faWQiXSA9PSAiY29udi0yIiBhbmQgYm9keVsicHJvbXB0X2NhY2hlX2tleSJdID09ICJjb252LTIiCgoKYXN5bmMgZGVmIHRlc3RfcmVxdWVzdHNfb3V0c2lkZV9hX2NvbnZlcnNhdGlvbl9zZW5kX25vX3Nlc3Npb24oKToKICAgIGNsaWVudCwgc2Vzc2lvbiA9IF9yZWNvcmRpbmdfY2xpZW50KAogICAgICAgIFtGYWtlUmVzcCgyMDAsIHNzZV9saW5lcz1fVE9PTF9TU0UpLCBGYWtlUmVzcCgyMDAsIHNzZV9saW5lcz1URVhUX09LX1NTRSldCiAgICApCiAgICBhd2FpdCBjbGllbnQuY2hhdF93aXRoX3Rvb2xzKG1lc3NhZ2VzPVt7InJvbGUiOiAidXNlciIsICJjb250ZW50IjogImhpIn1dLCBzeXN0ZW09InMiLCB0b29scz1bXSkKICAgIGF3YWl0IGNsaWVudC5jaGF0KFt7InJvbGUiOiAidXNlciIsICJjb250ZW50IjogImhpIn1dLCBzeXN0ZW09InMiKQogICAgZm9yIGhlYWRlcnMsIGJvZHkgaW4gc2Vzc2lvbi5jYWxsczoKICAgICAgICBhc3NlcnQgInNlc3Npb25faWQiIG5vdCBpbiBoZWFkZXJzIGFuZCAicHJvbXB0X2NhY2hlX2tleSIgbm90IGluIGJvZHkKICAgICAgICBhc3NlcnQgaGVhZGVyc1sib3JpZ2luYXRvciJdID09ICJvZGluIiBhbmQgaGVhZGVyc1siVXNlci1BZ2VudCJdID09IF9FWFBFQ1RFRF9VQQogICAgYXNzZXJ0IHNldChzZXNzaW9uLmNhbGxzWzBdWzBdKSA9PSB7CiAgICAgICAgIkF1dGhvcml6YXRpb24iLCAiQ29udGVudC1UeXBlIiwgIm9yaWdpbmF0b3IiLCAiVXNlci1BZ2VudCIsCiAgICB9CgoKYXN5bmMgZGVmIHRlc3RfcmV0cnlfYXR0ZW1wdHNfa2VlcF90aGVfc2FtZV9jb252ZXJzYXRpb25faWQoKToKICAgIGNsaWVudCwgc2Vzc2lvbiA9IF9yZWNvcmRpbmdfY2xpZW50KAogICAgICAgIFtGYWtlUmVzcCg1MDAsIGJvZHk9YiJidXN5IiksIEZha2VSZXNwKDIwMCwgc3NlX2xpbmVzPVRFWFRfT0tfU1NFKV0sIG1heF9yZXRyaWVzPTIKICAgICkKICAgIHdpdGggYmluZF9zZXNzaW9uKCJjb252LTMiKToKICAgICAgICBhc3NlcnQgYXdhaXQgY2xpZW50LmNoYXQoW3sicm9sZSI6ICJ1c2VyIiwgImNvbnRlbnQiOiAiaGkifV0sIHN5c3RlbT0icyIpID09ICJoZWxsbyIKICAgIGFzc2VydCBbaGVhZGVyc1sic2Vzc2lvbl9pZCJdIGZvciBoZWFkZXJzLCBfIGluIHNlc3Npb24uY2FsbHNdID09IFsiY29udi0zIiwgImNvbnYtMyJdCiAgICBhc3NlcnQgW2JvZHlbInByb21wdF9jYWNoZV9rZXkiXSBmb3IgXywgYm9keSBpbiBzZXNzaW9uLmNhbGxzXSA9PSBbImNvbnYtMyIsICJjb252LTMiXQoKCmRlZiB0ZXN0X2F1dGhfaGVhZGVyc19uYW1lX29kaW5fYW5kX25ldmVyX2NhcnJ5X2Ffc2Vzc2lvbigpOgogICAgaGVhZGVycyA9IENvZGV4Q2hhdENsaWVudC5fYXV0aF9oZWFkZXJzKCJ0IiwgImFjY3QiKQogICAgYXNzZXJ0IGhlYWRlcnNbIm9yaWdpbmF0b3IiXSA9PSAib2RpbiIgYW5kIGhlYWRlcnNbIlVzZXItQWdlbnQiXSA9PSBfRVhQRUNURURfVUEKICAgIGFzc2VydCBoZWFkZXJzWyJDaGF0R1BULUFjY291bnQtSWQiXSA9PSAiYWNjdCIgYW5kICJzZXNzaW9uX2lkIiBub3QgaW4gaGVhZGVycwoKCmRlZiB0ZXN0X2ltYWdlX3JlcXVlc3RzX25hbWVfb2RpbigpOgogICAgaGVhZGVycyA9IE9wZW5BSUltYWdlQmFja2VuZC5faGVhZGVycygidCIsICJhY2N0IikKICAgIGFzc2VydCBoZWFkZXJzWyJvcmlnaW5hdG9yIl0gPT0gIm9kaW4iIGFuZCBoZWFkZXJzWyJVc2VyLUFnZW50Il0gPT0gX0VYUEVDVEVEX1VBCiAgICBhc3NlcnQgInNlc3Npb25faWQiIG5vdCBpbiBoZWFkZXJzCgoKZGVmIHRlc3RfbG9naW5fbGlua19uYW1lc19vZGluKCk6CiAgICB1cmwsIF92ZXJpZmllciA9IENvZGV4QXV0aC5idWlsZF9hdXRoX3VybCgpCiAgICBhc3NlcnQgcGFyc2VfcXModXJsc3BsaXQodXJsKS5xdWVyeSlbIm9yaWdpbmF0b3IiXSA9PSBbIm9kaW4iXQoKCiMgLS0tIHdoZXJlIGNvbnZlcnNhdGlvbnMgc3RhcnQgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KCgpkZWYgX3R1cm4oY2hhbm5lbDogc3RyKToKICAgIGR1cmFiaWxpdHkgPSBTaW1wbGVOYW1lc3BhY2UoCiAgICAgICAgc2V0dGxlX3Rlcm1pbmFsPUFzeW5jTW9jayhyZXR1cm5fdmFsdWU9VHJ1ZSksIHNldHRsZWQ9VHJ1ZSwgc3VzcGVuZGVkPUZhbHNlCiAgICApCiAgICByZXR1cm4gU2ltcGxlTmFtZXNwYWNlKAogICAgICAgIF9jaF9pZD1jaGFubmVsLCBfcmVxX2lkPSJyIiwgX2NhbmNlbD1hc3luY2lvLkV2ZW50KCksIGR1cmFiaWxpdHk9ZHVyYWJpbGl0eSwgdHJhY2U9Tm9uZQogICAgKQoKCmRlZiBfcnVubmVyKHNlZW46IGxpc3QpOgogICAgYXN5bmMgZGVmIHJ1bl9pdGVyYXRpb25zKHN0KToKICAgICAgICBzZWVuLmFwcGVuZChjdXJyZW50X3Nlc3Npb25faWQoKSkKICAgICAgICByZXR1cm4gKCJvayIsIEZhbHNlLCBGYWxzZSwgW10sIEZhbHNlKQoKICAgIHJldHVybiBTaW1wbGVOYW1lc3BhY2UoCiAgICAgICAgX2NvbXB1dGVyX3NlcnZpY2U9bGFtYmRhOiBOb25lLAogICAgICAgIF9ydW5fY2hhdF9pdGVyYXRpb25zPXJ1bl9pdGVyYXRpb25zLAogICAgICAgIF9jaGFubmVsX3N0YXRlPVNpbXBsZU5hbWVzcGFjZShjbG9zZV9zdGVlcl9pbmJveD1sYW1iZGEgKl86IE5vbmUpLAogICAgICAgIF9zdG9wX2NvbXB1dGVyX3R1cm49QXN5bmNNb2NrKCksCiAgICAgICAgX3JlbGVhc2Vfd29ya2xvYWQ9bGFtYmRhIF9zdDogTm9uZSwKICAgICAgICBfY2xlYXJfYWN0aXZlPWxhbWJkYSBfc3Q6IE5vbmUsCiAgICApCgoKYXN5bmMgZGVmIHRlc3RfY2hhdF90dXJuc19vZl9vbmVfY2hhbm5lbF9zaGFyZV9pdHNfaWRfdW50aWxfcmVzZXQoKToKICAgIGNoYW5uZWwgPSBmImNoYW4te25ld19zZXNzaW9uX2lkKCl9IgogICAgc2VlbjogbGlzdCA9IFtdCiAgICBydW5uZXIgPSBfcnVubmVyKHNlZW4pCiAgICBhd2FpdCBUb29sTG9vcFJ1bm5lci5fcnVuX3dpdGhfZ3VhcmRzKHJ1bm5lciwgX3R1cm4oY2hhbm5lbCkpCiAgICBhd2FpdCBUb29sTG9vcFJ1bm5lci5fcnVuX3dpdGhfZ3VhcmRzKHJ1bm5lciwgX3R1cm4oY2hhbm5lbCkpCiAgICBhd2FpdCBUb29sTG9vcFJ1bm5lci5fcnVuX3dpdGhfZ3VhcmRzKHJ1bm5lciwgX3R1cm4oZiJvdGhlci17Y2hhbm5lbH0iKSkKICAgIGZvcmdldF9jaGFubmVsKGNoYW5uZWwpCiAgICBhd2FpdCBUb29sTG9vcFJ1bm5lci5fcnVuX3dpdGhfZ3VhcmRzKHJ1bm5lciwgX3R1cm4oY2hhbm5lbCkpCiAgICBhc3NlcnQgc2VlblswXSBpcyBub3QgTm9uZSBhbmQgc2VlblswXSA9PSBzZWVuWzFdICAjIG9uZSBjaGFubmVsIHNlc3Npb24sIG9uZSBJRAogICAgYXNzZXJ0IHNlZW5bMl0gbm90IGluIChOb25lLCBzZWVuWzBdKSAgIyBhbm90aGVyIGNoYW5uZWwKICAgIGFzc2VydCBzZWVuWzNdIG5vdCBpbiAoTm9uZSwgc2VlblswXSkgYW5kIHNlZW5bM10gPT0gY2hhbm5lbF9zZXNzaW9uX2lkKGNoYW5uZWwpICAjIGFmdGVyIHJlc2V0CiAgICBhc3NlcnQgY3VycmVudF9zZXNzaW9uX2lkKCkgaXMgTm9uZQogICAgZm9yZ2V0X2NoYW5uZWwoY2hhbm5lbCkKICAgIGZvcmdldF9jaGFubmVsKGYib3RoZXIte2NoYW5uZWx9IikKCgphc3luYyBkZWYgdGVzdF9lYWNoX2FnZW50X3J1bl9oYXNfaXRzX293bl9pZF9mb3JfYWxsX2l0c19yZXF1ZXN0cygpOgogICAgc2VlbjogbGlzdCA9IFtdCgogICAgYXN5bmMgZGVmIGNhbGxiYWNrKCphcmdzLCAqKmt3YXJncyk6CiAgICAgICAgc2Vlbi5hcHBlbmQoY3VycmVudF9zZXNzaW9uX2lkKCkpCiAgICAgICAgaWYgbGVuKHNlZW4pID09IDE6CiAgICAgICAgICAgIHJldHVybiB7InRvb2xfY2FsbHMiOiBbeyJpZCI6ICIxIiwgIm5hbWUiOiAicmVhZF9maWxlIiwgImlucHV0Ijoge319XX0KICAgICAgICByZXR1cm4geyJ0ZXh0IjogImRvbmUifQoKICAgIHdpdGggYmluZF9zZXNzaW9uKCJwYXJlbnQtdHVybiIpOgogICAgICAgIGF3YWl0IF9ydW5fYWdlbnQoYWdlbnQoKSwgIiIsIFtdLCBjYWxsYmFjaywgQXN5bmNNb2NrKHJldHVybl92YWx1ZT0ib2siKSkKICAgICAgICBmaXJzdF9hZ2VudCA9IGxpc3Qoc2VlbikKICAgICAgICBzZWVuLmNsZWFyKCkKICAgICAgICBhd2FpdCBfcnVuX2FnZW50KGFnZW50KCksICIiLCBbXSwgY2FsbGJhY2ssIEFzeW5jTW9jayhyZXR1cm5fdmFsdWU9Im9rIikpCiAgICAgICAgYXNzZXJ0IGN1cnJlbnRfc2Vzc2lvbl9pZCgpID09ICJwYXJlbnQtdHVybiIKICAgIGFzc2VydCBsZW4oZmlyc3RfYWdlbnQpID09IDIgYW5kIGZpcnN0X2FnZW50WzBdID09IGZpcnN0X2FnZW50WzFdCiAgICBhc3NlcnQgZmlyc3RfYWdlbnRbMF0gbm90IGluIChOb25lLCAicGFyZW50LXR1cm4iKQogICAgYXNzZXJ0IHNlZW5bMF0gPT0gc2VlblsxXSBhbmQgc2VlblswXSBub3QgaW4gKE5vbmUsICJwYXJlbnQtdHVybiIsIGZpcnN0X2FnZW50WzBdKQoKCmFzeW5jIGRlZiB0ZXN0X2FfbG9vcF9rZWVwc19vbmVfaWRfYWNyb3NzX2l0c19pdGVyYXRpb25zKG1vbmtleXBhdGNoKToKICAgIGltcG9ydCBzcmMudG9vbHMuYXV0b25vbW91c19sb29wIGFzIGFsCgogICAgbW9ua2V5cGF0Y2guc2V0YXR0cihhbCwgIk1JTl9JTlRFUlZBTF9TRUNPTkRTIiwgMCkKICAgIG1hbmFnZXIgPSBhbC5Mb29wTWFuYWdlcigpCiAgICBzZWVuOiBsaXN0ID0gW10KICAgIGNoYW5uZWwgPSBTaW1wbGVOYW1lc3BhY2UoaWQ9Imxvb3AtY2hhbiIsIHNlbmQ9QXN5bmNNb2NrKCkpCgogICAgYXN5bmMgZGVmIGl0ZXJhdGlvbihwcm9tcHQsIGNoLCBwcmV2X2NvbnRleHQsIGNhbmNlbF9ldmVudCk6CiAgICAgICAgc2Vlbi5hcHBlbmQoY3VycmVudF9zZXNzaW9uX2lkKCkpCiAgICAgICAgcmV0dXJuICJzdGlsbCBnb2luZyIKCiAgICB3aXRoIGJpbmRfc2Vzc2lvbigic3RhcnRpbmctdHVybiIpOgogICAgICAgIGxvb3BfaWQgPSBtYW5hZ2VyLnN0YXJ0X2xvb3AoCiAgICAgICAgICAgIGdvYWw9ImciLAogICAgICAgICAgICBjaGFubmVsPWNoYW5uZWwsCiAgICAgICAgICAgIHJlcXVlc3Rlcl9pZD0idSIsCiAgICAgICAgICAgIHJlcXVlc3Rlcl9uYW1lPSJ1c2VyIiwKICAgICAgICAgICAgaXRlcmF0aW9uX2NhbGxiYWNrPWl0ZXJhdGlvbiwKICAgICAgICAgICAgaW50ZXJ2YWxfc2Vjb25kcz0wLAogICAgICAgICAgICBtYXhfaXRlcmF0aW9ucz0yLAogICAgICAgICkKICAgIGFzc2VydCBub3QgbG9vcF9pZC5zdGFydHN3aXRoKCJFcnJvciIpCiAgICBhd2FpdCBhc3luY2lvLndhaXRfZm9yKG1hbmFnZXIuX2xvb3BzW2xvb3BfaWRdLl90YXNrLCAxMCkKICAgIGFzc2VydCBsZW4oc2VlbikgPT0gMiBhbmQgc2VlblswXSA9PSBzZWVuWzFdCiAgICBhc3NlcnQgc2VlblswXSBub3QgaW4gKE5vbmUsICJzdGFydGluZy10dXJuIikKCgphc3luYyBkZWYgdGVzdF9xdW90YV9jaGVja19uZXZlcl9zZW5kc19hX3Nlc3Npb25fZXZlbl9pbnNpZGVfYV9jb252ZXJzYXRpb24obW9ua2V5cGF0Y2gpOgogICAgZnJvbSBzcmMubGxtLmNvZGV4X3F1b3RhX2NoZWNrIGltcG9ydCBDb2RleFF1b3RhQ2hlY2tTZXJ2aWNlCiAgICBmcm9tIHRlc3RzLnRlc3RfY29kZXhfcXVvdGFfY2hlY2sgaW1wb3J0IFBvb2wsIFNlc3Npb24KCiAgICBwb29sLCBzZXNzaW9uID0gUG9vbCgpLCBTZXNzaW9uKCkKICAgIHNlcnZpY2UgPSBDb2RleFF1b3RhQ2hlY2tTZXJ2aWNlKGxhbWJkYTogcG9vbCwgaW50ZXJ2YWw9OTAwLCB0aW1lb3V0PTMpCiAgICBtb25rZXlwYXRjaC5zZXRhdHRyKAogICAgICAgICJzcmMubGxtLmNvZGV4X3F1b3RhX2NoZWNrLmFpb2h0dHAuQ2xpZW50U2Vzc2lvbiIsIGxhbWJkYSAqKl9rd2FyZ3M6IHNlc3Npb24KICAgICkKICAgIHdpdGggYmluZF9zZXNzaW9uKCJjb252LTQiKToKICAgICAgICBhd2FpdCBzZXJ2aWNlLmNoZWNrX29uY2UoKQogICAgYXNzZXJ0IHNlc3Npb24uY2FsbHMKICAgIGZvciBfYXJncywga3dhcmdzIGluIHNlc3Npb24uY2FsbHM6CiAgICAgICAgYXNzZXJ0ICJzZXNzaW9uX2lkIiBub3QgaW4ga3dhcmdzWyJoZWFkZXJzIl0KICAgICAgICBhc3NlcnQgInByb21wdF9jYWNoZV9rZXkiIG5vdCBpbiBrd2FyZ3NbImpzb24iXQogICAgICAgIGFzc2VydCBrd2FyZ3NbImhlYWRlcnMiXVsib3JpZ2luYXRvciJdID09ICJvZGluIgo=",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/test_codex_cache_session.py",
+      "reason": "Odin 4.18's prompt-cache and client-identity tests.",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/test_codex_cache_session.py": "5f367ccbab33f5fad6569128d5ead04b515a7c2f09750817ed60e95f8bc2d8d8"
+      },
+      "tests": [
+        "tests/test_codex_cache_session.py"
+      ]
+    },
+    {
       "after_sha256": "01f8d63a5d5c6f6fa596209fc29623a7a9f344e9475e134a86974bb4d3192955",
       "approval": "pending independent review",
       "backport": "Desktop boundary; applicability review pending",
@@ -39401,6 +39640,43 @@
       },
       "tests": [
         "tests/test_desktop_browser_runtime.py"
+      ]
+    },
+    {
+      "after_sha256": "9f6c73f537bba613eb59cbda602f2c6e4fc6d477e523224bf3e70ecea0c1fcdf",
+      "approval": "pending independent review",
+      "backport": "Desktop boundary; applicability review pending",
+      "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "contract": "Desktop's real core (IPC, request service, engine and tool loop) with a scripted model that records the bound ID at each model call.",
+      "date": "2026-10-04",
+      "dependency_assets": "see manifest closure",
+      "destination_commit": "pending parent commit/PR",
+      "evidence": "Exact bytes only; not test execution, qualification or approval",
+      "invariant": "Each case fails when its binding is removed (turn, reset, agent, loop).",
+      "next_revisit": "next upstream release or weekly review",
+      "origin": "Desktop foundation",
+      "owner": "Claude",
+      "patch": [
+        {
+          "end": 0,
+          "new_base64": "IiIiT2RpbiA0LjE4IGNhcnJ5LW92ZXI6IG9uZSBwcm9tcHQtY2FjaGUgY29udmVyc2F0aW9uIElEIHBlciBEZXNrdG9wIGNvbnZlcnNhdGlvbi4KCkRlc2t0b3AncyByZWFsIGNvcmUgKElQQywgcmVxdWVzdCBzZXJ2aWNlLCBlbmdpbmUgYW5kIHRvb2wgbG9vcCkgd2l0aCBhIHNjcmlwdGVkCm1vZGVsIHRoYXQgcmVjb3JkcyB0aGUgY29udmVyc2F0aW9uIElEIGJvdW5kIHRvIGVhY2ggbW9kZWwgY2FsbC4gVGhlIENvZGV4CmNsaWVudCB0dXJucyB0aGF0IElEIGludG8gdGhlIGBgc2Vzc2lvbl9pZGBgIGhlYWRlciBhbmQgYGBwcm9tcHRfY2FjaGVfa2V5YGAKKHRlc3RzL3Rlc3RfY29kZXhfY2FjaGVfc2Vzc2lvbi5weSBjaGVja3MgdGhlIHdpcmUpLgoiIiIKZnJvbSBfX2Z1dHVyZV9fIGltcG9ydCBhbm5vdGF0aW9ucwoKaW1wb3J0IGFzeW5jaW8KaW1wb3J0IHV1aWQKCmltcG9ydCBweXRlc3QKCmZyb20gc3JjLmNvbmZpZy5zY2hlbWEgaW1wb3J0IE9wZW5BSUNvbXBhdGlibGVNb2RlbFByb2ZpbGUKZnJvbSBzcmMubGxtLmNhY2hlX3Nlc3Npb24gaW1wb3J0IGN1cnJlbnRfc2Vzc2lvbl9pZApmcm9tIHNyYy5sbG0udHlwZXMgaW1wb3J0IExMTVJlc3BvbnNlLCBUb29sQ2FsbApmcm9tIHRlc3RzLnRlc3RfZGVza3RvcF9hZ2VudF92aXNpb24gaW1wb3J0IF9maXJzdF90ZXh0LCBfdG9vbF9yZXN1bHRzCmZyb20gdGVzdHMudGVzdF9kZXNrdG9wX2JhY2tncm91bmRfY29yZSBpbXBvcnQgY2xlYW51cCwgc2Vzc2lvbgpmcm9tIHRlc3RzLnRlc3RfZGVza3RvcF9jb3JlX2xpZmVjeWNsZSBpbXBvcnQgcmVxdWVzdApmcm9tIHRlc3RzLnRlc3RfZGVza3RvcF9yZXF1ZXN0X2NvcmUgaW1wb3J0IFByb3ZpZGVyLCBzZXR0bGVkCgpBR0VOVCA9ICJDQUNIRS1BR0VOVCIKTE9PUCA9ICJDQUNIRS1MT09QIgoKCmNsYXNzIFJlY29yZGluZ1Byb3ZpZGVyKFByb3ZpZGVyKToKICAgIGRlZiBfX2luaXRfXyhzZWxmKToKICAgICAgICBzdXBlcigpLl9faW5pdF9fKCkKICAgICAgICBzZWxmLnNlZW46IGxpc3Rbc3RyIHwgTm9uZV0gPSBbXQoKICAgIGFzeW5jIGRlZiBjaGF0X3dpdGhfdG9vbHMoc2VsZiwgKiprd2FyZ3MpOgogICAgICAgIHNlbGYuc2Vlbi5hcHBlbmQoY3VycmVudF9zZXNzaW9uX2lkKCkpCiAgICAgICAgcmV0dXJuIGF3YWl0IHN1cGVyKCkuY2hhdF93aXRoX3Rvb2xzKCoqa3dhcmdzKQoKCmFzeW5jIGRlZiBfc2VuZChyZWFkZXIsIHdyaXRlciwgY29yZSwgY2lkLCB0ZXh0KToKICAgIHNlbnQgPSBhd2FpdCByZXF1ZXN0KHJlYWRlciwgd3JpdGVyLCAic3VibWlzc2lvbi5zZW5kIiwgewogICAgICAgICJjbGllbnRfc3VibWlzc2lvbl9pZCI6IHN0cih1dWlkLnV1aWQ0KCkpLCAiY29udmVyc2F0aW9uX2lkIjogY2lkLCAidGV4dCI6IHRleHR9KQogICAgYXNzZXJ0ICJyZXN1bHQiIGluIHNlbnQsIHNlbnQKICAgIGF3YWl0IHNldHRsZWQoY29yZSkKCgphc3luYyBkZWYgX3JldihyZWFkZXIsIHdyaXRlciwgY2lkKToKICAgIGxpc3RlZCA9IChhd2FpdCByZXF1ZXN0KHJlYWRlciwgd3JpdGVyLCAiY29udmVyc2F0aW9ucy5saXN0Iiwge30pKVsicmVzdWx0Il0KICAgIGl0ZW1zID0gbGlzdGVkIGlmIGlzaW5zdGFuY2UobGlzdGVkLCBsaXN0KSBlbHNlIGxpc3RlZC5nZXQoIml0ZW1zIiwgbGlzdGVkLmdldCgiY29udmVyc2F0aW9ucyIpKQogICAgcmV0dXJuIG5leHQoY1sicmV2Il0gZm9yIGMgaW4gaXRlbXMgaWYgY1siaWQiXSA9PSBjaWQpCgoKQHB5dGVzdC5tYXJrLmFzeW5jaW8KYXN5bmMgZGVmIHRlc3RfYV9jb252ZXJzYXRpb25fa2VlcHNfb25lX2lkX3VudGlsX2l0c19jb250ZXh0X2lzX3Jlc2V0KHRtcF9wYXRoKToKICAgIHByb3ZpZGVyID0gUmVjb3JkaW5nUHJvdmlkZXIoKQogICAgY29yZSwgcmVhZGVyLCB3cml0ZXIsIGNpZCwgcmZkLCB3ZmQgPSBhd2FpdCBzZXNzaW9uKHRtcF9wYXRoLCBwcm92aWRlcikKICAgIHRyeToKICAgICAgICBhd2FpdCBfc2VuZChyZWFkZXIsIHdyaXRlciwgY29yZSwgY2lkLCAiRmlyc3QiKQogICAgICAgIGF3YWl0IF9zZW5kKHJlYWRlciwgd3JpdGVyLCBjb3JlLCBjaWQsICJTZWNvbmQiKQogICAgICAgIGNyZWF0ZWQgPSBhd2FpdCByZXF1ZXN0KHJlYWRlciwgd3JpdGVyLCAiY29udmVyc2F0aW9ucy5jcmVhdGUiLCB7fSkKICAgICAgICBvdGhlciA9IGNyZWF0ZWRbInJlc3VsdCJdWyJjb252ZXJzYXRpb24iXVsiaWQiXQogICAgICAgIGF3YWl0IF9zZW5kKHJlYWRlciwgd3JpdGVyLCBjb3JlLCBvdGhlciwgIkVsc2V3aGVyZSIpCiAgICAgICAgcmVzZXQgPSBhd2FpdCByZXF1ZXN0KHJlYWRlciwgd3JpdGVyLCAiY29udmVyc2F0aW9ucy5yZXNldF9jb250ZXh0IiwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgeyJpZCI6IGNpZCwgImV4cGVjdGVkX3JldiI6IGF3YWl0IF9yZXYocmVhZGVyLCB3cml0ZXIsIGNpZCl9KQogICAgICAgIGFzc2VydCAicmVzdWx0IiBpbiByZXNldCwgcmVzZXQKICAgICAgICBhd2FpdCBfc2VuZChyZWFkZXIsIHdyaXRlciwgY29yZSwgY2lkLCAiQWZ0ZXIgdGhlIHJlc2V0IikKICAgIGZpbmFsbHk6CiAgICAgICAgYXdhaXQgY2xlYW51cChjb3JlLCB3cml0ZXIsIHJmZCwgd2ZkKQogICAgZmlyc3QsIHNlY29uZCwgZWxzZXdoZXJlLCBhZnRlcl9yZXNldCA9IHByb3ZpZGVyLnNlZW4KICAgIGZvciBzZWVuIGluIHByb3ZpZGVyLnNlZW46CiAgICAgICAgYXNzZXJ0IHV1aWQuVVVJRChzZWVuKS52ZXJzaW9uID09IDQKICAgIGFzc2VydCBmaXJzdCA9PSBzZWNvbmQgICMgb25lIGNvbnZlcnNhdGlvbiwgb25lIElEIGFjcm9zcyBpdHMgdHVybnMKICAgIGFzc2VydCBlbHNld2hlcmUgIT0gZmlyc3QgICMgYW5vdGhlciBjb252ZXJzYXRpb24gaGFzIGl0cyBvd24KICAgIGFzc2VydCBhZnRlcl9yZXNldCBub3QgaW4gKGZpcnN0LCBlbHNld2hlcmUpICAjIGEgY29udGV4dCByZXNldCBzdGFydHMgYSBuZXcgb25lCiAgICBhc3NlcnQgY3VycmVudF9zZXNzaW9uX2lkKCkgaXMgTm9uZQoKCmRlZiBfbGFzdF91c2VyX3RleHQobWVzc2FnZXM6IGxpc3RbZGljdF0pIC0+IHN0cjoKICAgIGZvciBtZXNzYWdlIGluIHJldmVyc2VkKG1lc3NhZ2VzKToKICAgICAgICBjb250ZW50ID0gbWVzc2FnZS5nZXQoImNvbnRlbnQiKQogICAgICAgIGlmIG1lc3NhZ2UuZ2V0KCJyb2xlIikgPT0gInVzZXIiIGFuZCBpc2luc3RhbmNlKGNvbnRlbnQsIHN0cik6CiAgICAgICAgICAgIHJldHVybiBjb250ZW50CiAgICAgICAgaWYgbWVzc2FnZS5nZXQoInJvbGUiKSA9PSAidXNlciIgYW5kIGlzaW5zdGFuY2UoY29udGVudCwgbGlzdCk6CiAgICAgICAgICAgIHRleHRzID0gW2IuZ2V0KCJ0ZXh0IiwgIiIpIGZvciBiIGluIGNvbnRlbnQgaWYgYi5nZXQoInR5cGUiKSA9PSAidGV4dCJdCiAgICAgICAgICAgIGlmIHRleHRzOgogICAgICAgICAgICAgICAgcmV0dXJuICIgIi5qb2luKHRleHRzKQogICAgcmV0dXJuICIiCgoKY2xhc3MgV29ya1Byb3ZpZGVyKFByb3ZpZGVyKToKICAgICIiIk1haW4gY2hhdCBzdGFydHMgYW4gYWdlbnQsIHRoZW4gYSBsb29wOyBlYWNoIHdvcmsgcmVxdWVzdCBjYWxscyBvbmUgdG9vbCwgdGhlbiBhbnN3ZXJzLiIiIgoKICAgIGRlZiBfX2luaXRfXyhzZWxmKToKICAgICAgICBzdXBlcigpLl9faW5pdF9fKCkKICAgICAgICBzZWxmLnNlZW46IGxpc3RbdHVwbGVbc3RyLCBzdHIgfCBOb25lXV0gPSBbXQoKICAgIGFzeW5jIGRlZiBjaGF0X3dpdGhfdG9vbHMoc2VsZiwgKiprd2FyZ3MpOgogICAgICAgIHNlbGYuY2FsbHMgKz0gMQogICAgICAgIG1lc3NhZ2VzID0ga3dhcmdzLmdldCgibWVzc2FnZXMiLCBbXSkKICAgICAgICBmaXJzdCA9IF9maXJzdF90ZXh0KG1lc3NhZ2VzKQogICAgICAgIGtpbmQgPSAiYWdlbnQiIGlmIEFHRU5UIGluIGZpcnN0IGVsc2UgImxvb3AiIGlmIExPT1AgaW4gZmlyc3QgZWxzZSAiY2hhdCIKICAgICAgICBzZWxmLnNlZW4uYXBwZW5kKChraW5kLCBjdXJyZW50X3Nlc3Npb25faWQoKSkpCiAgICAgICAgaWYga2luZCAhPSAiY2hhdCI6CiAgICAgICAgICAgIGlmIG5vdCBfdG9vbF9yZXN1bHRzKG1lc3NhZ2VzKToKICAgICAgICAgICAgICAgIHJldHVybiBMTE1SZXNwb25zZSh0b29sX2NhbGxzPVtUb29sQ2FsbCgKICAgICAgICAgICAgICAgICAgICAicHJvYmUiLCAicGFyc2VfdGltZSIsIHsiZXhwcmVzc2lvbiI6ICJ0b21vcnJvdyBhdCA5YW0ifSldLAogICAgICAgICAgICAgICAgICAgIHN0b3BfcmVhc29uPSJ0b29sX3VzZSIpCiAgICAgICAgICAgIHJldHVybiBMTE1SZXNwb25zZSh0ZXh0PSJ3b3JrIGRvbmUiKQogICAgICAgIGlmIF90b29sX3Jlc3VsdHMobWVzc2FnZXMpOgogICAgICAgICAgICByZXR1cm4gTExNUmVzcG9uc2UodGV4dD0iU3RhcnRlZC4iKQogICAgICAgIHN0YXJ0ID0gKCgic3Bhd25fYWdlbnQiLCB7ImxhYmVsIjogImNhY2hlIiwgImdvYWwiOiBmIntBR0VOVH0gY2hlY2sgdGhlIHRpbWUifSkKICAgICAgICAgICAgICAgICBpZiAiYWdlbnQgd29yayIgaW4gX2xhc3RfdXNlcl90ZXh0KG1lc3NhZ2VzKSBlbHNlCiAgICAgICAgICAgICAgICAgKCJzdGFydF9sb29wIiwgeyJnb2FsIjogZiJ7TE9PUH0gY2hlY2sgdGhlIHRpbWUiLCAibW9kZSI6ICJzaWxlbnQiLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAibWF4X2l0ZXJhdGlvbnMiOiAxLCAiaW50ZXJ2YWxfc2Vjb25kcyI6IDEwfSkpCiAgICAgICAgcmV0dXJuIExMTVJlc3BvbnNlKHRvb2xfY2FsbHM9W1Rvb2xDYWxsKCJzdGFydCIsICpzdGFydCldLCBzdG9wX3JlYXNvbj0idG9vbF91c2UiKQoKCkBweXRlc3QubWFyay5hc3luY2lvCmFzeW5jIGRlZiB0ZXN0X2FnZW50c19hbmRfbG9vcHNfZWFjaF9rZWVwX3RoZWlyX293bl9pZCh0bXBfcGF0aCk6CiAgICBwcm92aWRlciA9IFdvcmtQcm92aWRlcigpCiAgICBjb3JlLCByZWFkZXIsIHdyaXRlciwgY2lkLCByZmQsIHdmZCA9IGF3YWl0IHNlc3Npb24odG1wX3BhdGgsIHByb3ZpZGVyKQogICAgY29yZS5jb25maWcuYWdlbnRzLm1vZGVsID0gImNvbXBhdDp0ZXN0IgogICAgY29yZS5jb25maWcub3BlbmFpX2NvbXBhdGlibGUubW9kZWxfcHJvZmlsZXNbInRlc3QiXSA9IE9wZW5BSUNvbXBhdGlibGVNb2RlbFByb2ZpbGUoCiAgICAgICAgdG90YWxfd2luZG93X3Rva2Vucz0yMDAwMDAsIG1heF9vdXRwdXRfdG9rZW5zPTEwMDAwLCBzdXBwb3J0c190aGlua2luZ19tb2RlPVRydWUpCiAgICB0cnk6CiAgICAgICAgYXdhaXQgX3NlbmQocmVhZGVyLCB3cml0ZXIsIGNvcmUsIGNpZCwgIlN0YXJ0IHRoZSBhZ2VudCB3b3JrIikKICAgICAgICBhZ2VudHMgPSBsaXN0KGNvcmUuZW5naW5lLmRlcHMuYWdlbnRfbWFuYWdlci5fYWdlbnRzLnZhbHVlcygpKQogICAgICAgIGFzc2VydCBsZW4oYWdlbnRzKSA9PSAxCiAgICAgICAgYXdhaXQgYXN5bmNpby53YWl0X2ZvcihhZ2VudHNbMF0uX3Rhc2ssIDUpCiAgICAgICAgYXdhaXQgX3NlbmQocmVhZGVyLCB3cml0ZXIsIGNvcmUsIGNpZCwgIlN0YXJ0IHRoZSBsb29wIHdvcmsiKQogICAgICAgIHN0YXJ0ZWQgPSBsaXN0KGNvcmUuZW5naW5lLmRlcHMubG9vcF9tYW5hZ2VyLl9sb29wcy52YWx1ZXMoKSkKICAgICAgICBhc3NlcnQgbGVuKHN0YXJ0ZWQpID09IDEKICAgICAgICBhd2FpdCBhc3luY2lvLndhaXRfZm9yKHN0YXJ0ZWRbMF0uX3Rhc2ssIDUpCiAgICBmaW5hbGx5OgogICAgICAgIGF3YWl0IGNsZWFudXAoY29yZSwgd3JpdGVyLCByZmQsIHdmZCkKICAgIGtpbmRzID0gKCJjaGF0IiwgImFnZW50IiwgImxvb3AiKQogICAgaWRzID0ge2tpbmQ6IHtzaWQgZm9yIGssIHNpZCBpbiBwcm92aWRlci5zZWVuIGlmIGsgPT0ga2luZH0gZm9yIGtpbmQgaW4ga2luZHN9CiAgICBjb3VudHMgPSB7a2luZDogc3VtKGsgPT0ga2luZCBmb3IgaywgXyBpbiBwcm92aWRlci5zZWVuKSBmb3Iga2luZCBpbiBpZHN9CiAgICBhc3NlcnQgY291bnRzWyJhZ2VudCJdID09IDIgYW5kIGNvdW50c1sibG9vcCJdID09IDIsIHByb3ZpZGVyLnNlZW4gICMgMiByZXF1ZXN0cyBwZXIgcnVuCiAgICBhc3NlcnQgYWxsKGxlbihmb3VuZCkgPT0gMSBhbmQgTm9uZSBub3QgaW4gZm91bmQgZm9yIGZvdW5kIGluIGlkcy52YWx1ZXMoKSksIHByb3ZpZGVyLnNlZW4KICAgIGNoYXQsIGFnZW50LCBsb29wID0gKG5leHQoaXRlcihpZHNba10pKSBmb3IgayBpbiAoImNoYXQiLCAiYWdlbnQiLCAibG9vcCIpKQogICAgYXNzZXJ0IGxlbih7Y2hhdCwgYWdlbnQsIGxvb3B9KSA9PSAzICAjIHRoZSBhZ2VudCBhbmQgdGhlIGxvb3AgbmV2ZXIgdXNlIHRoZSBjaGF0J3MgSUQK",
+          "old_base64": "",
+          "start": 0
+        }
+      ],
+      "path": "tests/test_desktop_cache_session.py",
+      "reason": "Desktop real-core proof of Odin 4.18's per-conversation cache IDs: conversations, context reset, agents and loops.",
+      "release_status": "unreleased Phase 1",
+      "review_deadline": "before Phase 1 merge",
+      "reviewer": "pending Claude",
+      "severity": "safety review required",
+      "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
+      "state": "pending",
+      "test_sha256": {
+        "tests/test_desktop_cache_session.py": "9f6c73f537bba613eb59cbda602f2c6e4fc6d477e523224bf3e70ecea0c1fcdf"
+      },
+      "tests": [
+        "tests/test_desktop_cache_session.py"
       ]
     },
     {

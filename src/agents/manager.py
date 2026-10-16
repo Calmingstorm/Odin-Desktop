@@ -19,6 +19,7 @@ from enum import Enum
 from typing import Any, Protocol
 
 from ..error_presentation import format_user_facing_error
+from ..llm.cache_session import with_new_session
 from ..llm.secret_scrubber import scrub_output_secrets
 from ..llm.timing import elapsed_ms, timed_generation
 from ..llm.tool_history import (
@@ -1349,6 +1350,7 @@ class AgentManager:
         return len(self._agents)
 
 
+@with_new_session
 async def _run_agent(
     agent: AgentInfo,
     system_prompt: str,
