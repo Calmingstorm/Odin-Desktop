@@ -107,7 +107,7 @@
   "groups": [
     {
       "name": "direct-shared-stores-providers-tools",
-      "reason": "Explicit remaining unchanged shared suites in parent309suite9053pass replay; no hidden disposition of259historical failures. Odin 4.14 (#640) superseded exactly two cases here (a zero token budget and a string profile size are now startup-only); their 4.14 versions run in tests/test_desktop_numeric_bounds.py.",
+      "reason": "Explicit remaining unchanged shared suites in parent309suite9053pass replay; no hidden disposition of259historical failures. Odin 4.14 (#640) superseded exactly two cases here (a zero token budget and a string profile size are now startup-only); their 4.14 versions run in tests/test_desktop_numeric_bounds.py. Odin 4.17 (agent vision): tests/test_agent_native_vision.py runs here except its four Odin-bot surface cases (spawned-agent delivery, several calls, the malformed marker, the autonomous loop), which build Odin's Discord bot; tests/test_desktop_agent_vision.py runs the same four through Desktop's real core.",
       "files": [
         "tests/test_context_budget.py",
         "tests/test_context_budget_legacy_profile_conversion.py",
@@ -227,7 +227,14 @@
         "tests/test_webhook_persistence.py",
         "tests/test_webhook_text.py",
         "tests/test_search_store_concurrent_reads.py",
-        "tests/test_strict_process_lowering.py"
+        "tests/test_strict_process_lowering.py",
+        "tests/test_agent_native_vision.py::TestMarkerBoundaries::test_text_only_rendering_never_carries_pixels",
+        "tests/test_agent_native_vision.py::TestRepetitionSeesPixels",
+        "tests/test_agent_native_vision.py::TestRetentionHelpers",
+        "tests/test_agent_native_vision.py::TestFailureBoundaryRetention",
+        "tests/test_agent_native_vision.py::TestRequestSizeLimit",
+        "tests/test_agent_native_vision.py::TestInconsistentMeasurement",
+        "tests/test_agent_native_vision.py::TestAgentRequestAssembly"
       ],
       "exclude_expression": "(TestSessionsConfigTokenBudget and test_zero_budget) or (TestCompatibleProfiles and test_compatible_profile_legacy_shape_and_openrouter_catalogue_fallback)"
     },
@@ -1531,7 +1538,8 @@
         "tests/test_windows_runtime_acceptance_harness.py",
         "tests/test_windows_installer_acceptance_ci.py",
         "tests/test_desktop_windows_release.py",
-        "tests/test_windows_installed_core_acceptance.py"
+        "tests/test_windows_installed_core_acceptance.py",
+        "tests/test_desktop_agent_vision.py"
       ],
       "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups. Preserve merged onboarding/lifecycle pure temporary-profile and synthetic-driver regressions, not native/backend or active desktop qualification."
     },

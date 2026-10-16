@@ -24,10 +24,28 @@ def _methods(source, class_name):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
 
 
+# Odin 4.17's own edit to the loop audit (agent vision): the method stays the
+# baseline body with exactly these replacements.
+ODIN_417_LOOP_AUDIT = (
+    ("from ..tools.media_result import image_result_parts\n",
+     "from ..tools.media_result import image_result_parts, media_safe_text\n"),
+    ("image_parts = image_result_parts(result)\n",
+     "image_parts = image_result_parts(result)\n"
+     "            # A marker image_result_parts cannot read must not be str()-ed:\n"
+     "            # the audit detail would carry its pixels as text.\n"),
+    ("else str(result)\n", "else media_safe_text(result)\n"),
+)
+
+
 def test_all_unadapted_loop_phase_bodies_are_byte_identical():
     path = "src/discord/tool_loop.py"
     baseline = _methods(_baseline(path), "ToolLoopRunner")
     desktop = _methods((ROOT / path).read_text(), "ToolLoopRunner")
+    carried = baseline["_audit_loop_tool_outcome"]
+    for old, new in ODIN_417_LOOP_AUDIT:
+        assert carried.count(old) == 1, old
+        carried = carried.replace(old, new)
+    assert desktop["_audit_loop_tool_outcome"] == carried
     adapted = {
         "run", "run_resumed", "_prepare_chat_turn", "_scoped_tools_for_request",
         "_call_llm", "run_autonomous", "_finalize_loop", "__init__",
@@ -35,6 +53,8 @@ def test_all_unadapted_loop_phase_bodies_are_byte_identical():
         # Step 6B replaces only the proxy/removed prompt parameter and adds
         # admitted owner checks. Real execution is exercised by background_core.
         "_prepare_loop_turn", "dispatch_loop_tool_inner",
+        # Exactly Odin 4.17's edit, pinned above.
+        "_audit_loop_tool_outcome",
     }
     assert baseline.keys() == desktop.keys()
     for name in baseline.keys() - adapted:
