@@ -236,7 +236,8 @@ async def test_a_delegated_task_follow_up_has_its_own_id(tmp_path):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("mode", ["none", "reset", "reset-and-new-turn", "restart-after-new-turn"])
+@pytest.mark.parametrize("mode", ["none", "reset", "reset-and-new-turn", "restart-after-new-turn",
+                                  "evict-during-resume-status"])
 async def test_preserved_request_does_not_borrow_new_lineage_cache(integrated_graph, monkeypatch,
                                                                    mode):
     """Odin's 1.2.1 review check, adopted: the real suspend/resume path keeps the turn's ID."""
@@ -257,9 +258,20 @@ async def test_preserved_request_does_not_borrow_new_lineage_cache(integrated_gr
         return await original(st)
 
     monkeypatch.setattr(engine.runner, "_run_chat_iterations", spy)
+    if mode == "evict-during-resume-status":
+        raw_status = engine.runner._delivery.set_status
+
+        async def status(text=None, **kwargs):
+            if text == "Resuming preserved work...":
+                # The registry evicts the preserved turn's ID while the resume
+                # awaits its status update (Odin 4.18.1 review F2).
+                cache_session._turn_ids.clear()
+            return await raw_status(text, **kwargs)
+
+        monkeypatch.setattr(engine.runner._delivery, "set_status", status)
     # The existing case drives the real request service, suspend and checkpoint,
     # resume control, runner and transcript accounting throughout.
-    flow = "reset-and-new-turn" if mode == "restart-after-new-turn" else mode
+    flow = mode if mode in ("none", "reset", "reset-and-new-turn") else "reset-and-new-turn"
     await test_integrated_real_suspension_guarded_resume_and_committed_result(
         integrated_graph, False, flow)
     original_turn = next(row for row in seen if row[1] == 1)
@@ -271,7 +283,7 @@ async def test_preserved_request_does_not_borrow_new_lineage_cache(integrated_gr
         assert resumed[3] not in (original_turn[3], fresh[3]), seen
         return
     assert resumed[3] == original_turn[3], seen
-    if mode == "reset-and-new-turn":
+    if flow == "reset-and-new-turn":
         fresh = next(row for row in seen if row[0] == "NEW LINEAGE INPUT")
         assert resumed[2] is False and fresh[2] is True
         assert fresh[3] not in (None, original_turn[3]), seen

@@ -206,3 +206,43 @@ async def test_429_then_other_account_success_only_clears_successful_account(tmp
     assert calls == ["A", "B"]
     assert pool.quota_check_failure(0) == "HTTP 401"
     assert pool.quota_check_failure(1) is None
+
+
+@pytest.mark.asyncio
+async def test_an_account_at_its_limit_is_not_a_failed_quota_check(tmp_path, monkeypatch):
+    """Odin 4.18.1: an exhausted account answers the idle check with 429 and its quota."""
+    from src.llm.codex_quota_check import CodexQuotaCheckService
+
+    _path, pool, *_ = setup(tmp_path, [creds("A"), creds("B"), creds("C")])
+    replies = {
+        "A": (429, {**PLUS_HEADERS, "x-codex-secondary-used-percent": "100"}),
+        "B": (429, {"x-codex-rate-limit-reached-type": "primary"}),
+        "C": (429, PLUS_HEADERS),  # nothing exhausted: the 429 stays unexplained
+    }
+
+    class Reply:
+        def __init__(self, status, headers):
+            self.status, self.headers = status, headers
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+    class Session:
+        closed = False
+
+        def post(self, url, *, headers, json, timeout):
+            return Reply(*replies[headers["ChatGPT-Account-Id"]])
+
+        async def close(self):
+            self.closed = True
+
+    monkeypatch.setattr("src.llm.codex_quota_check.aiohttp.ClientSession",
+                        lambda **kwargs: Session())
+    for index in range(3):
+        pool.set_quota_check_failure(index, "HTTP 429")  # earlier checks
+    await CodexQuotaCheckService(lambda: pool).check_once()
+    assert [pool.quota_check_failure(index) for index in range(3)] == [None, None, "HTTP 429"]
+    assert pool.quota.snapshot_for(pool._quota_key(0)).secondary.used_percent == 100

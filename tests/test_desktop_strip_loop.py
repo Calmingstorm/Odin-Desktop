@@ -37,15 +37,22 @@ ODIN_417_LOOP_AUDIT = (
 )
 
 
-# Odin 4.18's own edit (prompt-cache affinity): every chat turn, fresh or resumed,
-# runs under its channel's cache ID; the method is the baseline with exactly this
-# replacement.
+# Odin 4.18/4.18.1's own edit (prompt-cache affinity): every chat turn runs under
+# the cache ID it started with, and a resume passes the ID it resolved once; the
+# method is the baseline with exactly these replacements.
 ODIN_418_RUN_WITH_GUARDS = (
+    ("async def _run_with_guards(self, st: _ChatTurn) -> "
+     "tuple[str, bool, bool, list[str], bool]:\n",
+     "async def _run_with_guards(\n"
+     "        self, st: _ChatTurn, cache_session_id: str | None = None\n"
+     "    ) -> tuple[str, bool, bool, list[str], bool]:\n"),
     ("            result = await self._run_chat_iterations(st)\n",
      "            # One cache conversation per channel session: every request of\n"
      "            # this turn (and the next turns) carries the same session ID. A\n"
      "            # turn keeps the ID it started with, also when resumed.\n"
-     "            with bind_session(turn_session_id(str(st._ch_id), str(st._req_id))):\n"
+     "            with bind_session(\n"
+     "                cache_session_id or turn_session_id(str(st._ch_id), str(st._req_id))\n"
+     "            ):\n"
      "                result = await self._run_chat_iterations(st)\n"),
 )
 

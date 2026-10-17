@@ -19,6 +19,10 @@
   - Each spawned agent, loop and background task has its own ID for its whole run, as does each background
     reflection.
   - Image generation and the quota check send no ID.
+- **An account at its usage limit no longer shows "Quota check failed".** The ChatGPT account list showed it under
+  an account's "Limit reached · Resets …" line, because the quota check counted the 429 that an exhausted account
+  answers with as a failed check. A 429 whose own quota shows the exhausted window, or names the reached limit, now
+  counts as a successful check; one it doesn't explain still shows as a failure (Odin 4.18.1).
 - **The app names itself on ChatGPT requests.** Every request to OpenAI's ChatGPT backend now sends
   `originator: odin` and `User-Agent: odin (<os>; <arch>)` instead of no originator and the HTTP library's default
   user agent. The browser sign-in link says `originator=odin` instead of `pi`.
