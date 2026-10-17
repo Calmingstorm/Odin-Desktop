@@ -298,3 +298,155 @@ async def test_a_stale_token_is_refreshed_and_the_quota_checked_again(tmp_path, 
     assert pool.quota.snapshot_for(pool._quota_key(0)).secondary.used_percent == 100
     assert json.loads(path.read_text())[0]["access_token"] == "synthetic-refreshed-A"
 
+
+class _Vault:
+    """A throwaway vault holding two disposable accounts."""
+
+    def __init__(self):
+        self.rows = [{"account_id": name, "access_token": f"synthetic-{name}",
+                      "refresh_token": f"synthetic-refresh-{name}", "expires_at": 9999999999}
+                     for name in ("A", "B")]
+        self.writes = 0
+
+    def read(self):
+        return json.loads(json.dumps(self.rows))
+
+    def write(self, rows):
+        self.rows = json.loads(json.dumps(rows))
+        self.writes += 1
+
+
+class _Reply:
+    def __init__(self, status, quota=None, body=None, enter=None, leave=None):
+        self.status, self.headers, self.body = status, quota or {}, body
+        self.enter, self.leave = enter, leave
+
+    async def __aenter__(self):
+        if self.enter:
+            await self.enter()
+        return self
+
+    async def __aexit__(self, *exc):
+        if self.leave:  # aiohttp awaits the connection's close here
+            await self.leave()
+        return False
+
+    async def read(self):
+        assert self.body is not None, "only the token endpoint's body is read"
+        return json.dumps(self.body).encode()
+
+
+class _Transport:
+    """The token endpoint and the Codex endpoint, scripted; nothing leaves the process."""
+
+    closed = False
+
+    def __init__(self, quota, *, on_refresh=None):
+        self.quota, self.on_refresh = list(quota), on_refresh
+        self.calls, self.refreshes = [], []
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    def post(self, url, **kwargs):
+        from src.llm import codex_quota_check as qc
+
+        if url == ca.TOKEN_URL:
+            self.refreshes.append(kwargs["data"])
+            return _Reply(200, body={"access_token": "synthetic-refreshed-A",
+                                     "refresh_token": "synthetic-rotated-refresh-A",
+                                     "expires_in": 3600}, enter=self.on_refresh)
+        assert url == qc.CODEX_API_URL
+        self.calls.append(dict(kwargs["headers"]))
+        return self.quota.pop(0)
+
+    async def close(self):
+        self.closed = True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("during", ["refresh", "response-exit-401", "response-exit-429"])
+@pytest.mark.parametrize("attached", [False, True], ids=["account-service", "serving-provider"])
+async def test_an_account_removed_during_its_refresh_gets_no_verdict(monkeypatch, attached, during):
+    """Odin's Desktop 1.2.2 review F1 (and his Odin #667 review), adopted: an account removed
+    through codex.accounts.remove while the check waits on a real refresh or on leaving the
+    rejected response."""
+    import socket
+
+    import aiohttp
+
+    from src.config.schema import Config
+    from src.desktop.codex_accounts import CodexAccountsService
+    from src.desktop.providers import ProviderOwner
+    from src.llm import codex_quota_check as qc
+
+    def denied(*args, **kwargs):
+        raise AssertionError("no network in this test")
+
+    monkeypatch.setattr(socket.socket, "connect", denied)
+    monkeypatch.setattr(socket, "getaddrinfo", denied)
+    config = Config()
+    config.openai_codex.enabled = True
+    config.openai_codex.auxiliary.enabled = False
+    config.ollama.enabled = False
+    config.openai_compatible.enabled = False
+    accounts = CodexAccountsService(SimpleNamespace(config=config), vault=_Vault())
+    providers = None
+    if attached:
+        providers = ProviderOwner(accounts.settings, accounts)
+        accounts.providers = providers
+        await providers.reload_codex()
+    pool = accounts.pool
+    pool.quota.record_headers(pool._quota_key(1), {
+        "x-codex-secondary-used-percent": "40", "x-codex-secondary-window-minutes": "300",
+        "x-codex-secondary-reset-after-seconds": "600"})
+    pool.set_quota_check_failure(1, "other account sentinel")
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def token_endpoint_await():
+        entered.set()
+        await release.wait()
+
+    if during == "refresh":
+        transport = _Transport([_Reply(401)], on_refresh=token_endpoint_await)
+    else:
+        status = int(during.rsplit("-", 1)[1])
+        transport = _Transport([_Reply(status, leave=token_endpoint_await)])
+    raw_refresh, refresh_targets = pool.force_refresh, []
+
+    async def tracked_refresh(index, stale_token=None):
+        refresh_targets.append(pool._accounts[index].get_account_id())
+        return await raw_refresh(index, stale_token)
+
+    pool.force_refresh = tracked_refresh
+    monkeypatch.setattr(aiohttp, "ClientSession", lambda **kwargs: transport)
+
+    def serving_pool():
+        return getattr(providers.codex_client, "auth", None) if attached else pool
+
+    check = qc.CodexQuotaCheckService(serving_pool)
+    task = asyncio.create_task(check.check_once())
+    try:
+        await asyncio.wait_for(entered.wait(), 3)
+        await accounts.handle("codex.accounts.remove", {"index": 0})  # B moves to slot 0
+        release.set()
+        await task
+        assert len(transport.calls) == 1
+        # Only A's own refresh, started before the removal; nothing for B's slot.
+        assert refresh_targets == (["A"] if during == "refresh" else [])
+        assert len(transport.refreshes) == (1 if during == "refresh" else 0)
+        assert accounts.vault.writes == 1  # the removal only; no retired refresh is saved
+        assert accounts.vault.rows[0]["account_id"] == "B"
+        # The removed account's 401 must not replace B's own state.
+        assert pool.quota_check_failure(0) == "other account sentinel"
+    finally:
+        release.set()
+        await asyncio.gather(task, return_exceptions=True)
+        await check.close()
+        if providers is not None:
+            await providers.close()
+        await accounts.close()
+
