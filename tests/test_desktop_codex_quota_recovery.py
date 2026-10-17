@@ -450,3 +450,63 @@ async def test_an_account_removed_during_its_refresh_gets_no_verdict(monkeypatch
             await providers.close()
         await accounts.close()
 
+
+@pytest.mark.asyncio
+async def test_a_reload_during_the_retry_token_fetch_writes_no_verdict(tmp_path, monkeypatch):
+    """The third await on the refresh path: the token fetch for the second request."""
+    from src.llm.codex_quota_check import CodexQuotaCheckService
+
+    path, pool, *_ = setup(tmp_path, [creds("A")])
+
+    async def token_endpoint(self, current):  # a successful refresh, without the network
+        self._save({**current, "access_token": "synthetic-refreshed-A"})
+
+    monkeypatch.setattr(ca.CodexAuth, "_refresh", token_endpoint)
+    raw_token_for, fetches = pool.token_for, []
+
+    async def token_for(index):
+        fetches.append(index)
+        if len(fetches) == 2:  # the retry's fetch: the account set changes meanwhile
+            path.write_text(json.dumps([creds("B")]))
+            await pool.reload_async()
+        return await raw_token_for(index)
+
+    monkeypatch.setattr(pool, "token_for", token_for)
+    calls = []
+
+    class Session:
+        closed = False
+
+        def post(self, url, *, headers, json, timeout):
+            calls.append(headers["Authorization"])
+            return _Reply(401)
+
+        async def close(self):
+            self.closed = True
+
+    monkeypatch.setattr("src.llm.codex_quota_check.aiohttp.ClientSession",
+                        lambda **kwargs: Session())
+    await CodexQuotaCheckService(lambda: pool).check_once()
+    assert calls == ["Bearer synthetic-A"]  # no second request for the old slot
+    assert pool._accounts[0].get_account_id() == "B"
+    assert pool.quota_check_failure(0) is None
+
+
+def test_the_shared_limit_reading_desktop_relies_on():
+    """codex_quota's reading (Odin 4.18.2), which routing, the listing and the check share."""
+    from src.llm.codex_quota import limit_reached, limited_windows, parse_quota_headers
+
+    now = 1_000.0
+
+    def snap(headers):
+        return parse_quota_headers(headers, account_key="k", observed_at=now)
+
+    named = snap({"x-codex-primary-used-percent": "20", "x-codex-primary-window-minutes": "300",
+                  "x-codex-primary-reset-after-seconds": "60",
+                  "x-codex-rate-limit-reached-type": "primary_window"})
+    assert limited_windows(named, now) == {"primary": now + 60}
+    assert limited_windows(named, now + 60) == {}  # until its reset only
+    assert limit_reached(named, now) is True
+    assert limit_reached(snap({"x-codex-rate-limit-reached-type": "secondary"}), now) is True
+    assert limited_windows(None, now) == {} and limit_reached(None, now) is False
+
