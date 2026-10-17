@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.2.1]
+
+**Odin 4.18's prompt-cache fix on the desktop.** Linux, Windows and macOS.
+
+- **ChatGPT requests reuse the prompt cache.** Each conversation sends its own random ID (a UUID the app generates)
+  as the `session_id` header and as `prompt_cache_key`, so OpenAI's backend keeps that conversation's cached prompt
+  on one machine. Before this, the app sent no such ID, and most follow-up requests inside a reply re-read the whole
+  prompt: in a controlled test, no follow-up request reused any of the previous prompt, and with the ID every one
+  reused all of it (90% of follow-up input cached; 91% was the maximum possible). Cached input is read faster, and
+  OpenAI's Codex credit rate card bills it at a twentieth of the uncached rate (GPT-6.1 Sol); OpenAI doesn't publish
+  how included plan limits count it.
+  - Each conversation keeps its ID across replies, from history compaction before a reply to the reply after a
+    skill hands off. Resetting a conversation's context starts a new ID, and IDs are kept in memory, so restarting
+    the app starts new ones too.
+  - A reply keeps the ID it started with, so a preserved request resumed after a context reset never joins the new
+    conversation's cache (Odin 4.18.1).
+  - Each spawned agent, loop and background task has its own ID for its whole run, as does each background
+    reflection.
+  - Image generation and the quota check send no ID.
+- **An account at its usage limit no longer shows "Quota check failed".** The ChatGPT account list showed it under
+  an account's "Limit reached · Resets …" line, because the quota check counted the 429 that an exhausted account
+  answers with as a failed check. A 429 whose own quota shows the exhausted window, or names the reached limit, now
+  counts as a successful check; one it doesn't explain still shows as a failure (Odin 4.18.1).
+- **The app names itself on ChatGPT requests.** Every request to OpenAI's ChatGPT backend now sends
+  `originator: odin` and `User-Agent: odin (<os>; <arch>)` instead of no originator and the HTTP library's default
+  user agent. The browser sign-in link says `originator=odin` instead of `pi`.
+
 ## [1.2.0]
 
 **Odin 4.17's agent vision on the desktop.** Linux, Windows and macOS.

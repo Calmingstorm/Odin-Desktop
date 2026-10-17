@@ -17,6 +17,7 @@ from datetime import datetime
 from typing import Any
 
 from ..error_presentation import format_user_facing_error
+from ..llm.cache_session import with_new_session
 from ..llm.secret_scrubber import scrub_output_secrets
 from ..odin_log import get_logger
 
@@ -367,6 +368,7 @@ class LoopManager:
                     timeout,
                 )
 
+    @with_new_session
     async def _run_loop(
         self,
         info: LoopInfo,

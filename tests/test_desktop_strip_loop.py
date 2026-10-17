@@ -37,6 +37,26 @@ ODIN_417_LOOP_AUDIT = (
 )
 
 
+# Odin 4.18/4.18.1's own edit (prompt-cache affinity): every chat turn runs under
+# the cache ID it started with, and a resume passes the ID it resolved once; the
+# method is the baseline with exactly these replacements.
+ODIN_418_RUN_WITH_GUARDS = (
+    ("async def _run_with_guards(self, st: _ChatTurn) -> "
+     "tuple[str, bool, bool, list[str], bool]:\n",
+     "async def _run_with_guards(\n"
+     "        self, st: _ChatTurn, cache_session_id: str | None = None\n"
+     "    ) -> tuple[str, bool, bool, list[str], bool]:\n"),
+    ("            result = await self._run_chat_iterations(st)\n",
+     "            # One cache conversation per channel session: every request of\n"
+     "            # this turn (and the next turns) carries the same session ID. A\n"
+     "            # turn keeps the ID it started with, also when resumed.\n"
+     "            with bind_session(\n"
+     "                cache_session_id or turn_session_id(str(st._ch_id), str(st._req_id))\n"
+     "            ):\n"
+     "                result = await self._run_chat_iterations(st)\n"),
+)
+
+
 def test_all_unadapted_loop_phase_bodies_are_byte_identical():
     path = "src/discord/tool_loop.py"
     baseline = _methods(_baseline(path), "ToolLoopRunner")
@@ -46,6 +66,11 @@ def test_all_unadapted_loop_phase_bodies_are_byte_identical():
         assert carried.count(old) == 1, old
         carried = carried.replace(old, new)
     assert desktop["_audit_loop_tool_outcome"] == carried
+    guarded = baseline["_run_with_guards"]
+    for old, new in ODIN_418_RUN_WITH_GUARDS:
+        assert guarded.count(old) == 1, old
+        guarded = guarded.replace(old, new)
+    assert desktop["_run_with_guards"] == guarded
     adapted = {
         "run", "run_resumed", "_prepare_chat_turn", "_scoped_tools_for_request",
         "_call_llm", "run_autonomous", "_finalize_loop", "__init__",
@@ -53,8 +78,8 @@ def test_all_unadapted_loop_phase_bodies_are_byte_identical():
         # Step 6B replaces only the proxy/removed prompt parameter and adds
         # admitted owner checks. Real execution is exercised by background_core.
         "_prepare_loop_turn", "dispatch_loop_tool_inner",
-        # Exactly Odin 4.17's edit, pinned above.
-        "_audit_loop_tool_outcome",
+        # Exactly Odin 4.17's and 4.18's edits, pinned above.
+        "_audit_loop_tool_outcome", "_run_with_guards",
     }
     assert baseline.keys() == desktop.keys()
     for name in baseline.keys() - adapted:

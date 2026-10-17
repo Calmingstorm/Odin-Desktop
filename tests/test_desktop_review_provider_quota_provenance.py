@@ -12,12 +12,22 @@ def test_quota_complete_frozen_corpus_and_reversible_setup_hunks():
     original = adapter.source_tree()
     adapted = adapter.adapted_tree()
     assert adapter.verify_adaptation(original, adapted)
-    assert corpus(original) == corpus(adapted)
+    # Cases and classes are untouched; exactly one assertion differs: Odin v4.18's
+    # own edit, which adds the two identity headers to the pinned header set.
+    before, after = corpus(original), corpus(adapted)
+    assert before["cases"] == after["cases"] and before["classes"] == after["classes"]
+    changed = [(old, new) for old, new in zip(before["assertions"], after["assertions"],
+                                              strict=True) if old != new]
+    assert len(changed) == 1
+    assert changed[0][0][0] == changed[0][1][0] == (
+        "test_checks_each_stale_account_pinned_shape_and_headers_only")
+    assert "'originator'" in changed[0][1][1] and "'User-Agent'" in changed[0][1][1]
+    assert corpus(adapter._with_odin_418(original)) == after
     assert {key: len(value) for key, value in corpus(adapted).items()} == {
         "assertions": 45, "cases": 10, "classes": 4,
     }
     assert dump(adapter.reverse_adaptation(adapted)) == dump(original)
-    assert len(adapter.HUNKS) == 7
+    assert len(adapter.HUNKS) == 8 and adapter.ODIN_418_HUNKS == 1
     assert adapter.SUITES == {"test_codex_quota_check": adapter.SOURCE_SHA256}
     assert adapter.CORPUS_SELECTIONS == {"test_codex_quota_check": None}
     assert adapter.CORPUS_EXCLUSIONS == {}
@@ -60,7 +70,7 @@ def test_quota_loader_exports_all_inherited_tests_and_helpers():
     assert len([name for name in exported if name.startswith("test_")]) == 10
 
 
-@pytest.mark.parametrize("index", range(7))
+@pytest.mark.parametrize("index", range(8))
 def test_quota_exact_setup_hunks_fail_closed_on_changed_original(index):
     original = adapter.source_tree()
     symbol, line, before_hash, _ = adapter.HUNKS[index]
@@ -69,6 +79,8 @@ def test_quota_exact_setup_hunks_fail_closed_on_changed_original(index):
                   and adapter.hashlib.sha256(dump(node).encode()).hexdigest() == before_hash)
     if isinstance(target, ast.ImportFrom):
         target.module = "unapproved.fixture"
+    elif isinstance(target, ast.Assert):
+        target.test = ast.Constant(True)
     elif isinstance(target, ast.Attribute):
         target.attr = "unapproved_reload"
     else:

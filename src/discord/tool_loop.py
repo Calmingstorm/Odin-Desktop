@@ -42,6 +42,7 @@ from ..agents.wait_deadlines import (
 from ..audit.tool_context import get_agent_tool_context, observe_terminal, start_observer
 from ..error_presentation import format_user_facing_error
 from ..llm import CircuitOpenError
+from ..llm.cache_session import bind_session, turn_session_id
 from ..llm.context_budget import (
     DEFAULT_DENSITY_MILLI,
     ContextBudgetSnapshot,
@@ -789,6 +790,11 @@ class ToolLoopRunner:
             _require_phase2_wiring()
         self._assert_request(st.message)
         st._cancel = self._channel_state.set_active_request(st._ch_id, st._req_id, st._cancel)
+        # The turn's original cache ID if still known; otherwise its own new
+        # one, never the channel's current ID (a reset may have replaced it).
+        # Resolved once and carried, so a registry eviction during the awaits
+        # below cannot turn it into a fresh lookup.
+        cache_session_id = turn_session_id(str(st._ch_id), str(st._req_id), resumed=True)
         # Only consumed directives survive in the checkpoint transcript. Never
         # resurrect a pending mailbox from a suspended/replaced process owner.
         last_sequence = max(
@@ -811,9 +817,11 @@ class ToolLoopRunner:
         except BaseException:
             self._channel_state.close_steer_inbox(st._ch_id, st._req_id)
             raise
-        return await self._run_with_guards(st)
+        return await self._run_with_guards(st, cache_session_id=cache_session_id)
 
-    async def _run_with_guards(self, st: _ChatTurn) -> tuple[str, bool, bool, list[str], bool]:
+    async def _run_with_guards(
+        self, st: _ChatTurn, cache_session_id: str | None = None
+    ) -> tuple[str, bool, bool, list[str], bool]:
         async def observe_cancel():
             await st._cancel.wait()
             await self._stop_computer_turn(st)
@@ -822,7 +830,13 @@ class ToolLoopRunner:
             asyncio.create_task(observe_cancel()) if self._computer_service() is not None else None
         )
         try:
-            result = await self._run_chat_iterations(st)
+            # One cache conversation per channel session: every request of
+            # this turn (and the next turns) carries the same session ID. A
+            # turn keeps the ID it started with, also when resumed.
+            with bind_session(
+                cache_session_id or turn_session_id(str(st._ch_id), str(st._req_id))
+            ):
+                result = await self._run_chat_iterations(st)
             # Terminal bookkeeping (best-effort; a suspension already settled
             # itself and this no-ops). Cancellation is terminal by design —
             # a cancelled turn never becomes resumable.

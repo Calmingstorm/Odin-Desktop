@@ -140,9 +140,10 @@ async def prepare(script, *, cap=8):
         await release.wait()
         return state
 
-    async def observed_run(state):
+    async def observed_run(state, **kwargs):
         try:
-            result = await original_run(state)
+            # Odin 4.18.1: run_resumed passes the cache ID it resolved once.
+            result = await original_run(state, **kwargs)
             graph.results.append(result)
             if not graph.outcome.done():
                 graph.outcome.set_result((True, result))
