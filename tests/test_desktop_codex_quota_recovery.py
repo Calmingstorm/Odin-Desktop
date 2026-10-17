@@ -246,3 +246,55 @@ async def test_an_account_at_its_limit_is_not_a_failed_quota_check(tmp_path, mon
     await CodexQuotaCheckService(lambda: pool).check_once()
     assert [pool.quota_check_failure(index) for index in range(3)] == [None, None, "HTTP 429"]
     assert pool.quota.snapshot_for(pool._quota_key(0)).secondary.used_percent == 100
+
+
+@pytest.mark.asyncio
+async def test_a_stale_token_is_refreshed_and_the_quota_checked_again(tmp_path, monkeypatch):
+    """An app that sat closed: its first quota check meets a rejected token."""
+    from src.llm.codex_quota_check import CodexQuotaCheckService
+
+    path, pool, *_ = setup(tmp_path, [creds("A")])
+    refreshes = []
+
+    async def token_endpoint(self, current):  # the refresh grant's answer, without the network
+        refreshes.append(current["access_token"])
+        self._save({**current, "access_token": "synthetic-refreshed-A",
+                    "refresh_token": "synthetic-refresh-2-A"})
+
+    monkeypatch.setattr(ca.CodexAuth, "_refresh", token_endpoint)
+    exhausted = {**PLUS_HEADERS, "x-codex-secondary-used-percent": "100",
+                 "x-codex-secondary-reset-after-seconds": "86400"}
+
+    class Reply:
+        def __init__(self, status, headers):
+            self.status, self.headers = status, headers
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+    seen = []
+
+    class Session:
+        closed = False
+
+        def post(self, url, *, headers, json, timeout):
+            seen.append(headers["Authorization"])
+            if headers["Authorization"] == "Bearer synthetic-A":
+                return Reply(401, {})
+            return Reply(429, exhausted)
+
+        async def close(self):
+            self.closed = True
+
+    monkeypatch.setattr("src.llm.codex_quota_check.aiohttp.ClientSession",
+                        lambda **kwargs: Session())
+    await CodexQuotaCheckService(lambda: pool).check_once()
+    assert seen == ["Bearer synthetic-A", "Bearer synthetic-refreshed-A"]
+    assert refreshes == ["synthetic-A"]
+    assert pool.quota_check_failure(0) is None  # the limit, observed; no "Quota check failed"
+    assert pool.quota.snapshot_for(pool._quota_key(0)).secondary.used_percent == 100
+    assert json.loads(path.read_text())[0]["access_token"] == "synthetic-refreshed-A"
+

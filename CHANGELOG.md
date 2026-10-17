@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.2]
+
+**The quota display, finished.** Linux, Windows and macOS.
+
+- **"Limit reached" whenever the app stops using an account for its quota.** When OpenAI names the window that
+  reached its limit, the app treats that window as limited until its reset, also when its percentage reads lower. The
+  ChatGPT account list now says "Limit reached" for such an account instead of showing it as healthy. A 429 that the
+  account's quota doesn't explain shows "Quota check failed" again (Odin 4.18.2, Odin #666).
+- **No "Quota check failed" from a stale sign-in.** After the app sits closed for a while, the first quota check can
+  meet an expired access token. It now refreshes the token once, the way replies do, and checks again; before, it
+  showed "Quota check failed" until the next check (Odin 4.18.2).
+
 ## [1.2.1]
 
 **Odin 4.18's prompt-cache fix on the desktop.** Linux, Windows and macOS.

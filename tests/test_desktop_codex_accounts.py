@@ -492,6 +492,30 @@ async def test_quota_status_and_manual_activation_reuse_retained_policy(make_ser
 
 
 @pytest.mark.asyncio
+async def test_account_list_reads_a_named_limit_as_routing_does(make_service):
+    """Odin's Desktop 1.2.1 review Q1 (Odin #666): numeric windows and a named limit together."""
+    service, _, _ = make_service([credential(), credential("b"), credential("c")])
+    primary = {"x-codex-primary-used-percent": "20", "x-codex-primary-window-minutes": "300",
+               "x-codex-primary-reset-after-seconds": "600"}
+    service.pool.quota.record_headers(opaque_account_key("a"), {
+        **primary, "x-codex-secondary-used-percent": "40",
+        "x-codex-secondary-window-minutes": "10080",
+        "x-codex-secondary-reset-after-seconds": "86400",
+        "x-codex-rate-limit-reached-type": "secondary",
+    })
+    service.pool.quota.record_headers(opaque_account_key("b"), {
+        **primary, "x-codex-rate-limit-reached-type": "secondary",  # a window it never reported
+    })
+    service.pool.quota.record_headers(opaque_account_key("c"), {
+        "x-codex-rate-limit-reached-type": "primary",  # a signal with no window
+    })
+    rows = (await service.handle("codex.accounts.list", {}))["accounts"]
+    # Routing benches "a" until the secondary reset, though it reads 40%.
+    assert service.pool._quota_reset(0) is not None
+    assert [row["limit_reached"] for row in rows] == [True, False, True]
+
+
+@pytest.mark.asyncio
 async def test_concurrent_polls_do_not_exchange_or_persist_twice(make_service):
     device = Device([credential()])
     service, secrets, clock = make_service(device=device)
