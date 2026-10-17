@@ -27,6 +27,7 @@ from ..llm.codex_auth import (
     mark_authorized_account,
     merge_authorized_account,
 )
+from ..llm.codex_quota import limit_reached
 from ..llm.errors import LLMAuthError
 from .secrets import SecretStoreError, secret_call
 
@@ -373,11 +374,9 @@ class CodexAccountsService:
                 "rate_limited": auth.is_rate_limited(),
                 "is_current": index == self.pool._current_index,
                 "quota": quota,
-                "limit_reached": bool(snapshot and (
-                    any(window is not None and window.used_percent >= 100
-                        for window in (snapshot.primary, snapshot.secondary))
-                    or (snapshot.limit_reached_type and not any(
-                        window is not None for window in (snapshot.primary, snapshot.secondary))))),
+                # The reading routing uses: a window named as reached counts
+                # until its reset, also when its percentage is lower.
+                "limit_reached": limit_reached(snapshot, time.time()),
                 "quota_check_failed": self.pool.quota_check_failure(index),
             })
         return {"configured": True, "account_count": self.pool.account_count,
