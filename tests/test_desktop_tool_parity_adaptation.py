@@ -28,9 +28,11 @@ def test_reviewed_bindings_preserve_every_signature_decorator_and_untouched_case
     assert original_cases == adapted_cases
 
 
-def test_only_fourteen_reviewed_hashes_are_re_pinned():
-    """Eleven Desktop rows, manage_list's delete action carried from Odin 4.14 (#641), and
-    apply_patch's and validate_action's macOS host text carried from Odin 4.15 (#655, #657)."""
+def test_only_fifteen_reviewed_hashes_are_re_pinned():
+    """Eleven Desktop rows, manage_list's delete action carried from Odin 4.14 (#641),
+    apply_patch's and validate_action's macOS host text carried from Odin 4.15 (#655, #657),
+    and send_to_agent's report routing sentence carried from Odin 4.19 (spawn_agent's row is
+    Desktop's and also carries 4.19's report sentence)."""
     namespace = {}
     exec(compile(adapted_source(), SOURCE_PATH, "exec"), namespace)
     inherited = namespace["EXPECTED_TOOL_HASHES"]
@@ -40,6 +42,7 @@ def test_only_fourteen_reviewed_hashes_are_re_pinned():
         "post_file", "generate_file", "schedule_task", "update_schedule", "search_history",
         "delegate_task", "browser_screenshot", "spawn_agent", "generate_image",
         "get_tool_output", "read_conversation", "manage_list", "apply_patch", "validate_action",
+        "send_to_agent",
     }
     assert {name for name in derived if derived[name] != inherited.get(name)} == set(repinned)
 
