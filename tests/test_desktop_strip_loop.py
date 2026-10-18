@@ -60,7 +60,8 @@ ODIN_418_RUN_WITH_GUARDS = (
 # Odin 4.19's own edits (agents report up): the loop head drains reports with the
 # one WI-5 checkpoint, and a stop or a suspension closes the turn's reports first.
 ODIN_419_LOOP_HEAD = (
-    ("            if st.drain_inbox():\n                await st.durability.on_guard_injection(st)\n",
+    ("            if st.drain_inbox():\n"
+     "                await st.durability.on_guard_injection(st)\n",
      "            # The one place reports drain on their own (elsewhere they only ride\n"
      "            # ahead of consumed steering); one WI-5 checkpoint for both.\n"
      "            reported = st.drain_reports()\n"

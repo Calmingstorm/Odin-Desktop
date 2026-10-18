@@ -336,7 +336,8 @@ def test_current_tool_reference_order_sections_counts_and_renamed_contract():
     from src.tools.defs.agent_only import agent_only_definitions
 
     assert re.findall(r"^### (.+)$", text, re.M) == [
-        *(tool["name"] for tool in definitions), *(tool["name"] for tool in agent_only_definitions())
+        *(tool["name"] for tool in definitions),
+        *(tool["name"] for tool in agent_only_definitions()),
     ]
     assert [tool["name"] for _, section in tool_sections() for tool in section] == [
         tool["name"] for tool in definitions

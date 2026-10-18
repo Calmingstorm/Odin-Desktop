@@ -134,7 +134,8 @@ def test_every_changed_catalog_name_description_and_schema_is_exact_c1_c3():
                         "collect final results."), 1)
                 if name == "send_to_agent":  # Odin 4.19, carried: reports route elsewhere
                     tool["description"] += (
-                        " For interim reports to your spawner, use report_to_parent, not this tool.")
+                        " For interim reports to your spawner, use report_to_parent, "
+                        "not this tool.")
                 if name == "manage_list":  # Odin 4.14 (#641), carried: delete removes a list
                     old = "Supports mark_done/mark_undone."
                     assert tool["description"].count(old) == 1
