@@ -661,9 +661,9 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             "tests/test_tool_parity.py":
                 "e734b9f088569c37109de900f8bbecf48d6d76885d29c23def4fadd8bf4b3849",
             "tests/desktop_adapters/tool_parity.py":
-                "90dbc7e6da4fff0235c18cda0949c1a7991ac27aa60732c7a0e008997cde8ae8",
+                "2b0f18e1f46f48f40d6e7246afb67f9c01e99d0f2e65755826b8cd3845e334bd",
             "tests/test_desktop_tool_parity_adaptation.py":
-                "4f279a963916b967e801404da6bcedc9394c23f9827d2ca1566aeede6dbe2b43",
+                "c62eedb381ee31731b5f4db28eb39dea9242c7d39ffd3c028cbab50b463f67a5",
         }
         return (_digest(_regular(root, path).read_bytes()) == inherited_hash
                 and all(_digest(_regular(root, name).read_bytes()) == digest

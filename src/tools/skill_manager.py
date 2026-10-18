@@ -28,6 +28,7 @@ from packaging.version import InvalidVersion
 from ..desktop.paths import private_directory
 from ..llm.secret_scrubber import is_credential_key, scrub_output_secrets
 from ..odin_log import get_logger
+from .defs.agent_only import AGENT_ONLY_TOOL_NAMES
 from .registry import TOOLS
 from .skill_context import ResourceTracker, SkillContext
 
@@ -37,7 +38,8 @@ if TYPE_CHECKING:
 log = get_logger("skills")
 
 SKILL_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,49}$")
-BUILTIN_TOOL_NAMES = {t["name"] for t in TOOLS}
+# Agent-only built-ins sit outside TOOLS but stay reserved: a skill can never shadow one.
+BUILTIN_TOOL_NAMES = {t["name"] for t in TOOLS} | AGENT_ONLY_TOOL_NAMES
 SKILL_EXECUTE_TIMEOUT = 120  # seconds
 MAX_SKILL_OUTPUT_CHARS = 50000  # truncate skill output beyond this
 

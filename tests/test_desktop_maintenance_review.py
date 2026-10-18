@@ -35,9 +35,13 @@ COMPUTER = ("computer_session", "computer_observe", "computer_act")
 
 # Desktop 1.1 carries Odin 4.14's governor fix (#638): the classifier is Odin v4.14.0's file byte
 # for byte (sha256 of `git show v4.14.0:src/tools/risk_classifier.py` in Odin's repository).
+# Desktop 1.3 carries Odin 4.19's report_to_parent no-retry entry: recovery.py is Odin v4.19.0's
+# file byte for byte (sha256 of `git show v4.19.0:src/tools/recovery.py`).
 CARRIED_UPSTREAM_SHA256 = {
     "src/tools/risk_classifier.py":
         "6d38578f2bde09a3715e2c9d78e420aeacb11e3ecd88ff2818d73eaef8830249",
+    "src/tools/recovery.py":
+        "593902d9d4d27530a39771eec6bac92ed0d3f79551c3bb86998d90bbface39e0",
 }
 
 

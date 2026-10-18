@@ -392,7 +392,7 @@
     "src/permissions/persistence.py": "fc248cd28a0015f9813e53fa2e2875b34b9d9d4231668e6470dd193c1f601b5b",
     "src/reasoning.py": "42771a73d5a7b9f739bef64917eca35f2872661a0c3573c92603bc6db7f02d70",
     "src/runtime_paths.py": "e34509def4efd90ff3e4e53cde5b81a2d298a93e9e7fae407805dd73bbb28eff",
-    "src/tools/builtin_policy.py": "37281b94fd785d033a1ac4690075044041e625debbcd4f80fec3fd58eded9578",
+    "src/tools/builtin_policy.py": "f8d185d2fb0304393eed48573751d0336f5cffd761ce325d542b0cd6def825f4",
     "src/tools/executor.py": "7e2849ce83d5855e6d28849c8809d5b3b2cb101fdeb4b6e84508cf8d844c3835",
     "src/tools/handlers/__init__.py": "2ff84d44298087eebcbe2b780a48870e41058fe094d7ed3f5cc3076cd8efa587",
     "src/tools/handlers/browser_web.py": "3bae99542ccc7e04d30315baf1f8bd4f8cd6fddb3d6ee58f0704afee84963fa7",

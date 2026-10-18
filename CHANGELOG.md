@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.3.0]
+
+**Spawned agents can report back while they work.** Linux, Windows and macOS.
+
+- **Interim reports from agents.** A new agent-only tool, `report_to_parent`, lets a spawned agent queue a report for
+  whoever spawned it: its parent agent, or the conversation that started it. The agent gets a receipt at once and
+  keeps working; the receipt confirms queuing, not reading. A report never wakes a wait or interrupts work. It is
+  delivered at the recipient's next eligible step, in one message marked as agent-produced evidence, not
+  instructions, and the recipient can answer with `send_to_agent`. Final results stay the complete record (Odin
+  4.19).
+  - Only spawned agents get the tool; conversations, loops, schedules and skills never do. It is listed in Settings →
+    Tools → Built-in tools, so you can switch it off there.
+  - Empty reports and reports over 12,000 characters are refused, and so are reports that would put the reports
+    waiting for the recipient over 60,000 characters, reports from an agent that a schedule or loop started (there is
+    no conversation to report to) and reports to a recipient that is stopping or closed. Refusals say why; reports
+    are never truncated.
+  - Waiting reports are held in memory and discarded unread when the recipient finishes, stops or is replaced, or the
+    app quits. The sending agent's audit log and history keep the report text either way.
+- **Agents are told which tool reports back.** `spawn_agent` now tells the model, when it wants interim reports, to
+  brief agents with their agent-only `report_to_parent` tool rather than `send_to_agent`, and `send_to_agent` says
+  the same. A live test showed a spawner briefing agents to report with `send_to_agent` (Odin 4.19).
+- **Calls an agent holds back say why.** When a message from its parent, a stop or the lifetime limit comes before an
+  agent's queued calls start, those calls are held back. They all read "Error (not_executed): Not executed: agent
+  stopped or parent correction queued before dispatch.", so agents that should carry on read that they might be
+  stopped. Each now names its cause. The one an agent actually reads says a message from its parent arrived first,
+  that the call neither failed nor was stopped, and to reissue it only if it still fits that message (Odin 4.19).
+
 ## [1.2.2]
 
 **The quota display, finished.** Linux, Windows and macOS.

@@ -332,7 +332,13 @@ def test_current_tool_reference_order_sections_counts_and_renamed_contract():
     definitions = get_documentation_tool_definitions()
     text = generate()
     assert OUTPUT.read_bytes() == text.encode("utf-8")
-    assert re.findall(r"^### (.+)$", text, re.M) == [tool["name"] for tool in definitions]
+    # Odin 4.19: the agent-only tool follows the static catalog, outside its count.
+    from src.tools.defs.agent_only import agent_only_definitions
+
+    assert re.findall(r"^### (.+)$", text, re.M) == [
+        *(tool["name"] for tool in definitions),
+        *(tool["name"] for tool in agent_only_definitions()),
+    ]
     assert [tool["name"] for _, section in tool_sections() for tool in section] == [
         tool["name"] for tool in definitions
     ]

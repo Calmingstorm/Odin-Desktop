@@ -123,6 +123,19 @@ def test_every_changed_catalog_name_description_and_schema_is_exact_c1_c3():
                         "Results are NOT posted to Discord",
                         "Results are NOT posted to the conversation",
                     ).replace("Max 5/channel", "Max 5/conversation")
+                    # Odin 4.19, carried: spawners name the agents' report tool.
+                    old = "injected near iteration limit."
+                    assert tool["description"].count(old) == 1
+                    tool["description"] = tool["description"].replace(old, (
+                        "injected near iteration limit. When you want interim reports, tell "
+                        "spawned agents to use their agent-only report_to_parent tool, not "
+                        "send_to_agent. Reports may arrive at later steps without waking waits or "
+                        "interrupting work; reply with send_to_agent only if needed. Still "
+                        "collect final results."), 1)
+                if name == "send_to_agent":  # Odin 4.19, carried: reports route elsewhere
+                    tool["description"] += (
+                        " For interim reports to your spawner, use report_to_parent, "
+                        "not this tool.")
                 if name == "manage_list":  # Odin 4.14 (#641), carried: delete removes a list
                     old = "Supports mark_done/mark_undone."
                     assert tool["description"].count(old) == 1

@@ -22,6 +22,7 @@ from ..llm.model_ref import parse_model_ref
 from ..llm.system_prompt import PERSONALITY_PRESETS, register_user_presets
 from ..tools.affordances import get_affordance
 from ..tools.builtin_policy import BUILTIN_TOOL_NAMES, normalize_disabled_tools
+from ..tools.defs.agent_only import agent_only_definitions
 from ..tools.defs.computer import computer_definitions
 from ..tools.registry import get_documentation_tool_definitions
 from ..web.api.llm_admin import _validate_ollama_url
@@ -260,6 +261,9 @@ class ModelSettingsService:
         policy = getattr(self.executor, "_builtin_policy", None)
         definitions = [
             *get_documentation_tool_definitions(cfg.command_shell), *computer_definitions(),
+            # Agent-only tools never join the main catalog, but the operator can still
+            # switch them off here, as on Odin's Tools panel.
+            *agent_only_definitions(),
         ]
         tools = []
         for tool in definitions:
