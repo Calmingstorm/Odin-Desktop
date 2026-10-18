@@ -57,6 +57,19 @@ ODIN_418_RUN_WITH_GUARDS = (
 )
 
 
+# Odin 4.19's own edits (agents report up): the loop head drains reports with the
+# one WI-5 checkpoint, and a stop or a suspension closes the turn's reports first.
+ODIN_419_LOOP_HEAD = (
+    ("            if st.drain_inbox():\n                await st.durability.on_guard_injection(st)\n",
+     "            # The one place reports drain on their own (elsewhere they only ride\n"
+     "            # ahead of consumed steering); one WI-5 checkpoint for both.\n"
+     "            reported = st.drain_reports()\n"
+     "            if st.drain_inbox() or reported:\n"
+     "                await st.durability.on_guard_injection(st)\n"),
+)
+ODIN_419_CLOSED_REPORTS = {"_stopped": "stopped", "_suspend_turn": "suspended"}
+
+
 def test_all_unadapted_loop_phase_bodies_are_byte_identical():
     path = "src/discord/tool_loop.py"
     baseline = _methods(_baseline(path), "ToolLoopRunner")
@@ -71,6 +84,16 @@ def test_all_unadapted_loop_phase_bodies_are_byte_identical():
         assert guarded.count(old) == 1, old
         guarded = guarded.replace(old, new)
     assert desktop["_run_with_guards"] == guarded
+    looped = baseline["_run_chat_iterations"]
+    for old, new in ODIN_419_LOOP_HEAD:
+        assert looped.count(old) == 1, old
+        looped = looped.replace(old, new)
+    assert desktop["_run_chat_iterations"] == looped
+    close = "        self._channel_state.close_steer_inbox(st._ch_id, st._req_id)\n"
+    for name, reason in ODIN_419_CLOSED_REPORTS.items():
+        assert baseline[name].count(close) == 1, name
+        reports = f'        self._channel_state.close_reports(st._ch_id, st._req_id, "{reason}")\n'
+        assert desktop[name] == baseline[name].replace(close, reports + close), name
     adapted = {
         "run", "run_resumed", "_prepare_chat_turn", "_scoped_tools_for_request",
         "_call_llm", "run_autonomous", "_finalize_loop", "__init__",
@@ -78,8 +101,9 @@ def test_all_unadapted_loop_phase_bodies_are_byte_identical():
         # Step 6B replaces only the proxy/removed prompt parameter and adds
         # admitted owner checks. Real execution is exercised by background_core.
         "_prepare_loop_turn", "dispatch_loop_tool_inner",
-        # Exactly Odin 4.17's and 4.18's edits, pinned above.
+        # Exactly Odin 4.17's, 4.18's and 4.19's edits, pinned above.
         "_audit_loop_tool_outcome", "_run_with_guards",
+        "_run_chat_iterations", "_stopped", "_suspend_turn",
     }
     assert baseline.keys() == desktop.keys()
     for name in baseline.keys() - adapted:
