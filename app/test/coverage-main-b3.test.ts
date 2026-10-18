@@ -76,7 +76,7 @@ vi.mock('../src/main/broker', () => ({ Broker: class extends EventEmitter {
   });
   connect = vi.fn(); startEvents = vi.fn(); close = vi.fn(); quiesce = vi.fn();
   waitForShutdownReady = vi.fn(async () => true);
-  receiptsSettled = vi.fn(async () => true);
+  requestsAnswered = vi.fn(async () => true); drained = vi.fn(async () => undefined);
   originalRequest = this.request;
   constructor(public options: any) { super(); m.brokers.push(this) }
 } }))
@@ -216,9 +216,12 @@ describe('inert main-process lifecycle wiring', () => {
     // The request waits its turn: the connection is ready and the requests sent before Exit have settled.
     const shutdownCall = broker.originalRequest.mock.calls.findIndex(([method]: [string]) => method === 'runtime.shutdown')
     expect(broker.waitForShutdownReady.mock.invocationCallOrder[0])
-      .toBeLessThan(broker.receiptsSettled.mock.invocationCallOrder[0])
-    expect(broker.receiptsSettled.mock.invocationCallOrder[0])
+      .toBeLessThan(broker.requestsAnswered.mock.invocationCallOrder[0])
+    expect(broker.requestsAnswered.mock.invocationCallOrder[0])
       .toBeLessThan(broker.originalRequest.mock.invocationCallOrder[shutdownCall])
+    // The core is stopped with the connection still open; it closes once the stop has drained what was in flight.
+    expect(supervisor.stop.mock.invocationCallOrder[0]).toBeLessThan(broker.drained.mock.invocationCallOrder[0])
+    expect(broker.drained.mock.invocationCallOrder[0]).toBeLessThan(broker.close.mock.invocationCallOrder[0])
     expect(supervisor.stop).toHaveBeenCalledOnce()
     expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0)
     expect(m.journal.finish).toHaveBeenCalledWith(expect.objectContaining({ shutdownAccepted: true, processOutcome: 'exited' }))
@@ -714,8 +717,9 @@ describe('inert main-process lifecycle wiring', () => {
     expect(broker.quiesce).toHaveBeenCalledOnce(); expect(supervisor.stop).toHaveBeenCalledOnce();
     if (failure === 'not-ready') {
       expect(broker.originalRequest).not.toHaveBeenCalledWith('runtime.shutdown', expect.anything());
-      // Only the stop's own settling, never a turn: no request was sent.
-      expect(broker.receiptsSettled.mock.calls).toEqual([[1_000]]);
+      // No turn and no request: only the stop's drain.
+      expect(broker.requestsAnswered).not.toHaveBeenCalled();
+      expect(broker.drained.mock.calls).toEqual([[1_000]]);
     }
     expect(m.journal.finish).toHaveBeenCalledWith(expect.objectContaining({ state: 'unknown', shutdownAccepted: false }));
     expect(m.app.exit).toHaveBeenCalledExactlyOnceWith(0);

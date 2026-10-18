@@ -126,15 +126,48 @@ describe('Exit behind requests the core is still answering', () => {
     expect(record).toMatchObject({ state: 'unknown', shutdownAccepted: false, unreceipted: 1 })
   })
 
-  it('settles at once with nothing in flight, and when the connection is lost', async () => {
+  it('treats an aged request reaching its own receipt deadline as no answer: no shutdown request', async () => {
+    // Exit 200 ms into a request whose 300 ms receipt deadline then passes: the local timeout is not the core answering.
+    // The turn ends there, with neither a renewed quiet bound nor readiness, and no request goes behind it.
+    const core = await orderedCore(20, ['hosts.test'])
+    const broker = await ready(core.socketPath, 300)
+    const earlier = broker.request('hosts.test')
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    const began = Date.now()
+    const record = await exit(broker, 300, 1_000)
+    expect(Date.now() - began).toBeLessThan(800)
+    expect(await earlier).toMatchObject({ ok: false, error: { code: 'no_receipt' } })
+    expect(record).toMatchObject({ state: 'unknown', shutdownAccepted: false, unreceipted: 1 })
+    expect(core.received).toEqual(['hosts.test'])
+  })
+
+  it('does not wait on for the requests queued behind one that went unanswered', async () => {
+    // Two requests behind a stuck one: the first's receipt deadline ends the turn; the core would answer the others,
+    // and a shutdown request, only after it.
+    const core = await orderedCore(20, ['webhooks.outbound.test'])
+    const broker = await ready(core.socketPath, 300)
+    const earlier = [broker.request('webhooks.outbound.test'), broker.request('status.get')]
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    const began = Date.now()
+    const record = await exit(broker, 300, 1_000)
+    expect(Date.now() - began).toBeLessThan(800)
+    expect(record).toMatchObject({ state: 'unknown', shutdownAccepted: false })
+    expect(core.received).toEqual(['webhooks.outbound.test', 'status.get'])
+    await Promise.all(earlier)
+  })
+
+  it('answers at once with nothing in flight; a lost connection ends both waits, as no answer', async () => {
     const core = await orderedCore(10_000)
     const broker = await ready(core.socketPath)
-    expect(await broker.receiptsSettled(5_000)).toBe(true)
+    expect(await broker.requestsAnswered(5_000)).toBe(true)
+    await broker.drained(5_000)
     const earlier = broker.request('status.get')
-    const settled = broker.receiptsSettled(5_000)
+    const turn = broker.requestsAnswered(5_000)
+    const drained = broker.drained(5_000)
     broker.close()
-    expect(await settled).toBe(true)
+    expect(await turn).toBe(false)
+    await drained
     expect(await earlier).toMatchObject({ ok: false, error: { code: 'no_receipt' } })
-    expect(broker.listenerCount('settled')).toBe(0)
+    expect(broker.listenerCount('answered') + broker.listenerCount('unanswered')).toBe(0)
   })
 })

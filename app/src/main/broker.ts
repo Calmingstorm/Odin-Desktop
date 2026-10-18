@@ -172,26 +172,48 @@ export class Broker extends EventEmitter {
     })
   }
 
-  /** Exit: true once no request sent before it still awaits its receipt (the connection's loss settles them all), false
-   * after `quietMs` without any of them settling. The core answers a connection's requests in order, so a shutdown
-   * request sent before they settle would only wait behind them; while their receipts keep coming the core is
-   * answering, and one that answers nothing for `quietMs` isn't.
+  /** Exit's turn: true once every request sent before it has its answer. Only answers count: while they keep coming the
+   * core is answering, and each renews `quietMs`. `quietMs` without one, or a request settling without its answer (its
+   * own receipt deadline, a write that failed, the connection lost), means the core isn't answering: false. The core
+   * answers a connection's requests in order, so a shutdown request sent behind them would only wait behind them.
    */
-  receiptsSettled(quietMs: number): Promise<boolean> {
+  requestsAnswered(quietMs: number): Promise<boolean> {
     if (!this.pending.size) return Promise.resolve(true)
     return new Promise((resolve) => {
       let quiet = setTimeout(() => finish(false), quietMs)
-      const finish = (settled: boolean): void => {
+      const finish = (answered: boolean): void => {
         clearTimeout(quiet)
-        this.off('settled', progress)
-        resolve(settled)
+        this.off('answered', answer)
+        this.off('unanswered', unanswered)
+        resolve(answered)
       }
-      const progress = (): void => {
+      const answer = (): void => {
         if (!this.pending.size) return finish(true)
         clearTimeout(quiet)
         quiet = setTimeout(() => finish(false), quietMs)
       }
-      this.on('settled', progress)
+      const unanswered = (): void => finish(false)
+      this.on('answered', answer)
+      this.on('unanswered', unanswered)
+    })
+  }
+
+  /** Exit's stop: settles once no request awaits its receipt any longer, answered or not (the connection's loss settles
+   * them all), or after `boundMs`.
+   */
+  drained(boundMs: number): Promise<void> {
+    if (!this.pending.size) return Promise.resolve()
+    return new Promise((resolve) => {
+      const finish = (): void => {
+        clearTimeout(bound)
+        this.off('answered', check)
+        this.off('unanswered', check)
+        resolve()
+      }
+      const check = (): void => { if (!this.pending.size) finish() }
+      const bound = setTimeout(finish, boundMs)
+      this.on('answered', check)
+      this.on('unanswered', check)
     })
   }
 
@@ -235,7 +257,7 @@ export class Broker extends EventEmitter {
         if (!this.pending.delete(id)) return
         if (!control) this.unreceipted.set(id, frame)
         resolve({ ok: false, error: NO_RECEIPT })
-        this.emit('settled')
+        this.emit('unanswered')
       }, this.requestTimeoutMs)
       this.pending.set(id, { frame, resolve, timer, control })
       if (!this.write(socket, bytes)) {
@@ -243,7 +265,7 @@ export class Broker extends EventEmitter {
         clearTimeout(timer)
         this.pending.delete(id)
         resolve({ ok: false, error: NOT_SENT_REKEYING })
-        this.emit('settled')
+        this.emit('unanswered')
       }
     })
   }
@@ -461,7 +483,7 @@ export class Broker extends EventEmitter {
       clearTimeout(pending.timer)
       this.pending.delete(id)
       pending.resolve(settled)
-      this.emit('settled')
+      this.emit('answered')
       return
     }
     if (this.unreceipted.delete(id)) this.emit('receipt', { id, settled })
@@ -496,13 +518,14 @@ export class Broker extends EventEmitter {
 
   private settleDisconnected(): void {
     // In-flight commands lost their receipt: retain the original identities.
+    const lost = this.pending.size > 0
     for (const [id, pending] of this.pending) {
       clearTimeout(pending.timer)
       if (!pending.control) this.unreceipted.set(id, pending.frame)
       pending.resolve({ ok: false, error: NO_RECEIPT })
     }
     this.pending.clear()
-    this.emit('settled')
+    if (lost) this.emit('unanswered')
   }
 
   private setLink(state: LinkState): void {

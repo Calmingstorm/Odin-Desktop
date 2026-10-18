@@ -185,24 +185,25 @@ export const SHUTDOWN_READY_MS = 5_000
 export const SHUTDOWN_REQUEST_MS = 10_000
 
 /** Exit's turn on the core's connection: a starting connection gets `boundMs` to become ready, then the requests sent
- * before Exit settle first, since the core answers a connection's requests in order. While their receipts keep coming
- * the core is answering and the wait goes on; `boundMs` with none means it isn't, and no shutdown request is sent.
- * Then the request has its own bound: a core still answering what it was asked is not a core that doesn't answer.
+ * before Exit are answered first, since the core answers a connection's requests in order. While their answers keep
+ * coming the core is answering and the wait goes on; `boundMs` without one, or one that settles without its answer,
+ * means it isn't, and no shutdown request is sent. Then the request has its own bound: a core still answering what it
+ * was asked is not a core that doesn't answer.
  */
-export async function shutdownTurn(link: Pick<Broker, 'waitForShutdownReady' | 'receiptsSettled'>,
+export async function shutdownTurn(link: Pick<Broker, 'waitForShutdownReady' | 'requestsAnswered'>,
   boundMs = SHUTDOWN_READY_MS): Promise<boolean> {
-  return await link.waitForShutdownReady(boundMs) && link.receiptsSettled(boundMs)
+  return await link.waitForShutdownReady(boundMs) && link.requestsAnswered(boundMs)
 }
 
 /** Exit's stop: the core is stopped with its connection still open, so a shutdown receipt that comes after the
  * request's bound still lands; once the core has exited, what it never answered settles as unreceipted.
  */
 export async function stopKeepingReceipts(stop: () => Promise<StopOutcome>,
-  link: Pick<Broker, 'receiptsSettled' | 'close'>): Promise<StopOutcome> {
+  link: Pick<Broker, 'drained' | 'close'>): Promise<StopOutcome> {
   try {
     return await stop()
   } finally {
-    await link.receiptsSettled(1_000)
+    await link.drained(1_000)
     link.close()
   }
 }
