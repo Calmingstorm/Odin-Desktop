@@ -257,7 +257,20 @@
         "tests/test_codex_cache_session.py::test_loop_reflection_runs_under_its_own_id",
         "tests/test_codex_cache_session.py::test_session_manager_reflections_run_under_their_own_ids",
         "tests/test_codex_cache_session.py::test_turn_ids_are_bounded",
-        "tests/test_codex_cache_session.py::test_capture_collects_the_turn_ids_resolved_inside_it"
+        "tests/test_codex_cache_session.py::test_capture_collects_the_turn_ids_resolved_inside_it",
+        "tests/test_agent_reports.py",
+        "tests/test_agent_held_back_calls.py",
+        "tests/test_agent_reports_agents.py::TestAgentReceivers",
+        "tests/test_agent_reports_agents.py::TestAgentCatalogs::test_composition_uses_fresh_decorated_copies",
+        "tests/test_agent_reports_agents.py::TestAgentCatalogs::test_operator_disable_and_tools_off_remove_it",
+        "tests/test_agent_reports_agents.py::TestBindingAtSpawn::test_the_turn_id_ancestry_is_never_the_destination",
+        "tests/test_agent_reports_agents.py::TestPolicyAndWire::test_no_skill_can_take_the_name",
+        "tests/test_agent_reports_agents.py::TestPolicyAndWire::test_reserved_disableable_effect_capable_never_retried",
+        "tests/test_agent_reports_agents.py::TestPolicyAndWire::test_strict_wire_round_trip_and_no_forged_fields",
+        "tests/test_agent_reports_chat.py::TestCompressionAndWire",
+        "tests/test_agent_reports_chat.py::TestOwnershipAndClosure::test_a_refused_bind_leaves_no_accepting_endpoint",
+        "tests/test_agent_reports_chat.py::TestOwnershipAndClosure::test_closure_reasons_are_bounded",
+        "tests/test_agent_reports_chat.py::TestOwnershipAndClosure::test_replacement_records_replaced_and_late_old_cleanup_is_harmless"
       ],
       "exclude_expression": "(TestSessionsConfigTokenBudget and test_zero_budget) or (TestCompatibleProfiles and test_compatible_profile_legacy_shape_and_openrouter_catalogue_fallback)"
     },
@@ -1563,7 +1576,8 @@
         "tests/test_desktop_windows_release.py",
         "tests/test_windows_installed_core_acceptance.py",
         "tests/test_desktop_agent_vision.py",
-        "tests/test_desktop_cache_session.py"
+        "tests/test_desktop_cache_session.py",
+        "tests/test_desktop_agent_reports.py"
       ],
       "reason": "All new Desktop boundaries; adapter wrappers in exact separate groups. Preserve merged onboarding/lifecycle pure temporary-profile and synthetic-driver regressions, not native/backend or active desktop qualification."
     },
