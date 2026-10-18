@@ -186,9 +186,10 @@ export const SHUTDOWN_REQUEST_MS = 10_000
 
 /** Exit's turn on the core's connection: a starting connection gets `boundMs` to become ready, then the requests sent
  * before Exit are answered first, since the core answers a connection's requests in order. While their answers keep
- * coming the core is answering and the wait goes on; `boundMs` without one, or one that settles without its answer,
- * means it isn't, and no shutdown request is sent. Then the request has its own bound: a core still answering what it
- * was asked is not a core that doesn't answer.
+ * coming the core is answering and the wait goes on; `boundMs` without one, or any request sent before Exit without
+ * its answer (its receipt deadline passed or its connection was lost, before the turn or during it), means it isn't,
+ * and no shutdown request is sent. Then the request has its own bound: a core still answering what it was asked is
+ * not a core that doesn't answer.
  */
 export async function shutdownTurn(link: Pick<Broker, 'waitForShutdownReady' | 'requestsAnswered'>,
   boundMs = SHUTDOWN_READY_MS): Promise<boolean> {

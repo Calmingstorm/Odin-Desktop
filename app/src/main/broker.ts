@@ -173,11 +173,13 @@ export class Broker extends EventEmitter {
   }
 
   /** Exit's turn: true once every request sent before it has its answer. Only answers count: while they keep coming the
-   * core is answering, and each renews `quietMs`. `quietMs` without one, or a request settling without its answer (its
-   * own receipt deadline, a write that failed, the connection lost), means the core isn't answering: false. The core
-   * answers a connection's requests in order, so a shutdown request sent behind them would only wait behind them.
+   * core is answering, and each renews `quietMs`. A request without its answer means the core isn't answering, so
+   * false: one already settled without it (its own receipt deadline passed or its connection was lost, before or
+   * during the wait, so it is kept as unreceipted), or `quietMs` with no answer at all. The core answers a connection's
+   * requests in order, so a shutdown request sent behind an unanswered one would only wait behind it.
    */
   requestsAnswered(quietMs: number): Promise<boolean> {
+    if (this.unreceipted.size) return Promise.resolve(false)
     if (!this.pending.size) return Promise.resolve(true)
     return new Promise((resolve) => {
       let quiet = setTimeout(() => finish(false), quietMs)
@@ -188,7 +190,7 @@ export class Broker extends EventEmitter {
         resolve(answered)
       }
       const answer = (): void => {
-        if (!this.pending.size) return finish(true)
+        if (!this.pending.size) return finish(this.unreceipted.size === 0)
         clearTimeout(quiet)
         quiet = setTimeout(() => finish(false), quietMs)
       }

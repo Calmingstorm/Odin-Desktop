@@ -156,6 +156,34 @@ describe('Exit behind requests the core is still answering', () => {
     await Promise.all(earlier)
   })
 
+  it('treats a request whose deadline passed before Exit as still unanswered: no shutdown request', async () => {
+    // Its 200 ms receipt deadline passes before Exit: it has left pending (kept as unreceipted) while the core still
+    // works on it. An empty pending map is not every answer in.
+    const core = await orderedCore(20, ['webhooks.outbound.test'])
+    const broker = await ready(core.socketPath, 200)
+    const earlier = [broker.request('webhooks.outbound.test'), broker.request('status.get')]
+    expect(await earlier[0]).toMatchObject({ ok: false, error: { code: 'no_receipt' } })
+    await earlier[1]
+    const began = Date.now()
+    const record = await exit(broker, 300, 1_000)
+    expect(Date.now() - began).toBeLessThan(500)
+    expect(record).toMatchObject({ state: 'unknown', shutdownAccepted: false, unreceipted: 2 })
+    expect(core.received).toEqual(['webhooks.outbound.test', 'status.get'])
+  })
+
+  it('does not count an answer that empties pending while an older request is still unanswered', async () => {
+    const core = await orderedCore(20)
+    const broker = await ready(core.socketPath)
+    // An older command that never got its answer (a lost connection kept it as unreceipted, with its identity).
+    const older = crypto.randomUUID()
+    ;(broker as unknown as { unreceipted: Map<string, Record<string, unknown>> }).unreceipted.set(older,
+      { t: 'req', id: older, method: 'conversations.create', params: {} })
+    const later = broker.request('status.get')
+    expect(await broker.requestsAnswered(1_000)).toBe(false)
+    expect(await later).toMatchObject({ ok: true })
+    expect(await broker.requestsAnswered(1_000)).toBe(false)
+  })
+
   it('answers at once with nothing in flight; a lost connection ends both waits, as no answer', async () => {
     const core = await orderedCore(10_000)
     const broker = await ready(core.socketPath)

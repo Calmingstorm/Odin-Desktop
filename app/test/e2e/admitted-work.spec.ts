@@ -148,34 +148,39 @@ test('Exit cancels long pending admitted management durably as unknown and fresh
   } finally { await close(application); await attach(info, 'owned-http-cleanup', await receiver.stop()) }
 })
 
-test('a receipt deadline passing during Exit is not an answer: a queued second effect never starts', async ({}, info) => {
-  test.setTimeout(120_000)
-  const receiver = new OwnedHttpReceiver()
-  let application: ElectronApplication | null = null
-  await receiver.start()
-  try {
-    application = await launchApp({profile: 'admitted-exit-aged', env: {ODIN_DESKTOP_CORE_CMD: receiver.coreCommand}})
-    await waitForCore(application)
-    const targets = [await target(application, receiver, 'aged-first'), await target(application, receiver, 'aged-second')]
-    expect((await request(application, 'status.get')).ok).toBe(true)
-    const before = await snapshot(application)
-    const began = Date.now()
-    // The receiver withholds every response: the first test call holds the core, the second waits behind it.
-    const results = targets.map((id) => request(application!, 'webhooks.outbound.test', {id}, randomUUID())
-      .catch((error: unknown) => ({transportClosed: String(error)})))
-    await expect.poll(async () => (await receiver.snapshot()).effect_count).toBe(1)
-    // Exit 26 s in: both requests' 30 s receipt deadlines pass during Exit's own 5 s wait for an answer.
-    await new Promise((resolve) => setTimeout(resolve, Math.max(0, 26_000 - (Date.now() - began))))
-    const atExit = await receiver.snapshot()
-    const exitAt = Date.now()
-    await exitApp(application, 45_000); application = null
-    const exitMs = Date.now() - exitAt
-    const afterExit = await receiver.snapshot()
-    const cleanup = JSON.parse(readFileSync(before.cleanupPath, 'utf8'))
-    await attach(info, 'admitted-exit-aged', {exitMs, atExit, afterExit, cleanup, results: await Promise.all(results)})
-    const second = (snapshot: {requests: Array<{path?: string}>}) => snapshot.requests.filter((r) => r.path === '/aged-second')
-    expect(second(atExit)).toHaveLength(0)
-    expect(second(afterExit)).toHaveLength(0)
-    expect(cleanup.current ?? cleanup).toMatchObject({state: 'unknown', shutdownAccepted: false})
-  } finally { await close(application); await attach(info, 'owned-http-cleanup', await receiver.stop()) }
-})
+for (const when of ['during', 'before'] as const) {
+  test(`a receipt deadline passing ${when} Exit is not an answer: a queued second effect never starts`, async ({}, info) => {
+    test.setTimeout(120_000)
+    const receiver = new OwnedHttpReceiver()
+    let application: ElectronApplication | null = null
+    await receiver.start()
+    try {
+      application = await launchApp({profile: `admitted-exit-aged-${when}`, env: {ODIN_DESKTOP_CORE_CMD: receiver.coreCommand}})
+      await waitForCore(application)
+      const targets = [await target(application, receiver, `${when}-first`), await target(application, receiver, `${when}-second`)]
+      expect((await request(application, 'status.get')).ok).toBe(true)
+      const before = await snapshot(application)
+      const began = Date.now()
+      // The receiver withholds every response: the first test call holds the core, the second waits behind it.
+      const results = targets.map((id) => request(application!, 'webhooks.outbound.test', {id}, randomUUID())
+        .catch((error: unknown) => ({transportClosed: String(error)})))
+      await expect.poll(async () => (await receiver.snapshot()).effect_count).toBe(1)
+      // 'during': Exit 26 s in, so both 30 s receipt deadlines pass during Exit's own 5 s wait for an answer.
+      // 'before': Exit once both have settled without receipts (no_receipt), just after their deadlines.
+      if (when === 'during') await new Promise((resolve) => setTimeout(resolve, Math.max(0, 26_000 - (Date.now() - began))))
+      else for (const result of await Promise.all(results)) expect(result).toMatchObject({ok: false, error: {code: 'no_receipt'}})
+      const atExit = await receiver.snapshot()
+      const exitAt = Date.now()
+      await exitApp(application, 45_000); application = null
+      const exitMs = Date.now() - exitAt
+      const afterExit = await receiver.snapshot()
+      const cleanup = JSON.parse(readFileSync(before.cleanupPath, 'utf8'))
+      await attach(info, `admitted-exit-aged-${when}`, {exitAfterMs: exitAt - began, exitMs, atExit, afterExit, cleanup,
+        results: await Promise.all(results)})
+      const second = (snapshot: {requests: Array<{path?: string}>}) => snapshot.requests.filter((r) => r.path === `/${when}-second`)
+      expect(second(atExit)).toHaveLength(0)
+      expect(second(afterExit)).toHaveLength(0)
+      expect(cleanup.current ?? cleanup).toMatchObject({state: 'unknown', shutdownAccepted: false})
+    } finally { await close(application); await attach(info, 'owned-http-cleanup', await receiver.stop()) }
+  })
+}

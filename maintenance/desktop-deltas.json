@@ -14672,7 +14672,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/admitted-work.spec.ts": "c9eb500d430002ce0b9248142e16c0831708787fb4a4dee7bdf3e8aa9b50bfa2",
+        "app/test/e2e/admitted-work.spec.ts": "23e977646f9efcc1751812dadbcc621cd863168aa580d27743e0077dd331b5d0",
         "app/test/e2e/execution-containment.spec.ts": "00ee3a46536beaecc27002bbb408d48ac78b01257be18be0b446744074d09e9a",
         "app/test/e2e/native-reconciliation.spec.ts": "ba4837b5084bfda2b90d8b7a577bf344c1aaf18277b48ce7f01414f1549661e8",
         "tests/macos/test_macos_platform.py": "2fdfb75b484651774447bde59ea6dbbbb93814b77358d9327d888b24ab70eb9f",
@@ -14731,7 +14731,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/admitted-work.spec.ts": "c9eb500d430002ce0b9248142e16c0831708787fb4a4dee7bdf3e8aa9b50bfa2",
+        "app/test/e2e/admitted-work.spec.ts": "23e977646f9efcc1751812dadbcc621cd863168aa580d27743e0077dd331b5d0",
         "app/test/e2e/execution-containment.spec.ts": "00ee3a46536beaecc27002bbb408d48ac78b01257be18be0b446744074d09e9a",
         "app/test/e2e/native-reconciliation.spec.ts": "ba4837b5084bfda2b90d8b7a577bf344c1aaf18277b48ce7f01414f1549661e8",
         "tests/test_desktop_background_core.py": "695146bb16e1ee12f5ca27620e18b30a2f5abf3e77ee8e889a4ba7365ce435b1",
@@ -36860,7 +36860,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/admitted-work.spec.ts": "c9eb500d430002ce0b9248142e16c0831708787fb4a4dee7bdf3e8aa9b50bfa2",
+        "app/test/e2e/admitted-work.spec.ts": "23e977646f9efcc1751812dadbcc621cd863168aa580d27743e0077dd331b5d0",
         "app/test/e2e/execution-admission-cases.ts": "b8478c99a14a24932c58edb213734cbace64dd4deece0dc01d78f238949df2ae",
         "app/test/e2e/execution-admission.ts": "873343ef884b3dea1a2b454e47d3f461ccb247149ea661ac29d202e40579e60b",
         "app/test/e2e/execution-containment.spec.ts": "00ee3a46536beaecc27002bbb408d48ac78b01257be18be0b446744074d09e9a",
@@ -36948,7 +36948,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/admitted-work.spec.ts": "c9eb500d430002ce0b9248142e16c0831708787fb4a4dee7bdf3e8aa9b50bfa2",
+        "app/test/e2e/admitted-work.spec.ts": "23e977646f9efcc1751812dadbcc621cd863168aa580d27743e0077dd331b5d0",
         "app/test/e2e/execution-containment.spec.ts": "00ee3a46536beaecc27002bbb408d48ac78b01257be18be0b446744074d09e9a",
         "app/test/e2e/native-reconciliation.spec.ts": "ba4837b5084bfda2b90d8b7a577bf344c1aaf18277b48ce7f01414f1549661e8",
         "tests/test_desktop_resource_cleanup.py": "b7a0323bfd8a2b3cf4df1bdd53ea7c171e65f3d43a34de534bce3868980f2a5c"
@@ -36991,7 +36991,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/admitted-work.spec.ts": "c9eb500d430002ce0b9248142e16c0831708787fb4a4dee7bdf3e8aa9b50bfa2",
+        "app/test/e2e/admitted-work.spec.ts": "23e977646f9efcc1751812dadbcc621cd863168aa580d27743e0077dd331b5d0",
         "app/test/e2e/execution-containment.spec.ts": "00ee3a46536beaecc27002bbb408d48ac78b01257be18be0b446744074d09e9a",
         "app/test/e2e/native-reconciliation.spec.ts": "ba4837b5084bfda2b90d8b7a577bf344c1aaf18277b48ce7f01414f1549661e8",
         "tests/test_desktop_native_reconciliation_fixture.py": "3c829d7ff6203783849e262c45b2d0d693a0426f7737c6dfdcf0a149f59d4eb1",
@@ -37077,7 +37077,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/admitted-work.spec.ts": "c9eb500d430002ce0b9248142e16c0831708787fb4a4dee7bdf3e8aa9b50bfa2",
+        "app/test/e2e/admitted-work.spec.ts": "23e977646f9efcc1751812dadbcc621cd863168aa580d27743e0077dd331b5d0",
         "app/test/e2e/execution-containment.spec.ts": "00ee3a46536beaecc27002bbb408d48ac78b01257be18be0b446744074d09e9a",
         "app/test/e2e/native-reconciliation.spec.ts": "ba4837b5084bfda2b90d8b7a577bf344c1aaf18277b48ce7f01414f1549661e8",
         "tests/test_desktop_resource_cleanup.py": "b7a0323bfd8a2b3cf4df1bdd53ea7c171e65f3d43a34de534bce3868980f2a5c"
@@ -37120,7 +37120,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/admitted-work.spec.ts": "c9eb500d430002ce0b9248142e16c0831708787fb4a4dee7bdf3e8aa9b50bfa2",
+        "app/test/e2e/admitted-work.spec.ts": "23e977646f9efcc1751812dadbcc621cd863168aa580d27743e0077dd331b5d0",
         "app/test/e2e/execution-containment.spec.ts": "00ee3a46536beaecc27002bbb408d48ac78b01257be18be0b446744074d09e9a",
         "app/test/e2e/native-reconciliation.spec.ts": "ba4837b5084bfda2b90d8b7a577bf344c1aaf18277b48ce7f01414f1549661e8",
         "tests/test_desktop_resource_cleanup.py": "b7a0323bfd8a2b3cf4df1bdd53ea7c171e65f3d43a34de534bce3868980f2a5c"
@@ -47858,7 +47858,7 @@
       "source_commit": "cd7530906e9cfa10a0fa900247d7ce2a8bb33e25",
       "state": "pending",
       "test_sha256": {
-        "app/test/e2e/admitted-work.spec.ts": "c9eb500d430002ce0b9248142e16c0831708787fb4a4dee7bdf3e8aa9b50bfa2",
+        "app/test/e2e/admitted-work.spec.ts": "23e977646f9efcc1751812dadbcc621cd863168aa580d27743e0077dd331b5d0",
         "app/test/e2e/execution-containment.spec.ts": "00ee3a46536beaecc27002bbb408d48ac78b01257be18be0b446744074d09e9a",
         "app/test/e2e/native-reconciliation.spec.ts": "ba4837b5084bfda2b90d8b7a577bf344c1aaf18277b48ce7f01414f1549661e8",
         "tests/test_desktop_resource_cleanup.py": "b7a0323bfd8a2b3cf4df1bdd53ea7c171e65f3d43a34de534bce3868980f2a5c"
