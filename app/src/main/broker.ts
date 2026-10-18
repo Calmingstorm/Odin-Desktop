@@ -172,6 +172,29 @@ export class Broker extends EventEmitter {
     })
   }
 
+  /** Exit: true once no request sent before it still awaits its receipt (the connection's loss settles them all), false
+   * after `quietMs` without any of them settling. The core answers a connection's requests in order, so a shutdown
+   * request sent before they settle would only wait behind them; while their receipts keep coming the core is
+   * answering, and one that answers nothing for `quietMs` isn't.
+   */
+  receiptsSettled(quietMs: number): Promise<boolean> {
+    if (!this.pending.size) return Promise.resolve(true)
+    return new Promise((resolve) => {
+      let quiet = setTimeout(() => finish(false), quietMs)
+      const finish = (settled: boolean): void => {
+        clearTimeout(quiet)
+        this.off('settled', progress)
+        resolve(settled)
+      }
+      const progress = (): void => {
+        if (!this.pending.size) return finish(true)
+        clearTimeout(quiet)
+        quiet = setTimeout(() => finish(false), quietMs)
+      }
+      this.on('settled', progress)
+    })
+  }
+
   /** Ends the connection on purpose; no reconnect. */
   close(): void {
     this.closedByUs = true
@@ -212,6 +235,7 @@ export class Broker extends EventEmitter {
         if (!this.pending.delete(id)) return
         if (!control) this.unreceipted.set(id, frame)
         resolve({ ok: false, error: NO_RECEIPT })
+        this.emit('settled')
       }, this.requestTimeoutMs)
       this.pending.set(id, { frame, resolve, timer, control })
       if (!this.write(socket, bytes)) {
@@ -219,6 +243,7 @@ export class Broker extends EventEmitter {
         clearTimeout(timer)
         this.pending.delete(id)
         resolve({ ok: false, error: NOT_SENT_REKEYING })
+        this.emit('settled')
       }
     })
   }
@@ -436,6 +461,7 @@ export class Broker extends EventEmitter {
       clearTimeout(pending.timer)
       this.pending.delete(id)
       pending.resolve(settled)
+      this.emit('settled')
       return
     }
     if (this.unreceipted.delete(id)) this.emit('receipt', { id, settled })
@@ -476,6 +502,7 @@ export class Broker extends EventEmitter {
       pending.resolve({ ok: false, error: NO_RECEIPT })
     }
     this.pending.clear()
+    this.emit('settled')
   }
 
   private setLink(state: LinkState): void {

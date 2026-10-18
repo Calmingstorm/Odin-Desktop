@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Broker } from '../src/main/broker'
-import { boundedShutdown } from '../src/main/shutdown'
+import { boundedShutdown, SHUTDOWN_READY_MS, shutdownTurn } from '../src/main/shutdown'
 
 const broker = (): Broker => new Broker({ socketPath: '/unused', readToken: () => '',
   profileId: 'test', clientVersion: 'test' })
@@ -45,19 +45,19 @@ describe('Exit readiness within the original request bound', () => {
     expect(link.listenerCount('state')).toBe(0)
   })
 
-  it('no ready keeps unknown and aborts listeners at the existing total request bound', async () => {
+  it('no ready keeps unknown, sends nothing and removes its listeners at the readiness bound', async () => {
     vi.useFakeTimers()
     const link = broker()
     const sent = vi.fn(async () => true)
     const finish = vi.fn()
     const shutdown = boundedShutdown({
       stopAdmission: () => link.quiesce(), persist: () => {},
-      requestShutdown: async (signal) => await link.waitForShutdownReady(5_000, signal) && sent(),
+      readyForShutdown: () => shutdownTurn(link), requestShutdown: sent,
       stopCore: async () => { link.close(); return 'exited' }, unreceipted: () => 0,
       finish, release: () => {}, exit: () => {}, requestTimeoutMs: 100
     })
     const result = shutdown()
-    await vi.advanceTimersByTimeAsync(100)
+    await vi.advanceTimersByTimeAsync(SHUTDOWN_READY_MS)
     expect(await result).toMatchObject({ state: 'unknown', shutdownAccepted: false })
     expect(sent).not.toHaveBeenCalled()
     expect(link.listenerCount('state')).toBe(0)

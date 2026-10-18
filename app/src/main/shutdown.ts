@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { createHash, randomUUID } from 'node:crypto'
 import type { CleanupWarning } from '../shared/api'
+import type { Broker } from './broker'
 import type { StopOutcome } from './core-supervisor'
 
 export interface CleanupRecord {
@@ -160,13 +161,50 @@ export class CleanupJournal {
 export interface ShutdownDeps {
   stopAdmission(): void
   persist(): void
+  /** Whether to send the shutdown request, settled within its own bounds before the request's bound starts. */
+  readyForShutdown(): Promise<boolean>
   requestShutdown(signal: AbortSignal): Promise<boolean>
+  /** Settles the shutdown request either way before it returns: by its receipt, or as unreceipted once the core has
+   * exited. A receipt that comes after the request's bound, while the core is stopped, still counts. */
   stopCore(): Promise<StopOutcome>
   unreceipted(): number
   finish(record: CleanupRecord): void
   release(): void
   exit(code: number): void
   requestTimeoutMs?: number
+}
+
+/** How long Exit waits for the core to show it is answering: its connection becoming ready, or the next receipt it is
+ * owed. */
+export const SHUTDOWN_READY_MS = 5_000
+
+/** How long the shutdown request waits for its receipt once sent. Accepting it commits the core's quiescing event and
+ * receipt, which a loaded machine can stall for seconds (5.4 s, timed on a hosted Windows runner right after an
+ * installer run). A receipt that comes later, while the core is being stopped, still counts (stopKeepingReceipts).
+ */
+export const SHUTDOWN_REQUEST_MS = 10_000
+
+/** Exit's turn on the core's connection: a starting connection gets `boundMs` to become ready, then the requests sent
+ * before Exit settle first, since the core answers a connection's requests in order. While their receipts keep coming
+ * the core is answering and the wait goes on; `boundMs` with none means it isn't, and no shutdown request is sent.
+ * Then the request has its own bound: a core still answering what it was asked is not a core that doesn't answer.
+ */
+export async function shutdownTurn(link: Pick<Broker, 'waitForShutdownReady' | 'receiptsSettled'>,
+  boundMs = SHUTDOWN_READY_MS): Promise<boolean> {
+  return await link.waitForShutdownReady(boundMs) && link.receiptsSettled(boundMs)
+}
+
+/** Exit's stop: the core is stopped with its connection still open, so a shutdown receipt that comes after the
+ * request's bound still lands; once the core has exited, what it never answered settles as unreceipted.
+ */
+export async function stopKeepingReceipts(stop: () => Promise<StopOutcome>,
+  link: Pick<Broker, 'receiptsSettled' | 'close'>): Promise<StopOutcome> {
+  try {
+    return await stop()
+  } finally {
+    await link.receiptsSettled(1_000)
+    link.close()
+  }
 }
 
 export function boundedShutdown(deps: ShutdownDeps): (code?: number) => Promise<CleanupRecord> {
@@ -177,17 +215,30 @@ export function boundedShutdown(deps: ShutdownDeps): (code?: number) => Promise<
     exiting = (async () => {
       let unsaved = false
       try { deps.persist() } catch { unsaved = true }
+      let ready = false
+      try { ready = await deps.readyForShutdown() } catch { ready = false }
       let timer: NodeJS.Timeout | undefined
       const requestBound = new AbortController()
       let shutdownAccepted = false
-      try {
-        shutdownAccepted = await Promise.race([
-          Promise.resolve().then(() => deps.requestShutdown(requestBound.signal)).catch(() => false),
-          new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(false), deps.requestTimeoutMs ?? 5_000) })
-        ])
-      } finally { requestBound.abort(); if (timer) clearTimeout(timer) }
+      let request: Promise<boolean> | null = null
+      if (ready) {
+        request = Promise.resolve().then(() => deps.requestShutdown(requestBound.signal)).catch(() => false)
+        try {
+          shutdownAccepted = await Promise.race([request,
+            new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(false), deps.requestTimeoutMs ?? SHUTDOWN_REQUEST_MS) })
+          ])
+        } finally { requestBound.abort(); if (timer) clearTimeout(timer) }
+      }
       let processOutcome: StopOutcome
       try { processOutcome = await deps.stopCore() } catch { processOutcome = 'unknown' }
+      // A late receipt, answered while the core was being stopped, is still its acceptance. stopCore has settled the
+      // request by now (a timer turn lets its result through); one that somehow hasn't counts as not accepted.
+      if (!shutdownAccepted && request) {
+        let late: NodeJS.Timeout | undefined
+        shutdownAccepted = await Promise.race([request,
+          new Promise<boolean>((resolve) => { late = setTimeout(() => resolve(false), 0) })])
+        clearTimeout(late)
+      }
       const unreceipted = deps.unreceipted()
       const unknown = unsaved || unreceipted > 0 || !shutdownAccepted || !['exited', 'not-running'].includes(processOutcome)
       const record: CleanupRecord = {
