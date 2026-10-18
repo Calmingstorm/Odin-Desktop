@@ -264,6 +264,17 @@ if ($Mode -eq 'user') {
         if (-not $record -or $record.state -ne 'clean') {
           "$($_.Name): $(if ($record) { "$($record.role) $($record.state)" } else { 'unreadable' })" } })
   }
+  # After an Exit: the guardian writes the lifetime's clean receipt once the app has exited, then exits itself, and a
+  # process listing taken as it finishes can miss it. So the receipts get a few seconds to settle; one still unconfirmed
+  # after that has stayed so.
+  function SettledLifetimes() {
+    $deadline = (Get-Date).AddSeconds(15)
+    while ($true) {
+      $unresolved = @(UnresolvedLifetimes)
+      if (-not $unresolved.Count -or (Get-Date) -ge $deadline) { return $unresolved }
+      Start-Sleep -Milliseconds 500
+    }
+  }
   foreach ($start in 'first', 'second') {
     Start-Process -FilePath $exe -ArgumentList '--hidden' | Out-Null
     $deadline = (Get-Date).AddSeconds(180)
@@ -290,7 +301,7 @@ if ($Mode -eq 'user') {
       $left.Count -eq 0 -and -not (& $serving)) (
       ($left | ForEach-Object { "$($_.Name) $($_.ProcessId)" }) -join ', ')
     # The app's guardian records its clean Exit after the app's real exit, so it has to outlive the app.
-    $unresolved = @(UnresolvedLifetimes)
+    $unresolved = @(SettledLifetimes)
     Check "Exit leaves every lifetime clean ($start start)" ($unresolved.Count -eq 0) ($unresolved -join ', ')
     StopAndWait $left
   }
@@ -388,7 +399,7 @@ if ($Mode -eq 'user') {
   # the core's cleanup journals were both written during it and both say clean, and it keeps no record of a refusal.
   # So a failure carries both journals and their write times beside the receipts', which says which condition failed,
   # and the installed guardian's verdict, which says what a replacement would meet.
-  $unresolved = @(UnresolvedLifetimes)
+  $unresolved = @(SettledLifetimes)
   $exitDetail = $unresolved -join ', '
   if ($unresolved.Count) {
     $lifetimeFacts = @(Get-ChildItem -LiteralPath $receiptsDir -Force -ErrorAction SilentlyContinue | ForEach-Object {
