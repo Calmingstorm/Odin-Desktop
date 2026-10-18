@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.3.1]
+
+**Exit ends cleanly on a slow, busy machine, so the next install doesn't ask for a restart.** Linux, Windows and macOS.
+
+- **A slow shutdown is no longer recorded as unknown cleanup.** Right after Odin starts, or while an installer runs,
+  a busy machine can keep Odin's core from answering for a few seconds. Exit gave the core 5 seconds in all to accept
+  the shutdown, counting the answers to requests it was still working through, then recorded the cleanup as unknown
+  even though the core went on to shut down in order. On Windows the next install or uninstall then refused until
+  the computer restarted.
+  - Exit now first lets the core answer what it was already asked, for as long as answers keep coming, then gives the
+    shutdown request 10 seconds of its own. An acceptance that arrives while the core is being stopped still counts.
+  - A core that answers nothing is stopped as before. A request that reaches its own deadline without an answer
+    counts as no answer, so Exit doesn't wait on behind it. A frozen core takes at most about 5 seconds longer to
+    stop.
+- **The tool reference links `report_to_parent` to its source.** Its link pointed at an Odin revision older than the
+  file and returned a 404; it now points at the revision Desktop carried it from.
+
 ## [1.3.0]
 
 **Spawned agents can report back while they work.** Linux, Windows and macOS.
