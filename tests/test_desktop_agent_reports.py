@@ -225,3 +225,24 @@ async def test_the_tools_settings_list_it_and_can_switch_it_off(tmp_path):
         assert "report_to_parent" in core.config.tools.disabled_tools
     finally:
         await cleanup(core, writer, rfd, wfd)
+
+
+def test_the_tool_reference_links_report_to_parent_where_it_was_carried_from():
+    """Desktop's reference baseline predates agent_only.py, so a baseline link would 404."""
+    import hashlib
+    import re
+    from pathlib import Path
+
+    from scripts.docs._reference import SOURCE_COMMIT
+    from scripts.docs.generate_tool_reference import AGENT_ONLY_SOURCE_COMMIT, generate
+    from src.tools.defs import agent_only
+
+    static, carried = generate().split("\n## agent_only\n", 1)
+    linked = r"\(https://github\.com/Calmingstorm/Odin/blob/([0-9a-f]{40})/"
+    assert set(re.findall(linked, static)) == {SOURCE_COMMIT}
+    assert re.findall(linked, carried) == [AGENT_ONLY_SOURCE_COMMIT]
+    assert (f"https://github.com/Calmingstorm/Odin/blob/{AGENT_ONLY_SOURCE_COMMIT}"
+            "/src/tools/defs/agent_only.py") in carried
+    # The link claims the carried bytes: these are agent_only.py's at that Odin revision.
+    assert hashlib.sha256(Path(agent_only.__file__).read_bytes()).hexdigest() == (
+        "ffdec4da8cf66c488a972a8163eeca45cf53a545e3f2190e6eac19c7846703eb")

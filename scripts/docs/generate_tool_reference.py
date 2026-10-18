@@ -28,6 +28,9 @@ from src.tools.defs.agent_only import agent_only_definitions  # noqa: E402
 from src.tools.defs.computer import HYPRLAND_RELEASE_LIMITATION  # noqa: E402
 
 OUTPUT = REPO_ROOT / "docs/reference/tools.md"
+# Desktop: agent_only.py is carried byte-identical from this Odin revision. SOURCE_COMMIT predates the file, so
+# linking it there would 404; its section links the revision it came from.
+AGENT_ONLY_SOURCE_COMMIT = "72023158d38ccebc6cf25d22919a588c670c4f9d"
 
 
 def tool_sections() -> list[tuple[str, list[dict]]]:
@@ -196,11 +199,13 @@ def generate() -> str:
         for definition in tools:
             lines.extend(tool_entry(by_name[definition["name"]]))
     path = "src/tools/defs/agent_only.py"
+    carried = source_link(path).replace(SOURCE_COMMIT, AGENT_ONLY_SOURCE_COMMIT)
     lines.extend(
         [
             "## agent_only",
             "",
-            f"Source: [`{path}`]({source_link(path)}). Offered only to spawned agents.",
+            f"Source: [`{path}`]({carried}), carried from Odin at `{AGENT_ONLY_SOURCE_COMMIT[:8]}`; "
+            "the baseline above predates it. Offered only to spawned agents.",
             "",
         ]
     )
