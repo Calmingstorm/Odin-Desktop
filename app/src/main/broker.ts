@@ -172,6 +172,53 @@ export class Broker extends EventEmitter {
     })
   }
 
+  /** Exit's turn: true once every request sent before it has its answer. Only answers count: while they keep coming the
+   * core is answering, and each renews `quietMs`. A request without its answer means the core isn't answering, so
+   * false: one already settled without it (its own receipt deadline passed or its connection was lost, before or
+   * during the wait, so it is kept as unreceipted), or `quietMs` with no answer at all. The core answers a connection's
+   * requests in order, so a shutdown request sent behind an unanswered one would only wait behind it.
+   */
+  requestsAnswered(quietMs: number): Promise<boolean> {
+    if (this.unreceipted.size) return Promise.resolve(false)
+    if (!this.pending.size) return Promise.resolve(true)
+    return new Promise((resolve) => {
+      let quiet = setTimeout(() => finish(false), quietMs)
+      const finish = (answered: boolean): void => {
+        clearTimeout(quiet)
+        this.off('answered', answer)
+        this.off('unanswered', unanswered)
+        resolve(answered)
+      }
+      const answer = (): void => {
+        if (!this.pending.size) return finish(this.unreceipted.size === 0)
+        clearTimeout(quiet)
+        quiet = setTimeout(() => finish(false), quietMs)
+      }
+      const unanswered = (): void => finish(false)
+      this.on('answered', answer)
+      this.on('unanswered', unanswered)
+    })
+  }
+
+  /** Exit's stop: settles once no request awaits its receipt any longer, answered or not (the connection's loss settles
+   * them all), or after `boundMs`.
+   */
+  drained(boundMs: number): Promise<void> {
+    if (!this.pending.size) return Promise.resolve()
+    return new Promise((resolve) => {
+      const finish = (): void => {
+        clearTimeout(bound)
+        this.off('answered', check)
+        this.off('unanswered', check)
+        resolve()
+      }
+      const check = (): void => { if (!this.pending.size) finish() }
+      const bound = setTimeout(finish, boundMs)
+      this.on('answered', check)
+      this.on('unanswered', check)
+    })
+  }
+
   /** Ends the connection on purpose; no reconnect. */
   close(): void {
     this.closedByUs = true
@@ -212,6 +259,7 @@ export class Broker extends EventEmitter {
         if (!this.pending.delete(id)) return
         if (!control) this.unreceipted.set(id, frame)
         resolve({ ok: false, error: NO_RECEIPT })
+        this.emit('unanswered')
       }, this.requestTimeoutMs)
       this.pending.set(id, { frame, resolve, timer, control })
       if (!this.write(socket, bytes)) {
@@ -219,6 +267,7 @@ export class Broker extends EventEmitter {
         clearTimeout(timer)
         this.pending.delete(id)
         resolve({ ok: false, error: NOT_SENT_REKEYING })
+        this.emit('unanswered')
       }
     })
   }
@@ -436,6 +485,7 @@ export class Broker extends EventEmitter {
       clearTimeout(pending.timer)
       this.pending.delete(id)
       pending.resolve(settled)
+      this.emit('answered')
       return
     }
     if (this.unreceipted.delete(id)) this.emit('receipt', { id, settled })
@@ -470,12 +520,14 @@ export class Broker extends EventEmitter {
 
   private settleDisconnected(): void {
     // In-flight commands lost their receipt: retain the original identities.
+    const lost = this.pending.size > 0
     for (const [id, pending] of this.pending) {
       clearTimeout(pending.timer)
       if (!pending.control) this.unreceipted.set(id, pending.frame)
       pending.resolve({ ok: false, error: NO_RECEIPT })
     }
     this.pending.clear()
+    if (lost) this.emit('unanswered')
   }
 
   private setLink(state: LinkState): void {

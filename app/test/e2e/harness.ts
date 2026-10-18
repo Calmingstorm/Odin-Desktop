@@ -110,8 +110,8 @@ export async function launchRaw(env: Record<string, string>, args: string[] = []
     child.once('exit', (code) => { clearTimeout(timeout); done({ code, stdout, stderr }) })
   })
 }
-export async function exitApp(application: ElectronApplication): Promise<void> {
-  const closed = application.waitForEvent('close', { timeout: 30_000 })
+export async function exitApp(application: ElectronApplication, timeoutMs = 30_000): Promise<void> {
+  const closed = application.waitForEvent('close', { timeout: timeoutMs })
   await application.evaluate(() => { (globalThis as unknown as { __odinE2E: { exit(): void } }).__odinE2E.exit() })
   await closed
 }

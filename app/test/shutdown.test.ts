@@ -13,13 +13,15 @@ function journal() {
   return { path, journal: new CleanupJournal(path) }
 }
 function deps(extra: Partial<ShutdownDeps> = {}): ShutdownDeps {
-  return { stopAdmission: vi.fn(), persist: vi.fn(), requestShutdown: vi.fn(async () => true),
+  return { stopAdmission: vi.fn(), persist: vi.fn(), readyForShutdown: vi.fn(async () => true),
+    requestShutdown: vi.fn(async () => true),
     stopCore: vi.fn(async () => 'exited' as const), unreceipted: () => 0, finish: vi.fn(), release: vi.fn(), exit: vi.fn(), ...extra }
 }
 describe('bounded shared shutdown', () => {
   it('shares simultaneous Exit routes and preserves ordering', async () => {
     const order: string[] = []
     const d = deps({ stopAdmission: () => { order.push('admission') }, persist: () => { order.push('persist') },
+      readyForShutdown: async () => { order.push('turn'); return true },
       requestShutdown: async () => { order.push('request'); return true },
       stopCore: async () => { order.push('core'); return 'exited' },
       finish: () => { order.push('receipt') }, release: () => { order.push('release') }, exit: () => { order.push('exit') } })
@@ -27,7 +29,33 @@ describe('bounded shared shutdown', () => {
     const first = exit()
     expect(exit(1)).toBe(first)
     expect((await first).state).toBe('process-exited')
-    expect(order).toEqual(['admission', 'persist', 'request', 'core', 'receipt', 'release', 'exit'])
+    expect(order).toEqual(['admission', 'persist', 'turn', 'request', 'core', 'receipt', 'release', 'exit'])
+  })
+  it('starts the request bound once its turn has come, however long that took', async () => {
+    vi.useFakeTimers()
+    try {
+      const d = deps({ readyForShutdown: () => new Promise((resolve) => setTimeout(() => resolve(true), 4_900)),
+        requestShutdown: vi.fn(() => new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 3_000))) })
+      const result = boundedShutdown(d)()
+      await vi.advanceTimersByTimeAsync(7_900)
+      expect(await result).toMatchObject({ state: 'process-exited', shutdownAccepted: true })
+    } finally { vi.useRealTimers() }
+  })
+  it('counts a receipt that comes after the request bound, while the core is stopped', async () => {
+    let answer!: (accepted: boolean) => void
+    const d = deps({ requestTimeoutMs: 10, requestShutdown: vi.fn(() => new Promise<boolean>((resolve) => { answer = resolve })),
+      stopCore: vi.fn(async () => { answer(true); return 'exited' as const }) })
+    expect(await boundedShutdown(d)()).toMatchObject({ state: 'process-exited', shutdownAccepted: true })
+  })
+  it('stays unknown when the receipt never comes, whatever the stop', async () => {
+    const d = deps({ requestTimeoutMs: 10, requestShutdown: vi.fn(() => new Promise<boolean>(() => {})) })
+    expect(await boundedShutdown(d)()).toMatchObject({ state: 'unknown', shutdownAccepted: false, processOutcome: 'exited' })
+  })
+  it.each(['refused', 'failed'] as const)('sends no request when its turn is %s', async (turn) => {
+    const d = deps({ readyForShutdown: async () => { if (turn === 'failed') throw new Error('harmless test failure'); return false } })
+    expect(await boundedShutdown(d)()).toMatchObject({ state: 'unknown', shutdownAccepted: false })
+    expect(d.requestShutdown).not.toHaveBeenCalled()
+    expect(d.stopCore).toHaveBeenCalledTimes(1)
   })
   it('bounds request acceptance without retry and escalated exit stays unknown', async () => {
     const d = deps({ requestTimeoutMs: 10, requestShutdown: vi.fn(() => new Promise<boolean>(() => {})), stopCore: async () => 'killed' })
@@ -35,7 +63,7 @@ describe('bounded shared shutdown', () => {
     expect(d.requestShutdown).toHaveBeenCalledTimes(1)
     expect(d.exit).toHaveBeenCalledWith(0)
   })
-  it.each(['persist', 'requestShutdown', 'stopCore', 'finish'] as const)('still releases and exits when %s fails', async (key) => {
+  it.each(['persist', 'readyForShutdown', 'requestShutdown', 'stopCore', 'finish'] as const)('still releases and exits when %s fails', async (key) => {
     const d = deps()
     Object.assign(d, { [key]: () => { throw new Error('harmless test failure') } })
     await boundedShutdown(d)()

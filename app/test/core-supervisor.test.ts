@@ -119,7 +119,7 @@ describe('core supervisor', () => {
       s.start()
       await waitFor(() => s.current === 'running')
       const record = await boundedShutdown({ stopAdmission: () => undefined, persist: () => undefined,
-        requestShutdown: async () => true, stopCore: () => s.stop(), unreceipted: () => 0,
+        readyForShutdown: async () => true, requestShutdown: async () => true, stopCore: () => s.stop(), unreceipted: () => 0,
         finish: () => undefined, release: () => undefined, exit: () => undefined })()
       expect(record).toMatchObject({ state, processOutcome, shutdownAccepted: true })
     }
@@ -139,7 +139,7 @@ describe('core supervisor', () => {
       s.start()
       await waitFor(() => s.current === 'failed')
       const record = await boundedShutdown({ stopAdmission: () => undefined, persist: () => undefined,
-        requestShutdown: async () => true, stopCore: () => s.stop(), unreceipted: () => 0,
+        readyForShutdown: async () => true, requestShutdown: async () => true, stopCore: () => s.stop(), unreceipted: () => 0,
         finish: (value) => journal.finish(value), release: () => undefined, exit: () => undefined })()
       expect(record).toMatchObject({ processOutcome: outcome, state, shutdownAccepted: true })
       expect(JSON.parse(readFileSync(join(dir, 'cleanup.json'), 'utf8')).current.state).toBe(state)

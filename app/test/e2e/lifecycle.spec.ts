@@ -180,7 +180,7 @@ test('abrupt app loss causes real-core EOF shutdown and persistent unknown clean
 })
 
 test('SIGSTOP real core exercises bounded escalation without release claims', async ({}, info) => {
-  test.setTimeout(45_000)
+  test.setTimeout(60_000)
   const application = await launchApp({ profile: 'escalation' })
   try {
     const core = await waitForCore(application)
@@ -188,8 +188,10 @@ test('SIGSTOP real core exercises bounded escalation without release claims', as
     const owned = identity(core.pid)
     process.kill(core.pid, 'SIGSTOP')
     const start = Date.now()
-    await exitApp(application)
-    expect(Date.now() - start).toBeLessThan(30_000)
+    // At most Exit's 10 s wait for the shutdown request's receipt, then the stop's 15 s grace, 5 s to SIGKILL and its
+    // 2 s wait: about 32 s.
+    await exitApp(application, 45_000)
+    expect(Date.now() - start).toBeLessThan(40_000)
     await expect.poll(() => alive(owned)).toBe(false)
     const cleanup = JSON.parse(readFileSync(before.cleanupPath, 'utf8'))
     expect(cleanup).toMatchObject({ state: 'unknown', processOutcome: 'killed', shutdownAccepted: false })

@@ -997,7 +997,7 @@ Source: [`src/tools/defs/output_delivery.py`](https://github.com/Calmingstorm/Od
 
 ## agent_only
 
-Source: [`src/tools/defs/agent_only.py`](https://github.com/Calmingstorm/Odin/blob/e1318eca83a40b9418d873ad85c31686ea6b57d0/src/tools/defs/agent_only.py). Offered only to spawned agents.
+Source: [`src/tools/defs/agent_only.py`](https://github.com/Calmingstorm/Odin/blob/72023158d38ccebc6cf25d22919a588c670c4f9d/src/tools/defs/agent_only.py), carried from Odin at `72023158`; the baseline above predates it. Offered only to spawned agents.
 
 ### report_to_parent
 

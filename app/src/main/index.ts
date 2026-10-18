@@ -29,7 +29,7 @@ import { hardenedWebPreferences, installGuards, registerAppScheme, serveAppSchem
 import { APP_ORIGIN } from './security-policy'
 import { applicationMenu, isExitShortcut } from './app-menu'
 import { OdinTray, detectTray } from './tray'
-import { boundedShutdown, CleanupJournal, resourceCleanupSource } from './shutdown'
+import { boundedShutdown, CleanupJournal, resourceCleanupSource, shutdownTurn, stopKeepingReceipts } from './shutdown'
 import { showNativeNotification } from './native-notifications'
 import { configureIdentity } from './identity'
 import { WindowStateController, loadWindowState, objectRecord, restoreWindowState, windowBackend, type WindowState, type WindowBackend } from './window-state'
@@ -350,13 +350,12 @@ function run(early: EarlyRequests): void {
     stopAdmission: () => { lifecycle.quitting = true; broker.quiesce(); tray?.setStatus('Stopping Odin…') },
     // Drafts remain a correctness boundary. Cosmetic UI writes do not manufacture cleanup uncertainty.
     persist: () => { drafts.flush(); windowState?.flush(); savePersisted() },
-    requestShutdown: async (signal) => (await broker.waitForShutdownReady(5_000, signal))
-      && (await coreRequest('runtime.shutdown', { reason: 'exit' })).ok,
-    stopCore: () => {
-      // No reconnect or command reconciliation during Exit.
-      broker.close()
-      return supervisor.stop()
-    },
+    // Its own bound starts once the requests sent before Exit have settled (shutdownTurn), not while they're answered.
+    readyForShutdown: () => shutdownTurn(broker),
+    requestShutdown: async () => (await coreRequest('runtime.shutdown', { reason: 'exit' })).ok,
+    // No reconnect or command reconciliation during Exit (the broker is quiesced); its connection stays open while the
+    // core stops, so a late shutdown receipt still lands.
+    stopCore: () => stopKeepingReceipts(() => supervisor.stop(), broker),
     unreceipted: () => broker.unreceiptedCount,
     finish: (record) => cleanup.finish(record),
     release: () => {
