@@ -1781,7 +1781,8 @@
       "files": [
         "tests/test_desktop_shared_owner_contracts.py"
       ],
-      "reason": "Exact genuine-owner mocked MCP/evidence/retry/tool failure/bulkhead/validation original corpus; actual frozen parameters preserved."
+      "reason": "Exact genuine-owner mocked MCP/evidence/retry/tool failure/bulkhead/validation original corpus; actual frozen parameters preserved. Odin 4.19.1 (PR #669) superseded exactly one frozen case run here (a new bundle now evicts whole older cohorts instead of being refused); its 4.19.1 version runs in tests/test_desktop_output_eviction.py.",
+      "exclude_expression": "test_test_mcp_media_retention_checkpoint_binary_bundle_quota_is_atomic_shared_and_charges_empty_metadata"
     },
     {
       "name": "faithful-retirement-corpus",

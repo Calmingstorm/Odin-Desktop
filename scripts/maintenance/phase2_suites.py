@@ -317,7 +317,10 @@ REVIEWED_DIRECT_EXCLUSIONS = {
     "direct-shared-stores-providers-tools": (
         "(TestSessionsConfigTokenBudget and test_zero_budget) or "
         "(TestCompatibleProfiles and "
-        "test_compatible_profile_legacy_shape_and_openrouter_catalogue_fallback)"
+        "test_compatible_profile_legacy_shape_and_openrouter_catalogue_fallback) or "
+        "(test_output_delivery_retention and "
+        "(test_quota_failure_never_promises_missing_cursor or "
+        "test_concurrent_quota_admission_is_atomic))"
     ),
 }
 

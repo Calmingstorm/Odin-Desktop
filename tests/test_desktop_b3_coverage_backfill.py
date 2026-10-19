@@ -25,10 +25,11 @@ async def test_backfill_index_read_failure_keeps_repair_path(tmp_path):
     store._get_indexed_ids_sync.assert_called_once_with()
 
 
-def test_retention_transaction_rechecks_quota_after_preflight(tmp_path, monkeypatch):
+def test_retention_transaction_refuses_when_nothing_can_be_evicted(tmp_path, monkeypatch):
+    # Odin 4.19.1: no preflight quota check; the write transaction makes room by
+    # evicting the oldest cohorts, and refuses only when that can't admit it.
     store = OutputStore(tmp_path / "outputs.sqlite3", global_bytes=10)
-    measurements = iter([0, 10])
-    monkeypatch.setattr(store, "_used", lambda _db, _now: next(measurements))
+    monkeypatch.setattr(store, "_used", lambda _db, _now: 10)
     with pytest.raises(RetentionError, match="Global retention quota exhausted"):
         store.retain("fixture", owner="owner", channel="channel", tool="fixture")
     with store._db() as db:

@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
+from src.tools.apply_patch import PatchError, apply_plan, parse_patch
 from src.tools.media_result import BinaryAttachment
 from src.tools.output_delivery import deliver
 from src.tools.output_retention import OutputStore, RetentionError
@@ -164,3 +165,40 @@ def test_delivery_holds_its_bundle_against_an_interleaved_writer(tmp_path, monke
         _, pointer = delivered_pointer(executor, file_result("short"))
         assert_pointer_readable(executor, pointer)
         assert store._holds == {}
+
+
+# --- Odin 4.19.1 branches the carried cases don't reach ------------------------------------
+
+
+def test_a_snapshot_held_twice_stays_held_until_both_holds_close(tmp_path):
+    store = store_at(tmp_path, per_result_bytes=100, global_bytes=100)
+    with store.hold() as outer:
+        held = store.retain("a"*60, owner="alice", channel="room", tool="example_tool",
+                            hold=outer)
+        with store.hold() as inner:
+            store._hold(inner, held.result_id)
+        # One hold closed; the other still keeps the snapshot from eviction.
+        with pytest.raises(RetentionError, match="Global retention quota exhausted"):
+            retain(store, "b"*60)
+    retain(store, "b"*60)
+    with pytest.raises(RetentionError, match="expired or unavailable"):
+        read(store, f"{held.result_id}:0")
+
+
+def ambiguity(tmp_path, source, body):
+    (tmp_path / "target.txt").write_text(source)
+    with pytest.raises(PatchError, match="context is ambiguous") as caught:
+        apply_plan(str(tmp_path), parse_patch(f"*** Begin Patch\n{body}\n*** End Patch\n"))
+    return str(caught.value)
+
+
+def test_an_all_blank_context_gets_locations_without_hints(tmp_path):
+    message = ambiguity(tmp_path, "a\n\nb\n\nc\n",
+                        "*** Update File: target.txt\n@@\n-\n+x")
+    assert "the context matches at line 2 and line 4; add more" in message
+
+
+def test_an_indented_match_with_nothing_less_indented_above_has_no_hint(tmp_path):
+    message = ambiguity(tmp_path, "    x = 1\n    x = 1\n",
+                        "*** Update File: target.txt\n@@\n-    x = 1\n+    x = 2")
+    assert "the context matches at line 1 and line 2; add more" in message
