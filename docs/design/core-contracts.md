@@ -128,7 +128,7 @@ Core owns model context, transcript, artifact storage and event publication. The
 
 ### Artifact and retention boundary
 
-Visible message/artifact retention is product policy, separate from fixed 24-hour tool evidence. Cards report evidence expiry. Explicit authorized promotion copies bytes/provenance to durable storage; it does not make a cursor permanent or bypass live output authorization. Establish retention before promising files survive reopening.
+Visible message/artifact retention is product policy, separate from tool evidence, which is kept up to 24 hours (the oldest goes sooner when its storage is full). Cards report the latest evidence expiry. Explicit authorized promotion copies bytes/provenance to durable storage; it does not make a cursor permanent or bypass live output authorization. Establish retention before promising files survive reopening.
 
 Raw artifacts may contain secrets/executable data. Preview never executes. A scrubbed display is not a byte-faithful download; label it while protecting explicitly adopted originals. Deletion follows store/backup policy, not guaranteed forensic erasure.
 

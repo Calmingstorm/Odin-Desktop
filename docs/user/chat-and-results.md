@@ -98,10 +98,11 @@ state can block it. A disabled Resume is not permission to start a fresh copy.
   important available file before expiry; you protect that saved copy yourself.
 
 Tool evidence and file references have separate availability rules. Retained
-full tool evidence normally expires after **24 hours**, has storage limits, and
-is checked against current access on each read. Its **Kept until** time is the
-deadline; reading does not extend it. A summary can survive after full evidence
-is unavailable.
+full tool evidence is kept for up to **24 hours**, has storage limits, and is
+checked against current access on each read. Its **Kept until** time is the
+latest it stays: when that storage is full, the oldest evidence goes sooner to
+make room for new results. Reading does not extend it. A summary can survive
+after full evidence is unavailable.
 
 ### Stored reports
 

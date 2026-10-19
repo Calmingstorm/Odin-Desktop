@@ -317,7 +317,10 @@ REVIEWED_DIRECT_EXCLUSIONS = {
     "direct-shared-stores-providers-tools": (
         "(TestSessionsConfigTokenBudget and test_zero_budget) or "
         "(TestCompatibleProfiles and "
-        "test_compatible_profile_legacy_shape_and_openrouter_catalogue_fallback)"
+        "test_compatible_profile_legacy_shape_and_openrouter_catalogue_fallback) or "
+        "(test_output_delivery_retention and "
+        "(test_quota_failure_never_promises_missing_cursor or "
+        "test_concurrent_quota_admission_is_atomic))"
     ),
 }
 
@@ -661,7 +664,7 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             "tests/test_tool_parity.py":
                 "e734b9f088569c37109de900f8bbecf48d6d76885d29c23def4fadd8bf4b3849",
             "tests/desktop_adapters/tool_parity.py":
-                "2b0f18e1f46f48f40d6e7246afb67f9c01e99d0f2e65755826b8cd3845e334bd",
+                "ab5030e8710ac6c33a95c4ec38ca06843469dc3ac646e462270f6af443a28816",
             "tests/test_desktop_tool_parity_adaptation.py":
                 "c62eedb381ee31731b5f4db28eb39dea9242c7d39ffd3c028cbab50b463f67a5",
         }

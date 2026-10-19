@@ -175,10 +175,10 @@ is unknown. Never use background work or another backend to bypass it.
 ## Stored results and expiry
 
 A conversation summary, report reference and full tool evidence are different
-records. Tool output's **Kept until** time is its deadline. Full retained tool
-evidence normally has a **24-hour** lifetime, storage limits and access checks
-on each read. Reading does not extend retention, and not every result is kept
-in full.
+records. Tool output's **Kept until** time is the latest it stays. Full
+retained tool evidence lasts up to **24 hours**, has storage limits and access
+checks on each read; when that storage is full, the oldest goes sooner. Reading
+does not extend retention, and not every result is kept in full.
 
 Use the offered reading or file-saving controls before expiry if you need a
 private copy. A saved copy is your responsibility. A summary or receipt remaining

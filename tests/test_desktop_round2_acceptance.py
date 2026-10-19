@@ -136,6 +136,14 @@ def test_every_changed_catalog_name_description_and_schema_is_exact_c1_c3():
                     tool["description"] += (
                         " For interim reports to your spawner, use report_to_parent, "
                         "not this tool.")
+                if name == "get_tool_output":  # Odin 4.19.1, carried: retention is up to 24 hours
+                    old = ("Evidence expires 24 hours after capture (fixed TTL), with "
+                           "per-result/global quotas. ")
+                    assert tool["description"].count(old) == 1
+                    tool["description"] = tool["description"].replace(old, (
+                        "Evidence lasts up to 24 hours after capture, with per-result/global "
+                        "quotas; reads do not extend it, and the oldest is removed earlier when "
+                        "the global quota needs room. "), 1)
                 if name == "manage_list":  # Odin 4.14 (#641), carried: delete removes a list
                     old = "Supports mark_done/mark_undone."
                     assert tool["description"].count(old) == 1
