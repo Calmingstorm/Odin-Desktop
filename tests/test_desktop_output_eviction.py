@@ -10,6 +10,7 @@ authenticated owner, so Odin's fixture tool name can't be delivered.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
@@ -23,6 +24,7 @@ from src.tools.output_retention import OutputStore, RetentionError
 from src.tools.result_validator import ToolResult
 from src.tools.runtime_delivery import deliver_runtime_result, execution_delivery_scope
 from tests.desktop_adapters.tools_cases import ToolExecutor, owner_fixture, owner_id
+from tests.test_desktop_requests import params, service  # noqa: F401 (fixture)
 
 
 def store_at(tmp_path, **kwargs):
@@ -202,3 +204,117 @@ def test_an_indented_match_with_nothing_less_indented_above_has_no_hint(tmp_path
     message = ambiguity(tmp_path, "    x = 1\n    x = 1\n",
                         "*** Update File: target.txt\n@@\n-    x = 1\n+    x = 2")
     assert "the context matches at line 1 and line 2; add more" in message
+
+
+# --- Tool-detail receipts survive an eviction during their own audit (Odin's 1.3.2 review) --
+
+
+async def test_receipts_survive_an_eviction_while_their_audit_settles(
+        service, monkeypatch, tmp_path):  # noqa: F811 - imported pytest fixture
+    """Two commands run in one batch; the first result's evidence is evicted for the
+    second while the first waits at its audit. Both receipts are kept, and only the
+    first one's continuation is withheld (Odin's review reproduction, inverted)."""
+    from src.config.schema import Config, ToolHost
+    from src.desktop.artifacts import ArtifactStore
+    from src.desktop.delivery import DurableDelivery, PublicationEventJournal
+    from src.desktop.services import build_engine_services
+    from src.desktop.tool_details import ToolDetailsStore
+    from src.llm.types import LLMResponse, ToolCall
+
+    requests, cid, old_engine, _delivery, store = service
+    commands = {"first": "python3 -c 'print(\"a\" * 16500)'",
+                "second": "python3 -c 'print(\"b\" * 16000)'"}
+
+    class Provider:
+        model, provider_name = "test", "compat"
+
+        def __init__(self):
+            self.responses = [
+                LLMResponse(tool_calls=[ToolCall(name, "run_command",
+                                                 {"host": "local", "command": command})
+                                        for name, command in commands.items()]),
+                LLMResponse(text="Offline probe complete."),
+            ]
+
+        async def chat_with_tools(self, **_kwargs):
+            return self.responses.pop(0)
+
+        async def chat(self, **_kwargs):
+            return "COMPLETE"
+
+        async def drain_and_close(self):
+            pass
+
+    cfg = Config()
+    cfg.openai_codex.enabled = False
+    cfg.llm_provider.model = "compat:test"
+    cfg.openai_compatible.enabled = True
+    cfg.context.directory = str(requests.authority.paths.data_dir / "context")
+    requests.authority.paths.data_dir.joinpath("context").mkdir(parents=True)
+    cfg.learning.enabled = False
+    cfg.browser.enabled = False
+    workspace = tmp_path / "command-workspace"
+    workspace.mkdir(mode=0o700, parents=True)
+    cfg.tools.local_working_dir = str(workspace)
+    cfg.tools.hosts = {"local": ToolHost(address="127.0.0.1", ssh_user="odin")}
+    cfg.tools.default_host = "local"
+    cfg.tools.audit_log_path = str(requests.authority.paths.data_dir / "audit.jsonl")
+    events = PublicationEventJournal(store)
+    requests.events = requests.transcript.events = requests.conversations.events = events
+    delivery = DurableDelivery(store, events, transcript_commit=requests.transcript.commit,
+                               assert_context=requests.assert_delivery_context)
+    engine = build_engine_services(cfg, requests.authority.paths, requests.permissions,
+                                   delivery=delivery, compatible_client=Provider())
+    requests.engine, requests.delivery = engine, delivery
+    engine.bind_requests(requests)
+    engine.runner._record_tool_detail = requests.record_tool_detail
+    engine.deps.audit.set_event_callback(requests.observe_tool_event)
+    executor = engine.deps.tool_executor
+    # A small quota makes the full store certain without 64 MiB of output.
+    executor._output_store = OutputStore(
+        requests.authority.paths.data_dir / "receipt-output.sqlite3", global_bytes=20_000)
+    artifacts = ArtifactStore(store, output_store=executor._ensure_output_store(),
+                              authorize=executor._authorize_output)
+    details = ToolDetailsStore(store, output_store=executor._ensure_output_store(),
+                               artifacts=artifacts, authorize=executor._authorize_output)
+    delivery.tool_details = details
+    first_rendered, second_rendered = asyncio.Event(), asyncio.Event()
+    original_execute = executor.execute
+    original_audit = engine.runner._audit_tool_outcome
+
+    async def execute(tool, arguments, **kwargs):
+        if arguments.get("command") == commands["second"]:
+            await asyncio.wait_for(first_rendered.wait(), 15)
+        return await original_execute(tool, arguments, **kwargs)
+
+    async def audit(*args, **kwargs):
+        if kwargs.get("call_id") == "first":
+            first_rendered.set()
+            await asyncio.wait_for(second_rendered.wait(), 15)
+        elif kwargs.get("call_id") == "second":
+            second_rendered.set()
+        return await original_audit(*args, **kwargs)
+
+    monkeypatch.setattr(executor, "execute", execute)
+    monkeypatch.setattr(engine.runner, "_audit_tool_outcome", audit)
+    try:
+        admitted = requests.submit(params(cid))
+        await requests.after_commit()
+        await asyncio.wait_for(asyncio.gather(*requests._tasks), 40)
+        rid = admitted["request_id"]
+        assert first_rendered.is_set() and second_rendered.is_set()
+        assert requests.get_request(rid)["state"] == "completed"
+        assert all(tool["outcome"] == "success" for tool in requests.snapshot(cid)["tools"][rid])
+        receipts = [row[0] for row in store.connection.execute(
+            "SELECT invocation_id FROM desktop_tool_details WHERE request_id=? "
+            "ORDER BY invocation_id", (rid,))]
+        assert receipts == ["first", "second"]
+        first = details.detail(rid, "first", owner=requests.authority.owner_id)
+        second = details.detail(rid, "second", owner=requests.authority.owner_id)
+        assert first["output"] == {} and first["previews"][0]["text"]
+        assert first["arguments"]["command"] == commands["first"]
+        assert second["output"]["cursor"]
+    finally:
+        await requests.close()
+        await engine.close()
+        requests.engine = old_engine

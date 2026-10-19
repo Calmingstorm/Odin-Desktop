@@ -114,9 +114,20 @@ class ToolDetailsStore:
         cursor = cursor or inferred
         attachment_cursor = attachment_cursor or inferred_attachments
         # Verify retained pointers now, without loading bytes through text routes.
+        # Evidence can expire early to make room for newer output (Odin 4.19.1)
+        # while this result's audit settles: keep the receipt and withhold only
+        # the continuation, as detail() does. Every other refusal still raises.
+        verified = []
         for pointer in (cursor, attachment_cursor):
             if pointer:
-                self.artifacts._read_evidence(pointer, owner, conversation_id)
+                try:
+                    self.artifacts._read_evidence(pointer, owner, conversation_id)
+                except ResultReadError as exc:
+                    if exc.code != "expired":
+                        raise
+                    pointer = None
+            verified.append(pointer)
+        cursor, attachment_cursor = verified
         bounded = []
         for preview in previews:
             text = scrub_output_secrets(str(preview["text"]))

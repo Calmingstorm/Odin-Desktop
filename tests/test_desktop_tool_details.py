@@ -64,6 +64,40 @@ def test_details_scrub_arguments_labeled_previews_and_never_page_tail(stores):
 
 
 
+def test_a_receipt_survives_its_evidence_being_evicted_before_it_is_recorded(stores):
+    """Odin 4.19.1: a full store expires its oldest evidence early to make room.
+
+    When that happens while a result's audit settles, the receipt still keeps its
+    arguments and previews; only the unavailable continuation is withheld.
+    """
+    journal, evidence, _, details, _, _, _ = stores
+    output = deliver("first line\n" + "evicted body " * 2000, store=evidence, owner="owner",
+                     channel="conversation", tool="run_command", budget=1200)
+    evidence.global_bytes = 30_000
+    newer = deliver("newer output " * 1700, store=evidence, owner="owner",
+                    channel="conversation", tool="run_command", budget=1200)
+    assert json.loads(newer)["retention"] == "retained"
+    record(details, output)
+    detail = details.detail("request", "invocation", owner="owner")
+    assert detail["output"] == {}
+    assert detail["arguments"]["command"] == "pwd"
+    assert detail["previews"][0]["text"].startswith("first line")
+    stored = journal.connection.execute("SELECT cursor FROM desktop_tool_details").fetchone()
+    assert stored[0] is None
+
+
+def test_an_unauthorized_pointer_still_refuses_the_receipt(stores):
+    journal, evidence, _, details, _, allowed, _ = stores
+    output = deliver("first line\n" + "body " * 3000, store=evidence, owner="owner",
+                     channel="conversation", tool="run_command", budget=1200)
+    allowed.discard("get_tool_output")
+    with pytest.raises(ResultReadError) as caught:
+        record(details, output)
+    assert caught.value.code == "unauthorized"
+    count = journal.connection.execute("SELECT COUNT(*) FROM desktop_tool_details").fetchone()[0]
+    assert count == 0
+
+
 def test_validated_nested_payload_arguments_are_recorded_and_scrubbed(stores):
     """schedule_task's adapter-validated input is a dict subclass; its details must exist."""
     from src.tools.nested_payload import ValidatedNestedPayload
