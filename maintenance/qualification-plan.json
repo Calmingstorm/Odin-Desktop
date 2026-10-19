@@ -526,7 +526,8 @@
       "files": [
         "tests/test_desktop_shared_tools_extra.py"
       ],
-      "reason": "Frozen file/output/backoff/lease corpus with explicit disposable host profile."
+      "reason": "Frozen file/output/backoff/lease corpus with explicit disposable host profile. Odin 4.19.1 (PR #669) superseded exactly two frozen cases run here (a never-fits refusal and four concurrent admissions, now that a full store evicts its oldest); their 4.19.1 versions run in tests/test_desktop_output_eviction.py.",
+      "exclude_expression": "test_test_output_delivery_retention_quota_failure_never_promises_missing_cursor or test_test_output_delivery_retention_concurrent_quota_admission_is_atomic"
     },
     {
       "name": "faithful-llm",
