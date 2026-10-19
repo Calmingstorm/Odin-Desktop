@@ -33,7 +33,7 @@ REPINNED_TOOL_HASHES = {
     "browser_screenshot": "67b9253438eb2e4a",  # C: browser_screenshot row
     "spawn_agent": "a7418aec9582c83a",  # C: spawn_agent row; Odin 4.19: names report_to_parent
     "generate_image": "52ce55c45ed09b71",  # C: generate_image row
-    "get_tool_output": "6455b67d729056d9",  # C: get_tool_output row
+    "get_tool_output": "4eecb61f7fb75982",  # C: get_tool_output row; Odin 4.19.1: up to 24 hours
     "read_conversation": "8b9fa51606740965",  # C: read_channel rename + interface
     "manage_list": "2142fd3e97fa29c0",  # Odin 4.14 #641: delete removes a list; clear only empties it
     "apply_patch": "ef2d5df0f3e3b668",  # Odin 4.15 #655/#657: Linux/macOS no-replace, case-only moves
