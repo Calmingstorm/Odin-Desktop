@@ -5401,11 +5401,20 @@
       "status": "restored",
       "blocked_on": null,
       "restoration": {
-        "mode": "direct-original",
+        "mode": "frozen-adapter",
         "selectors": [
-          "tests/test_local_supervisor_wrapper_r10.py"
+          "tests/test_desktop_odin_4192_wrapper_r10.py"
         ],
-        "reason": "Parent-authorized direct restoration after all 22 original cases passed unchanged; retained supervisor protocol/ownership/private-session/shutdown/veto matrices with inert workers and isolated globals, no adapter or readiness shim."
+        "reason": "Parent-authorized direct restoration after all 22 original cases passed unchanged. Odin 4.19.2 (Desktop 1.3.3) superseded one: the immutable suite now runs through tests/desktop_adapters/odin_4192_wrapper_r10.py, which exports every other case unchanged and retires only that one under its own reviewed authority.",
+        "case_retirements": [
+          {
+            "case": "test_started_shell_cleanup_failure_preserves_launch_error",
+            "reviewer": "Claude, Odin Desktop 1.3.3 carry of Odin 4.19.2 (PR #670)",
+            "reason": "Odin 4.19.2 passes the foreground late-ACK opt-in to SupervisedShell by keyword; the frozen positional test double cannot take it, and the case's 4.19.2 version runs in tests/test_desktop_foreground_late_ack.py",
+            "source_path": "tests/test_local_supervisor_wrapper_r10.py",
+            "source_sha256": "d8cf0282d36589fb4bb13780d0acaa74ba46be3b9e650d575e85c6d815e2b629"
+          }
+        ]
       }
     },
     {

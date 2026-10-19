@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.3.3]
+
+**A command that finished while Odin was busy keeps its real result.** Linux and macOS (Odin 4.19.2).
+
+- **A finished local command no longer comes back as "Local command supervisor ownership lost".** Every local
+  command runs under a small helper that confirms the command and everything it started have exited, reports that,
+  then waits up to two seconds for Odin's acknowledgement. When Odin was busy for longer than that, the
+  acknowledgement came too late, and the finished command was reported as a failure with an uncertain outcome,
+  although its output and exit code had arrived. `run_command`, `read_file`, `run_script` and the other foreground
+  local commands now return the real output and exit code in that case.
+  - Unchanged on purpose: the command's cleanup is still recorded as unconfirmed, and every other failure (a
+    timeout, a helper error, cancellation) is reported as before. Background processes (`manage_process`) behave as
+    before.
+  - The engine log's warning now names the failing stage, for example
+    `Local supervisor settlement failed at ack (ConnectionResetError)`.
+- Windows didn't have this problem: commands there run in a Windows job object, without this helper.
+
 ## [1.3.2]
 
 **New large results keep their full output when storage is full, and an ambiguous patch says where it matched.**

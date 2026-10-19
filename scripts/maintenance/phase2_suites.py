@@ -313,6 +313,24 @@ STEP6A_REASON = (
 # numeric saves: a zero token budget and a string profile size now load only at startup.
 # Their 4.14 forms run in tests/test_desktop_numeric_bounds.py. Only this exact expression is
 # admitted beside the group's reviewed adapter; any other deselection still fails closed.
+# Desktop 1.3.3 carries Odin 4.19.2 (PR #670): the foreground wrapper passes its late-ACK
+# opt-in to SupervisedShell by keyword, which one frozen wrapper case's positional-only test
+# double cannot take. A separate authority for that one case; its 4.19.2 version runs in
+# tests/test_desktop_foreground_late_ack.py.
+ODIN_4192_REVIEWER = "Claude, Odin Desktop 1.3.3 carry of Odin 4.19.2 (PR #670)"
+ODIN_4192_CASE_SOURCE_SHA256 = {
+    "tests/test_local_supervisor_wrapper_r10.py":
+        "d8cf0282d36589fb4bb13780d0acaa74ba46be3b9e650d575e85c6d815e2b629",
+}
+ODIN_4192_CASE_REASONS = {
+    "tests/test_local_supervisor_wrapper_r10.py": {
+        "test_started_shell_cleanup_failure_preserves_launch_error": (
+            "Odin 4.19.2 passes the foreground late-ACK opt-in to SupervisedShell by keyword; "
+            "the frozen positional test double cannot take it, and the case's 4.19.2 version "
+            "runs in tests/test_desktop_foreground_late_ack.py"),
+    },
+}
+
 REVIEWED_DIRECT_EXCLUSIONS = {
     "direct-shared-stores-providers-tools": (
         "(TestSessionsConfigTokenBudget and test_zero_budget) or "
@@ -536,6 +554,9 @@ def _case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool
     if path in _part4_dispositions(root):
         # Step 8 part 4's audited lane-8 dispositions are a separate authority.
         return _part4_case_retirements(root, path, inherited_hash, value)
+    if path in ODIN_4192_CASE_SOURCE_SHA256:
+        # The Odin 4.19.2 carry (Desktop 1.3.3) is a separate authority for its one case.
+        return _odin_4192_case_retirements(root, path, inherited_hash, value)
     if not isinstance(value, list):
         return False
     if not value:
@@ -564,6 +585,35 @@ def _case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool
         expected_reason = round2_reason or PR35_CASE_REASONS.get(path, {}).get(case)
         if (not isinstance(case, str) or case not in cases
                 or row["reviewer"] != expected_reviewer
+                or row["source_path"] != path or row["source_sha256"] != inherited_hash
+                or expected_reason is None or row["reason"] != expected_reason):
+            return False
+        names.append(case)
+    return names == sorted(set(names))
+
+
+def _odin_4192_case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool:
+    """The Odin 4.19.2 carry's exact dispositions against the immutable source."""
+    if not isinstance(value, list):
+        return False
+    if not value:
+        return True
+    if inherited_hash != ODIN_4192_CASE_SOURCE_SHA256.get(path):
+        return False
+    source = _regular(root, path).read_bytes()
+    if _digest(source) != inherited_hash:
+        return False
+    cases = {node.name for node in ast.parse(source, filename=path).body
+             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    names = []
+    for row in value:
+        if (not isinstance(row, dict) or set(row) != {
+                "case", "reviewer", "reason", "source_path", "source_sha256"}):
+            return False
+        case = row["case"]
+        expected_reason = ODIN_4192_CASE_REASONS.get(path, {}).get(case)
+        if (not isinstance(case, str) or case not in cases
+                or row["reviewer"] != ODIN_4192_REVIEWER
                 or row["source_path"] != path or row["source_sha256"] != inherited_hash
                 or expected_reason is None or row["reason"] != expected_reason):
             return False

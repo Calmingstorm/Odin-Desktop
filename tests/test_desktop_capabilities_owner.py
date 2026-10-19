@@ -173,6 +173,11 @@ async def test_native_browser_requires_explicit_bundled_binary():
 # for byte (sha256 of `git show v4.14.0:src/tools/risk_classifier.py` in Odin's repository).
 ODIN_V4_14_0_GOVERNOR_SHA256 = "6d38578f2bde09a3715e2c9d78e420aeacb11e3ecd88ff2818d73eaef8830249"
 
+# Desktop 1.3.3 carries Odin 4.19.2's foreground late-ACK result (PR #670): the supervisor is Odin
+# v4.19.2's file byte for byte (sha256 of `git show v4.19.2:src/tools/local_supervisor.py`).
+ODIN_V4_19_2_LOCAL_SUPERVISOR_SHA256 = (
+    "d1d8321727950ddb87416025046db343cd3c6d03859a0010ffa9b85ee3596df4")
+
 
 def test_common_classifier_functions_remain_byte_identical():
     root = Path(__file__).resolve().parents[1]
@@ -189,6 +194,10 @@ def test_common_safety_primitives_byte_identical():
                  "local_supervisor.py", "local_supervisor_worker.py", "execution_outcome.py",
                  "workspace.py", "ssh.py", "ssh_pool.py", "process_manager.py"):
         baseline = blobs[f"src/tools/{name}"]
+        if name == "local_supervisor.py":
+            current = (root / "src/tools" / name).read_bytes()
+            assert hashlib.sha256(current).hexdigest() == ODIN_V4_19_2_LOCAL_SUPERVISOR_SHA256
+            continue
         if name in ("ssh.py", "ssh_pool.py"):
             # Odin 4.15 (#655), carried byte for byte: trust paths pass through
             # known_hosts_option, so OpenSSH's own tokenizer keeps them one file.
@@ -200,6 +209,18 @@ def test_common_safety_primitives_byte_identical():
             baseline = baseline.replace(
                 anchor, anchor + b"from .ssh_options import known_hosts_option\n", 1)
             baseline = baseline.replace(option, b"known_hosts_option(known_hosts_path),\n")
+        if name == "ssh.py":
+            # Odin 4.19.2 (PR #670), carried byte for byte: only this foreground
+            # wrapper opts in to the late-ACK result.
+            anchor = (b"            shell_choice=choice,\n        )\n"
+                      b"        if on_output is not None:\n")
+            assert baseline.count(anchor) == 1
+            baseline = baseline.replace(anchor, (
+                b"            shell_choice=choice,\n"
+                b"            # A foreground result is complete at leader exit plus output EOF;\n"
+                b"            # a late ACK after clean settlement must not turn it into an error.\n"
+                b"            allow_foreground_ack_result=True,\n"
+                b"        )\n        if on_output is not None:\n"), 1)
         if name == "ssh_pool.py":
             # PR #14 requires no-follow, foreign-owner guards without a D17
             # permission-mode gate. Fence the exact provisioning adaptation;
