@@ -12,6 +12,7 @@ import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -772,3 +773,57 @@ async def test_a_local_job_is_labelled_and_its_kill_carries_the_caveat(registry)
     other = SimpleNamespace(**{**info.__dict__, "containment": ""})
     assert '"containment"' not in macos_jobs.MacOSProcessRegistry._output_page(
         other, b"", 0, 100, 4000, preview=True)
+
+
+# --- Odin 4.19.2: a foreground result survives a late settlement ACK ----------------------------
+
+
+@pytest.fixture
+def owned(monkeypatch):
+    """Private supervisor state: a late ACK leaves its shell owned and vetoes relaunch."""
+    monkeypatch.setattr(macos_jobs._ls, "_active", set())
+    monkeypatch.setattr(macos_jobs._ls, "_pending", set())
+    monkeypatch.setattr(macos_jobs._ls, "_closing_loops", set())
+    monkeypatch.setattr(macos_jobs._ls, "_unverified_startup", False)
+    veto = Mock()
+    monkeypatch.setattr("src.restart.block_reexec", veto)
+    return veto
+
+
+async def held_until_the_ack_is_late(proc):
+    time.sleep(3.0)  # the command finishes and the worker gives up on the ACK
+    await asyncio.wait({proc._monitor_task}, timeout=10)
+
+
+async def test_the_foreground_wrapper_keeps_its_result_after_a_late_ack(owned, monkeypatch):
+    real, shells = macos_jobs.create_supervised_shell, []
+
+    async def holding(*args, **kwargs):
+        proc = await real(*args, **kwargs)
+        shells.append(proc)
+        await held_until_the_ack_is_late(proc)
+        return proc
+
+    monkeypatch.setattr(macos_jobs, "create_supervised_shell", holding)
+    code, output = await macos_jobs.run_local_command("printf late-ack-result; exit 7", timeout=30)
+    assert code == 7 and "late-ack-result" in str(output)
+    (proc,) = shells
+    assert proc._allow_foreground_ack_result and proc._ack_lost_after_clean
+    assert proc._settled.exception() is not None and proc in macos_jobs._ls._active
+    owned.assert_called_with("local command supervisor ownership lost")
+
+
+async def test_a_shell_without_the_opt_in_still_reports_ownership_lost(owned):
+    proc = await shell("printf done; exit 7")
+    await held_until_the_ack_is_late(proc)
+    assert proc._ack_lost_after_clean and not proc._allow_foreground_ack_result
+    with pytest.raises(macos_jobs._ls.SupervisorError, match="ownership lost"):
+        await proc.communicate()
+    owned.assert_called_with("local command supervisor ownership lost")
+
+
+async def test_background_jobs_never_opt_in(registry):
+    started = await registry.start("localhost", "sleep 30")
+    pid = int(started.split("PID ")[1].split(")")[0])
+    assert registry._processes[pid].process._allow_foreground_ack_result is False
+    await registry.kill(pid)

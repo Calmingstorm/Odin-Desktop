@@ -150,6 +150,20 @@ async def test_a_line_longer_than_a_chunk_arrives_whole(tmp_path):
     assert data == b"x" * 200000 + b"END\r\ntail\r\n"
 
 
+
+async def test_a_job_shell_takes_no_foreground_ack_policy(tmp_path):
+    """Odin 4.19.2's late-ACK result belongs to the supervisor protocol, which a job shell
+    doesn't speak: the inherited communicate() still ends in the job shell's own wait."""
+    shell = await create_job_shell("Write-Output done; exit 3", stdout=asyncio.subprocess.PIPE,
+                                   stderr=asyncio.subprocess.STDOUT, cwd=str(tmp_path))
+    try:
+        out, _ = await asyncio.wait_for(shell.communicate(), 60)
+    finally:
+        await shell.terminate_tree()
+    assert out.strip() == b"done" and shell.returncode == 3
+    assert not hasattr(shell, "_allow_foreground_ack_result")
+
+
 # --- Settlement and live output (Odin's 3a review, B5 and B7) ---------------------------------
 
 

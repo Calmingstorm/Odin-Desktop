@@ -156,7 +156,7 @@ OVERRIDE_SOURCES = {
     "src/tools/ssh.py:read_binary_file":
         "f5a4a4dd520f80bfa8159ad1a0b1491372ebcaa5e836ab55fe4f1bdd4de335cf",
     "src/tools/local_supervisor.py:SupervisedShell":
-        "8fc07a2abfe4f015b1cee1118338d2b544ff6476ed059ae0351ebad3ffecb2e9",
+        "ca3e9fc1029f36c07b3dcde0a79b916ad0e9b8ed50a612d6f7f5fae9f9fefc47",
     "src/tools/risk_classifier.py:CommandGovernor.check":
         "24740ff045379a0076cf71b7f2d7b39e130ca1b62958f2616d254f8aac5dc4d7",
 }
@@ -301,11 +301,11 @@ def test_linux_runs_the_originals_and_imports_no_macos_module():
 # engine's python3; and the macOS worker, which speaks Linux's protocol.
 MACOS_OVERRIDE_SOURCES = {
     "src/tools/local_supervisor.py:create_supervised_shell":
-        "912122289118a78f03b84fdd1ae86bddbd490285cf27db609055feb99aa3e8de",
+        "9a9488e78f2e2c8b1e87bf24b61a597fb5493ad988b9c0824c84e333a010ff01",
     "src/tools/local_supervisor.py:SupervisedShell":
-        "8fc07a2abfe4f015b1cee1118338d2b544ff6476ed059ae0351ebad3ffecb2e9",
+        "ca3e9fc1029f36c07b3dcde0a79b916ad0e9b8ed50a612d6f7f5fae9f9fefc47",
     "src/tools/ssh.py:run_local_command":
-        "06d309b7b49a31a5050d7b2fd7ffd690fa18938dc655d21abf70042addfc8e40",
+        "b2e70db79a6a7e68440df29287f2157b5df8a57a0d46de4cd4bc2e7dd12a740b",
     "src/tools/process_manager.py:ProcessRegistry._start_local_reserved":
         "3d6acead94fd543dbc33dcafb0b8d96a06897857325103011e32b5d3e303ea55",
     "src/tools/process_manager.py:ProcessRegistry._output_page":

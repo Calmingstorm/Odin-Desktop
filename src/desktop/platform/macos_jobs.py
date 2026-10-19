@@ -124,7 +124,8 @@ def _internal_environment(env):
 
 # Lifted from the Linux original (src/tools/local_supervisor.py), with the macOS worker.
 async def create_supervised_shell(command, *, stdin=None, stdout=None, stderr=None,
-                                  start_new_session=True, cwd=None, env=None, shell_choice=None):
+                                  start_new_session=True, cwd=None, env=None, shell_choice=None,
+                                  allow_foreground_ack_result=False):
     from src.tools.command_shell import resolve_local_shell, shell_environment
 
     choice = shell_choice or resolve_local_shell("sh")
@@ -153,7 +154,8 @@ async def create_supervised_shell(command, *, stdin=None, stdout=None, stderr=No
         worker = await asyncio.shield(spawn_task)
         child.close()
         reader, writer = await asyncio.open_connection(sock=parent, limit=4096)
-        shell = _ls.SupervisedShell(worker, reader, writer)
+        shell = _ls.SupervisedShell(worker, reader, writer,
+                                    allow_foreground_ack_result=allow_foreground_ack_result)
         shell.effective_shell = choice.name
         shell.shell_executable = choice.executable
         await asyncio.wait_for(asyncio.shield(shell._started), timeout=10)
@@ -166,7 +168,8 @@ async def create_supervised_shell(command, *, stdin=None, stdout=None, stderr=No
             try:
                 worker = await asyncio.shield(spawn_task)
                 reader, writer = await asyncio.open_connection(sock=parent, limit=4096)
-                shell = _ls.SupervisedShell(worker, reader, writer)
+                shell = _ls.SupervisedShell(worker, reader, writer,
+                                            allow_foreground_ack_result=allow_foreground_ack_result)
                 await asyncio.wait_for(asyncio.shield(shell._started), timeout=10)
             except BaseException:
                 if not spawn_task.done() or (
@@ -265,6 +268,9 @@ async def run_local_command(
             cwd=cwd,
             env=env,
             shell_choice=choice,
+            # A foreground result is complete at leader exit plus output EOF;
+            # a late ACK after clean settlement must not turn it into an error.
+            allow_foreground_ack_result=True,
         )
         if on_output is not None:
             code, output = await _read_lines_with_callback(
