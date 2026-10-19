@@ -795,8 +795,10 @@ async def held_until_the_ack_is_late(proc):
     await asyncio.wait({proc._monitor_task}, timeout=10)
 
 
-async def test_the_foreground_wrapper_keeps_its_result_after_a_late_ack(owned, monkeypatch):
-    real, shells = macos_jobs.create_supervised_shell, []
+@pytest.mark.parametrize("streamed", [False, True])
+async def test_the_foreground_wrapper_keeps_its_result_after_a_late_ack(
+        owned, monkeypatch, streamed):
+    real, shells, seen = macos_jobs.create_supervised_shell, [], []
 
     async def holding(*args, **kwargs):
         proc = await real(*args, **kwargs)
@@ -804,9 +806,16 @@ async def test_the_foreground_wrapper_keeps_its_result_after_a_late_ack(owned, m
         await held_until_the_ack_is_late(proc)
         return proc
 
+    async def collect(text):
+        seen.append(text)
+
     monkeypatch.setattr(macos_jobs, "create_supervised_shell", holding)
-    code, output = await macos_jobs.run_local_command("printf late-ack-result; exit 7", timeout=30)
-    assert code == 7 and "late-ack-result" in str(output)
+    code, output = await macos_jobs.run_local_command(
+        "printf 'late-ack\\nresult\\n'; exit 7", timeout=30,
+        on_output=collect if streamed else None)
+    assert code == 7 and "result" in str(output)
+    if streamed:
+        assert "".join(seen) == "late-ack\nresult\n"
     (proc,) = shells
     assert proc._allow_foreground_ack_result and proc._ack_lost_after_clean
     assert proc._settled.exception() is not None and proc in macos_jobs._ls._active

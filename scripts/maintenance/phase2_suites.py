@@ -611,10 +611,11 @@ def _odin_4192_case_retirements(root: Path, path: str, inherited_hash: str, valu
                 "case", "reviewer", "reason", "source_path", "source_sha256"}):
             return False
         case = row["case"]
+        expected_reason = ODIN_4192_CASE_REASONS.get(path, {}).get(case)
         if (not isinstance(case, str) or case not in cases
                 or row["reviewer"] != ODIN_4192_REVIEWER
                 or row["source_path"] != path or row["source_sha256"] != inherited_hash
-                or row["reason"] != ODIN_4192_CASE_REASONS.get(path, {}).get(case)):
+                or expected_reason is None or row["reason"] != expected_reason):
             return False
         names.append(case)
     return names == sorted(set(names))
