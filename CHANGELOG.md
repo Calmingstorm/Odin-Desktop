@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.3.2]
+
+**New large results keep their full output when storage is full, and an ambiguous patch says where it matched.**
+Linux, Windows and macOS (Odin 4.19.1).
+
+- **A full tool-output store makes room instead of refusing.** Odin keeps a full copy of each large tool result for
+  up to 24 hours, so he can read past the start and end he sees first. The store holds 64 MiB. Before, once it was
+  full, every new large result lost its middle for good while older results waited out their 24 hours. Now the
+  oldest results expire early, oldest first, and only as far as the new one needs.
+  - A tool output's **Kept until** time is now the latest it stays: it can go sooner when newer output needs the
+    room, and reading it then says it is no longer available.
+  - A result's files leave together with their manifest, and are held while their result is delivered, so the
+    result's file reference is readable when the reply arrives.
+- **`apply_patch` says where an ambiguous change matched.** When the unchanged lines around an edit appear in more
+  than one place, the patch is still refused and nothing is written, but the error now names up to five matching
+  lines, each with the line above it, and advice that fits the case, so Odin can fix the patch in one more try.
+
 ## [1.3.1]
 
 **Exit ends cleanly on a slow, busy machine, so the next install doesn't ask for a restart.** Linux, Windows and macOS.
