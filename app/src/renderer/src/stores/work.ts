@@ -156,7 +156,11 @@ function answerNote(action: WorkAction, result: Result<WorkControlReceipt>): str
   if (action === 'steer' && receipt.disposition === 'queued') {
     return `Steer queued; the agent hasn't read it yet.${receipt.sequence === undefined ? '' : ` (sequence ${receipt.sequence})`}`
   }
-  return `${actionLabel(action)}: ${DISPOSITIONS[receipt.disposition] ?? receipt.disposition}${receipt.reason ? ` (${receipt.reason})` : ''}`
+  const note = `${actionLabel(action)}: ${DISPOSITIONS[receipt.disposition] ?? receipt.disposition}${receipt.reason ? ` (${receipt.reason})` : ''}`
+  // The disposition describes the agent; its jobs' cleanup (stopped, unconfirmed, best effort or still settling) is
+  // told separately, so "done" never stands alone for an uncertain cleanup.
+  const cleanup = typeof receipt.jobs?.summary === 'string' ? receipt.jobs.summary.trim() : ''
+  return cleanup ? `${note}. ${cleanup}` : note
 }
 
 /** Controls with no answer yet, by command id. Each stays under its first command until its receipt settles it. */

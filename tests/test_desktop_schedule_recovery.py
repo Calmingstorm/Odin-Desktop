@@ -176,6 +176,61 @@ async def test_cron_preview_uses_the_forms_time_zone(graph):
             await preview(timezone=bad)
 
 
+class _FrozenClock(datetime):
+    """``datetime`` whose ``now`` is one fixed instant (both modules share it)."""
+
+    instant = datetime(2026, 11, 1, 4, 0, tzinfo=UTC)
+
+    @classmethod
+    def now(cls, tz=None):
+        return cls.instant.astimezone(tz) if tz is not None else cls.instant.replace(tzinfo=None)
+
+
+def _freeze(monkeypatch, instant):
+    import src.desktop.schedules as preview_module
+    import src.scheduler.scheduler as scheduler_module
+
+    _FrozenClock.instant = instant
+    monkeypatch.setattr(preview_module, "datetime", _FrozenClock)
+    monkeypatch.setattr(scheduler_module, "datetime", _FrozenClock)
+    return scheduler_module
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("expression,base,expected", [
+    # Before the first 01:30: the first copy, then the next day (the second copy is skipped).
+    ("30 1 * * *", datetime(2026, 11, 1, 4, 0, tzinfo=UTC),
+     ["2026-11-01T05:30", "2026-11-02T06:30", "2026-11-03T06:30"]),
+    # Between the two copies (Odin's case): the next run is the following day.
+    ("30 1 * * *", datetime(2026, 11, 1, 5, 30, 5, tzinfo=UTC),
+     ["2026-11-02T06:30", "2026-11-03T06:30"]),
+    # After the repeated hour.
+    ("30 1 * * *", datetime(2026, 11, 1, 7, 0, tzinfo=UTC), ["2026-11-02T06:30"]),
+    # A wildcard job keeps both copies, as in cron(8).
+    ("*/30 1 * * *", datetime(2026, 11, 1, 4, 0, tzinfo=UTC),
+     ["2026-11-01T05:00", "2026-11-01T05:30", "2026-11-01T06:00", "2026-11-01T06:30",
+      "2026-11-02T06:00"]),
+], ids=["before", "between", "after", "wildcard"])
+async def test_the_cron_preview_shows_the_runs_the_scheduler_picks(graph, monkeypatch, expression,
+                                                                   base, expected):
+    """Odin 4.20.0 in Desktop: across a fall-back night the preview and the scheduler agree."""
+    _, service, owner, _ = graph
+    scheduler_module = _freeze(monkeypatch, base)
+    preview = await service.invoke("schedules.validate_cron", {
+        "expression": expression, "timezone": "America/New_York"}, owner=owner)
+    runs = [datetime.fromisoformat(value).astimezone(UTC) for value in preview["next_runs"]]
+    assert preview["valid"] and len(runs) == 5
+    assert [run.strftime("%Y-%m-%dT%H:%M") for run in runs[:len(expected)]] == expected
+    # Every entry is the scheduler's own next run from the one before it, by UTC instant.
+    now = base
+    for run in runs:
+        _freeze(monkeypatch, now)
+        chosen = datetime.fromisoformat(
+            scheduler_module._cron_next_run(expression, "America/New_York")).astimezone(UTC)
+        assert chosen == run
+        now = run
+
+
 @pytest.mark.asyncio
 async def test_reserved_run_keeps_destination_during_edit(graph):
     scheduler, service, owner, cid = graph

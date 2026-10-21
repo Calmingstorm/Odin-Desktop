@@ -96,6 +96,14 @@ export interface WorkControlParams {
   text?: string
 }
 
+/** What stopping a cancelled agent's background jobs showed (Odin 4.20.0). The summary is Odin's own wording. */
+export interface WorkJobCleanup {
+  state: 'settled' | 'pending'
+  jobs: Array<{ pid: number; outcome: string }>
+  starts: string[]
+  summary: string
+}
+
 export interface WorkControlReceipt {
   disposition: string
   reason?: string
@@ -107,6 +115,8 @@ export interface WorkControlReceipt {
   manager_generation?: string
   schedule?: Record<string, unknown>
   detail?: unknown
+  /** A cancelled agent's job cleanup. The disposition describes the agent only. */
+  jobs?: WorkJobCleanup
 }
 
 /** Background work Odin is running or keeps: an agent, task, loop, process, schedule or workflow. */

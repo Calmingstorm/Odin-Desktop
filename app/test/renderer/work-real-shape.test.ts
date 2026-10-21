@@ -159,3 +159,52 @@ describe('Work real-core projections and steering', () => {
     expect(card('On push (accepting)').textContent()).not.toContain('Incoming webhooks')
   })
 })
+
+describe('Odin 4.20.0: a cancelled agent shows what happened to its jobs', () => {
+  const settled = (outcome: string, summary: string): WorkControlReceipt['jobs'] =>
+    ({ state: 'settled', jobs: [{ pid: 4242, outcome }], starts: [], summary })
+  const cases: Array<[string, string, NonNullable<WorkControlReceipt['jobs']>, string]> = [
+    ['an unconfirmed stop', 'done',
+      settled('unknown', 'Could not confirm that job(s) PID 4242 stopped (outcome_unknown=true).')!,
+      'Cancel: done. Could not confirm that job(s) PID 4242 stopped (outcome_unknown=true).'],
+    ['a macOS best-effort stop', 'done',
+      settled('stopped_session_best_effort', 'Stopped 1 background job(s) it started (PID 4242). PID 4242: '
+        + 'containment=session_best_effort; detached or raced descendants are unverified.')!,
+      'Cancel: done. Stopped 1 background job(s) it started (PID 4242). PID 4242: containment=session_best_effort; '
+        + 'detached or raced descendants are unverified.'],
+    ['a cleanup still settling', 'requested',
+      { state: 'pending', jobs: [{ pid: 4242, outcome: 'pending' }], starts: [],
+        summary: 'Stopping 1 background job(s) it started (PID 4242); cleanup is still settling.' },
+      'Cancel: requested. Stopping 1 background job(s) it started (PID 4242); cleanup is still settling.']
+  ]
+
+  for (const [name, disposition, jobs, expected] of cases) {
+    it(`says so in the card for ${name}`, async () => {
+      view = mount((await import('../../src/renderer/src/components/WorkList.vue')).default)
+      const pending = work.controlWork(listed[0]!, 'cancel')
+      land!({ ok: true, result: { disposition, jobs, settlement: { state: 'settled', resource_release: 'manager_task_finished' } } })
+      await pending
+      await flush()
+      expect(work.work.notes['agent:public01']).toBe(expected)
+      expect(view.root.textContent()).toContain(expected)
+    })
+  }
+
+  it('says so when the receipt arrives late', async () => {
+    const pending = work.controlWork(listed[0]!, 'cancel')
+    const unknown = { ok: false, error: { code: 'internal', message: 'No receipt', disposition: 'outcome_unknown' } } as const
+    land!(unknown)
+    await pending
+    expect(work.work.notes['agent:public01']).toMatch(/waiting for Odin to confirm/)
+    const store = await import('../../src/renderer/src/store')
+    store.applyReceipt({ id: String(controls[0]!.control_command_id), settled: { ok: true, result: { disposition: 'done', jobs: cases[0]![2] } } })
+    expect(work.work.notes['agent:public01']).toBe(cases[0]![3])
+  })
+
+  it('keeps the plain note when there were no jobs', async () => {
+    const pending = work.controlWork(listed[0]!, 'cancel')
+    land!({ ok: true, result: { disposition: 'done' } })
+    await pending
+    expect(work.work.notes['agent:public01']).toBe('Cancel: done')
+  })
+})

@@ -92,6 +92,30 @@ def _end_of_repeat(candidate: datetime) -> datetime:
     raise RuntimeError(f"no end to the repeated local time after {candidate.isoformat()}")
 
 
+def _next_local_run(cron_expr: str, base: datetime) -> datetime:
+    """The next run after *base*, an aware time on the schedule's own clock.
+
+    A fixed-time job skips the second copy of a repeated local time once the
+    first has passed. Desktop's run preview steps through this too, so it
+    never shows a run the scheduler skips.
+    """
+    candidate = croniter(cron_expr, base).get_next(datetime)
+    if _is_fixed_time_cron(cron_expr):
+        for _ in range(_MAX_REPEAT_JUMPS):
+            if not _is_repeated_wall_time(candidate, base):
+                break
+            # A first copy still ahead of now would have come first, so
+            # every later candidate in this repeated hour is a second
+            # copy of a passed time too: resume where the hour ends.
+            resume = (_end_of_repeat(candidate) - timedelta(seconds=1)).astimezone(
+                candidate.tzinfo
+            )
+            candidate = croniter(cron_expr, resume).get_next(datetime)
+        else:
+            raise RuntimeError(f"no eligible next run for {cron_expr!r} in {base.tzinfo}")
+    return candidate
+
+
 def _cron_next_run(cron_expr: str, tz_name: str | None = None) -> str:
     """Next cron occurrence as a UTC ISO string.
 
@@ -105,23 +129,7 @@ def _cron_next_run(cron_expr: str, tz_name: str | None = None) -> str:
     """
     if tz_name:
         try:
-            base = datetime.now(ZoneInfo(tz_name))
-            cr = croniter(cron_expr, base)
-            candidate = cr.get_next(datetime)
-            if _is_fixed_time_cron(cron_expr):
-                for _ in range(_MAX_REPEAT_JUMPS):
-                    if not _is_repeated_wall_time(candidate, base):
-                        break
-                    # A first copy still ahead of now would have come first, so
-                    # every later candidate in this repeated hour is a second
-                    # copy of a passed time too: resume where the hour ends.
-                    resume = (_end_of_repeat(candidate) - timedelta(seconds=1)).astimezone(
-                        candidate.tzinfo
-                    )
-                    candidate = croniter(cron_expr, resume).get_next(datetime)
-                else:
-                    raise RuntimeError(f"no eligible next run for {cron_expr!r} in {tz_name}")
-            return _utc_iso(candidate)
+            return _utc_iso(_next_local_run(cron_expr, datetime.now(ZoneInfo(tz_name))))
         except (ZoneInfoNotFoundError, ValueError):
             log.warning("Unknown schedule timezone %r; evaluating cron in UTC", tz_name)
     cr = croniter(cron_expr, datetime.now(UTC))

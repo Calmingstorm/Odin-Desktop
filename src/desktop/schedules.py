@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from croniter import croniter
 
+from ..scheduler.scheduler import _next_local_run
 from .conversations import ConversationError
 
 CREATE_FIELDS = frozenset({"description", "action", "channel_id", "cron", "run_at",
@@ -69,9 +70,14 @@ class ScheduleService:
                 start = datetime.now(ZoneInfo(zone.strip()) if zone else UTC)
             except (ZoneInfoNotFoundError, ValueError):
                 raise ValueError(f"Unknown time zone: {zone.strip()}") from None
-            iterator = croniter(expression, start)
-            return {"valid": True, "next_runs": [iterator.get_next(datetime).isoformat()
-                                                for _ in range(5)]}
+            # The scheduler's own selection, one run after another, so the preview
+            # never shows a run the scheduler skips (a fixed-time job's second copy
+            # of a repeated local hour, Odin 4.20.0).
+            runs, base = [], start
+            for _ in range(5):
+                base = _next_local_run(expression, base)
+                runs.append(base.isoformat())
+            return {"valid": True, "next_runs": runs}
         if method == "schedules.history":
             id = params.get("id")
             if id and type(id) is not str:
