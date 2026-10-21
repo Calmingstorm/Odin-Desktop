@@ -327,6 +327,7 @@ async def exec_command(
     use_command_shell: bool = False,
     max_ssh_attempts: int | None = None,
     ssh_multiplex: bool = True,
+    end_with_channel: bool = False,
 ) -> tuple[int, str]:
     """``ToolExecutor._exec_command`` on macOS: local commands through the macOS worker.
 
@@ -345,7 +346,8 @@ async def exec_command(
     if not is_local_address(address):
         return await ToolExecutor._exec_command.linux_original(
             self, address, command, ssh_user, timeout, on_output, use_workspace, target,
-            use_command_shell, max_ssh_attempts=max_ssh_attempts, ssh_multiplex=ssh_multiplex)
+            use_command_shell, max_ssh_attempts=max_ssh_attempts, ssh_multiplex=ssh_multiplex,
+            end_with_channel=end_with_channel)
     if timeout is None:
         timeout = _current_tool_timeout_ctx.get() or self.config.command_timeout_seconds
     cwd = self._ensure_local_workspace() if use_workspace else None

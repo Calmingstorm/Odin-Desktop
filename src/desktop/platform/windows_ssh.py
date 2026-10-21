@@ -67,6 +67,32 @@ async def end_client(proc, owned_pgid: int | None = None) -> None:
     with contextlib.suppress(TimeoutError, ProcessLookupError, OSError):
         await asyncio.wait_for(proc.wait(), 5)
 
+
+async def end_client_settled(proc) -> None:
+    """End and reap an ssh client, carried to the reap through cancellation
+    (Linux: ``ssh._cleanup_settled``).
+
+    Windows ends the client at once (no TERM grace), so only its reap can be
+    interrupted: a cancellation there (a cascade kill, the shutdown drain)
+    waits again within the same 5 s bound, and is raised once the client is
+    reaped.
+    """
+    if proc.returncode is None:
+        with contextlib.suppress(ProcessLookupError, OSError):
+            proc.kill()
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 5
+    interrupted = False
+    while proc.returncode is None and loop.time() < deadline:
+        try:
+            await asyncio.wait_for(proc.wait(), deadline - loop.time())
+        except asyncio.CancelledError:
+            interrupted = True
+        except (TimeoutError, ProcessLookupError, OSError):
+            break
+    if interrupted:
+        raise asyncio.CancelledError
+
 def known_hosts_option(path) -> str:
     """``UserKnownHostsFile`` naming exactly one file, whatever spaces its path holds."""
     return 'UserKnownHostsFile="' + str(path).replace("\\", "/") + '"'

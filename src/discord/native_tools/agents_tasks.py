@@ -18,7 +18,7 @@ import json
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 from ...agents.execution_context import current_agent_dispatch
@@ -1036,6 +1036,10 @@ class AgentTaskTools:
         mode = inp.get("mode", "notify")
         stop_condition = inp.get("stop_condition")
         max_iterations = inp.get("max_iterations", 50)
+        # A silent loop answers a quiet iteration with nothing. start_loop keeps
+        # "silent" and turns any unknown mode into notify, so this follows the
+        # loop's validated mode.
+        silent: dict[str, Any] = {"allow_empty_reply": True} if mode == "silent" else {}
         admitted = {}
 
         def _before_start(info):
@@ -1085,6 +1089,7 @@ class AgentTaskTools:
                     prev_context,
                     iteration.owner_id,
                     cancel_event=cancel_event,
+                    **silent,
                 )
 
         result = self._loop_manager.start_admitted_loop(

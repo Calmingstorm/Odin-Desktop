@@ -624,9 +624,13 @@ async def handle_run_script(self, inp: dict) -> str | tuple[str, int]:
     encoded = base64.b64encode(script.encode()).decode()
 
     safe_filename = shlex.quote(os.path.basename(filename))
-    # Write to temp file, execute, capture output, clean up
+    # Write to temp file, execute, capture output, clean up. The traps go
+    # in right after the file exists, so a stopped script (TERM, HUP or
+    # INT to its group) still removes it; only a KILL can leave it.
     cmd = (
         f"TMPF=$(mktemp /tmp/{safe_filename}.XXXXXXXX) && "
+        """trap 'rm -f "$TMPF"' EXIT && """
+        "trap 'exit 129' HUP && trap 'exit 130' INT && trap 'exit 143' TERM && "
         f"echo '{encoded}' | base64 -d > \"$TMPF\" && "
         f'chmod +x "$TMPF" && '
         f'{interpreter} "$TMPF" 2>&1; EXIT=$?; '
@@ -653,6 +657,7 @@ async def handle_run_script(self, inp: dict) -> str | tuple[str, int]:
             on_output=on_output,
             # run_script executes arbitrary user script text, same hazard.
             use_workspace=True,
+            end_with_channel=True,
         )
     if finish_cb:
         try:
@@ -988,6 +993,7 @@ async def exec_command(
     use_command_shell: bool = False,
     max_ssh_attempts: int | None = None,
     ssh_multiplex: bool = True,
+    end_with_channel: bool = False,
 ) -> tuple[int, str]:
     """Execute a command locally or via SSH depending on host address.
 
@@ -1004,6 +1010,12 @@ async def exec_command(
     Internal/code-built commands always use /bin/sh. Only raw public
     command routes explicitly opt into tools.command_shell; workspace
     selection is independent (run_script uses a workspace but not this).
+
+    ``end_with_channel`` is set only by user foreground commands (the
+    command tools and validate_action probes), independently of the
+    workspace and shell choices: on a remote host the command then ends
+    when its SSH channel closes (see run_ssh_command). Local commands
+    already end with their supervisor.
     """
     from src.tools.executor import BulkheadFullError, _current_tool_timeout_ctx, _host_lease_ctx, is_local_address  # noqa: E501, I001
     if timeout is None:
@@ -1062,6 +1074,8 @@ async def exec_command(
         on_output=on_output,
         multiplex=ssh_multiplex,
     )
+    if end_with_channel:
+        ssh_kwargs["end_with_channel"] = True
     bh = self.bulkheads.get("ssh")
     if bh:
         try:
@@ -1247,6 +1261,9 @@ async def handle_validate_action(self, inp: dict) -> str:
         # _bind_host returns the alias for governor admission, while this
         # task-local lease supplies BOTH metadata and exact transport target.
         # wait_for's child task inherits the context, never a shared alias map.
+        # Every probe is a bounded foreground command: on a remote host it
+        # ends when its channel closes (a timeout, a cancelled check),
+        # whatever its workspace and shell choices.
         target = lease.target
         return await lease.run(
             lambda: self._exec_command(
@@ -1258,6 +1275,7 @@ async def handle_validate_action(self, inp: dict) -> str:
                 target=target,
                 use_command_shell=(use_command_shell
                                    or is_local_address(target.address)),
+                end_with_channel=True,
             )
         )
 
