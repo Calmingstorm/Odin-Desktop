@@ -20,7 +20,7 @@ import shlex
 
 from ...desktop.platform.variants import windows_variant
 from ..branch_freshness import is_test_command, is_test_failure
-from ..execution_outcome import ToolFailure
+from ..execution_outcome import ToolFailure, is_tool_failure
 from ..input_defaults import default_if_empty
 from ..process_manager import MAX_POLL_WAIT_SECONDS
 from ..tool_text import _ERROR_RESULT_PREFIXES, _truncate_lines
@@ -493,7 +493,10 @@ class SystemTools(HandlerBase):
                 return "pid is required for kill action.", 1
             control = getattr(self, "_desktop_process_control", None)
             if control is not None:
-                return await control(int(pid)), 0
+                # Work answers a process it can't stop with the registry's own text (no
+                # such PID, already ended): a failure, as below.
+                result = await control(int(pid))
+                return result, 1 if is_tool_failure(result) else 0
             result = await registry.kill(int(pid), authorized=authorized)
             if info is not None and not authorized(info):
                 return "Error: process access denied.", 1

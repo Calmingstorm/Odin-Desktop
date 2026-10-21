@@ -32,7 +32,7 @@ from ...llm.recovery import generate_with_recovery, preflight_incompatible_effor
 from ...llm.tool_history import normalize_tool_calls
 from ...odin_log import get_logger
 from ...tools.defs.agents import SPAWN_NEUTRAL_REASONING_OPTIONS
-from ...tools.execution_outcome import ToolFailure
+from ...tools.execution_outcome import ToolFailure, is_tool_failure
 from ...tools.media_result import MediaRejection, NativeMedia, classify_native_media
 from ...tools.nested_payload import ValidatedNestedPayload
 from ...tools.result_validator import ToolResult
@@ -1144,6 +1144,8 @@ class AgentTaskTools:
             result = "\n".join(results) if results else "No active loops to stop."
         else:
             result = await self._control_work(message, "loop", loop_id, "stop")
+            if is_tool_failure(result):
+                return result  # as Odin: nothing was stopped, so no loop.stopped event
         # Lifecycle webhook: loop.stopped
         fire_and_forget(
             self._turn_recorder._emit_lifecycle_event(
