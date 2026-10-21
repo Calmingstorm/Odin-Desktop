@@ -108,17 +108,23 @@ async def run_ssh_command(
     port: int = 22,
     host_key_alias: str = "",
     target_id: str = "",
+    multiplex: bool = True,
 ) -> tuple[int, str]:
     """Run a command on a remote host via SSH. Returns (exit_code, output).
 
     When *pool* is provided, uses OpenSSH ControlMaster multiplexing to
     reuse persistent connections. Otherwise falls back to one-shot SSH.
 
+    ``multiplex=False`` (an effectful start) is always one direct connection
+    here: Windows' OpenSSH has no ControlMaster, and the caller passes no pool.
+
     Retries on transient SSH connection failures (exit code 255 with known
     error patterns). Command-level failures (nonzero exit from the remote
     command itself) are NOT retried — they represent valid remote results.
     """
     from src.tools.ssh import _is_ssh_transient_failure, _truncate_output, compute_backoff, log, mark_dispatch_uncertain  # noqa: E501, I001
+    if not multiplex:
+        pool = None
     if pool is not None:
         ssh_args: list[str] = []
     else:

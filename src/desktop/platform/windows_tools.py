@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 # Lifted from the Linux original.
 async def handle_read_file(self, inp: dict) -> str | tuple[str, int]:
-    from src.tools.handlers.files_docs import _READ_FILE_BODY_MAX_CHARS, _READ_FILE_RAW_BODY_MAX_BYTES, _READ_FILE_RESULT_MAX_CHARS, base64, binascii, json, scrub_output_secrets, shlex  # noqa: E501, I001
+    from src.tools.handlers.files_docs import _READ_FILE_BODY_MAX_CHARS, _READ_FILE_RAW_BODY_MAX_BYTES, _READ_FILE_RESULT_MAX_CHARS, _drop_known_awk_warnings, base64, binascii, json, scrub_output_secrets, shlex  # noqa: E501, I001
     path = inp.get("path")
     host = inp.get("host")
     if not path:
@@ -113,14 +113,15 @@ if (used + needed > budget) {
     continuation = NR
     exit
 }
-if (returned > 0) printf "\n"
-printf "%s", line
+# The newline ends the record (not the next one), so a diagnostic awk
+# prints while reading the next record starts on a line of its own.
+printf "%s\n", line
 used += needed
 returned++
 last_returned = NR
 }
 END {
-if (returned > 0) printf "\n\n"
+if (returned > 0) printf "\n"
 if (oversize_line > 0) {
     printf "Error: source line %.0f exceeds the read_file output budget; " \
         "no lines returned.", oversize_line
@@ -218,11 +219,17 @@ for (i = 1; i <= returned; i++) {
 }
 }"""
     safe_path = shlex.quote(str(path))
+    # awk would warn and return an empty range for a directory (or a
+    # symlink to one); make it a real failure in both modes.
+    directory_check = (
+        f"if [ -d {safe_path} ]; then "
+        f"printf 'Error: %s is a directory, not a file.\\n' {safe_path}; exit 1; fi; "
+    )
     if raw_mode:
         # The command's stdout is internal ASCII base64 plus one terminal metadata
         # line. The source bytes live only in a private temporary file, so
         # the text-only host transport never decodes or rewrites them.
-        command = (
+        command = directory_check + (
             # Every artifact is independently and atomically allocated.
             # Predictable suffixes both inherited the service umask and
             # allowed a local attacker to pre-create a sidecar between
@@ -239,16 +246,17 @@ for (i = 1; i <= returned; i++) {
             f'-v final_newline="$final_newline" '
             '-v metadata="$metadata" '
             f'{shlex.quote(raw_awk_program)} < {safe_path} > "$body"; '
-            "status=$?; "
-            'if [ $status -ne 0 ]; then cat -- "$metadata"; '
-            'rm -f -- "$body"; exit $status; fi; '
-            'base64 < "$body" > "$encoded"; status=$?; '
-            "if [ $status -ne 0 ]; then exit $status; fi; "
-            "tr -d '\\r\\n' < \"$encoded\"; status=$?; "
-            "printf '\\n'; cat -- \"$metadata\"; exit $status"
+            # Not "status": zsh (the macOS login shell) makes it read-only.
+            "rc=$?; "
+            'if [ $rc -ne 0 ]; then cat -- "$metadata"; '
+            'rm -f -- "$body"; exit $rc; fi; '
+            'base64 < "$body" > "$encoded"; rc=$?; '
+            "if [ $rc -ne 0 ]; then exit $rc; fi; "
+            "tr -d '\\r\\n' < \"$encoded\"; rc=$?; "
+            "printf '\\n'; cat -- \"$metadata\"; exit $rc"
         )
     else:
-        command = (
+        command = directory_check + (
             f"awk -v start={start_line} -v start_label={shlex.quote(start_label)} "
             f"-v count={lines} -v budget={numbered_budget} "
             f"{shlex.quote(numbered_awk_program)} < {safe_path}"
@@ -262,6 +270,8 @@ for (i = 1; i <= returned; i++) {
         text, code = str(raw[0]), int(raw[1])
     else:
         text, code = str(raw), None
+    if not raw_mode:
+        text = _drop_known_awk_warnings(text)
 
     if raw_mode and (code == 0 or code is None):
         raw_transport = text.strip("\n")
@@ -671,6 +681,7 @@ async def start_local_reserved(
     self, host: str, command: str, timeout: int = 300, *, owner_id: str | None = None,
     host_alias: str = "", host_identity: str = "", origin_channel: str = "",
     scope_id: str = "", host_binding: dict | None = None, host_lease: HostLease | None = None,
+    origin=None, agent_start=None,
 ) -> str:
     """Start a background process locally. Returns confirmation with PID.
 
@@ -685,7 +696,9 @@ async def start_local_reserved(
     from src.tools.ssh import is_local_address
 
     if not is_local_address(host):
-        return "Error: remote process start requires a generation-bound host lease."
+        return self._refuse_start(
+            host_lease, "Error: remote process start requires a generation-bound host lease.",
+        )
 
     alias = host_alias or host
     if alias in self._revoking_aliases or (host_lease is not None and host_lease.revoked):
@@ -750,9 +763,13 @@ async def start_local_reserved(
         scope_id=scope_id,
         host_binding=host_binding,
         host_lease=host_lease,
+        origin_agent_id=origin.agent_id if origin else "",
+        origin_root_id=origin.root_id if origin else "",
     )
     self._processes[pid] = info
     self._retained_generations[info.generation] = info
+    if agent_start is not None:
+        agent_start.generation = info.generation
     self._own_children.add(pid)
 
     # Drainage and terminal-state publication are SEPARATE tasks:
@@ -791,6 +808,22 @@ async def start_local_reserved(
                 if gone else
                 "Error: host force-revoked; process outcome unknown outcome_unknown=true.")
 
+    if self._unclaimed(origin, agent_start):
+        # The agent was killed, or its invocation cancelled, while this
+        # start settled. The record keeps its lease unless cleanup is proven.
+        gone = await self._terminate_bound_host_job(info)
+        if not gone:
+            info.status = "unknown"
+            info.finished_at = info.finished_at or time.time()
+            info.capture_error = info.capture_error or "process cleanup could not be confirmed"
+            self._persist_output(info)
+        if agent_start is not None:
+            agent_start.outcome = "stopped" if gone else "unknown"
+        return ("Error: the agent that started this job was stopped while it started; "
+                "process terminated." if gone else
+                "Error: the agent that started this job was stopped while it started; "
+                "process outcome unknown outcome_unknown=true.")
+
     log.info("Started process PID %d: %s", pid, command_display(command))
     return f"Process started (PID {pid}): {safe_text(command)}"
 
@@ -809,6 +842,7 @@ def ensure_process_registry(self):
         self._process_registry = WindowsProcessRegistry(  # Windows: jobs, not sessions
             workspace=self._ensure_local_workspace,
             remote_exec=self._exec_remote_target,
+            remote_exec_once=self._exec_remote_target_once,
             retention_dir=self._retention_root() / "process-output",
             acquire_output_lease=self._acquire_process_cleanup_lease,
             command_shell=lambda: self._command_shell_mode(),
@@ -952,6 +986,8 @@ async def exec_command(
     use_workspace: bool = False,
     target=None,
     use_command_shell: bool = False,
+    max_ssh_attempts: int | None = None,
+    ssh_multiplex: bool = True,
 ) -> tuple[int, str]:
     """Execute a command locally or via SSH depending on host address.
 
@@ -1019,11 +1055,12 @@ async def exec_command(
         port=target.port if target is not None else 22,
         host_key_alias=target.host_key_alias if target is not None else "",
         target_id=target.runtime_key if target is not None else "",
-        max_retries=ssh_retry.max_retries,
+        max_retries=ssh_retry.max_retries if max_ssh_attempts is None else max_ssh_attempts,
         retry_base_delay=ssh_retry.base_delay,
         retry_max_delay=ssh_retry.max_delay,
-        pool=None,  # Windows' OpenSSH has no ControlMaster
+        pool=None,  # Windows' OpenSSH has no ControlMaster, so a start is never multiplexed
         on_output=on_output,
+        multiplex=ssh_multiplex,
     )
     bh = self.bulkheads.get("ssh")
     if bh:

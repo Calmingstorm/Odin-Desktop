@@ -1467,7 +1467,7 @@ class SessionManager:
         results: list[dict] = []
         archive_dir = self.persist_dir / "archive"
         seen_segments = seen_segments if seen_segments is not None else set()
-        if not archive_dir.exists():
+        if limit <= 0 or not archive_dir.exists():
             return results
         for path in sorted(archive_dir.glob("*.json"), reverse=True):
             try:
@@ -1490,6 +1490,8 @@ class SessionManager:
                             "timestamp": ts,
                             "channel_id": arch_cid,
                         })
+                        if len(results) >= limit:
+                            return results
                 for seg in data.get("summary_segments", []):
                     if not _segment_visible_to(seg, user_id):
                         continue
@@ -1549,7 +1551,7 @@ class SessionManager:
         - before: only messages with timestamp <= before (epoch seconds)
         """
         validate_search_query(query)
-        if limit <= 0:
+        if limit <= 0 or not query.strip():
             return []
         query_lower = query.lower()
         results: list[dict] = []
@@ -1577,6 +1579,8 @@ class SessionManager:
                         "timestamp": session.last_active,
                         "channel_id": session.channel_id,
                     })
+                    if len(results) >= limit:
+                        return results
             for seg in session.summary_segments:
                 if not _segment_visible_to(seg, user_id):
                     continue
@@ -1592,6 +1596,8 @@ class SessionManager:
                             "timestamp": ts,
                             "channel_id": session.channel_id,
                         })
+                        if len(results) >= limit:
+                            return results
             for msg in reversed(session.messages):
                 if user_id and msg.user_id != user_id:
                     continue

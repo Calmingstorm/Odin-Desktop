@@ -463,3 +463,40 @@ async def test_native_owner_global_control_rejects_foreign_or_unadmitted_request
     assert not item._cancel_event.is_set()
     with service.store.transaction() as db:
         assert db.execute("SELECT COUNT(*) FROM desktop_controls").fetchone()[0] == 0
+
+
+@pytest.mark.asyncio
+async def test_native_kill_agent_result_and_journal_carry_the_job_cleanup(work, monkeypatch):
+    """Odin 4.20.0: the jobs a killed agent started are stopped, through the journaled path."""
+    from src.tools.process_manager import AgentJobCleanup
+
+    service, message, _context = work
+    handler = native_controls(service, monkeypatch)
+    item = admitted_agent(service, message, "agent-a")
+    reaped = []
+
+    def reaper(agent_ids):
+        reaped.append(set(agent_ids))
+        cleanup = AgentJobCleanup(jobs=[("g1", 41)], starts=1)
+
+        async def settle():
+            return {"jobs": {"g1": "stopped"}, "starts": ["unknown"]}
+
+        cleanup.task = asyncio.create_task(settle())
+        return cleanup
+
+    service.agents.set_job_reaper(reaper)
+    record = service.register("agent", item.id, message)
+    response = json.loads(await handler._handle_kill_agent(message, {"agent_id": item.id}))
+
+    assert response["ok"], response
+    assert reaped == [{"agent-a"}]
+    assert item._cancel_event.is_set()
+    assert response["result"]["jobs"] == {
+        "state": "settled", "jobs": [{"pid": 41, "outcome": "stopped"}], "starts": ["unknown"],
+        "summary": "Stopped 1 background job(s) it started (PID 41). Could not confirm the "
+                   "outcome of 1 start(s) in progress (outcome_unknown=true)."}
+    params = journal_receipt(service, record, "cancel", response)
+    # The journaled receipt answers a retry; nothing is reaped twice.
+    assert await service.controls.dispatch("work.control", params) == response
+    assert reaped == [{"agent-a"}]

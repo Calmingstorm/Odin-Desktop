@@ -450,3 +450,63 @@ def test_history_hits_name_their_conversation_and_never_the_invoking_request(gra
     text = str(asyncio.run(tools._handle_search_history({"query": "heron"})))
     assert f"[{title} (id: {b})] (assistant): the heron count is 42" in text
     assert "what was the heron count" not in text and "search started" not in text
+
+
+# --- Odin 4.20.0 (PR #671) on Desktop's real history route ---------------------------------
+
+
+@pytest.mark.parametrize("query", ["   ", "\t\n", None, 5, ["heron"]])
+def test_native_history_blank_or_non_text_query_never_searches(graph, monkeypatch, query):
+    from src.desktop import search as search_module
+    from src.discord.native_tools.knowledge import KnowledgeTools
+
+    cid = create(graph)
+    graph[3].commit(cid, "assistant", "heron notes")
+
+    def no_search(*_args, **_kwargs):
+        raise AssertionError("a blank query must not reach the index")
+
+    monkeypatch.setattr(search_module, "_lexical_ranking", no_search)
+    tools = KnowledgeTools(sessions=graph[4].for_request({"bound": cid}),
+                           get_knowledge_store=lambda: None, embedder=None, audit=None)
+    result = asyncio.run(tools._handle_search_history({"query": query}))
+    assert str(result) == "A search query is required."
+
+
+def test_history_limit_counts_visible_hits_only(graph):
+    """The invoking request is left out before ranking, so it never uses up the limit."""
+    from src.discord.native_tools.knowledge import KnowledgeTools
+
+    a, b = create(graph, "Asking"), create(graph, "Bird notes")
+    for number in range(3):
+        graph[3].commit(b, "assistant", f"heron note {number}")
+    asking = graph[3].commit(a, "user", "heron heron heron?", request_id="r_asking")
+    request = {"bound": a, "message_id": asking["id"], "request_id": "r_asking"}
+    results = asyncio.run(graph[4].for_request(request).search_history("heron", limit=1))
+    assert [(item["conversation_id"], item["content"][:10]) for item in results] == [
+        (b, "heron note")]
+    tools = KnowledgeTools(sessions=graph[4].for_request(request),
+                           get_knowledge_store=lambda: None, embedder=None, audit=None)
+    text = str(asyncio.run(tools._handle_search_history({"query": "heron", "limit": 2})))
+    assert text.startswith("**Found 2 result(s) for 'heron':**")
+    assert "heron heron heron?" not in text
+    for number in range(30):
+        graph[3].commit(b, "assistant", f"heron extra {number}")
+    capped = str(asyncio.run(tools._handle_search_history({"query": "heron", "limit": 50})))
+    assert capped.startswith("**Found 20 result(s) for 'heron':**")  # capped, as Odin's
+
+
+def test_history_exact_rank_ties_put_keyword_hits_first(graph):
+    """Odin 4.20.0 prefers keyword hits on exact fusion ties; the transcript route agrees."""
+    cid = create(graph)
+    graph[3].commit(cid, "assistant", "the heron count")
+    semantic = graph[3].commit(cid, "assistant", "a large wading bird")
+
+    def semantic_search(_conversation, _query, limit):
+        return [{"message_id": semantic["id"], "conversation_id": cid}]
+
+    search = TranscriptSearch(graph[3], graph[1], semantic_search=semantic_search,
+                              current_conversation=lambda request: request["bound"])
+    results = asyncio.run(search.for_request({"bound": cid}).search_history("heron"))
+    assert [item["content"] for item in results] == ["the heron count", "a large wading bird"]
+    assert results[0]["rrf_score"] == results[1]["rrf_score"]

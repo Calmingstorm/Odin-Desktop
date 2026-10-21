@@ -25,6 +25,29 @@ TERMINAL = frozenset({"completed", "failed", "timeout", "killed", "cancelled",
 # Finished records Work keeps per kind. Older ones, and those of deleted chats, go;
 # a record whose outcome isn't confirmed stays until it settles.
 KEEP_FINISHED = 50
+# As Odin's kill_agent: a bounded wait for the jobs' report; their cleanup runs on.
+KILL_JOB_REPORT_SECONDS = 10.0
+
+
+async def job_cleanup_evidence(cleanup) -> dict | None:
+    """What stopping a killed agent's background jobs showed within a bounded wait.
+
+    The cleanup belongs to the process registry: a reporting timeout, or a cancelled
+    waiter, never cancels it. Registered jobs and starts still settling are reported
+    separately; ``pending`` means the cleanup had not settled when the report was made.
+    """
+    if cleanup is None or not (cleanup.pids or cleanup.starts):
+        return None
+    outcome = await cleanup.wait(timeout=KILL_JOB_REPORT_SECONDS)
+    if outcome is None:
+        return {"state": "pending",
+                "jobs": [{"pid": pid, "outcome": "pending"} for _gen, pid in cleanup.jobs],
+                "starts": ["pending"] * cleanup.starts, "summary": cleanup.describe(None)}
+    states = outcome.get("jobs", {})
+    return {"state": "settled",
+            "jobs": [{"pid": pid, "outcome": states.get(gen, "unknown")}
+                     for gen, pid in cleanup.jobs],
+            "starts": list(outcome.get("starts", [])), "summary": cleanup.describe(outcome)}
 
 
 def _ended_unknown(record) -> bool:
@@ -564,8 +587,12 @@ class WorkService:
                     receipt = {"disposition": "queued", "consumed": False,
                                "sequence": item.inbox_sequence, "detail": result}
                 else:
-                    self.agents.kill(manager_id)  # preserves cascade/lineage ownership
+                    # Preserves cascade/lineage ownership, and stops the agents' jobs.
+                    _message, cleanup = self.agents.kill_with_receipt(manager_id)
                     receipt = {"disposition": "requested"}
+                    jobs = await job_cleanup_evidence(cleanup)
+                    if jobs is not None:
+                        receipt["jobs"] = jobs
             elif kind in {"task", "workflow"}:
                 await item.request_cancel()
                 receipt = {"disposition": "requested"}
@@ -597,8 +624,11 @@ class WorkService:
                     receipt = {"disposition": "not_available" if
                         receipt.get("status") == "skipped" else "done", "schedule": receipt}
             updated = self.refresh(current)
+            # The settlement describes the manager task only: a kill whose jobs are
+            # still being stopped stays requested, never done.
             if (receipt["disposition"] == "requested" and
-                    updated["settlement"]["state"] == "settled"):
+                    updated["settlement"]["state"] == "settled" and
+                    receipt.get("jobs", {}).get("state") != "pending"):
                 receipt["disposition"] = "done"
             return dict(receipt, settlement=updated["settlement"], run_id=record["run_id"],
                         generation=record["generation"],

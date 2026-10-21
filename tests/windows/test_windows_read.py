@@ -89,7 +89,8 @@ async def test_a_remote_host_still_gets_the_awk_command(tmp_path):
     fake, calls = tool(address="192.0.2.10")
     text, code = await handle_read_file(fake, {"path": "/etc/hostname", "host": "server"})
     assert code == 0 and text == "remote text"
-    assert len(calls) == 1 and calls[0].startswith("awk -v start=1 ")
+    assert len(calls) == 1 and calls[0].startswith("if [ -d ")  # Odin 4.20.0's guard
+    assert "; fi; awk -v start=1 " in calls[0]
 
 
 def test_the_port_prints_what_gawk_printed_for_every_shared_case(tmp_path):

@@ -37,7 +37,33 @@ CORPUS_SELECTIONS = {
     "test_knowledge_snapshot_campaign": None,
     "test_process_tail_correctness": None,
 }
-CORPUS_EXCLUSIONS = {}
+# Odin 4.20.0 (PR #671) offers no continuation cursor once a preview delivered every retained
+# byte. Two frozen tail cases asserted that cursor; each runs with Odin's exact edit in
+# tests/test_desktop_odin_4200_tail_cases.py. The retired definitions stay compiled, unexported.
+CORPUS_EXCLUSIONS = {
+    "test_process_tail_correctness": [
+        {
+            "case": "test_partial_quota_records_loss_and_uses_complete_memory_tail",
+            "reviewer": "Claude, Odin Desktop 1.4.0 carry of Odin 4.20.0 (PR #671)",
+            "reason": (
+                "Odin 4.20.0 offers no continuation cursor once a preview delivered every "
+                "retained byte; this case with Odin's exact edit runs in "
+                "tests/test_desktop_odin_4200_tail_cases.py"),
+            "source_path": "tests/test_process_tail_correctness.py",
+            "source_sha256": "1fa6fdfcfb7281790748fe5b6ace0cedae94f7c5e36eb9da97ba95413b37f880",
+        },
+        {
+            "case": "test_remote_incomplete_spool_uses_complete_tail_or_withholds",
+            "reviewer": "Claude, Odin Desktop 1.4.0 carry of Odin 4.20.0 (PR #671)",
+            "reason": (
+                "Odin 4.20.0 offers no continuation cursor once a preview delivered every "
+                "retained byte; this case with Odin's exact edit runs in "
+                "tests/test_desktop_odin_4200_tail_cases.py"),
+            "source_path": "tests/test_process_tail_correctness.py",
+            "source_sha256": "1fa6fdfcfb7281790748fe5b6ace0cedae94f7c5e36eb9da97ba95413b37f880",
+        },
+    ],
+}
 SUITES = {
     "test_knowledge_snapshot_campaign": (
         "9558df8f435566d712ddb9793533031aa6352e7714f804fb67e5bf8933cc2949"
@@ -292,7 +318,8 @@ def load(namespace):
         module.__dict__.update(KnowledgeCommandClient=KnowledgeCommandClient,
                                owner_id=owner_id)
         exec(compile(tree, f"tests/{stem}.py", "exec"), module.__dict__)
-        register_module(namespace, module, prefix=stem[5:])
+        register_module(namespace, module, prefix=stem[5:],
+                        excluded=[item['case'] for item in CORPUS_EXCLUSIONS.get(stem, ())])
         if stem == "test_process_tail_correctness":
             namespace["no_background"] = module.no_background
         result[stem] = (original, tree, module)

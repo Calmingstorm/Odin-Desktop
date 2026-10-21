@@ -76,8 +76,9 @@ TOOLS_SECTION: list[dict] = [
         "name": "search_audit",
         "is_core": True,
         "description": (
-            "Searches audit log of tool executions. Returns '[date] tool_name by user (status, "
-            "Nms)'. Filterable by tool, user, host, keyword, date, status, errors, duration."
+            "Searches audit log of tool executions, one result per call: '[date] tool_name by "
+            "user (approved or denied, Nms, outcome)'. Filterable by tool, user, host, keyword, "
+            "date, status, errors, duration."
         ),
         "input_schema": {
             "type": "object",
@@ -96,7 +97,10 @@ TOOLS_SECTION: list[dict] = [
                 },
                 "keyword": {
                     "type": "string",
-                    "description": "Free-text search across all fields",
+                    "description": (
+                        "Free-text search across a call's records, including its result text; "
+                        "command and script bodies are not stored"
+                    ),
                 },
                 "date": {
                     "type": "string",
@@ -104,7 +108,10 @@ TOOLS_SECTION: list[dict] = [
                 },
                 "status": {
                     "type": "string",
-                    "description": "Filter by status (e.g. 'error', 'success')",
+                    "description": (
+                        "Filter by outcome: succeeded, failed, denied, cancelled, "
+                        "outcome_unknown or started ('error' and 'success' also work)"
+                    ),
                 },
                 "has_error": {
                     "type": "boolean",
@@ -116,7 +123,7 @@ TOOLS_SECTION: list[dict] = [
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Max results (default 20)",
+                    "description": "Max calls returned (default 20)",
                 },
             },
         },

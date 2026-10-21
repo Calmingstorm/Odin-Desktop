@@ -5741,14 +5741,36 @@
         "evidence": "26 passed direct-original; final combined36 passed. Coverage is retained native-handler behavior, NOT ManagementService publication or Desktop conversation intake. Compose wires KnowledgeService, not KnowledgeTools. Original hash418046d5ffe538ac586ccc89fa17b2430347fca1838c3dcbb5b404e556c25bac verified against archive."
       },
       "restoration": {
-        "mode": "direct-original",
+        "mode": "frozen-adapter",
         "selectors": [
-          "tests/test_native_knowledge.py"
+          "tests/test_desktop_odin_4200_native_knowledge.py"
         ],
-        "reason": "Every inherited case executes intact retained KnowledgeTools handlers with original narrow dependency fakes; no setup or byte changes.",
-        "test_file": "tests/test_native_knowledge.py",
-        "cases": 26,
-        "assertion_nodes": 33
+        "reason": "Every inherited case executes intact retained KnowledgeTools handlers with original narrow dependency fakes; no setup or byte changes. Odin 4.20.0 (Desktop 1.4.0) superseded three TestSearchAudit cases: the immutable suite now runs through tests/desktop_adapters/odin_4200_native_knowledge.py, which exports every other case unchanged and retires only those three under their own reviewed authority.",
+        "inherited_cases": 26,
+        "inherited_assertion_nodes": 33,
+        "case_retirements": [
+          {
+            "case": "TestSearchAudit.test_formats_entries",
+            "reviewer": "Claude, Odin Desktop 1.4.0 carry of Odin 4.20.0 (PR #671)",
+            "reason": "Odin 4.20.0 reads search_audit calls from the audit stream, so this case's search double never reaches the handler; its 4.20.0 version runs in tests/test_desktop_odin_4200_cases.py",
+            "source_path": "tests/test_native_knowledge.py",
+            "source_sha256": "418046d5ffe538ac586ccc89fa17b2430347fca1838c3dcbb5b404e556c25bac"
+          },
+          {
+            "case": "TestSearchAudit.test_renders_agent_attribution_and_tool_input",
+            "reviewer": "Claude, Odin Desktop 1.4.0 carry of Odin 4.20.0 (PR #671)",
+            "reason": "Odin 4.20.0 reads search_audit calls from the audit stream, so this case's search double never reaches the handler; its 4.20.0 version runs in tests/test_desktop_odin_4200_cases.py",
+            "source_path": "tests/test_native_knowledge.py",
+            "source_sha256": "418046d5ffe538ac586ccc89fa17b2430347fca1838c3dcbb5b404e556c25bac"
+          },
+          {
+            "case": "TestSearchAudit.test_renders_audit_metadata",
+            "reviewer": "Claude, Odin Desktop 1.4.0 carry of Odin 4.20.0 (PR #671)",
+            "reason": "Odin 4.20.0 reads search_audit calls from the audit stream, so this case's search double never reaches the handler; its 4.20.0 version runs in tests/test_desktop_odin_4200_cases.py",
+            "source_path": "tests/test_native_knowledge.py",
+            "source_sha256": "418046d5ffe538ac586ccc89fa17b2430347fca1838c3dcbb5b404e556c25bac"
+          }
+        ]
       },
       "historical_classification": "phase2"
     },
@@ -6382,9 +6404,25 @@
         "selectors": [
           "tests/test_desktop_phase2_runtime_d.py"
         ],
-        "reason": "Entire 9-case frozen suite with authenticated temporary owner, current testhost binding, private validated protected workspace and actual ToolExecutor/process handler. Actual local supervisor and actual remote supervisor/controller run locally; only remote SSH transport retains the original hermetic substitute. No capture/delivery/settlement or permission methods replaced.",
+        "reason": "Entire 9-case frozen suite with authenticated temporary owner, current testhost binding, private validated protected workspace and actual ToolExecutor/process handler. Actual local supervisor and actual remote supervisor/controller run locally; only remote SSH transport retains the original hermetic substitute. No capture/delivery/settlement or permission methods replaced. Odin 4.20.0 (Desktop 1.4.0) superseded two cases (a preview that delivered every retained byte offers no continuation cursor); the adapter retires only those two under their own reviewed authority, and each runs with Odin's exact edit in tests/test_desktop_odin_4200_tail_cases.py.",
         "inherited_cases": 9,
-        "inherited_assertion_nodes": 48
+        "inherited_assertion_nodes": 48,
+        "case_retirements": [
+          {
+            "case": "test_partial_quota_records_loss_and_uses_complete_memory_tail",
+            "reviewer": "Claude, Odin Desktop 1.4.0 carry of Odin 4.20.0 (PR #671)",
+            "reason": "Odin 4.20.0 offers no continuation cursor once a preview delivered every retained byte; this case with Odin's exact edit runs in tests/test_desktop_odin_4200_tail_cases.py",
+            "source_path": "tests/test_process_tail_correctness.py",
+            "source_sha256": "1fa6fdfcfb7281790748fe5b6ace0cedae94f7c5e36eb9da97ba95413b37f880"
+          },
+          {
+            "case": "test_remote_incomplete_spool_uses_complete_tail_or_withholds",
+            "reviewer": "Claude, Odin Desktop 1.4.0 carry of Odin 4.20.0 (PR #671)",
+            "reason": "Odin 4.20.0 offers no continuation cursor once a preview delivered every retained byte; this case with Odin's exact edit runs in tests/test_desktop_odin_4200_tail_cases.py",
+            "source_path": "tests/test_process_tail_correctness.py",
+            "source_sha256": "1fa6fdfcfb7281790748fe5b6ace0cedae94f7c5e36eb9da97ba95413b37f880"
+          }
+        ]
       },
       "historical_classification": "phase2"
     },

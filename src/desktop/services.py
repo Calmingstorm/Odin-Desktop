@@ -620,6 +620,11 @@ def build_engine_services(config, paths, permissions, *, delivery, request_servi
         hmac_key=cfg.audit.hmac_key, classify_failures=cfg.observability.audit_failure_classification)
     agents = getattr(runtime, "agent_manager", None) or AgentManager(
         max_concurrent_agents_provider=lambda: get_config().agents.max_concurrent_agents)
+    # Killing an agent stops the background jobs it started (fence first, then
+    # cleanup owned by the process registry), as Odin's wiring does.
+    agents.set_job_reaper(
+        lambda agent_ids: executor._ensure_process_registry().reap_agent_jobs(agent_ids)
+    )
     loops = getattr(runtime, "loop_manager", None) or LoopManager(agents_enabled=True)
     trajectories = getattr(runtime, "trajectory_saver", None) or TrajectorySaver(str(paths.data_dir / "trajectories"))
     agent_trajectories = getattr(runtime, "agent_trajectory_saver", None) or AgentTrajectorySaver(

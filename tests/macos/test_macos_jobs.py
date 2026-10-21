@@ -556,7 +556,7 @@ async def test_exec_command_runs_commands_as_written_and_only_patches_get_its_py
         seen.append(("local", command, kwargs["internal"]))
         return 0, "ok"
 
-    async def remote(self, address, command, *rest):
+    async def remote(self, address, command, *rest, **kwargs):
         seen.append(("remote", command, None))
         return 0, "ok"
 
@@ -598,7 +598,7 @@ async def test_exec_command_adds_the_privacy_hint_to_local_failures_only(monkeyp
     async def local(command, **kwargs):
         return 1, "ls: /Users/ada/Documents: Operation not permitted"
 
-    async def remote(self, address, command, *rest):
+    async def remote(self, address, command, *rest, **kwargs):
         return 1, "ls: /Users/ada/Documents: Operation not permitted"
 
     monkeypatch.setattr(macos_jobs, "run_local_command", local)
@@ -836,3 +836,203 @@ async def test_background_jobs_never_opt_in(registry):
     pid = int(started.split("PID ")[1].split(")")[0])
     assert registry._processes[pid].process._allow_foreground_ack_result is False
     await registry.kill(pid)
+
+
+# --- Odin 4.20.0 (PR #671): agent job cleanup and patch line endings, natively --------------
+
+def agent_origin():
+    from src.agents.execution_context import JobOrigin
+
+    return JobOrigin("agent-a", "root-a")
+
+
+BEST_EFFORT_CAVEAT = (" containment=session_best_effort; detached or raced descendants are "
+                      "unverified.")
+
+
+async def test_an_agents_job_is_stopped_with_its_agent_as_best_effort(registry):
+    plain = int((await registry.start("localhost", "sleep 30")).split("PID ")[1].split(")")[0])
+    started = await registry.start("localhost", "sleep 30", origin=agent_origin())
+    pid = int(started.split("PID ")[1].split(")")[0])
+    info = registry._processes[pid]
+    assert (info.origin_agent_id, info.origin_root_id) == ("agent-a", "root-a")
+    assert registry.reap_agent_jobs({"someone-else"}).jobs == []
+
+    cleanup = registry.reap_agent_jobs({"agent-a"})
+    outcome = await cleanup.wait(timeout=30)
+
+    assert outcome == {"jobs": {info.generation: macos_jobs.BEST_EFFORT_STOP}, "starts": []}
+    assert cleanup.describe(outcome) == (
+        f"Stopped 1 background job(s) it started (PID {pid}). PID {pid}:" + BEST_EFFORT_CAVEAT)
+    assert await gone([pid])
+    assert alive(plain)  # an ordinary job is not the agent's
+    await registry.kill(plain)
+
+
+async def test_a_start_settling_when_its_agent_is_killed_is_stopped_natively(registry,
+                                                                             monkeypatch):
+    gate = asyncio.Event()
+    real = macos_jobs.create_supervised_shell
+    shells = []
+
+    async def held(*args, **kwargs):
+        await gate.wait()  # the kill lands while the job is still being started
+        proc = await real(*args, **kwargs)
+        shells.append(proc)
+        return proc
+
+    monkeypatch.setattr(macos_jobs, "create_supervised_shell", held)
+    invocation = asyncio.create_task(
+        registry.start("localhost", "sleep 30", origin=agent_origin()))
+    for _ in range(200):
+        if registry._agent_starts:
+            break
+        await asyncio.sleep(0.01)
+    cleanup = registry.reap_agent_jobs({"agent-a"})
+    gate.set()
+
+    outcome = await cleanup.wait(timeout=30)
+    assert outcome == {"jobs": {}, "starts": [macos_jobs.BEST_EFFORT_STOP]}
+    assert cleanup.describe(outcome) == (
+        "Stopped 1 job(s) whose start was in progress. A job whose start was in progress:"
+        + BEST_EFFORT_CAVEAT)
+    assert "stopped while it started" in await invocation
+    (proc,) = shells
+    assert await gone([proc.pid])
+
+
+def update_patch(*hunks: str) -> str:
+    body = "".join(f"@@\n{hunk}\n" for hunk in hunks)
+    return f"*** Begin Patch\n*** Update File: text.txt\n{body}*** End Patch\n"
+
+
+@pytest.mark.parametrize("source,hunks,expected", [
+    (b"", ["+hello"], b"hello\n"),
+    (b"", ["+one", "+two"], b"one\ntwo\n"),
+    (b"one\ntwo", [" two\n+three"], b"one\ntwo\nthree"),
+    (b"a\r\nb", [" b\n+c"], b"a\r\nb\r\nc"),
+    (b"a\r\nb\nc", [" a\n b\n c\n+d"], b"a\r\nb\nc\nd"),
+    (b"a\nb\r\nc", [" b\n c\n+d\n+e"], b"a\nb\r\nc\r\nd\r\ne"),
+    (b"one\r\ntwo\r\n", [" two\n+three"], b"one\r\ntwo\r\nthree\r\n"),
+    (b"1\n2\n3\n4\n5\n6\n7\n8\n9", [" 1\n-2\n+TWO", " 8\n-9\n+NINE\n+TEN"],
+     b"1\nTWO\n3\n4\n5\n6\n7\n8\nNINE\nTEN"),
+], ids=["empty", "empty-two-hunks", "unterminated-tail", "crlf-tail", "mixed-kept",
+        "mixed-repaired", "crlf-terminated", "multi-hunk"])
+async def test_patched_bytes_are_exact_through_the_macos_patch_child(tmp_path, source, hunks,
+                                                                       expected):
+    target = tmp_path / "text.txt"
+    target.write_bytes(source)
+    command = await built("apply_patch", {"root": str(tmp_path),
+                                          "patch_text": update_patch(*hunks)})
+    assert macos_jobs.engine_command(command) == "apply_patch"
+    fake = SimpleNamespace(config=SimpleNamespace(command_timeout_seconds=60),
+                           bulkheads={}, _ensure_local_workspace=lambda: str(tmp_path),
+                           _command_shell_mode=lambda: "sh")
+
+    code, output = await macos_jobs.exec_command(fake, "127.0.0.1", command)
+
+    assert code == 0, output
+    assert target.read_bytes() == expected
+
+
+class StartLease:
+    """A generation lease double: counts releases, revocable."""
+
+    def __init__(self):
+        self.revoked = False
+        self.releases = 0
+
+    def release(self):
+        self.releases += 1
+
+
+async def test_an_unavailable_shell_or_a_cancelled_spawn_returns_the_lease(registry, monkeypatch):
+    from src.tools.command_shell import ShellUnavailableError
+
+    async def unavailable(*_args, **_kwargs):
+        raise ShellUnavailableError("fixture shell is not installed")
+
+    monkeypatch.setattr(macos_jobs, "create_supervised_shell", unavailable)
+    lease = StartLease()
+    result = await macos_jobs.start_local_reserved(registry, "localhost", "true", host_lease=lease)
+    assert result == "Error: fixture shell is not installed" and lease.releases == 1
+
+    async def cancelled(*_args, **_kwargs):
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(macos_jobs, "create_supervised_shell", cancelled)
+    lease = StartLease()
+    with pytest.raises(asyncio.CancelledError):
+        await macos_jobs.start_local_reserved(registry, "localhost", "true", host_lease=lease)
+    assert lease.releases == 1 and registry._processes == {}
+
+
+async def test_a_start_its_agent_lost_keeps_an_unproven_job_unknown(registry, monkeypatch):
+    from src.tools.process_manager import _AgentStart
+
+    gate = asyncio.Event()
+    real = macos_jobs.create_supervised_shell
+    shells = []
+
+    async def held(*args, **kwargs):
+        await gate.wait()
+        proc = await real(*args, **kwargs)
+        shells.append(proc)
+        return proc
+
+    async def unproven(_info):
+        return False
+
+    monkeypatch.setattr(macos_jobs, "create_supervised_shell", held)
+    monkeypatch.setattr(registry, "_terminate_bound_host_job", unproven)
+    start = _AgentStart(origin=agent_origin())
+    start.abandoned = True  # the invocation was cancelled while this start settled
+    invocation = asyncio.create_task(macos_jobs.start_local_reserved(
+        registry, "localhost", "sleep 30", origin=agent_origin(), agent_start=start))
+    await asyncio.sleep(0)
+    gate.set()
+
+    result = await invocation
+    assert result.endswith("process outcome unknown outcome_unknown=true.")
+    assert start.outcome == "unknown"
+    (proc,) = shells
+    info = registry._processes[proc.pid]
+    assert info.status == "unknown" and info.capture_error
+    await registry.kill(proc.pid)
+
+
+async def test_a_revoke_during_the_spawn_stops_the_new_job(registry, monkeypatch):
+    gate = asyncio.Event()
+    real = macos_jobs.create_supervised_shell
+
+    async def held(*args, **kwargs):
+        await gate.wait()
+        return await real(*args, **kwargs)
+
+    monkeypatch.setattr(macos_jobs, "create_supervised_shell", held)
+    invocation = asyncio.create_task(registry.start("localhost", "sleep 30"))
+    for _ in range(200):
+        if registry._pending_starts:
+            break
+        await asyncio.sleep(0.01)
+    registry._local_revoke_epochs["localhost"] = registry._local_revoke_epochs.get(
+        "localhost", 0) + 1
+    gate.set()
+
+    assert await invocation == "Error: host force-revoked; process terminated."
+
+
+def test_a_pending_or_unproven_best_effort_receipt_keeps_odins_wording():
+    receipt = macos_jobs.MacOSAgentJobCleanup(jobs=[("g1", 41)], starts=1)
+    assert receipt.describe(None) == (
+        "Stopping 1 background job(s) it started (PID 41) and 1 start(s) it had in progress; "
+        "cleanup is still settling.")
+
+
+async def test_an_unproven_local_stop_stays_unknown(registry, monkeypatch):
+    async def unproven(_generation):
+        return False
+
+    monkeypatch.setattr(registry, "terminate_generation", unproven)
+    info = SimpleNamespace(remote=False, containment=macos_jobs.SCOPE, generation="g1", pid=4)
+    assert await registry._stop_generation(info) == "unknown"

@@ -1169,6 +1169,8 @@ class KnowledgeStore:
             fts_results,
             id_key="chunk_id",
             limit=limit,
+            prefer_list=1,
+            list_names=("semantic", "keyword"),
         )
 
     def backfill_fts(self) -> int:

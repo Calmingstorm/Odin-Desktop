@@ -30,12 +30,14 @@ import sys
 from pathlib import Path
 
 from src.tools import local_supervisor as _ls
-from src.tools.process_manager import ProcessRegistry
+from src.tools.process_manager import AgentJobCleanup, ProcessRegistry
 
 SCOPE = "session_best_effort"
 CAVEAT = "detached or raced descendants are unverified"
 _CAVEAT_TEXT = f" containment={SCOPE}; {CAVEAT}."
 _META_RESERVE = 160  # room for the two metadata fields within the page budget
+# An agent-cleanup stop of a local job: converged under the session's best-effort scope.
+BEST_EFFORT_STOP = "stopped_session_best_effort"
 
 # The opening text of Odin's apply_patch command (src/tools/handlers/files_docs.py), exactly.
 _APPLY_PATCH = (
@@ -323,6 +325,8 @@ async def exec_command(
     use_workspace: bool = False,
     target=None,
     use_command_shell: bool = False,
+    max_ssh_attempts: int | None = None,
+    ssh_multiplex: bool = True,
 ) -> tuple[int, str]:
     """``ToolExecutor._exec_command`` on macOS: local commands through the macOS worker.
 
@@ -341,7 +345,7 @@ async def exec_command(
     if not is_local_address(address):
         return await ToolExecutor._exec_command.linux_original(
             self, address, command, ssh_user, timeout, on_output, use_workspace, target,
-            use_command_shell)
+            use_command_shell, max_ssh_attempts=max_ssh_attempts, ssh_multiplex=ssh_multiplex)
     if timeout is None:
         timeout = _current_tool_timeout_ctx.get() or self.config.command_timeout_seconds
     cwd = self._ensure_local_workspace() if use_workspace else None
@@ -362,12 +366,14 @@ async def exec_command(
     return code, with_privacy_hint(code, output)
 
 
-# Lifted from the Linux original (ProcessRegistry._start_local_reserved), with the macOS
-# create_supervised_shell and the best-effort scope recorded on the job.
+# Lifted from the Linux original (ProcessRegistry._start_local_reserved, Odin 4.20.0), with the
+# macOS create_supervised_shell, the best-effort scope recorded on the job, and a settling
+# agent start's stop reported as best effort.
 async def start_local_reserved(
     self, host: str, command: str, timeout: int = 300, *, owner_id: str | None = None,
     host_alias: str = "", host_identity: str = "", origin_channel: str = "",
     scope_id: str = "", host_binding: dict | None = None, host_lease=None,
+    origin=None, agent_start=None,
 ) -> str:
     """Start a background process locally. Returns confirmation with PID.
 
@@ -382,7 +388,9 @@ async def start_local_reserved(
     from src.tools.ssh import is_local_address
 
     if not is_local_address(host):
-        return "Error: remote process start requires a generation-bound host lease."
+        return self._refuse_start(
+            host_lease, "Error: remote process start requires a generation-bound host lease.",
+        )
 
     alias = host_alias or host
     if alias in self._revoking_aliases or (host_lease is not None and host_lease.revoked):
@@ -447,10 +455,14 @@ async def start_local_reserved(
         scope_id=scope_id,
         host_binding=host_binding,
         host_lease=host_lease,
+        origin_agent_id=origin.agent_id if origin else "",
+        origin_root_id=origin.root_id if origin else "",
     )
     info.containment = SCOPE  # macOS: a converged stop is best effort, never verified
     self._processes[pid] = info
     self._retained_generations[info.generation] = info
+    if agent_start is not None:
+        agent_start.generation = info.generation
     self._own_children.add(pid)
 
     # Drainage and terminal-state publication are SEPARATE tasks:
@@ -488,6 +500,22 @@ async def start_local_reserved(
         return ("Error: host force-revoked; process terminated."
                 if gone else "Error: host force-revoked; process outcome unknown outcome_unknown=true.")
 
+    if self._unclaimed(origin, agent_start):
+        # The agent was killed, or its invocation cancelled, while this
+        # start settled. The record keeps its lease unless cleanup is proven.
+        gone = await self._terminate_bound_host_job(info)
+        if not gone:
+            info.status = "unknown"
+            info.finished_at = info.finished_at or time.time()
+            info.capture_error = info.capture_error or "process cleanup could not be confirmed"
+            self._persist_output(info)
+        if agent_start is not None:
+            agent_start.outcome = BEST_EFFORT_STOP if gone else "unknown"  # macOS: best effort
+        return ("Error: the agent that started this job was stopped while it started; "
+                "process terminated." if gone else
+                "Error: the agent that started this job was stopped while it started; "
+                "process outcome unknown outcome_unknown=true.")
+
     log.info("Started process PID %d: %s", pid, command_display(command))
     return f"Process started (PID {pid}): {safe_text(command)}"
 
@@ -520,6 +548,30 @@ def _with_caveat_fields(page: str) -> str:
     return page if extended is None else extended
 
 
+class MacOSAgentJobCleanup(AgentJobCleanup):
+    """Odin's kill receipt, with local stops reported as the best effort they are on macOS.
+
+    A best-effort stop converged, so it counts as stopped; the caveat says what was not verified.
+    """
+
+    def describe(self, outcome: dict | None) -> str:
+        if outcome is None:
+            return super().describe(None)
+        jobs = dict(outcome.get("jobs", {}))
+        starts = list(outcome.get("starts", []))
+        best_jobs = [pid for gen, pid in self.jobs if jobs.get(gen) == BEST_EFFORT_STOP]
+        best_starts = starts.count(BEST_EFFORT_STOP)
+        plain = {"jobs": {gen: ("stopped" if state == BEST_EFFORT_STOP else state)
+                          for gen, state in jobs.items()},
+                 "starts": ["stopped" if state == BEST_EFFORT_STOP else state for state in starts]}
+        text = super().describe(plain)
+        if best_jobs:
+            text += f" PID {', '.join(map(str, best_jobs))}:{_CAVEAT_TEXT}"
+        if best_starts:
+            text += f" A job whose start was in progress:{_CAVEAT_TEXT}"
+        return text
+
+
 class MacOSProcessRegistry(ProcessRegistry):
     """Odin's process registry, with local jobs under the macOS worker and their scope labelled."""
 
@@ -542,6 +594,18 @@ class MacOSProcessRegistry(ProcessRegistry):
                                             max(0, budget - _META_RESERVE), preview=preview,
                                             tail_withheld=tail_withheld)
         return _with_caveat_fields(page)
+
+    async def _stop_generation(self, info) -> str:
+        state = await super()._stop_generation(info)
+        if state == "stopped" and not info.remote and info.containment == SCOPE:
+            return BEST_EFFORT_STOP
+        return state
+
+    def reap_agent_jobs(self, agent_ids) -> MacOSAgentJobCleanup:
+        cleanup = super().reap_agent_jobs(agent_ids)
+        receipt = MacOSAgentJobCleanup(jobs=cleanup.jobs, starts=cleanup.starts)
+        receipt.task = cleanup.task
+        return receipt
 
     async def kill(self, pid: int, *, authorized=None) -> str:
         result = await super().kill(pid, authorized=authorized)
@@ -566,6 +630,7 @@ def ensure_process_registry(self):
         self._process_registry = MacOSProcessRegistry(  # macOS: the session worker
             workspace=self._ensure_local_workspace,
             remote_exec=self._exec_remote_target,
+            remote_exec_once=self._exec_remote_target_once,
             retention_dir=self._retention_root() / "process-output",
             acquire_output_lease=self._acquire_process_cleanup_lease,
             command_shell=lambda: self._command_shell_mode(),

@@ -39,13 +39,15 @@ REPINNED_TOOL_HASHES = {
     "apply_patch": "ef2d5df0f3e3b668",  # Odin 4.15 #655/#657: Linux/macOS no-replace, case-only moves
     "validate_action": "30730425312ab5f3",  # Odin 4.15 #655: launchd targets and states
     "send_to_agent": "9432455f7efb9750",  # Odin 4.19: interim reports use report_to_parent
+    "search_audit": "62bccb5370452af1",  # Odin 4.20.0 (PR #671): one result per call
+    "kill_agent": "a09fb31f1e55ef0c",  # Odin 4.20.0 (PR #671): a kill stops the agents' jobs
 }
 assert set(REPINNED_TOOL_HASHES) == {
     "post_file", "generate_file", "schedule_task", "update_schedule", "search_history",
     "delegate_task", "browser_screenshot", "spawn_agent", "generate_image",
     "get_tool_output", "read_conversation", "manage_list", "apply_patch", "validate_action",
-    "send_to_agent",
-}, "Only the reviewed fifteen definitions may be re-pinned"
+    "send_to_agent", "search_audit", "kill_agent",
+}, "Only the reviewed seventeen definitions may be re-pinned"
 DESKTOP_TOOL_HASHES = {
     RENAMED.get(n, n): h for n, h in EXPECTED_TOOL_HASHES.items() if n not in REMOVED
 }
