@@ -1332,6 +1332,30 @@ def test_only_the_reviewed_odin_4_14_exclusion_is_admitted(repo, expression, adm
     assert checker.validate(repo), "the reviewed expression belongs to one group only"
 
 
+@pytest.mark.parametrize("group_name,expression,admitted", [
+    ("direct-shared-engine", checker.REVIEWED_DIRECT_EXCLUSIONS["direct-shared-engine"], True),
+    ("direct-shared-engine",
+     checker.REVIEWED_DIRECT_EXCLUSIONS["direct-shared-engine"] + " or test_process", False),
+    ("direct-shared-engine", "test_local_start_refusal_releases_unowned_lease", False),
+    ("direct-shared-hyprland", checker.REVIEWED_DIRECT_EXCLUSIONS["direct-shared-engine"], False),
+    ("direct-neutral-metadata", "anything", False),
+])
+def test_a_direct_group_admits_only_its_reviewed_exclusion(repo, group_name, expression, admitted):
+    """Odin 4.20.0: direct-shared-engine may deselect its one superseded case, exactly; no
+    other direct group may carry that (or any unreviewed) exclusion."""
+    _step6a_group(repo)
+    _replace_gi_selector(repo, ADAPTER_ASSOCIATIONS[0])
+    assert checker.validate(repo) == []
+    qualification = _read(repo, checker.QUALIFICATION_PATH)
+    group = next(group for group in qualification["groups"] if group["name"] == group_name)
+    group["exclude_expression"] = expression
+    _write(repo, checker.QUALIFICATION_PATH, qualification)
+    errors = checker.validate(repo)
+    assert (errors == []) is admitted, errors
+    if not admitted:
+        assert f"qualification: unreviewed direct exclusion in {group_name}" in errors
+
+
 @pytest.mark.parametrize("association", ADAPTER_ASSOCIATIONS)
 @pytest.mark.parametrize("mutation", [
     "corrupt_adapter", "missing_adapter", "symlink_adapter", "corrupt_original",

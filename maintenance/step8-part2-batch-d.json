@@ -147,9 +147,13 @@
       "restoration": {
         "mode": "frozen-adapter",
         "selectors": ["tests/test_desktop_phase2_runtime_d.py"],
-        "reason": "Entire 9-case frozen suite with authenticated temporary owner, current testhost binding, private validated protected workspace and actual ToolExecutor/process handler. Actual local supervisor and actual remote supervisor/controller run locally; only remote SSH transport retains the original hermetic substitute. No capture/delivery/settlement or permission methods replaced.",
+        "reason": "Entire 9-case frozen suite with authenticated temporary owner, current testhost binding, private validated protected workspace and actual ToolExecutor/process handler. Actual local supervisor and actual remote supervisor/controller run locally; only remote SSH transport retains the original hermetic substitute. No capture/delivery/settlement or permission methods replaced. Odin 4.20.0 (Desktop 1.4.0) superseded two cases (a preview that delivered every retained byte offers no continuation cursor); the adapter retires only those two under their own reviewed authority, and each runs with Odin's exact edit in tests/test_desktop_odin_4200_tail_cases.py.",
         "inherited_cases": 9,
-        "inherited_assertion_nodes": 48
+        "inherited_assertion_nodes": 48,
+        "case_retirements": [
+          {"case": "test_partial_quota_records_loss_and_uses_complete_memory_tail", "reviewer": "Claude, Odin Desktop 1.4.0 carry of Odin 4.20.0 (PR #671)", "reason": "Odin 4.20.0 offers no continuation cursor once a preview delivered every retained byte; this case with Odin's exact edit runs in tests/test_desktop_odin_4200_tail_cases.py", "source_path": "tests/test_process_tail_correctness.py", "source_sha256": "1fa6fdfcfb7281790748fe5b6ace0cedae94f7c5e36eb9da97ba95413b37f880"},
+          {"case": "test_remote_incomplete_spool_uses_complete_tail_or_withholds", "reviewer": "Claude, Odin Desktop 1.4.0 carry of Odin 4.20.0 (PR #671)", "reason": "Odin 4.20.0 offers no continuation cursor once a preview delivered every retained byte; this case with Odin's exact edit runs in tests/test_desktop_odin_4200_tail_cases.py", "source_path": "tests/test_process_tail_correctness.py", "source_sha256": "1fa6fdfcfb7281790748fe5b6ace0cedae94f7c5e36eb9da97ba95413b37f880"}
+        ]
       },
       "references": ["tests/desktop_adapters/step8_runtime_d.py:executor", "tests/test_remote_process_streaming.py:35-115", "src/tools/process_manager.py", "src/tools/executor.py:819-918"],
       "evidence": "Local/remote secret tail, coordinate, quota, retention cursor/channel denial and truthful fallback assertions all passed. Real lease settlement/containment cleanup retained."

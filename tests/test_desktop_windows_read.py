@@ -64,10 +64,16 @@ def handler(monkeypatch, delivery_budget):
 
 
 def awk_output(command: str) -> tuple[int, str]:
-    """The handler's command with gawk as its awk (a host's awk may be mawk, which counts bytes)."""
-    command = command.replace("LC_ALL=C awk ", "LC_ALL=C gawk ", 1)
-    if command.startswith("awk "):
-        command = "g" + command
+    """The handler's command with gawk as its awk (a host's awk may be mawk, which counts bytes).
+
+    Since Odin 4.20.0 a directory guard precedes the awk invocation in both modes, so the
+    invocation is found where it starts, and the reference must really run gawk."""
+    for awk, gawk in (("LC_ALL=C awk ", "LC_ALL=C gawk "), ("; fi; awk ", "; fi; gawk ")):
+        if awk in command:
+            command = command.replace(awk, gawk, 1)
+            break
+    else:
+        raise AssertionError("the reference must run gawk: no awk invocation in the command")
     env = {"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
     done = subprocess.run(["/bin/sh", "-c", command], capture_output=True, env=env, timeout=60)
     return done.returncode, done.stdout.decode("utf-8", errors="replace")

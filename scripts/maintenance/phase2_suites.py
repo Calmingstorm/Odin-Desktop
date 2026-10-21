@@ -331,6 +331,36 @@ ODIN_4192_CASE_REASONS = {
     },
 }
 
+# Desktop 1.4.0 carries Odin 4.20.0 (PR #671), which superseded exactly five restored cases:
+# its search_audit handler reads calls from the audit stream, so a `search` double no longer
+# reaches it, and a preview that delivered every retained byte offers no continuation cursor.
+# A separate authority for exactly these cases; their 4.20.0 versions run in
+# tests/test_desktop_odin_4200_cases.py and tests/test_desktop_odin_4200_tail_cases.py.
+ODIN_4200_REVIEWER = "Claude, Odin Desktop 1.4.0 carry of Odin 4.20.0 (PR #671)"
+ODIN_4200_CASE_SOURCE_SHA256 = {
+    "tests/test_native_knowledge.py":
+        "418046d5ffe538ac586ccc89fa17b2430347fca1838c3dcbb5b404e556c25bac",
+    "tests/test_process_tail_correctness.py":
+        "1fa6fdfcfb7281790748fe5b6ace0cedae94f7c5e36eb9da97ba95413b37f880",
+}
+_ODIN_4200_AUDIT_REASON = (
+    "Odin 4.20.0 reads search_audit calls from the audit stream, so this case's search double "
+    "never reaches the handler; its 4.20.0 version runs in tests/test_desktop_odin_4200_cases.py")
+_ODIN_4200_TAIL_REASON = (
+    "Odin 4.20.0 offers no continuation cursor once a preview delivered every retained byte; "
+    "this case with Odin's exact edit runs in tests/test_desktop_odin_4200_tail_cases.py")
+ODIN_4200_CASE_REASONS = {
+    "tests/test_native_knowledge.py": {
+        "TestSearchAudit.test_formats_entries": _ODIN_4200_AUDIT_REASON,
+        "TestSearchAudit.test_renders_agent_attribution_and_tool_input": _ODIN_4200_AUDIT_REASON,
+        "TestSearchAudit.test_renders_audit_metadata": _ODIN_4200_AUDIT_REASON,
+    },
+    "tests/test_process_tail_correctness.py": {
+        "test_partial_quota_records_loss_and_uses_complete_memory_tail": _ODIN_4200_TAIL_REASON,
+        "test_remote_incomplete_spool_uses_complete_tail_or_withholds": _ODIN_4200_TAIL_REASON,
+    },
+}
+
 REVIEWED_DIRECT_EXCLUSIONS = {
     "direct-shared-stores-providers-tools": (
         "(TestSessionsConfigTokenBudget and test_zero_budget) or "
@@ -339,6 +369,12 @@ REVIEWED_DIRECT_EXCLUSIONS = {
         "(test_output_delivery_retention and "
         "(test_quota_failure_never_promises_missing_cursor or "
         "test_concurrent_quota_admission_is_atomic))"
+    ),
+    # Odin 4.20.0 (PR #671): the registry owns a start's lease from the start call on, so this
+    # shared case's handler-release assertion is superseded; its 4.20.0 version runs in
+    # tests/test_desktop_odin_4200_cases.py.
+    "direct-shared-engine": (
+        "test_campaign_system_coverage_restore and test_local_start_refusal_releases_unowned_lease"
     ),
 }
 
@@ -557,6 +593,9 @@ def _case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool
     if path in ODIN_4192_CASE_SOURCE_SHA256:
         # The Odin 4.19.2 carry (Desktop 1.3.3) is a separate authority for its one case.
         return _odin_4192_case_retirements(root, path, inherited_hash, value)
+    if path in ODIN_4200_CASE_SOURCE_SHA256:
+        # The Odin 4.20.0 carry (Desktop 1.4.0) is a separate authority for its five cases.
+        return _odin_4200_case_retirements(root, path, inherited_hash, value)
     if not isinstance(value, list):
         return False
     if not value:
@@ -614,6 +653,40 @@ def _odin_4192_case_retirements(root: Path, path: str, inherited_hash: str, valu
         expected_reason = ODIN_4192_CASE_REASONS.get(path, {}).get(case)
         if (not isinstance(case, str) or case not in cases
                 or row["reviewer"] != ODIN_4192_REVIEWER
+                or row["source_path"] != path or row["source_sha256"] != inherited_hash
+                or expected_reason is None or row["reason"] != expected_reason):
+            return False
+        names.append(case)
+    return names == sorted(set(names))
+
+
+def _odin_4200_case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool:
+    """The Odin 4.20.0 carry's exact dispositions against the immutable source."""
+    if not isinstance(value, list):
+        return False
+    if not value:
+        return True
+    if inherited_hash != ODIN_4200_CASE_SOURCE_SHA256.get(path):
+        return False
+    source = _regular(root, path).read_bytes()
+    if _digest(source) != inherited_hash:
+        return False
+    cases = set()
+    for node in ast.parse(source, filename=path).body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            cases.add(node.name)
+        elif isinstance(node, ast.ClassDef):
+            cases.update(f"{node.name}.{child.name}" for child in node.body
+                         if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)))
+    names = []
+    for row in value:
+        if (not isinstance(row, dict) or set(row) != {
+                "case", "reviewer", "reason", "source_path", "source_sha256"}):
+            return False
+        case = row["case"]
+        expected_reason = ODIN_4200_CASE_REASONS.get(path, {}).get(case)
+        if (not isinstance(case, str) or case not in cases
+                or row["reviewer"] != ODIN_4200_REVIEWER
                 or row["source_path"] != path or row["source_sha256"] != inherited_hash
                 or expected_reason is None or row["reason"] != expected_reason):
             return False
@@ -714,9 +787,9 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             "tests/test_tool_parity.py":
                 "e734b9f088569c37109de900f8bbecf48d6d76885d29c23def4fadd8bf4b3849",
             "tests/desktop_adapters/tool_parity.py":
-                "ab5030e8710ac6c33a95c4ec38ca06843469dc3ac646e462270f6af443a28816",
+                "77ab0cc72f80e05675437835c84256bc8f738f3218dc4dca585b09638d41a581",
             "tests/test_desktop_tool_parity_adaptation.py":
-                "c62eedb381ee31731b5f4db28eb39dea9242c7d39ffd3c028cbab50b463f67a5",
+                "ef4217bc5dd3f147692056e68db56a970084e6a0bd2ca12a71019824a3eb3d4a",
         }
         return (_digest(_regular(root, path).read_bytes()) == inherited_hash
                 and all(_digest(_regular(root, name).read_bytes()) == digest
@@ -1074,6 +1147,12 @@ def _check(root: Path, documents: dict | None = None) -> tuple[list[str], dict]:
                 _regular(root, selector)
             except (OSError, ValueError) as exc:
                 errors.append(str(exc))
+    # A direct shared group may deselect only its reviewed exclusion, exactly.
+    for name, group in named.items():
+        exclusion = group.get("exclude_expression")
+        if (name.startswith("direct-") and exclusion
+                and exclusion != REVIEWED_DIRECT_EXCLUSIONS.get(name)):
+            errors.append(f"qualification: unreviewed direct exclusion in {name}")
     replacements = {}
     for name, (original, adapter, sha) in MERGED_SELECTOR_ADAPTERS.items():
         selected_by = {group_name for group_name, group in named.items()

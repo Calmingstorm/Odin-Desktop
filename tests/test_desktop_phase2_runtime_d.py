@@ -105,5 +105,11 @@ def test_runtime_d_provenance_and_setup_drift_rejected(monkeypatch):
 
 @pytest.mark.parametrize("stem", tuple(_frozen))
 def test_runtime_d_static_whole_suite_association(stem):
+    # The reviewed retirements come from the suite map, not from the adapter itself.
+    import json
+
+    mapping = json.loads((ROOT / "maintenance/phase2-suite-map.json").read_text())
+    row = next(entry for entry in mapping["entries"] if entry["path"] == f"tests/{stem}.py")
     assert _full_adapter(ROOT, "tests/test_desktop_phase2_runtime_d.py",
-                         f"tests/{stem}.py", adapter.SUITES[stem])
+                         f"tests/{stem}.py", adapter.SUITES[stem],
+                         row["restoration"].get("case_retirements", []))

@@ -505,7 +505,8 @@
         "tests/test_command_shell_matrix.py",
         "tests/test_compatible_streaming.py"
       ],
-      "reason": "Explicit direct unchanged shared corpus, first chunk of309suite parent replay9053passed1skip304.52s; failed mixed cases never waived."
+      "reason": "Explicit direct unchanged shared corpus, first chunk of309suite parent replay9053passed1skip304.52s; failed mixed cases never waived. Odin 4.20.0 (PR #671): the registry owns a start's lease from the start call on, so test_campaign_system_coverage_restore.py's test_local_start_refusal_releases_unowned_lease (a handler-release assertion) is superseded; its 4.20.0 version runs in tests/test_desktop_odin_4200_cases.py.",
+      "exclude_expression": "test_campaign_system_coverage_restore and test_local_start_refusal_releases_unowned_lease"
     },
     {
       "name": "faithful-computer-recovery",
@@ -1901,7 +1902,7 @@
         "tests/test_desktop_phase2_runtime_a.py",
         "tests/test_desktop_phase2_runtime_c.py",
         "tests/test_desktop_phase2_runtime_d.py",
-        "tests/test_native_knowledge.py",
+        "tests/test_desktop_odin_4200_native_knowledge.py",
         "tests/test_provider_shutdown_budget.py",
         "tests/test_search_small_delivery_budget.py",
         "tests/test_desktop_phase2_runtime_guard.py",
@@ -1939,7 +1940,7 @@
         "tests/test_desktop_usage_backfill.py",
         "tests/test_desktop_knowledge_event_loop_reads.py"
       ],
-      "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification. Step-five completion additionally executes all 21 requested original filenames through whole hash/corpus-bound adapters, plus named-method and authenticated transport proofs. No original selection is removed, no new skip/exclusion is added. Odin 4.18 edited one assertion of the frozen quota suite (the pinned header set gains originator and User-Agent); tests/desktop_adapters/review_provider_quota.py carries that exact edit and seals everything else."
+      "reason": "Step 5 retained settings/persistence/vault, Codex pool/device, provider gateway/clients, host enrollment/leases, memory/lists, knowledge, audit/usage/health/turn readers and outbound dispatcher. Temporary actual profiles/stores/local transport plus fake vault/network exercise save/adopt/rollback, stale revision/generation, unknown/no-replay and honest unavailable state. Isolated PID namespace/throwaway HOME only; no live keyring/desktop/install/services. Additional Desktop boundaries, not full original-corpus, inbound-trigger or native qualification. Step-five completion additionally executes all 21 requested original filenames through whole hash/corpus-bound adapters, plus named-method and authenticated transport proofs. No original selection is removed, no new skip/exclusion is added. Odin 4.18 edited one assertion of the frozen quota suite (the pinned header set gains originator and User-Agent); tests/desktop_adapters/review_provider_quota.py carries that exact edit and seals everything else. Odin 4.20.0 (PR #671, Desktop 1.4.0) superseded three frozen native knowledge cases and two frozen tail cases: tests/desktop_adapters/odin_4200_native_knowledge.py and tests/desktop_adapters/step8_runtime_d.py retire exactly those under their own reviewed authority, and their 4.20.0 versions run in tests/test_desktop_odin_4200_cases.py and tests/test_desktop_odin_4200_tail_cases.py."
     },
     {
       "name": "phase2-step6a-qualified-local-services",

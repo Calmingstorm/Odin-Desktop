@@ -178,6 +178,17 @@ ODIN_V4_14_0_GOVERNOR_SHA256 = "6d38578f2bde09a3715e2c9d78e420aeacb11e3ecd88ff28
 ODIN_V4_19_2_LOCAL_SUPERVISOR_SHA256 = (
     "d1d8321727950ddb87416025046db343cd3c6d03859a0010ffa9b85ee3596df4")
 
+# Desktop 1.4.0 carries Odin 4.20.0 (PR #671): one direct start attempt (ssh.py) and agent job
+# cleanup and preview continuation (process_manager.py). Both are Odin v4.20.0's files byte for
+# byte (sha256 of `git show v4.20.0:src/tools/<name>`), and so is ToolExecutor._try_tool, which
+# hands a dispatching agent's identity to its job starts (sha256 of the method's source lines).
+ODIN_V4_20_0_SHA256 = {
+    "ssh.py": "ac5c9acdc0aaff443b8269a8097bd530376e1d269a6b9b148a9039fcb3961b14",
+    "process_manager.py": "9b2fdd16efbe2a51975c8a57161e8ea54cd64ab99d374e6665efe08288916aee",
+}
+ODIN_V4_20_0_TRY_TOOL_SHA256 = (
+    "f76331f23d484cdf215a29bfe7bc898069ba8d3252f5535bf4da4bcfed38d528")
+
 
 def test_common_classifier_functions_remain_byte_identical():
     root = Path(__file__).resolve().parents[1]
@@ -198,30 +209,20 @@ def test_common_safety_primitives_byte_identical():
             current = (root / "src/tools" / name).read_bytes()
             assert hashlib.sha256(current).hexdigest() == ODIN_V4_19_2_LOCAL_SUPERVISOR_SHA256
             continue
-        if name in ("ssh.py", "ssh_pool.py"):
+        if name in ODIN_V4_20_0_SHA256:
+            current = (root / "src/tools" / name).read_bytes()
+            assert hashlib.sha256(current).hexdigest() == ODIN_V4_20_0_SHA256[name]
+            continue
+        if name == "ssh_pool.py":
             # Odin 4.15 (#655), carried byte for byte: trust paths pass through
             # known_hosts_option, so OpenSSH's own tokenizer keeps them one file.
-            anchor = (b"from .result_capture import capture_active\n" if name == "ssh.py"
-                      else b"from ..odin_log import get_logger\n")
+            anchor = b"from ..odin_log import get_logger\n"
             option = b'f"UserKnownHostsFile={known_hosts_path}",\n'
             assert baseline.count(anchor) == 1
-            assert baseline.count(option) == (2 if name == "ssh.py" else 1)
+            assert baseline.count(option) == 1
             baseline = baseline.replace(
                 anchor, anchor + b"from .ssh_options import known_hosts_option\n", 1)
             baseline = baseline.replace(option, b"known_hosts_option(known_hosts_path),\n")
-        if name == "ssh.py":
-            # Odin 4.19.2 (PR #670), carried byte for byte: only this foreground
-            # wrapper opts in to the late-ACK result.
-            anchor = (b"            shell_choice=choice,\n        )\n"
-                      b"        if on_output is not None:\n")
-            assert baseline.count(anchor) == 1
-            baseline = baseline.replace(anchor, (
-                b"            shell_choice=choice,\n"
-                b"            # A foreground result is complete at leader exit plus output EOF;\n"
-                b"            # a late ACK after clean settlement must not turn it into an error.\n"
-                b"            allow_foreground_ack_result=True,\n"
-                b"        )\n        if on_output is not None:\n"), 1)
-        if name == "ssh_pool.py":
             # PR #14 requires no-follow, foreign-owner guards without a D17
             # permission-mode gate. Fence the exact provisioning adaptation;
             # every master/lease/settlement byte stays
@@ -242,9 +243,6 @@ def test_common_safety_primitives_byte_identical():
 
 def test_attempt_settlement_and_no_replay_logic_byte_identical():
     root = Path(__file__).resolve().parents[1]
-    from scripts.maintenance.inventory import baseline_blobs
-
-    baseline = baseline_blobs(root)["src/tools/executor.py"].decode()
     current = (root / "src/tools/executor.py").read_text()
     def attempt(source):
         lines = source.splitlines(keepends=True)
@@ -253,7 +251,7 @@ def test_attempt_settlement_and_no_replay_logic_byte_identical():
         node = next(node for node in cls.body
                     if isinstance(node, ast.AsyncFunctionDef) and node.name == "_try_tool")
         return "".join(lines[node.lineno-1:node.end_lineno])
-    assert attempt(current) == attempt(baseline)
+    assert hashlib.sha256(attempt(current).encode()).hexdigest() == ODIN_V4_20_0_TRY_TOOL_SHA256
 
 
 def test_lists_do_not_import_legacy_user_data(tmp_path):

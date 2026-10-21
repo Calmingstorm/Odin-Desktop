@@ -110,6 +110,7 @@ async def test_the_executor_builds_the_windows_registry(tmp_path):
 
     fake = SimpleNamespace(
         _ensure_local_workspace=lambda: str(tmp_path), _exec_remote_target=None,
+        _exec_remote_target_once=None,
         _retention_root=lambda: tmp_path / "retained", _acquire_process_cleanup_lease=None,
         _command_shell_mode=lambda: "auto")
     jobs = ensure_process_registry(fake)

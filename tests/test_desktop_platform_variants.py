@@ -144,13 +144,13 @@ def test_each_windows_variant_was_reviewed_against_its_linux_original():
 # handler (browser_web.py stays upstream's byte for byte; the executor routes to the copy).
 OVERRIDE_SOURCES = {
     "src/tools/apply_patch.py":
-        "fd40a840be8e12d2638c3bbc76bfaa9cf7cac84cae6c495063708c8d3f7ba937",
+        "4796adcdaf14e7bbd2901de9a5c7350a997e58c21836982410aa0d30cda8bc5c",
     "src/tools/process_manager.py:ProcessRegistry._start_local_reserved":
-        "3d6acead94fd543dbc33dcafb0b8d96a06897857325103011e32b5d3e303ea55",
+        "f0c65ee1b671ad67d811d2dc05f894deb8f7bf455d8bbad01bd563f970feea61",
     "src/tools/ssh.py:_read_lines_with_callback":
         "9a33f75e18fb7d77f2c1ad10be1c88efbc0a51610fcdb4a42417a42de75472c9",
     "src/tools/ssh.py:run_ssh_command":
-        "9e861c3d3b4b2353ecb6d9b89cf4d2f47c31e5ba844bb084b1055880793c0607",
+        "233e0968ca12f2d32935c77e141e644bb55947497390193429bf802704181c8d",
     "src/tools/handlers/browser_web.py:BrowserWebTools._handle_http_probe":
         "b539e2e3a11d0e5a5c8ce29f9ae972b3dc465fe8f4d27f4e8658ca01e0970657",
     "src/tools/ssh.py:read_binary_file":
@@ -307,9 +307,9 @@ MACOS_OVERRIDE_SOURCES = {
     "src/tools/ssh.py:run_local_command":
         "b2e70db79a6a7e68440df29287f2157b5df8a57a0d46de4cd4bc2e7dd12a740b",
     "src/tools/process_manager.py:ProcessRegistry._start_local_reserved":
-        "3d6acead94fd543dbc33dcafb0b8d96a06897857325103011e32b5d3e303ea55",
+        "f0c65ee1b671ad67d811d2dc05f894deb8f7bf455d8bbad01bd563f970feea61",
     "src/tools/process_manager.py:ProcessRegistry._output_page":
-        "a90dce9c71ed6831ba529b6ad761c90ad2d352a670388676a1662c51abc9b583",
+        "9a655982f78d9df87c11b33abd2298748c034cf1f615e7b94d39479f9213327b",
     "src/tools/process_manager.py:ProcessRegistry.kill":
         "4dbfa9d34953eeb5090420dd015563c4a84aa0ce6f0ac2ff2297f31541fc7146",
     "src/tools/process_manager.py:ProcessRegistry._remote_cleanup_caveat":

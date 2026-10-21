@@ -16,12 +16,12 @@ from src.desktop.controls import ControlService
 from src.desktop.conversations import ConversationStore
 from src.desktop.events import EventJournal
 from src.desktop.paths import ProfilePaths
-from src.desktop.work import WorkService
+from src.desktop.work import WorkService, job_cleanup_evidence
 from src.discord.background_task import BackgroundTask
 from src.discord.channel_state import ChannelStateRegistry
 from src.permissions.manager import PermissionManager
 from src.tools.autonomous_loop import LoopInfo, LoopManager
-from src.tools.process_manager import ProcessInfo
+from src.tools.process_manager import AgentJobCleanup, ProcessInfo
 
 
 @dataclass(frozen=True)
@@ -1193,3 +1193,137 @@ def test_finished_work_is_kept_to_the_newest_and_leaves_with_its_chat(work):
     # The Work list the app reads prunes as it lists.
     finished("oldest", 1.0, message.conversation_id)
     assert "w-oldest" not in {item["id"] for item in service.list()["items"]}
+
+
+# --- Odin 4.20.0: killing an agent reports the cleanup of the jobs it started --------------
+
+
+def _cleanup(result, *, jobs=(("g1", 41),), starts=0, gate=None):
+    cleanup = AgentJobCleanup(jobs=list(jobs), starts=starts)
+
+    async def settle():
+        if gate is not None:
+            await gate.wait()
+        return result
+
+    cleanup.task = asyncio.create_task(settle())
+    return cleanup
+
+
+@pytest.mark.asyncio
+async def test_a_killed_agents_job_cleanup_is_in_the_journaled_receipt(work):
+    service, message, context = work
+    agent(service, message)
+    cleanup = _cleanup({"jobs": {"g1": "stopped"}, "starts": ["not_started"]}, starts=1)
+    service.agents.set_job_reaper(lambda ids: cleanup)
+    record = service.register("agent", "a", message)
+
+    receipt = await service.apply(bound(record, "cancel"), owner_context=context)
+
+    assert receipt["jobs"] == {
+        "state": "settled", "jobs": [{"pid": 41, "outcome": "stopped"}], "starts": ["not_started"],
+        "summary": "Stopped 1 background job(s) it started (PID 41). 1 start(s) in progress "
+                   "never started a job."}
+    # The work settlement still describes the manager task only, never the jobs' release.
+    assert "jobs" not in receipt["settlement"]
+    assert receipt["settlement"]["resource_release"] in ("unproven", "manager_task_finished")
+
+
+@pytest.mark.asyncio
+async def test_a_slow_job_cleanup_is_reported_pending_and_keeps_running(work, monkeypatch):
+    from src.desktop import work as work_module
+
+    monkeypatch.setattr(work_module, "KILL_JOB_REPORT_SECONDS", 0.01)
+    service, message, context = work
+    agent(service, message)
+    gate = asyncio.Event()
+    cleanup = _cleanup({"jobs": {"g1": "stopped"}, "starts": []}, gate=gate)
+    service.agents.set_job_reaper(lambda ids: cleanup)
+    record = service.register("agent", "a", message)
+
+    receipt = await service.apply(bound(record, "cancel"), owner_context=context)
+
+    assert receipt["jobs"]["state"] == "pending"
+    assert receipt["jobs"]["jobs"] == [{"pid": 41, "outcome": "pending"}]
+    assert "cleanup is still settling" in receipt["jobs"]["summary"]
+    assert not cleanup.task.done()  # the report's deadline never cancels the cleanup
+    gate.set()
+    assert await cleanup.wait(timeout=5) == {"jobs": {"g1": "stopped"}, "starts": []}
+
+
+async def _killable(service, message):
+    """An agent whose run is in flight, ending KILLED when its task is cancelled."""
+    item = agent(service, message)
+
+    async def run():
+        try:
+            await asyncio.sleep(100)
+        except asyncio.CancelledError:
+            item.transition(AgentState.KILLED)
+
+    item._task = asyncio.create_task(run())
+    await asyncio.sleep(0)  # the run is in flight before the kill
+    return item
+
+
+@pytest.mark.asyncio
+async def test_a_kill_whose_jobs_are_still_stopping_stays_requested(work, monkeypatch):
+    from src.desktop import work as work_module
+
+    monkeypatch.setattr(work_module, "KILL_JOB_REPORT_SECONDS", 0.05)
+    service, message, context = work
+    item = await _killable(service, message)
+    gate = asyncio.Event()
+    cleanup = _cleanup({"jobs": {"g1": "stopped"}, "starts": []}, gate=gate)
+    service.agents.set_job_reaper(lambda ids: cleanup)
+    record = service.register("agent", "a", message)
+
+    receipt = await service.apply(bound(record, "cancel"), owner_context=context)
+
+    assert item.status == AgentState.KILLED.value
+    assert receipt["settlement"]["state"] == "settled"  # the manager task, nothing more
+    assert receipt["jobs"]["state"] == "pending"
+    assert receipt["disposition"] == "requested"
+    gate.set()
+    await cleanup.wait(timeout=5)
+
+
+@pytest.mark.asyncio
+async def test_a_kill_whose_jobs_settled_is_done_with_their_outcomes(work):
+    service, message, context = work
+    await _killable(service, message)
+    cleanup = _cleanup({"jobs": {"g1": "unknown"}, "starts": []})
+    service.agents.set_job_reaper(lambda ids: cleanup)
+    record = service.register("agent", "a", message)
+
+    receipt = await service.apply(bound(record, "cancel"), owner_context=context)
+
+    assert receipt["disposition"] == "done"
+    assert receipt["settlement"] == {"state": "settled", "resource_release":
+                                     "manager_task_finished", "remote_effects": "not_undone"}
+    assert receipt["jobs"]["jobs"] == [{"pid": 41, "outcome": "unknown"}]
+    assert "outcome_unknown=true" in receipt["jobs"]["summary"]
+
+
+@pytest.mark.asyncio
+async def test_cancelling_the_report_never_cancels_the_cleanup():
+    gate = asyncio.Event()
+    cleanup = _cleanup({"jobs": {"g1": "unknown"}, "starts": []}, gate=gate)
+    waiter = asyncio.create_task(job_cleanup_evidence(cleanup))
+    await asyncio.sleep(0.01)
+    waiter.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await waiter
+    assert not cleanup.task.done()
+    gate.set()
+    assert await cleanup.wait(timeout=5) == {"jobs": {"g1": "unknown"}, "starts": []}
+
+
+@pytest.mark.asyncio
+async def test_an_agent_with_no_jobs_gets_no_jobs_evidence(work):
+    service, message, context = work
+    agent(service, message)
+    service.agents.set_job_reaper(lambda ids: AgentJobCleanup(jobs=[]))
+    record = service.register("agent", "a", message)
+    receipt = await service.apply(bound(record, "cancel"), owner_context=context)
+    assert "jobs" not in receipt

@@ -160,6 +160,31 @@ def test_every_changed_catalog_name_description_and_schema_is_exact_c1_c3():
                         "launchd label (defaults to system/label), system/label, or "
                         "gui/UID/label. expected='active' or list of states; 'active' maps to "
                         "'running' on macOS\n"), 1)
+                if name == "kill_agent":  # Odin 4.20.0, carried: a kill stops the agents' jobs
+                    old = "Terminates a running agent immediately."
+                    assert tool["description"].count(old) == 1
+                    tool["description"] = tool["description"].replace(old, (
+                        "Terminates a running agent (and its running descendants) immediately "
+                        "and stops the background jobs they started."), 1)
+                if name == "search_audit":  # Odin 4.20.0, carried: one result per call
+                    old = ("Searches audit log of tool executions. Returns '[date] tool_name by "
+                           "user (status, Nms)'.")
+                    assert tool["description"].count(old) == 1
+                    tool["description"] = tool["description"].replace(old, (
+                        "Searches audit log of tool executions, one result per call: '[date] "
+                        "tool_name by user (approved or denied, Nms, outcome)'."), 1)
+                    properties = tool["input_schema"]["properties"]
+                    for field, before, after in (
+                        ("keyword", "Free-text search across all fields",
+                         "Free-text search across a call's records, including its result "
+                         "text; command and script bodies are not stored"),
+                        ("status", "Filter by status (e.g. 'error', 'success')",
+                         "Filter by outcome: succeeded, failed, denied, cancelled, "
+                         "outcome_unknown or started ('error' and 'success' also work)"),
+                        ("limit", "Max results (default 20)", "Max calls returned (default 20)"),
+                    ):
+                        assert properties[field]["description"] == before
+                        properties[field]["description"] = after
                 if name == "read_channel":
                     tool["name"] = "read_conversation"
                     tool["description"] = (

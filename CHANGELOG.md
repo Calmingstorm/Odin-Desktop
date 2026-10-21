@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.4.0]
+
+**Stopping an agent stops the background jobs it started, and a start on an unreachable host fails fast.** Linux,
+Windows and macOS (Odin 4.20.0).
+
+- **Cancelling an agent stops its background jobs.** Cancelling an agent from its Work card, or with Odin's
+  `kill_agent`, now also stops the background processes that agent (and the agents it started) launched with
+  `manage_process`, including one still starting. The cancel's receipt lists each job and how it ended.
+  - When a stop can't be confirmed, the receipt says so (`outcome_unknown=true`), Odin keeps ownership of the job,
+    and a shutdown or host revoke doesn't claim its cleanup is complete.
+  - On macOS a stopped job is reported as a best-effort stop of its session, as macOS jobs already were.
+  - The card stays "requested" until the jobs' cleanup has finished, never "done" before it.
+  - Unchanged on purpose: an agent that finishes, fails or times out leaves its jobs running.
+- **A remote background job makes one direct connection attempt.** When the host can't be reached, Odin says that
+  nothing was started and retrying is safe, in seconds instead of after several retries. A failure that leaves the
+  outcome uncertain is still reported as unknown and cleaned up as before. Other remote commands keep their retries.
+- **`search_audit` returns one result per tool call**, showing approval and outcome separately (succeeded, failed,
+  denied, cancelled, outcome_unknown, started), and its status filter matches those outcomes. Settings → Records
+  still lists the raw audit records.
+- **Search:** knowledge results say how they matched (similarity, keyword match), and exact ties put keyword hits
+  first; history search keeps to its limit and refuses a blank query.
+- **`read_file`** refuses a directory in both modes, raw reads work on hosts whose login shell is zsh (macOS), and
+  numbered reads of non-UTF-8 files no longer start with gawk's locale warning. Windows reads of remote hosts get
+  the same fixes.
+- **`apply_patch`** ends lines added to an empty file with a newline, and gives an unterminated last line a line
+  break when lines are added after it. Every other line ending is kept byte for byte.
+- **Schedules:** a fixed-time schedule fires once, not twice, on the night clocks fall back.
+- **Process output:** a poll offers more output only when some was actually held back.
+
 ## [1.3.3]
 
 **A command that finished while Odin was busy keeps its real result.** Linux and macOS (Odin 4.19.2).
