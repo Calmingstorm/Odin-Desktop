@@ -13,7 +13,10 @@ from typing import TYPE_CHECKING
 
 from .windows_engine import _publish_path
 from .windows_ssh import (
+    COMMAND_LINE_LIMIT,
     CREATE_NO_WINDOW,
+    UNCONFIRMED_EXIT_NOTE,
+    command_line_units,
     end_client,
     end_client_settled,
     keyscan_hint,
@@ -57,11 +60,16 @@ async def read_lines_with_callback(
     pending = ""
     deadline = asyncio.get_running_loop().time() + timeout
 
-    async def cleanup() -> None:
+    async def cleanup() -> bool:
+        """True unless the settled cleanup could not confirm the client's exit."""
         if settled_cleanup and owned_pgid is None and isinstance(proc, asyncio.subprocess.Process):
-            await end_client_settled(proc)
-        else:
-            await end_client(proc, owned_pgid=owned_pgid)
+            return await end_client_settled(proc)
+        await end_client(proc, owned_pgid=owned_pgid)
+        return True
+
+    def noted(result: tuple[int, str], confirmed: bool) -> tuple[int, str]:
+        code, text = result
+        return (code, text if confirmed else text + UNCONFIRMED_EXIT_NOTE)
 
     async def emit(text: str) -> None:
         lines.append(text)
@@ -95,12 +103,12 @@ async def read_lines_with_callback(
                 await asyncio.wait_for(proc.wait(), timeout=min(timeout, 10))
         except TimeoutError:
             mark_dispatch_uncertain()
-            await cleanup()
-            return _stream_timeout_result(proc, "".join(lines), timeout)
+            confirmed = await cleanup()
+            return noted(_stream_timeout_result(proc, "".join(lines), timeout), confirmed)
     except TimeoutError:
         mark_dispatch_uncertain()
-        await cleanup()
-        return _stream_timeout_result(proc, "".join(lines) + pending, timeout)
+        confirmed = await cleanup()
+        return noted(_stream_timeout_result(proc, "".join(lines) + pending, timeout), confirmed)
     except asyncio.CancelledError:
         # Task cancellation (loop drain at shutdown/restart) must not leak
         # the child or its descendants past this process's lifetime.
@@ -239,6 +247,16 @@ async def run_ssh_command(
                     host_key_alias=host_key_alias,
                     target_id=target_id,
                 )
+            # Windows: CreateProcess refuses a command line over its limit. Say so before
+            # anything is started, so nothing is sent (never a shortened or unwrapped
+            # command instead), without echoing the command or its key paths.
+            units = command_line_units(ssh_args)
+            if units > COMMAND_LINE_LIMIT:
+                return 1, (
+                    f"Error: this command is too long to start from Windows: {units:,} characters "
+                    f"with ssh's options and Odin's wrapper, over Windows' limit of "
+                    f"{COMMAND_LINE_LIMIT:,}. Nothing was sent. Shorten it, or put it in a file on "
+                    "the host and run that.")
             # The ssh client is a direct child (no new session: killing the
             # client is sufficient, and ControlMaster mux masters must stay
             # untouched). With end_with_channel, the closing channel is what
@@ -321,7 +339,8 @@ async def run_ssh_command(
             # next attempt.
             if proc is not None:
                 mark_dispatch_uncertain()
-                await end_client_settled(proc)
+                if not await end_client_settled(proc):
+                    last_output += UNCONFIRMED_EXIT_NOTE
             if pool is not None:
                 # A legacy socket may still name a detached master; preserve
                 # its positive registration evidence until it is replaced.
@@ -350,15 +369,18 @@ async def run_ssh_command(
             raise
 
         except Exception as e:
+            note = ""
             if proc is not None:
                 mark_dispatch_uncertain()
-                await end_client_settled(proc)
+                if not await end_client_settled(proc):
+                    note = UNCONFIRMED_EXIT_NOTE
             log.error("SSH command failed: %s", safe_error(e))
-            return 1, f"SSH error: {safe_error(e)}"
+            return 1, f"SSH error: {safe_error(e)}{note}"
         finally:
             stdin = getattr(proc, "stdin", None) if proc is not None else None
             if stdin is not None:
-                # The client has exited, or its cleanup has run, by now.
+                # The client has exited or its cleanup has run by now; an exit the
+                # cleanup could not confirm is already marked uncertain and noted.
                 stdin.close()
             if pool is not None and pool_acquired:
                 pool.release(host, ssh_user, target_id)
