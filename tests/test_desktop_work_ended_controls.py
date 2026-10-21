@@ -78,21 +78,27 @@ async def test_killing_an_unknown_agent_is_odins_not_found(work, monkeypatch):
     assert result == service.agents.kill_with_receipt("nobody")[0]
 
 
+def _lineage(manager, message, *edges):
+    """Running agents by (id, parent), the first one the root; returns them by ID."""
+    items = {}
+    for agent_id, parent in edges:
+        item = AgentInfo(id=agent_id, label=agent_id, goal="harmless",
+                         channel_id=message.conversation_id, requester_id=message.owner_id,
+                         requester_name="Owner", parent_id=parent,
+                         root_id=edges[0][0] if parent else None)
+        item.transition(AgentState.READY)
+        manager._agents[agent_id] = item
+        if parent:
+            items[parent].children_ids.append(agent_id)
+        items[agent_id] = item
+    return items
+
+
 def _tree(manager, message):
     """A parent that finished while its child and grandchild still run."""
-    def make(id, parent=None):
-        item = AgentInfo(id=id, label=id, goal="harmless", channel_id=message.conversation_id,
-                         requester_id=message.owner_id, requester_name="Owner",
-                         parent_id=parent, root_id="p" if parent else None)
-        item.transition(AgentState.READY)
-        manager._agents[id] = item
-        if parent:
-            manager._agents[parent].children_ids.append(id)
-        return item
-
-    parent, child, grandchild = make("p"), make("c", "p"), make("g", "c")
-    parent.transition(AgentState.COMPLETED)
-    return parent, child, grandchild
+    items = _lineage(manager, message, ("p", None), ("c", "p"), ("g", "c"))
+    items["p"].transition(AgentState.COMPLETED)
+    return items["p"], items["c"], items["g"]
 
 
 def _retire(manager, agent_id):
@@ -170,29 +176,120 @@ async def test_killing_an_ended_parent_stops_its_running_descendants(work, monke
 
 
 @pytest.mark.asyncio
-async def test_a_descendant_control_that_fails_makes_the_kill_a_failure(work, monkeypatch):
+async def test_an_ended_agent_between_running_ones_is_crossed_once(work, monkeypatch):
+    """Odin's review F1: p (ended, cleaned up) > c (running) > t (ended) > g (running). The
+    control on c reaches g through t, as Odin's cascade does. A second control on g would
+    cancel it again while the first cancel's cleanup runs, and cut that cleanup short."""
+    service, message, _context = work
+    handler = native_controls(service, monkeypatch)
+    edges = (("p", None), ("c", "p"), ("t", "c"), ("g", "t"))
+    items = _lineage(service.agents, message, *edges)
+    for item in items.values():
+        service.register("agent", item.id, message)
+    for agent_id in ("p", "t"):
+        items[agent_id].transition(AgentState.COMPLETED)
+    _retire(service.agents, "p")
+    cleanup_entered, allow_cleanup, cleaned, reaped = asyncio.Event(), asyncio.Event(), [], []
+
+    def reaper(agent_ids):
+        reaped.append(set(agent_ids))
+        cleanup = AgentJobCleanup(jobs=[("g1", 41)], starts=0)
+
+        async def settle():  # the jobs' cleanup settles while g's own cleanup still runs
+            await cleanup_entered.wait()
+            return {"jobs": {"g1": "stopped"}, "starts": []}
+
+        cleanup.task = asyncio.create_task(settle())
+        return cleanup
+
+    async def run(item):
+        try:
+            try:
+                await asyncio.sleep(100)
+            finally:
+                if item.id == "g":
+                    cleanup_entered.set()
+                    await allow_cleanup.wait()
+                    cleaned.append(item.id)
+        except asyncio.CancelledError:
+            item.transition(AgentState.KILLED)
+
+    service.agents.set_job_reaper(reaper)
+    for agent_id in ("c", "g"):
+        items[agent_id]._task = asyncio.create_task(run(items[agent_id]))
+    await asyncio.sleep(0)
+    odin = AgentManager()
+    twin = _lineage(odin, message, *edges)
+    for agent_id in ("p", "t"):
+        twin[agent_id].transition(AgentState.COMPLETED)
+    _retire(odin, "p")
+    expected = odin.kill_with_receipt("p")[0]
+    assert expected.endswith("Kill signal sent to 2 descendant(s).")
+
+    result = await handler._handle_kill_agent(message, {"agent_id": "p"})
+
+    assert result == f"{expected} Stopped 1 background job(s) it started (PID 41)."
+    assert [control["id"] for control in _journal(service)] == [_record_id(service, "c")]
+    assert reaped == [{"c", "g"}]
+    assert (items["c"]._task.cancelling(), items["g"]._task.cancelling()) == (1, 1)
+    allow_cleanup.set()
+    await asyncio.gather(items["c"]._task, items["g"]._task)
+    assert cleaned == ["g"]
+
+
+@pytest.mark.asyncio
+async def test_a_journal_failure_after_the_cancel_keeps_the_outcome_unknown(work, monkeypatch):
+    """Odin's review F2: the descendant's cancel was applied, then the journal couldn't record
+    its receipt. The kill's answer stays uncertain and never counts that cancel as not sent."""
+    from src.desktop.commands import JournalStorageError
+    from src.discord.tool_loop import _unwrap_native_result
+
     service, message, _context = work
     handler = native_controls(service, monkeypatch)
     tree = _tree(service.agents, message)
     for item in tree:
         service.register("agent", item.id, message)
     _retire(service.agents, "p")
-    error = response_error("storage_unavailable", "Durable control storage is unavailable",
-                           "outcome_unknown")
-    sent = []
 
-    async def dispatch(method, params, **_kwargs):
-        sent.append((method, params["id"], params["action"]))
-        return error
+    def fail(*_args):
+        raise JournalStorageError()
 
-    monkeypatch.setattr(service.controls, "dispatch", dispatch)
+    monkeypatch.setattr(service.controls, "_finish", fail)
 
     result = await handler._handle_kill_agent(message, {"agent_id": "p"})
 
-    _failure(result, "Agent 'p' already in terminal state: completed. Kill signal sent to 0 "
-                     f"descendant(s). Agent 'c': {json.dumps(error, sort_keys=True)}")
-    assert sent == [("work.control", _record_id(service, "c"), "cancel")]  # the topmost, once
-    assert [item.status for item in tree[1:]] == ["running", "running"]
+    error = response_error("storage_unavailable", "Durable control storage is unavailable",
+                           "outcome_unknown")
+    _failure(result, "Agent 'p' already in terminal state: completed. Kill signal confirmed for "
+                     "0 of 2 running descendant(s); outcome unknown for 2 (outcome_unknown=true). "
+                     f"Agent 'c': {json.dumps(error, sort_keys=True)}")
+    tool_result, _output = _unwrap_native_result(result)
+    assert not tool_result.ok and tool_result.uncertain_outcome
+    assert all(item._cancel_event.is_set() for item in tree[1:])  # the cancel was applied
+    with service.store.transaction() as db:
+        assert [tuple(row) for row in db.execute(
+            "SELECT disposition, response FROM desktop_controls")] == [("pending", None)]
+
+
+@pytest.mark.asyncio
+async def test_a_refusal_before_the_cancel_is_a_definite_failure(work, monkeypatch):
+    service, message, _context = work
+    handler = native_controls(service, monkeypatch)
+    tree = _tree(service.agents, message)
+    for item in tree:
+        service.register("agent", item.id, message)
+    _retire(service.agents, "p")
+    monkeypatch.setattr(service.controls, "work", None)  # refused before any reservation
+
+    result = await handler._handle_kill_agent(message, {"agent_id": "p"})
+
+    error = response_error("capability_unavailable", "Work controls are unavailable")
+    _failure(result, "Agent 'p' already in terminal state: completed. Kill signal confirmed for "
+                     "0 of 2 running descendant(s). "
+                     f"Agent 'c': {json.dumps(error, sort_keys=True)}")
+    assert result.uncertain_outcome is False
+    assert not any(item._cancel_event.is_set() for item in tree[1:])
+    assert _journal(service) == []
 
 
 @pytest.mark.asyncio
@@ -205,8 +302,9 @@ async def test_a_running_descendant_without_a_work_record_is_named(work, monkeyp
 
     result = await handler._handle_kill_agent(message, {"agent_id": "p"})
 
-    _failure(result, "Agent 'p' already in terminal state: completed. Kill signal sent to 0 "
-                     f"descendant(s). Agent 'c': {UNAVAILABLE}")
+    _failure(result, "Agent 'p' already in terminal state: completed. Kill signal confirmed for "
+                     f"0 of 2 running descendant(s). Agent 'c': {UNAVAILABLE}")
+    assert result.uncertain_outcome is False
     assert [item.status for item in tree[1:]] == ["running", "running"]
     assert _journal(service) == []
 

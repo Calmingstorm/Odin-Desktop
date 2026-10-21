@@ -602,9 +602,10 @@ class WorkService:
         """``kill_agent`` on an agent with no cancel to offer, answered as
         AgentManager.kill_with_receipt answers it: an unknown agent is an error, an ended one
         a success, and the kill goes on to its descendants still running. Odin finds them after
-        his cleanup too (the lineage outlives the agent while one runs). The topmost of them are
-        cancelled through their own Work records; each cancel stops the agents below it and
-        their jobs."""
+        his cleanup too (the lineage outlives the agent while one runs). The root of each running
+        subtree is cancelled through its own Work record, which stops the agents below it and
+        their jobs. Only confirmed cancels are counted as sent; a control whose outcome is
+        unknown makes the answer a failure that keeps that uncertainty."""
         retired = getattr(self.agents, "_retired_lineage", {}).get(manager_id)
         if item is None and retired is None:
             return ToolFailure(f"Error: Agent '{manager_id}' not found.")
@@ -612,24 +613,42 @@ class WorkService:
         if status not in TERMINAL:
             return UNAVAILABLE  # live, yet no Work record offers its control
         items = self._items("agent")
-        running = [aid for aid in self.agents.get_descendants(manager_id)
-                   if aid in items and _get(items[aid], "status") not in TERMINAL]
-        signalled, notes, failed = 0, [], False
-        for top in [aid for aid in running if _get(items[aid], "parent_id") not in running]:
-            answer = await self.control_native(message, "agent", top, "cancel")
+        descendants = self.agents.get_descendants(manager_id)
+        running = {aid for aid in descendants
+                   if aid in items and _get(items[aid], "status") not in TERMINAL}
+        # One control per running subtree, its root found through the whole lineage (an ended
+        # agent between two running ones too): each running agent is signalled once, as in
+        # Odin's cascade, never again while the first cancel's cleanup runs.
+        roots = [aid for aid in descendants if aid in running
+                 and not running.intersection(self.agents.get_lineage(aid)[:-1])]
+        confirmed, unknown, notes, failed = set(), set(), [], False
+        for root in roots:
+            subtree = {root} | running.intersection(self.agents.get_descendants(root))
+            answer = await self.control_native(message, "agent", root, "cancel")
             result = answer.get("result") if isinstance(answer, dict) else None
             if isinstance(result, dict) and result.get("disposition") in {"requested", "done"}:
-                below = set(self.agents.get_descendants(top))
-                signalled += 1 + sum(1 for aid in running if aid in below)
+                confirmed |= subtree
                 if result.get("jobs"):
                     notes.append(result["jobs"]["summary"])
                 continue
+            error = answer.get("error") if isinstance(answer, dict) else None
+            if ((isinstance(error, dict) and error.get("disposition") == "outcome_unknown")
+                    or getattr(answer, "uncertain_outcome", False)):
+                unknown |= subtree  # the cancel may have been applied: never counted as not sent
             failed = failed or isinstance(answer, dict) or is_tool_failure(answer)
-            notes.append(f"Agent '{top}': " + (answer if isinstance(answer, str)
-                                                 else json.dumps(answer, sort_keys=True)))
-        text = " ".join([f"Agent '{manager_id}' already in terminal state: {status}. "
-                         f"Kill signal sent to {signalled} descendant(s).", *notes])
-        return ToolFailure(text) if failed else text
+            notes.append(f"Agent '{root}': " + (answer if isinstance(answer, str)
+                                                  else json.dumps(answer, sort_keys=True)))
+        if confirmed == running:
+            count = f"Kill signal sent to {len(running)} descendant(s)."
+        else:
+            count = (f"Kill signal confirmed for {len(confirmed)} of {len(running)} running "
+                     "descendant(s)" + (f"; outcome unknown for {len(unknown)} "
+                                        "(outcome_unknown=true)." if unknown else "."))
+        text = " ".join([f"Agent '{manager_id}' already in terminal state: {status}. {count}",
+                         *notes])
+        if failed or unknown:
+            return ToolFailure(text, uncertain_outcome=bool(unknown))
+        return text
 
     async def apply(self, params, *, owner_context) -> dict:
         """ControlService-only backend. Reservation MUST commit before calling.
