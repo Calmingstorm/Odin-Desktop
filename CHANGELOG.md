@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.4.1]
+
+**Reading a folder on Windows, and stopping work that has already ended, now give Odin's own answers.** Linux,
+Windows and macOS.
+
+- **Windows: `read_file` on a folder says it is a directory.** Reads on the Windows computer itself don't go
+  through a shell, and Windows can't open a folder, so reading one said "Permission denied" and Odin was offered
+  `sudo`. It now says `Error: <path> is a directory, not a file.`, as on Linux and macOS, for a folder or a link to
+  one. A file that really can't be opened still says "Permission denied".
+- **Stopping or messaging work that has ended gets Odin's own answer.** `kill_agent`, `send_to_agent`,
+  `cancel_task`, `stop_loop` and `manage_process` kill said only "bound work control is not available" when the
+  agent, task, loop or process had ended or didn't exist. They now answer as Odin does:
+  - `kill_agent` on a finished agent: "Agent '…' already in terminal state: completed. Kill signal sent to 0
+    descendant(s)." This isn't an error.
+  - An unknown ID: "Agent '…' not found.", "No task found with ID …", "No loop found with ID …" or "No process with
+    PID …".
+  - Something that has ended: "… is not running (status: …)" or "Process … already completed.".
+  - `manage_process` kill reports these as failures, as Odin does. Before, they counted as successes.
+- **Killing a finished agent still stops the agents it started that are running**, as Odin's `kill_agent` does.
+  Once a finished agent had been cleared (five minutes after it ended), a kill no longer reached its sub-agents
+  that were still running, or their background jobs. Each one is now stopped through its own Work card, which
+  records the stop.
+- Outbound webhooks no longer get a `loop.stopped` event when `stop_loop` stopped nothing.
+
 ## [1.4.0]
 
 **Stopping an agent stops the background jobs it started, and a start on an unreachable host fails fast.** Linux,
