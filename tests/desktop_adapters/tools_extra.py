@@ -25,10 +25,11 @@ CORPUS_SELECTIONS = {
     "test_output_delivery_retention": None,
     "test_backoff": None,
     "test_successful_retry_provenance": [
-        "test_real_run_command_internal_ssh_retry_settlement",
+        # Odin 4.21.0 (PR #672) never sends a remote user command twice once it may have been
+        # dispatched, so it rewrote the two run_command re-send cases; their 4.21.0 forms run in
+        # tests/test_desktop_odin_4210_cases.py.
         "test_real_read_file_executor_recovery_settlement",
         "test_real_read_file_error_like_content_does_not_recover",
-        "test_real_run_command_exhausted_timeouts_remain_failed",
     ],
     "test_output_authorization": [
         "test_nested_capture_collects_child_hosts_without_leaking",

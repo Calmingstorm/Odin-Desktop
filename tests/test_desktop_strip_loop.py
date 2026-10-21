@@ -71,6 +71,36 @@ ODIN_419_LOOP_HEAD = (
 ODIN_419_CLOSED_REPORTS = {"_stopped": "stopped", "_suspend_turn": "suspended"}
 
 
+# Odin 4.21's own edits (silent loops accept a quiet reply, PR #672): the loop's
+# provider call carries the opt-in, and a silent loop's empty final is its answer.
+ODIN_421_LOOP_EDITS = {
+    "_call_loop_llm": (
+        ('                pin_kwargs["reasoning_effort"] = serving_identity.reasoning_effort\n'
+         "\n"
+         "        async def _attempt():\n",
+         '                pin_kwargs["reasoning_effort"] = serving_identity.reasoning_effort\n'
+         '        if getattr(st, "allow_empty_reply", False):\n'
+         '            pin_kwargs["allow_empty_reply"] = True\n'
+         "\n"
+         "        async def _attempt():\n"),
+    ),
+    "_record_loop_iteration": (
+        ("        if response.text:\n"
+         "            st.final_text = response.text\n",
+         "        if response.text:\n"
+         "            st.final_text = response.text\n"
+         "        elif (\n"
+         '            getattr(st, "allow_empty_reply", False)\n'
+         "            and not response.tool_calls\n"
+         '            and getattr(response, "stop_reason", None) != "incomplete"\n'
+         "        ):\n"
+         "            # A silent loop's empty final is the answer. Earlier pre-tool text\n"
+         "            # (even a [NOTIFY]) stays in the trajectory, never in the result.\n"
+         '            st.final_text = ""\n'),
+    ),
+}
+
+
 def test_all_unadapted_loop_phase_bodies_are_byte_identical():
     path = "src/discord/tool_loop.py"
     baseline = _methods(_baseline(path), "ToolLoopRunner")
@@ -95,6 +125,12 @@ def test_all_unadapted_loop_phase_bodies_are_byte_identical():
         assert baseline[name].count(close) == 1, name
         reports = f'        self._channel_state.close_reports(st._ch_id, st._req_id, "{reason}")\n'
         assert desktop[name] == baseline[name].replace(close, reports + close), name
+    for name, edits in ODIN_421_LOOP_EDITS.items():
+        edited = baseline[name]
+        for old, new in edits:
+            assert edited.count(old) == 1, (name, old)
+            edited = edited.replace(old, new)
+        assert desktop[name] == edited, name
     adapted = {
         "run", "run_resumed", "_prepare_chat_turn", "_scoped_tools_for_request",
         "_call_llm", "run_autonomous", "_finalize_loop", "__init__",
@@ -102,9 +138,10 @@ def test_all_unadapted_loop_phase_bodies_are_byte_identical():
         # Step 6B replaces only the proxy/removed prompt parameter and adds
         # admitted owner checks. Real execution is exercised by background_core.
         "_prepare_loop_turn", "dispatch_loop_tool_inner",
-        # Exactly Odin 4.17's, 4.18's and 4.19's edits, pinned above.
+        # Exactly Odin 4.17's, 4.18's, 4.19's and 4.21's edits, pinned above.
         "_audit_loop_tool_outcome", "_run_with_guards",
         "_run_chat_iterations", "_stopped", "_suspend_turn",
+        *ODIN_421_LOOP_EDITS,
     }
     assert baseline.keys() == desktop.keys()
     for name in baseline.keys() - adapted:

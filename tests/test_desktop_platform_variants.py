@@ -148,9 +148,9 @@ OVERRIDE_SOURCES = {
     "src/tools/process_manager.py:ProcessRegistry._start_local_reserved":
         "f0c65ee1b671ad67d811d2dc05f894deb8f7bf455d8bbad01bd563f970feea61",
     "src/tools/ssh.py:_read_lines_with_callback":
-        "9a33f75e18fb7d77f2c1ad10be1c88efbc0a51610fcdb4a42417a42de75472c9",
+        "9fe3c468b9b74a37d6781041d02c4d1e3ab60c12272859a43c8e11243b0aa758",
     "src/tools/ssh.py:run_ssh_command":
-        "233e0968ca12f2d32935c77e141e644bb55947497390193429bf802704181c8d",
+        "285c6b368761d789adaf992c943d373dfe4ec49da0d1010017a94933a37fbb70",
     "src/tools/handlers/browser_web.py:BrowserWebTools._handle_http_probe":
         "b539e2e3a11d0e5a5c8ce29f9ae972b3dc465fe8f4d27f4e8658ca01e0970657",
     "src/tools/ssh.py:read_binary_file":

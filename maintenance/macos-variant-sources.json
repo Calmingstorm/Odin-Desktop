@@ -16,7 +16,7 @@
   "src/runtime/pdf_resources.py:_read_lock -> src.desktop.platform.macos_resources:read_pdf_lock": "6312a7fae081e8da81d0924a252cd2f3551940cc6735acd99cff3c1fae070a97",
   "src/tools/command_shell.py:apply_shell_contracts -> src.desktop.platform.macos_shell:apply_shell_contracts": "0166e13812315068f84c0769f8d6aaa820c0bbd63919955f4fe2ee2e6b3648d2",
   "src/tools/executor.py:_ensure_process_registry -> src.desktop.platform.macos_jobs:ensure_process_registry": "080be7123a771d38b1c52616b31eefb8f6cae6bb617ad75aa54db4e3296f1c23",
-  "src/tools/executor.py:_exec_command -> src.desktop.platform.macos_jobs:exec_command": "148a6134b7495e92c2c8d796270a8e90ea1f36eb26c5fa2c2626e4515f58b0c6",
+  "src/tools/executor.py:_exec_command -> src.desktop.platform.macos_jobs:exec_command": "bfc155c760935a22057f295a2ebba4954206a0095c787c87747f500361af85de",
   "src/tools/executor.py:_govern_command -> src.desktop.platform.macos_safety:govern_command": "11d43248aa6e5172019f872db9b9acdd90de50a155708188d887d96cf8f1155c",
   "src/tools/hosts/control.py:_test -> src.desktop.platform.macos_desktop:host_test": "a94f7335ac60b14f02b7834b5fccc6a04816bd9a24ea0a22e92bf5fb639b8ac2"
 }

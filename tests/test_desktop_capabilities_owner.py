@@ -183,8 +183,16 @@ ODIN_V4_19_2_LOCAL_SUPERVISOR_SHA256 = (
 # byte (sha256 of `git show v4.20.0:src/tools/<name>`), and so is ToolExecutor._try_tool, which
 # hands a dispatching agent's identity to its job starts (sha256 of the method's source lines).
 ODIN_V4_20_0_SHA256 = {
-    "ssh.py": "ac5c9acdc0aaff443b8269a8097bd530376e1d269a6b9b148a9039fcb3961b14",
     "process_manager.py": "9b2fdd16efbe2a51975c8a57161e8ea54cd64ab99d374e6665efe08288916aee",
+}
+
+# Desktop 1.5.0 carries Odin 4.21.0 (PR #672): a remote foreground command ends with its SSH
+# channel and is never sent twice (ssh.py), under the remote coordinator (remote_foreground.py,
+# new in 4.21.0). Both are Odin v4.21.0's files byte for byte (sha256 of
+# `git show v4.21.0:src/tools/<name>`).
+ODIN_V4_21_0_SHA256 = {
+    "ssh.py": "ed67723dcd800b96ced53128320105c92aab19c0abf861f5b1a12c7ac8b661e8",
+    "remote_foreground.py": "4d8761e326c53d1b39e83cda501371a3674a249be2ac9be28030c9325369d74e",
 }
 ODIN_V4_20_0_TRY_TOOL_SHA256 = (
     "f76331f23d484cdf215a29bfe7bc898069ba8d3252f5535bf4da4bcfed38d528")
@@ -194,6 +202,12 @@ def test_common_classifier_functions_remain_byte_identical():
     root = Path(__file__).resolve().parents[1]
     current = (root / "src/tools/risk_classifier.py").read_bytes()
     assert hashlib.sha256(current).hexdigest() == ODIN_V4_14_0_GOVERNOR_SHA256
+
+
+def test_the_remote_coordinator_is_odin_v4_21_0_byte_for_byte():
+    root = Path(__file__).resolve().parents[1]
+    current = (root / "src/tools/remote_foreground.py").read_bytes()
+    assert hashlib.sha256(current).hexdigest() == ODIN_V4_21_0_SHA256["remote_foreground.py"]
 
 
 def test_common_safety_primitives_byte_identical():
@@ -208,6 +222,10 @@ def test_common_safety_primitives_byte_identical():
         if name == "local_supervisor.py":
             current = (root / "src/tools" / name).read_bytes()
             assert hashlib.sha256(current).hexdigest() == ODIN_V4_19_2_LOCAL_SUPERVISOR_SHA256
+            continue
+        if name in ODIN_V4_21_0_SHA256:
+            current = (root / "src/tools" / name).read_bytes()
+            assert hashlib.sha256(current).hexdigest() == ODIN_V4_21_0_SHA256[name]
             continue
         if name in ODIN_V4_20_0_SHA256:
             current = (root / "src/tools" / name).read_bytes()
