@@ -292,3 +292,63 @@ def test_only_kills_reap_jobs_never_completion_failure_or_timeout():
                         and call.func.attr == "_reap_jobs"):
                     callers.add(node.name)
     assert callers == {"kill_for_turn", "kill_with_receipt"}
+
+
+# --- The defensive branches Odin 4.20.0 added to the shared engine ----------------------------
+
+
+async def test_the_audit_stream_skips_unparseable_records_and_reports_read_errors(tmp_path,
+                                                                                  monkeypatch):
+    from unittest.mock import Mock
+
+    from src.audit import logger as audit_logger
+
+    path = tmp_path / "audit.jsonl"
+    path.write_text('{"tool_name": "first"}\nnot a record\n{"tool_name": "second"}\n')
+    audit = audit_logger.AuditLogger(str(path))
+    assert [entry["tool_name"] async for entry in audit.iter_entries_newest_first()] == [
+        "second", "first"]
+
+    async def unreadable(_fd):
+        raise OSError("fixture: unreadable snapshot")
+        yield  # an async generator, like the real reader
+
+    recorder = Mock()
+    monkeypatch.setattr(audit_logger, "_iter_lines_reverse", unreadable)
+    monkeypatch.setattr(audit_logger, "log", recorder)
+    assert [entry async for entry in audit.iter_entries_newest_first()] == []
+    recorder.error.assert_called_once()
+    assert "Failed to read audit log snapshot" in recorder.error.call_args.args[0]
+
+
+def test_a_repeated_local_hour_that_never_ends_is_refused():
+    from datetime import datetime, timedelta, tzinfo
+
+    from src.scheduler import scheduler as module
+
+    class EndlessRepeat(tzinfo):
+        """Every local time happens twice: the second copy is an hour later."""
+
+        def utcoffset(self, dt):
+            return timedelta(hours=-5 if dt.fold else -4)
+
+        def dst(self, dt):
+            return timedelta(0)
+
+        def tzname(self, dt):
+            return "REPEAT"
+
+    with pytest.raises(RuntimeError, match="no end to the repeated local time"):
+        module._end_of_repeat(datetime(2026, 11, 1, 1, 30, tzinfo=EndlessRepeat()))
+
+
+def test_a_fixed_time_job_that_never_leaves_a_repeated_hour_is_refused(monkeypatch):
+    from datetime import UTC, timedelta
+
+    from src.scheduler import scheduler as module
+
+    monkeypatch.setattr(module, "_is_repeated_wall_time", lambda candidate, now: True)
+    monkeypatch.setattr(module, "_end_of_repeat",
+                        lambda candidate: candidate.astimezone(UTC) + timedelta(hours=1))
+    with pytest.raises(RuntimeError, match="no eligible next run"):
+        module._cron_next_run("30 1 * * *", "America/New_York")
