@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ..llm.secret_scrubber import scrub_output_secrets
+from ..tools.execution_outcome import ToolFailure, is_tool_failure
 from ..web.api._agent_display import agent_display_policy
 from .commands import canonical_json, response_error
 
@@ -27,6 +28,8 @@ TERMINAL = frozenset({"completed", "failed", "timeout", "killed", "cancelled",
 KEEP_FINISHED = 50
 # As Odin's kill_agent: a bounded wait for the jobs' report; their cleanup runs on.
 KILL_JOB_REPORT_SECONDS = 10.0
+# A native control Work can't route: another owner's work, or a live target it holds no record of.
+UNAVAILABLE = "Error: bound work control is not available."
 
 
 async def job_cleanup_evidence(cleanup) -> dict | None:
@@ -538,8 +541,10 @@ class WorkService:
         listing = self.list({"kind": kind})
         records = [r for r in listing.get("items", []) if r["manager_id"] == str(manager_id)
                    and r["owner_id"] == message.owner_id and action in r["actions"]]
+        if not records and self.controls is not None:
+            return await self._ended(message, kind, str(manager_id), action)
         if len(records) != 1 or self.controls is None:
-            return "Error: bound work control is not available."
+            return UNAVAILABLE
         record = records[0]
         params = {k: record[k] for k in ("kind", "id", "manager_generation", "run_id",
                   "generation", "conversation_id")}
@@ -549,6 +554,101 @@ class WorkService:
         if kind == "schedule":
             params["revision"] = record["detail"]["revision"]
         return await self.controls.dispatch("work.control", params)
+
+    async def _ended(self, message, kind, manager_id, action):
+        """Odin's own answer when Work has no control to offer: the target is unknown or
+        has ended. It is read from its manager, never controlled, with the texts and the
+        failure Odin's tools give. One answer acts, as Odin's kill does: an ended agent's
+        descendants still running are stopped, each through its own journaled control.
+        Another owner's work, and a live target with no Work record, keep the refusal."""
+        if (message.owner_id != self.authority.owner_id
+                or not self.permissions.is_owner(message.owner_id)):
+            return UNAVAILABLE
+        item = self._items(kind).get(manager_id)
+        if item is not None and self._owner_destination(kind, item)[0] != message.owner_id:
+            return UNAVAILABLE
+        status = _get(item, "status")
+        if kind == "agent" and action == "steer":  # send_to_agent, as AgentManager.send
+            if item is None:
+                return ToolFailure(f"Error: Agent '{manager_id}' not found.")
+            if status in TERMINAL:
+                return ToolFailure(
+                    f"Error: Agent '{manager_id}' is not running (status: {status}).")
+        elif kind == "agent" and action == "cancel":  # kill_agent
+            return await self._kill_ended_agent(message, manager_id, item)
+        elif kind == "task" and action == "cancel":  # cancel_task
+            if item is None:
+                return ToolFailure(f"No task found with ID `{manager_id}`.")
+            if status != "running":
+                return ToolFailure(f"Task `{manager_id}` is not running (status: {status}).")
+        elif kind == "loop" and action == "stop":  # stop_loop, as LoopManager.stop_loop
+            if item is None:
+                return ToolFailure(f"No loop found with ID `{manager_id}`.")
+            if status != "running":
+                return ToolFailure(f"Loop `{manager_id}` is not running (status: {status}).")
+        elif kind == "process" and action == "stop":  # manage_process kill, as the registry
+            if item is None:
+                return ToolFailure(f"No process with PID {manager_id}.")
+            if status != "running" and item.session_confirmed_empty:
+                return ToolFailure(f"Process {manager_id} already {status}."
+                                   + self.processes._remote_cleanup_caveat(item))
+            if item.restored:
+                if self.authorize_process is None or not self.authorize_process(item):
+                    return ToolFailure("Error: process access denied.")
+                return ToolFailure("Error: retained process evidence is read-only.")
+        return UNAVAILABLE
+
+    async def _kill_ended_agent(self, message, manager_id, item):
+        """``kill_agent`` on an agent with no cancel to offer, answered as
+        AgentManager.kill_with_receipt answers it: an unknown agent is an error, an ended one
+        a success, and the kill goes on to its descendants still running. Odin finds them after
+        his cleanup too (the lineage outlives the agent while one runs). The root of each running
+        subtree is cancelled through its own Work record, which stops the agents below it and
+        their jobs. Only confirmed cancels are counted as sent; a control whose outcome is
+        unknown makes the answer a failure that keeps that uncertainty."""
+        retired = getattr(self.agents, "_retired_lineage", {}).get(manager_id)
+        if item is None and retired is None:
+            return ToolFailure(f"Error: Agent '{manager_id}' not found.")
+        status = _get(item, "status") if item is not None else retired["status"]
+        if status not in TERMINAL:
+            return UNAVAILABLE  # live, yet no Work record offers its control
+        items = self._items("agent")
+        descendants = self.agents.get_descendants(manager_id)
+        running = {aid for aid in descendants
+                   if aid in items and _get(items[aid], "status") not in TERMINAL}
+        # One control per running subtree, its root found through the whole lineage (an ended
+        # agent between two running ones too): each running agent is signalled once, as in
+        # Odin's cascade, never again while the first cancel's cleanup runs.
+        roots = [aid for aid in descendants if aid in running
+                 and not running.intersection(self.agents.get_lineage(aid)[:-1])]
+        confirmed, unknown, notes, failed = set(), set(), [], False
+        for root in roots:
+            subtree = {root} | running.intersection(self.agents.get_descendants(root))
+            answer = await self.control_native(message, "agent", root, "cancel")
+            result = answer.get("result") if isinstance(answer, dict) else None
+            if isinstance(result, dict) and result.get("disposition") in {"requested", "done"}:
+                confirmed |= subtree
+                if result.get("jobs"):
+                    notes.append(result["jobs"]["summary"])
+                continue
+            error = answer.get("error") if isinstance(answer, dict) else None
+            if ((isinstance(error, dict) and error.get("disposition") == "outcome_unknown")
+                    or getattr(answer, "uncertain_outcome", False)):
+                unknown |= subtree  # the cancel may have been applied: never counted as not sent
+            failed = failed or isinstance(answer, dict) or is_tool_failure(answer)
+            notes.append(f"Agent '{root}': " + (answer if isinstance(answer, str)
+                                                  else json.dumps(answer, sort_keys=True)))
+        if confirmed == running:
+            count = f"Kill signal sent to {len(running)} descendant(s)."
+        else:
+            count = (f"Kill signal confirmed for {len(confirmed)} of {len(running)} running "
+                     "descendant(s)" + (f"; outcome unknown for {len(unknown)} "
+                                        "(outcome_unknown=true)." if unknown else "."))
+        text = " ".join([f"Agent '{manager_id}' already in terminal state: {status}. {count}",
+                         *notes])
+        if failed or unknown:
+            return ToolFailure(text, uncertain_outcome=bool(unknown))
+        return text
 
     async def apply(self, params, *, owner_context) -> dict:
         """ControlService-only backend. Reservation MUST commit before calling.

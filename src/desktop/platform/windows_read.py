@@ -161,9 +161,13 @@ _DEVICE_PATH = re.compile(
 def _open_regular(path: str):
     """The file to read, opened once and checked on that very handle: reading a device or a
     pipe can block for good, and a worker thread can't be stopped. Device and pipe paths are
-    refused before anything is opened (opening a pipe connects to it)."""
+    refused before anything is opened (opening a pipe connects to it), and so is a directory
+    or a link to one, as the command's own directory guard refuses it first: Windows can't
+    open a folder, so ``open`` alone would call it a permission problem."""
     if _DEVICE_PATH.match(path):
         raise OSError(errno.EINVAL, "not a regular file", path)
+    if os.path.isdir(path):
+        raise IsADirectoryError(errno.EISDIR, "is a directory", path)
     stream = open(path, "rb")  # a device name (NUL, CON) opens as a device: nothing is read
     if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
         stream.close()
@@ -182,6 +186,8 @@ def read_local(path: str, *, start: int, start_label: str, count: int, budget: i
             else:
                 data = numbered(stream, start=start, start_label=start_label, count=count,
                                 budget=budget)
+    except IsADirectoryError:
+        return 1, f"Error: {path} is a directory, not a file.\n"
     except OSError as exc:
         return 2, f"read_file: cannot open {path}: {exc.strerror or exc}\n"
     return 0, data.decode("utf-8", errors="replace")

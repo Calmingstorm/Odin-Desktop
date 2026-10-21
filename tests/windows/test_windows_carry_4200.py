@@ -4,9 +4,9 @@
   down to Windows' OpenSSH launch; other remote operations keep their retries.
 - Jobs an agent started are recorded with it and stopped when it is killed, including a start
   still settling.
-- A local read refuses directories and directory links in both modes; a remote read sends
-  Odin's own command (directory guard, ``rc``, newline placement) and drops only gawk's
-  locale warning.
+- A local read refuses directories and directory links in both modes with the text Odin's
+  directory guard prints; a remote read sends Odin's own command (directory guard, ``rc``,
+  newline placement) and drops only gawk's locale warning.
 - Process previews offer a continuation exactly as Odin's do.
 - apply_patch keeps exact line endings through the Windows handler and its child.
 """
@@ -208,9 +208,8 @@ async def test_a_local_directory_or_directory_link_is_refused(tmp_path, budget, 
 
     result = await handle_read_file(fake, {"path": str(path), "host": "localhost", "raw": raw})
 
-    text, code = result
-    assert code == 2 and "cannot open" in text, result
-    assert "inside" not in text and "[returned" not in text
+    # Windows can't open a folder; the read must not call it a permission problem.
+    assert result == (f"Command failed (exit 1):\nError: {path} is a directory, not a file.\n", 1)
     assert calls == []
 
 
