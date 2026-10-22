@@ -11,7 +11,7 @@ Download `odin-desktop-<version>-arm64.dmg` and `SHA256SUMS` from
 disk image, compare its SHA-256 with the value in `SHA256SUMS`, in Terminal:
 
 ```sh
-shasum -a 256 ~/Downloads/odin-desktop-1.4.1-arm64.dmg
+shasum -a 256 ~/Downloads/odin-desktop-1.5.0-arm64.dmg
 ```
 
 The two must match exactly. The app and the disk image are **signed by Aaron Charpentier** with his Apple
