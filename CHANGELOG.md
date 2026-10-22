@@ -1,5 +1,54 @@
 # Changelog
 
+## [1.6.0]
+
+**Scheduled work starts on time, and a failed keyring save no longer loses a Codex sign-in.** Linux, Windows and
+macOS (Odin 4.22.0).
+
+- **Schedules no longer wait for each other's slow actions.** Due schedules run in lanes by kind: reminders,
+  webhooks, and everything else (checks, workflows and digests). A lane runs one schedule at a time, as the
+  scheduler ran all of them before, and never waits for another lane, so a reminder or a webhook starts on time
+  beside a long check. A schedule that waits for its lane, or for its own long run, starts as soon as it can and
+  is not counted as missed. Desktop's missed-run rule is unchanged for time the app wasn't running or was asleep:
+  such an action still waits for you to run it, and a missed reminder still arrives once with its notice.
+- **Webhook schedules never reach a cloud-metadata address.** Saving one that targets `169.254.169.254` or another
+  metadata address is refused with that reason, a saved one is refused when it runs, and a redirect to one is
+  refused. Private and homelab addresses still work.
+- **A Codex sign-in survives a failed keyring save.** Refreshing a Codex token uses up the old one. If the keyring
+  then failed to save the new one (locked or unavailable), the account was lost and needed signing in again. The
+  new token is now kept, used, and saved to the keyring at the next request, also after the account list reloads.
+  It is never written to a file.
+- **A failed test's "stale branch" note checks the right repository.** It looked at the folder Odin Desktop runs
+  from and compared with `origin/<branch>`. It now asks git in the folder the test ran in (its leading `cd`, or the
+  workspace) and compares with the branch's own upstream, within one time limit. A branch without an upstream is
+  reported as such, never as up to date.
+- **A tool call that fails no longer leaves its sibling calls running unseen.** When one call of a batch fails the
+  turn, every other call of that batch now finishes first, so the turn's Stop and its records still cover them.
+- **Stop and Steer still reach a running chat after its session is pruned or reset.** Housekeeping used to drop the
+  running request's stop and steer ownership once the conversation's session went away, for example when other
+  conversations' replies pruned idle sessions during a long turn.
+- **A request's attached files stay until its turn ends,** including a resumed turn, even when cleanup runs with a
+  short retention.
+- **Housekeeping also runs while the app is quiet.** Old attachment files, finished turn records and stuck-agent
+  checks were cleaned only after a reply. A timer now checks the same throttled pass.
+- **Smaller fixes, as in Odin:**
+  - `apply_patch`: editing a file that has another hard link keeps the other link's permissions (on Windows, its
+    access list).
+  - Email: a message with an unknown charset label is read as UTF-8 instead of failing.
+  - `analyze_pdf`: a scanned, image-only PDF (or page selection) gets the "no extractable text" advice.
+  - Knowledge: a document that shares only one repeated boilerplate chunk with another is no longer refused as a
+    near duplicate.
+  - Archive search reads the newest archives first.
+  - Skills: saving code that doesn't load over a skill that failed to load keeps the original file and its error;
+    before, the file was deleted while the message said the previous version was kept. A file that holds another
+    loaded skill is never overwritten.
+  - `read_conversation`, `search_history`, `search_knowledge` and `search_audit` treat an empty or null number as
+    not given, and say "must be a whole number" for anything else.
+
+Odin 4.22.0's web chat, Discord, WebUI, packaging and channel-log changes don't apply to Desktop. On Windows, the
+stale-branch check understands a POSIX-style leading `cd "<folder>" &&`, not PowerShell's `Set-Location` or
+cmd's `cd /d`.
+
 ## [1.5.0]
 
 **A remote command stops when its call does, and a silent loop's quiet check is no longer an error.** Linux,
