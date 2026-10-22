@@ -107,6 +107,8 @@ async def test_optional_numbers_on_the_native_history_routes(graph):
         ("blank", "read_conversation", {"limit": ""}),
         ("spaces", "read_conversation", {"limit": "  "}),
         ("zero", "read_conversation", {"limit": 0}),
+        ("negative", "read_conversation", {"limit": -5}),
+        ("many", "read_conversation", {"limit": 500}),
         ("text", "read_conversation", {"limit": "many"}),
         ("selector", "read_conversation", {"limit": 5, "conversation_id": foreign}),
         ("history-blank", "search_history", {"query": "heron", "limit": ""}),
@@ -125,6 +127,8 @@ async def test_optional_numbers_on_the_native_history_routes(graph):
         assert "heron note 2" in results[name] and "messages read" in results[name], name
         assert "foreign heron note" not in results[name]
     assert "1 messages read" in results["zero"]  # the clamp floor is unchanged
+    assert "1 messages read" in results["negative"]
+    assert "heron note 0" in results["many"]  # the cap (100) reads them all here
     assert "limit must be a whole number." in results["text"]
     assert "Only 'limit' is accepted" in results["selector"]
     assert "heron" in results["history-blank"] and "Found" in results["history-blank"]
