@@ -20,6 +20,7 @@ import json
 import logging
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -129,6 +130,66 @@ async def test_a_timeout_is_never_sent_twice(monkeypatch):
         assert await ssh(end_with_channel=True, timeout=0.2) == (
             1, "Command timed out after 0.2 seconds")
     assert len(argvs) == 1 and hung.killed and evidence.uncertain
+
+
+class _Stdin:
+    """The client's stdin pipe: held open during the call, closed once it is over."""
+
+    def __init__(self):
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+async def test_a_streamed_user_command_waits_for_its_exit_and_closes_stdin(monkeypatch):
+    client = FakeProcess(0, lines=[b"a\n", b"b\n"])
+    client.stdin = _Stdin()
+    spawning(monkeypatch, client)
+    lines = []
+
+    async def collect(text):
+        assert not client.stdin.closed  # the channel stays open while output arrives
+        lines.append(text)
+
+    assert await ssh(end_with_channel=True, on_output=collect) == (0, "a\nb\n")
+    assert lines == ["a\n", "b\n"] and client.stdin.closed
+
+
+async def test_with_a_pool_only_the_connection_phase_is_retried(monkeypatch):
+    calls = []
+
+    async def acquire(*_args, **_kwargs):
+        calls.append("acquire")
+        return len(calls) > 1  # the first master never connected: nothing was sent
+
+    pool = SimpleNamespace(
+        is_connected=lambda *a: False, acquire=acquire,
+        get_ssh_args=lambda host, command, *a, **k: ["ssh", "pooled", command],
+        ensure_master_registered=lambda *a: _done(), release=lambda *a, **k: None)
+    argvs = spawning(monkeypatch, FakeProcess(255, lines=[b"lost\n"]),
+                     FakeProcess(0, lines=[b"ran twice\n"]))
+    with _evidence() as evidence:
+        assert await ssh(pool=pool, end_with_channel=True) == (255, "lost\n")
+    assert calls == ["acquire", "acquire"]  # a retried connection phase,
+    assert len(argvs) == 1 and evidence.uncertain  # then one dispatch, never two
+    assert argvs[0][0][-1].startswith("odin_fg_command=true; ")
+
+
+async def _done(value=None):
+    return value
+
+
+async def test_an_error_after_dispatch_with_an_unconfirmed_exit_is_said(monkeypatch, short_bound):
+    spawning(monkeypatch, _NeverExits(lines=[b"first\n"]))
+
+    async def failing(_text):
+        raise OSError("the output consumer failed")
+
+    with _evidence() as evidence:
+        code, text = await ssh(end_with_channel=True, on_output=failing)
+    assert code == 1 and text.startswith("SSH error: ")
+    assert text.endswith(wssh.UNCONFIRMED_EXIT_NOTE) and evidence.uncertain
 
 
 # --- The settled cleanup ----------------------------------------------------------------------
