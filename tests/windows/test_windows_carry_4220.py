@@ -5,7 +5,10 @@
   stay in the recovery slot.
 - Branch freshness (#699): a failed test's freshness is checked in the repository the test
   ran in (a leading ``cd``) against the branch's own upstream, through PowerShell here: the
-  executor's route, the Windows variant and this computer's git, with nothing faked.
+  executor's route, the Windows variant and this computer's git, with nothing faked. Odin's
+  ``command_directory`` reads a ``cd`` by POSIX rules: a single-quoted folder or one with
+  forward slashes. A double-quoted folder with backslashes is not read, so the check runs
+  in the workspace and never warns from the wrong repository.
 """
 from __future__ import annotations
 
@@ -69,12 +72,16 @@ async def test_a_failed_test_run_is_checked_in_the_repository_it_ran_in(tmp_path
     route = ToolExecutor(config=ToolsConfig(local_working_dir=str(tmp_path / "workspace")))
     route._memory_path = str(tmp_path / "data" / "memory.json")  # apart from the workspace
     monkeypatch.setattr(route, "_resolve_host", lambda alias: ("127.0.0.1", "owner", None))
-    annotated = await route._annotate_with_freshness(
+    for test in (f"cd '{work}' && python -m pytest -q",
+                 f'cd "{work.as_posix()}" && python -m pytest -q'):
+        annotated = await route._annotate_with_freshness(FAILURE, "localhost", "run_command", test)
+        assert annotated.startswith(FAILURE)
+        assert "[STALE BRANCH] main is 2 commit(s) behind upstream/main" in annotated, test
+    unread = await route._annotate_with_freshness(
         FAILURE, "localhost", "run_command", f'cd "{work}" && python -m pytest -q')
-    assert annotated.startswith(FAILURE)
-    assert "[STALE BRANCH] main is 2 commit(s) behind upstream/main" in annotated
+    assert unread == FAILURE  # POSIX rules do not read it: the workspace is asked, not a repo
     missing = await route._annotate_with_freshness(
-        FAILURE, "localhost", "run_command", f'cd "{tmp_path / "missing"}" && python -m pytest')
+        FAILURE, "localhost", "run_command", f"cd '{tmp_path / 'missing'}' && python -m pytest")
     assert missing == FAILURE  # a folder that is not there is never checked elsewhere
     unchanged = await route._annotate_with_freshness(
         FAILURE, "localhost", "run_command", "python -m pytest -q")
