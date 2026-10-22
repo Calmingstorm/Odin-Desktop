@@ -45,9 +45,11 @@ macOS (Odin 4.22.0).
   - `read_conversation`, `search_history`, `search_knowledge` and `search_audit` treat an empty or null number as
     not given, and say "must be a whole number" for anything else.
 
-Odin 4.22.0's web chat, Discord, WebUI, packaging and channel-log changes don't apply to Desktop. On Windows, the
-stale-branch check understands a POSIX-style leading `cd "<folder>" &&`, not PowerShell's `Set-Location` or
-cmd's `cd /d`.
+Odin 4.22.0's web chat, Discord, WebUI, packaging and channel-log changes don't apply to Desktop. The stale-branch
+check reads a leading `cd` by POSIX rules. On Windows that means a single-quoted folder (`cd 'C:\work\app' &&`) or
+one written with forward slashes (`cd "C:/work/app" &&`). A double-quoted folder with backslashes, PowerShell's
+`Set-Location` and cmd's `cd /d` are not read; the check then looks in the workspace and never warns from the
+wrong repository.
 
 ## [1.5.0]
 
