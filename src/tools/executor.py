@@ -21,6 +21,7 @@ from .branch_freshness import (
     FreshnessEvent,
     FreshnessStats,
     check_branch_freshness,
+    command_directory,
     format_staleness_warning,
 )
 from .bulkhead import BulkheadFullError, BulkheadRegistry
@@ -1275,11 +1276,21 @@ class ToolExecutor:
         if not resolved:
             return result
         address, ssh_user, _ = resolved
+
+        async def exec_where_tests_run(addr: str, git_command: str, user: str, **options):
+            # The user-command context the test ran in: the local workspace, or
+            # the remote login directory. Never Odin's own working directory.
+            # Windows' freshness helper adds use_command_shell (PowerShell).
+            return await self._exec_command(
+                addr, git_command, user, use_workspace=True, **options
+            )
+
         try:
             status = await check_branch_freshness(
-                self._exec_command,
+                exec_where_tests_run,
                 address,
                 ssh_user,
+                directory=command_directory(command),
             )
         except Exception as e:
             log.warning("Branch freshness check failed: %s", e)

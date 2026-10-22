@@ -24,12 +24,17 @@ from ..llm.codex_auth import (
     CodexAuth,
     CodexAuthPool,
     _decode_jwt_payload,
+    _reloaded_credentials,
     mark_authorized_account,
     merge_authorized_account,
 )
 from ..llm.codex_quota import limit_reached
 from ..llm.errors import LLMAuthError
+from ..observability.diagnostics import safe_error
+from ..odin_log import get_logger
 from .secrets import SecretStoreError, secret_call
+
+log = get_logger("desktop.codex_accounts")
 
 METHODS = frozenset({
     "codex.accounts.list", "codex.accounts.activate", "codex.accounts.remove",
@@ -88,12 +93,44 @@ class KeyringCodexAuth(CodexAuth):
     async def _restore_credentials(self):
         async with self._refresh_lock:
             if self._credentials is None:
+                if self._unpersisted is not None:
+                    # Newer than the keyring's record, whose refresh token it used.
+                    self._credentials = self._unpersisted
+                    return
                 async with self.pool._pool_lock:
                     self._credentials = dict(await secret_call(self._canonical_row))
 
     async def get_access_token(self):
+        await self._retry_unsaved()
         await self._restore_credentials()
         return await super().get_access_token()
+
+    async def _retry_unsaved(self):
+        """Odin's _retry_unpersisted (#714) at the keyring: save a rotation an
+        earlier write failed to save, in a settled worker under the refresh and
+        pool locks, never through the retained file writer."""
+        if self._unpersisted is None:
+            return
+        async with self._refresh_lock:
+            creds = self._unpersisted
+            if creds is None:
+                return
+            try:
+                async with self.pool._pool_lock:
+                    await secret_call(self._save, creds)
+            except LLMAuthError:
+                return  # a removed or replaced account never publishes
+            except Exception as error:
+                log.warning("Refreshed Codex credentials are still unsaved: %s", safe_error(error))
+            else:
+                log.info("Saved refreshed Codex credentials after an earlier write failure")
+
+    def _retry_unpersisted(self):
+        """The retained retry writes files; this auth retries through the keyring
+        (``_retry_unsaved``) before every ``get_access_token``."""
+
+    def _persist(self, creds):
+        raise RuntimeError("Desktop keeps Codex credentials in the keyring only")
 
     async def force_refresh(self, stale_token=None):
         try:
@@ -110,7 +147,7 @@ class KeyringCodexAuth(CodexAuth):
         refreshed = []
         await CodexAuth._refresh(SimpleNamespace(_save=refreshed.append), creds)
         async with self.pool._pool_lock:
-            await secret_call(self._save, refreshed[0])
+            await secret_call(self._save_rotation, refreshed[0])
 
     def _canonical_row(self):
         raw = self.pool.vault.read()
@@ -123,7 +160,21 @@ class KeyringCodexAuth(CodexAuth):
         return row
 
     def _save(self, creds):
+        self._write(self._canonical_row(), creds)
+
+    def _save_rotation(self, creds):
+        # The guard first: a refresh that ends after removal or replacement
+        # never publishes, now or on a retry.
         row = self._canonical_row()
+        # The server has rotated the single-use refresh token: only *creds* can
+        # refresh from here on. Hold them before the write, so a failed keyring
+        # write is retried instead of losing the account (Odin #714). The record
+        # the guard checks (``expected``) stays the keyring's until it is saved.
+        self._credentials = creds
+        self._unpersisted = creds
+        self._write(row, creds)
+
+    def _write(self, row, creds):
         raw = self.pool.vault.read()
         updated = dict(creds)
         if "label" in row:
@@ -136,6 +187,8 @@ class KeyringCodexAuth(CodexAuth):
         # Publish single-use rotations only AFTER durable keyring storage.
         self.expected = dict(updated)
         self._credentials = dict(updated)
+        if self._unpersisted is creds:
+            self._unpersisted = None
 
 
 class KeyringCodexAuthPool(CodexAuthPool):
@@ -186,7 +239,9 @@ class KeyringCodexAuthPool(CodexAuthPool):
                 auth.slot = slot
                 auth.epoch = self.generation
                 auth.expected = dict(creds)
-                auth._credentials = dict(creds)
+                # Odin's R7: the keyring's record, unless the auth holds a newer
+                # rotation whose write failed (this record's token made it).
+                auth._credentials = _reloaded_credentials(auth, creds)
             else:
                 auth = KeyringCodexAuth(self, slot, creds)
             self._accounts.append(auth)

@@ -1,8 +1,9 @@
 """Windows: the local helpers' own commands on this computer (phase 3 plan C12).
 
-* Branch freshness asks git three POSIX-shell questions on the host where tests ran. On
-  this computer they're asked in PowerShell's words (the same git commands, Windows'
-  redirections); any other host keeps Odin's commands.
+* Branch freshness asks git four POSIX-shell questions on the host where tests ran, in the
+  test's own folder when the command changed into one. On this computer they're asked in
+  PowerShell's words (the same git commands, Windows' redirections, ``Set-Location`` for
+  the folder); any other host keeps Odin's commands.
 * ``http_probe`` builds a curl command. On this computer ``curl.exe`` runs straight from
   that command's own arguments, in a job of its own: Windows PowerShell 5.1 would take
   ``curl`` for Invoke-WebRequest and drop the double quotes inside native arguments
@@ -13,7 +14,6 @@ from __future__ import annotations
 import asyncio
 import functools
 import os
-import re
 import shlex
 
 from ...tools.branch_freshness import FRESHNESS_CHECK_TIMEOUT
@@ -25,34 +25,52 @@ from .windows_payloads import curl_policy_args, packaged_file
 _GIT = {
     "git rev-parse --abbrev-ref HEAD 2>/dev/null":
         "git rev-parse --abbrev-ref HEAD 2>$null; exit $LASTEXITCODE",
-    "git fetch origin --quiet 2>&1": "git fetch origin --quiet 2>$null; exit $LASTEXITCODE",
+    "git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null":
+        "git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null; exit $LASTEXITCODE",
+    "git fetch --quiet 2>&1": "git fetch --quiet 2>$null; exit $LASTEXITCODE",
+    "git rev-list --count 'HEAD..@{u}' 2>/dev/null":
+        "git rev-list --count 'HEAD..@{u}' 2>$null; exit $LASTEXITCODE",
 }
-_BEHIND = re.compile(r"git rev-list --count HEAD\.\.origin/(?P<branch>.+) 2>/dev/null \|\| echo 0")
+_IN_FOLDER = "cd -- "
 
 
 def powershell_git(command: str) -> str:
-    """A freshness query in PowerShell's words; any other command is refused."""
-    if command in _GIT:
+    """A freshness query in PowerShell's words; any other command is refused.
+
+    Odin asks in the test's folder as ``cd -- '<folder>' && git ...``: here that is
+    ``Set-Location -LiteralPath``, and a missing folder fails the question as ``cd``
+    would.
+    """
+    folder = None
+    if command.startswith(_IN_FOLDER) and " && git " in command:
+        quoted, rest = command[len(_IN_FOLDER):].split(" && git ", 1)
+        parts = shlex.split(quoted)
+        if len(parts) != 1 or not parts[0]:
+            raise ValueError(f"no PowerShell form for {command!r}")
+        folder, command = parts[0], "git " + rest
+    if command not in _GIT:
+        raise ValueError(f"no PowerShell form for {command!r}")
+    if folder is None:
         return _GIT[command]
-    if match := _BEHIND.fullmatch(command):
-        return (f"git rev-list --count {ps_quote('HEAD..origin/' + match['branch'])} 2>$null; "
-                "if ($LASTEXITCODE -ne 0) { '0' }; exit 0")
-    raise ValueError(f"no PowerShell form for {command!r}")
+    return (f"Set-Location -LiteralPath {ps_quote(folder)}; if (-not $?) {{ exit 1 }}; "
+            f"{_GIT[command]}")
 
 
 async def check_branch_freshness(exec_fn, address: str, ssh_user: str,
-                                 timeout: int = FRESHNESS_CHECK_TIMEOUT):
+                                 timeout: int = FRESHNESS_CHECK_TIMEOUT, *,
+                                 directory: str | None = None):
     """``check_branch_freshness`` on Windows: this computer's questions go to PowerShell."""
     from ...tools.branch_freshness import check_branch_freshness as freshness
     from ...tools.ssh import is_local_address
 
     if not is_local_address(address):
-        return await freshness.linux_original(exec_fn, address, ssh_user, timeout)
+        return await freshness.linux_original(
+            exec_fn, address, ssh_user, timeout, directory=directory)
 
     async def local(address: str, command: str, ssh_user: str):
         return await exec_fn(address, powershell_git(command), ssh_user, use_command_shell=True)
 
-    return await freshness.linux_original(local, address, ssh_user, timeout)
+    return await freshness.linux_original(local, address, ssh_user, timeout, directory=directory)
 
 
 # --- http_probe -----------------------------------------------------------------------------

@@ -11,6 +11,7 @@ from collections.abc import Awaitable, Callable
 
 from ...llm.secret_scrubber import scrub_output_secrets
 from ...tools.execution_outcome import ToolFailure
+from ...tools.input_defaults import int_or_default
 
 
 class ChannelOpsTools:
@@ -35,7 +36,10 @@ class ChannelOpsTools:
             )
         if request is None:
             return ToolFailure("No conversation context available.")
-        limit = max(1, min(int(inp.get("limit", 10)), 100))
+        try:
+            limit = max(1, min(int_or_default(inp.get("limit"), 10), 100))
+        except ValueError:
+            return ToolFailure("limit must be a whole number.")
         try:
             messages = await self.read_visible_history(request, limit=limit)
             if not messages:
