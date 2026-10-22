@@ -67,6 +67,64 @@ async def end_client(proc, owned_pgid: int | None = None) -> None:
     with contextlib.suppress(TimeoutError, ProcessLookupError, OSError):
         await asyncio.wait_for(proc.wait(), 5)
 
+
+# How long an ended ssh client gets to be reaped before its exit counts as unconfirmed.
+END_CLIENT_SECONDS = 5
+
+UNCONFIRMED_EXIT_NOTE = (
+    "\n(Windows did not confirm that the local ssh client exited after it was ended, so the "
+    "remote command may still be running.)"
+)
+
+
+async def end_client_settled(proc) -> bool:
+    """End and reap an ssh client, carried to the reap through cancellation
+    (Linux: ``ssh._cleanup_settled``). True once the client is reaped.
+
+    Windows ends the client at once (TerminateProcess, no TERM grace), so only
+    its reap can be interrupted: a cancellation there (a cascade kill, the
+    shutdown drain) waits again within the same bound, and is raised once the
+    wait is over. A client not reaped within ``END_CLIENT_SECONDS`` (a failed
+    kill, a reap error, a client that never reports its exit) has an
+    unconfirmed exit: the dispatch is marked uncertain, a warning names it,
+    and False is returned (or the cancellation raised).
+    """
+    from ...odin_log import get_logger
+    from ...tools.execution_outcome import mark_dispatch_uncertain
+
+    if proc.returncode is None:
+        with contextlib.suppress(ProcessLookupError, OSError):
+            proc.kill()
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + END_CLIENT_SECONDS
+    interrupted = False
+    while proc.returncode is None and loop.time() < deadline:
+        try:
+            await asyncio.wait_for(proc.wait(), deadline - loop.time())
+        except asyncio.CancelledError:
+            interrupted = True
+        except (TimeoutError, ProcessLookupError, OSError):
+            break
+    confirmed = proc.returncode is not None
+    if not confirmed:
+        mark_dispatch_uncertain()
+        get_logger("ssh").warning(
+            "ssh client PID %s was not reaped within %ss of being ended; its remote command may "
+            "still be running", getattr(proc, "pid", "?"), END_CLIENT_SECONDS)
+    if interrupted:
+        raise asyncio.CancelledError
+    return confirmed
+
+
+# CreateProcess takes one command line of at most 32,767 UTF-16 units, its terminating NUL
+# included (the executable's path and every quoted argument count).
+COMMAND_LINE_LIMIT = 32767
+
+
+def command_line_units(argv) -> int:
+    """The UTF-16 units of the command line CreateProcess receives for *argv*."""
+    return len(subprocess.list2cmdline(list(argv)).encode("utf-16-le")) // 2 + 1
+
 def known_hosts_option(path) -> str:
     """``UserKnownHostsFile`` naming exactly one file, whatever spaces its path holds."""
     return 'UserKnownHostsFile="' + str(path).replace("\\", "/") + '"'

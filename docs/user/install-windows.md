@@ -11,7 +11,7 @@ Download `odin-desktop-<version>-x64-setup.exe` and `SHA256SUMS` from
 Before you run the installer, compare its SHA-256 with the value in `SHA256SUMS`, in PowerShell:
 
 ```powershell
-(Get-FileHash .\odin-desktop-1.4.1-x64-setup.exe -Algorithm SHA256).Hash
+(Get-FileHash .\odin-desktop-1.5.0-x64-setup.exe -Algorithm SHA256).Hash
 ```
 
 The two must match exactly. The installer, the app and its uninstaller are **signed by Aaron

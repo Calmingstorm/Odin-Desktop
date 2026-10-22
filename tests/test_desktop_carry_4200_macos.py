@@ -68,11 +68,13 @@ async def test_macos_exec_command_forwards_the_one_attempt_policy_for_remote_hos
         object(), "192.0.2.7", "true", "root", 30, None, False, None, False,
         max_ssh_attempts=1, ssh_multiplex=False)
     assert result[0] == 255
-    assert seen == {"address": "192.0.2.7", "max_ssh_attempts": 1, "ssh_multiplex": False}
+    assert seen == {"address": "192.0.2.7", "max_ssh_attempts": 1, "ssh_multiplex": False,
+                    "end_with_channel": False}
 
     seen.clear()
     await macos_jobs.exec_command(object(), "192.0.2.7", "true")
-    assert seen == {"address": "192.0.2.7", "max_ssh_attempts": None, "ssh_multiplex": True}
+    assert seen == {"address": "192.0.2.7", "max_ssh_attempts": None, "ssh_multiplex": True,
+                    "end_with_channel": False}
 
 
 # --- Kill receipts carry the weaker native guarantee -----------------------------------------

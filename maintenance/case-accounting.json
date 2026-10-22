@@ -3285,27 +3285,27 @@
     {
       "original": "tests/test_successful_retry_provenance.py::test_real_run_command_internal_ssh_retry_settlement[0]",
       "source_sha256": "b3dc9c792eb8a5c98c65fb876ff5b513b42c308aec0f1e61d514923f8dd59171",
-      "disposition": "executable",
-      "executable": [
-        "tests/test_desktop_shared_tools_extra.py::test_test_successful_retry_provenance_real_run_command_internal_ssh_retry_settlement[0]"
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_odin_4210_cases.py::test_real_run_command_timeout_is_never_sent_twice"
       ],
-      "replacement_cases": [],
       "collection_evidence": ".test-state/qualification-collected.json",
-      "triage_source": null,
-      "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
+      "triage_source": "maintenance/tool-extra-triage.json",
+      "reason": "Odin 4.21.0 (PR #672) never sends a remote user command twice once it may have been dispatched: a timeout or an exit status of 255 is returned once and marked uncertain, so this case's v4.13.0 re-send is gone and Odin rewrote the case. Its 4.21.0 form runs in tests/test_desktop_odin_4210_cases.py with Odin's other 4.21.0 run_command cases.",
       "blocks_phase1": false
     },
     {
       "original": "tests/test_successful_retry_provenance.py::test_real_run_command_internal_ssh_retry_settlement[7]",
       "source_sha256": "b3dc9c792eb8a5c98c65fb876ff5b513b42c308aec0f1e61d514923f8dd59171",
-      "disposition": "executable",
-      "executable": [
-        "tests/test_desktop_shared_tools_extra.py::test_test_successful_retry_provenance_real_run_command_internal_ssh_retry_settlement[7]"
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_odin_4210_cases.py::test_real_run_command_timeout_is_never_sent_twice"
       ],
-      "replacement_cases": [],
       "collection_evidence": ".test-state/qualification-collected.json",
-      "triage_source": null,
-      "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
+      "triage_source": "maintenance/tool-extra-triage.json",
+      "reason": "Odin 4.21.0 (PR #672) never sends a remote user command twice once it may have been dispatched: a timeout or an exit status of 255 is returned once and marked uncertain, so this case's v4.13.0 re-send is gone and Odin rewrote the case. Its 4.21.0 form runs in tests/test_desktop_odin_4210_cases.py with Odin's other 4.21.0 run_command cases.",
       "blocks_phase1": false
     },
     {
@@ -3350,14 +3350,14 @@
     {
       "original": "tests/test_successful_retry_provenance.py::test_real_run_command_exhausted_timeouts_remain_failed",
       "source_sha256": "b3dc9c792eb8a5c98c65fb876ff5b513b42c308aec0f1e61d514923f8dd59171",
-      "disposition": "executable",
-      "executable": [
-        "tests/test_desktop_shared_tools_extra.py::test_test_successful_retry_provenance_real_run_command_exhausted_timeouts_remain_failed"
+      "disposition": "removed-surface-replacement",
+      "executable": [],
+      "replacement_cases": [
+        "tests/test_desktop_odin_4210_cases.py::test_real_run_command_timeout_is_never_sent_twice"
       ],
-      "replacement_cases": [],
       "collection_evidence": ".test-state/qualification-collected.json",
-      "triage_source": null,
-      "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
+      "triage_source": "maintenance/tool-extra-triage.json",
+      "reason": "Odin 4.21.0 (PR #672) never sends a remote user command twice once it may have been dispatched: a timeout or an exit status of 255 is returned once and marked uncertain, so this case's v4.13.0 re-send is gone and Odin rewrote the case. Its 4.21.0 form runs in tests/test_desktop_odin_4210_cases.py with Odin's other 4.21.0 run_command cases.",
       "blocks_phase1": false
     },
     {
@@ -55717,14 +55717,6 @@
       "executable": "tests/test_desktop_shared_tools_extra.py::Test_test_backoff_TestBackoffEdgeCases::test_no_jitter_zero_base_delay"
     },
     {
-      "original": "tests/test_successful_retry_provenance.py::test_real_run_command_internal_ssh_retry_settlement[0]",
-      "executable": "tests/test_desktop_shared_tools_extra.py::test_test_successful_retry_provenance_real_run_command_internal_ssh_retry_settlement[0]"
-    },
-    {
-      "original": "tests/test_successful_retry_provenance.py::test_real_run_command_internal_ssh_retry_settlement[7]",
-      "executable": "tests/test_desktop_shared_tools_extra.py::test_test_successful_retry_provenance_real_run_command_internal_ssh_retry_settlement[7]"
-    },
-    {
       "original": "tests/test_successful_retry_provenance.py::test_real_read_file_executor_recovery_settlement[0]",
       "executable": "tests/test_desktop_shared_tools_extra.py::test_test_successful_retry_provenance_real_read_file_executor_recovery_settlement[0]"
     },
@@ -55735,10 +55727,6 @@
     {
       "original": "tests/test_successful_retry_provenance.py::test_real_read_file_error_like_content_does_not_recover",
       "executable": "tests/test_desktop_shared_tools_extra.py::test_test_successful_retry_provenance_real_read_file_error_like_content_does_not_recover"
-    },
-    {
-      "original": "tests/test_successful_retry_provenance.py::test_real_run_command_exhausted_timeouts_remain_failed",
-      "executable": "tests/test_desktop_shared_tools_extra.py::test_test_successful_retry_provenance_real_run_command_exhausted_timeouts_remain_failed"
     },
     {
       "original": "tests/test_output_authorization.py::test_nested_capture_collects_child_hosts_without_leaking",
@@ -72995,6 +72983,10 @@
     {
       "original": "tests/test_desktop_validation_lease_binding.py::test_validation_exec_acquires_a_lease_and_reports_unknown_alias",
       "executable": "tests/test_desktop_validation_lease_binding.py::test_validation_exec_acquires_a_lease_and_reports_unknown_alias"
+    },
+    {
+      "original": "tests/test_desktop_odin_4210_cases.py::test_real_run_command_timeout_is_never_sent_twice",
+      "executable": "tests/test_desktop_odin_4210_cases.py::test_real_run_command_timeout_is_never_sent_twice"
     }
   ],
   "historical_failure_blockers": [

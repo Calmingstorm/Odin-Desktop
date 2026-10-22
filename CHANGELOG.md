@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.5.0]
+
+**A remote command stops when its call does, and a silent loop's quiet check is no longer an error.** Linux,
+Windows and macOS (Odin 4.21.1).
+
+- **A remote command stops with the call that ran it.** On a remote host, `run_command`, `run_script`,
+  `run_command_multi` and `validate_action` checks now run under a small Python helper on the host that owns the
+  command's processes. When the call is cancelled (stopping an agent from its Work card or with `kill_agent`),
+  times out, or Odin Desktop quits, the command gets TERM, then KILL 3 seconds later. Before, only the ssh client
+  on this computer stopped, and the command kept running on the host. Stopping a chat still lets a command that is
+  already running finish or reach its time limit, as before.
+  - Work a command starts in the background with its output sent elsewhere (`nohup job >/dev/null 2>&1 &`) keeps
+    running, as before.
+  - The host needs `python3` (on a Mac, the developer tools). Without it, the command runs as before, after a
+    one-line notice in its output.
+  - Output and exit codes are unchanged, except that a command killed by a signal now reports 128 plus the signal
+    number, as a shell does (ssh reported 255).
+  - The host's login shell reads its startup files once more per command.
+- **A remote command that may have started is never sent twice.** A timeout or a lost connection (exit status
+  255) used to send the same command again. It is now reported once and marked as an uncertain outcome, because
+  the command may have run. On Linux and macOS, a shared connection that never reached the host is still retried,
+  since nothing was sent. On Windows, which has no shared connections, such a command gets one attempt.
+- **Windows: a command too long for Windows is refused before anything is sent.** Windows limits a program's
+  command line to 32,767 characters, and the helper adds about 6,000. Quotes, backslashes, characters outside the
+  Basic Multilingual Plane and scripts (sent base64-encoded) take more room than their length. The error gives the
+  length and Windows' limit, and says that nothing was sent. Keep a remote command or script well under about
+  19,000 characters, or put it in a file on the host.
+- **Windows: if Windows doesn't confirm that the ssh client exited, the result says so.** The outcome is then
+  marked uncertain, because the remote command may still be running.
+- **A silent loop's quiet check is its answer.** A silent loop replies with nothing when there's nothing to report.
+  Every provider treated that as a failed request: the Codex client sent it twice more and counted a failure. A
+  reply that finished normally with no text is now the check's answer on its first request. A refusal, a cut-off
+  or unfinished reply, or a malformed one is never taken as one, including an OpenAI-compatible or Ollama reply
+  whose `tool_calls` field is malformed (`{}`, `false`, `0` or `""`). Chat, agents and other loops keep the old
+  handling.
+- **Ollama: a reply with null content no longer fails with a Python error.** It counts as a reply without text: a
+  silent loop takes it as a quiet answer, and everything else gets the usual empty-reply handling.
+
+Limits, as in Odin: processes that leave the command's process group or session, a helper killed with
+SIGKILL, or a host failure are outside this cleanup. During a network outage it waits until the host notices the
+closed connection. Odin's `read_channel` change doesn't apply: Desktop reads a conversation with
+`read_conversation`.
+
 ## [1.4.1]
 
 **Reading a folder on Windows, and stopping work that has already ended, now give Odin's own answers.** Linux,

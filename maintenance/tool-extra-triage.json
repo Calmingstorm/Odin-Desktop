@@ -111,6 +111,16 @@
     },
     {
       "suite": "test_successful_retry_provenance",
+      "original_error": "AttributeError: '_SSHClient' object has no attribute 'stdout' (the v4.13.0 client double, under Odin 4.21.0's ssh.py)",
+      "status": "Retired from the adapter's selection under Odin 4.21.0 (PR #672): a remote user command is never sent twice once it may have been dispatched, so these v4.13.0 re-send cases are gone and Odin rewrote them. Their 4.21.0 forms run in tests/test_desktop_odin_4210_cases.py on this suite's own adapted helpers; the read_file cases above stay selected",
+      "cases": [
+        "test_real_run_command_internal_ssh_retry_settlement[0]",
+        "test_real_run_command_internal_ssh_retry_settlement[7]",
+        "test_real_run_command_exhausted_timeouts_remain_failed"
+      ]
+    },
+    {
+      "suite": "test_successful_retry_provenance",
       "original_error": "Permission denied: authenticated owner authority is unavailable",
       "status": "Three retained failures remain Phase 1 replacement blockers; unregistered test_tool synthetic dispatch conflicts with the explicit built-in readiness allowlist",
       "required_proof": "Replace setup with a ready supported builtin while preserving success-wrapper uncertainty and handler-invocation assertions; do not admit arbitrary synthetic tools in production",

@@ -25,6 +25,25 @@ from .types import LLMResponse, ToolCall
 log = get_logger("ollama")
 
 
+def _settled_empty_final(data: dict) -> bool:
+    """A deliberately empty final reply: Ollama is done because the model
+    stopped (never a length cut or an unfinished response), and the message is
+    an object whose content is text or absent and whose ``tool_calls`` field
+    is absent, null or a list. Any other ``tool_calls`` value is malformed,
+    even a falsey one that parses as no calls."""
+    message = data.get("message")
+    if not isinstance(message, dict):
+        return False
+    content = message.get("content")
+    tool_calls = message.get("tool_calls")
+    return (
+        data.get("done") is True
+        and data.get("done_reason") == "stop"
+        and (content is None or isinstance(content, str))
+        and (tool_calls is None or isinstance(tool_calls, list))
+    )
+
+
 class OllamaClient(LLMProvider):
     """Chat client for Ollama instances (local or remote)."""
 
@@ -284,6 +303,7 @@ class OllamaClient(LLMProvider):
         tools: list[dict],
         *, reasoning_effort: str | None = None,  # signature parity; no effort concept
         model: str | None = None,
+        allow_empty_reply: bool = False,
     ) -> LLMResponse:
         # Pre-await local: body and response provenance share one snapshot
         # (self.model is live-reloadable; never re-read it after network I/O).
@@ -299,7 +319,7 @@ class OllamaClient(LLMProvider):
             },
         }
         data = await self._request_with_retry(body)
-        resp = self._parse_response(data)
+        resp = self._parse_response(data, allow_empty_reply=allow_empty_reply)
         resp.provenance_provider = "ollama"
         served_model = data.get("model")
         resp.provenance_model = (
@@ -308,11 +328,19 @@ class OllamaClient(LLMProvider):
         resp.provenance_reasoning_effort = None  # no effort concept
         return resp
 
-    def _parse_response(self, data: dict) -> LLMResponse:
-        """Parse Ollama response into LLMResponse."""
+    def _parse_response(self, data: dict, *, allow_empty_reply: bool = False) -> LLMResponse:
+        """Parse Ollama response into LLMResponse.
+
+        ``allow_empty_reply`` accepts a settled empty final reply (see
+        ``_settled_empty_final``) instead of raising ``empty_response``.
+        """
         message = data.get("message", {})
-        text = message.get("content", "")
-        tool_calls_raw = message.get("tool_calls", [])
+        text = message.get("content")
+        if not isinstance(text, str):
+            # Null or non-text content carries no text. Whether an empty reply
+            # is a settled one is _settled_empty_final's decision.
+            text = ""
+        tool_calls_raw = message.get("tool_calls") or []
 
         tool_calls = []
         for tc in tool_calls_raw:
@@ -330,7 +358,11 @@ class OllamaClient(LLMProvider):
         if data.get("done_reason") == "length" or data.get("done") is False:
             stop_reason = "incomplete"
             tool_calls = []  # Never execute calls from an unsettled response.
-        elif not text.strip() and not tool_calls:
+        elif (
+            not text.strip()
+            and not tool_calls
+            and not (allow_empty_reply and _settled_empty_final(data))
+        ):
             from .errors import LLMRequestError
 
             raise LLMRequestError("Ollama returned an empty response", provider="ollama",

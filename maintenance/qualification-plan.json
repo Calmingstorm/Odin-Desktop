@@ -2046,9 +2046,9 @@
   "case_accounting": "maintenance/case-accounting.json",
   "accounting_summary": {
     "historical_failures": {
-      "executable": 184,
+      "executable": 181,
       "unmapped-neutral-blocker": 0,
-      "removed-surface-replacement": 67,
+      "removed-surface-replacement": 70,
       "phase2-admission-wiring": 8
     },
     "foundation_definitions": {
