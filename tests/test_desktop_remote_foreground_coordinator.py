@@ -1,4 +1,6 @@
-"""Carried from Odin 4.21.0 (`tests/test_remote_foreground_coordinator.py` at `0f376087`). The remote foreground coordinator and its bootstrap, run as real processes.
+"""Carried from Odin 4.21.0 (`tests/test_remote_foreground_coordinator.py` at `0f376087`).
+
+The remote foreground coordinator and its bootstrap, run as real processes.
 
 The coordinator runs here exactly as sshd would run it: its stdin is the
 channel (a pipe the test holds open and closes to simulate the channel going

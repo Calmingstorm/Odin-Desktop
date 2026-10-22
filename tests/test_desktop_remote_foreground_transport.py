@@ -1,4 +1,6 @@
-"""Carried from Odin 4.21.0 (`tests/test_remote_foreground_transport.py` at `0f376087`). User foreground commands on a remote host end when their SSH channel closes.
+"""Carried from Odin 4.21.0 (`tests/test_remote_foreground_transport.py` at `0f376087`).
+
+User foreground commands on a remote host end when their SSH channel closes.
 
 The transport half of the remote-foreground fix: ``run_ssh_command`` with
 ``end_with_channel`` sends the coordinator bootstrap, keeps the client's stdin
