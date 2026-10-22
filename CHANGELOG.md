@@ -7,9 +7,10 @@ Windows and macOS (Odin 4.21.0).
 
 - **A remote command stops with the call that ran it.** On a remote host, `run_command`, `run_script`,
   `run_command_multi` and `validate_action` checks now run under a small Python helper on the host that owns the
-  command's processes. When the call is cancelled (stopping an agent from its Work card or with `kill_agent`,
-  stopping the chat), times out, or Odin Desktop quits, the command gets TERM, then KILL 3 seconds later. Before,
-  only the ssh client on this computer stopped, and the command kept running on the host.
+  command's processes. When the call is cancelled (stopping an agent from its Work card or with `kill_agent`),
+  times out, or Odin Desktop quits, the command gets TERM, then KILL 3 seconds later. Before, only the ssh client
+  on this computer stopped, and the command kept running on the host. Stopping a chat still lets a command that is
+  already running finish or reach its time limit, as before.
   - Work a command starts in the background with its output sent elsewhere (`nohup job >/dev/null 2>&1 &`) keeps
     running, as before.
   - The host needs `python3` (on a Mac, the developer tools). Without it, the command runs as before, after a
