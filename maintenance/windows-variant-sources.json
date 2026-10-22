@@ -69,7 +69,7 @@
   "src/scheduler/history.py:query -> src.desktop.platform.windows_engine:history_query": "6b7667ad9108fbab89b23fef06e995a01b2a668c12b53c8882dd2d2ce3811236",
   "src/sessions/manager.py:_atomic_json -> src.desktop.platform.windows_engine:atomic_json": "857ca5b6a5c1f5ebdd5137eedf0760e520925476851a0a13fdd4f6238192cb4b",
   "src/tools/binary_read.py:read_binary_file -> src.desktop.platform.windows_remote:read_binary_file": "70613c8fee5156a5f49485ad12ba426248b07c6051f0aa054401442b61a51ba6",
-  "src/tools/branch_freshness.py:check_branch_freshness -> src.desktop.platform.windows_helpers:check_branch_freshness": "5c133f1e647eb40204003581763c85b41c7035d42fcaa5a433b8c59356a88de0",
+  "src/tools/branch_freshness.py:check_branch_freshness -> src.desktop.platform.windows_helpers:check_branch_freshness": "e020aa44329ce75a4d06ac4a39b8576305f54f7aa951eed188134ceaa38d5196",
   "src/tools/command_shell.py:apply_shell_contracts -> src.desktop.platform.windows_exec:apply_shell_contracts": "0166e13812315068f84c0769f8d6aaa820c0bbd63919955f4fe2ee2e6b3648d2",
   "src/tools/command_shell.py:resolve_local_shell -> src.desktop.platform.windows_exec:resolve_local_shell": "1d9ac944a2ee1de2f3ad794fe5b4da506ac65afa523baec16a7d8c2eb2028f0c",
   "src/tools/executor.py:_ensure_local_workspace -> src.desktop.platform.windows_engine:ensure_local_workspace": "b35a5ae1dcd58829bf1ee9318d07f8c7468447db3859082f02f7a63219b0c63a",

@@ -47,6 +47,16 @@ async def test_branch_freshness_asks_this_computers_git(tmp_path, monkeypatch):
                                           "127.0.0.1", "owner")
     assert (status.local_branch, status.commits_behind, status.fetch_failed) == ("main", 2, False)
     assert status.is_stale and status.remote_ref == "origin/main"
+    # A test command that changed into its folder is checked there, wherever the engine runs.
+    monkeypatch.chdir(tmp_path)
+    status = await check_branch_freshness(functools.partial(exec_command, executor()),
+                                          "127.0.0.1", "owner", directory=str(work))
+    assert (status.local_branch, status.commits_behind, status.remote_ref) == (
+        "main", 2, "origin/main")
+    status = await check_branch_freshness(functools.partial(exec_command, executor()),
+                                          "127.0.0.1", "owner",
+                                          directory=str(tmp_path / "missing"))
+    assert status.error == "not a git repo" and not status.is_stale
 
 
 async def test_branch_freshness_keeps_odins_commands_for_other_hosts():
@@ -54,21 +64,29 @@ async def test_branch_freshness_keeps_odins_commands_for_other_hosts():
 
     async def remote(address, command, ssh_user):
         sent.append(command)
+        if "--symbolic-full-name" in command:
+            return 0, "origin/main\n"
         return 0, "main\n" if "rev-parse" in command else "0\n"
 
-    status = await check_branch_freshness(remote, "192.0.2.5", "owner")
+    status = await check_branch_freshness(remote, "192.0.2.5", "owner", directory="/srv/my app")
     assert not status.is_stale and sent == [
-        "git rev-parse --abbrev-ref HEAD 2>/dev/null", "git fetch origin --quiet 2>&1",
-        "git rev-list --count HEAD..origin/main 2>/dev/null || echo 0"]
+        "cd -- '/srv/my app' && git rev-parse --abbrev-ref HEAD 2>/dev/null",
+        "cd -- '/srv/my app' && git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null",
+        "cd -- '/srv/my app' && git fetch --quiet 2>&1",
+        "cd -- '/srv/my app' && git rev-list --count 'HEAD..@{u}' 2>/dev/null"]
 
 
 def test_only_the_freshness_questions_have_powershell_forms():
-    behind = "git rev-list --count HEAD..origin/o'brien 2>/dev/null || echo 0"
-    assert helpers.powershell_git(behind) == (
-        "git rev-list --count 'HEAD..origin/o''brien' 2>$null; "
-        "if ($LASTEXITCODE -ne 0) { '0' }; exit 0")
-    with pytest.raises(ValueError, match="no PowerShell form"):
-        helpers.powershell_git("git status")
+    assert helpers.powershell_git("git rev-list --count 'HEAD..@{u}' 2>/dev/null") == (
+        "git rev-list --count 'HEAD..@{u}' 2>$null; exit $LASTEXITCODE")
+    folder = "cd -- 'C:\\work\\o'\"'\"'brien' && git fetch --quiet 2>&1"
+    assert helpers.powershell_git(folder) == (
+        "Set-Location -LiteralPath 'C:\\work\\o''brien'; if (-not $?) { exit 1 }; "
+        "git fetch --quiet 2>$null; exit $LASTEXITCODE")
+    for refused in ("git status", "cd -- 'C:\\work' && git status",
+                    "cd -- 'a' 'b' && git fetch --quiet 2>&1"):
+        with pytest.raises(ValueError, match="no PowerShell form"):
+            helpers.powershell_git(refused)
 
 
 @pytest.fixture

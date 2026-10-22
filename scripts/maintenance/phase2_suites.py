@@ -361,6 +361,34 @@ ODIN_4200_CASE_REASONS = {
     },
 }
 
+# Desktop 1.6.0 carries Odin 4.22.0 (PR #729), whose branch freshness asks git for the
+# branch's own upstream (#699): Odin rewrote eight frozen cases for that query. A separate
+# authority for exactly these cases; the suite's earlier retirements keep their own (see
+# _case_retirements). Their 4.22.0 versions run in tests/test_desktop_odin_4220_cases.py.
+ODIN_4220_REVIEWER = "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)"
+ODIN_4220_CASE_SOURCE_SHA256 = {
+    "tests/test_branch_freshness.py":
+        "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871",
+}
+_ODIN_4220_UPSTREAM_REASON = (
+    "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's "
+    "answers no longer match the questions; Odin's 4.22.0 version runs in "
+    "tests/test_desktop_odin_4220_cases.py")
+ODIN_4220_CASE_REASONS = {
+    "tests/test_branch_freshness.py": {
+        case: _ODIN_4220_UPSTREAM_REASON for case in (
+            "TestCheckBranchFreshness.test_fetch_exception_still_checks",
+            "TestCheckBranchFreshness.test_fetch_failure_still_checks",
+            "TestCheckBranchFreshness.test_fresh_branch",
+            "TestCheckBranchFreshness.test_rev_list_bad_output",
+            "TestCheckBranchFreshness.test_rev_list_failure",
+            "TestCheckBranchFreshness.test_stale_branch",
+            "TestEdgeCases.test_freshness_check_empty_rev_list_output",
+            "TestEdgeCases.test_freshness_check_with_branch_name_spaces",
+        )
+    },
+}
+
 REVIEWED_DIRECT_EXCLUSIONS = {
     "direct-shared-stores-providers-tools": (
         "(TestSessionsConfigTokenBudget and test_zero_budget) or "
@@ -372,9 +400,15 @@ REVIEWED_DIRECT_EXCLUSIONS = {
     ),
     # Odin 4.20.0 (PR #671): the registry owns a start's lease from the start call on, so this
     # shared case's handler-release assertion is superseded; its 4.20.0 version runs in
-    # tests/test_desktop_odin_4200_cases.py.
+    # tests/test_desktop_odin_4200_cases.py. Odin 4.22.0 (PR #729) rewrote two more cases for
+    # the webhook destination policy (#724) and the scheduling lanes (#708); their 4.22.0
+    # versions run in tests/test_desktop_odin_4220_scheduling.py.
     "direct-shared-engine": (
-        "test_campaign_system_coverage_restore and test_local_start_refusal_releases_unowned_lease"
+        "(test_campaign_system_coverage_restore and "
+        "test_local_start_refusal_releases_unowned_lease)"
+        " or (test_campaign_coverage_core_scheduler and "
+        "test_webhook_serialization_bounded_response_and_session_cleanup)"
+        " or (test_campaign_scheduler_admission and test_queued_obsolete_schedule_never_starts)"
     ),
 }
 
@@ -584,6 +618,21 @@ def _round3_case_retirements(root: Path, path: str, inherited_hash: str, value) 
 
 def _case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool:
     """Exact review dispositions, canonical source case identities, no globs/params."""
+    if path in ODIN_4220_CASE_SOURCE_SHA256 and isinstance(value, list):
+        # The Odin 4.22.0 carry (Desktop 1.6.0) is a separate authority for its cases of a
+        # suite whose other retirements keep the authority that made them: each row is held
+        # to its own, and no case is retired twice.
+        carried = [row for row in value
+                   if isinstance(row, dict) and row.get("reviewer") == ODIN_4220_REVIEWER]
+        earlier = [row for row in value if not any(row is mine for mine in carried)]
+        names = [row.get("case") for row in value if isinstance(row, dict)]
+        return (len(names) == len(value) == len(set(names))
+                and _odin_4220_case_retirements(root, path, inherited_hash, carried)
+                and _authority_case_retirements(root, path, inherited_hash, earlier))
+    return _authority_case_retirements(root, path, inherited_hash, value)
+
+
+def _authority_case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool:
     if path in ROUND3_CASES:
         # Review of #34, round 3, is a separate authority for its two suites.
         return _round3_case_retirements(root, path, inherited_hash, value)
@@ -687,6 +736,40 @@ def _odin_4200_case_retirements(root: Path, path: str, inherited_hash: str, valu
         expected_reason = ODIN_4200_CASE_REASONS.get(path, {}).get(case)
         if (not isinstance(case, str) or case not in cases
                 or row["reviewer"] != ODIN_4200_REVIEWER
+                or row["source_path"] != path or row["source_sha256"] != inherited_hash
+                or expected_reason is None or row["reason"] != expected_reason):
+            return False
+        names.append(case)
+    return names == sorted(set(names))
+
+
+def _odin_4220_case_retirements(root: Path, path: str, inherited_hash: str, value) -> bool:
+    """The Odin 4.22.0 carry's exact dispositions against the immutable source."""
+    if not isinstance(value, list):
+        return False
+    if not value:
+        return True
+    if inherited_hash != ODIN_4220_CASE_SOURCE_SHA256.get(path):
+        return False
+    source = _regular(root, path).read_bytes()
+    if _digest(source) != inherited_hash:
+        return False
+    cases = set()
+    for node in ast.parse(source, filename=path).body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            cases.add(node.name)
+        elif isinstance(node, ast.ClassDef):
+            cases.update(f"{node.name}.{child.name}" for child in node.body
+                         if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)))
+    names = []
+    for row in value:
+        if (not isinstance(row, dict) or set(row) != {
+                "case", "reviewer", "reason", "source_path", "source_sha256"}):
+            return False
+        case = row["case"]
+        expected_reason = ODIN_4220_CASE_REASONS.get(path, {}).get(case)
+        if (not isinstance(case, str) or case not in cases
+                or row["reviewer"] != ODIN_4220_REVIEWER
                 or row["source_path"] != path or row["source_sha256"] != inherited_hash
                 or expected_reason is None or row["reason"] != expected_reason):
             return False

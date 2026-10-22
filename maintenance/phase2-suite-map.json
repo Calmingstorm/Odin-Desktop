@@ -882,7 +882,7 @@
         "selectors": [
           "tests/test_desktop_step8_6a_tools_corpus.py"
         ],
-        "reason": "Test_test_branch_freshness_*; all 106 surviving inherited functions; actual ToolExecutor composed in build_engine_services with canonical owner.",
+        "reason": "Test_test_branch_freshness_*; all 106 surviving inherited functions; actual ToolExecutor composed in build_engine_services with canonical owner. Odin 4.22.0 (PR #729, Desktop 1.6.0) asks git for the branch's own upstream (#699) and rewrote eight cases for that query: the adapter retires exactly those under their own reviewed authority, and Odin's 4.22.0 versions run in tests/test_desktop_odin_4220_cases.py.",
         "retired_cases": [
           {
             "case": "TestFreshnessAPI.test_recent_endpoint",
@@ -916,6 +916,62 @@
             "case": "TestFreshnessAPI.test_stats_no_executor",
             "reason": "503 response from GET /api/freshness/stats is a removed Odin web UI HTTP listener contract.",
             "reviewer": "Claude, review of step 8 part 4",
+            "source_path": "tests/test_branch_freshness.py",
+            "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+          },
+          {
+            "case": "TestCheckBranchFreshness.test_fetch_exception_still_checks",
+            "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+            "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+            "source_path": "tests/test_branch_freshness.py",
+            "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+          },
+          {
+            "case": "TestCheckBranchFreshness.test_fetch_failure_still_checks",
+            "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+            "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+            "source_path": "tests/test_branch_freshness.py",
+            "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+          },
+          {
+            "case": "TestCheckBranchFreshness.test_fresh_branch",
+            "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+            "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+            "source_path": "tests/test_branch_freshness.py",
+            "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+          },
+          {
+            "case": "TestCheckBranchFreshness.test_rev_list_bad_output",
+            "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+            "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+            "source_path": "tests/test_branch_freshness.py",
+            "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+          },
+          {
+            "case": "TestCheckBranchFreshness.test_rev_list_failure",
+            "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+            "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+            "source_path": "tests/test_branch_freshness.py",
+            "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+          },
+          {
+            "case": "TestCheckBranchFreshness.test_stale_branch",
+            "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+            "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+            "source_path": "tests/test_branch_freshness.py",
+            "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+          },
+          {
+            "case": "TestEdgeCases.test_freshness_check_empty_rev_list_output",
+            "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+            "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+            "source_path": "tests/test_branch_freshness.py",
+            "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+          },
+          {
+            "case": "TestEdgeCases.test_freshness_check_with_branch_name_spaces",
+            "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+            "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
             "source_path": "tests/test_branch_freshness.py",
             "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
           }
@@ -954,6 +1010,62 @@
           "case": "TestFreshnessAPI.test_stats_no_executor",
           "reason": "503 response from GET /api/freshness/stats is a removed Odin web UI HTTP listener contract.",
           "reviewer": "Claude, review of step 8 part 4",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestCheckBranchFreshness.test_fetch_exception_still_checks",
+          "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+          "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestCheckBranchFreshness.test_fetch_failure_still_checks",
+          "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+          "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestCheckBranchFreshness.test_fresh_branch",
+          "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+          "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestCheckBranchFreshness.test_rev_list_bad_output",
+          "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+          "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestCheckBranchFreshness.test_rev_list_failure",
+          "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+          "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestCheckBranchFreshness.test_stale_branch",
+          "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+          "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestEdgeCases.test_freshness_check_empty_rev_list_output",
+          "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+          "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
+          "source_path": "tests/test_branch_freshness.py",
+          "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
+        },
+        {
+          "case": "TestEdgeCases.test_freshness_check_with_branch_name_spaces",
+          "reviewer": "Claude, Odin Desktop 1.6.0 carry of Odin 4.22.0 (PR #729)",
+          "reason": "Odin 4.22.0 asks git for the branch's own upstream before fetching, so this case's answers no longer match the questions; Odin's 4.22.0 version runs in tests/test_desktop_odin_4220_cases.py",
           "source_path": "tests/test_branch_freshness.py",
           "source_sha256": "42fcad58f0474c381db61d12829fa351b18df2dc7a054c25ead3017feb313871"
         }

@@ -144,7 +144,7 @@ def test_each_windows_variant_was_reviewed_against_its_linux_original():
 # handler (browser_web.py stays upstream's byte for byte; the executor routes to the copy).
 OVERRIDE_SOURCES = {
     "src/tools/apply_patch.py":
-        "4796adcdaf14e7bbd2901de9a5c7350a997e58c21836982410aa0d30cda8bc5c",
+        "594c8d628933849b48a4fa76c191e4040453434b4a33451b6add5345a3f41d57",
     "src/tools/process_manager.py:ProcessRegistry._start_local_reserved":
         "f0c65ee1b671ad67d811d2dc05f894deb8f7bf455d8bbad01bd563f970feea61",
     "src/tools/ssh.py:_read_lines_with_callback":
