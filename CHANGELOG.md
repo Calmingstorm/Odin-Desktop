@@ -3,7 +3,7 @@
 ## [1.5.0]
 
 **A remote command stops when its call does, and a silent loop's quiet check is no longer an error.** Linux,
-Windows and macOS (Odin 4.21.0).
+Windows and macOS (Odin 4.21.1).
 
 - **A remote command stops with the call that ran it.** On a remote host, `run_command`, `run_script`,
   `run_command_multi` and `validate_action` checks now run under a small Python helper on the host that owns the
@@ -31,10 +31,14 @@ Windows and macOS (Odin 4.21.0).
   marked uncertain, because the remote command may still be running.
 - **A silent loop's quiet check is its answer.** A silent loop replies with nothing when there's nothing to report.
   Every provider treated that as a failed request: the Codex client sent it twice more and counted a failure. A
-  reply that finished normally with no text is now the check's answer on its first request. Chat, agents and other
-  loops keep the old handling.
+  reply that finished normally with no text is now the check's answer on its first request. A refusal, a cut-off
+  or unfinished reply, or a malformed one is never taken as one, including an OpenAI-compatible or Ollama reply
+  whose `tool_calls` field is malformed (`{}`, `false`, `0` or `""`). Chat, agents and other loops keep the old
+  handling.
+- **Ollama: a reply with null content no longer fails with a Python error.** It counts as a reply without text: a
+  silent loop takes it as a quiet answer, and everything else gets the usual empty-reply handling.
 
-Limits, as in Odin 4.21.0: processes that leave the command's process group or session, a helper killed with
+Limits, as in Odin: processes that leave the command's process group or session, a helper killed with
 SIGKILL, or a host failure are outside this cleanup. During a network outage it waits until the host notices the
 closed connection. Odin's `read_channel` change doesn't apply: Desktop reads a conversation with
 `read_conversation`.
