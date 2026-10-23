@@ -275,6 +275,7 @@ async def test_a_pool_is_honoured_when_one_is_given(monkeypatch):
         is_connected=lambda *a: False,
         acquire=lambda *a, **k: _done(calls.append("acquire") or True),
         get_ssh_args=lambda *a, **k: ["ssh", "pooled"],
+        master_process=lambda *a: None,
         ensure_master_registered=lambda *a: _done(calls.append("registered")),
         release=lambda *a, **k: None)
     spawning(monkeypatch, FakeProcess(0, b"pooled\n"))
@@ -284,6 +285,41 @@ async def test_a_pool_is_honoured_when_one_is_given(monkeypatch):
 
 async def _done(value=None):
     return value
+
+
+def _keepalive_in(argv) -> bool:
+    return "-o ServerAliveInterval=15 -o ServerAliveCountMax=3" in " ".join(map(str, argv))
+
+
+async def test_keepalive_ends_a_silent_connection_and_its_outcome_is_unknown(monkeypatch):
+    # Odin 4.23.0 (#733): Windows' OpenSSH ends a session whose host stopped
+    # answering with this line and CRLF, after unterminated command output. It
+    # may have run: marked uncertain, never sent again, its output kept.
+    from src.tools.execution_outcome import DispatchEvidence, dispatch_evidence
+
+    dropped = b"Connection reset by peer no newlineTimeout, server h not responding.\r\n"
+    argvs = spawning(monkeypatch, FakeProcess(255, dropped), FakeProcess(0, b"again\n"))
+    evidence = DispatchEvidence()
+    token = dispatch_evidence.set(evidence)
+    try:
+        code, output = await ssh(max_retries=3)
+    finally:
+        dispatch_evidence.reset(token)
+    assert (code, output, evidence.uncertain, len(argvs)) == (255, dropped.decode(), True, 1)
+    assert _keepalive_in(argvs[0][0])
+
+
+async def test_a_pooled_session_whose_master_ended_says_why(monkeypatch):
+    ended = SimpleNamespace(returncode=255)
+    pool = SimpleNamespace(
+        is_connected=lambda *a: True, acquire=lambda *a, **k: _done(True),
+        get_ssh_args=lambda *a, **k: ["ssh", "pooled"], master_process=lambda *a: ended,
+        master_ended=lambda proc: _done(proc.returncode is not None),
+        ensure_master_registered=lambda *a: _done(), release=lambda *a, **k: None)
+    spawning(monkeypatch, FakeProcess(255, b"started\r\n"))
+    code, output = await ssh(pool=pool, max_retries=3)
+    assert code == 255 and output.endswith(
+        "ssh: the connection to h was lost during the command; its outcome is unknown.")
 
 
 async def test_streamed_output_keeps_its_bounds(monkeypatch):
@@ -518,6 +554,7 @@ async def test_a_pooled_timeout_keeps_the_masters_registration(monkeypatch):
         is_connected=lambda *a: False,
         acquire=lambda *a, **k: _done(calls.append("acquire") or True),
         get_ssh_args=lambda *a, **k: ["ssh", "pooled"],
+        master_process=lambda *a: None,
         ensure_master_registered=lambda *a: _done(calls.append("registered")),
         release=lambda *a, **k: None)
     spawning(monkeypatch, FakeProcess(hang=True))
@@ -544,6 +581,7 @@ async def test_binary_reads_without_a_host(tmp_path, monkeypatch):
     argv, kwargs = argvs[0]
     assert argv[0].lower().endswith(r"\openssh\ssh.exe") and argv[-1] == "head -c 11 -- /x"
     assert kwargs["stdin"] == asyncio.subprocess.DEVNULL
+    assert _keepalive_in(argv)  # Odin 4.23.0 (#733)
     spawning(monkeypatch, FakeProcess(0, b"x" * 11))
     assert await remote_read(max_bytes=10) == (None, "file is over the 10-byte limit")
     spawning(monkeypatch, FakeProcess(1, b""))

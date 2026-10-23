@@ -101,6 +101,9 @@ class _Pool:
     async def ensure_master_registered(self, *_args):
         return None
 
+    def master_process(self, *_args):
+        return None  # Odin 4.23.0: no master of this pool's to watch
+
     def release(self, *_args):
         return None
 

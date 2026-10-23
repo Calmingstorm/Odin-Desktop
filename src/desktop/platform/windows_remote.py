@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING
 
+from ...tools.ssh_options import KEEPALIVE_OPTIONS
 from .windows_engine import _publish_path
 from .windows_ssh import (
     COMMAND_LINE_LIMIT,
@@ -167,7 +168,7 @@ async def run_ssh_command(
     error patterns). Command-level failures (nonzero exit from the remote
     command itself) are NOT retried — they represent valid remote results.
     """
-    from src.tools.ssh import _is_ssh_transient_failure, _truncate_output, compute_backoff, log, mark_dispatch_uncertain  # noqa: E501, I001
+    from src.tools.ssh import _KEEPALIVE_TIMEOUT_LINE, _is_ssh_transient_failure, _lost_connection_note, _truncate_output, compute_backoff, log, mark_dispatch_uncertain  # noqa: E501, I001
     from src.tools.remote_foreground import remote_foreground_command
     if not multiplex:
         pool = None
@@ -187,6 +188,7 @@ async def run_ssh_command(
             "IdentitiesOnly=yes",
             "-o",
             "ConnectTimeout=10",
+            *KEEPALIVE_OPTIONS,
             "-o",
             "BatchMode=yes",
             "-p",
@@ -207,6 +209,7 @@ async def run_ssh_command(
     for attempt in range(max(1, max_retries)):
         proc: asyncio.subprocess.Process | None = None
         pool_acquired = False
+        master: asyncio.subprocess.Process | None = None
         try:
             if pool is not None:
                 # Establish a foreground, asyncio-owned master before the
@@ -247,6 +250,8 @@ async def run_ssh_command(
                     host_key_alias=host_key_alias,
                     target_id=target_id,
                 )
+                if pool_acquired:
+                    master = pool.master_process(host, ssh_user, target_id)
             # Windows: CreateProcess refuses a command line over its limit. Say so before
             # anything is started, so nothing is sent (never a shortened or unwrapped
             # command instead), without echoing the command or its key paths.
@@ -297,6 +302,16 @@ async def run_ssh_command(
                 if not target_id:
                     await pool.ensure_master_registered(host, ssh_user)
 
+            # The connection was lost after the command was sent (no reply to
+            # keep-alives): ssh says so itself, or a pooled session's master
+            # has ended. The command may have run, as after a timeout.
+            lost = exit_code == 255 and bool(_KEEPALIVE_TIMEOUT_LINE.search(output))
+            if (exit_code == 255 and not lost and master is not None
+                    and pool is not None and await pool.master_ended(master)):
+                lost = True
+                note = _lost_connection_note(host)
+                output = output.rstrip("\n") + "\n" + note if output.strip() else note
+
             if end_with_channel:
                 # Handed to ssh once, so it is never sent again. 255 is ssh's
                 # own failure status (a lost channel) and also a status the
@@ -304,6 +319,10 @@ async def run_ssh_command(
                 # may have run, so its outcome stays uncertain.
                 if exit_code == 255:
                     mark_dispatch_uncertain()
+                return exit_code, _truncate_output(output)
+            if lost:
+                # Never sent again: its outcome is unknown, as a timeout's was.
+                mark_dispatch_uncertain()
                 return exit_code, _truncate_output(output)
             if exit_code == 0 or not _is_ssh_transient_failure(exit_code, output):
                 return exit_code, _truncate_output(output)
@@ -451,6 +470,7 @@ async def read_binary_file(
         "IdentitiesOnly=yes",
         "-o",
         "ConnectTimeout=10",
+        *KEEPALIVE_OPTIONS,
         "-o",
         "BatchMode=yes",
         "-p",

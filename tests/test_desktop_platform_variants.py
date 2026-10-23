@@ -150,11 +150,11 @@ OVERRIDE_SOURCES = {
     "src/tools/ssh.py:_read_lines_with_callback":
         "9fe3c468b9b74a37d6781041d02c4d1e3ab60c12272859a43c8e11243b0aa758",
     "src/tools/ssh.py:run_ssh_command":
-        "285c6b368761d789adaf992c943d373dfe4ec49da0d1010017a94933a37fbb70",
+        "0c9e3a7fe2ed6506e35ee72eca7a624da18b927db5e48fcb749a487765bbe100",
     "src/tools/handlers/browser_web.py:BrowserWebTools._handle_http_probe":
         "b539e2e3a11d0e5a5c8ce29f9ae972b3dc465fe8f4d27f4e8658ca01e0970657",
     "src/tools/ssh.py:read_binary_file":
-        "f5a4a4dd520f80bfa8159ad1a0b1491372ebcaa5e836ab55fe4f1bdd4de335cf",
+        "60b20fa463f8e92a460252124135d77f77c5eb4effb26ea59b6aff7e58a24287",
     "src/tools/local_supervisor.py:SupervisedShell":
         "ca3e9fc1029f36c07b3dcde0a79b916ad0e9b8ed50a612d6f7f5fae9f9fefc47",
     "src/tools/risk_classifier.py:CommandGovernor.check":

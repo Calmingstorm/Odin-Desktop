@@ -49117,34 +49117,6 @@
       "executable": "tests/test_campaign_process_final_coverage.py::test_settlement_outside_event_loop_cancels_old_task_and_releases"
     },
     {
-      "original": "tests/test_campaign_process_final_coverage.py::test_pooled_timeout_retry_reaps_before_next_dispatch_and_releases",
-      "executable": "tests/test_campaign_process_final_coverage.py::test_pooled_timeout_retry_reaps_before_next_dispatch_and_releases"
-    },
-    {
-      "original": "tests/test_campaign_process_final_coverage.py::test_pooled_cancel_releases_only_acquired_lease_and_reaps_child[acquire]",
-      "executable": "tests/test_campaign_process_final_coverage.py::test_pooled_cancel_releases_only_acquired_lease_and_reaps_child[acquire]"
-    },
-    {
-      "original": "tests/test_campaign_process_final_coverage.py::test_pooled_cancel_releases_only_acquired_lease_and_reaps_child[spawn]",
-      "executable": "tests/test_campaign_process_final_coverage.py::test_pooled_cancel_releases_only_acquired_lease_and_reaps_child[spawn]"
-    },
-    {
-      "original": "tests/test_campaign_process_final_coverage.py::test_pooled_cancel_releases_only_acquired_lease_and_reaps_child[communicate]",
-      "executable": "tests/test_campaign_process_final_coverage.py::test_pooled_cancel_releases_only_acquired_lease_and_reaps_child[communicate]"
-    },
-    {
-      "original": "tests/test_campaign_process_final_coverage.py::test_pooled_registration_error_reaps_client_and_releases_without_retry",
-      "executable": "tests/test_campaign_process_final_coverage.py::test_pooled_registration_error_reaps_client_and_releases_without_retry"
-    },
-    {
-      "original": "tests/test_campaign_process_final_coverage.py::test_pooled_exhausted_timeout_registers_legacy_master_and_releases",
-      "executable": "tests/test_campaign_process_final_coverage.py::test_pooled_exhausted_timeout_registers_legacy_master_and_releases"
-    },
-    {
-      "original": "tests/test_campaign_process_final_coverage.py::test_pooled_backoff_cancel_prevents_another_dispatch_and_releases",
-      "executable": "tests/test_campaign_process_final_coverage.py::test_pooled_backoff_cancel_prevents_another_dispatch_and_releases"
-    },
-    {
       "original": "tests/test_campaign_process_final_coverage.py::test_streaming_timeout_preserves_pending_fragment_and_cleans_once",
       "executable": "tests/test_campaign_process_final_coverage.py::test_streaming_timeout_preserves_pending_fragment_and_cleans_once"
     },
