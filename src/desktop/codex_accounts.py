@@ -115,27 +115,13 @@ class KeyringCodexAuth(CodexAuth):
         earlier write failed to save, in a settled worker under the refresh and
         pool locks, never through the retained file writer.
 
-        A quarantined rotation is checked first. While the keyring still cannot be
-        read, the request fails as keyring-unavailable: the spent token is never
-        offered again and nothing unverified is served.
+        A quarantined rotation is settled first (``_settle_quarantine``).
         """
         if self._unpersisted is None and self._quarantined is None:
             return
         async with self._refresh_lock:
-            held = self._quarantined
-            if held is not None:
-                try:
-                    async with self.pool._pool_lock:
-                        await secret_call(self._adopt_quarantined, held)
-                except LLMAuthError:
-                    return  # removed or replaced meanwhile: dropped, never published
-                except Exception as error:
-                    if self._quarantined is held:
-                        raise  # the keyring still cannot be read
-                    log.warning("Refreshed Codex credentials are still unsaved: %s",
-                                safe_error(error))
-                else:
-                    log.info("Saved refreshed Codex credentials once the keyring was readable")
+            if self._quarantined is not None:
+                await self._settle_quarantine()
                 return
             creds = self._unpersisted
             if creds is None:
@@ -149,6 +135,29 @@ class KeyringCodexAuth(CodexAuth):
                 log.warning("Refreshed Codex credentials are still unsaved: %s", safe_error(error))
             else:
                 log.info("Saved refreshed Codex credentials after an earlier write failure")
+
+    async def _settle_quarantine(self):
+        """Adopt a quarantined rotation once the keyring answers; the caller holds
+        the refresh lock.
+
+        It is checked against the same generation, slot and record fences as a
+        fresh rotation, then saved. A changed account drops it unpublished and the
+        request fails (LLMAuthError). While the keyring still cannot be read, the
+        request fails as keyring-unavailable. Either way the spent token is never
+        offered again and nothing unverified is served.
+        """
+        held = self._quarantined
+        try:
+            async with self.pool._pool_lock:
+                await secret_call(self._adopt_quarantined, held)
+        except LLMAuthError:
+            raise  # removed or replaced meanwhile: dropped, never published
+        except Exception as error:
+            if self._quarantined is held:
+                raise  # the keyring still cannot be read
+            log.warning("Refreshed Codex credentials are still unsaved: %s", safe_error(error))
+        else:
+            log.info("Saved refreshed Codex credentials once the keyring was readable")
 
     def _retry_unpersisted(self):
         """The retained retry writes files; this auth retries through the keyring
@@ -166,6 +175,12 @@ class KeyringCodexAuth(CodexAuth):
         return await super().force_refresh(stale_token)
 
     async def _refresh(self, creds):
+        if self._quarantined is not None:
+            # This caller waited for the refresh lock while the refresh before it
+            # spent *creds*' single-use token and its successor could not be
+            # checked. Settle that rotation; never refresh again with the spent one.
+            await self._settle_quarantine()
+            return
         # Keep the retained OAuth/token derivation unchanged, but split its
         # synchronous persistence seam from HTTP. The enclosing retained
         # _refresh_shielded holds the single-use refresh lock until this durable
@@ -181,7 +196,11 @@ class KeyringCodexAuth(CodexAuth):
             row = self._canonical_row()
         except LLMAuthError:
             if self._quarantined is creds:
+                # Dropped unpublished. The rotation spent this auth's last token, so
+                # it keeps nothing to serve or refresh: a later use rereads the
+                # record through the same fences, which refuse a changed account.
                 self._quarantined = None
+                self._credentials = self._unpersisted = None
             raise
         self._quarantined = None
         self._credentials = creds
@@ -233,8 +252,6 @@ class KeyringCodexAuth(CodexAuth):
         # Publish single-use rotations only AFTER durable keyring storage.
         self.expected = dict(updated)
         self._credentials = dict(updated)
-        if self._quarantined is creds:
-            self._quarantined = None
         if self._unpersisted is creds:
             self._unpersisted = None
 

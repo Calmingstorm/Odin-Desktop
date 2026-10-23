@@ -8,7 +8,7 @@
   executor's route, the Windows variant and this computer's git, with nothing faked. Odin's
   ``command_directory`` reads a ``cd`` by POSIX rules: a single-quoted folder or one with
   forward slashes. A double-quoted folder with backslashes is not read, so the check runs
-  in the workspace and never warns from the wrong repository.
+  in the workspace instead, as any command without a leading ``cd`` does.
 """
 from __future__ import annotations
 

@@ -16,6 +16,7 @@ import pytest
 from src.desktop.codex_accounts import CodexAccountsService
 from src.desktop.secrets import SecretStoreError
 from src.llm import codex_auth as ca
+from src.llm.errors import LLMAuthError
 
 
 def credential(name="a", **kwargs):
@@ -60,21 +61,29 @@ class Secrets:
 
 
 class OAuth:
-    """Single-use refresh tokens: a reused one is refused, as the real endpoint does."""
+    """Single-use refresh tokens: a reused one is refused, as the real endpoint does. A test
+    can hold a refresh in flight (``gate``) and see when one starts (``entered``)."""
 
     def __init__(self):
         self.consumed = []
+        self.entered = None
+        self.gate = None
 
     def session(self, **kwargs):
         transport = self
 
         class Response:
             def __init__(self, token):
-                self.status = 400 if token in transport.consumed else 200
-                transport.consumed.append(token)
-                self.number = len(transport.consumed)
+                self.token = token
 
             async def __aenter__(self):
+                if transport.entered is not None:
+                    transport.entered.set()
+                if transport.gate is not None:
+                    await transport.gate.wait()
+                self.status = 400 if self.token in transport.consumed else 200
+                transport.consumed.append(self.token)
+                self.number = len(transport.consumed)
                 return self
 
             async def __aexit__(self, *args):
@@ -131,6 +140,67 @@ async def unsaved(auth, secrets):
     secrets.fail = True
     with pytest.raises(SecretStoreError):
         await auth.get_access_token()
+
+
+async def change_account(service, secrets, change):
+    """Remove account 0, or replace it with a fresh login (a new refresh chain)."""
+    if change == "removed":
+        await service.handle("codex.accounts.remove", {"index": 0})
+        return [credential("b")]
+    expected = [credential("a", access_token="relogin", refresh_token="relogin-r"),
+                credential("b")]
+    secrets.put(expected)
+    await service.pool.reload_async()
+    return expected
+
+
+def lock_waiter(task):
+    """The qualified name of the coroutine of *task* that waits for a lock, if any."""
+    names, coro = [], task.get_coro()
+    while getattr(coro, "cr_code", None) is not None:
+        names.append(coro.cr_code.co_qualname)
+        coro = coro.cr_await
+    # [..., the waiter, "_ContextManagerMixin.__aenter__", "Lock.acquire"]
+    return names[-3] if len(names) >= 3 and names[-1] == "Lock.acquire" else None
+
+
+async def until(predicate, tries=200):
+    for _ in range(tries):
+        if predicate():
+            return True
+        await asyncio.sleep(0)
+    return predicate()
+
+
+async def refresh_with_a_queued_caller(pool, oauth, route, position):
+    """Hold a refresh of account 0 in flight with a second request queued on its lock.
+
+    ``restore``: the second request passed the unsaved-rotation check before the refresh
+    began and waits in credential restoration (Odin's round-2 review). ``inner``: it also
+    passed restoration, behind an earlier lock holder, and waits in the retained refresh.
+    """
+    auth = pool._accounts[0]
+    oauth.entered, oauth.gate = asyncio.Event(), asyncio.Event()
+
+    def second():
+        return pool.token_for(0) if route == "token" else pool.force_refresh(0, "secret-access-a")
+
+    restore = "KeyringCodexAuth._restore_credentials"
+    if position == "restore":
+        owner = asyncio.create_task(pool.token_for(0))
+        await asyncio.wait_for(oauth.entered.wait(), 5)
+        waiter = asyncio.create_task(second())
+        assert await until(lambda: lock_waiter(waiter) == restore)
+        return owner, waiter
+    await auth._refresh_lock.acquire()  # e.g. a refresh that never reached the server
+    owner = asyncio.create_task(pool.token_for(0))
+    waiter = asyncio.create_task(second())
+    assert await until(lambda: lock_waiter(owner) == restore == lock_waiter(waiter))
+    auth._refresh_lock.release()
+    await asyncio.wait_for(oauth.entered.wait(), 5)
+    inner = "CodexAuth.get_access_token" if route == "token" else "CodexAuth.force_refresh"
+    assert await until(lambda: lock_waiter(waiter) == inner)
+    return owner, waiter
 
 
 @pytest.mark.asyncio
@@ -299,18 +369,107 @@ async def test_a_quarantined_rotation_of_a_changed_account_is_dropped(make, chan
     secrets.read_fail = 1
     with pytest.raises(SecretStoreError):
         await auth.get_access_token()
-    if change == "removed":
-        await service.handle("codex.accounts.remove", {"index": 0})
-        expected = [credential("b")]
-    else:
-        expected = [credential("a", access_token="relogin", refresh_token="relogin-r"),
-                    credential("b")]
-        secrets.put(expected)
-        await pool.reload_async()
+    expected = await change_account(service, secrets, change)
     writes = secrets.writes
-    await auth._retry_unsaved()  # the retired auth's check refuses: dropped
+    with pytest.raises(LLMAuthError):  # the retired auth's check refuses: dropped
+        await auth.get_access_token()
+    assert auth._quarantined is None and auth._unpersisted is None
+    with pytest.raises(LLMAuthError):  # nothing left to serve or refresh with
+        await auth.get_access_token()
+    assert await auth.force_refresh("secret-access-a") is False
+    assert secrets.rows() == expected and secrets.writes == writes
+    assert oauth.consumed == ["secret-refresh-a"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", ["removed", "replaced"])
+async def test_a_refresh_that_ends_after_its_account_changed_is_refused_not_quarantined(
+        make, change):
+    """With the keyring readable, the identity check proves the change: the rotation is
+    refused outright, never held for a later check."""
+    service, secrets, oauth, _ = make([credential("a", expires_at=0), credential("b")])
+    pool = service.pool
+    auth = pool._accounts[0]
+    oauth.entered, oauth.gate = asyncio.Event(), asyncio.Event()
+    owner = asyncio.create_task(pool.token_for(0))
+    await asyncio.wait_for(oauth.entered.wait(), 5)
+    expected = await change_account(service, secrets, change)
+    writes = secrets.writes
+    oauth.gate.set()
+    with pytest.raises(LLMAuthError):
+        await owner
     assert auth._quarantined is None and auth._unpersisted is None
     assert secrets.rows() == expected and secrets.writes == writes
+    assert oauth.consumed == ["secret-refresh-a"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("keyring", ["recovers", "write fails", "locked"])
+@pytest.mark.parametrize("position", ["restore", "inner"])
+@pytest.mark.parametrize("route", ["token", "force"])
+async def test_a_caller_queued_behind_a_quarantined_refresh_never_reuses_its_token(
+        make, route, position, keyring):
+    """Odin's round-2 review: a request already waiting for the refresh lock when the refresh
+    before it is quarantined settles that rotation instead of refreshing again with the
+    spent token: adopted once the keyring answers, refused while it cannot be read."""
+    service, secrets, oauth, _ = make([credential("a", expires_at=0, label="work")])
+    pool = service.pool
+    auth = pool._accounts[0]
+    owner, waiter = await refresh_with_a_queued_caller(pool, oauth, route, position)
+    secrets.read_fail = 10**6 if keyring == "locked" else 1  # the owner's identity check
+    secrets.fail = keyring == "write fails"
+    oauth.gate.set()
+    with pytest.raises(SecretStoreError):
+        await owner
+    if keyring == "locked":
+        if route == "token":
+            with pytest.raises(SecretStoreError):
+                await waiter
+        else:
+            assert await waiter is False
+        assert auth._quarantined is not None and secrets.writes == 0
+        secrets.read_fail = 0
+    else:
+        assert await waiter == (("rotated-access-1", "a") if route == "token" else True)
+        assert auth._quarantined is None
+        assert (auth._unpersisted is None) == (keyring == "recovers")  # else pending, served
+        secrets.fail = False
+    assert await pool.token_for(0) == ("rotated-access-1", "a")
+    saved = secrets.rows()[0]
+    assert saved["refresh_token"] == "rotated-refresh-1" and saved["label"] == "work"
+    assert auth._quarantined is None and auth._unpersisted is None and secrets.writes == 1
+    assert oauth.consumed == ["secret-refresh-a"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", ["removed", "replaced"])
+@pytest.mark.parametrize("route", ["token", "force"])
+async def test_a_caller_queued_behind_a_quarantined_refresh_of_a_changed_account_fails_closed(
+        make, route, change):
+    """The account is removed or replaced while the refresh is in flight: the queued request
+    drops the quarantined rotation unpublished and fails without refreshing again, and so
+    does every later use of the retired authorization."""
+    service, secrets, oauth, _ = make([credential("a", expires_at=0), credential("b")])
+    pool = service.pool
+    auth = pool._accounts[0]
+    owner, waiter = await refresh_with_a_queued_caller(pool, oauth, route, "restore")
+    expected = await change_account(service, secrets, change)
+    writes = secrets.writes
+    secrets.read_fail = 1  # the owner's identity check
+    oauth.gate.set()
+    with pytest.raises(SecretStoreError):
+        await owner
+    if route == "token":
+        with pytest.raises(LLMAuthError):
+            await waiter
+    else:
+        assert await waiter is False
+    assert auth._quarantined is None and auth._unpersisted is None
+    with pytest.raises(LLMAuthError):
+        await auth.get_access_token()
+    assert await auth.force_refresh("secret-access-a") is False
+    assert secrets.rows() == expected and secrets.writes == writes
+    assert oauth.consumed == ["secret-refresh-a"]
 
 
 @pytest.mark.asyncio
