@@ -172,36 +172,37 @@ async def until(predicate, tries=200):
     return predicate()
 
 
-async def refresh_with_a_queued_caller(pool, oauth, route, position):
-    """Hold a refresh of account 0 in flight with a second request queued on its lock.
+async def refresh_with_queued_callers(pool, oauth, route, position, count=2):
+    """Hold a refresh of account 0 in flight with *count* more requests queued on its lock.
 
-    ``restore``: the second request passed the unsaved-rotation check before the refresh
-    began and waits in credential restoration (Odin's round-2 review). ``inner``: it also
-    passed restoration, behind an earlier lock holder, and waits in the retained refresh.
+    ``restore``: they passed the unsaved-rotation check before the refresh began and wait in
+    credential restoration (Odin's round-2 review). ``inner``: they also passed restoration,
+    behind an earlier lock holder, and wait in the retained refresh (his round-3 review).
+    From ``restore``, a second request also passes restoration before the first is settled.
     """
     auth = pool._accounts[0]
     oauth.entered, oauth.gate = asyncio.Event(), asyncio.Event()
 
-    def second():
-        return pool.token_for(0) if route == "token" else pool.force_refresh(0, "secret-access-a")
+    def caller():
+        return asyncio.create_task(
+            pool.token_for(0) if route == "token" else pool.force_refresh(0, "secret-access-a"))
 
     restore = "KeyringCodexAuth._restore_credentials"
     if position == "restore":
         owner = asyncio.create_task(pool.token_for(0))
         await asyncio.wait_for(oauth.entered.wait(), 5)
-        waiter = asyncio.create_task(second())
-        assert await until(lambda: lock_waiter(waiter) == restore)
-        return owner, waiter
+        waiters = [caller() for _ in range(count)]
+        assert await until(lambda: all(lock_waiter(w) == restore for w in waiters))
+        return owner, waiters
     await auth._refresh_lock.acquire()  # e.g. a refresh that never reached the server
     owner = asyncio.create_task(pool.token_for(0))
-    waiter = asyncio.create_task(second())
-    assert await until(lambda: lock_waiter(owner) == restore == lock_waiter(waiter))
+    waiters = [caller() for _ in range(count)]
+    assert await until(lambda: all(lock_waiter(t) == restore for t in (owner, *waiters)))
     auth._refresh_lock.release()
     await asyncio.wait_for(oauth.entered.wait(), 5)
     inner = "CodexAuth.get_access_token" if route == "token" else "CodexAuth.force_refresh"
-    assert await until(lambda: lock_waiter(waiter) == inner)
-    return owner, waiter
-
+    assert await until(lambda: all(lock_waiter(w) == inner for w in waiters))
+    return owner, waiters
 
 @pytest.mark.asyncio
 async def test_a_rotation_outlives_failed_writes_invalidation_and_reload(make):
@@ -382,55 +383,35 @@ async def test_a_quarantined_rotation_of_a_changed_account_is_dropped(make, chan
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("change", ["removed", "replaced"])
-async def test_a_refresh_that_ends_after_its_account_changed_is_refused_not_quarantined(
-        make, change):
-    """With the keyring readable, the identity check proves the change: the rotation is
-    refused outright, never held for a later check."""
-    service, secrets, oauth, _ = make([credential("a", expires_at=0), credential("b")])
-    pool = service.pool
-    auth = pool._accounts[0]
-    oauth.entered, oauth.gate = asyncio.Event(), asyncio.Event()
-    owner = asyncio.create_task(pool.token_for(0))
-    await asyncio.wait_for(oauth.entered.wait(), 5)
-    expected = await change_account(service, secrets, change)
-    writes = secrets.writes
-    oauth.gate.set()
-    with pytest.raises(LLMAuthError):
-        await owner
-    assert auth._quarantined is None and auth._unpersisted is None
-    assert secrets.rows() == expected and secrets.writes == writes
-    assert oauth.consumed == ["secret-refresh-a"]
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize("keyring", ["recovers", "write fails", "locked"])
 @pytest.mark.parametrize("position", ["restore", "inner"])
 @pytest.mark.parametrize("route", ["token", "force"])
 async def test_a_caller_queued_behind_a_quarantined_refresh_never_reuses_its_token(
         make, route, position, keyring):
-    """Odin's round-2 review: a request already waiting for the refresh lock when the refresh
-    before it is quarantined settles that rotation instead of refreshing again with the
+    """Odin's round-2 review: requests already waiting for the refresh lock when the refresh
+    before them is quarantined settle that rotation instead of refreshing again with the
     spent token: adopted once the keyring answers, refused while it cannot be read."""
     service, secrets, oauth, _ = make([credential("a", expires_at=0, label="work")])
     pool = service.pool
     auth = pool._accounts[0]
-    owner, waiter = await refresh_with_a_queued_caller(pool, oauth, route, position)
+    owner, waiters = await refresh_with_queued_callers(pool, oauth, route, position)
     secrets.read_fail = 10**6 if keyring == "locked" else 1  # the owner's identity check
     secrets.fail = keyring == "write fails"
     oauth.gate.set()
     with pytest.raises(SecretStoreError):
         await owner
     if keyring == "locked":
-        if route == "token":
-            with pytest.raises(SecretStoreError):
-                await waiter
-        else:
-            assert await waiter is False
+        for waiter in waiters:
+            if route == "token":
+                with pytest.raises(SecretStoreError):
+                    await waiter
+            else:
+                assert await waiter is False
         assert auth._quarantined is not None and secrets.writes == 0
         secrets.read_fail = 0
     else:
-        assert await waiter == (("rotated-access-1", "a") if route == "token" else True)
+        for waiter in waiters:
+            assert await waiter == (("rotated-access-1", "a") if route == "token" else True)
         assert auth._quarantined is None
         assert (auth._unpersisted is None) == (keyring == "recovers")  # else pending, served
         secrets.fail = False
@@ -442,28 +423,33 @@ async def test_a_caller_queued_behind_a_quarantined_refresh_never_reuses_its_tok
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("owner_check", ["unreadable", "proves the change"])
 @pytest.mark.parametrize("change", ["removed", "replaced"])
+@pytest.mark.parametrize("position", ["restore", "inner"])
 @pytest.mark.parametrize("route", ["token", "force"])
-async def test_a_caller_queued_behind_a_quarantined_refresh_of_a_changed_account_fails_closed(
-        make, route, change):
-    """The account is removed or replaced while the refresh is in flight: the queued request
-    drops the quarantined rotation unpublished and fails without refreshing again, and so
-    does every later use of the retired authorization."""
+async def test_callers_queued_behind_a_refresh_of_a_changed_account_fail_closed(
+        make, route, position, change, owner_check):
+    """The account is removed or replaced while the refresh is in flight. Its identity check
+    proves the change at once (keyring readable), or the quarantine's later check does (the
+    first read failed). Either way the chain has ended: no request already queued, even past
+    restoration, refreshes again with the spent token, nor does any later use, and nothing
+    is published (Odin's round-3 review: the second already-restored request)."""
     service, secrets, oauth, _ = make([credential("a", expires_at=0), credential("b")])
     pool = service.pool
     auth = pool._accounts[0]
-    owner, waiter = await refresh_with_a_queued_caller(pool, oauth, route, "restore")
+    owner, waiters = await refresh_with_queued_callers(pool, oauth, route, position)
     expected = await change_account(service, secrets, change)
     writes = secrets.writes
-    secrets.read_fail = 1  # the owner's identity check
+    secrets.read_fail = 1 if owner_check == "unreadable" else 0  # the owner's identity check
     oauth.gate.set()
-    with pytest.raises(SecretStoreError):
+    with pytest.raises(SecretStoreError if owner_check == "unreadable" else LLMAuthError):
         await owner
-    if route == "token":
-        with pytest.raises(LLMAuthError):
-            await waiter
-    else:
-        assert await waiter is False
+    for waiter in waiters:
+        if route == "token":
+            with pytest.raises(LLMAuthError):
+                await waiter
+        else:
+            assert await waiter is False
     assert auth._quarantined is None and auth._unpersisted is None
     with pytest.raises(LLMAuthError):
         await auth.get_access_token()

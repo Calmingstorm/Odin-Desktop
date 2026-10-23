@@ -78,6 +78,10 @@ class KeyringCodexAuth(CodexAuth):
     # token is spent, but whose record it belongs to is unverified. It is never
     # served or saved until the keyring answers (_adopt_quarantined).
     _quarantined: dict | None = None
+    # Set once an identity check after a spent refresh proves the account changed
+    # (_end_chain): the single-use token is spent and its successor dropped, so
+    # this auth never refreshes again, also for requests already waiting for it.
+    _chain_ended: bool = False
 
     def __init__(self, pool, slot, creds):
         super().__init__("desktop-keyring-unused")
@@ -175,6 +179,10 @@ class KeyringCodexAuth(CodexAuth):
         return await super().force_refresh(stale_token)
 
     async def _refresh(self, creds):
+        if self._chain_ended:
+            # Whatever this caller loaded (its cached copy or the record's), the
+            # token is the spent one: never offer it again.
+            raise LLMAuthError("Codex account changed during refresh.", provider="codex")
         if self._quarantined is not None:
             # This caller waited for the refresh lock while the refresh before it
             # spent *creds*' single-use token and its successor could not be
@@ -196,16 +204,21 @@ class KeyringCodexAuth(CodexAuth):
             row = self._canonical_row()
         except LLMAuthError:
             if self._quarantined is creds:
-                # Dropped unpublished. The rotation spent this auth's last token, so
-                # it keeps nothing to serve or refresh: a later use rereads the
-                # record through the same fences, which refuse a changed account.
-                self._quarantined = None
-                self._credentials = self._unpersisted = None
+                self._end_chain()  # dropped unpublished
             raise
         self._quarantined = None
         self._credentials = creds
         self._unpersisted = creds
         self._write(row, creds)
+
+    def _end_chain(self):
+        # Worker thread, under the pool lock. The rotation an identity check refused
+        # came from this auth's last token, so it keeps nothing to serve or refresh:
+        # a later use rereads the record through the same fences, which refuse a
+        # changed account, and a request already past them is refused at _refresh.
+        self._chain_ended = True
+        self._quarantined = None
+        self._credentials = self._unpersisted = None
 
     def _canonical_row(self):
         raw = self.pool.vault.read()
@@ -226,6 +239,7 @@ class KeyringCodexAuth(CodexAuth):
         try:
             row = self._canonical_row()
         except LLMAuthError:
+            self._end_chain()
             raise
         except Exception:
             # The keyring could not be read to check whose record this is.
