@@ -2430,3 +2430,7 @@ class Scheduler:
             await self._execute_and_record(schedule, reservation, epoch, scheduled=True)
         except ScheduleConnectionUnavailableError:
             pass
+        finally:
+            # Before the task is done: a tick that runs between its end and its
+            # done callbacks already sees the lane free, so it must also see when.
+            self._note_run_end(schedule.get("id"), _lane(schedule))

@@ -195,3 +195,68 @@ async def test_a_slot_due_while_its_lane_was_free_counts_from_its_due_time(graph
     await drain(scheduler)
     assert runs.started == [first["id"]]
     assert record(scheduler, later["id"])["recovery_required"]
+
+
+@pytest.mark.asyncio
+async def test_a_runs_end_is_recorded_before_its_task_is_done(graph):
+    """A tick can run after a dispatch's task is done but before its done callbacks: the
+    lane already reads free there, so the lane's end time must already be recorded."""
+    from src.scheduler.scheduler import _lane
+
+    scheduler = graph[0]
+    item = await add(graph, "Quick check")
+    await due_at(scheduler, item["id"], START)
+    scheduler._callback = Runs()
+    await tick_at(scheduler, START)
+    task = next(iter(scheduler._dispatches))
+    lane = _lane(record(scheduler, item["id"]))
+    while not task.done():
+        await asyncio.sleep(0)
+    # Resumed ahead of the task's done callbacks (the ready queue is FIFO).
+    assert lane not in scheduler._busy_lanes()
+    assert scheduler._lane_freed_at.get(lane) == START
+    assert scheduler._run_ended_at.get(item["id"]) == START
+
+
+@pytest.mark.asyncio
+async def test_a_tick_queued_on_the_completions_publication_keeps_the_held_slot(
+        graph, monkeypatch):
+    """Odin's review R2: the run's completion publishes under the scheduler lock; a tick
+    queued on that lock runs once it is released, possibly before the finished task's
+    done callbacks. It must still see the lane's end and keep the held slot."""
+    scheduler = graph[0]
+    long, waiting = await add(graph, "Long check"), await add(graph, "Waiting check")
+    await due_at(scheduler, long["id"], START)
+    await due_at(scheduler, waiting["id"], START + timedelta(seconds=30))
+    runs = Runs()
+    runs.hold(long["id"])
+    scheduler._callback = runs
+    await tick_at(scheduler, START)
+    await settle(lambda: runs.started == [long["id"]])
+    await tick_at(scheduler, START + timedelta(seconds=30))  # held behind the long run
+    Clock.instant = START + timedelta(minutes=5)
+    publish, gate, publishing = scheduler._publish, asyncio.Event(), asyncio.Event()
+
+    async def held_publication(values):
+        publishing.set()
+        await gate.wait()
+        return await publish(values)
+
+    monkeypatch.setattr(scheduler, "_publish", held_publication)
+    runs.gates[long["id"]].set()
+    async with asyncio.timeout(5):
+        await publishing.wait()  # the completion's publication, inside the lock
+    monkeypatch.setattr(scheduler, "_publish", publish)
+    queued = asyncio.create_task(scheduler._tick(wait=False))
+    await asyncio.sleep(0.05)
+    assert not queued.done()  # it waits for the lock the completion holds
+    gate.set()
+    async with asyncio.timeout(5):
+        await queued
+    await drain(scheduler)
+    if runs.started[-1] != waiting["id"]:
+        await tick_at(scheduler, START + timedelta(minutes=5, seconds=1))
+        await settle(lambda: runs.started[-1] == waiting["id"])
+        await drain(scheduler)
+    assert runs.started == [long["id"], waiting["id"]]
+    assert not_missed(record(scheduler, waiting["id"]))

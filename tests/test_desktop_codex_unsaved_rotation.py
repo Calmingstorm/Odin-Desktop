@@ -30,11 +30,15 @@ class Secrets:
     def __init__(self, rows):
         self.values = {"codex_accounts": json.dumps(rows)}
         self.fail = False
+        self.read_fail = 0  # how many of the next reads fail (a relocked keyring)
         self.writes = 0
         self.entered = threading.Event()
         self.gate = None
 
     def get(self, name):
+        if self.read_fail:
+            self.read_fail -= 1
+            raise SecretStoreError("keyring locked")
         return self.values.get(name)
 
     def set(self, name, value):
@@ -258,3 +262,75 @@ def test_the_retained_file_retry_is_never_reached():
     auth._retry_unpersisted()  # a no-op: the keyring retry replaces it
     with pytest.raises(RuntimeError, match="keyring only"):
         auth._persist(credential("a"))
+
+
+@pytest.mark.asyncio
+async def test_a_rotation_the_keyring_could_not_check_is_quarantined_then_adopted(make):
+    """Odin's review R1: the keyring relocked during the refresh, so the identity check's
+    read failed with the old token already spent. The rotation is held in quarantine:
+    never served or saved while unverified, and the spent token is never offered again."""
+    service, secrets, oauth, _ = make([credential("a", expires_at=0, label="work")])
+    pool = service.pool
+    auth = pool._loaded_auths[0]
+    secrets.read_fail = 1  # the first read after the refresh: the identity check's
+    with pytest.raises(SecretStoreError):
+        await auth.get_access_token()
+    assert oauth.consumed == ["secret-refresh-a"] and secrets.writes == 0
+    assert auth._quarantined is not None and auth._unpersisted is None
+    secrets.read_fail = 10**6  # still locked: refused as such, no second refresh
+    with pytest.raises(SecretStoreError):
+        await pool.token_for(0)
+    assert await auth.force_refresh("secret-access-a") is False
+    assert oauth.consumed == ["secret-refresh-a"] and secrets.writes == 0
+    secrets.read_fail = 0  # unlocked again: checked against the same fences, then saved
+    assert await pool.token_for(0) == ("rotated-access-1", "a")
+    saved = secrets.rows()[0]
+    assert saved["refresh_token"] == "rotated-refresh-1" and saved["label"] == "work"
+    assert auth._quarantined is None and auth._unpersisted is None and secrets.writes == 1
+    assert oauth.consumed == ["secret-refresh-a"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", ["removed", "replaced"])
+async def test_a_quarantined_rotation_of_a_changed_account_is_dropped(make, change):
+    service, secrets, oauth, _ = make([credential("a", expires_at=0), credential("b")])
+    pool = service.pool
+    auth = pool._loaded_auths[0]
+    secrets.read_fail = 1
+    with pytest.raises(SecretStoreError):
+        await auth.get_access_token()
+    if change == "removed":
+        await service.handle("codex.accounts.remove", {"index": 0})
+        expected = [credential("b")]
+    else:
+        expected = [credential("a", access_token="relogin", refresh_token="relogin-r"),
+                    credential("b")]
+        secrets.put(expected)
+        await pool.reload_async()
+    writes = secrets.writes
+    await auth._retry_unsaved()  # the retired auth's check refuses: dropped
+    assert auth._quarantined is None and auth._unpersisted is None
+    assert secrets.rows() == expected and secrets.writes == writes
+
+
+@pytest.mark.asyncio
+async def test_a_label_edit_while_a_rotation_is_unsaved_survives_reloads(make):
+    """Odin's review C1: a reload serves the unsaved rotation; a later label edit must not
+    be hidden by the rotation's older label at the next reload."""
+    service, secrets, oauth, _ = make([credential("a", expires_at=0, label="old")])
+    pool = service.pool
+    await unsaved(pool._loaded_auths[0], secrets)
+    secrets.fail = False
+    await pool.reload_async()
+    await service.handle("codex.accounts.label", {"index": 0, "label": "new-label"})
+
+    def listed():
+        return [row.get("label") for row in service._list()["accounts"]]
+
+    assert listed() == ["new-label"]
+    await pool.reload_async()
+    assert listed() == ["new-label"] and secrets.rows()[0]["label"] == "new-label"
+    assert await pool.token_for(0) == ("rotated-access-1", "a")
+    saved = secrets.rows()[0]
+    assert saved["label"] == "new-label" and saved["refresh_token"] == "rotated-refresh-1"
+    assert oauth.consumed == ["secret-refresh-a"]

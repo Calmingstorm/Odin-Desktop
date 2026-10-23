@@ -307,3 +307,39 @@ async def test_a_failing_settlement_waits_for_its_held_sibling(graph, monkeypatc
     await asyncio.gather(*requests._tasks, return_exceptions=True)
     assert requests.get_request(rid)["state"] == "failed"
     assert len(provider.calls) == 1  # the failed batch was not retried
+
+
+@pytest.mark.asyncio
+async def test_a_long_scripts_leading_cd_is_read_in_full(tmp_path, monkeypatch):
+    """Odin's review R3: run_script passed only its first 120 characters to the check, so a
+    leading cd that ended past them was lost and git asked the workspace instead. Here the
+    workspace is a stale clone and the test repository has no upstream: no warning."""
+    import sys
+
+    from src.config.schema import ToolsConfig
+    from src.tools.executor import ToolExecutor
+
+    workspace = _stale_repository(tmp_path / "workspace-root")
+    workspace.chmod(0o700)  # a workspace is private
+    repo = tmp_path / ("a-test-repository-with-a-long-name-" + "x" * 90)
+    repo.mkdir()
+    (repo / "test_fail.py").write_text("def test_fails():\n    assert 1 == 2\n")
+    _git("init", "-q", "-b", "main", str(repo), cwd=tmp_path)
+    _git("add", "test_fail.py", cwd=repo)
+    _git("commit", "-q", "-m", "a failing test, no upstream", cwd=repo)
+    route = ToolExecutor(config=ToolsConfig(local_working_dir=str(workspace)))
+    route._memory_path = str(tmp_path / "data" / "memory.json")
+    monkeypatch.setattr(route, "_resolve_host", lambda alias: ("127.0.0.1", "owner", None))
+    monkeypatch.setattr(route, "_govern_command", lambda script, host: (True, None, ""))
+    script = f"cd '{repo}' && {sys.executable} -m pytest -q -p no:cacheprovider test_fail.py"
+    assert len(script.split(" && ", 1)[0]) > 120  # the cd ends past the old cut
+    result = await route.system_tools._handle_run_script(
+        {"host": "localhost", "script": script, "interpreter": "bash"})
+    text = result[0] if isinstance(result, tuple) else result
+    assert text.startswith("Script failed") and "1 failed" in text
+    assert "[STALE BRANCH]" not in text  # the workspace's stale clone was never asked
+    stale = await route.system_tools._handle_run_script(
+        {"host": "localhost", "interpreter": "bash",
+         "script": f"{sys.executable} -m pytest -q -p no:cacheprovider '{repo}/test_fail.py'"})
+    stale_text = stale[0] if isinstance(stale, tuple) else stale
+    assert "[STALE BRANCH] main is 2 commit(s) behind upstream/main" in stale_text

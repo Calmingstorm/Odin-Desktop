@@ -14,10 +14,12 @@ macOS (Odin 4.22.0).
 - **Webhook schedules never reach a cloud-metadata address.** Saving one that targets `169.254.169.254` or another
   metadata address is refused with that reason, a saved one is refused when it runs, and a redirect to one is
   refused. Private and homelab addresses still work.
-- **A Codex sign-in survives a failed keyring save.** Refreshing a Codex token uses up the old one. If the keyring
-  then failed to save the new one (locked or unavailable), the account was lost and needed signing in again. The
-  new token is now kept, used, and saved to the keyring at the next request, also after the account list reloads.
-  It is never written to a file.
+- **A Codex sign-in survives a keyring that fails while a token refreshes.** Refreshing a Codex token uses up the
+  old one. If the keyring then failed to save the new one, or could not even be read to check the account (locked
+  or unavailable), the account was lost and needed signing in again. The new token is now kept and saved to the
+  keyring at the next request, also after the account list reloads, and it is never written to a file. A token the
+  keyring could not check is used only once the keyring answers again; until then, requests on that account say
+  the keyring is unavailable instead of offering the spent token again.
 - **A failed test's "stale branch" note checks the right repository.** It looked at the folder Odin Desktop runs
   from and compared with `origin/<branch>`. It now asks git in the folder the test ran in (its leading `cd`, or the
   workspace) and compares with the branch's own upstream, within one time limit. A branch without an upstream is
@@ -46,10 +48,10 @@ macOS (Odin 4.22.0).
     not given, and say "must be a whole number" for anything else.
 
 Odin 4.22.0's web chat, Discord, WebUI, packaging and channel-log changes don't apply to Desktop. The stale-branch
-check reads a leading `cd` by POSIX rules. On Windows that means a single-quoted folder (`cd 'C:\work\app' &&`) or
-one written with forward slashes (`cd "C:/work/app" &&`). A double-quoted folder with backslashes, PowerShell's
-`Set-Location` and cmd's `cd /d` are not read; the check then looks in the workspace and never warns from the
-wrong repository.
+check reads the whole command or script for its leading `cd`, by POSIX rules. On Windows that means a single-quoted
+folder (`cd 'C:\work\app'; pytest`) or one written with forward slashes (`cd "C:/work/app"; pytest`). A
+double-quoted folder with backslashes, PowerShell's `Set-Location` and cmd's `cd /d` are not read, and the check
+then looks in the workspace instead.
 
 ## [1.5.0]
 

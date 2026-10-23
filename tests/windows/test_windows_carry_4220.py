@@ -98,3 +98,54 @@ async def test_detached_heads_and_branches_without_upstream_are_reported(tmp_pat
     git("checkout", "--detach", "main", cwd=work)
     status = await check_branch_freshness(run, "127.0.0.1", "owner", directory=str(work))
     assert (status.error, status.is_stale) == ("detached HEAD", False)
+
+
+def stale_clone_into(root, target):
+    """Make the (empty) *target* a clone two commits behind its upstream."""
+    root.mkdir(parents=True, exist_ok=True)
+    remote, other = root / "upstream.git", root / "other"
+    git("init", "--bare", "-b", "main", str(remote), cwd=root)
+    git("clone", "--origin", "upstream", str(remote), str(target), cwd=root)
+    git("commit", "--allow-empty", "-m", "first", cwd=target)
+    git("push", "--set-upstream", "upstream", "main", cwd=target)
+    git("clone", str(remote), str(other), cwd=root)
+    for message in ("second", "third"):
+        git("commit", "--allow-empty", "-m", message, cwd=other)
+    git("push", "origin", "main", cwd=other)
+
+
+async def test_a_long_scripts_leading_cd_is_read_in_full(tmp_path, monkeypatch):
+    """Odin's review R3 on Windows' run_script: the whole script, not its first 120
+    characters, is read for its leading cd. The workspace is a stale clone; the test
+    repository has no upstream, so no warning may appear."""
+    import sys
+    from pathlib import Path
+
+    repo = tmp_path / ("a-test-repository-with-a-long-name-" + "x" * 80)
+    repo.mkdir()
+    (repo / "test_fail.py").write_text("def test_fails():\n    assert 1 == 2\n")
+    git("init", "-q", "-b", "main", str(repo), cwd=tmp_path)
+    git("add", "test_fail.py", cwd=repo)
+    git("commit", "-q", "-m", "a failing test, no upstream", cwd=repo)
+    route = ToolExecutor(config=ToolsConfig(local_working_dir=str(tmp_path / "workspace")))
+    route._memory_path = str(tmp_path / "data" / "memory.json")
+    workspace = Path(route._ensure_local_workspace())  # made private, empty
+    stale_clone_into(tmp_path / "remotes", workspace)
+    monkeypatch.setattr(route, "_resolve_host", lambda alias: ("127.0.0.1", "owner", None))
+    monkeypatch.setattr(route, "_govern_command", lambda script, host: (True, None, ""))
+    python = sys.executable  # this test environment's interpreter, which has pytest
+    # A PowerShell script ends with its last native command's status only when told to.
+    script = (f"cd '{repo}'; & '{python}' -m pytest -q -p no:cacheprovider test_fail.py; "
+              "exit $LASTEXITCODE")
+    assert len(script.split("; ", 1)[0]) > 120  # the cd ends past the old cut
+    result = await route.system_tools._handle_run_script(
+        {"host": "localhost", "script": script, "interpreter": "powershell"})
+    text = result[0] if isinstance(result, tuple) else result
+    assert text.startswith("Script failed") and "1 failed" in text
+    assert "[STALE BRANCH]" not in text  # the workspace's stale clone was never asked
+    plain = await route.system_tools._handle_run_script(
+        {"host": "localhost", "interpreter": "powershell",
+         "script": f"& '{python}' -m pytest -q -p no:cacheprovider '{repo}\\test_fail.py'; "
+                   "exit $LASTEXITCODE"})
+    plain_text = plain[0] if isinstance(plain, tuple) else plain
+    assert "[STALE BRANCH] main is 2 commit(s) behind upstream/main" in plain_text
