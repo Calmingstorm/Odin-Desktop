@@ -121,7 +121,10 @@ async def test_a_long_scripts_leading_cd_is_read_in_full(tmp_path, monkeypatch):
     import sys
     from pathlib import Path
 
-    repo = tmp_path / ("a-test-repository-with-a-long-name-" + "x" * 80)
+    # Just long enough that the cd ends past character 120: git's own paths under it must
+    # stay inside Windows' 260-character limit where long paths are off (hosted runners).
+    pad = max(10, 125 - len(f"cd '{tmp_path}") - len("\\long-test-repository-"))
+    repo = tmp_path / ("long-test-repository-" + "x" * pad)
     repo.mkdir()
     (repo / "test_fail.py").write_text("def test_fails():\n    assert 1 == 2\n")
     git("init", "-q", "-b", "main", str(repo), cwd=tmp_path)
