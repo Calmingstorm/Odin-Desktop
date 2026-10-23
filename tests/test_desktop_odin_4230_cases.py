@@ -2,9 +2,11 @@
 
 Odin 4.23.0's run_ssh_command asks the pool for the master it acquired
 (``SSHConnectionPool.master_process``), so a pooled call whose master has ended is known to
-have lost its connection. Six pooled cases of tests/test_campaign_process_final_coverage.py
-build an inert stand-in pool without that method, so the plan no longer selects them. Their
-4.23.0 forms run here: the frozen module's own test bodies, with Odin 4.23.0's stand-in,
+have lost its connection. Five pooled test functions of
+tests/test_campaign_process_final_coverage.py (seven collected cases) build an inert stand-in
+pool without that method, and six of the seven reach it (a cancellation during acquire ends
+first), so the plan no longer selects the five. All seven cases run here in their 4.23.0
+form: the frozen module's own test bodies and OS boundary, with Odin 4.23.0's stand-in,
 which answers ``master_process`` with None (no master of this pool's to watch).
 """
 from __future__ import annotations
