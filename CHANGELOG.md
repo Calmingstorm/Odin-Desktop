@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.1]
+
+**A managed host that stops answering ends its calls in about a minute.** Linux, Windows and macOS (Odin 4.23.0).
+
+- **SSH sends keep-alives.** A host that went to sleep or dropped off the network in the middle of a command held the
+  call until its tool timeout (15 minutes for a command, 5 for a file read or a patch), and a reused connection to it
+  held the next call too. SSH now checks the connection every 15 seconds and gives up after three checks go
+  unanswered, about 45 to 60 seconds of silence. A host that is still there answers the checks, so long quiet commands
+  keep their connection. A call ended this way says its outcome is unknown, as a timed-out call did, and is never sent
+  again; a call through a reused connection also says the connection was lost. The next call opens a new connection,
+  which fails within its 10-second connect limit while the host is still away. On Windows, Odin Desktop's own SSH
+  runner and file reader send the same keep-alives.
+- Odin 4.23.0's other fixes concern parts Odin Desktop does not have (Codex account files, which Desktop keeps in
+  the keyring; the web Chat page), or came in 1.6.0 (the `run_script` branch check).
+
 ## [1.6.0]
 
 **Scheduled work starts on time, and a failed keyring save no longer loses a Codex sign-in.** Linux, Windows and

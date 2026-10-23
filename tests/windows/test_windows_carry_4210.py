@@ -166,6 +166,7 @@ async def test_with_a_pool_only_the_connection_phase_is_retried(monkeypatch):
     pool = SimpleNamespace(
         is_connected=lambda *a: False, acquire=acquire,
         get_ssh_args=lambda host, command, *a, **k: ["ssh", "pooled", command],
+        master_process=lambda *a: None,  # Odin 4.23.0: no master of this pool's to watch
         ensure_master_registered=lambda *a: _done(), release=lambda *a, **k: None)
     argvs = spawning(monkeypatch, FakeProcess(255, lines=[b"lost\n"]),
                      FakeProcess(0, lines=[b"ran twice\n"]))

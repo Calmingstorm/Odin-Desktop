@@ -191,8 +191,16 @@ ODIN_V4_20_0_SHA256 = {
 # new in 4.21.0). Both are Odin v4.21.0's files byte for byte (sha256 of
 # `git show v4.21.0:src/tools/<name>`).
 ODIN_V4_21_0_SHA256 = {
-    "ssh.py": "ed67723dcd800b96ced53128320105c92aab19c0abf861f5b1a12c7ac8b661e8",
     "remote_foreground.py": "4d8761e326c53d1b39e83cda501371a3674a249be2ac9be28030c9325369d74e",
+}
+
+# Desktop 1.6.1 carries Odin 4.23.0 (PR #735, #733): SSH sends keep-alives, and a call they
+# drop keeps an unknown outcome and is never sent again. ssh.py is Odin v4.23.0's file byte for
+# byte; ssh_pool.py is too, except the fenced provisioning adaptation the test undoes first
+# (sha256 of `git show v4.23.0:src/tools/<name>`).
+ODIN_V4_23_0_SHA256 = {
+    "ssh.py": "72bc8c967c76c3f57e37f1a375048dc26614d24933dca11868be0cfddeabbf34",
+    "ssh_pool.py": "829b297f734ad439d49596a72ae28f364b407c004286597c37854f98d6f08c0a",
 }
 ODIN_V4_20_0_TRY_TOOL_SHA256 = (
     "f76331f23d484cdf215a29bfe7bc898069ba8d3252f5535bf4da4bcfed38d528")
@@ -223,6 +231,10 @@ def test_common_safety_primitives_byte_identical():
             current = (root / "src/tools" / name).read_bytes()
             assert hashlib.sha256(current).hexdigest() == ODIN_V4_19_2_LOCAL_SUPERVISOR_SHA256
             continue
+        if name == "ssh.py":
+            current = (root / "src/tools" / name).read_bytes()
+            assert hashlib.sha256(current).hexdigest() == ODIN_V4_23_0_SHA256[name]
+            continue
         if name in ODIN_V4_21_0_SHA256:
             current = (root / "src/tools" / name).read_bytes()
             assert hashlib.sha256(current).hexdigest() == ODIN_V4_21_0_SHA256[name]
@@ -232,19 +244,10 @@ def test_common_safety_primitives_byte_identical():
             assert hashlib.sha256(current).hexdigest() == ODIN_V4_20_0_SHA256[name]
             continue
         if name == "ssh_pool.py":
-            # Odin 4.15 (#655), carried byte for byte: trust paths pass through
-            # known_hosts_option, so OpenSSH's own tokenizer keeps them one file.
-            anchor = b"from ..odin_log import get_logger\n"
-            option = b'f"UserKnownHostsFile={known_hosts_path}",\n'
-            assert baseline.count(anchor) == 1
-            assert baseline.count(option) == 1
-            baseline = baseline.replace(
-                anchor, anchor + b"from .ssh_options import known_hosts_option\n", 1)
-            baseline = baseline.replace(option, b"known_hosts_option(known_hosts_path),\n")
             # PR #14 requires no-follow, foreign-owner guards without a D17
             # permission-mode gate. Fence the exact provisioning adaptation;
-            # every master/lease/settlement byte stays
-            # upstream-identical, not a broad exemption for the SSH pool.
+            # every master/lease/settlement byte stays upstream-identical, not
+            # a broad exemption for the SSH pool: undone, the file is Odin's.
             changes = (
                 (b"from ..odin_log import get_logger\n",
                  b"from ..desktop.paths import private_directory\n"
@@ -253,9 +256,12 @@ def test_common_safety_primitives_byte_identical():
                  b"        private_directory(Path(os.path.abspath(self.socket_dir)), "
                  b"repair_namespace=False)\n"),
             )
+            upstream = (root / "src/tools" / name).read_bytes()
             for before, after in changes:
-                assert baseline.count(before) == 1
-                baseline = baseline.replace(before, after, 1)
+                assert upstream.count(after) == 1
+                upstream = upstream.replace(after, before, 1)
+            assert hashlib.sha256(upstream).hexdigest() == ODIN_V4_23_0_SHA256[name]
+            continue
         assert (root / "src/tools" / name).read_bytes() == baseline
 
 

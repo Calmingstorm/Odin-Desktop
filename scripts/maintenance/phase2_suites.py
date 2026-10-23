@@ -402,13 +402,21 @@ REVIEWED_DIRECT_EXCLUSIONS = {
     # shared case's handler-release assertion is superseded; its 4.20.0 version runs in
     # tests/test_desktop_odin_4200_cases.py. Odin 4.22.0 (PR #729) rewrote two more cases for
     # the webhook destination policy (#724) and the scheduling lanes (#708); their 4.22.0
-    # versions run in tests/test_desktop_odin_4220_scheduling.py.
+    # versions run in tests/test_desktop_odin_4220_scheduling.py. Odin 4.23.0 (PR #735) asks the
+    # pool for the master it acquired, which five pooled cases' inert stand-in pool lacks; their
+    # 4.23.0 versions run in tests/test_desktop_odin_4230_cases.py.
     "direct-shared-engine": (
         "(test_campaign_system_coverage_restore and "
         "test_local_start_refusal_releases_unowned_lease)"
         " or (test_campaign_coverage_core_scheduler and "
         "test_webhook_serialization_bounded_response_and_session_cleanup)"
         " or (test_campaign_scheduler_admission and test_queued_obsolete_schedule_never_starts)"
+        " or (test_campaign_process_final_coverage and ("
+        "test_pooled_timeout_retry_reaps_before_next_dispatch_and_releases"
+        " or test_pooled_cancel_releases_only_acquired_lease_and_reaps_child"
+        " or test_pooled_registration_error_reaps_client_and_releases_without_retry"
+        " or test_pooled_exhausted_timeout_registers_legacy_master_and_releases"
+        " or test_pooled_backoff_cancel_prevents_another_dispatch_and_releases))"
     ),
 }
 

@@ -278,6 +278,27 @@ async def test_a_reorder_keeps_the_unsaved_rotation_and_saves_it_at_the_new_slot
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("cache", ["held", "invalidated"])
+async def test_removing_an_earlier_account_keeps_a_later_unsaved_rotation(make, cache):
+    # Odin 4.23.0 (PR #735): removing account 0 moves account 1 to slot 0. Its unsaved
+    # rotation follows its refresh chain and is saved there; the spent record is never used.
+    service, secrets, oauth, _ = make([credential("a"), credential("b", expires_at=0)])
+    pool = service.pool
+    auth = pool._loaded_auths[1]
+    await unsaved(auth, secrets)
+    if cache == "invalidated":
+        await auth.invalidate_current()
+    secrets.fail = False
+    await service.handle("codex.accounts.remove", {"index": 0})
+    assert pool._loaded_auths[0] is auth and auth.slot == 0
+    assert await pool.token_for(0) == ("rotated-access-1", "b")
+    saved = secrets.rows()
+    assert [row["account_id"] for row in saved] == ["b"]
+    assert saved[0]["refresh_token"] == "rotated-refresh-1" and auth._unpersisted is None
+    assert oauth.consumed == ["secret-refresh-b"]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("change", ["removed", "replaced"])
 async def test_a_removed_or_replaced_account_never_publishes_its_unsaved_rotation(make, change):
     service, secrets, oauth, _ = make([credential("a", expires_at=0), credential("b")])

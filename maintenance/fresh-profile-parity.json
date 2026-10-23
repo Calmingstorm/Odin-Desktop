@@ -370,7 +370,7 @@
     "src/desktop/platform/windows_payloads.py": "2971ea4592a7ff0cd95f4a3a742b7658575a346edf5373aafb13b1510ebdb5d3",
     "src/desktop/platform/windows_process.py": "a7aa2ca6c5af4f3661003c620c21a9b81cff58fbeead622ffd093894a9116a5a",
     "src/desktop/platform/windows_read.py": "b8b647932e65693f2d857225f6d5d76d53cb00b2ba32519a6efcfdbd99735fb8",
-    "src/desktop/platform/windows_remote.py": "7a0aa1d5891e81f8f8b6bd5bc784406ccb079da434e6571eaa58544dbfbf580d",
+    "src/desktop/platform/windows_remote.py": "bf0fcdb13cb7829bd3634519dbcbce3d650745c1db1397e1591ec5be9d370272",
     "src/desktop/platform/windows_safety.py": "66cc55c895c745c674eb73cbb228d92baca7d39ff7eac6bea8189ff62f905516",
     "src/desktop/platform/windows_secrets.py": "5192bd47ac1ff125ad2b927601092c1ea9eb662b2017ff47a49c41fe6bc318bb",
     "src/desktop/platform/windows_ssh.py": "56b19afd58f8c3056956d2ac7f227cbcab69ac8f3616b840b227da6c0e7f1373",
