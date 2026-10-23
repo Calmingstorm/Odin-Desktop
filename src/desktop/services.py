@@ -252,6 +252,10 @@ class EngineServices:
         await release(d.channel_state, "shutdown_steering")
         await release(d.loop_manager, "shutdown")
         await release(d.scheduler, "stop")
+        # Its stop clears the field: keep the task itself as settlement evidence.
+        housekeeping = getattr(d, "housekeeping", None)
+        housekeeping_timer = getattr(housekeeping, "_timer", None)
+        await release(housekeeping, "stop")
         await release(getattr(d, "usage_rollup", None), "stop")
         mcp_service = getattr(d, "management_mcp_service", None)
         if mcp_service is not None:
@@ -278,7 +282,9 @@ class EngineServices:
                 failed("agent_tasks", TimeoutError())
         await release(d.agent_manager, "cleanup")
         # Some retained APIs log timeouts rather than raise. Check actual tasks.
-        producer_tasks = [getattr(d.scheduler, "_task", None)]
+        producer_tasks = [getattr(d.scheduler, "_task", None), housekeeping_timer]
+        # Fired schedule runs leave this set only once they have finished.
+        producer_tasks += list(getattr(d.scheduler, "_dispatches", ()))
         producer_tasks += [getattr(loop, "_task", None)
                            for loop in getattr(d.loop_manager, "_loops", {}).values()]
         producer_tasks += tasks

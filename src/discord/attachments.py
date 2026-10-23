@@ -18,6 +18,9 @@ import tarfile
 import time
 import uuid
 import zipfile
+from collections import Counter
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -160,6 +163,27 @@ def _get_ext(filename: str) -> str:
 
 def _is_archive(filename: str) -> bool:
     return _get_ext(filename) in _ARCHIVE_EXTENSIONS
+
+
+# Workspaces of requests still being handled, as (conversation id, request id),
+# the workspace's own folder names: saved while they download, then read by the
+# turn. Cleanup skips them whatever their age, so a short retention never
+# removes a file in use.
+_PINNED_WORKSPACES: Counter[tuple[str, str]] = Counter()
+
+
+@contextmanager
+def pin_workspaces(channel_id: str, message_ids: Iterable[str]) -> Iterator[None]:
+    """Keep these messages' workspaces out of cleanup while they are handled."""
+    keys = [(str(channel_id), str(message_id)) for message_id in message_ids]
+    _PINNED_WORKSPACES.update(keys)
+    try:
+        yield
+    finally:
+        _PINNED_WORKSPACES.subtract(keys)
+        for key in keys:
+            if _PINNED_WORKSPACES[key] <= 0:
+                del _PINNED_WORKSPACES[key]
 
 
 class AttachmentProcessor:
@@ -590,6 +614,8 @@ class AttachmentProcessor:
             for request_dir in conversation_dir.iterdir():
                 if not request_dir.is_dir():
                     continue
+                if (conversation_dir.name, request_dir.name) in _PINNED_WORKSPACES:
+                    continue  # a request still being handled uses it
                 try:
                     if request_dir.stat().st_mtime < cutoff:
                         shutil.rmtree(request_dir)

@@ -220,18 +220,26 @@ async def test_keyring_retired_refresh_cannot_publish(monkeypatch, mutation):
     assert secrets.value == before
 
 
-async def test_keyring_refresh_failed_storage_keeps_old_credentials(monkeypatch):
+async def test_keyring_refresh_failed_storage_keeps_the_unsaved_rotation(monkeypatch):
+    """Odin 4.22.0 (#714): the refresh used the keyring's single-use token, so a failed
+    write keeps the rotation (not the consumed record) and the next use saves it."""
     service, secrets = _service([_account()])
     transport = Transport()
     monkeypatch.setattr(ca.aiohttp, "ClientSession", transport.session)
     original = secrets.value
+    working_set = secrets.set
     secrets.set = lambda *args: False
     transport.release.set()
     with pytest.raises(MethodError) as failure:
         await service.handle("codex.accounts.refresh", {"index": 0})
     assert failure.value.disposition == "outcome_unknown"
     assert secrets.value == original
-    assert service.pool._accounts[0]._load()["access_token"] == "synthetic-A"
+    auth = service.pool._accounts[0]
+    assert auth._load()["access_token"] == "synthetic-next-token"
+    secrets.set = working_set
+    assert await auth.get_access_token() == "synthetic-next-token"
+    assert json.loads(secrets.value)[0]["refresh_token"] == "synthetic-next-refresh"
+    assert auth._unpersisted is None and transport.calls == 1
 
 
 async def test_named_refresh_validation_and_secret_failure(monkeypatch):

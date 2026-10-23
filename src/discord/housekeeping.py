@@ -6,11 +6,12 @@ active sessions, expire the prompt-layer memory cache, agent health
 checks, attachment-workspace cleanup, and the periodic FTS batch index.
 Throttled by the channel-state
 registry's cleanup interval; triggered from the message pipeline after
-session prune.
+session prune, and checked on a timer started with the application.
 """
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Callable
 
@@ -42,6 +43,7 @@ class Housekeeping:
         self._fts_index = fts_index
         self._turn_store = turn_store
         self._window_observer = window_observer
+        self._timer: asyncio.Task | None = None
 
     def cleanup_stale(self) -> None:
         """Remove stale entries from per-channel caches to prevent memory leaks.
@@ -121,6 +123,27 @@ class Housekeeping:
                     log.info("Turn-state TTL sweep: %s", swept)
             except Exception:
                 pass
+
+    def start(self, tick_seconds: float = 60.0) -> None:
+        """Also run the throttled pass on a timer.
+
+        A delivered reply is otherwise the only trigger, so a quiet app skipped
+        these sweeps for as long as it was quiet. The pass and its
+        cleanup_interval throttle are unchanged; the timer only checks it.
+        """
+        if self._timer is None or self._timer.done():
+            self._timer = asyncio.create_task(self._run_timer(tick_seconds), name="housekeeping")
+
+    async def stop(self) -> None:
+        task, self._timer = self._timer, None
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    async def _run_timer(self, tick_seconds: float) -> None:
+        while True:
+            await asyncio.sleep(tick_seconds)
+            self.maybe_cleanup()
 
     def maybe_cleanup(self) -> None:
         """Run cache cleanup if enough time has passed since the last run."""

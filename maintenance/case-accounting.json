@@ -48833,22 +48833,6 @@
       "executable": "tests/test_campaign_coverage_core_observability.py::test_trajectory_read_failure_does_not_discard_other_days"
     },
     {
-      "original": "tests/test_campaign_coverage_core_scheduler.py::test_webhook_serialization_bounded_response_and_session_cleanup[None-None]",
-      "executable": "tests/test_campaign_coverage_core_scheduler.py::test_webhook_serialization_bounded_response_and_session_cleanup[None-None]"
-    },
-    {
-      "original": "tests/test_campaign_coverage_core_scheduler.py::test_webhook_serialization_bounded_response_and_session_cleanup[body1-json]",
-      "executable": "tests/test_campaign_coverage_core_scheduler.py::test_webhook_serialization_bounded_response_and_session_cleanup[body1-json]"
-    },
-    {
-      "original": "tests/test_campaign_coverage_core_scheduler.py::test_webhook_serialization_bounded_response_and_session_cleanup[body2-json]",
-      "executable": "tests/test_campaign_coverage_core_scheduler.py::test_webhook_serialization_bounded_response_and_session_cleanup[body2-json]"
-    },
-    {
-      "original": "tests/test_campaign_coverage_core_scheduler.py::test_webhook_serialization_bounded_response_and_session_cleanup[123-data]",
-      "executable": "tests/test_campaign_coverage_core_scheduler.py::test_webhook_serialization_bounded_response_and_session_cleanup[123-data]"
-    },
-    {
       "original": "tests/test_campaign_coverage_core_scheduler.py::test_webhook_unexpected_status_releases_response_and_reuses_session",
       "executable": "tests/test_campaign_coverage_core_scheduler.py::test_webhook_unexpected_status_releases_response_and_reuses_session"
     },
@@ -49339,42 +49323,6 @@
     {
       "original": "tests/test_campaign_resource_sessions.py::test_real_session_manager_custom_persist_directory",
       "executable": "tests/test_campaign_resource_sessions.py::test_real_session_manager_custom_persist_directory"
-    },
-    {
-      "original": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[delete-tick]",
-      "executable": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[delete-tick]"
-    },
-    {
-      "original": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[delete-one_time]",
-      "executable": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[delete-one_time]"
-    },
-    {
-      "original": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[delete-trigger]",
-      "executable": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[delete-trigger]"
-    },
-    {
-      "original": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[pause-tick]",
-      "executable": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[pause-tick]"
-    },
-    {
-      "original": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[pause-one_time]",
-      "executable": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[pause-one_time]"
-    },
-    {
-      "original": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[pause-trigger]",
-      "executable": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[pause-trigger]"
-    },
-    {
-      "original": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[payload-tick]",
-      "executable": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[payload-tick]"
-    },
-    {
-      "original": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[payload-one_time]",
-      "executable": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[payload-one_time]"
-    },
-    {
-      "original": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[payload-trigger]",
-      "executable": "tests/test_campaign_scheduler_admission.py::test_queued_obsolete_schedule_never_starts[payload-trigger]"
     },
     {
       "original": "tests/test_campaign_scheduler_admission.py::test_manual_existing_pause_override_still_runs",

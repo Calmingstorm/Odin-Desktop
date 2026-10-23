@@ -179,7 +179,7 @@ class SystemTools(HandlerBase):
                 and is_test_failure(result)
             ):
                 result = await self._annotate_with_freshness(
-                    result, host, "run_script", script[:120]
+                    result, host, "run_script", script
                 )
             text = f"{governor_note}{result}" if governor_note else result
             return text, code

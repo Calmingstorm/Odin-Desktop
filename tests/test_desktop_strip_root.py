@@ -106,6 +106,44 @@ def test_retained_neutral_modules_byte_identical(path):
         for before, after in substitutions:
             assert expected.count(before) == 1
             expected = expected.replace(before, after, 1)
+    if path == "housekeeping":
+        # Odin 4.22's own edit (#715): the throttled pass is also checked on a
+        # timer that the application starts and stops. Exactly these additions.
+        substitutions = (
+            ("session prune.\n", "session prune, and checked on a timer started with the "
+             "application.\n"),
+            ("import time\n", "import asyncio\nimport time\n"),
+            ("        self._window_observer = window_observer\n",
+             "        self._window_observer = window_observer\n"
+             "        self._timer: asyncio.Task | None = None\n"),
+            ("    def maybe_cleanup(self) -> None:\n",
+             "    def start(self, tick_seconds: float = 60.0) -> None:\n"
+             '        """Also run the throttled pass on a timer.\n'
+             "\n"
+             "        A delivered reply is otherwise the only trigger, so a quiet app skipped\n"
+             "        these sweeps for as long as it was quiet. The pass and its\n"
+             "        cleanup_interval throttle are unchanged; the timer only checks it.\n"
+             '        """\n'
+             "        if self._timer is None or self._timer.done():\n"
+             "            self._timer = asyncio.create_task(self._run_timer(tick_seconds), "
+             'name="housekeeping")\n'
+             "\n"
+             "    async def stop(self) -> None:\n"
+             "        task, self._timer = self._timer, None\n"
+             "        if task is not None:\n"
+             "            task.cancel()\n"
+             "            await asyncio.gather(task, return_exceptions=True)\n"
+             "\n"
+             "    async def _run_timer(self, tick_seconds: float) -> None:\n"
+             "        while True:\n"
+             "            await asyncio.sleep(tick_seconds)\n"
+             "            self.maybe_cleanup()\n"
+             "\n"
+             "    def maybe_cleanup(self) -> None:\n"),
+        )
+        for before, after in substitutions:
+            assert expected.count(before) == 1, before
+            expected = expected.replace(before, after, 1)
     if path == "turn_recorder":
         # Odin 4.18's own edit: loop reflection runs under its own prompt-cache
         # ID. Exactly the import and the in_new_session wrapper change.

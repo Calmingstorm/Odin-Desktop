@@ -101,6 +101,34 @@ ODIN_421_LOOP_EDITS = {
 }
 
 
+# Odin 4.22's own edit (#723): a failing tool batch settles every sibling call
+# before the turn fails; the method is the baseline with exactly these replacements.
+ODIN_422_LOOP_EDITS = {
+    "_execute_tool_calls": (
+        ("            tool_results = await asyncio.gather(\n"
+         "                *[self._run_one_tool_with_timeout(st, b) for b in tool_calls],\n"
+         "            )\n",
+         "            outcomes = await asyncio.gather(\n"
+         "                *[self._run_one_tool_with_timeout(st, b) for b in tool_calls],\n"
+         "                return_exceptions=True,\n"
+         "            )\n"),
+        ('        st.messages.append({"role": "user", "content": list(tool_results)})\n'
+         "        return tool_results",
+         "        # A member re-raises on purpose (a ledger settlement failure fails the\n"
+         "        # turn closed). Raise only once every sibling has settled: until then\n"
+         "        # the turn keeps its stop/steer ownership and ACTIVE state, so no tool\n"
+         "        # of this batch is still running unobserved after the turn has ended.\n"
+         "        settled: list[dict] = []\n"
+         "        for outcome in outcomes:\n"
+         "            if isinstance(outcome, BaseException):\n"
+         "                raise outcome\n"
+         "            settled.append(outcome)\n"
+         '        st.messages.append({"role": "user", "content": list(settled)})\n'
+         "        return settled"),
+    ),
+}
+
+
 def test_all_unadapted_loop_phase_bodies_are_byte_identical():
     path = "src/discord/tool_loop.py"
     baseline = _methods(_baseline(path), "ToolLoopRunner")
@@ -125,7 +153,7 @@ def test_all_unadapted_loop_phase_bodies_are_byte_identical():
         assert baseline[name].count(close) == 1, name
         reports = f'        self._channel_state.close_reports(st._ch_id, st._req_id, "{reason}")\n'
         assert desktop[name] == baseline[name].replace(close, reports + close), name
-    for name, edits in ODIN_421_LOOP_EDITS.items():
+    for name, edits in (*ODIN_421_LOOP_EDITS.items(), *ODIN_422_LOOP_EDITS.items()):
         edited = baseline[name]
         for old, new in edits:
             assert edited.count(old) == 1, (name, old)
@@ -138,10 +166,10 @@ def test_all_unadapted_loop_phase_bodies_are_byte_identical():
         # Step 6B replaces only the proxy/removed prompt parameter and adds
         # admitted owner checks. Real execution is exercised by background_core.
         "_prepare_loop_turn", "dispatch_loop_tool_inner",
-        # Exactly Odin 4.17's, 4.18's, 4.19's and 4.21's edits, pinned above.
+        # Exactly Odin 4.17's, 4.18's, 4.19's, 4.21's and 4.22's edits, pinned above.
         "_audit_loop_tool_outcome", "_run_with_guards",
         "_run_chat_iterations", "_stopped", "_suspend_turn",
-        *ODIN_421_LOOP_EDITS,
+        *ODIN_421_LOOP_EDITS, *ODIN_422_LOOP_EDITS,
     }
     assert baseline.keys() == desktop.keys()
     for name in baseline.keys() - adapted:

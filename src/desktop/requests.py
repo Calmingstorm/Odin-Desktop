@@ -837,10 +837,17 @@ class RequestService:
             self.permissions.reset_request_owner(token)
 
     async def _execute(self, message, st=None):
+        from ..discord.attachments import pin_workspaces
+
         token = _execution.set((self, asyncio.current_task(), message))
         failure_notice = False
         computer_ticket = None
         computer = getattr(self, "computer_foreground", None)
+        # The request's saved attachments stay until its turn ends: a cleanup
+        # pass (another reply, the housekeeping timer) with a short retention
+        # must never remove a file the turn is reading.
+        workspace = pin_workspaces(message.conversation_id, [message.request_id])
+        workspace.__enter__()
         try:
             self.assert_request(message)
             if computer is not None:
@@ -962,7 +969,10 @@ class RequestService:
                 try:
                     self._fence_settled_context(message)
                 finally:
-                    _execution.reset(token)
+                    try:
+                        _execution.reset(token)
+                    finally:
+                        workspace.__exit__(None, None, None)
 
     def _finish(self, message, outcome):
         with self.store.transaction() as db:

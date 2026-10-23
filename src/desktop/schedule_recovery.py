@@ -6,11 +6,14 @@ from croniter import croniter
 
 
 def recover_due(schedule: dict, now: datetime, *, grace_seconds: int = 60,
-                count_limit: int = 128) -> bool:
+                count_limit: int = 128, startable_at: datetime | None = None) -> bool:
     """Consume missed effects; reminders coalesce into one bounded notice.
 
     Workflow catch-up execution is bounded at zero: D12 missed actions wait
     for explicit run. Slot counting is bounded even after years of downtime.
+    ``startable_at`` is when a slot the running scheduler held back (its lane
+    busy, or its own run going) could first start: its lateness counts from
+    there, so a wait for its turn is never mistaken for downtime.
     """
     due_value = schedule.get("next_run")
     if not due_value or schedule.get("retry_at") or schedule.get("paused"):
@@ -19,7 +22,8 @@ def recover_due(schedule: dict, now: datetime, *, grace_seconds: int = 60,
         due = datetime.fromisoformat(due_value).astimezone(UTC)
     except (ValueError, TypeError):
         return False
-    if now - due <= timedelta(seconds=grace_seconds):
+    reference = due if startable_at is None else max(due, startable_at)
+    if now - reference <= timedelta(seconds=grace_seconds):
         schedule.pop("missed_run", None)
         return False
     count, truncated = 1, False

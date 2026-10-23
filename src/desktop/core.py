@@ -513,6 +513,11 @@ class CoreService:
             self.permissions.reset_request_owner(schedule_token)
         await self.requests.after_commit()
         await self.webhooks.start()
+        # As Odin 4.22: the throttled housekeeping pass also runs on a timer, so a
+        # quiet app still sweeps. Shutdown stops it with the scheduler.
+        housekeeping = getattr(self.engine.deps, "housekeeping", None)
+        if housekeeping is not None:
+            housekeeping.start()
 
     def _bind_background_services(self):
         from ..discord.scheduled_events import ScheduledEventHandlers, ScheduledEventsDeps
@@ -1067,6 +1072,9 @@ class CoreService:
                 if self.requests is not None:
                     if self.engine is not None:
                         await self.engine.deps.scheduler.stop()
+                        housekeeping = getattr(self.engine.deps, "housekeeping", None)
+                        if housekeeping is not None:
+                            await housekeeping.stop()
                     await self.requests.close()
                 if self.engine is not None:
                     try:
