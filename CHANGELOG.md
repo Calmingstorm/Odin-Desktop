@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.7.0]
+
+**Odin can post a file a tool returned.** Linux, Windows and macOS (Odin 4.24.0).
+
+- **`post_file` posts a tool's file.** A file an MCP server returns, such as a photo from a phone MCP server, is kept
+  with the tool's result. You could open it from the tool's details, but Odin could not post it into the conversation.
+  `post_file` now takes that file's cursor from the result's attachment list (`attachment`), in place of a host and
+  path, and posts the exact bytes as a conversation file named from the file (`retained-….jpg`).
+  - It needs the same permission as reading the tool's output, plus `post_file`. A file from another conversation, or
+    one whose stored bytes no longer match their checksum, is refused, and nothing is posted.
+  - The posted copy belongs to the conversation like any posted file, so it stays after the tool's own output
+    expires (24 hours).
+  - Posting a host file is unchanged.
+- Odin 4.24.1 fixed scrolling on Odin's web Chat page. Odin Desktop's chat already stays at the bottom while images
+  load.
+
 ## [1.6.1]
 
 **A managed host that stops answering ends its calls in about a minute.** Linux, Windows and macOS (Odin 4.23.0).

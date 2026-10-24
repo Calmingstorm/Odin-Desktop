@@ -878,7 +878,7 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             "tests/test_tool_parity.py":
                 "e734b9f088569c37109de900f8bbecf48d6d76885d29c23def4fadd8bf4b3849",
             "tests/desktop_adapters/tool_parity.py":
-                "77ab0cc72f80e05675437835c84256bc8f738f3218dc4dca585b09638d41a581",
+                "73cc83372b4bf1bb2443b2b7c2f856dc9f2a977a93620959f989bf020b259f0d",
             "tests/test_desktop_tool_parity_adaptation.py":
                 "ef4217bc5dd3f147692056e68db56a970084e6a0bd2ca12a71019824a3eb3d4a",
         }

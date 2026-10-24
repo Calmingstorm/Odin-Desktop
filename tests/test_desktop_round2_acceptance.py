@@ -185,6 +185,22 @@ def test_every_changed_catalog_name_description_and_schema_is_exact_c1_c3():
                     ):
                         assert properties[field]["description"] == before
                         properties[field]["description"] = after
+                if name == "post_file":  # Odin 4.24.0 (#737), carried: post a file a tool returned
+                    old = "Max 25MB. "
+                    assert tool["description"].count(old) == 1
+                    tool["description"] = tool["description"].replace(old, old + (
+                        "To post a file a tool returned (an MCP result's file), read its "
+                        "attachment manifest with get_tool_output and pass that file's entry "
+                        "cursor (it ends in ':0') as attachment, instead of host and path. "), 1)
+                    tool["input_schema"]["properties"]["attachment"] = {
+                        "type": "string",
+                        "description": (
+                            "Instead of host and path: one retained file's cursor, from its "
+                            "entry in a tool attachment manifest (not the manifest's own "
+                            "cursor)"),
+                    }
+                    assert tool["input_schema"]["required"] == ["host", "path"]
+                    tool["input_schema"]["required"] = []
                 if name == "read_channel":
                     tool["name"] = "read_conversation"
                     tool["description"] = (

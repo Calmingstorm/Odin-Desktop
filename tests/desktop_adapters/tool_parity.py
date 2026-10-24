@@ -24,7 +24,7 @@ REMOVED = {"purge_messages", "set_permission", "add_reaction", "create_poll"}
 RENAMED = {"read_channel": "read_conversation"}
 DESKTOP_ORDER = [RENAMED.get(n, n) for n in EXPECTED_TOOL_ORDER if n not in REMOVED]
 REPINNED_TOOL_HASHES = {
-    "post_file": "8ec4e1871e3ce2ec",  # C: post_file row
+    "post_file": "13e3821eb39f5d76",  # C: post_file row; Odin 4.24.0 (#737): attachment source
     "generate_file": "11fc964044da81c5",  # C: generate_file row
     "schedule_task": "6e091d03f0a4a333",  # C: schedule_task.report_format + interface
     "update_schedule": "c247dd47a9843be1",  # C: update_schedule.report_format + interface
