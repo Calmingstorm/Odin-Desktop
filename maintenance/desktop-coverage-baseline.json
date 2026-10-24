@@ -2596,6 +2596,11 @@
         "missing": 0,
         "total": 116
       },
+      "src/tools/retained_files.py": {
+        "covered": 35,
+        "missing": 0,
+        "total": 35
+      },
       "src/tools/risk_classifier.py": {
         "covered": 433,
         "missing": 254,

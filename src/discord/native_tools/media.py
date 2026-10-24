@@ -22,6 +22,11 @@ _ANALYZE_IMAGE_MAX_BYTES = 25 * 1024 * 1024  # 25 MiB
 _DELIVERY_UNAVAILABLE = "Conversation artifact publication is unavailable until Phase 2."
 
 
+def _meaningful(value: object) -> bool:
+    """A source field the caller set: anything but None or a blank string."""
+    return value is not None and not (isinstance(value, str) and not value.strip())
+
+
 class MediaTools:
     def __init__(
         self,
@@ -111,7 +116,16 @@ class MediaTools:
         other host it falls back to SSH + base64 stream (handles binary safely).
         Bypassing SSH for localhost avoids the host-key / ssh_key_path gauntlet
         when Odin wants to post its own files.
+
+        A nonblank ``attachment`` posts a retained file instead (see
+        _post_retained_attachment); a missing, null or blank one leaves this
+        host/path behavior exactly as it was.
         """
+        attachment = inp.get("attachment")
+        if attachment is not None and not isinstance(attachment, str):
+            return ToolFailure("'attachment' must be a retained-file cursor string.")
+        if attachment is not None and attachment.strip():
+            return await self._post_retained_attachment(message, inp, attachment)
         host_alias = inp.get("host")
         path = inp.get("path")
         caption = inp.get("caption", "")
@@ -183,6 +197,56 @@ class MediaTools:
             return f"Posted `{filename}` ({len(file_bytes) / 1024:.1f} KB) to conversation."
         except Exception as e:
             return ToolFailure(f"Failed to upload to the conversation: {e}")
+
+    async def _post_retained_attachment(self, message, inp: dict, cursor: str):
+        """Post a retained file: an MCP result's file, or a retained conversation upload.
+
+        The bytes come from the private output store under the same fences as
+        get_tool_output (see src/tools/retained_files.py), never from a host or
+        a filesystem, and are published as a conversation artifact like a host
+        file. A second source (any meaningful host or path) is refused before
+        anything is accessed, read or published, and a failed lookup never
+        falls back to host/path. The originating tool is not rerun and its
+        recorded outcome is unchanged.
+        """
+        if _meaningful(inp.get("host")) or _meaningful(inp.get("path")):
+            return ToolFailure(
+                "Give either 'attachment' or 'host' and 'path', not both. Nothing was posted.")
+        # As for generated images: read nothing when publication is known unavailable.
+        if not self._delivery_available():
+            from ...tools.result_validator import ToolResult
+
+            return ToolResult(
+                output=_DELIVERY_UNAVAILABLE,
+                ok=False,
+                error="conversation_delivery_unavailable",
+                tool_name="post_file",
+            )
+        import sqlite3
+
+        from ...tools.output_retention import RetentionError
+        from ...tools.retained_files import read_retained_file, retained_filename
+
+        try:
+            snapshot = read_retained_file(self.tool_executor, cursor)
+        except RetentionError as exc:
+            return ToolFailure(f"Retained file unavailable: {exc}")
+        except (OSError, sqlite3.Error, ValueError) as exc:
+            # Includes undecodable stored metadata: bounded, with no detail.
+            log.warning("Retained file read failed: %s", type(exc).__name__)
+            return ToolFailure("Retained file storage is unavailable. Nothing was posted.")
+        data = snapshot.data
+        if len(data) > 25 * 1024 * 1024:
+            return ToolFailure(
+                f"File too large to post ({len(data) / 1024 / 1024:.1f} MB). "
+                "Conversation attachment limit is 25 MB."
+            )
+        filename = retained_filename(snapshot)
+        try:
+            await self._publish_attachment(message, data, filename, inp.get("caption", ""))
+        except Exception as e:
+            return ToolFailure(f"Failed to upload to the conversation: {e}")
+        return f"Posted `{filename}` ({len(data) / 1024:.1f} KB) to conversation."
 
     async def _handle_analyze_image(self, message, inp: dict) -> str | dict:
         """Fetch an image and return a vision block for the LLM to analyze.
