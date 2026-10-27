@@ -268,11 +268,13 @@ async def test_main_model_saves_terra_with_none_and_max(service, effort):
         return {"provider": provider, "model": model_ref}
 
     service.provider.switch_provider = switch
+    # The picker's row reference: Codex models are bare names (a "codex:" prefix would stay in
+    # the model slug, src/llm/model_ref.py).
     answer = await service.handle("models.main.set", {
-        "model": f"codex:{TERRA}", "reasoning_effort": effort, "expected_revision": "r0",
+        "model": TERRA, "reasoning_effort": effort, "expected_revision": "r0",
     })
-    assert calls == [("codex", f"codex:{TERRA}", effort)]
-    assert answer["main_model"] == f"codex:{TERRA}"
-    assert service.settings.config.llm_provider.model == f"codex:{TERRA}"
+    assert calls == [("codex", TERRA, effort)]
+    assert answer["main_model"] == TERRA
+    assert service.settings.config.llm_provider.model == TERRA
     assert service.settings.config.openai_codex.reasoning_effort == effort
     assert len(service.settings.writes) == 1
