@@ -132,6 +132,19 @@ def test_every_changed_catalog_name_description_and_schema_is_exact_c1_c3():
                         "send_to_agent. Reports may arrive at later steps without waking waits or "
                         "interrupting work; reply with send_to_agent only if needed. Still "
                         "collect final results."), 1)
+                    # Odin 4.25.0 (#743), carried: gpt-6.1-terra between gpt-6.1-sol and gpt-6-sol.
+                    terra = ("capable model, slightly less capable than gpt-6.1-sol but cheaper; "
+                             "use for cost-sensitive coding and agentic work, escalating to "
+                             "gpt-6.1-sol for harder problems")
+                    old = "gpt-6-sol (bal"
+                    assert tool["description"].count(old) == 1
+                    tool["description"] = tool["description"].replace(
+                        old, f"gpt-6.1-terra ({terra}), {old}", 1)
+                    model = tool["input_schema"]["properties"]["model"]
+                    old = "gpt-6-sol = bal"
+                    assert model["description"].count(old) == 1
+                    model["description"] = model["description"].replace(
+                        old, f"gpt-6.1-terra = {terra}; {old}", 1)
                 if name == "send_to_agent":  # Odin 4.19, carried: reports route elsewhere
                     tool["description"] += (
                         " For interim reports to your spawner, use report_to_parent, "
