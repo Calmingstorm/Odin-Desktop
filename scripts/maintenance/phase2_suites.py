@@ -397,6 +397,10 @@ REVIEWED_DIRECT_EXCLUSIONS = {
         "(test_output_delivery_retention and "
         "(test_quota_failure_never_promises_missing_cursor or "
         "test_concurrent_quota_admission_is_atomic))"
+        # Odin 4.25.0 (PR #743) adds gpt-6.1-terra to the input-budget registry; the
+        # superseded exact-registry case's 4.25.0 version runs in
+        # tests/test_desktop_odin_4250_cases.py.
+        " or (test_context_budget and test_floors_match_probe_evidence)"
     ),
     # Odin 4.20.0 (PR #671): the registry owns a start's lease from the start call on, so this
     # shared case's handler-release assertion is superseded; its 4.20.0 version runs in
@@ -878,7 +882,7 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             "tests/test_tool_parity.py":
                 "e734b9f088569c37109de900f8bbecf48d6d76885d29c23def4fadd8bf4b3849",
             "tests/desktop_adapters/tool_parity.py":
-                "73cc83372b4bf1bb2443b2b7c2f856dc9f2a977a93620959f989bf020b259f0d",
+                "853d8844f969a8ccb2ce722ec30af657e1ef88a44a73672e120c2a2031ac8ffa",
             "tests/test_desktop_tool_parity_adaptation.py":
                 "ef4217bc5dd3f147692056e68db56a970084e6a0bd2ca12a71019824a3eb3d4a",
         }

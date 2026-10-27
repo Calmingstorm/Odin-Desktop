@@ -12,7 +12,8 @@ CORPUS_SELECTIONS = {
         "test_profile_facts_and_fresh_usage_p50_are_rendered",
         "test_catalogue_and_alias_spellings_share_hints_and_profile_facts",
         "test_hints_are_canonicalized_and_nonempty",
-        "test_catalogue_integrity_preserves_authored_and_derived_hint_inventory",
+        # Odin 4.25.0 (PR #743) recounts the catalogue for gpt-6.1-terra; that version runs in
+        # tests/test_desktop_odin_4250_cases.py.
         "test_gpt_6_1_sol_seed_matches_spawn_copy_and_preference_order",
         "test_compat_catalogue_lookup_uses_configured_preset_namespace",
         "test_unverified_compat_capabilities_are_labelled_and_unknown_models_request_hint",

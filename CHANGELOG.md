@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.8.0]
+
+**A new Codex model: `gpt-6.1-terra`.** Linux, Windows and macOS (Odin 4.25.0).
+
+- **`gpt-6.1-terra` is a supported Codex model.** It is capable, slightly less capable than `gpt-6.1-sol`, and
+  cheaper. It sits between `gpt-6.1-sol` and `gpt-6-sol` in every model list: the main chat model, the agent model,
+  the background-work model, and "Models Odin can choose from" for automatic agent selection.
+  - It accepts all six reasoning efforts, `none` through `max`. (`gpt-6.1-sol` does not accept `none`.)
+  - Its usable input budget is 921,847 tokens (measured 2026-10-26), the same class as `gpt-6.1-sol`.
+  - Automatic agent selection describes it as "capable model, slightly less capable than gpt-6.1-sol but cheaper;
+    use for cost-sensitive coding and agentic work, escalating to gpt-6.1-sol for harder problems". Your description
+    of it replaces that text, as for every model.
+- **Automatic agent selection with no models chosen can now pick `gpt-6.1-terra`.** A list of models you chose is
+  not changed: add `gpt-6.1-terra` to it to let agents use it. New profiles keep their defaults: main chat and
+  background work on `gpt-6.1-sol`, agents chosen automatically.
+
 ## [1.7.0]
 
 **Odin can post a file a tool returned.** Linux, Windows and macOS (Odin 4.24.0).

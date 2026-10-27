@@ -327,7 +327,7 @@
     "src/config/model_defaults.py": "30788ad8eb91f1f12469b498ff879d46c1206f9ea0336705c0b030cc14b2f14f",
     "src/config/model_retirement.py": "55b0190aa077a60ba229bb2600296581c8041bad58dc150196b144ede9ae0023",
     "src/config/persistence.py": "c57da2de6fd98b3f27a08fcdbbbdfade12ac43f91c06c61cfe99927ba07f9f25",
-    "src/config/schema.py": "ece8c347c766c53b357d21282899ede559cd038018fbd5ff69f9fb8fc7215097",
+    "src/config/schema.py": "c41426d2084f9a4b58c2919fa3e61a5c4125b2a6208eb1813702029a538f7102",
     "src/config/sensitivity.py": "ba8e94229e2a11c00628ad448cba426b69e4bb31aaab9f7042d9f861a2377220",
     "src/config/startup_context.py": "d362cf0f614e4b5c4a9f9c8cebd6c8e0d0bd4f6436982ed1e27d0d62a897ada3",
     "src/config/webhook_text.py": "d5c6593a63613a05011438cea424e3f70aa7da0d3085d8bdc713a24d027fb148",

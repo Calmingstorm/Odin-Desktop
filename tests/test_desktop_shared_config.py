@@ -180,7 +180,18 @@ def _load_corpus(stem, selected=None, *, destination=None):
 CORPUS_SELECTIONS = {
     "model_ref": None,
     "multi_provider_schema_boundaries": None,
-    "agent_tool_policy_branch_coverage": None,
+    # Odin 4.25.0 (PR #743) adds gpt-6.1-terra to the legacy default list; that version of
+    # test_agent_allowlist_entries_returns_legacy_defaults_as_a_list runs in
+    # tests/test_desktop_odin_4250_cases.py.
+    "agent_tool_policy_branch_coverage": [
+        "test_validate_agent_model_hints_requires_a_string_fixed_model",
+        "test_agent_allowlist_entries_preserves_configured_object_entries",
+        "test_compatible_only_and_ollama_only_default_choices",
+        "test_profile_fallback_dialects_and_default_validation",
+        "test_neutral_reasoning_unknown_and_vendor_efforts_pass_through",
+        "test_effort_only_auto_schema_intersects_declared_efforts",
+        "test_fixed_non_reasoning_model_hides_auto_effort_controls",
+    ],
     "bulkhead": [
         "TestBulkhead", "TestBulkheadRegistry", "TestBulkheadFullError", "TestBulkheadConfig",
         "TestBuildBulkheadRegistry", "TestConfigRoundTrip",

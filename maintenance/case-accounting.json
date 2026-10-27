@@ -3916,12 +3916,12 @@
           "source_sha256": "4a3dceb4c44fdf7590b463b3a3a39e443ffc899fa7008d9db9a2b4332626fe0c",
           "disposition": "executable",
           "executable": [
-            "tests/test_desktop_shared_config.py::test_agent_tool_policy_branch_coverage__agent_allowlist_entries_returns_legacy_defaults_as_a_list"
+            "tests/test_desktop_odin_4250_cases.py::test_agent_allowlist_entries_returns_legacy_defaults_as_a_list"
           ],
           "replacement_cases": [],
-          "collection_evidence": ".test-state/qualification-collected.json",
+          "collection_evidence": ".test-state/additional-desktop-boundaries.xml",
           "triage_source": null,
-          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
+          "reason": "Odin 4.25.0 (PR #743) adds gpt-6.1-terra to the legacy default list, so the frozen case is superseded; Odin's 4.25.0 version runs under the same name in tests/test_desktop_odin_4250_cases.py. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         },
         {
@@ -16151,10 +16151,6 @@
     {
       "original": "tests/test_context_budget.py::TestCanonicalizer::test_alias_is_not_a_registry_row",
       "executable": "tests/test_context_budget.py::TestCanonicalizer::test_alias_is_not_a_registry_row"
-    },
-    {
-      "original": "tests/test_context_budget.py::TestRegistryFloors::test_floors_match_probe_evidence",
-      "executable": "tests/test_context_budget.py::TestRegistryFloors::test_floors_match_probe_evidence"
     },
     {
       "original": "tests/test_context_budget.py::TestRegistryFloors::test_astra_resolves_to_its_probed_floor_not_the_unknown_default",
@@ -53150,7 +53146,7 @@
     },
     {
       "original": "tests/test_agent_tool_policy_branch_coverage.py::test_agent_allowlist_entries_returns_legacy_defaults_as_a_list",
-      "executable": "tests/test_desktop_shared_config.py::test_agent_tool_policy_branch_coverage__agent_allowlist_entries_returns_legacy_defaults_as_a_list"
+      "executable": "tests/test_desktop_odin_4250_cases.py::test_agent_allowlist_entries_returns_legacy_defaults_as_a_list"
     },
     {
       "original": "tests/test_agent_tool_policy_branch_coverage.py::test_agent_allowlist_entries_preserves_configured_object_entries",
@@ -55731,10 +55727,6 @@
     {
       "original": "tests/test_model_hints.py::test_hints_are_canonicalized_and_nonempty",
       "executable": "tests/test_desktop_shared_llm.py::test_model_hints_hints_are_canonicalized_and_nonempty"
-    },
-    {
-      "original": "tests/test_model_hints.py::test_catalogue_integrity_preserves_authored_and_derived_hint_inventory",
-      "executable": "tests/test_desktop_shared_llm.py::test_model_hints_catalogue_integrity_preserves_authored_and_derived_hint_inventory"
     },
     {
       "original": "tests/test_model_hints.py::test_gpt_6_1_sol_seed_matches_spawn_copy_and_preference_order",
@@ -63655,10 +63647,6 @@
     {
       "original": "tests/test_memory_fail_closed.py::TestSkillMemory::test_remember_works_when_missing",
       "executable": "tests/test_memory_fail_closed.py::TestSkillMemory::test_remember_works_when_missing"
-    },
-    {
-      "original": "tests/test_model_hints.py::test_catalogue_integrity_preserves_authored_and_derived_hint_inventory",
-      "executable": "tests/test_model_hints.py::test_catalogue_integrity_preserves_authored_and_derived_hint_inventory"
     },
     {
       "original": "tests/test_model_hints.py::test_compat_catalogue_lookup_uses_configured_preset_namespace[dashscope-qwen3.8-max-qwen/qwen3.8-max]",

@@ -101,6 +101,12 @@ def test_neutral_health_namespace_and_unchanged_guard():
 def test_pure_helper_algorithms_match_exact_copy(file, names):
     baseline = baseline_blobs(ROOT)[file].decode()
     current = (ROOT / file).read_text()
+    if file == "src/web/api/llm_admin.py":
+        # Odin 4.25.0 (#743), carried: gpt-6.1-terra joins the catalogue's Codex names.
+        old = '"gpt-6-astra", "gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna",'
+        assert baseline.count(old) == 1
+        baseline = baseline.replace(
+            old, '"gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-sol", "gpt-6-luna",')
 
     def algorithms(source):
         tree = ast.parse(source)
