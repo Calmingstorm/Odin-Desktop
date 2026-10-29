@@ -882,9 +882,9 @@ def _full_adapter(root: Path, selector: str, path: str, inherited_hash: str,
             "tests/test_tool_parity.py":
                 "e734b9f088569c37109de900f8bbecf48d6d76885d29c23def4fadd8bf4b3849",
             "tests/desktop_adapters/tool_parity.py":
-                "853d8844f969a8ccb2ce722ec30af657e1ef88a44a73672e120c2a2031ac8ffa",
+                "c69eeb3cf8addb3a1b4b68fa93cd6054f717ec762a158ace33bfe34e53584916",
             "tests/test_desktop_tool_parity_adaptation.py":
-                "ef4217bc5dd3f147692056e68db56a970084e6a0bd2ca12a71019824a3eb3d4a",
+                "6badcfd685df1540a152526f090b3dcaa1f64db5b120a56c8566e56c7aa240ca",
         }
         return (_digest(_regular(root, path).read_bytes()) == inherited_hash
                 and all(_digest(_regular(root, name).read_bytes()) == digest

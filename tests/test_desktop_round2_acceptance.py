@@ -198,6 +198,24 @@ def test_every_changed_catalog_name_description_and_schema_is_exact_c1_c3():
                     ):
                         assert properties[field]["description"] == before
                         properties[field]["description"] = after
+                if name == "wait_for_agents":  # Odin 4.26.0 (#748), carried: any + fuller previews
+                    old = ("Returns status snapshots with up to 800 UTF-8 bytes of result preview "
+                           "per agent, possibly less under the aggregate budget. ")
+                    assert tool["description"].count(old) == 1
+                    tool["description"] = tool["description"].replace(old, (
+                        "With return_when='any' it returns as soon as any requested agent has "
+                        "finished, including one that finished earlier, so leave out the IDs you "
+                        "have already handled before waiting again; no agent is cancelled. "
+                        "Each snapshot previews as much of the agent's result as the aggregate "
+                        "budget allows, up to 8,000 UTF-8 bytes per agent. "), 1)
+                    properties = tool["input_schema"]["properties"]
+                    assert list(properties) == ["agent_ids", "timeout"]
+                    properties["return_when"] = {
+                        "type": "string",
+                        "enum": ["all", "any"],
+                        "description": "'all' (default) = when every agent has finished; "
+                                       "'any' = when any agent has finished",
+                    }
                 if name == "post_file":  # Odin 4.24.0 (#737), carried: post a file a tool returned
                     old = "Max 25MB. "
                     assert tool["description"].count(old) == 1
