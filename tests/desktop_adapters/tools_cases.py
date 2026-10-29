@@ -153,7 +153,9 @@ CORPUS_SELECTIONS = {
     "test_email_tools": None,
     "test_email_campaign": None,
     "test_affordances": None,
-    "test_agent_wait_description": None,
+    # Odin 4.26.0 (#748) rewrote this module's one case for wait_for_agents' 8,000-byte previews
+    # and return_when='any'; its 4.26.0 form runs in tests/test_desktop_odin_4260_cases.py.
+    "test_agent_wait_description": [],
     "test_type_gate": None,
     "test_coverage_gate": None,
     "test_tool_listing_contracts": {"test_documented_create_skill_example_is_executable"},

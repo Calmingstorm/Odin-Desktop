@@ -8,9 +8,9 @@
       "declaration_path": "tests/desktop_adapters/tools_cases.py",
       "full_class_name": false,
       "adapter_sha256": "28c8ef6b77b250750297bc920ce100cb0804b69831d4600d1f2553202417dfa8",
-      "declaration_sha256": "1756d7716c500f931729816939b5b3ddc4739c0cb323c44f8b8c63f3efe542aa",
-      "case_count": 202,
-      "mapping_sha256": "51e39d7113924b09f97401357663215bffa5e8b9e52285b2566f953874b8dad8"
+      "declaration_sha256": "891531ef2dd40e24c59abd23fb28439404e93a0dc4a81718c6cf50ee3e4f694a",
+      "case_count": 201,
+      "mapping_sha256": "797557f296e8304cc1c7d59dbccf0adbc8e7a984ba6a38a9d6b2c3b66fac1b36"
     },
     {
       "adapter_path": "tests/test_desktop_shared_tools_extra.py",

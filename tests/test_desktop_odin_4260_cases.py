@@ -9,6 +9,11 @@ the largest equal share of the aggregate budget, up to 8,000 UTF-8 bytes per age
 the wait_for_agents handler and definition), so Odin's cases run here unchanged:
 tests.test_native_agents_tasks._tools is the same helper in both repositories.
 
+Odin rewrote one frozen case for the new description: its 4.26.0 version runs here under its own
+name, test_wait_description_advertises_ceiling_and_complete_output_retrieval, and the frozen one
+leaves the shared tool corpus's selection (tests/test_agent_wait_description.py). Desktop serves the
+built-in catalogue from get_documentation_tool_definitions(), as that corpus adapts it.
+
 The rest of PR #748 has no Desktop counterpart to carry: the Discord reply context (Desktop has
 no Discord intake) and the WebUI Chat page's Stop, corrections, status line and attachments
 (the app has its own).
@@ -295,3 +300,14 @@ class TestCancellationPrecedence:
                     known_terminal=["done"] if held else ())
         finally:
             waiting_agent.reset(token)
+
+
+def test_wait_description_advertises_ceiling_and_complete_output_retrieval():
+    from src.tools.registry import get_documentation_tool_definitions as get_tool_definitions
+
+    tool = next(t for t in get_tool_definitions() if t["name"] == "wait_for_agents")
+    assert "up to 8,000 UTF-8 bytes per agent" in tool["description"]
+    assert "as much of the agent's result as the aggregate budget" in tool["description"]
+    assert "return_when='any'" in tool["description"]
+    assert "get_agent_results" in tool["description"]
+    assert "until truncated=false" in tool["description"]
