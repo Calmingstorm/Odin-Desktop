@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.9.0]
+
+**Odin can act on the first agent that finishes.** Linux, Windows and macOS (Odin 4.26.0).
+
+- **`wait_for_agents` can return when the first agent finishes.** The new optional `return_when: "any"` returns the
+  whole roster as soon as any listed agent has finished, so Odin can act on the first result while the others keep
+  running. An agent that finished earlier counts, including one whose result is only on disk now, so the description
+  tells the model to leave out the IDs it has already handled. Nothing is cancelled, and a message to a waiting agent
+  still interrupts the wait first, as does stopping it. Without `return_when` (or with `"all"`), the wait is as
+  before.
+- **Agent results arrive fuller.** Each agent's preview in a wait now uses as much of the existing tool-output budget as
+  the roster leaves, up to 8,000 bytes per agent, instead of stopping at 800. A result that fits arrives whole, without
+  a follow-up `get_agent_results` call; longer results still page with `get_agent_results`. A wait's result is
+  therefore larger than before, within the same budget.
+
 ## [1.8.0]
 
 **A new Codex model: `gpt-6.1-terra`.** Linux, Windows and macOS (Odin 4.25.0).

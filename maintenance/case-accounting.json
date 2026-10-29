@@ -4013,12 +4013,12 @@
           "source_sha256": "730ec8aa29ae4d3a2bd4540c9cd9f8d5966f5877a7ba5383322fad12e46b69e8",
           "disposition": "executable",
           "executable": [
-            "tests/test_desktop_shared_tools.py::test_test_agent_wait_description_wait_description_advertises_ceiling_and_complete_output_retrieval"
+            "tests/test_desktop_odin_4260_cases.py::test_wait_description_advertises_ceiling_and_complete_output_retrieval"
           ],
           "replacement_cases": [],
-          "collection_evidence": ".test-state/qualification-collected.json",
+          "collection_evidence": ".test-state/additional-desktop-boundaries.xml",
           "triage_source": null,
-          "reason": "Actual isolated collection matches original code filename, qualname and parameter identity. Execution and independent review remain separate acceptance gates.",
+          "reason": "Odin 4.26.0 (PR #748) describes wait_for_agents' 8,000-byte previews and return_when='any', so the frozen case is superseded; Odin's 4.26.0 version runs under the same name in tests/test_desktop_odin_4260_cases.py. Execution and independent review remain separate acceptance gates.",
           "blocks_phase1": false
         }
       ]
@@ -54722,7 +54722,7 @@
     },
     {
       "original": "tests/test_agent_wait_description.py::test_wait_description_advertises_ceiling_and_complete_output_retrieval",
-      "executable": "tests/test_desktop_shared_tools.py::test_test_agent_wait_description_wait_description_advertises_ceiling_and_complete_output_retrieval"
+      "executable": "tests/test_desktop_odin_4260_cases.py::test_wait_description_advertises_ceiling_and_complete_output_retrieval"
     },
     {
       "original": "tests/test_type_gate.py::TestParseFinding::test_standard_error_line",
